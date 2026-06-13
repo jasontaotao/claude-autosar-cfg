@@ -24,18 +24,29 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      - name: Debug environment
+      - name: Dump env to artifact
+        if: always()
         run: |
-          echo "--- pnpm version ---"
-          pnpm --version
-          echo "--- node version ---"
-          node --version
-          echo "--- ELECTRON_MIRROR ---"
-          echo "$ELECTRON_MIRROR"
-          echo "--- npm config electron_mirror ---"
-          npm config get electron_mirror
-          echo "--- .npmrc content ---"
-          cat .npmrc
+          {
+            echo "=== pnpm version ==="
+            pnpm --version
+            echo "=== node version ==="
+            node --version
+            echo "=== ELECTRON_MIRROR env ==="
+            echo "$ELECTRON_MIRROR"
+            echo "=== .npmrc ==="
+            cat .npmrc
+            echo "=== pnpm install dry run ==="
+            pnpm install --frozen-lockfile --reporter=ndjson 2>&1 | head -50 || true
+          } > /tmp/debug.log 2>&1
+          cat /tmp/debug.log
+      - name: Upload debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-debug
+          path: /tmp/debug.log
+          retention-days: 1
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
