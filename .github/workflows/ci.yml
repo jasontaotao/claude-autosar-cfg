@@ -26,13 +26,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
-        continue-on-error: true
-      - run: pnpm lint --debug 2>&1 | head -100
-        continue-on-error: true
-      - run: |
-          echo "--- Final lint exit code ---"
-          pnpm lint; echo "EXIT=$?"
-        continue-on-error: true
+      - run: pnpm lint
 
   # Stage 2: type-check
   type-check:

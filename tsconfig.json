@@ -26,6 +26,13 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/core/**/*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/**/*.test.ts", "tests/**/*"],
+  "include": [
+    "src/core/**/*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
+    "src/**/*.test.ts",
+    "tests/**/*"
+  ],
   "exclude": ["node_modules", "dist", "src/renderer/**/*"]
 }

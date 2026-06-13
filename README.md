@@ -14,13 +14,13 @@ Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
 ## Layer separation (CRITICAL)
 
-| Layer | Allowed deps | Forbidden |
-|---|---|---|
-| `core/` | nothing (pure TS) | react, react-dom, electron, DOM |
-| `shared/` | nothing (pure TS types) | react, react-dom, electron |
-| `main/` | electron, node | react |
-| `preload/` | electron | react |
-| `renderer/` | react, zustand | electron (must use preload bridge) |
+| Layer       | Allowed deps            | Forbidden                          |
+| ----------- | ----------------------- | ---------------------------------- |
+| `core/`     | nothing (pure TS)       | react, react-dom, electron, DOM    |
+| `shared/`   | nothing (pure TS types) | react, react-dom, electron         |
+| `main/`     | electron, node          | react                              |
+| `preload/`  | electron                | react                              |
+| `renderer/` | react, zustand          | electron (must use preload bridge) |
 
 Enforced by ESLint `no-restricted-imports` rules.
 
