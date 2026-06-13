@@ -24,6 +24,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+      - name: Debug environment
+        run: |
+          echo "--- pnpm version ---"
+          pnpm --version
+          echo "--- node version ---"
+          node --version
+          echo "--- ELECTRON_MIRROR ---"
+          echo "$ELECTRON_MIRROR"
+          echo "--- npm config electron_mirror ---"
+          npm config get electron_mirror
+          echo "--- .npmrc content ---"
+          cat .npmrc
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
