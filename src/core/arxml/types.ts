@@ -44,6 +44,8 @@ export interface ArxmlReference {
   readonly tagName: string;
   readonly shortName?: string;
   readonly value: string;
+  /** AUTOSAR DEST attribute from <VALUE-REF DEST="..."> (e.g. "PDU", "COM-SIGNAL") */
+  readonly dest?: string;
 }
 
 export type ParamValue =
