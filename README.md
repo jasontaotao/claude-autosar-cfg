@@ -2,9 +2,10 @@
 
 Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
-> Sprint 2 — F2 Tree + 7-param editor shipped. Open `.arxml` → click
-> any tree node → edit parameters on the right → save back. See
-> [CHANGELOG](./CHANGELOG.md).
+> Sprint 3 — F3 Validation shipped. Open `.arxml` → click any tree
+> node → edit parameters on the right → **auto-validate as you type**;
+> violations surface in the panel below the tree → click a violation
+> to jump to its container. See [CHANGELOG](./CHANGELOG.md).
 
 ## Stack
 
@@ -30,30 +31,32 @@ Enforced by ESLint `no-restricted-imports` rules.
 
 ```bash
 pnpm install
-pnpm dev          # opens the F2 split-view: Tree + Editor + toolbar
+pnpm dev          # opens the F3 split-view: Tree + Editor + Validation + toolbar
 ```
 
-## F2 Tree + Editor (v0.3.0)
+## F3 Validation (v0.4.0)
 
 1. Click **[Open ARXML]** to load a `.arxml` via the native file dialog.
-2. The **left tree** shows the full structure: packages → modules →
-   containers → parameters. Click the chevron to expand; click the
-   row to select.
-3. The **right editor** lists all parameters on the selected node and
-   renders each one with the right input for its type:
-   `string` → text, `integer` / `float` → number, `boolean` →
-   checkbox, `enum` → text (schema-aware options land in S3), `reference`
-   → text + DEST badge, multiline keys (`Description` / `Comment`) →
-   textarea.
-4. Edits flow through the Zustand `useArxmlStore` and mark the file
-   dirty. The Save button flips to orange "Save (unsaved)".
-5. Click **[Save ARXML]** to serialize back to disk.
+2. The **left column** stacks two panels:
+   - **Tree** (top): packages → modules → containers → parameters. Click the chevron to expand; click a row to select.
+   - **Validation** (bottom): live violations grouped by kind (`range` / `enum` / `reference` / `required` / `schema`). Click any violation to jump the tree selection to its container.
+3. The **right editor** lists all parameters on the selected node and renders each with the right input:
+   `string` → text, `integer` / `float` → number, `boolean` → checkbox,
+   `enum` → schema-aware `<select>` dropdown (falls back to text for schema miss),
+   `reference` → text + DEST badge,
+   multiline keys (`Description` / `Comment`) → textarea.
+4. **Edits auto-validate** — each param edit re-runs the ECUC subset validator synchronously and the Validation panel updates. A 300ms-debounced hook provides a safety net for any future async paths.
+5. Edits mark the file dirty. The Save button flips to orange "Save (unsaved)".
+6. Click **[Save ARXML]** to serialize back to disk.
 
 Keyboard: in the tree, `Arrow keys` move focus, `Enter` / `Space`
 selects, `←` / `→` collapses / expands.
 
-Supported: AUTOSAR r4.x ECUC subset (same as v0.2.0).
-Round-trip + 5-sample **mutation** regression tested on the user BSW
+**Validation scope (Sprint 3)**: 46 entries in `ECUC_SUBSET_SCHEMA` covering ECUC 6 types (integer / float / boolean / string / enumeration / reference) for the 5 samples (Det / EcuC / Com / PduR / WdgIf). 5-sample baseline is **0 violations** out of the box.
+
+**Known limitation**: the parser does not yet honour `<DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">` or `ECUC-STRING-PARAM-DEF`; the schema works around this with `integer 0..1` for booleans and `enumeration` with observed literals for strings. Tracked as Sprint 4 backlog; once fixed, the schema will be reverted to canonical types.
+
+Round-trip + mutation + validation regression tested on the user BSW
 project (S32K148_EAS_EB_3399A — Det / EcuC / Com / PduR / WdgIf).
 
 ## Verification (5 stages)

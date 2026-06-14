@@ -7,6 +7,8 @@ import type {
   ArxmlModule,
   ParamValue,
 } from '@core/arxml/types';
+import type { ValidationError } from '@core/validation';
+import { validate as runValidation } from '@core/validation';
 
 /**
  * Renderer-side state for the currently-open ARXML document.
@@ -17,6 +19,10 @@ import type {
  *   - `selectedPath` — element path currently highlighted in the tree
  *   - `dirty` — true if doc has unpersisted mutations
  *   - `error` — last displayable error string (parser/save)
+ *   - `validationErrors` — latest validation results (sync-revalidated
+ *     on every doc mutation; consumers may also force via `validate()`)
+ *   - `lastValidatedAt` — `Date.now()` timestamp of the last validation
+ *     run, or null when no doc is loaded
  *
  * Actions mutate state immutably: `updateParam` produces a new doc
  * reference only when the value actually changes, preserving reference
@@ -28,12 +34,15 @@ export interface ArxmlState {
   readonly selectedPath: string | null;
   readonly dirty: boolean;
   readonly error: string | null;
+  readonly validationErrors: readonly ValidationError[];
+  readonly lastValidatedAt: number | null;
 
   setDoc: (doc: ArxmlDocument, filePath: string) => void;
   select: (path: string | null) => void;
   updateParam: (containerPath: string, paramKey: string, value: ParamValue) => void;
   markSaved: (filePath: string) => void;
   setError: (msg: string | null) => void;
+  validate: () => void;
   clear: () => void;
 }
 
@@ -43,8 +52,19 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   selectedPath: null,
   dirty: false,
   error: null,
+  validationErrors: [],
+  lastValidatedAt: null,
 
-  setDoc: (doc, filePath) => set({ doc, filePath, selectedPath: null, dirty: false, error: null }),
+  setDoc: (doc, filePath) =>
+    set({
+      doc,
+      filePath,
+      selectedPath: null,
+      dirty: false,
+      error: null,
+      validationErrors: runValidation(doc),
+      lastValidatedAt: Date.now(),
+    }),
 
   select: (path) => set({ selectedPath: path }),
 
@@ -53,14 +73,34 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     if (state.doc === null) return;
     const next = applyParamUpdate(state.doc, containerPath, paramKey, value);
     if (next === state.doc) return;
-    set({ doc: next, dirty: true });
+    set({
+      doc: next,
+      dirty: true,
+      validationErrors: runValidation(next),
+      lastValidatedAt: Date.now(),
+    });
   },
 
   markSaved: (filePath) => set({ dirty: false, filePath }),
 
   setError: (msg) => set({ error: msg }),
 
-  clear: () => set({ doc: null, filePath: null, selectedPath: null, dirty: false, error: null }),
+  validate: () => {
+    const state = get();
+    if (state.doc === null) return;
+    set({ validationErrors: runValidation(state.doc), lastValidatedAt: Date.now() });
+  },
+
+  clear: () =>
+    set({
+      doc: null,
+      filePath: null,
+      selectedPath: null,
+      dirty: false,
+      error: null,
+      validationErrors: [],
+      lastValidatedAt: null,
+    }),
 }));
 
 // ---------------------------------------------------------------------------
