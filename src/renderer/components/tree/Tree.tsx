@@ -32,9 +32,7 @@ export function Tree({ store }: TreeProps): JSX.Element {
   // file to a specific store implementation (Zustand, custom, etc.).
   // Instead, subscribe via store.subscribe and store local mirror.
   const [doc, setDoc] = useState<ArxmlDocument | null>(store.getState().doc);
-  const [selectedPath, setSelectedPath] = useState<string | null>(
-    store.getState().selectedPath,
-  );
+  const [selectedPath, setSelectedPath] = useState<string | null>(store.getState().selectedPath);
   useEffect(() => {
     return store.subscribe(() => {
       const s = store.getState();
@@ -65,12 +63,7 @@ export function Tree({ store }: TreeProps): JSX.Element {
   }
 
   return (
-    <aside
-      className="tree"
-      role="tree"
-      aria-label="ARXML structure"
-      data-testid="tree-root"
-    >
+    <aside className="tree" role="tree" aria-label="ARXML structure" data-testid="tree-root">
       {doc.packages.map((pkg: ArxmlPackage) => (
         <TreeNode
           key={pkg.path}
@@ -120,7 +113,8 @@ function renderChildren(
         onToggle={toggle}
         onSelect={(p) => store.getState().select(p)}
       >
-        {!isLeaf && renderChildren(el.children, childPath, depth + 1, expanded, toggle, selectedPath, store)}
+        {!isLeaf &&
+          renderChildren(el.children, childPath, depth + 1, expanded, toggle, selectedPath, store)}
       </TreeNode>
     );
   });

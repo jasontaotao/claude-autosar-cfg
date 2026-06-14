@@ -84,18 +84,17 @@ describe('useArxmlStore', () => {
     const beforeParamValue = originalContainer.params.VersionCheckEnabled;
 
     // Mutate via store
-    useArxmlStore
-      .getState()
-      .updateParam('/EAS/EcuC/EcuCGeneral', 'VersionCheckEnabled', {
-        type: 'boolean',
-        value: true,
-      });
+    useArxmlStore.getState().updateParam('/EAS/EcuC/EcuCGeneral', 'VersionCheckEnabled', {
+      type: 'boolean',
+      value: true,
+    });
 
     const after = useArxmlStore.getState().doc!;
     const rootElRef = originalRef.packages[0]!.elements[0]!;
     if (rootElRef.kind !== 'module') throw new Error('test fixture: expected module');
     const originalContainerAfter = rootElRef.children[0]!;
-    if (originalContainerAfter.kind !== 'container') throw new Error('test fixture: expected container');
+    if (originalContainerAfter.kind !== 'container')
+      throw new Error('test fixture: expected container');
     // Original doc object untouched (same reference + same param value)
     expect(originalContainerAfter.params.VersionCheckEnabled).toBe(beforeParamValue);
     expect((originalContainerAfter.params.VersionCheckEnabled as ParamValue).value).toBe(false);
@@ -146,12 +145,10 @@ describe('useArxmlStore', () => {
 
   it('markSaved clears dirty', () => {
     useArxmlStore.getState().setDoc(buildDoc(), '/tmp/foo.arxml');
-    useArxmlStore
-      .getState()
-      .updateParam('/EAS/EcuC/EcuCGeneral', 'ConfigConsistencyRequired', {
-        type: 'integer',
-        value: 7,
-      });
+    useArxmlStore.getState().updateParam('/EAS/EcuC/EcuCGeneral', 'ConfigConsistencyRequired', {
+      type: 'integer',
+      value: 7,
+    });
     expect(useArxmlStore.getState().dirty).toBe(true);
     useArxmlStore.getState().markSaved('/tmp/foo.arxml');
     expect(useArxmlStore.getState().dirty).toBe(false);

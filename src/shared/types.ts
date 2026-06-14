@@ -1,11 +1,6 @@
 import type { ParseError } from '../core/arxml/parser.js';
 import type { SerializeError } from '../core/arxml/serializer.js';
-import type {
-  ArxmlDocument,
-  ArxmlElement,
-  ArxmlVersion,
-  Result,
-} from '../core/arxml/types.js';
+import type { ArxmlDocument, ArxmlElement, ArxmlVersion, Result } from '../core/arxml/types.js';
 
 export interface AppInfo {
   readonly name: string;

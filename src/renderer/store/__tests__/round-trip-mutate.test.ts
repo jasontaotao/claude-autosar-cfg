@@ -18,13 +18,9 @@ import { useArxmlStore } from '../useArxmlStore';
 
 type SerializeResult = Result<string, SerializeError>;
 
-const SAMPLES = [
-  'Det_Det',
-  'EcuC_EcuC',
-  'Com_Com',
-  'PduR_PduR',
-  'WdgIf_WdgIf',
-].map((n) => resolve(`D:/claude_proj2/src/S32K148_EAS_EB_3399A/EAS_Cfg/Arxml/${n}.arxml`));
+const SAMPLES = ['Det_Det', 'EcuC_EcuC', 'Com_Com', 'PduR_PduR', 'WdgIf_WdgIf'].map((n) =>
+  resolve(`D:/claude_proj2/src/S32K148_EAS_EB_3399A/EAS_Cfg/Arxml/${n}.arxml`),
+);
 
 interface MutableTarget {
   readonly containerPath: string;
@@ -119,7 +115,7 @@ describe('round-trip after mutation (5 samples)', () => {
       if (firstSeg === undefined) return; // path was just /pkgName — no target
 
       const startEl: ArxmlElement | undefined = rePkg.elements.find(
-        (e) => (e.kind === 'reference' ? e.shortName ?? e.value : e.shortName) === firstSeg,
+        (e) => (e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName) === firstSeg,
       );
       let cursor: ArxmlElement | undefined = startEl;
       for (const seg of tailSegs) {
@@ -129,7 +125,7 @@ describe('round-trip after mutation (5 samples)', () => {
           break;
         }
         const next = cursor.children.find(
-          (c) => (c.kind === 'reference' ? c.shortName ?? c.value : c.shortName) === seg,
+          (c) => (c.kind === 'reference' ? (c.shortName ?? c.value) : c.shortName) === seg,
         );
         cursor = next;
       }

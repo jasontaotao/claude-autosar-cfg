@@ -87,7 +87,10 @@ export function parseArxml(
   }
 
   if (typeof raw !== 'object' || raw === null) {
-    return { ok: false, error: { kind: 'missing-root', message: 'parsed result is not an object' } };
+    return {
+      ok: false,
+      error: { kind: 'missing-root', message: 'parsed result is not an object' },
+    };
   }
 
   const root = raw as Record<string, unknown>;
@@ -108,7 +111,10 @@ export function parseArxml(
 
   const packages = walkPackages(arPackages as Record<string, unknown>, '');
   if (!Array.isArray(packages)) {
-    return { ok: false, error: { kind: 'invalid-structure', path: '/', message: 'packages not array' } };
+    return {
+      ok: false,
+      error: { kind: 'invalid-structure', path: '/', message: 'packages not array' },
+    };
   }
 
   return {
@@ -180,10 +186,7 @@ function readLongName(elem: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function walkPackages(
-  node: Record<string, unknown>,
-  parentPath: string,
-): ArxmlPackage[] {
+function walkPackages(node: Record<string, unknown>, parentPath: string): ArxmlPackage[] {
   const arr = asArray<Record<string, unknown>>(node['AR-PACKAGE']);
   return arr.map((pkg, idx) => {
     const shortName = readShortName(pkg) ?? `<unnamed-${idx}>`;
@@ -331,7 +334,11 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
             : undefined;
         const valueRaw = w['VALUE'];
         if (defPath === undefined || typeof defPath !== 'string') continue;
-        if (typeof valueRaw !== 'string' && typeof valueRaw !== 'number' && typeof valueRaw !== 'boolean') {
+        if (
+          typeof valueRaw !== 'string' &&
+          typeof valueRaw !== 'number' &&
+          typeof valueRaw !== 'boolean'
+        ) {
           // VALUE missing or wrong type — skip but don't fail
           continue;
         }

@@ -205,7 +205,7 @@ function renderParams(params: Readonly<Record<string, ParamValue>>): Record<stri
           '@_DEST': paramDefType,
           '#text': `/__synthesized__/${defName}`,
         },
-        'VALUE': value.value,
+        VALUE: value.value,
       },
     });
   }

@@ -50,9 +50,7 @@ export function TreeNode({
     (e: KeyboardEvent<HTMLDivElement>): void => {
       const tree = e.currentTarget.closest('[role="tree"]') as HTMLElement | null;
       if (tree === null) return;
-      const allItems = Array.from(
-        tree.querySelectorAll<HTMLElement>('[role="treeitem"]'),
-      );
+      const allItems = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'));
       const myIdx = allItems.indexOf(e.currentTarget);
 
       switch (e.key) {
@@ -116,9 +114,7 @@ export function TreeNode({
     [isExpanded, isLeaf, onSelect, onToggle, path],
   );
 
-  const chevronLabel = isLeaf
-    ? label
-    : `Toggle ${label}`;
+  const chevronLabel = isLeaf ? label : `Toggle ${label}`;
 
   return (
     <div

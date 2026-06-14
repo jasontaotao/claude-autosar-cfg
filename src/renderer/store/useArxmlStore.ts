@@ -44,8 +44,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   dirty: false,
   error: null,
 
-  setDoc: (doc, filePath) =>
-    set({ doc, filePath, selectedPath: null, dirty: false, error: null }),
+  setDoc: (doc, filePath) => set({ doc, filePath, selectedPath: null, dirty: false, error: null }),
 
   select: (path) => set({ selectedPath: path }),
 
@@ -61,8 +60,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
 
   setError: (msg) => set({ error: msg }),
 
-  clear: () =>
-    set({ doc: null, filePath: null, selectedPath: null, dirty: false, error: null }),
+  clear: () => set({ doc: null, filePath: null, selectedPath: null, dirty: false, error: null }),
 }));
 
 // ---------------------------------------------------------------------------
