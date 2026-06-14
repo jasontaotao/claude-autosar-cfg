@@ -1,24 +1,20 @@
 import { useState } from 'react';
 
 import type {
-  ArxmlDocument,
   ArxmlElement,
   OpenArxmlResult,
   ParseArxmlResponse,
   ParseError,
   SaveArxmlResponse,
 } from '../../shared/types.js';
+import { useArxmlStore } from '../store/useArxmlStore';
 
 interface ArxmlPanelState {
-  readonly doc: ArxmlDocument | null;
-  readonly path: string | null;
   readonly error: string | null;
   readonly busy: boolean;
 }
 
 const INITIAL: ArxmlPanelState = {
-  doc: null,
-  path: null,
   error: null,
   busy: false,
 };
@@ -44,14 +40,19 @@ function formatParseError(e: ParseError): string {
 
 export function ArxmlPanel(): JSX.Element {
   const [state, setState] = useState<ArxmlPanelState>(INITIAL);
+  // T6: subscribe to the store directly so Save uses the latest mutated doc.
+  // ParamEditor calls store.updateParam() — reading state.doc would be stale.
+  const doc = useArxmlStore((s) => s.doc);
+  const filePath = useArxmlStore((s) => s.filePath);
+  const dirty = useArxmlStore((s) => s.dirty);
 
   const onOpen = async (): Promise<void> => {
-    setState((s) => ({ ...s, busy: true, error: null }));
+    setState({ busy: true, error: null });
     const opened: OpenArxmlResult = await window.autosarApi.openArxml({
       title: 'Open AUTOSAR ARXML',
     });
     if (opened.canceled || opened.content === undefined || opened.path === undefined) {
-      setState((s) => ({ ...s, busy: false }));
+      setState({ busy: false, error: null });
       return;
     }
     const parsed: ParseArxmlResponse = await window.autosarApi.parseArxml({
@@ -59,45 +60,45 @@ export function ArxmlPanel(): JSX.Element {
       content: opened.content,
     });
     if (!parsed.ok) {
-      setState((s) => ({
-        ...s,
-        busy: false,
-        error: `Parse failed: ${formatParseError(parsed.error)}`,
-      }));
+      setState({ busy: false, error: `Parse failed: ${formatParseError(parsed.error)}` });
       return;
     }
-    setState({ doc: parsed.value, path: opened.path, error: null, busy: false });
+    // T6: hand the parsed doc to the store (single source of truth).
+    useArxmlStore.getState().setDoc(parsed.value, opened.path);
+    setState({ busy: false, error: null });
   };
 
   const onSave = async (): Promise<void> => {
-    if (state.doc === null) return;
-    setState((s) => ({ ...s, busy: true, error: null }));
-    const defaultName = state.path?.split(/[\\/]/).pop() ?? 'untitled.arxml';
+    if (doc === null) return;
+    setState({ busy: true, error: null });
+    const currentPath = filePath ?? '';
+    const defaultName = currentPath.split(/[\\/]/).pop() ?? 'untitled.arxml';
     const saved: SaveArxmlResponse = await window.autosarApi.saveArxml({
-      doc: state.doc,
+      doc,
       defaultName,
     });
     if (!saved.ok) {
-      setState((s) => ({ ...s, busy: false, error: `Save failed: ${saved.error.message}` }));
+      setState({ busy: false, error: `Save failed: ${saved.error.message}` });
       return;
     }
     if (saved.value.canceled) {
-      setState((s) => ({ ...s, busy: false }));
+      setState({ busy: false, error: null });
       return;
     }
-    setState((s) => ({
-      ...s,
-      busy: false,
-      path: saved.value.path ?? s.path,
-    }));
+    // T6: clear dirty flag + update file path in store.
+    useArxmlStore.getState().markSaved(saved.value.path ?? currentPath);
+    setState({ busy: false, error: null });
   };
 
-  const packageCount = state.doc?.packages.length ?? 0;
+  const packageCount = doc?.packages.length ?? 0;
   const elementCount =
-    state.doc?.packages.reduce(
+    doc?.packages.reduce(
       (acc, p) => acc + p.elements.length + countNestedElements(p.elements),
       0,
     ) ?? 0;
+
+  // T8: Save button enabled only when doc loaded AND has unsaved changes.
+  const canSave = doc !== null && !state.busy && dirty;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -117,20 +118,22 @@ export function ArxmlPanel(): JSX.Element {
         <button
           type="button"
           onClick={onSave}
-          disabled={state.busy || state.doc === null}
-          className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          disabled={!canSave}
+          className={
+            dirty
+              ? 'rounded bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50'
+              : 'rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50'
+          }
         >
-          Save ARXML
+          {dirty ? 'Save (unsaved)' : 'Save ARXML'}
         </button>
       </div>
-      {state.path !== null && (
-        <p className="mt-3 font-mono text-xs text-slate-500">
-          File: {state.path}
-        </p>
+      {filePath !== null && (
+        <p className="mt-3 font-mono text-xs text-slate-500">File: {filePath}</p>
       )}
-      {state.doc !== null && (
+      {doc !== null && (
         <p className="mt-1 font-mono text-xs text-slate-500">
-          Packages: {packageCount} • Elements: {elementCount} • Version: {state.doc.version}
+          Packages: {packageCount} • Elements: {elementCount} • Version: {doc.version}
         </p>
       )}
       {state.error !== null && (

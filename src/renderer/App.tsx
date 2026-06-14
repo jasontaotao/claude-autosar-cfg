@@ -1,23 +1,29 @@
 import { useEffect, useState } from 'react';
 
 import { ArxmlPanel } from './components/ArxmlPanel';
-import { HelloPanel } from './components/HelloPanel';
+import { ParamEditor } from './components/editor/ParamEditor';
+import { Tree } from './components/tree/Tree';
+import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
   const [appVersion, setAppVersion] = useState<string>('...');
-  const [pingTs, setPingTs] = useState<number | null>(null);
 
   useEffect(() => {
     void window.autosarApi.getAppVersion().then(setAppVersion);
-    void window.autosarApi.ping().then((r) => setPingTs(r.ts));
   }, []);
 
   return (
-    <main className="flex h-full flex-col items-center gap-6 p-8">
-      <h1 className="text-4xl font-bold">claude-AutosarCfg</h1>
-      <p className="text-slate-500">v{appVersion} — F1 ARXML IO</p>
-      <HelloPanel pingTs={pingTs} />
+    <div className="app-shell">
+      <header className="app-header">
+        <h1>
+          claude-AutosarCfg <span className="version">v{appVersion}</span> — F2 Tree + Editor
+        </h1>
+      </header>
       <ArxmlPanel />
-    </main>
+      <main className="workspace">
+        <Tree store={useArxmlStore} />
+        <ParamEditor />
+      </main>
+    </div>
   );
 }

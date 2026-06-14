@@ -1,8 +1,10 @@
 import { resolve } from 'node:path';
 
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: {
       '@core': resolve(__dirname, 'src/core'),
@@ -11,7 +13,13 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
+    setupFiles: [resolve(__dirname, 'src/test/setup.ts')],
+    include: [
+      'src/**/__tests__/**/*.test.ts',
+      'src/**/__tests__/**/*.test.tsx',
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+    ],
     exclude: ['node_modules', 'dist', 'tests/e2e/**'],
     coverage: {
       provider: 'v8',

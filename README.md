@@ -2,8 +2,9 @@
 
 Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
-> Sprint 1 — F1 ARXML IO shipped. Open / inspect / save `.arxml` files
-> via native dialogs. See [CHANGELOG](./CHANGELOG.md).
+> Sprint 2 — F2 Tree + 7-param editor shipped. Open `.arxml` → click
+> any tree node → edit parameters on the right → save back. See
+> [CHANGELOG](./CHANGELOG.md).
 
 ## Stack
 
@@ -29,20 +30,31 @@ Enforced by ESLint `no-restricted-imports` rules.
 
 ```bash
 pnpm install
-pnpm dev          # opens Hello Window with Open / Save ARXML panel
+pnpm dev          # opens the F2 split-view: Tree + Editor + toolbar
 ```
 
-## F1 ARXML IO (v0.2.0)
+## F2 Tree + Editor (v0.3.0)
 
-Click **[Open ARXML]** in the app to load a `.arxml` file via the native
-file dialog. Parsed package count + element count + version are shown.
-Click **[Save ARXML]** to serialize back to disk.
+1. Click **[Open ARXML]** to load a `.arxml` via the native file dialog.
+2. The **left tree** shows the full structure: packages → modules →
+   containers → parameters. Click the chevron to expand; click the
+   row to select.
+3. The **right editor** lists all parameters on the selected node and
+   renders each one with the right input for its type:
+   `string` → text, `integer` / `float` → number, `boolean` →
+   checkbox, `enum` → text (schema-aware options land in S3), `reference`
+   → text + DEST badge, multiline keys (`Description` / `Comment`) →
+   textarea.
+4. Edits flow through the Zustand `useArxmlStore` and mark the file
+   dirty. The Save button flips to orange "Save (unsaved)".
+5. Click **[Save ARXML]** to serialize back to disk.
 
-Supported: AUTOSAR r4.x ECUC subset (`ECUC-MODULE-CONFIGURATION-VALUES`,
-`ECUC-CONTAINER-VALUE`, `ECUC-NUMERICAL-PARAM-VALUE`,
-`ECUC-TEXTUAL-PARAM-VALUE`, `DEFINITION-REF` with `DEST`).
-Round-trip tested on 5 real samples from a user BSW project
-(S32K148_EAS_EB_3399A — Det / EcuC / Com / PduR / WdgIf).
+Keyboard: in the tree, `Arrow keys` move focus, `Enter` / `Space`
+selects, `←` / `→` collapses / expands.
+
+Supported: AUTOSAR r4.x ECUC subset (same as v0.2.0).
+Round-trip + 5-sample **mutation** regression tested on the user BSW
+project (S32K148_EAS_EB_3399A — Det / EcuC / Com / PduR / WdgIf).
 
 ## Verification (5 stages)
 
