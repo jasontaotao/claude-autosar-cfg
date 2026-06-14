@@ -15,7 +15,7 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 |---|---|---|---|---|---|
 | **S0** 脚手架 | Electron + TS + Vite 三层骨架 + 5 阶段 CI | ✅ | 2026-06-13 | `563f7a5` | Hello Window + 5/5 CI jobs green |
 | **S1** F1 ARXML IO | 解析 + 序列化 .arxml (r4.x ECUC subset) | ✅ | 2026-06-14 | `3a7a039` | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测 |
-| **S2** F2 Tree + 7-param editor | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y | ✅ | 2026-06-14 | `<pending>` | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip |
+| **S2** F2 Tree + 7-param editor | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y | ✅ | 2026-06-14 | `f1a8b3c` (push pending — direct main blocked) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip |
 | **S3** F3 Validation | XSD-style schema + 业务规则 | ⏳ 待启动 | — | — | `core/validation/{schema,rules}.ts` + `ValidationPanel.tsx` |
 | **S4** 收尾 | coverage 90% + electron-builder + docs | ⏳ 待启动 | — | — | `electron-builder.yml` + `docs/user-guide.md` + v0.1.0 tag |
 
