@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
@@ -18,8 +18,13 @@ import { useArxmlStore } from '../useArxmlStore';
 
 type SerializeResult = Result<string, SerializeError>;
 
+// Sprint 1/2 fixtures: 5 samples from user BSW project S32K148_EAS_EB_3399A.
+// Path mirrors src/core/arxml/__tests__/round-trip.test.ts so both
+// tests use the same in-repo fixtures (CI-friendly, no Windows-only
+// absolute paths).
+const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
 const SAMPLES = ['Det_Det', 'EcuC_EcuC', 'Com_Com', 'PduR_PduR', 'WdgIf_WdgIf'].map((n) =>
-  resolve(`D:/claude_proj2/src/S32K148_EAS_EB_3399A/EAS_Cfg/Arxml/${n}.arxml`),
+  join(FIXTURE_DIR, `${n}.arxml`),
 );
 
 interface MutableTarget {

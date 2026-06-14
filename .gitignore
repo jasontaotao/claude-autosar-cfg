@@ -14,10 +14,10 @@ playwright-report/
 test-results/
 .nyc_output/
 
-# Large ARXML round-trip fixtures (local-only; CI uses parser/serializer
-# unit tests for >= 80% coverage). See plan risk #4 — these move into git
-# in v0.2.x when CI downloads them explicitly.
-tests/fixtures/arxml/*.arxml
+# ARXML round-trip fixtures (5 user BSW samples from S32K148_EAS_EB_3399A).
+# Sprint 0-1 kept them gitignored because parser/serializer unit tests hit
+# the 80% coverage gate on their own. Sprint 2 adds 5-sample mutation
+# round-trip (T7) which depends on these, so they are now in-repo.
 
 # Environment
 .env
