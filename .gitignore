@@ -14,6 +14,11 @@ playwright-report/
 test-results/
 .nyc_output/
 
+# Large ARXML round-trip fixtures (local-only; CI uses parser/serializer
+# unit tests for >= 80% coverage). See plan risk #4 — these move into git
+# in v0.2.x when CI downloads them explicitly.
+tests/fixtures/arxml/*.arxml
+
 # Environment
 .env
 .env.local

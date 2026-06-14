@@ -73,3 +73,12 @@ export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.7',
   '5.0',
 ] as const;
+
+/**
+ * Result envelope used by all core API surfaces (parser, serializer, future validators).
+ * Defined here (not in shared/) so that core/ stays self-contained and the
+ * core → shared layer direction stays one-way. shared/types.ts re-exports this.
+ */
+export type Result<T, E = string> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: E };

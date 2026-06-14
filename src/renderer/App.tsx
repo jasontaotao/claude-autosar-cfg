@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { ArxmlPanel } from './components/ArxmlPanel';
 import { HelloPanel } from './components/HelloPanel';
 
 export function App(): JSX.Element {
@@ -12,10 +13,11 @@ export function App(): JSX.Element {
   }, []);
 
   return (
-    <main className="flex h-full flex-col items-center justify-center gap-6 p-8">
+    <main className="flex h-full flex-col items-center gap-6 p-8">
       <h1 className="text-4xl font-bold">claude-AutosarCfg</h1>
-      <p className="text-slate-500">v{appVersion} — Sprint 0 scaffold</p>
+      <p className="text-slate-500">v{appVersion} — F1 ARXML IO</p>
       <HelloPanel pingTs={pingTs} />
+      <ArxmlPanel />
     </main>
   );
 }

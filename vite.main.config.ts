@@ -11,7 +11,7 @@ export default defineConfig({
       fileName: () => 'index.js',
     },
     rollupOptions: {
-      external: ['electron', 'node:path', 'node:url'],
+      external: ['electron', 'node:path', 'node:url', 'node:fs'],
     },
     sourcemap: true,
     emptyOutDir: true,
