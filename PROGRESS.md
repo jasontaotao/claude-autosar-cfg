@@ -127,6 +127,96 @@ Sprint 1 启动时**已就绪**的基础：
 
 ---
 
+## Sprint 2 — F2 Tree + 7-param editor（✅ 2026-06-14 完成，HEAD `7a2c077`）
+
+### 完成情况
+
+- **58 tests pass / 0 fail**（10 文件）：path 4 + parser 8 + serializer 3 + round-trip 10 + types 2 + useArxmlStore 6 + round-trip-mutate 5 + Tree 9 + modes 8 + ParamEditor 3
+- **覆盖率**：92.12% stmts / 72.92% branches（≥80% / ≥70% gate 全过）
+- **5/5 本地 verify** + **5/5 GH Actions run #27500975793**（URL：`https://github.com/jasontaotao/claude-autosar-cfg/actions/runs/27500975793`）
+- **版本号**：`0.2.0 → 0.3.0`（`package.json` + main `GET_APP_VERSION` + commit 链同步）
+- **5 样本 mutation round-trip** 全过：Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf 各 mutate 1 integer param → serialize → re-parse → 字段相等
+- **5 真实样本 fixtures 入 repo**（9.2 MB，含 Com_Com.arxml 8.6 MB）
+
+### 交付清单（13 task 全 done，fan-out 3 sub-agent 并发）
+
+| ID     | 文件                                                                                       | 验收 / 备注                                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| S2-T0  | `core/arxml/path.ts` + `__tests__/path.test.ts`                                            | 串行前置；`packageByPath` + `findByPath` + `paramsEqual`；4 单测全过                                                    |
+| S2-T1  | `renderer/store/useArxmlStore.ts` + `__tests__/useArxmlStore.test.ts`                       | Agent-A；Zustand store `{ doc, filePath, selectedPath, dirty, error }` + 5 actions；6 单测全过                          |
+| S2-T2  | `renderer/components/tree/{Tree,TreeNode}.tsx` + `__tests__/Tree.test.tsx`                  | Agent-B；ARIA tree + 键盘 a11y；9 单测全过                                                                              |
+| S2-T3  | `renderer/components/editor/ParamEditor.tsx` + `__tests__/ParamEditor.test.tsx`            | Agent-C；resolve `selectedPath` via `findByPath` + 路由 mode editor；3 单测全过                                         |
+| S2-T4  | `renderer/components/editor/modes/{String,Integer,Float,Boolean,Enum,Reference,Multiline}Editor.tsx` | Agent-C；7 mode editor 各 ~30 行（Enum 是 text input + tooltip，非 select；schema-aware options 推 S3）               |
+| S2-T5  | `renderer/components/editor/modes.ts` + `__tests__/modes.test.ts`                          | Agent-C；纯 `selectParamMode(value, key)`；8 单测全过                                                                    |
+| S2-T6  | `renderer/App.tsx` + `src/test/setup.ts` + `vitest.config.ts` + `vite.renderer.config.ts`  | 主 agent；split-view 整合 + `react()` plugin + setupFiles + `@core`/`@shared` aliases                                  |
+| S2-T7  | `renderer/store/__tests__/round-trip-mutate.test.ts`                                       | Agent-A；5 样本 mutation round-trip；5/5 全过                                                                            |
+| S2-T8  | `renderer/components/ArxmlPanel.tsx`                                                      | Agent-A；`dirty` 联动 Save 按钮颜色（orange 'Save (unsaved)' / emerald 'Save ARXML'）                                  |
+| S2-T9  | 键盘可达性（Arrow/Enter/Space）                                                            | Agent-B 集成在 T2；role=treeitem + aria-expanded + aria-selected                                                          |
+| S2-T10 | `PROGRESS.md` + `CHANGELOG.md`                                                             | 主 agent；HEAD pin + `[0.3.0]` Sprint 2 段                                                                              |
+| S2-T11 | `README.md`                                                                                | 主 agent；Quick start 加 Open → Click → Edit → Save 流程                                                                |
+| S2-T12 | HEAD bump 0.2.0→0.3.0 + GH Actions                                                        | 主 agent；`package.json` + `main/ipc/register.ts` GET_APP_VERSION 同步；push → CI 5/5 green                              |
+
+### 计划偏差（已实施）
+
+| 项                          | plan 原文                                 | 实际                                                                                       | 原因                                                                                                                          |
+| --------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| **T6 store 集成**           | 假设 renderer 读 store hook 直接         | ArxmlPanel 改读 store hook；Tree 通过 `store={useArxmlStore}` prop 注入                    | Agent-B 为避免与 Agent-A 并行写 store 文件，把 store 做成 prop——干净的 ownership 隔离                                              |
+| **T4 EnumEditor**           | `<select>` + 当前值作为唯一选项          | text input + tooltip 说明 "F2: schema-aware options land later"                            | 1-option select 是 readonly，等于丢失输入能力；schema 来源（S3 Validation）需要时再升级                                       |
+| **T6 store 同步**           | ArxmlPanel 保留 local state.doc/path     | 完全改读 store（doc/filePath/dirty 三 selector）；Save 永远用最新 mutated doc               | local state 在 ParamEditor 编辑后会失同步；store 是 single source of truth                                                       |
+| **T0 path.ts `findByPath` 边界** | 无明确 spec                          | 顶层 path（`/EAS`）返回 null 而非 `{ pkg, element: pkg }`（pkg 是 ArxmlPackage 不是 Element） | 原本的返回是 TS 类型错误，main agent 修；编辑器用顶层 path 无意义                                                                |
+| **vitest 配置**            | plan 未提                                 | Agent-B 加 `react()` plugin + `setupFiles` + include `*.test.tsx`                          | T2 renderer 测试必须配                                                                                                          |
+| **vite renderer config alias** | plan 未提                              | 加 `@core` + `@shared` resolve alias                                                        | renderer import `@core/arxml/path` 必须配                                                                                       |
+
+### CI 修复 3 轮（暴露 Sprint 0-1 隐患）
+
+1. **commit `92e9591` push** → Stage 1 lint 红（prettier）+ Stage 3 test 红 + Stage 4 coverage 红
+2. **commit `05ce4c6` prettier 修** → Stage 1 绿，但 test/coverage 仍红
+3. **commit `73909a1` fixture + path 修** → 5/5 全绿
+
+根因：
+- **Sprint 0-1 隐藏隐患 A**：`pnpm format:check` 在 CI Stage 1 跑但 local `pnpm verify` 跳过——所有 sub-agent 写的 20 文件未格式化
+- **Sprint 0-1 隐藏隐患 B**：`tests/fixtures/arxml/*.arxml` 在 `.gitignore`——Sprint 0 plan 注释 "CI 用 unit test 撑 80%"，Sprint 2 加 `round-trip-mutate.test.ts` 打破
+- **Sprint 2 Agent-A bug**：`round-trip-mutate.test.ts` 用了 Windows 绝对路径 `D:/claude_proj2/...`——本地 Windows 跑通但 Linux CI 必挂
+
+修复：
+- `.gitignore` 移除 fixtures 排除 + 5 个 arxml 入 repo（9.2 MB）
+- `round-trip-mutate.test.ts` 改用 `process.cwd()/tests/fixtures/arxml/<name>.arxml`（同 `round-trip.test.ts` 路径约定）
+
+### Sprint 2 → Sprint 3 衔接
+
+Sprint 3 启动时**已就绪**的基础：
+
+- [x] `useArxmlStore` 提供 `doc / selectedPath / dirty / updateParam / setDoc / markSaved` —— S3 ValidationPanel 可直接订阅
+- [x] `core/arxml/path.ts` 提供 `findByPath(doc, path)` —— S3 Validation 可遍历 `ArxmlDocument` 跑 XSD-style schema
+- [x] `core/arxml/parser.ts` 支持 r4.0 namespace + 4.0-4.7 schemaLocation fallback —— S3 可针对不同版本校验
+- [x] 7 mode editor 已落地，唯一缺 schema-aware options（S3 schema 来源 + 4 工况 enum dropdown 替换 T4 的 text input）
+- [x] ArxmlPanel + Tree + ParamEditor 完整 split-view，S3 加 ValidationPanel 只需在主区域再加一行
+- [x] 5 样本 fixtures 在 repo —— S3 validation baseline 可直接用
+
+### 风险（项目特定，Sprint 3 启动前 review）
+
+1. **5 样本 fixtures 已入 repo（9.2 MB）** —— Sprint 4 收尾如果加更多 sample（如 ComM/CanIf），考虑 git-lfs 或外部 fixture 下载脚本
+2. **CI Stage 1 跑 `pnpm format:check`** 但 local `pnpm verify` 跳过 —— Sprint 4 收尾必须把 `format:check` 纳入 `scripts/verify.mjs`，避免再因 sub-agent 未跑 prettier 触发 3 轮 CI 红
+3. **`pnpm-lock.yaml` 自 Sprint 0 后未刷新** 已 commit —— Sprint 3 加新 dep（如 ajv/xmldom）必须 `pnpm install` 后 commit lockfile，否则 CI frozen install 会漏包
+4. **Sprint 0-1 隐藏隐患清单**（每 Sprint 收尾必查）：format:check / fixture 在 repo / 测试用 `process.cwd()` 相对路径不用 Windows 绝对路径
+
+---
+
+## Sprint 3 — F3 Validation（⏳ 待启动）
+
+`C:\Users\13777\.claude\plans\autosar-cfg-spring-two.md` 末尾列出了 Sprint 3 起点。Sprint 3 plan 范围：
+
+- `core/validation/schema.ts` — XSD-style schema 定义（r4.x ECUC subset）
+- `core/validation/rules.ts` — 业务规则（referential integrity / range / enum 合法值）
+- `renderer/components/ValidationPanel.tsx` — 第三面板（底部 drawer 或右侧栏），展示违规列表
+- `useArxmlStore` 加 `validationErrors` 字段 + `validate()` action
+- IPC `validation:run` + `preload.validate()`（如需在 main 跑重校验）
+- 5 样本 validate + 0 violation regression（baseline）
+
+`pnpm verify` 仍 5 阶段；Sprint 4 收尾时把 `format:check` 加进 `scripts/verify.mjs` 避免历史重演。
+
+---
+
 ## 参考资料
 
 - 详细 Sprint 0 plan: `C:\Users\13777\.claude\plans\autosar-cfg-spring-zero.md`
