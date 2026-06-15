@@ -5,7 +5,7 @@
 
 /**
  * Validation error kinds.
- * Extend with new kinds as schema rules grow (multiplicity 已加入；Sprint 6 加 'cross-ref' 校验跨容器引用)。
+ * Extend with new kinds as schema rules grow (multiplicity 已加入；Sprint 6 加 'cross-ref' 校验跨容器引用；Sprint 9 #2 加 'ref-dest'；Sprint 9 #3 加 'ref-cycle')。
  */
 export type ValidationErrorKind =
   | 'range'
@@ -15,7 +15,8 @@ export type ValidationErrorKind =
   | 'schema'
   | 'multiplicity'
   | 'cross-ref'
-  | 'ref-dest';
+  | 'ref-dest'
+  | 'ref-cycle';
 
 /**
  * A single validation violation.

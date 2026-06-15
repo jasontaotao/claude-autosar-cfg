@@ -65,6 +65,17 @@
 //   validateProject total  : [800, 1100]   — mirrors cross-ref (single-doc
 //                                             errors remain 0 across these
 //                                             5 fixtures).
+//   ref-dest errors        : [0, 200]      — Sprint 9 #2 adds the new
+//                                             kind. Mirrors cross-ref's
+//                                             catastrophic-over-fire
+//                                             guard pattern; 5 fixtures
+//                                             report 0 (clean).
+//   ref-cycle errors       : [0, 200]      — Sprint 9 #3 adds the new
+//                                             kind for cyclic-reference
+//                                             detection. Same band shape
+//                                             as ref-dest; 5 fixtures
+//                                             report 0 (BSW data is
+//                                             acyclic by construction).
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -76,6 +87,7 @@ import {
   buildPathIndex,
   checkCrossRefs,
   checkRefDests,
+  checkRefCycles,
   extractReferences,
   validateProject,
 } from '../index.js';
@@ -144,6 +156,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     const refSites = extractReferences(docs);
     const crossRefErrors = checkCrossRefs(refSites, pathIndex);
     const refDestErrors = checkRefDests(refSites, pathIndex);
+    const refCycleErrors = checkRefCycles(refSites, pathIndex);
     const allErrors = validateProject(docs);
 
     // Count how many string-typed 'reference' params exist in the parsed
@@ -156,7 +169,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 9 #2 baseline (5 fixtures) ===');
+    console.log('=== Sprint 9 #3 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -171,6 +184,8 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     console.log('cross-ref errors       :', crossRefErrors.length);
     // eslint-disable-next-line no-console
     console.log('ref-dest errors        :', refDestErrors.length);
+    // eslint-disable-next-line no-console
+    console.log('ref-cycle errors       :', refCycleErrors.length);
     // eslint-disable-next-line no-console
     console.log('validateProject total  :', allErrors.length);
     // eslint-disable-next-line no-console
@@ -192,6 +207,8 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     expect(crossRefErrors.every((e) => e.kind === 'cross-ref')).toBe(true);
     // Every ref-dest error we emit must carry the new kind label.
     expect(refDestErrors.every((e) => e.kind === 'ref-dest')).toBe(true);
+    // Every ref-cycle error we emit must carry the new kind label.
+    expect(refCycleErrors.every((e) => e.kind === 'ref-cycle')).toBe(true);
 
     // -- SIGNATURE INTERVAL GUARDS (Sprint 9 #2) ----------------------------
     // Sprint 7 F7 ships 1336 refSites. Sprint 8 #1 kept the [1300, 1400]
@@ -243,12 +260,23 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     //                               fixtures; can climb with dirty user
     //                               data but the band catches parser
     //                               regressions specifically).
+    //
+    // Sprint 9 #3 adds a new `ref-cycle` kind for structural-integrity
+    // validation (cycle detection on the project ref graph). 5-fixture
+    // observation: **0 ref-cycle errors** — real BSW configuration data
+    // is acyclic by construction (ARXML serializers and RTE generators
+    // both reject cycles); the helper is exercised by 18 unit tests on
+    // synthetic dirty data + 4 E2E tests on `validateProject`. Mirrors
+    // the `ref-dest` band: lower bound 0 is permissive (clean data has
+    // zero), upper bound 200 is the catastrophic over-fire safety net.
     expect(refSites.length).toBeGreaterThanOrEqual(1300);
     expect(refSites.length).toBeLessThanOrEqual(1400);
     expect(crossRefErrors.length).toBeGreaterThanOrEqual(800);
     expect(crossRefErrors.length).toBeLessThanOrEqual(1100);
     expect(refDestErrors.length).toBeGreaterThanOrEqual(0);
     expect(refDestErrors.length).toBeLessThanOrEqual(200);
+    expect(refCycleErrors.length).toBeGreaterThanOrEqual(0);
+    expect(refCycleErrors.length).toBeLessThanOrEqual(200);
 
     // The single-doc baseline is preserved — total error count from
     // validateProject must be at least the cross-ref count (since cross-ref

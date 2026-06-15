@@ -83,9 +83,9 @@ describe('validation types', () => {
     // The canonical source of truth is `types.ts:ValidationErrorKind`.
     // Keep this list in lockstep when adding a new kind; the check
     // makes the contract explicit so the compiler complains on drift.
-    // As of Sprint 9 #2 the union has 8 members:
+    // As of Sprint 9 #3 the union has 9 members:
     //   range, enum, reference, required, schema, multiplicity,
-    //   cross-ref, ref-dest
+    //   cross-ref, ref-dest, ref-cycle
     const kinds: readonly ValidationErrorKind[] = [
       'range',
       'enum',
@@ -95,7 +95,8 @@ describe('validation types', () => {
       'multiplicity',
       'cross-ref',
       'ref-dest',
+      'ref-cycle',
     ];
-    expect(kinds.length).toBe(8);
+    expect(kinds.length).toBe(9);
   });
 });

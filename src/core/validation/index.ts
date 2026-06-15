@@ -10,8 +10,10 @@ export {
   extractReferences,
   checkCrossRefs,
   checkRefDests,
+  checkRefCycles,
   normalizePath,
   tryStripTypeSegment,
+  resolveTargetPath,
 } from './validate.js';
 
 export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';

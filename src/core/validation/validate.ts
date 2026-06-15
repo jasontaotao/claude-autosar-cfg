@@ -350,6 +350,29 @@ export function tryStripTypeSegment(path: string): string {
   return dropped ? kept.join('/') : path;
 }
 
+/**
+ * Apply the cross-ref path-resolution pipeline used by every project-level
+ * reference check (cross-ref, ref-dest, ref-cycle): namespace normalisation
+ * followed by schema-side type-segment stripping. Pure / side-effect-free.
+ *
+ * Equivalent to `tryStripTypeSegment(normalizePath(path))` but centralised
+ * here so the three checks (and any future cross-ref helper) cannot drift
+ * apart. Sprint 9 #2 code-reviewer LOW-2 finding noted the duplication as
+ * a "micro" deferred item; Sprint 9 #3 added the third call site
+ * (`checkRefCycles` for source-side path resolution) which made the
+ * extraction obviously right.
+ *
+ * Pass-through: empty string (placeholder filter is the caller's job),
+ * paths with no namespace mismatch and no type segments.
+ *
+ * @param path absolute AUTOSAR path (may be empty / placeholder — caller
+ *             must filter via `isUnsetPlaceholder` before lookup).
+ * @returns path after `normalizePath` + `tryStripTypeSegment`.
+ */
+export function resolveTargetPath(path: string): string {
+  return tryStripTypeSegment(normalizePath(path));
+}
+
 // ============================================================================
 // Sprint 6 — Project-level validation: cross-container reference resolution
 // ============================================================================
@@ -388,6 +411,9 @@ export function validateProject(documents: readonly ArxmlDocument[]): readonly V
 
   // Step 5: run target-side DEST-kind check (Sprint 9 #2)
   errors.push(...checkRefDests(refSites, pathIndex));
+
+  // Step 6: run cyclic-ref detection (Sprint 9 #3)
+  errors.push(...checkRefCycles(refSites, pathIndex));
 
   return errors;
 }
@@ -537,7 +563,7 @@ export function checkCrossRefs(
     // The `site.targetPath` field is intentionally left as the original
     // string so the error payload's `actual` shows the fixture-original
     // path and stays useful for cross-referencing the source ARXML.
-    const resolved = tryStripTypeSegment(normalizePath(site.targetPath));
+    const resolved = resolveTargetPath(site.targetPath);
     if (!pathIndex.has(resolved)) {
       const error: ValidationError =
         site.paramKey !== undefined
@@ -617,7 +643,7 @@ export function checkRefDests(
     if (isUnsetPlaceholder(site.targetPath)) continue;
     const expectedKinds = DEST_KIND_MAP.get(site.targetDest);
     if (expectedKinds === undefined) continue;
-    const resolved = tryStripTypeSegment(normalizePath(site.targetPath));
+    const resolved = resolveTargetPath(site.targetPath);
     const entry = pathIndex.get(resolved);
     if (entry === undefined) continue;
     if (!expectedKinds.has(entry.kind)) {
@@ -643,4 +669,176 @@ function isUnsetPlaceholder(path: string): boolean {
   //   1. completely empty
   //   2. ends in "/" (e.g. ".../PduRTxBuffer/")
   return path === '' || path.endsWith('/');
+}
+
+// ============================================================================
+// Sprint 9 #3 — Cyclic reference detection
+// ============================================================================
+
+/**
+ * Detect cyclic reference chains (A→B→...→A) in the project-wide
+ * cross-ref graph. Complements the existing `checkCrossRefs` (existence)
+ * and `checkRefDests` (dest-kind) checks — this one owns the
+ * *structural integrity* axis: a ref that exists, has the right dest-kind,
+ * but loops back on itself is still a data-integrity bug.
+ *
+ * Pure / testable. Emits at most one `'ref-cycle'` error per *distinct*
+ * cycle (canonical-key dedup), not per back-edge. Self-loops (A→A) are
+ * reported as 1-edge cycles; pure placeholder targets and dangling
+ * targets/sources are skipped (other kinds own those axes).
+ *
+ * Algorithm: standard DFS with `visited` (fully processed) and `onStack`
+ * (currently on the active DFS path). When an edge points to a node on
+ * the active stack, the slice from that node to the back-edge target
+ * is the cycle. The cycle's node sequence is rotated to the
+ * lex-smallest node for a stable canonical key, deduplicating *duplicate
+ * cycle sequences* (e.g. the same 3-node cycle discovered via different
+ * starting points in a complete-graph SCC). This is rotation-based
+ * dedup, not full SCC collapse — a 2-node SCC emits 1 cycle (canonical
+ * form `A→B→A`); a complete 3-node SCC emits up to 3 distinct cycles
+ * (one per pair of back-edges), each dedup'd to a single report.
+ *
+ * @param refSites every reference consumption site (output of
+ *                 `extractReferences`). Each contributes a directed edge
+ *                 `sourcePath → targetPath` to the graph.
+ * @param pathIndex project-wide path index (output of `buildPathIndex`).
+ *                 Used to filter out edges whose source or target does
+ *                 not actually exist (those belong to `'cross-ref'`, not
+ *                 here).
+ * @returns a snapshot list of `'ref-cycle'` errors; empty list = no
+ *          cycles detected. The list is in the order cycles are first
+ *          discovered (DFS lex-smallest entry point first).
+ */
+export function checkRefCycles(
+  refSites: readonly RefSite[],
+  pathIndex: Map<string, PathIndexEntry>,
+): readonly ValidationError[] {
+  // 1. Build adjacency: source-key → list of (target, site).
+  //    Skip rules (conservative — let other kinds own the other axes):
+  //      a. placeholder target (empty / trailing /)        → 'required'
+  //      b. target not in pathIndex                        → 'cross-ref'
+  //      c. source not in pathIndex (defensive, shouldn't happen)
+  const adjacency = new Map<string, Array<{ target: string; site: RefSite }>>();
+  for (const site of refSites) {
+    if (isUnsetPlaceholder(site.targetPath)) continue;
+    const sourceKey = resolveTargetPath(site.sourcePath);
+    if (!pathIndex.has(sourceKey)) continue;
+    const targetKey = resolveTargetPath(site.targetPath);
+    if (!pathIndex.has(targetKey)) continue;
+    const existing = adjacency.get(sourceKey);
+    const edge = { target: targetKey, site };
+    if (existing === undefined) adjacency.set(sourceKey, [edge]);
+    else existing.push(edge);
+  }
+
+  // 2. DFS state.
+  const visited = new Set<string>();
+  // `onStack` maps each node to the `stack.length` (i.e. the number of
+  // EDGES on the active DFS path) AT THE TIME that node was entered.
+  // This is a node→position-in-edges-array index, not a depth-in-edges
+  // count. A later `stack.slice(cycleStart)` recovers the edges that
+  // together form the cycle candidate.
+  const onStack = new Map<string, number>();
+  const stack: Array<{ source: string; target: string; site: RefSite }> = [];
+  const cycleKeys = new Set<string>();
+  const errors: ValidationError[] = [];
+
+  function dfs(node: string): void {
+    visited.add(node);
+    onStack.set(node, stack.length);
+    const edges = adjacency.get(node) ?? [];
+    for (const { target, site } of edges) {
+      if (onStack.has(target)) {
+        // Back-edge → cycle. Extract the chain (from onStack entry of
+        // `target` through the current edge), canonicalize, dedup, emit.
+        const cycleStart = onStack.get(target) ?? 0;
+        const closing = { source: node, target, site };
+        const chain: Array<{ source: string; target: string; site: RefSite }> = [
+          ...stack.slice(cycleStart),
+          closing,
+        ];
+        const key = canonicalCycleKey(chain);
+        if (!cycleKeys.has(key)) {
+          cycleKeys.add(key);
+          errors.push(emitRefCycleError(chain));
+        }
+        // Do NOT recurse into `target` — would re-discover the same cycle.
+        continue;
+      }
+      if (!visited.has(target)) {
+        stack.push({ source: node, target, site });
+        dfs(target);
+        stack.pop();
+      }
+    }
+    onStack.delete(node);
+  }
+
+  // Deterministic traversal: lex-sorted starting nodes.
+  const startNodes = [...adjacency.keys()].sort();
+  for (const node of startNodes) {
+    if (!visited.has(node)) dfs(node);
+  }
+
+  return errors;
+}
+
+/**
+ * Produce a stable, rotation-invariant key for a cycle chain so multiple
+ * back-edges within the same SCC all hash to the same dedup entry. Pure.
+ *
+ * Strategy: list the cycle's node sequence (each edge contributes
+ * `source`; the closing edge's `target` is appended), then rotate so the
+ * lex-smallest node leads. A 1-edge cycle (self-loop A→A) has a single
+ * node and the key is just that node.
+ */
+function canonicalCycleKey(chain: ReadonlyArray<{ source: string; target: string }>): string {
+  if (chain.length === 0) return '';
+  // Defensive: chain must end at its start (cycle), but we don't assert.
+  const nodes: string[] = [];
+  for (const edge of chain) nodes.push(edge.source);
+  const last = chain[chain.length - 1];
+  if (last !== undefined) nodes.push(last.target);
+
+  // Rotate to lex-smallest node.
+  let minIdx = 0;
+  for (let i = 1; i < nodes.length; i++) {
+    if (nodes[i]! < nodes[minIdx]!) minIdx = i;
+  }
+  const rotated = [...nodes.slice(minIdx), ...nodes.slice(0, minIdx)];
+  return rotated.join('→');
+}
+
+/**
+ * Build a user-facing error for a detected cycle. The message names the
+ * full path chain (rotated to lex-smallest) so the user can grep the
+ * error and follow the cycle in their data. `expected` and `actual` are
+ * intentionally left `undefined` — this is a structural integrity
+ * violation, not a value-vs-expected mismatch, and the `ValidationError`
+ * contract allows those fields to be absent.
+ */
+function emitRefCycleError(
+  chain: ReadonlyArray<{ source: string; target: string; site: RefSite }>,
+): ValidationError {
+  const nodes: string[] = [];
+  for (const edge of chain) nodes.push(edge.source);
+  const last = chain[chain.length - 1];
+  if (last !== undefined) nodes.push(last.target);
+
+  // Rotate message chain to lex-smallest for stable presentation.
+  let minIdx = 0;
+  for (let i = 1; i < nodes.length; i++) {
+    if (nodes[i]! < nodes[minIdx]!) minIdx = i;
+  }
+  const rotated = [...nodes.slice(minIdx), ...nodes.slice(0, minIdx)];
+  const noun = chain.length === 1 ? 'edge' : 'edges';
+  const message = `Reference cycle (${chain.length} ${noun}): ${rotated.join(' → ')}`;
+
+  const closing = chain[chain.length - 1]!;
+  const base = {
+    kind: 'ref-cycle' as const,
+    path: closing.site.sourcePath,
+    message,
+  };
+  return closing.site.paramKey !== undefined ? { ...base, paramKey: closing.site.paramKey } : base;
 }

@@ -135,6 +135,16 @@
   color: white;
 }
 
+/* Sprint 9 #3: cyclic reference detection — pink-rose (distinct from
+   the prior 8 colors: 'ref-cycle' is the *structural integrity* axis,
+   meaning the cross-ref graph contains A→B→...→A loops. Pink-rose
+   signals "data-integrity broken" / "infinite loop" — a fourth semantic
+   axis beyond schema-side, target-existence, and target-kind. */
+.kind-ref-cycle {
+  background: #db2777;
+  color: white;
+}
+
 .kind-count {
   color: #6b7280;
   font-size: 11px;

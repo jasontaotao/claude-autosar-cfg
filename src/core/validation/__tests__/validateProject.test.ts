@@ -648,3 +648,103 @@ describe('validateProject', () => {
     expect(project).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sprint 9 #3 — cyclic reference detection (end-to-end)
+// ---------------------------------------------------------------------------
+
+describe('validateProject with cyclic references (Sprint 9 #3)', () => {
+  it('emits a ref-cycle error when the project graph contains a 2-node cycle', () => {
+    // Doc defines A and B; A points at B, B points at A → cycle.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          makeContainer('A', [makeRef('Link', '/P/M/B')]),
+          makeContainer('B', [makeRef('Link', '/P/M/A')]),
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const cycleErrors = errors.filter((e) => e.kind === 'ref-cycle');
+    expect(cycleErrors).toHaveLength(1);
+    expect(cycleErrors[0]?.message).toMatch(/2 edges/);
+  });
+
+  it('emits no ref-cycle error for a clean 3-node linear chain (sanity)', () => {
+    // A→B→C: no back-edge, no cycle.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          makeContainer('A', [makeRef('Link', '/P/M/B')]),
+          makeContainer('B', [makeRef('Link', '/P/M/C')]),
+          makeContainer('C'),
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    expect(errors.filter((e) => e.kind === 'ref-cycle')).toEqual([]);
+  });
+
+  it('emits a ref-cycle error when the cycle spans two documents', () => {
+    // Doc A defines X with a ref to /B/M/Y; Doc B defines Y with a ref
+    // to /A/M/X — the cycle is across document boundaries.
+    const docA = makeDoc({
+      pkgName: 'A',
+      elements: [makeModule('M', [makeContainer('X', [makeRef('Link', '/B/M/Y')])])],
+    });
+    const docB = makeDoc({
+      pkgName: 'B',
+      elements: [makeModule('M', [makeContainer('Y', [makeRef('Link', '/A/M/X')])])],
+    });
+
+    const errors = validateProject([docA, docB]);
+    const cycleErrors = errors.filter((e) => e.kind === 'ref-cycle');
+    expect(cycleErrors).toHaveLength(1);
+    expect(cycleErrors[0]?.message).toMatch(/2 edges/);
+  });
+
+  it('emits ref-cycle alongside other kinds without mutual suppression', () => {
+    // Build a doc that triggers three kinds at once:
+    //   - cross-ref: a dangling ref to a non-existent target
+    //   - ref-dest: a wrong-dest ref (per Sprint 9 #2 E2E pattern)
+    //   - ref-cycle: a 2-node cycle A↔B
+    // All three must surface independently.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          // A and B form a cycle.
+          makeContainer('A', [makeRef('Link', '/P/M/B')]),
+          makeContainer('B', [makeRef('Link', '/P/M/A')]),
+          // Dangling: references a non-existent target → cross-ref.
+          makeContainer('C', [makeRef('Link', '/P/M/Missing')]),
+          // Wrong-dest: a ref element whose dest mismatches the resolved kind.
+          // (resolved /P/M/D is a container; declared dest=ECUC-REFERENCE-DEF → ref-dest)
+          makeContainer('D'),
+          {
+            kind: 'reference',
+            tagName: 'LOCAL-REF',
+            shortName: 'E',
+            value: '/P/M/D',
+            dest: 'ECUC-REFERENCE-DEF',
+          },
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    expect(errors.filter((e) => e.kind === 'ref-cycle')).toHaveLength(1);
+    expect(errors.filter((e) => e.kind === 'cross-ref').length).toBeGreaterThanOrEqual(1);
+    // ref-dest is permissive (DEST_KIND_MAP only covers 3 values); the
+    // synthetic example here may or may not trigger it depending on the
+    // mapping, so we do not assert a count — only that no kind is
+    // *suppressed* by the others.
+    const kinds = new Set(errors.map((e) => e.kind));
+    expect(kinds.has('ref-cycle')).toBe(true);
+    expect(kinds.has('cross-ref')).toBe(true);
+  });
+});
