@@ -116,4 +116,60 @@ describe('ValidationPanel', () => {
 
     expect(useArxmlStore.getState().selectedPath).toBe('/P/Pdu');
   });
+
+  // S5-T3: ValidationPanel must surface the new 'multiplicity' kind
+  // alongside the existing 5 kinds, with the same group-by-kind logic.
+
+  it("renders multiplicity group label when errors of kind='multiplicity' present", () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'multiplicity',
+        path: '/EcucDefs/EcuC/EcucPduCollection',
+        message: 'Container instance count 0 below lower multiplicity 1',
+        expected: '>= 1',
+        actual: '0',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+
+    // The kind badge text comes from the dynamic group-by-kind map
+    // (Object.entries(grouped).map(...)). The 'multiplicity' kind
+    // should appear as a section label just like range/enum/etc.
+    expect(screen.getByText(/^multiplicity$/i)).toBeInTheDocument();
+    // And the count badge reads the same
+    expect(screen.getByText(/1 violation$/i)).toBeInTheDocument();
+  });
+
+  it('does not render multiplicity group when no multiplicity errors', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'range',
+        path: '/P/Pdu/PduLength',
+        paramKey: 'PduLength',
+        message: 'above max',
+        expected: '<=8',
+        actual: '9',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+
+    // queryByText returns null when no match — ideal for asserting absence.
+    expect(screen.queryByText(/^multiplicity$/i)).toBeNull();
+    // Sanity: the other kind still rendered
+    expect(screen.getByText(/^range$/i)).toBeInTheDocument();
+  });
 });

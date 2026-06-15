@@ -5,9 +5,15 @@
 
 /**
  * Validation error kinds.
- * Extend with new kinds as schema rules grow (e.g. 'cardinality', 'duplicate').
+ * Extend with new kinds as schema rules grow (multiplicity 已加入；未来可加 'duplicate' / 'pattern')。
  */
-export type ValidationErrorKind = 'range' | 'enum' | 'reference' | 'required' | 'schema';
+export type ValidationErrorKind =
+  | 'range'
+  | 'enum'
+  | 'reference'
+  | 'required'
+  | 'schema'
+  | 'multiplicity';
 
 /**
  * A single validation violation.
@@ -74,4 +80,25 @@ export interface EcucSchemaEntry {
   /** Expected DEST attribute on <VALUE-REF>; e.g. "ECUC-REFERENCE-DEF". */
   readonly refDest?: string;
   readonly required?: boolean;
+}
+
+/**
+ * Schema entry describing a single ECUC container's multiplicity constraints.
+ *
+ * `path` is the absolute container path (no trailing param key):
+ *   "/EcucDefs/<Module>/<Container>" (e.g. "/EcucDefs/EcuC/EcucPduCollection/Pdu")
+ *
+ * Direct child container instances (el.children filtered by shortName+kind)
+ * must be in [lower, upper]. `upper: 'unbounded'` means infinity (AUTOSAR
+ * standard `*` representation).
+ *
+ * Note: EcucSchemaEntry (param-level) is unchanged — multiplicity lives on a
+ * separate type to keep schemas composable and lookup logic simple.
+ */
+export interface EcucContainerSchemaEntry {
+  readonly path: string;
+  /** Minimum number of direct child container instances. 0 = optional. */
+  readonly lower: number;
+  /** Maximum number of direct child container instances. */
+  readonly upper: number | 'unbounded';
 }

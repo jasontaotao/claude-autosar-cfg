@@ -11,7 +11,7 @@ import type {
   ParamValue,
 } from '../arxml/types.js';
 
-import { lookupSchema } from './schema/ecucSubset.js';
+import { lookupContainerSchema, lookupSchema } from './schema/ecucSubset.js';
 import type { EcucSchemaEntry, ValidationError } from './types.js';
 
 /**
@@ -35,8 +35,33 @@ function walkElements(
   elements: readonly ArxmlElement[],
   errors: ValidationError[],
 ): void {
+  // Collect the child container types (shortName + count) at this level
+  // so we can run multiplicity checks against siblings in one pass.
+  const childCounts = new Map<string, number>();
+  for (const el of elements) {
+    if (el.kind === 'container' || el.kind === 'module') {
+      childCounts.set(el.shortName, (childCounts.get(el.shortName) ?? 0) + 1);
+    }
+  }
+
+  // Track which schema paths we've already checked so we emit at most
+  // one `multiplicity` error per parent+shortName even when there are
+  // many sibling containers of the same type.
+  const checked = new Set<string>();
+
   for (const el of elements) {
     if (el.kind === 'module' || el.kind === 'container') {
+      // NEW: container-level multiplicity check using pre-computed sibling
+      // counts. Schema entries are keyed by the *child's* path
+      // (e.g. /EcucDefs/EcuC/EcucPduCollection/Pdu), so we look up
+      // `${parentPath}/${el.shortName}` against ECUC_CONTAINER_SCHEMA
+      // and compare its `lower`/`upper` bounds against the sibling count
+      // already computed above.
+      const childPath = `${parentPath}/${el.shortName}`;
+      if (!checked.has(childPath)) {
+        checked.add(childPath);
+        checkContainerMultiplicity(childPath, childCounts.get(el.shortName) ?? 0, errors);
+      }
       walkContainer(parentPath, el, errors);
     } else if (el.kind === 'reference') {
       walkReference(parentPath, el, errors);
@@ -153,6 +178,55 @@ function checkParam(
     case 'reference':
       // typeMatches already verified the runtime type; nothing more to check.
       break;
+  }
+}
+
+/**
+ * Container-level multiplicity check.
+ *
+ * Compares the sibling count of a container against the
+ * `[lower, upper]` bounds declared in `ECUC_CONTAINER_SCHEMA`.
+ * Emits a `'multiplicity'` validation error when the count is
+ * out of range.
+ *
+ * Containers not catalogued in `ECUC_CONTAINER_SCHEMA` are skipped
+ * (no error). This matches the `lookupSchema()` behaviour for params
+ * and keeps the schema additive: a missing entry == "no constraint".
+ *
+ * `upper: 'unbounded'` skips the upper-bound check.
+ *
+ * Schema key convention (per ECUC_CONTAINER_SCHEMA): the schema path
+ * ends in the *child container type name*, e.g.
+ *   /EcucDefs/EcuC/EcucPduCollection/Pdu
+ * meaning "at parent /EcucDefs/EcuC/EcucPduCollection, count children
+ * named Pdu". The caller (walkElements) supplies the sibling count for
+ * this exact shortName so the check stays O(1) per child.
+ */
+function checkContainerMultiplicity(
+  containerPath: string,
+  instanceCount: number,
+  errors: ValidationError[],
+): void {
+  const schema = lookupContainerSchema(containerPath);
+  if (schema === null) return;
+
+  if (instanceCount < schema.lower) {
+    errors.push({
+      kind: 'multiplicity',
+      path: containerPath,
+      message: `Container instance count ${instanceCount} below lower multiplicity ${schema.lower}`,
+      expected: `>= ${schema.lower}`,
+      actual: String(instanceCount),
+    });
+  }
+  if (schema.upper !== 'unbounded' && instanceCount > schema.upper) {
+    errors.push({
+      kind: 'multiplicity',
+      path: containerPath,
+      message: `Container instance count ${instanceCount} above upper multiplicity ${schema.upper}`,
+      expected: `<= ${schema.upper}`,
+      actual: String(instanceCount),
+    });
   }
 }
 

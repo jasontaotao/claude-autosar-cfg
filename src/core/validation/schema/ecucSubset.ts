@@ -27,7 +27,7 @@
 //   - PduR TP threshold sits at 7 across all instances, range 0..65535 used
 //     for CAN TP segmentation.
 
-import type { EcucSchemaEntry } from '../types.js';
+import type { EcucSchemaEntry, EcucContainerSchemaEntry } from '../types.js';
 
 /**
  * ECUC subset schema derived from 5 fixtures.
@@ -391,6 +391,60 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
 export function lookupSchema(paramPath: string): EcucSchemaEntry | null {
   for (const entry of ECUC_SUBSET_SCHEMA) {
     if (entry.path === paramPath) return entry;
+  }
+  return null;
+}
+
+/**
+ * ECUC container multiplicity schema for 5 fixtures.
+ *
+ * Each entry constrains the number of *direct child* containers of the
+ * matching type. `upper: 'unbounded'` corresponds to the AUTOSAR `*`
+ * (any number) representation.
+ *
+ * Direct child count is computed by filtering `el.children` for
+ * kind === 'container' && shortName === <last path segment>. Nested
+ * grandchildren are NOT counted at this level — that is a Sprint 6
+ * concern.
+ *
+ * 5-fixture counts observed (must match exactly to keep baseline 5/5 0-violation):
+ *   - Det/DetGeneral                       = 1
+ *   - WdgIf/WdgIfGeneral                   = 1
+ *   - WdgIf/WdgIfDevice                    = 1
+ *   - EcuC/EcucGeneral                     = 1
+ *   - EcuC/EcucPduCollection               = 1
+ *   - EcuC/EcucPduCollection/Pdu           = 125  (unbounded)
+ *   - PduR/PduRGeneral                     = 1
+ *   - PduR/PduRBswModules                  = 1
+ *   - PduR/PduRRoutingTables               = 1
+ *   - PduR/PduRRoutingTables/PduRRoutingTable = N (unbounded; see fixture)
+ *   - Com/ComGeneral                       = 1
+ *   - Com/ComConfig                        = 1
+ *   - Com/ComConfig/ComIPdu                = 67   (unbounded)
+ */
+export const ECUC_CONTAINER_SCHEMA: readonly EcucContainerSchemaEntry[] = [
+  { path: '/EcucDefs/Det/DetGeneral', lower: 0, upper: 1 },
+  { path: '/EcucDefs/WdgIf/WdgIfGeneral', lower: 0, upper: 1 },
+  { path: '/EcucDefs/WdgIf/WdgIfDevice', lower: 0, upper: 1 },
+  { path: '/EcucDefs/EcuC/EcucGeneral', lower: 0, upper: 1 },
+  { path: '/EcucDefs/EcuC/EcucPduCollection', lower: 0, upper: 1 },
+  { path: '/EcucDefs/EcuC/EcucPduCollection/Pdu', lower: 0, upper: 'unbounded' },
+  { path: '/EcucDefs/PduR/PduRGeneral', lower: 0, upper: 1 },
+  { path: '/EcucDefs/PduR/PduRBswModules', lower: 0, upper: 1 },
+  { path: '/EcucDefs/PduR/PduRRoutingTables', lower: 0, upper: 1 },
+  { path: '/EcucDefs/PduR/PduRRoutingTables/PduRRoutingTable', lower: 0, upper: 'unbounded' },
+  { path: '/EcucDefs/Com/ComGeneral', lower: 0, upper: 1 },
+  { path: '/EcucDefs/Com/ComConfig', lower: 0, upper: 1 },
+  { path: '/EcucDefs/Com/ComConfig/ComIPdu', lower: 0, upper: 'unbounded' },
+] as const;
+
+/**
+ * Linear-scan lookup for container multiplicity.
+ * Returns null when the path is not catalogued.
+ */
+export function lookupContainerSchema(containerPath: string): EcucContainerSchemaEntry | null {
+  for (const entry of ECUC_CONTAINER_SCHEMA) {
+    if (entry.path === containerPath) return entry;
   }
   return null;
 }

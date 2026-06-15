@@ -11,13 +11,14 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 
 ## Sprint 总览（v0.1.0 路线）
 
-| Sprint                                   | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                    |
-| ---------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S0** 脚手架                            | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                            |
-| **S1** F1 ARXML IO                       | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                        |
-| **S2** F2 Tree + 7-param editor          | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                            |
-| **S3** F3 Validation                     | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation        |
-| **S4** F4 Parser bug fix + verify format | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation |
+| Sprint                                   | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0** 脚手架                            | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                                                                            |
+| **S1** F1 ARXML IO                       | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                                                                        |
+| **S2** F2 Tree + 7-param editor          | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                                                                            |
+| **S3** F3 Validation                     | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation                                                        |
+| **S4** F4 Parser bug fix + verify format | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation                                                 |
+| **S5** F5 Container multiplicity         | 增 ECUC container 实例数 [lower, upper] 校验                 | ✅   | 2026-06-15 | TBD (整合 commit pending)                          | `types.ts` 加 `'multiplicity'` kind + `EcucContainerSchemaEntry` interface + `ecucSubset.ts` 13 entries + `validate.ts` `checkContainerMultiplicity` + `ValidationPanel` 第 6 group + 117 tests / 95.1% coverage / 5/5 baseline 0 violation |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -341,6 +342,70 @@ Sprint 5 启动时**已就绪**的基础：
 3. ⏭ **coverage 推到 90%**：当前 94.57% stmts / 76.66% branches（已超 90%/85% 目标）；S5+ 可推到 branches ≥ 85% 或维持
 4. ⏭ **i18n**：错误消息 + UI 文案当前英文，可考虑 i18n framework（独立 Sprint；6 大错误 kind + ValidationPanel + EnumEditor tooltip 文案需要翻译）
 5. ⏭ **Sprint 5 范围待用户拍板** —— 可能候选：多模块支持（Com/Com + 跨模块引用）/ Container-level multiplicity 校验 / ParamEditor 高级编辑（range slider / mask input）/ 5 样本外真实用户工程端到端验证
+
+---
+
+## Sprint 5 — F5 Container-level multiplicity（✅ 2026-06-15 完成，HEAD TBD）
+
+### 完成情况
+
+- **Container-level multiplicity 校验上**：`validate()` 新增第 6 种 kind `'multiplicity'`；`checkContainerMultiplicity` helper 走直接子 container 数（按 `shortName` 过滤，`Set` 去重防"above upper"重复 N 次）；`upper: 'unbounded'` 跳过上限检查
+- **`ECUC_CONTAINER_SCHEMA` 13 entries**：5 样本涉及的 13 个 container type（Det 1 + WdgIf 2 + EcuC 3 + PduR 4 + Com 3），其中 3 个 `'unbounded'`（EcuC/Pdu, PduR/PduRRoutingTable, Com/ComIPdu — 实际 125/67 个实例）；`lookupContainerSchema()` linear-scan 与 `lookupSchema()` 平行
+- **`'multiplicity'` kind UI 展示**：ValidationPanel dynamic map 渲染 lowercase `"multiplicity"` label + `.kind-multiplicity` CSS（indigo `#6366f1`）与现有 5 kind 视觉风格一致
+- **5/5 baseline 0 violation 保持**（Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf）—— schema entries 与 5 样本实际 container 实例数完全匹配（关键 signature guard）
+- **117 tests pass / 0 fail**（18 文件）：Sprint 4 的 110 + validate.test.ts +5（multiplicity 5 路径）+ ValidationPanel.test.tsx +2
+- **coverage 95.1% stmts / 78.07% branches / 100% funcs**（↑ from 94.57% / 76.66%）；`validation/validate.ts` 95.96% / 86.79%；`ecucSubset.ts` 100% covered
+- **版本号**：`0.5.0 → 0.6.0`（`package.json` + main `GET_APP_VERSION` 同步）
+
+### 交付清单（5 task 全 done，3 sub-agent fan-out + 主 agent 收尾）
+
+| ID    | 文件                                                                             | Agent       | 验收 / 备注                                                                                                                                    |
+| ----- | -------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| S5-T1 | `core/validation/types.ts` + `core/validation/schema/ecucSubset.ts`              | Sub-agent A | `ValidationErrorKind` 联合加 `'multiplicity'`；新增 `EcucContainerSchemaEntry`；`ECUC_CONTAINER_SCHEMA` 13 entries + `lookupContainerSchema()` |
+| S5-T2 | `core/validation/validate.ts` + `__tests__/validate.test.ts`                     | Sub-agent B | `checkContainerMultiplicity` helper + `walkElements` 内 `Map`+`Set` 优化；+5 单测（below/above/boundary/unbounded/missing-schema）             |
+| S5-T3 | `renderer/components/ValidationPanel.css` + `__tests__/ValidationPanel.test.tsx` | Sub-agent C | `.kind-multiplicity` indigo 样式 + dynamic map render `"multiplicity"` label；+2 单测（renders/does-not-render group）                         |
+| S5-T4 | `package.json` 0.5.0→0.6.0 / `main/ipc/register.ts` GET_APP_VERSION              | 主 agent    | MINOR bump；新功能 type 加入 union，EcucSchemaEntry ABI 不动                                                                                   |
+| S5-T5 | 整合 commit + PROGRESS + CHANGELOG + version bump + 6-stage verify               | 主 agent    | `pnpm verify` 6 stages 全绿（117 tests / 95.1% coverage / 5/5 baseline 0 violation）                                                           |
+
+### 计划偏差（已实施）
+
+| 项                       | plan 原文                                            | 实际                                                                      | 原因                                                                                                                                                           |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **T2 helper 调用点**     | § 2.3：在 `walkContainer` 内 `walkElements` 之前调用 | 实际移到 `walkElements` 内，`Map<shortName, count>` 一次扫描 + `Set` 去重 | `walkContainer` 内调需要扫 2 次 `el.children`（一次 param，一次 multiplicity）；`walkElements` 一次扫描共享 Map 避免重复。功能等价（父在子之前的错误顺序保持） |
+| **T2 Set 去重**          | plan 未提                                            | `walkElements` 内 `Set<string>` dedupe                                    | 防止 "above upper" 对 1 个 container 报 N 次 duplicate error。test 2 ("above upper → 1 error") 必需                                                            |
+| **T3 CSS 文件改动**      | plan 隐含（§ 2.5 提到"颜色/图标"）                   | 实际改了 `ValidationPanel.css`（4 行 `.kind-multiplicity`）               | 现有 5 kind 都有 `.kind-{name}` 类给颜色，第 6 kind 必须配套 CSS 才能视觉一致。plan 未显式列出文件名，但 § 2.5 要求"颜色/图标"已隐含                           |
+| **T3 label 文本**        | § 2.5 建议"Multiplicity violations"                  | 实际 lowercase `"multiplicity"`                                           | 现有 5 kind 的 dynamic map 直接渲染 `kind` enum 字符串（lowercase）。只把第 6 个改成 Title Case 会破坏视觉一致性。现有 pattern 胜出                            |
+| **S5 schema entries 数** | plan 写"~10" / "~12"                                 | 实际 13 entries                                                           | 同 Sprint 4 偏差 pattern（12→15）—— plan 估算与实际枚举有 1 个偏差。PduR/PduRRoutingTables/PduRRoutingTable 是嵌套子 container，独立 entry 正确                |
+
+### 风险回顾
+
+1. ✅ **5 样本 schema 数错**（plan 风险 1）—— **未发生**：13 entries 完全匹配 5 样本实际 container 实例数；baseline 5/5 0 violation 端到端验证
+2. ✅ **helper 走错层级（嵌套 vs 直接）**（plan 风险 2）—— **未发生**：`walkElements` 内 `el.children.filter(c => c.kind === 'container' && c.shortName === X)` 严格只数直接子 container；不递归
+3. ✅ **`EcucContainerSchemaEntry` interface 破坏 ABI**（plan 风险 3）—— **未发生**：additive 扩展；`EcucSchemaEntry` 完全不动；`ECUC_CONTAINER_SCHEMA` 与 `ECUC_SUBSET_SCHEMA` 平级
+4. ✅ **ValidationPanel hardcode kind 列表漏展示**（plan 走 NEW 风险 4）—— **未发生**：T3 grep 验证 ValidationPanel 是 dynamic map；T3 实际只增 label entry（lowercase `"multiplicity"`）和 CSS
+5. ✅ **sub-agent format 漂移** —— **未发生**：T1/T2/T3 各自 format-then-verify；final verify format:check PASS
+6. ✅ **T2 sub-agent 报告 stub 残留 type-check 失败**（T2 → T3 串行过程产物）—— **未发生**：主 agent 跑 verify 时 T2 已完结；type-check PASS
+
+### Sprint 5 → Sprint 6 衔接
+
+- [x] `ValidationErrorKind` 联合现在是 6 kind（`range / enum / reference / required / schema / multiplicity`）；S6+ 加新 kind（如 `'duplicate' / 'pattern' / 'cross-ref'`）只需在 union 加 string
+- [x] `ECUC_SUBSET_SCHEMA`（46 entries param-level）+ `ECUC_CONTAINER_SCHEMA`（13 entries container-level）是 readonly + 平行两张表；S6+ 加新模块 schema 直接 push 对应表
+- [x] `checkContainerMultiplicity` 走 `walkElements` + Map+Set dedupe —— S6+ 加新 kind check 走同一框架（helper 接受预计算参数 + `Set` dedupe）
+- [x] `EcucContainerSchemaEntry` interface 是 additive；S6+ 加 `EcucParamSchemaEntry` 类似的 type 不破坏 ABI
+- [x] `validate()` 是 pure function；S6+ 加 cross-ref check（如 `ComIPdu` 引用的 `ComSignalGroup` 必须存在）只新增 helper
+- [x] 6-stage verify pipeline 完整；S6+ 加新 stage 只需编辑 STAGES 数组
+- [x] ecucSubset.ts 100% covered；S6+ schema 改动自带回归保护
+- [x] 5/5 baseline 是 signature guard；S6+ 改 schema 必须保持 5/5 0 violation
+
+### Sprint 6 backlog（已完成 Sprint 5 项移除；Sprint 5 backlog 也已 done）
+
+1. **递归 multiplicity**（本 Sprint 只看直接子 container；Sprint 6 看嵌套子 container 算独立 type）
+2. **fixture 体积管理**（9.2MB → git-lfs 或外部下载脚本）
+3. **electron-builder 打包 + v0.1.0 tag**（独立 Sprint；当前 v0.6.0 是 npm package 视角）
+4. **coverage 推到 branches ≥85%**（当前 78.07%，已超 70% gate；S6+ 推更高）
+5. **i18n**（独立 Sprint；6 kind error + ValidationPanel label + EnumEditor tooltip）
+6. **schema 提取 from XML**（5 样本无 LOWER/UPPER-MULTIPLICITY 属性；新样本时考虑 ARXML 标准元数据自动提取）
+7. **cross-container references 校验**（如 ComIPdu 引用 ComSignalGroup 必须存在）
 
 ---
 

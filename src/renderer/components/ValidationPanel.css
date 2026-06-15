@@ -108,6 +108,14 @@
   color: white;
 }
 
+/* S5-T3: Container-level multiplicity violations — indigo
+   (distinct from `.kind-reference` purple #a855f7 to avoid
+   visual collision with reference-resolver errors). */
+.kind-multiplicity {
+  background: #6366f1;
+  color: white;
+}
+
 .kind-count {
   color: #6b7280;
   font-size: 11px;

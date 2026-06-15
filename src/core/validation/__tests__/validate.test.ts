@@ -3,7 +3,7 @@
 // schema entry from ECUC_SUBSET_SCHEMA so future schema edits surface
 // as test failures with full diagnostic context.
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import type {
   ArxmlContainer,
@@ -14,6 +14,7 @@ import type {
   ArxmlReference,
   ParamValue,
 } from '../../arxml/types.js';
+import * as schemaModule from '../schema/ecucSubset.js';
 import { validate } from '../validate.js';
 
 // ---------------------------------------------------------------------------
@@ -308,5 +309,117 @@ describe('validate()', () => {
     const com = makeModule('Com', {}, [config]);
     const doc = makeDoc(com);
     expect(validate(doc)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Container-level multiplicity (Sprint 5 F5)
+//
+// These cases spy on `lookupContainerSchema` per-test so each scenario
+// runs in isolation, regardless of the real ECUC_CONTAINER_SCHEMA
+// entries. Returning a `{ lower, upper }` entry drives the
+// count-vs-bounds check; returning `null` for everything else keeps
+// unrelated walks silent.
+// ---------------------------------------------------------------------------
+
+describe('container-level multiplicity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stubSchema(
+    entries: ReadonlyMap<string, { lower: number; upper: number | 'unbounded' }>,
+  ): void {
+    vi.spyOn(schemaModule, 'lookupContainerSchema').mockImplementation((path: string) => {
+      const bounds = entries.get(path);
+      if (bounds === undefined) return null;
+      // The real EcucContainerSchemaEntry requires a `path` field; the
+      // helper under test only reads `lower`/`upper`, but TypeScript
+      // insists we satisfy the full interface.
+      return { path, ...bounds };
+    });
+  }
+
+  it('emits a multiplicity error when instance count is below lower', () => {
+    stubSchema(
+      new Map([['/EcucDefs/MyMod/MyContainerParent/MyContainer', { lower: 2, upper: 5 }]]),
+    );
+    // Parent has only 1 child with shortName MyContainer; schema requires >= 2.
+    const child1 = makeContainer('MyContainer', {}, []);
+    const parent = makeContainer('MyContainerParent', {}, [child1]);
+    const mod = makeModule('MyMod', {}, [parent]);
+    const doc = makeDoc(mod);
+
+    const errors = validate(doc);
+    const mult = errors.filter((e) => e.kind === 'multiplicity');
+    expect(mult).toHaveLength(1);
+    expect(mult[0]!.path).toBe('/EcucDefs/MyMod/MyContainerParent/MyContainer');
+    expect(mult[0]!.message).toMatch(/below lower multiplicity 2/);
+    expect(mult[0]!.expected).toBe('>= 2');
+    expect(mult[0]!.actual).toBe('1');
+  });
+
+  it('emits a multiplicity error when instance count is above upper', () => {
+    stubSchema(
+      new Map([['/EcucDefs/MyMod/MyContainerParent/MyContainer', { lower: 0, upper: 1 }]]),
+    );
+    // Parent has 2 children with shortName MyContainer; schema requires <= 1.
+    const child1 = makeContainer('MyContainer', {}, []);
+    const child2 = makeContainer('MyContainer', {}, []);
+    const parent = makeContainer('MyContainerParent', {}, [child1, child2]);
+    const mod = makeModule('MyMod', {}, [parent]);
+    const doc = makeDoc(mod);
+
+    const errors = validate(doc);
+    const mult = errors.filter((e) => e.kind === 'multiplicity');
+    expect(mult).toHaveLength(1);
+    expect(mult[0]!.path).toBe('/EcucDefs/MyMod/MyContainerParent/MyContainer');
+    expect(mult[0]!.message).toMatch(/above upper multiplicity 1/);
+    expect(mult[0]!.expected).toBe('<= 1');
+    expect(mult[0]!.actual).toBe('2');
+  });
+
+  it('emits no multiplicity error when instance count is exactly at upper', () => {
+    stubSchema(
+      new Map([['/EcucDefs/MyMod/MyContainerParent/MyContainer', { lower: 0, upper: 2 }]]),
+    );
+    const child1 = makeContainer('MyContainer', {}, []);
+    const child2 = makeContainer('MyContainer', {}, []);
+    const parent = makeContainer('MyContainerParent', {}, [child1, child2]);
+    const mod = makeModule('MyMod', {}, [parent]);
+    const doc = makeDoc(mod);
+
+    const errors = validate(doc);
+    expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
+  });
+
+  it('emits no multiplicity error when upper is unbounded', () => {
+    stubSchema(
+      new Map([
+        ['/EcucDefs/MyMod/MyContainerParent/MyContainer', { lower: 0, upper: 'unbounded' }],
+      ]),
+    );
+    // Parent has 10 children; unbounded upper means no error.
+    const kids = Array.from({ length: 10 }, () => makeContainer('MyContainer', {}, []));
+    const parent = makeContainer('MyContainerParent', {}, kids);
+    const mod = makeModule('MyMod', {}, [parent]);
+    const doc = makeDoc(mod);
+
+    const errors = validate(doc);
+    expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
+  });
+
+  it('emits no multiplicity error when container path is not in the schema', () => {
+    // Empty map => lookupContainerSchema always returns null.
+    stubSchema(new Map());
+    const child1 = makeContainer('NotInSchema', {}, []);
+    const child2 = makeContainer('NotInSchema', {}, []);
+    const child3 = makeContainer('NotInSchema', {}, []);
+    const parent = makeContainer('NotInSchemaParent', {}, [child1, child2, child3]);
+    const mod = makeModule('MyMod', {}, [parent]);
+    const doc = makeDoc(mod);
+
+    const errors = validate(doc);
+    expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
   });
 });

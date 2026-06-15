@@ -5,6 +5,36 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-06-15 (Sprint 5)
+
+### Added
+
+- `core/validation/types.ts` — `ValidationErrorKind` extended with `'multiplicity'` (6th kind); new `EcucContainerSchemaEntry` interface (`path` + `lower: number` + `upper: number | 'unbounded'`).
+- `core/validation/schema/ecucSubset.ts` — `ECUC_CONTAINER_SCHEMA` readonly array (13 entries covering the 5 fixture container types: Det/DetGeneral, WdgIf/WdgIfGeneral, WdgIf/WdgIfDevice, EcuC/EcucGeneral, EcuC/EcucPduCollection, EcuC/EcucPduCollection/Pdu, PduR/PduRGeneral, PduR/PduRBswModules, PduR/PduRRoutingTables, PduR/PduRRoutingTables/PduRRoutingTable, Com/ComGeneral, Com/ComConfig, Com/ComConfig/ComIPdu); `lookupContainerSchema(containerPath)` linear-scan lookup (parallel to `lookupSchema`).
+- `core/validation/validate.ts` — `checkContainerMultiplicity` helper invoked from `walkElements` (counts direct child containers by `shortName`, dedupes via `Set` so "above upper" reports once not N times); `upper: 'unbounded'` skips the upper-bound check.
+- `renderer/components/ValidationPanel.css` — `.kind-multiplicity` class (indigo `#6366f1`) for visual distinction from existing `kind-range/enum/reference/required/schema`.
+- `renderer/components/ValidationPanel.tsx` — multiplicity errors now surface in their own group (lowercase label `"multiplicity"`, consistent with the 5 existing dynamic-map kind labels).
+- 5 new unit tests in `core/validation/__tests__/validate.test.ts` (below lower / above upper / at boundary / unbounded / un-registered path).
+- 2 new unit tests in `renderer/components/__tests__/ValidationPanel.test.tsx` (renders multiplicity group / no group when absent).
+
+### Verified
+
+- `pnpm verify` — format / lint / type-check / test / coverage / build all green
+- **117 unit tests pass** across 18 test files (up from 110 in v0.5.0):
+  - Sprint 4 regression: 110 tests preserved
+  - Sprint 5 new: validate.test.ts +5 (multiplicity) + ValidationPanel.test.tsx +2
+- **Coverage**: 95.1% stmts / 78.07% branches / 100% funcs / 95.1% lines (up from 94.57% / 76.66% / 100% / 94.57% in v0.5.0); `core/validation/validate.ts` 95.96% / 86.79% (gate ≥80% / ≥70%); `core/validation/schema/ecucSubset.ts` 100% covered.
+- **5-sample baseline regression**: Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf all **0 violations** — schema entries match observed container instance counts across all 5 fixtures (Det 1, WdgIf 1+1, EcuC 1+1+125 Pdu, PduR 1+1+1+N routing, Com 1+1+67 IPdus).
+- 6-stage CI: GitHub Actions expected 6/6 green.
+
+### Deviations from plan
+
+- **`checkContainerMultiplicity` called from `walkElements` not `walkContainer`** — sub-agent B found that placing the call inside the per-element `walkContainer` would scan `el.children` twice (once for params, once for multiplicity). Moving the call to `walkElements` lets a single `Map<shortName, count>` pass serve both `checkParam` and `checkContainerMultiplicity`. Plan §2.3 specified the call site in `walkContainer`; the implementation deviates but is functionally equivalent (parent-level errors still surface before child-level recursion).
+- **`Set<string>` dedupe in `walkElements`** — without dedupe, an "above upper" condition for a container appearing 5 times would emit 5 duplicate errors. Set limits emission to 1 per `parentPath+shortName`. Not in plan but required for test 2 ("above upper → 1 error").
+- **`ValidationPanel.css` modified** — plan §2.5 called for a distinct color for the new kind; the existing 5 kinds all use `.kind-{name}` classes for color, so the 6th needed its own. 4-line CSS add keeps visual consistency.
+- **Label text uses lowercase `"multiplicity"`** — matches the existing 5 kind labels (lowercase enum values rendered via dynamic map). Plan §2.5 suggested `"Multiplicity violations"` but the existing pattern wins; capitalising only the new kind would break visual consistency.
+- **version bump 0.5.0 → 0.6.0** — adding a new validation kind and a new schema table constitutes a MINOR bump per semver (new additive feature, no breaking change to existing `EcucSchemaEntry` ABI).
+
 ## [0.5.0] — 2026-06-15 (Sprint 4)
 
 ### Fixed
