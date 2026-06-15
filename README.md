@@ -2,18 +2,20 @@
 
 Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
-> Sprint 3 — F3 Validation shipped. Open `.arxml` → click any tree
+> **v0.6.0** — F1 IO + F2 Tree/Editor + F3 Validation + F4 Parser fix +
+> F5 Container multiplicity all shipped. Open `.arxml` → click any tree
 > node → edit parameters on the right → **auto-validate as you type**;
-> violations surface in the panel below the tree → click a violation
-> to jump to its container. See [CHANGELOG](./CHANGELOG.md).
+> violations surface in the panel below the tree (6 kinds: `range` /
+> `enum` / `reference` / `required` / `schema` / `multiplicity`).
+> See [CHANGELOG](./CHANGELOG.md) and [PROGRESS](./PROGRESS.md).
 
 ## Stack
 
 - Electron 30 + TypeScript 5 (strict) + React 18
 - Vite 5 (three builds: main / preload / renderer)
 - Zustand 4 (state) + fast-xml-parser 4 (Arxml) + Tailwind 3 (style)
-- Vitest 1 (unit) + Playwright 1.45 (E2E)
-- pnpm 9 + ESLint 8 + Prettier 3
+- Vitest 1 (unit) + Playwright 1.45 (E2E — optional, requires display)
+- **pnpm 11** + Node 22.13+ + ESLint 8 + Prettier 3
 
 ## Layer separation (CRITICAL)
 
@@ -31,61 +33,125 @@ Enforced by ESLint `no-restricted-imports` rules.
 
 ```bash
 pnpm install
-pnpm dev          # opens the F3 split-view: Tree + Editor + Validation + toolbar
+pnpm build           # one-time: produces dist/main + dist/preload (Vite
+                     #   does not serve main/preload in dev, so a fresh
+                     #   clone must build them once before `pnpm dev`)
+pnpm dev             # opens the F5 split-view: Tree + Editor + Validation
+                     #   + toolbar; renderer runs on Vite HMR
 ```
 
-## F3 Validation (v0.4.0)
+If you skip `pnpm build`, `pnpm dev` will fail fast with a clear hint.
 
-1. Click **[Open ARXML]** to load a `.arxml` via the native file dialog.
+## Features by version
+
+### F1 — ARXML IO (v0.2.0)
+
+- **Open** / **Save** `.arxml` via native Electron dialog
+- Parser handles AUTOSAR r4.x ECUC subset (15+ fixture files round-tripped)
+- IPC channels: `arxml:open`, `arxml:parse`, `arxml:save`
+
+### F2 — Tree + 7-param editor (v0.3.0)
+
+- **Left**: recursive ARIA tree (packages → modules → containers → params)
+  with `Arrow` / `Enter` / `Space` keyboard a11y
+- **Right**: type-aware editor (7 modes: string / integer / float / boolean
+  / enum / reference / multiline)
+- Zustand store as single source of truth; Save button flips orange when dirty
+
+### F3 — Validation (v0.4.0)
+
+- Live validator runs on every param edit (300ms debounce safety net)
+- 46 ECUC schema entries covering 6 param types for 5 fixtures
+  (Det / EcuC / Com / PduR / WdgIf — all 0 violations out of the box)
+- Validation panel groups errors by kind with click-to-jump
+
+### F4 — Parser bug fix + 6-stage verify (v0.5.0)
+
+- Parser now honours `<DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">`
+  and `ECUC-STRING-PARAM-DEF` / `ECUC-FUNCTION-NAME-DEF` (previously
+  boolean and string params fell through to integer / enum)
+- Serializer round-trip stabilised (integer + float no longer share DEST)
+- `pnpm format:check` added to verify pipeline (6 stages, format fails
+  short-circuit the rest)
+
+### F5 — Container multiplicity (v0.6.0)
+
+- Each ECUC container's _direct child instance count_ is now constrained
+  by `[lower, upper]` multiplicity (e.g. `Com/ComConfig/ComIPdu` must
+  have ≥ 0 instances; 67 in the sample fixture)
+- 13 container-schema entries covering the 5 fixtures
+- Validation panel surfaces `multiplicity` errors in their own group
+  (indigo, distinct from the other 5 kinds)
+
+## Usage
+
+1. Click **[Open ARXML]** to load a `.arxml` (try
+   `tests/fixtures/arxml/Com_Com.arxml` — 67 IPdus).
 2. The **left column** stacks two panels:
-   - **Tree** (top): packages → modules → containers → parameters. Click the chevron to expand; click a row to select.
-   - **Validation** (bottom): live violations grouped by kind (`range` / `enum` / `reference` / `required` / `schema`). Click any violation to jump the tree selection to its container.
-3. The **right editor** lists all parameters on the selected node and renders each with the right input:
-   `string` → text, `integer` / `float` → number, `boolean` → checkbox,
-   `enum` → schema-aware `<select>` dropdown (falls back to text for schema miss),
-   `reference` → text + DEST badge,
-   multiline keys (`Description` / `Comment`) → textarea.
-4. **Edits auto-validate** — each param edit re-runs the ECUC subset validator synchronously and the Validation panel updates. A 300ms-debounced hook provides a safety net for any future async paths.
-5. Edits mark the file dirty. The Save button flips to orange "Save (unsaved)".
+   - **Tree** (top): packages → modules → containers → parameters.
+     Click the chevron to expand; click a row to select.
+   - **Validation** (bottom): live violations grouped by kind
+     (`range` / `enum` / `reference` / `required` / `schema` /
+     `multiplicity`). Click any violation to jump the tree selection to
+     its container.
+3. The **right editor** lists all parameters on the selected node and
+   renders each with the right input: `string` → text, `integer` /
+   `float` → number, `boolean` → checkbox, `enum` → schema-aware
+   `<select>` dropdown (falls back to text for schema miss), `reference`
+   → text + DEST badge, multiline keys → textarea.
+4. **Edits auto-validate** — each param edit re-runs the ECUC subset
+   validator synchronously. A 300ms-debounced hook provides a safety net
+   for any future async paths.
+5. Edits mark the file dirty. The Save button flips to orange
+   "Save (unsaved)".
 6. Click **[Save ARXML]** to serialize back to disk.
 
 Keyboard: in the tree, `Arrow keys` move focus, `Enter` / `Space`
 selects, `←` / `→` collapses / expands.
 
-**Validation scope (Sprint 3)**: 46 entries in `ECUC_SUBSET_SCHEMA` covering ECUC 6 types (integer / float / boolean / string / enumeration / reference) for the 5 samples (Det / EcuC / Com / PduR / WdgIf). 5-sample baseline is **0 violations** out of the box.
-
-**Known limitation**: the parser does not yet honour `<DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">` or `ECUC-STRING-PARAM-DEF`; the schema works around this with `integer 0..1` for booleans and `enumeration` with observed literals for strings. Tracked as Sprint 4 backlog; once fixed, the schema will be reverted to canonical types.
-
 Round-trip + mutation + validation regression tested on the user BSW
-project (S32K148_EAS_EB_3399A — Det / EcuC / Com / PduR / WdgIf).
+project (`S32K148_EAS_EB_3399A` — Det / EcuC / Com / PduR / WdgIf).
 
-## Verification (5 stages)
-
-```bash
-pnpm lint
-pnpm type-check
-pnpm test
-pnpm test:coverage   # >= 80% on core/
-pnpm exec playwright test
-pnpm build
-```
-
-Or run all stages:
+## Verification (6 stages)
 
 ```bash
-pnpm verify          # Linux/macOS
-pnpm exec node scripts/verify.mjs   # Windows
+pnpm format:check    # prettier --check (CI: bundled in lint job)
+pnpm lint            # eslint, 0 warnings
+pnpm type-check      # tsc --noEmit (tsconfig.json + tsconfig.web.json)
+pnpm test            # vitest run (117 unit tests across 18 files)
+pnpm test:coverage   # v8 coverage (>= 80% on core/, 95.1% stmts achieved)
+pnpm build           # 3 vite builds: renderer + main + preload
 ```
+
+Or run all stages (format failure short-circuits the rest):
+
+```bash
+pnpm verify          # all 6 stages in order
+```
+
+CI on GitHub Actions runs 5 jobs in parallel (format bundled into
+lint job; build separate). See `.github/workflows/ci.yml`.
 
 ## Layout
 
 ```
 src/
-├── core/       pure TS, no react/electron (Arxml types live here)
-├── main/       Electron main process
-├── preload/    contextBridge
-├── renderer/   React + Zustand UI
-└── shared/     cross-layer types and IPC contract
+├── core/                 pure TS, no react/electron
+│   ├── arxml/            parser / serializer / types / path helpers
+│   └── validation/       validate() + ECUC schema (param + container)
+├── main/                 Electron main process
+├── preload/              contextBridge
+├── renderer/             React + Zustand UI
+│   ├── components/       Tree / ValidationPanel / ParamEditor / ArxmlPanel
+│   ├── hooks/            useDebouncedValidation
+│   └── store/            useArxmlStore
+└── shared/               cross-layer types and IPC contract
+
+tests/
+├── fixtures/arxml/       5 S32K148_EAS_EB_3399A samples (9.2 MB in-repo)
+└── e2e/                  Playwright (optional, requires display)
+
+scripts/                  dev.mjs + verify.{mjs,ps1,sh}
 ```
 
 ## License
