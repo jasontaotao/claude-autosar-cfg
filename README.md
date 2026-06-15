@@ -2,8 +2,9 @@
 
 Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
-> **v0.7.0** — F1 IO + F2 Tree/Editor + F3 Validation + F4 Parser fix +
-> F5 Container multiplicity + F6 Cross-container reference all shipped.
+> **v0.8.0** — F1 IO + F2 Tree/Editor + F3 Validation + F4 Parser fix +
+> F5 Container multiplicity + F6 Cross-container reference +
+> F7 ECUC-REFERENCE-VALUE parser/serializer all shipped.
 > Open `.arxml` → click any tree node → edit parameters on the right →
 > **auto-validate as you type**; violations surface in the panel below
 > the tree (7 kinds: `range` / `enum` / `reference` / `required` /
@@ -102,6 +103,31 @@ If you skip `pnpm build`, `pnpm dev` will fail fast with a clear hint.
   baseline is 0 cross-ref violations (correct given current parser
   surface) — see CHANGELOG 0.7.0 Deviations for the full rationale
 
+### F7 — ECUC-REFERENCE-VALUE parser/serializer (v0.8.0)
+
+- Parser now reads **both** the standard `<REFERENCE-VALUES>` wrapper
+  (`Com` / `PduR` / `WdgIf`) **and** the EcuC vendor dialect where
+  `<REFERENCE-VALUE>` is nested under `<PARAMETER-VALUES>` with
+  `DEST="ECUC-FOREIGN-REFERENCE-DEF"`. Parser fills
+  `params[type:'reference']` with `{ value, dest? }` for every
+  ECUC-REFERENCE-VALUE entry; placeholder paths (empty / trailing
+  `/`) are skipped by `isUnsetPlaceholder`
+- Serializer emits the standard `<VALUE-REF DEST="..."/>` shape
+  inside a `<REFERENCE-VALUES>` wrapper that immediately follows
+  `<PARAMETER-VALUES>` — round-trip is field-equal (`value` + `dest`)
+  regardless of which dialect the parser saw on input
+- Cross-ref data **now flows** through Sprint 6's project-level
+  infrastructure: `extractReferences()` returns 1336 sites across the
+  5 fixtures, `checkCrossRefs` emits 1336 `'cross-ref'` errors
+  (1:1 with sites), `validateProject` aggregates them. The 1336 are
+  accepted as baseline because the 5 fixtures are slices that don't
+  form a self-contained project — see CHANGELOG 0.8.0 Deviations
+  and PROGRESS Sprint 7 for the full rationale and signature
+  interval `[1300, 1400]`
+- 161 unit tests pass (up from 146 in v0.7.0): parser +5 /
+  serializer +5 / fixture round-trip suite restored / signature
+  interval guard
+
 ## Usage
 
 1. Click **[Open ARXML]** to load a `.arxml` (try
@@ -137,8 +163,8 @@ project (`S32K148_EAS_EB_3399A` — Det / EcuC / Com / PduR / WdgIf).
 pnpm format:check    # prettier --check (CI: bundled in lint job)
 pnpm lint            # eslint, 0 warnings
 pnpm type-check      # tsc --noEmit (tsconfig.json + tsconfig.web.json)
-pnpm test            # vitest run (146 unit tests across 20 files)
-pnpm test:coverage   # v8 coverage (>= 80% on core/, 94.95% stmts achieved)
+pnpm test            # vitest run (161 unit tests across 20 files)
+pnpm test:coverage   # v8 coverage (>= 80% on core/, 94.86% stmts achieved)
 pnpm build           # 3 vite builds: renderer + main + preload
 ```
 

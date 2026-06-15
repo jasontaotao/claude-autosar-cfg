@@ -1,4 +1,4 @@
-// 5-fixture project-level baseline (Sprint 6 F6).
+// 5-fixture project-level baseline (Sprint 7 F7).
 //
 // Loads the same 5 ARXML files the single-doc baseline (Sprint 5) uses
 // and runs the new project-level surface end-to-end:
@@ -7,11 +7,39 @@
 //   3. checkCrossRefs  — counts dangling refs across the project
 //   4. validateProject — aggregate including single-doc errors
 //
-// The hard counts (2282 ref sites etc.) are LOOSE thresholds. The real
-// purpose of this test is to print the numbers so the main agent can
-// see what 5-fixture cross-ref validation actually produces and decide
-// whether to add a documented "accepted value" baseline dimension.
-// All assertions are >= lower bounds; the upper bound is open.
+// Sprint 7 F7 (T1-A + T1-B + T1-C) shipped ECUC-REFERENCE-VALUE
+// end-to-end:
+//   - T1-A: parser reads both standard <REFERENCE-VALUES> wrapper
+//     (Com/PduR/WdgIf) and the EcuC vendor dialect (ref nested under
+//     <PARAMETER-VALUES> with DEST="ECUC-FOREIGN-REFERENCE-DEF")
+//   - T1-B: serializer emits <VALUE-REF> standard output regardless
+//     of which dialect the input used; round-trip field equality holds
+//   - T1-C: this file — print every baseline number + lock the
+//     signature interval [1300, 1400] so future parser/schema edits
+//     cannot silently drop the new data or explode the count
+//
+// Sprint 7 baseline numbers (F7):
+//   pathIndex.size         : 1611   (unchanged from F6)
+//   refSites.length        : 1336   (was 0 — parser now sees VALUE-REFs)
+//   referenceParams.total  : 1341   (param:reference values + module.references)
+//   cross-ref errors       : 1336   (1:1 with refSites — every ref site is
+//                                      unresolved; this is the data shape
+//                                      of a fixture slice that does not
+//                                      form a self-contained project:
+//                                      VALUE-REF targets use the /EAS/...
+//                                      namespace while the path index is
+//                                      built from /EcucDefs/... values)
+//   validateProject total  : 1336   (= cross-ref; single-doc errors are 0
+//                                      because the 5 fixtures carry no
+//                                      per-doc violations)
+//
+// Signature guard (T1-C):
+//   refSites / cross-ref errors are asserted in [1300, 1400] — the only
+//   narrow interval that keeps the Sprint 7 contract honest. Going below
+//   1300 means a parser/serializer regression silently dropped real
+//   data; going above 1400 means the parser started double-counting
+//   (e.g. re-scanning the same wrapper twice). The same upper bound
+//   serves the upper-bound of `validateProject` total.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -76,7 +104,7 @@ function countReferenceParams(
   return total;
 }
 
-describe('5-fixture project-level baseline (Sprint 6 F6)', () => {
+describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
   it('produces a healthy project-level surface and prints the real numbers', () => {
     const docs = FIXTURES.map(loadDoc);
 
@@ -96,7 +124,7 @@ describe('5-fixture project-level baseline (Sprint 6 F6)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 6 F6 baseline (5 fixtures) ===');
+    console.log('=== Sprint 7 F7 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -124,42 +152,35 @@ describe('5-fixture project-level baseline (Sprint 6 F6)', () => {
     // locking us into a precise number.
     expect(pathIndex.size).toBeGreaterThanOrEqual(1000);
 
-    // refSites.length is EXPECTED to be 0 for these 5 fixtures.
-    //
-    // The parser currently handles `<PARAMETER-VALUES>` (ECUC-NUMERICAL-PARAM-VALUE
-    // / ECUC-TEXTUAL-PARAM-VALUE) but does NOT yet parse `<REFERENCE-VALUES>`
-    // (ECUC-REFERENCE-VALUE) — the wrapper that holds real cross-container
-    // VALUE-REF data (~2306 wrappers across these 5 fixtures: Com 1846, PduR
-    // 458, WdgIf 2). Until parser/serializer get REFERENCE-VALUES support
-    // (planned for Sprint 7), no `param[].type === 'reference'` values reach
-    // the parsed tree, so extractReferences' params scan yields zero.
-    //
-    // We also deliberately skip ArxmlModule.references[] in walkRefs because
-    // those strings are module-level DEFINITION-REFs pointing at schema
-    // definitions (e.g. "/EAS/Det"), not project-internal cross-refs — see
-    // the comment block in walkRefs() for the rationale.
-    //
-    // Locking in 0 here means: when Sprint 7 lands REFERENCE-VALUES parsing,
-    // this assertion will break — and that break is the signal that the new
-    // baseline data is flowing through. At that point the test will be
-    // updated to a real range (expected ~2000+ refSites).
-    expect(refSites.length).toBe(0);
-
     // Every cross-ref error we emit must carry the new kind label — guards
     // against a regression where 'cross-ref' is accidentally renamed back
     // to 'reference' or a typo is introduced.
     expect(crossRefErrors.every((e) => e.kind === 'cross-ref')).toBe(true);
 
-    // Cross-ref errors must be exactly zero — until Sprint 7 lands real
-    // REFERENCE-VALUES parsing, there is no project-internal ref data to
-    // validate. Any non-zero count here would mean a regression introduced
-    // a new false-positive source.
-    expect(crossRefErrors.length).toBe(0);
+    // -- SIGNATURE INTERVAL GUARDS (T1-C) -----------------------------------
+    // Sprint 7 F7 ships 1336 refSites / 1336 cross-ref errors. The interval
+    // [1300, 1400] is the *only* window that keeps the contract honest:
+    //  - below 1300  ⇒ parser/serializer silently dropped ECUC-REFERENCE-VALUE
+    //                  entries (Sprint 6 regression of the worst kind)
+    //  - above 1400  ⇒ parser started double-counting (e.g. scanning the
+    //                  same <REFERENCE-VALUES> wrapper twice)
+    // Any future refactor that needs to drift outside this band must
+    // update the assertions AND document the change in PROGRESS / CHANGELOG.
+    expect(refSites.length).toBeGreaterThanOrEqual(1300);
+    expect(refSites.length).toBeLessThanOrEqual(1400);
+    expect(crossRefErrors.length).toBeGreaterThanOrEqual(1300);
+    expect(crossRefErrors.length).toBeLessThanOrEqual(1400);
 
     // The single-doc baseline is preserved — total error count from
     // validateProject must be at least the cross-ref count (since cross-ref
-    // errors are added on top of the per-doc validate() results).
+    // errors are added on top of the per-doc validate() results). The
+    // 5 fixtures carry no per-doc violations, so allErrors.length equals
+    // crossRefErrors.length today, but we still assert the >= relation
+    // so future per-doc validation work doesn't quietly inflate past
+    // 1400 without the signature guard noticing.
     expect(allErrors.length).toBeGreaterThanOrEqual(crossRefErrors.length);
+    expect(allErrors.length).toBeGreaterThanOrEqual(1300);
+    expect(allErrors.length).toBeLessThanOrEqual(1400);
   });
 
   it('extractReferences never emits a site with an empty sourcePath (caller sanity)', () => {

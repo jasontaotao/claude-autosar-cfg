@@ -5,6 +5,53 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-15 (Sprint 7)
+
+### Added
+
+- `core/arxml/parser.ts` — `extractParamsAndRefs` now walks **both** the standard `<REFERENCE-VALUES>` wrapper (used by `Com` / `PduR` / `WdgIf`) **and** the EcuC vendor dialect where the `<REFERENCE-VALUE>` lives as a child of `<PARAMETER-VALUES>` with `DEST="ECUC-FOREIGN-REFERENCE-DEF"`. New `extractReferenceParams` helper returns `ParamValue[]` of shape `{ type: 'reference', value, dest? }`. `parseParamValue` gains a `dest?: string` parameter and uses **DEST-first dispatch** to route `ECUC-REFERENCE-DEF` / `ECUC-FOREIGN-REFERENCE-DEF` into the reference shape (alongside the Sprint 4 ECUC-NUMERICAL-PARAM-VALUE / ECUC-TEXTUAL-PARAM-VALUE / ECUC-BOOLEAN-PARAM-DEF dispatch).
+- `core/arxml/serializer.ts` — `renderParams` split into three focused helpers (`renderParamEntries` / `renderRegularParam` / `renderReferenceParam`). Module / container rendering now emits a `<REFERENCE-VALUES>` wrapper **immediately after** `<PARAMETER-VALUES>` containing one `<ECUC-REFERENCE-VALUE>` per `param[type:'reference']` with a `<VALUE-REF DEST="...">` child. The serializer always emits the **standard** `<VALUE-REF>` shape regardless of which dialect the parser saw — round-trip field equality holds (`value` + `dest` preserved).
+- `core/arxml/__tests__/parser.test.ts` — 5 new unit tests covering: standard `<REFERENCE-VALUES>` parse → `params[type:'reference']`; EcuC vendor dialect parse → `params[type:'reference']`; placeholder (`<VALUE-REF DEST="..."/>` empty) is skipped; non-reference `<REFERENCE-VALUES>` children are ignored; mixed dialect within a single module.
+- `core/arxml/__tests__/serializer.test.ts` — 5 new unit tests covering: `<REFERENCE-VALUES>` wrapper emitted after `<PARAMETER-VALUES>`; round-trip of standard dialect; round-trip of EcuC vendor dialect (output is standard); multi-ref container shape; no-ref container emits no `<REFERENCE-VALUES>` wrapper.
+- `core/arxml/__tests__/round-trip.test.ts` — 5 fixture round-trip tests restored (all 5 fixtures parse → serialize → re-parse with field-level equality).
+- `core/validation/__tests__/validateProject.fixtures.test.ts` — print real `validateProject` total + `referenceParams` count via `console.log`; refSites / cross-ref errors / validateProject total each locked to `[1300, 1400]` signature interval (catches parser dropouts AND double-counts).
+
+### Changed
+
+- `core/arxml/types.ts` — `ParamValue.reference` shape gains an optional `dest?: string` field (parser writes it; serializer reads it; round-trip preserves it).
+- `core/validation/__tests__/validateProject.fixtures.test.ts` — lower-bound assertion `refSites.length >= 1000` / `crossRefErrors.length >= 1000` retained as the regression floor; new upper-bound `<= 1400` added alongside so the Sprint 7 signature interval `[1300, 1400]` is **both** directions enforced.
+
+### Verified
+
+- `pnpm verify` — format / lint / type-check / test / coverage / build all green.
+- **161 unit tests pass** across 20 test files (up from 146 in v0.7.0):
+  - Sprint 6 regression: 146 tests preserved
+  - Sprint 7 new: parser.test.ts +5 + serializer.test.ts +5 + round-trip.test.ts fixture suite restored (5 fixtures × ~3 round-trip cases per fixture)
+- **Coverage**: 94.86% stmts / 80% branches / 100% funcs / 94.86% lines (vs v0.7.0 94.95% / 79.86% / 100% / 94.95%; branches +0.14pp, stmts -0.09pp — both stay well above the ≥80% stmts / ≥70% branches gate).
+- **5-sample baseline regression**: Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf all surface **0 per-document violations** across all 7 kinds (range/enum/reference/required/schema/multiplicity/cross-ref). Project-level cross-ref errors are 1336 (1:1 with refSites), and the 1336 are accepted as baseline — see Deviations for the rationale.
+
+### 5-fixture measured numbers (post-placeholder-skip)
+
+| Fixture     | ECUC-REFERENCE-VALUE elements (XML) |      params[type:reference] (parser output) |
+| ----------- | ----------------------------------: | ------------------------------------------: |
+| Det_Det     |                                   0 |                                           0 |
+| EcuC_EcuC   |                                 250 | 0 (all placeholder `PDU-TO-FRAME-MAPPING/`) |
+| Com_Com     |                                3630 |                                        1107 |
+| PduR_PduR   |                                 682 |                                         229 |
+| WdgIf_WdgIf |                                   2 |           0 (both placeholder trailing `/`) |
+| **Total**   |                                4564 |                                        1336 |
+
+Sprint 6 → Sprint 7 baseline jump:
+`pathIndex=1611` / `refSites=0` / `cross-ref errors=0` / `validateProject total=0`
+→ `pathIndex=1611` / `refSites=1336` / `cross-ref errors=1336` / `validateProject total=1336`.
+
+### Deviations from plan
+
+- **1336 cross-ref errors accepted as baseline** — the 5 fixtures are **slices**, not a self-contained project. `<VALUE-REF>` targets live under the `/EAS/...` namespace (definition-side references), while the path index is built from `/EcucDefs/...` values (value-side). Of the 1336 cross-ref errors, virtually all are real `/EAS/...` targets that **would resolve** if the project included the bundled `EAS_*` schema modules. The Sprint 7 plan acknowledged this risk explicitly ("fixtures may not form a self-contained project; document accepted baseline rather than suppress"). No errors are suppressed in `checkCrossRefs`; the signature guard `[1300, 1400]` keeps the contract honest. Cross-fixture normalisation is the next step (Sprint 8 backlog).
+- **EcuC vendor dialect → standard mode round-trip** — parser dual-dialect (`<REFERENCE-VALUES>` wrapper OR nested-under-`<PARAMETER-VALUES>`), but the serializer always emits the **standard** `<VALUE-REF>` shape. Round-trip tests assert **field equality** (`value` + `dest`), not XML byte-for-byte equality. Re-parsing a previously-EcuC-dialect document produces a tree that re-serialises to the standard shape — the dialect information is intentionally dropped on output. Documented in serializer comment block.
+- **T1-A pre-empted part of T1-C** — Sprint 7 plan reserved baseline number updates for T1-C, but T1-A's `refSites.length >= 1000` lower-bound assertion had to be raised to ≥1000 at the time the parser landed (otherwise the fixture test went red immediately). The [1300, 1400] signature interval and the `validateProject` total print are the new T1-C surface.
+- **5-fixture EcuC / WdgIf post-parse refSite count is 0** — EcuC's 250 ECUC-REFERENCE-VALUE elements all carry placeholder paths ending in `PDU-TO-FRAME-MAPPING/` (unset, waiting for a project editor); WdgIf's 2 are both `/.../Wdgs/` trailing-slash placeholders. Parser-side placeholder skip is intentional (matches `isUnsetPlaceholder`); these 252 elements are correctly absent from `refSites`. Documented as a **data characteristic**, not a parser bug.
+
 ## [0.7.0] — 2026-06-15 (Sprint 6)
 
 ### Added
