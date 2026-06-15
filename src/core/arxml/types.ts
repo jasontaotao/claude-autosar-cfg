@@ -54,7 +54,7 @@ export type ParamValue =
   | { readonly type: 'float'; readonly value: number }
   | { readonly type: 'boolean'; readonly value: boolean }
   | { readonly type: 'enum'; readonly value: string }
-  | { readonly type: 'reference'; readonly value: string };
+  | { readonly type: 'reference'; readonly value: string; readonly dest?: string };
 
 /** Editor mode identifier (7 modes per F2). */
 export type ParamEditMode =

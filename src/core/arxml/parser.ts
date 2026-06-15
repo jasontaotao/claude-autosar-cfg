@@ -8,6 +8,8 @@
 //   <ECUC-CONTAINER-VALUE>: kind='container'
 //   <DEFINITION-REF DEST="X">: kind='reference' with dest
 //   <ECUC-NUMERICAL-PARAM-VALUE> / <ECUC-TEXTUAL-PARAM-VALUE>: param wrapper with VALUE child
+//   <REFERENCE-VALUES><ECUC-REFERENCE-VALUE><VALUE-REF>: ref param (Com/PduR shape)
+//   <PARAMETER-VALUES><ECUC-REFERENCE-VALUE>: vendor dialect (EcuC shape)
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
@@ -341,8 +343,16 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
           const dest = obj['@_DEST'];
           if (typeof dest === 'string') defDest = dest;
         }
-        const valueRaw = w['VALUE'];
         if (defPath === undefined || typeof defPath !== 'string') continue;
+
+        // ECUC-REFERENCE-VALUE inside PARAMETER-VALUES: EcuC vendor dialect.
+        // Has <VALUE-REF> child (not <VALUE>) — delegate to extractReferenceParams.
+        if (wrapperTag === 'ECUC-REFERENCE-VALUE') {
+          extractReferenceParams(w, defPath, params);
+          continue;
+        }
+
+        const valueRaw = w['VALUE'];
         if (
           typeof valueRaw !== 'string' &&
           typeof valueRaw !== 'number' &&
@@ -358,6 +368,26 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
       }
     }
   }
+  // Standard <REFERENCE-VALUES> wrapper (Com/PduR/WdgIf shape) — sibling of PARAMETER-VALUES.
+  const rv = item['REFERENCE-VALUES'];
+  if (typeof rv === 'object' && rv !== null) {
+    for (const [wrapperTag, raw] of Object.entries(rv as Record<string, unknown>)) {
+      if (wrapperTag !== 'ECUC-REFERENCE-VALUE') continue;
+      for (const w of asArray<Record<string, unknown>>(raw)) {
+        const defRef = w['DEFINITION-REF'];
+        let defPath: string | undefined;
+        if (typeof defRef === 'string') {
+          defPath = defRef;
+        } else if (typeof defRef === 'object' && defRef !== null) {
+          const obj = defRef as Record<string, unknown>;
+          const text = obj['#text'];
+          if (typeof text === 'string') defPath = text;
+        }
+        if (defPath === undefined) continue;
+        extractReferenceParams(w, defPath, params);
+      }
+    }
+  }
   // Top-level DEFINITION-REFs (module/level)
   for (const ref of asArray<Record<string, unknown>>(item['DEFINITION-REF'])) {
     const dest = typeof ref['@_DEST'] === 'string' ? (ref['@_DEST'] as string) : undefined;
@@ -365,6 +395,44 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
     if (typeof text === 'string') references.push(dest ? `${dest}:${text}` : text);
   }
   return { params, references };
+}
+
+/**
+ * Parse a single ECUC-REFERENCE-VALUE element. Reads its <VALUE-REF> child
+ * (path + DEST), skips unset placeholders (empty / trailing-slash), and
+ * writes `{ type: 'reference', value, dest }` into `params` keyed by
+ * `defPath`'s last segment.
+ *
+ * `dest` is optional because some vendors omit it on the VALUE-REF;
+ * we surface whatever we have (undefined is preserved on the param shape).
+ */
+function extractReferenceParams(
+  wrapper: Record<string, unknown>,
+  defPath: string,
+  params: Record<string, ParamValue>,
+): void {
+  const valueRef = wrapper['VALUE-REF'];
+  let refPath: string | undefined;
+  let refDest: string | undefined;
+  if (typeof valueRef === 'string') {
+    refPath = valueRef;
+  } else if (typeof valueRef === 'object' && valueRef !== null) {
+    const obj = valueRef as Record<string, unknown>;
+    const text = obj['#text'];
+    if (typeof text === 'string') refPath = text;
+    const dest = obj['@_DEST'];
+    if (typeof dest === 'string') refDest = dest;
+  }
+  // Placeholder skip — unset / trailing-slash paths would generate false
+  // positive cross-ref errors downstream (and are not user-meaningful data).
+  if (refPath === undefined) return;
+  if (refPath === '' || refPath.endsWith('/')) return;
+  const key = defPath.split('/').pop() ?? defPath;
+  const param: ParamValue =
+    refDest !== undefined
+      ? { type: 'reference', value: refPath, dest: refDest }
+      : { type: 'reference', value: refPath };
+  params[key] = param;
 }
 
 function parseParamValue(
@@ -396,6 +464,16 @@ function parseParamValue(
     const n = typeof raw === 'number' ? raw : Number(raw);
     return { type: 'float', value: n };
   }
+  // ECUC-REFERENCE-DEF / ECUC-FOREIGN-REFERENCE-DEF: the wrapper itself
+  // signals a reference; raw is the path string. Belt-and-suspenders for
+  // any case where the caller routes through parseParamValue with a ref dest
+  // (extractParamsAndRefs usually short-circuits via extractReferenceParams).
+  if (dest === 'ECUC-REFERENCE-DEF' || dest === 'ECUC-FOREIGN-REFERENCE-DEF') {
+    const path = String(raw);
+    return path === '' || path.endsWith('/')
+      ? { type: 'reference', value: path }
+      : { type: 'reference', value: path, dest };
+  }
 
   // 2. Fallback when DEST is missing — use wrapper tag + VALUE shape
   //    (back-compat for fixtures / vendors that omit DEST).
@@ -410,6 +488,11 @@ function parseParamValue(
   }
   if (wrapperTag.includes('BOOLEAN')) {
     return { type: 'boolean', value: raw === true || raw === 'true' };
+  }
+  // ECUC-REFERENCE-VALUE wrapper without a recognised DEST: treat the raw
+  // value as a reference path string so cross-ref validation can flag it.
+  if (wrapperTag === 'ECUC-REFERENCE-VALUE') {
+    return { type: 'reference', value: String(raw) };
   }
   return { type: 'string', value: String(raw) };
 }

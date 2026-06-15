@@ -199,4 +199,95 @@ describe('parseArxml', () => {
     const c = mod.children[0] as ArxmlContainer;
     expect(c.params['BusType']).toEqual({ type: 'enum', value: 'LSB' });
   });
+
+  // ---------- Sprint 7 T1-A: <REFERENCE-VALUES> wrapper parsing ----------
+  // 5 fixtures currently drop 2306 ECUC-REFERENCE-VALUE (cross-ref baseline=0).
+  // The parser must surface these as type:'reference' params so cross-ref
+  // validation can fire.
+
+  describe('ECUC-REFERENCE-VALUE parsing', () => {
+    it('case 1: standard REFERENCE-VALUES wrapper (Com/PduR shape) → type:reference with dest', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/EAS/Com/ComConfig/ComIPdu/ComPduIdRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/EAS/EcuC/EcucPduCollection/Pdu/MyPdu</VALUE-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+      const c = mod.children[0] as ArxmlContainer;
+      expect(c.params['ComPduIdRef']).toEqual({
+        type: 'reference',
+        value: '/EAS/EcuC/EcucPduCollection/Pdu/MyPdu',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+    });
+
+    it('case 2: EcuC vendor dialect — ECUC-REFERENCE-VALUE nested in PARAMETER-VALUES with FOREIGN-REFERENCE-DEF', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-FOREIGN-REFERENCE-DEF">/EAS/EcuC/EcucPduCollection/Pdu/SysTPduToFrameMappingRef</DEFINITION-REF><VALUE-REF DEST="PDU-TO-FRAME-MAPPING" USER_DEF="false">PDU-TO-FRAME-MAPPING/</VALUE-REF></ECUC-REFERENCE-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+      const c = mod.children[0] as ArxmlContainer;
+      // PDU-TO-FRAME-MAPPING/ ends in '/' → unset placeholder, must NOT enter params
+      expect(c.params['SysTPduToFrameMappingRef']).toBeUndefined();
+      expect(Object.keys(c.params)).toHaveLength(0);
+    });
+
+    it('case 3: placeholder VALUE-REF (empty or trailing /) skipped — no reference param emitted', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/A/B/UnsetRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE"></VALUE-REF></ECUC-REFERENCE-VALUE><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/A/B/TrailingSlashRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/A/B/</VALUE-REF></ECUC-REFERENCE-VALUE><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/A/B/RealRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/A/B/Target</VALUE-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+      const c = mod.children[0] as ArxmlContainer;
+      expect(c.params['UnsetRef']).toBeUndefined();
+      expect(c.params['TrailingSlashRef']).toBeUndefined();
+      expect(c.params['RealRef']).toEqual({
+        type: 'reference',
+        value: '/A/B/Target',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+      expect(Object.keys(c.params)).toEqual(['RealRef']);
+    });
+
+    it('case 4: multiple ECUC-REFERENCE-VALUE under same REFERENCE-VALUES — each uses defPath tail as key, no key collision', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/EAS/Com/ComConfig/ComIPdu/ComPduIdRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/EAS/EcuC/EcucPduCollection/Pdu/PduA</VALUE-REF></ECUC-REFERENCE-VALUE><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/EAS/Com/ComConfig/ComIPdu/ComIPduGroupRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/EAS/Com/ComConfig/ComIPduGroup/GroupA</VALUE-REF></ECUC-REFERENCE-VALUE><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/EAS/Com/ComConfig/ComIPdu/ComIPduSignalRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/EAS/Com/ComConfig/ComSignal/Sig1</VALUE-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+      const c = mod.children[0] as ArxmlContainer;
+      expect(c.params['ComPduIdRef']).toEqual({
+        type: 'reference',
+        value: '/EAS/EcuC/EcucPduCollection/Pdu/PduA',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+      expect(c.params['ComIPduGroupRef']).toEqual({
+        type: 'reference',
+        value: '/EAS/Com/ComConfig/ComIPduGroup/GroupA',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+      expect(c.params['ComIPduSignalRef']).toEqual({
+        type: 'reference',
+        value: '/EAS/Com/ComConfig/ComSignal/Sig1',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+      expect(Object.keys(c.params).sort()).toEqual(
+        ['ComIPduGroupRef', 'ComIPduSignalRef', 'ComPduIdRef'].sort(),
+      );
+    });
+
+    it('case 5: USER_DEF attribute on VALUE-REF is ignored, parsing still produces type:reference', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/A/B/WithUserDef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE" USER_DEF="false">/A/B/Target</VALUE-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+      const c = mod.children[0] as ArxmlContainer;
+      expect(c.params['WithUserDef']).toEqual({
+        type: 'reference',
+        value: '/A/B/Target',
+        dest: 'ECUC-CONTAINER-VALUE',
+      });
+    });
+  });
 });
