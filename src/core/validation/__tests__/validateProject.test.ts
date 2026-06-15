@@ -404,6 +404,73 @@ describe('checkCrossRefs', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprint 8 #1 — Cross-fixture VALUE-REF namespace normalisation (end-to-end)
+// ---------------------------------------------------------------------------
+
+describe('validateProject with cross-namespace references (Sprint 8 #1)', () => {
+  it('resolves a /EAS/... target against an /EcucDefs/... pathIndex', () => {
+    // Mimics the 5-fixture setup: pkgName = "EcucDefs" produces pathIndex
+    // keys under /EcucDefs/..., while a target uses the definition-side
+    // /EAS/... namespace. The 5 fixtures' VALUE-REF targets omit the
+    // package shortName (e.g. "/EAS/EcuC/.../Pdu/<instance>"), so the
+    // normalised path lands directly on the pathIndex key. The Sprint 8
+    // #1 normalizePath helper must rewrite the target so the lookup
+    // hits the index.
+    const doc = makeDoc({
+      pkgName: 'EcucDefs',
+      elements: [
+        makeModule('M', [
+          makeContainer('Target'),
+          makeContainer('Source', [makeRef('Link', '/EAS/M/Target')]),
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const crossRefErrors = errors.filter((e) => e.kind === 'cross-ref');
+    expect(crossRefErrors).toEqual([]);
+  });
+
+  it('resolves an /EcucDefs/... target without rewriting (idempotent)', () => {
+    // The helper must leave the value-side namespace untouched so a
+    // self-ref written in the value-side form (rare in real ARXML,
+    // possible after a re-serialize round-trip) still resolves.
+    const doc = makeDoc({
+      pkgName: 'EcucDefs',
+      elements: [
+        makeModule('M', [
+          makeContainer('Target'),
+          makeContainer('Source', [makeRef('Link', '/EcucDefs/M/Target')]),
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const crossRefErrors = errors.filter((e) => e.kind === 'cross-ref');
+    expect(crossRefErrors).toEqual([]);
+  });
+
+  it('preserves the /EAS/... string in the error payload when the target is unresolvable', () => {
+    // When the rewritten target is still not in the index (e.g. the
+    // target module does not exist), the error's `actual` field must
+    // carry the fixture-original /EAS/... string so the user can
+    // cross-reference the source ARXML. Helper must NOT rewrite
+    // the error payload — only the lookup key.
+    const doc = makeDoc({
+      pkgName: 'EcucDefs',
+      elements: [
+        makeModule('M', [makeContainer('Source', [makeRef('Link', '/EAS/Missing/Target')])]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const crossRefErrors = errors.filter((e) => e.kind === 'cross-ref');
+    expect(crossRefErrors).toHaveLength(1);
+    expect(crossRefErrors[0]!.actual).toBe('/EAS/Missing/Target');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // validateProject (end-to-end)
 // ---------------------------------------------------------------------------
 

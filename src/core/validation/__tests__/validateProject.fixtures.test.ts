@@ -124,7 +124,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 7 F7 baseline (5 fixtures) ===');
+    console.log('=== Sprint 8 #1 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -157,15 +157,32 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // to 'reference' or a typo is introduced.
     expect(crossRefErrors.every((e) => e.kind === 'cross-ref')).toBe(true);
 
-    // -- SIGNATURE INTERVAL GUARDS (T1-C) -----------------------------------
+    // -- SIGNATURE INTERVAL GUARDS (Sprint 8 #1) ----------------------------
     // Sprint 7 F7 ships 1336 refSites / 1336 cross-ref errors. The interval
     // [1300, 1400] is the *only* window that keeps the contract honest:
     //  - below 1300  ⇒ parser/serializer silently dropped ECUC-REFERENCE-VALUE
     //                  entries (Sprint 6 regression of the worst kind)
     //  - above 1400  ⇒ parser started double-counting (e.g. scanning the
     //                  same <REFERENCE-VALUES> wrapper twice)
-    // Any future refactor that needs to drift outside this band must
-    // update the assertions AND document the change in PROGRESS / CHANGELOG.
+    //
+    // Sprint 8 #1 ships the `normalizePath` namespace helper (re-rewrites
+    // `/EAS/...` targets to `/EcucDefs/...` so they match pathIndex keys)
+    // AND discovers a *second* mismatch the plan-phase reconnaissance
+    // missed: every target path in the 5 fixtures carries an extra
+    // schema-side type segment (e.g. `/EcuC/EcucPduCollection/Pdu/<instance>`)
+    // that pathIndex does not emit (pathIndex keys use the instance's own
+    // shortName directly, no `Pdu` segment). The two mismatches compose:
+    // namespace rewrite + 1 type-segment strip would resolve cleanly, but
+    // per-sprint scope discipline, only the namespace half is fixed here;
+    // the type-segment half is documented as Sprint 9+ backlog. Because
+    // every one of the 1336 cross-ref errors is gated on the type-segment
+    // mismatch, the [1300, 1400] band still holds for `crossRefErrors` —
+    // Sprint 8 #1 closes the *namespace* dimension of the mismatch
+    // (verified by 8 unit tests on `normalizePath` + 1 end-to-end test
+    // on `validateProject`), and the cross-ref number will drop when
+    // Sprint 9+ adds the type-segment strip. Any future refactor that
+    // needs to drift outside [1300, 1400] must update the assertions
+    // AND document the change in PROGRESS / CHANGELOG.
     expect(refSites.length).toBeGreaterThanOrEqual(1300);
     expect(refSites.length).toBeLessThanOrEqual(1400);
     expect(crossRefErrors.length).toBeGreaterThanOrEqual(1300);
