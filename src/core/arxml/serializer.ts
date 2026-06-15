@@ -135,15 +135,23 @@ function renderModule(m: ArxmlModule): Record<string, unknown> {
     if (dest !== undefined) defRef['@_DEST'] = dest;
     out['DEFINITION-REF'] = defRef;
   }
-  const paramsArr = renderParams(m.params);
+  const { regular: regularArr, refs: refsArr } = renderParamEntries(m.params);
   const containersArr = m.children.filter((c): c is ArxmlContainer => c.kind === 'container');
   if (containersArr.length > 0) {
     out['CONTAINERS'] = { 'ECUC-CONTAINER-VALUE': containersArr.map(renderContainer) };
   }
-  if (paramsArr.length > 0) {
+  if (regularArr.length > 0) {
     // Group by wrapper tag so fast-xml-parser emits one <PARAMETER-VALUES>
     // containing multiple same-tag siblings (parser expects this shape).
-    out['PARAMETER-VALUES'] = groupByTagName(paramsArr);
+    out['PARAMETER-VALUES'] = groupByTagName(regularArr);
+  }
+  if (refsArr.length > 0) {
+    // Standard AUTOSAR <REFERENCE-VALUES> wrapper — sibling of <PARAMETER-VALUES>.
+    // The EcuC vendor dialect (ECUC-REFERENCE-VALUE inside PARAMETER-VALUES) is
+    // intentionally normalised to the standard shape here; round-trip
+    // parse→serialize→re-parse preserves the field-level contract (params dict
+    // is unchanged) even though the XML serialisation shifts shape.
+    out['REFERENCE-VALUES'] = groupByTagName(refsArr);
   }
   return out;
 }
@@ -152,9 +160,12 @@ function renderContainer(c: ArxmlContainer): Record<string, unknown> {
   const out: Record<string, unknown> = {
     'SHORT-NAME': c.shortName,
   };
-  const paramsArr = renderParams(c.params);
-  if (paramsArr.length > 0) {
-    out['PARAMETER-VALUES'] = groupByTagName(paramsArr);
+  const { regular: regularArr, refs: refsArr } = renderParamEntries(c.params);
+  if (regularArr.length > 0) {
+    out['PARAMETER-VALUES'] = groupByTagName(regularArr);
+  }
+  if (refsArr.length > 0) {
+    out['REFERENCE-VALUES'] = groupByTagName(refsArr);
   }
   if (c.children.length > 0) {
     out['SUB-CONTAINERS'] = groupByTagName(c.children.map(renderElement));
@@ -187,34 +198,82 @@ function groupByTagName(items: Record<string, unknown>[]): Record<string, unknow
   return out;
 }
 
-function renderParams(params: Readonly<Record<string, ParamValue>>): Record<string, unknown>[] {
-  const out: Record<string, unknown>[] = [];
+/**
+ * Split a params record into two emission streams:
+ * - `regular`: non-reference params (integer/float/boolean/string/enum), which
+ *   share the standard <PARAMETER-VALUES> wrapper.
+ * - `refs`: reference params, which go under the standard <REFERENCE-VALUES>
+ *   wrapper using the <VALUE-REF DEST="..."> shape that parser.extractReferenceParams
+ *   expects on re-parse.
+ *
+ * Keeping these streams separate avoids re-emitting reference params under
+ * <PARAMETER-VALUES><ECUC-REFERENCE-VALUE> (the EcuC vendor dialect), which
+ * would parse back but cross-mingle two emission shapes — and would also fail
+ * the strict serializer/parser contract where the reference shape carries
+ * <VALUE-REF> rather than <VALUE>.
+ */
+function renderParamEntries(params: Readonly<Record<string, ParamValue>>): {
+  readonly regular: Record<string, unknown>[];
+  readonly refs: Record<string, unknown>[];
+} {
+  const regular: Record<string, unknown>[] = [];
+  const refs: Record<string, unknown>[] = [];
   for (const [defName, value] of Object.entries(params)) {
-    const wrapperTag = PARAM_TAG[value.type];
-    // Preserve the precise DEST so that round-trip parse keeps ParamValue.type.
-    // Conflating integer/float (or string/enum) here would cause DEST-driven
-    // re-parse to flip types — see Sprint 4 T1 (parser.ts DEST-aware).
-    const paramDefType: string =
-      value.type === 'integer'
-        ? 'ECUC-INTEGER-PARAM-DEF'
-        : value.type === 'float'
-          ? 'ECUC-FLOAT-PARAM-DEF'
-          : value.type === 'boolean'
-            ? 'ECUC-BOOLEAN-PARAM-DEF'
-            : value.type === 'enum'
-              ? 'ECUC-ENUMERATION-PARAM-DEF'
-              : value.type === 'string'
-                ? 'ECUC-STRING-PARAM-DEF'
-                : 'ECUC-REFERENCE-DEF';
-    out.push({
-      [wrapperTag]: {
-        'DEFINITION-REF': {
-          '@_DEST': paramDefType,
-          '#text': `/__synthesized__/${defName}`,
-        },
-        VALUE: value.value,
-      },
-    });
+    if (value.type === 'reference') {
+      refs.push(renderReferenceParam(defName, value));
+      continue;
+    }
+    regular.push(renderRegularParam(defName, value));
   }
-  return out;
+  return { regular, refs };
+}
+
+function renderRegularParam(defName: string, value: ParamValue): Record<string, unknown> {
+  // renderParamEntries has already filtered out references, but TS narrowing
+  // needs the explicit case-split. `wrapperTag` follows PARAM_TAG for integer/
+  // float/boolean (NUMERICAL) and string/enum (TEXTUAL).
+  if (value.type === 'reference') {
+    // Unreachable; renderParamEntries short-circuits references before this path.
+    throw new Error('renderRegularParam received a reference param');
+  }
+  const wrapperTag = PARAM_TAG[value.type];
+  const paramDefType: string =
+    value.type === 'integer'
+      ? 'ECUC-INTEGER-PARAM-DEF'
+      : value.type === 'float'
+        ? 'ECUC-FLOAT-PARAM-DEF'
+        : value.type === 'boolean'
+          ? 'ECUC-BOOLEAN-PARAM-DEF'
+          : value.type === 'enum'
+            ? 'ECUC-ENUMERATION-PARAM-DEF'
+            : 'ECUC-STRING-PARAM-DEF';
+  return {
+    [wrapperTag]: {
+      'DEFINITION-REF': {
+        '@_DEST': paramDefType,
+        '#text': `/__synthesized__/${defName}`,
+      },
+      VALUE: value.value,
+    },
+  };
+}
+
+function renderReferenceParam(defName: string, value: ParamValue): Record<string, unknown> {
+  if (value.type !== 'reference') {
+    throw new Error('renderReferenceParam received a non-reference param');
+  }
+  // Standard <VALUE-REF> shape:
+  //   <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/path/to/target</VALUE-REF>
+  // `dest` is optional — vendors sometimes omit it; parser preserves undefined.
+  const valueRef: Record<string, unknown> = { '#text': value.value };
+  if (value.dest !== undefined) valueRef['@_DEST'] = value.dest;
+  return {
+    'ECUC-REFERENCE-VALUE': {
+      'DEFINITION-REF': {
+        '@_DEST': 'ECUC-REFERENCE-DEF',
+        '#text': `/__synthesized__/${defName}`,
+      },
+      'VALUE-REF': valueRef,
+    },
+  };
 }
