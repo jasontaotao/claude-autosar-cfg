@@ -1,4 +1,4 @@
-// 5-fixture project-level baseline (Sprint 7 F7).
+// 5-fixture project-level baseline (Sprint 7 F7 → Sprint 9 #1).
 //
 // Loads the same 5 ARXML files the single-doc baseline (Sprint 5) uses
 // and runs the new project-level surface end-to-end:
@@ -15,31 +15,55 @@
 //   - T1-B: serializer emits <VALUE-REF> standard output regardless
 //     of which dialect the input used; round-trip field equality holds
 //   - T1-C: this file — print every baseline number + lock the
-//     signature interval [1300, 1400] so future parser/schema edits
-//     cannot silently drop the new data or explode the count
+//     signature interval so future parser/schema edits cannot silently
+//     drop the new data or explode the count
 //
-// Sprint 7 baseline numbers (F7):
-//   pathIndex.size         : 1611   (unchanged from F6)
-//   refSites.length        : 1336   (was 0 — parser now sees VALUE-REFs)
+// Sprint 8 #1 baseline numbers (after namespace normalisation):
+//   pathIndex.size         : 1611
+//   refSites.length        : 1336   (unchanged by Sprint 8 #1 — sites are
+//                                      independent of path normalization)
 //   referenceParams.total  : 1341   (param:reference values + module.references)
-//   cross-ref errors       : 1336   (1:1 with refSites — every ref site is
-//                                      unresolved; this is the data shape
-//                                      of a fixture slice that does not
-//                                      form a self-contained project:
-//                                      VALUE-REF targets use the /EAS/...
-//                                      namespace while the path index is
-//                                      built from /EcucDefs/... values)
+//   cross-ref errors       : 1336   (every ref site unresolved — second
+//                                      mismatch dimension: VALUE-REF
+//                                      targets carry schema-side type
+//                                      segments not present in pathIndex)
 //   validateProject total  : 1336   (= cross-ref; single-doc errors are 0
 //                                      because the 5 fixtures carry no
 //                                      per-doc violations)
 //
-// Signature guard (T1-C):
-//   refSites / cross-ref errors are asserted in [1300, 1400] — the only
-//   narrow interval that keeps the Sprint 7 contract honest. Going below
-//   1300 means a parser/serializer regression silently dropped real
-//   data; going above 1400 means the parser started double-counting
-//   (e.g. re-scanning the same wrapper twice). The same upper bound
-//   serves the upper-bound of `validateProject` total.
+// Sprint 9 #1 baseline numbers (after type-segment strip):
+//   cross-ref errors       : 1003   (was 1336; 333 resolved by stripping
+//                                      /Pdu/, /ComIPdu/, /ComSignal/,
+//                                      /ComIPduGroup/ from fixture targets
+//                                      where the pathIndex had the
+//                                      shortened form). The remaining 1003
+//                                      are *genuine* dangling refs: the
+//                                      fixture ARXML has VALUE-REF targets
+//                                      like /EcucDefs/Com/ComConfig/...
+//                                      pointing to elements that actually
+//                                      live under a sibling branch
+//                                      /EcucDefs/Com/CanConfigSet/...
+//                                      (i.e. the fixture data itself is
+//                                      internally inconsistent on these
+//                                      refs — no path-shape rewrite can
+//                                      resolve them). See Deviations.
+//
+// Signature guard (T1-C + Sprint 9 #1):
+//   refSites.length        : [1300, 1400]  — same window; helper is purely
+//                                             path-rewriting, never adds
+//                                             or drops sites.
+//   cross-ref errors       : [800, 1100]   — Sprint 9 #1 closes the type-
+//                                             segment dimension. Lower bound
+//                                             800 protects against future
+//                                             refactors that might resolve
+//                                             these genuine dangles by
+//                                             accident (false negative);
+//                                             upper bound 1100 protects
+//                                             against parser regressions
+//                                             inflating the error count.
+//   validateProject total  : [800, 1100]   — mirrors cross-ref (single-doc
+//                                             errors remain 0 across these
+//                                             5 fixtures).
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -124,7 +148,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 8 #1 baseline (5 fixtures) ===');
+    console.log('=== Sprint 9 #1 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -157,47 +181,48 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // to 'reference' or a typo is introduced.
     expect(crossRefErrors.every((e) => e.kind === 'cross-ref')).toBe(true);
 
-    // -- SIGNATURE INTERVAL GUARDS (Sprint 8 #1) ----------------------------
-    // Sprint 7 F7 ships 1336 refSites / 1336 cross-ref errors. The interval
-    // [1300, 1400] is the *only* window that keeps the contract honest:
-    //  - below 1300  ⇒ parser/serializer silently dropped ECUC-REFERENCE-VALUE
-    //                  entries (Sprint 6 regression of the worst kind)
-    //  - above 1400  ⇒ parser started double-counting (e.g. scanning the
-    //                  same <REFERENCE-VALUES> wrapper twice)
+    // -- SIGNATURE INTERVAL GUARDS (Sprint 9 #1) ----------------------------
+    // Sprint 7 F7 ships 1336 refSites. Sprint 8 #1 kept the [1300, 1400]
+    // band for `refSites` because the namespace helper only rewrites a
+    // path string — it never adds or drops sites.
     //
-    // Sprint 8 #1 ships the `normalizePath` namespace helper (re-rewrites
-    // `/EAS/...` targets to `/EcucDefs/...` so they match pathIndex keys)
-    // AND discovers a *second* mismatch the plan-phase reconnaissance
-    // missed: every target path in the 5 fixtures carries an extra
-    // schema-side type segment (e.g. `/EcuC/EcucPduCollection/Pdu/<instance>`)
-    // that pathIndex does not emit (pathIndex keys use the instance's own
-    // shortName directly, no `Pdu` segment). The two mismatches compose:
-    // namespace rewrite + 1 type-segment strip would resolve cleanly, but
-    // per-sprint scope discipline, only the namespace half is fixed here;
-    // the type-segment half is documented as Sprint 9+ backlog. Because
-    // every one of the 1336 cross-ref errors is gated on the type-segment
-    // mismatch, the [1300, 1400] band still holds for `crossRefErrors` —
-    // Sprint 8 #1 closes the *namespace* dimension of the mismatch
-    // (verified by 8 unit tests on `normalizePath` + 1 end-to-end test
-    // on `validateProject`), and the cross-ref number will drop when
-    // Sprint 9+ adds the type-segment strip. Any future refactor that
-    // needs to drift outside [1300, 1400] must update the assertions
-    // AND document the change in PROGRESS / CHANGELOG.
+    // Sprint 9 #1 closes the type-segment dimension of the cross-ref
+    // mismatch. Of the previous 1336 unresolved cross-ref sites, 333 now
+    // resolve after `tryStripTypeSegment` collapses the schema-side
+    // `/Pdu/`, `/ComIPdu/`, `/ComSignal/`, `/ComIPduGroup/` segments that
+    // the fixture VALUE-REFs carry but pathIndex does not (pathIndex keys
+    // use the instance's own shortName directly, no type segment).
+    //
+    // The remaining 1003 cross-ref errors are *genuine* dangling refs:
+    // the fixture ARXML has VALUE-REF targets pointing to elements that
+    // actually live under a sibling branch (e.g. target says
+    // `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx` but the
+    // element `CAN_NetworkTx` is actually a sibling under
+    // `/EcucDefs/Com/CanConfigSet/`). No path-shape rewrite can resolve
+    // a branch mismatch; this is fixture data quality, out of scope for
+    // Sprint 9 #1 (documented in Deviations; future backlog candidate).
+    //
+    // Band rationale:
+    //  - refSites  [1300, 1400] — unchanged; helper does not touch sites.
+    //  - cross-ref [800, 1100]  — accommodates the 1003 actual count;
+    //                             lower bound 800 guards against future
+    //                             refactors silently resolving genuine
+    //                             dangles (false negative); upper bound
+    //                             1100 guards against parser regressions
+    //                             inflating the error count.
+    //  - allErrors [800, 1100]  — mirrors cross-ref; single-doc errors are
+    //                             still 0 across these 5 fixtures.
     expect(refSites.length).toBeGreaterThanOrEqual(1300);
     expect(refSites.length).toBeLessThanOrEqual(1400);
-    expect(crossRefErrors.length).toBeGreaterThanOrEqual(1300);
-    expect(crossRefErrors.length).toBeLessThanOrEqual(1400);
+    expect(crossRefErrors.length).toBeGreaterThanOrEqual(800);
+    expect(crossRefErrors.length).toBeLessThanOrEqual(1100);
 
     // The single-doc baseline is preserved — total error count from
     // validateProject must be at least the cross-ref count (since cross-ref
-    // errors are added on top of the per-doc validate() results). The
-    // 5 fixtures carry no per-doc violations, so allErrors.length equals
-    // crossRefErrors.length today, but we still assert the >= relation
-    // so future per-doc validation work doesn't quietly inflate past
-    // 1400 without the signature guard noticing.
+    // errors are added on top of the per-doc validate() results).
     expect(allErrors.length).toBeGreaterThanOrEqual(crossRefErrors.length);
-    expect(allErrors.length).toBeGreaterThanOrEqual(1300);
-    expect(allErrors.length).toBeLessThanOrEqual(1400);
+    expect(allErrors.length).toBeGreaterThanOrEqual(800);
+    expect(allErrors.length).toBeLessThanOrEqual(1100);
   });
 
   it('extractReferences never emits a site with an empty sourcePath (caller sanity)', () => {

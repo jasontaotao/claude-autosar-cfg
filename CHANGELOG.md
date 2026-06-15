@@ -5,6 +5,32 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] — 2026-06-15 (Sprint 9 #1 — schema type-segment strip)
+
+### Added
+
+- `src/core/validation/validate.ts` — new pure helper `tryStripTypeSegment(path: string): string` that strips known schema-side type segments (`/Pdu/`, `/ComIPdu/`, `/ComSignal/`, `/ComIPduGroup/`) from absolute AUTOSAR paths before path-index lookup. Helper is pure, immutable, case-sensitive, idempotent on no-op inputs (empty / no known segments), and preserves trailing-slash placeholders.
+- `src/core/validation/__tests__/tryStripTypeSegment.test.ts` — 12 unit tests covering: main single-segment case; multi-segment case; 4 known type segments (`Pdu` / `ComIPdu` / `ComSignal` / `ComIPduGroup`) each tested individually; empty-string / no-type-segment pass-through; trailing-slash preservation; case-sensitivity (lowercase `pdu` not stripped); defensive `PduR` not stripped; multi-segment single-path strip.
+- `src/core/validation/index.ts` — barrel re-export `tryStripTypeSegment` alongside `normalizePath`.
+
+### Changed
+
+- `src/core/validation/validate.ts` — `checkCrossRefs` now normalises each `site.targetPath` via `normalizePath()` **and then** strips known type segments via `tryStripTypeSegment()` before the `pathIndex.has()` lookup. Order matters: namespace rewrite first, then segment strip (helper assumes the value-side namespace prefix). The `site.targetPath` field itself is left untouched so the error payload's `actual` continues to show the fixture-original string for cross-referencing the source ARXML.
+- `src/core/validation/__tests__/validateProject.fixtures.test.ts` — signature-interval guard updated to reflect Sprint 9 #1 outcome. `refSites.length` band stays `[1300, 1400]` (helper is purely path-rewriting; sites are independent of path normalization). `crossRefErrors.length` band moves from `[1300, 1400]` to `[800, 1100]`; `validateProject total` mirrors. Header comment block documents the Sprint 7 → Sprint 8 #1 → Sprint 9 #1 baseline evolution and explains why the remaining 1003 cross-ref errors are genuine dangling refs (fixture data quality), not path-shape mismatches.
+
+### Verified
+
+- `pnpm vitest run` — **198 tests pass / 0 fail / 0 skipped** (Sprint 9 #12 186 → Sprint 9 #1 198, +12 new). All 22 test files green.
+- `pnpm vitest run --coverage` — **95.33% stmts / 82.67% branches / 100% funcs**. Branch coverage improved from 82.21% (Sprint 9 #12) to 82.67% as the new type-segment path is exercised.
+- 5-fixture project-level baseline numbers (Sprint 9 #1): `pathIndex.size` 1611, `refSites.length` 1336, `referenceParams.total` 1341, `cross-ref errors` **1003** (was 1336, −333 net resolved), `validateProject total` 1003.
+- 5/5 per-doc baseline: 0 per-doc violation preserved.
+- Public API: `tryStripTypeSegment` is additive; `checkCrossRefs` / `validateProject` / `buildPathIndex` / `extractReferences` signatures unchanged; existing 5-fixture round-trip deep-equal signature preserved.
+
+### Deviations
+
+- **333 of 1336 cross-ref errors resolved; 1003 remain**: Sprint 9 #1 closes the type-segment dimension of the cross-fixture mismatch. The remaining 1003 are _genuine_ dangling refs in the fixture ARXML — `Com_Com.arxml` has VALUE-REF targets pointing to elements that actually live under a sibling branch (e.g. target says `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx` but `CAN_NetworkTx` is a sibling under `/EcucDefs/Com/CanConfigSet/`). No path-shape rewrite can resolve a branch mismatch; this is fixture data quality, out of scope for Sprint 9 #1. Documented in PROGRESS.md Sprint 9 #1 Deviations and proposed as a future backlog item.
+- **Whitelist chosen over schema-derivation**: `KNOWN_TYPE_SEGMENTS` is a hard-coded 4-element set rather than derived from `ECUC_CONTAINER_SCHEMA`. The schema only carries `Pdu` / `ComIPdu` (it tracks multiplicity, not type-segment identity); `ComSignal` / `ComIPduGroup` have no multiplicity constraint but appear as instances in the fixture. The whitelist makes the contract explicit: **future schema extensions (Sprint 9 #14 CanIf + others) must extend the whitelist in lockstep** — see the maintenance-contract comment block above the constant in `validate.ts`.
+
 ## [0.9.1] — 2026-06-15 (Sprint 9 #12 — nested AR-PACKAGE recursion)
 
 ### Added

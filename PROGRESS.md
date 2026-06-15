@@ -22,6 +22,7 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 | **S6** F6 Cross-container reference         | 项目级 cross-ref API + `'cross-ref'` 第 7 kind               | ✅   | 2026-06-15 | TBD                                                | `types.ts` 加 `'cross-ref'` kind + `PathIndexEntry` + `RefSite` interface + `validate.ts` 加 `validateProject` / `buildPathIndex` / `extractReferences` / `checkCrossRefs` + ValidationPanel `.kind-cross-ref` teal + 146 tests / 94.95% coverage / 5/5 baseline 0 violation；parser `<REFERENCE-VALUES>` 解析留 Sprint 7 |
 | **S7** F7 ECUC-REFERENCE-VALUE              | parser + serializer REFERENCE-VALUES 解析/序列化             | ✅   | 2026-06-15 | `ff2c1d5`                                          | `types.ts` ParamValue.reference 加 `dest?` + parser `extractReferenceParams` 双 dialect 扫 + serializer `renderParamEntries` / `renderRegularParam` / `renderReferenceParam` + 5 fixture round-trip 恢复 + 1336 baseline signed-guard [1300, 1400] + 161 tests / 94.86% coverage / 5/5 baseline 0 violation               |
 | **S8** F8 #1 Cross-fixture namespace 归一化 | `normalizePath` 纯 helper + `checkCrossRefs` 入口归一化      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `normalizePath`（`/EAS → /EcucDefs`）+ 8 normalizePath 单测 + 3 validateProject 端到端 + fixtures test 注释更新（含 PLAN 漏错 1 处 + 双错配文档化）+ 172 tests / 94.98% / 80.48% branches / 5/5 baseline 0 violation；type 段错配未在 scope，留 Sprint 9+ #1                                             |
+| **S9** F9 #1 schema type-segment strip      | `tryStripTypeSegment` 纯 helper + `checkCrossRefs` 串接      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `tryStripTypeSegment`（白名单 `Pdu` / `ComIPdu` / `ComSignal` / `ComIPduGroup`）+ 12 单测 + `index.ts` barrel export + fixtures test 签名 guard 调 [800, 1100] + 198 tests / 95.33% / 82.67% branches / cross-ref 1336 → 1003（剩 1003 是 fixture 数据本身 dangling，deviation 文档化）                  |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -696,14 +697,80 @@ Sprint 8 #1 ship 后,用户给的两份真实 BSW 文件暴露问题：
 - [x] 13 项 Sprint 9 backlog 中 #12 完成；剩余 12 + 1 后续 backlog（#13 模板侧加载 + #14 schema 扩张 CanIf 是下一个 ROI 候选）
 - [ ] 用户真实 `CanIf_bswmd.arxml` / `CanIf_EcucValues.arxml` 加入 fixture 库（涉及 Sprint 9 #7 fixture 体积管理）→ 后置
 
-### Sprint 9 剩余 backlog（**Sprint 9 #12 已 ship；剩余 16 项 = 既有 11 + 用户样本新增 5**）
+### Sprint 9 剩余 backlog（**Sprint 9 #12 + #1 已 ship；剩余 15 项 = 既有 10 + 用户样本新增 5**）
 
 - #13 模板侧 BSWMD 加载（16 类 `*-DEF` tag）—— 与 #14 联动
 - #14 schema 库扩张到 CanIf / 多模块 —— 与 #13 联动
 - #15 `lookupSchema` unknown path 显式 log —— 不依赖 #14
 - #16 value-side 元数据保留（`IMPLEMENTATION-CONFIG-VARIANT` 等）—— 不依赖
 - #17 `/AUTOSAR_R2x/` 命名空间版本号归一化 —— 不依赖
-- #1-#11 既有 11 项（同上）
+- #2-#11 既有 10 项（同上）
+
+## Sprint 9 #1 — schema type-segment strip（✅ 2026-06-15 完成）
+
+### 完成情况
+
+- **198 tests pass / 0 fail / 0 skipped**（Sprint 9 #12 186 → #1 198，+12 新增）
+- coverage **95.33% stmts / 82.67% branches / 100% funcs**（branches 82.21% → 82.67%）
+- 5/5 fixture round-trip 不退化（无 parser/serializer 改动）
+- 关键数字变化：**cross-ref errors 1336 → 1003**（−333，净 positive）
+  - pathIndex.size 1611（不变）
+  - refSites.length 1336（不变，helper 不增删 sites）
+  - referenceParams.total 1341（不变）
+  - validateProject total 1003（= cross-ref，single-doc 错误仍为 0）
+
+### 解决什么问题
+
+Sprint 8 #1 ship 后剩 1336 cross-ref 错误未关闭。PROGRESS Sprint 9 backlog #1 点名的 root cause 是：**fixture VALUE-REF 携带 schema-side type 段（Pdu / ComIPdu / ComSignal / ComIPduGroup），但 `buildPathIndex` 直接用 instance shortName 做 key，没有 type 段**。两条索引不同形 → 1336 个 false positive 错误。
+
+本项 ship `tryStripTypeSegment` 关闭这条维度：
+
+```ts
+// checkCrossRefs 内串联
+const resolved = tryStripTypeSegment(normalizePath(site.targetPath));
+if (!pathIndex.has(resolved)) {
+  /* error */
+}
+```
+
+### 改动清单（4 文件 + 1 新测试文件）
+
+| 文件                                                             | 改动                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/validation/validate.ts`                                | 新增 `KNOWN_TYPE_SEGMENTS: ReadonlySet<string>` 常量（4 段）+ `tryStripTypeSegment(path)` helper（紧跟 `normalizePath`）；`checkCrossRefs` 在 `normalizePath` 之后串联 `tryStripTypeSegment`；保留 `site.targetPath` 原样不动（`actual` 仍展示 fixture-原始字符串） |
+| `src/core/validation/index.ts`                                   | barrel re-export `tryStripTypeSegment`（与 `normalizePath` 并列）                                                                                                                                                                                                   |
+| `src/core/validation/__tests__/tryStripTypeSegment.test.ts`      | 新文件，**12 unit tests**（主用例 / 多段 / 4 段全覆盖 / 无 type 段 / 空串 / 末尾斜杠保留 / 大小写边界 / 防御性 `PduR` / 多段同命中守护）                                                                                                                            |
+| `src/core/validation/__tests__/validateProject.fixtures.test.ts` | 签名 guard 从 [1300, 1400] 调整为：refSites 仍 [1300, 1400]、cross-ref / allErrors 调为 [800, 1100]；注释完整记录 Sprint 8 → Sprint 9 #1 baseline 演化 + fixture 数据本身 dangling 的 deviation                                                                     |
+
+### 决策：为什么用白名单而非从 `ECUC_CONTAINER_SCHEMA` 推导
+
+- `ECUC_CONTAINER_SCHEMA` 只有 `Pdu` / `ComIPdu` 两段（schema 是 multiplicity 约束，不是 type 段全集）
+- `ComSignal` / `ComIPduGroup` 没有 multiplicity 约束但 fixture 里有实例
+- 白名单显式、维护合约明确（**未来 #14 schema 扩张新增模块时，必须同步扩展 `KNOWN_TYPE_SEGMENTS`** —— 见 `validate.ts` KNOWN_TYPE_SEGMENTS 上方注释）
+
+### Review 处理（code-reviewer 子 agent）
+
+| Finding                                                        | 处理                                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| LOW-1：单测无多段同命中守护                                    | ✅ 加 test case 9（`/ComIPduGroup/ComIPdu/X` → `/X`）                                        |
+| LOW-2：`normalizePath.test.ts:4` 历史 narrative 含 "1336" 数字 | 跳过（历史叙事上下文，不影响行为）                                                           |
+| LOW-3：实例 shortName 与白名单段同名 collision 风险            | 跳过（注释层已隐含"ECUC type 段恒为大写"；影响面 false-negative 非数据丢失；记录为风险评估） |
+
+### Deviations
+
+1. **剩余 1003 cross-ref 错误非路径形态问题**：fixture 数据本身存在 branch mismatch —— 例如 `Com/CanConfigSet/CanConfigSet_Tx_X` 的 VALUE-REF 目标写的是 `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx`，但 `CAN_NetworkTx` 实际位于 `/EcucDefs/Com/CanConfigSet/CAN_NetworkTx`（兄弟 branch）。**无任何路径形态改写能修复这种 branch mismatch**。需通过以下任一方式处理（未来 backlog，不在本 Sprint scope）：
+   - 修 fixture ARXML 数据本身（最直接）
+   - 加"cross-module 模糊匹配"策略（基于 shortName 唯一性全局查，引入新风险）
+   - 引入 dangle 标记让用户在 UI 上手动定位修数据
+2. **签名 guard 区间从 [1300, 1400] 调到 [800, 1100]**：Sprint 8 #1 的 [1300, 1400] 是 Sprint 9 #1 ship 前的契约；Sprint 9 #1 ship 后契约为 [800, 1100]（cross-ref / allErrors）+ [1300, 1400]（refSites，不变）。任何未来 refactor 需要飘出区间必须更新断言 + 同步 PROGRESS / CHANGELOG。
+
+### Sprint 9 #1 → Sprint 9 #13 衔接
+
+- [x] `KNOWN_TYPE_SEGMENTS` 白名单 + 注释明确维护合约（#14 schema 扩张时同步）
+- [x] `validate.ts checkCrossRefs` 现在按 `normalizePath → tryStripTypeSegment → pathIndex.has` 三步流水线工作；后续可叠加更多纯 rewrite helper（如 #17 `/AUTOSAR_R2x/` 归一化）
+- [x] `index.ts` barrel 暴露两个 helper（`normalizePath`、`tryStripTypeSegment`），供 renderer / 未来 cross-doc 工具 / RTE path 生成复用
+- [x] 5/5 fixture 数字除 cross-ref 外全部不变；cross-ref 缩量 333（−25%）
+- [ ] fixture 数据本身的 dangling 1003 项 → 后续 backlog（Deviations #1）
 
 ## 参考资料
 

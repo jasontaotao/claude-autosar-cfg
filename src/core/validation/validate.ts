@@ -289,6 +289,68 @@ export function normalizePath(path: string): string {
 }
 
 // ============================================================================
+// Sprint 9 #1 — Schema type-segment strip
+// ============================================================================
+
+/**
+ * ECUC per-instance container *type* segments that real BSWMD + EcucValues
+ * VALUE-REFs emit between the parent container and the instance shortName
+ * but `buildPathIndex` does not (it keys directly off the instance shortName).
+ *
+ * Hard-coded whitelist: deriving from `ECUC_CONTAINER_SCHEMA` would miss
+ * `ComSignal` / `ComIPduGroup` (they have no multiplicity constraints and
+ * are not in the container schema). Maintenance contract: when
+ * `ECUC_SUBSET_SCHEMA` / `ECUC_CONTAINER_SCHEMA` gain new per-instance
+ * container types (Sprint 9 #14 CanIf + others), extend this set in
+ * lockstep — see PROGRESS.md Sprint 9 #1 for the rationale.
+ */
+const KNOWN_TYPE_SEGMENTS: ReadonlySet<string> = new Set([
+  'Pdu',
+  'ComIPdu',
+  'ComSignal',
+  'ComIPduGroup',
+]);
+
+/**
+ * Strip schema-side type segments from an absolute AUTOSAR path so it
+ * matches the value-side path index built by `walkPathIndex`. Pure /
+ * side-effect-free / immutable.
+ *
+ * Algorithm: split on `/`, drop any segment whose exact value is in
+ * `KNOWN_TYPE_SEGMENTS`, rejoin. Trailing-slash placeholders are
+ * preserved (caller `isUnsetPlaceholder` filters them before lookup).
+ * The empty-string and bare-typename cases from `normalizePath` also
+ * pass through unchanged.
+ *
+ * Examples (post-`normalizePath` value-side form):
+ *   - `/EcucDefs/Com/ComConfig/ComIPdu/ComConfigSet_Tx_X`
+ *     → `/EcucDefs/Com/ComConfig/ComConfigSet_Tx_X`
+ *   - `/EcucDefs/EcuC/EcucPduCollection/Pdu/X`
+ *     → `/EcucDefs/EcuC/EcucPduCollection/X`
+ *
+ * Pass-through for: empty string, paths without any known type segment.
+ * Case-sensitive: lowercase variants (e.g. `pdu`) are NOT stripped —
+ * ECUC type segments are uppercase by convention.
+ *
+ * @param path absolute AUTOSAR path (already namespace-normalised)
+ * @returns path with known type segments removed
+ */
+export function tryStripTypeSegment(path: string): string {
+  if (path === '') return path;
+  const segments = path.split('/');
+  let dropped = false;
+  const kept: string[] = [];
+  for (const seg of segments) {
+    if (KNOWN_TYPE_SEGMENTS.has(seg)) {
+      dropped = true;
+      continue;
+    }
+    kept.push(seg);
+  }
+  return dropped ? kept.join('/') : path;
+}
+
+// ============================================================================
 // Sprint 6 — Project-level validation: cross-container reference resolution
 // ============================================================================
 
@@ -456,11 +518,16 @@ export function checkCrossRefs(
     if (isUnsetPlaceholder(site.targetPath)) continue;
     // Sprint 8 T1: collapse the fixture's `/EAS/...` definition-side
     // namespace onto the `/EcucDefs/...` value-side namespace used by
-    // buildPathIndex, so the path lookup actually matches. The
-    // `site.targetPath` field is intentionally left as the original
+    // buildPathIndex, so the path lookup actually matches.
+    //
+    // Sprint 9 #1: also strip any schema-side type segment (e.g. `/Pdu/`,
+    // `/ComIPdu/`) that the fixture VALUE-REF carries between the
+    // parent container and the instance shortName; pathIndex keys use
+    // the instance shortName directly so the type segment must go.
+    // The `site.targetPath` field is intentionally left as the original
     // string so the error payload's `actual` shows the fixture-original
     // path and stays useful for cross-referencing the source ARXML.
-    const resolved = normalizePath(site.targetPath);
+    const resolved = tryStripTypeSegment(normalizePath(site.targetPath));
     if (!pathIndex.has(resolved)) {
       const error: ValidationError =
         site.paramKey !== undefined
