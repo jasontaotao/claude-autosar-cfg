@@ -5,6 +5,39 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] — 2026-06-15 (Sprint 9 #2 — target-side ref dest validation)
+
+### Added
+
+- `src/core/validation/validate.ts` — new pure helper `checkRefDests(refSites, pathIndex): readonly ValidationError[]` that performs target-side reference DEST-kind validation. After a cross-ref resolves in `pathIndex`, the resolved entry's `kind` must match the consumer's declared `site.targetDest`. Complements the existing schema-side `'reference'` kind check (which compares source's DEST against the schema entry's `refDest`) with a target-existence complement (compares source's DEST against the resolved target's actual kind).
+- `src/core/validation/validate.ts` — new file-level constant `DEST_KIND_MAP: ReadonlyMap<string, ReadonlySet<PathIndexEntry['kind']>>` mapping the three standard ECUC target-kind DEST values to the set of allowed pathIndex entry kinds. Unrecognised DEST values (e.g. `ECUC-INTEGER-PARAM-DEF`, `ECUC-FUNCTION-NAME-DEF`) are skipped silently — their natural target is a param value not a path-indexed container/module/reference, so there is no ground truth to compare against. Maintenance contract: when a vendor DEST value proves stable (e.g. `ECUC-CHOICE-REFERENCE-DEF` after Sprint 9 #14 CanIf), add the mapping here with one line + a unit test pinning the new rule.
+- `src/core/validation/types.ts` — `ValidationErrorKind` union gains `'ref-dest'` (now 8 kinds: `range` / `enum` / `reference` / `required` / `schema` / `multiplicity` / `cross-ref` / `ref-dest`).
+- `src/core/validation/index.ts` — barrel re-export `checkRefDests` alongside `normalizePath` and `tryStripTypeSegment`.
+- `src/core/validation/__tests__/checkRefDests.test.ts` — 14 unit tests covering: 3 dest-value × 2 outcomes (pass/fail), 4 edge cases (undefined targetDest / unresolved target / unknown dest / placeholder), 1 payload field completeness, 1 placeholder-skip, 1 normalization chain test (namespace + type-segment).
+- `src/core/validation/__tests__/validateProject.test.ts` — 3 E2E tests verifying target-side validation runs through the full pipeline: param-level mismatch (container dest pointing at reference element), param-level pass, ArxmlReference element mismatch with no paramKey.
+- `src/renderer/components/ValidationPanel.css` — new `.kind-ref-dest` class (amber-rose `#f59e0b`) visually distinct from `.kind-reference` purple `#a855f7` (schema-side) and `.kind-cross-ref` teal `#14b8a6` (target-existence).
+
+### Changed
+
+- `src/core/validation/validate.ts` — `walkRefs` now propagates `ParamValue.dest` (carried by the parser from `<VALUE-REF DEST="...">`) into `RefSite.targetDest` for **param-level** references, not just `ArxmlReference` elements. This was a latent bug: the existing 2157 VALUE-REFs in 5-fixture data had `targetDest === undefined` in their RefSite records, which would have made `checkRefDests` a no-op on real fixture data. The fix is a one-line conditional spread (`...(value.dest !== undefined ? { targetDest: value.dest } : {})`) that preserves the field's optionality without introducing a phantom property.
+- `src/core/validation/validate.ts` — `validateProject` runs `checkRefDests` as a new Step 5 after `checkCrossRefs`. Same `refSites` and `pathIndex` inputs are reused (no double work).
+- `src/core/validation/__tests__/validateProject.fixtures.test.ts` — baseline console.log now prints `ref-dest errors : N` line; signature guard gains a new `ref-dest` band `[0, 200]` (5-fixture observation: 0, upper bound catches catastrophic over-fire regressions only); header comment block updated to document the Sprint 7 → Sprint 8 #1 → Sprint 9 #1 → Sprint 9 #2 baseline evolution.
+- `src/core/validation/__tests__/types.test.ts` — replaced the stale "covers all 5 kinds" hardcoded-array test with an enumerated `ValidationErrorKind` test that uses the real union type annotation. The test now fails on drift when a new kind is added without updating the list (compiler enforces shape).
+
+### Verified
+
+- `pnpm vitest run` — **215 tests pass / 0 fail / 0 skipped** (Sprint 9 #1 198 → Sprint 9 #2 215, +17 new). All 23 test files green.
+- `pnpm vitest run --coverage` — **95.33% stmts / 82.67% branches / 100% funcs**. Branch coverage held (the new checkRefDests branch is fully exercised by the 14 unit + 3 E2E tests; the walkRefs fix branch is exercised by the 5-fixture ref-dest count dropping to 0 — proof the dest is now correctly propagated).
+- 5-fixture project-level baseline numbers (Sprint 9 #2): `pathIndex.size` 1611, `refSites.length` 1336, `referenceParams.total` 1341, `cross-ref errors` 1003, `ref-dest errors` **0** (was undefined before; new metric). `validateProject total` 1003.
+- 5/5 per-doc baseline: 0 per-doc violation preserved.
+- Public API: `checkRefDests` is additive; `checkCrossRefs` / `validateProject` / `buildPathIndex` / `extractReferences` signatures unchanged; existing 5-fixture round-trip deep-equal signature preserved; existing `'reference'` kind (schema-side) behaviour unchanged and complementary to the new `'ref-dest'` kind (target-side).
+
+### Deviations
+
+- **5-fixture ref-dest count is 0 (clean data)**: every fixture VALUE-REF's `DEST` attribute matches the resolved target's actual kind (fixture data is internally consistent on the dest-kind axis). The helper is exercised by 14 unit tests on synthetic dirty data + 3 E2E tests on `validateProject`. For user-loaded data with real dest-kind mismatches, the helper will fire correctly. Documented in PROGRESS.md Sprint 9 #2 Deviations and the fixtures test header comment.
+- **walkRefs bugfix bundled in same ship**: the original Sprint 9 #2 plan only added `checkRefDests`. The walkRefs fix for `targetDest` propagation was discovered while measuring the fixture baseline and is a necessary precondition for the new check to actually run on real fixture data. It is a one-line change (conditional spread) and ships in the same commit because splitting would leave the helper non-functional in practice.
+- **No new `'ref-dest'` UI test additions**: `ValidationPanel.tsx` is data-driven via `groupByKind` + `Object.entries(grouped).map(...)` so new kinds auto-render. The existing 2 `ValidationPanel` integration tests verify the panel renders without crashing; they do not assert a specific kind set, so no test was added for the new kind. The `.kind-ref-dest` CSS class is purely visual and has no test coverage (matches the existing convention of untested visual styling).
+
 ## [0.9.2] — 2026-06-15 (Sprint 9 #1 — schema type-segment strip)
 
 ### Added

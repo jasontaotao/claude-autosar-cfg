@@ -9,6 +9,7 @@ export {
   buildPathIndex,
   extractReferences,
   checkCrossRefs,
+  checkRefDests,
   normalizePath,
   tryStripTypeSegment,
 } from './validate.js';

@@ -125,6 +125,16 @@
   color: white;
 }
 
+/* Sprint 9 #2: target-side reference DEST-kind mismatches — amber-rose
+   (distinct from both `.kind-reference` purple and `.kind-cross-ref`
+   teal: 'ref-dest' means the target exists but its kind doesn't match
+   the consumer's declared DEST — a third semantic axis between
+   schema-side and target-existence). */
+.kind-ref-dest {
+  background: #f59e0b;
+  color: white;
+}
+
 .kind-count {
   color: #6b7280;
   font-size: 11px;

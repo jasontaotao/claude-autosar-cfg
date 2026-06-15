@@ -1,11 +1,12 @@
-// 5-fixture project-level baseline (Sprint 7 F7 → Sprint 9 #1).
+// 5-fixture project-level baseline (Sprint 7 F7 → Sprint 9 #2).
 //
 // Loads the same 5 ARXML files the single-doc baseline (Sprint 5) uses
 // and runs the new project-level surface end-to-end:
 //   1. buildPathIndex  — counts how many elements end up addressable
 //   2. extractReferences — counts VALUE-REF consumption sites
 //   3. checkCrossRefs  — counts dangling refs across the project
-//   4. validateProject — aggregate including single-doc errors
+//   4. checkRefDests   — counts target-side dest-kind mismatches (Sprint 9 #2)
+//   5. validateProject — aggregate including single-doc errors
 //
 // Sprint 7 F7 (T1-A + T1-B + T1-C) shipped ECUC-REFERENCE-VALUE
 // end-to-end:
@@ -71,7 +72,13 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { parseArxml } from '../../arxml/parser.js';
-import { buildPathIndex, checkCrossRefs, extractReferences, validateProject } from '../index.js';
+import {
+  buildPathIndex,
+  checkCrossRefs,
+  checkRefDests,
+  extractReferences,
+  validateProject,
+} from '../index.js';
 
 const FIXTURES = [
   'Det_Det.arxml',
@@ -136,6 +143,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     const pathIndex = buildPathIndex(docs);
     const refSites = extractReferences(docs);
     const crossRefErrors = checkCrossRefs(refSites, pathIndex);
+    const refDestErrors = checkRefDests(refSites, pathIndex);
     const allErrors = validateProject(docs);
 
     // Count how many string-typed 'reference' params exist in the parsed
@@ -148,7 +156,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 9 #1 baseline (5 fixtures) ===');
+    console.log('=== Sprint 9 #2 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -161,6 +169,8 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     );
     // eslint-disable-next-line no-console
     console.log('cross-ref errors       :', crossRefErrors.length);
+    // eslint-disable-next-line no-console
+    console.log('ref-dest errors        :', refDestErrors.length);
     // eslint-disable-next-line no-console
     console.log('validateProject total  :', allErrors.length);
     // eslint-disable-next-line no-console
@@ -180,8 +190,10 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // against a regression where 'cross-ref' is accidentally renamed back
     // to 'reference' or a typo is introduced.
     expect(crossRefErrors.every((e) => e.kind === 'cross-ref')).toBe(true);
+    // Every ref-dest error we emit must carry the new kind label.
+    expect(refDestErrors.every((e) => e.kind === 'ref-dest')).toBe(true);
 
-    // -- SIGNATURE INTERVAL GUARDS (Sprint 9 #1) ----------------------------
+    // -- SIGNATURE INTERVAL GUARDS (Sprint 9 #2) ----------------------------
     // Sprint 7 F7 ships 1336 refSites. Sprint 8 #1 kept the [1300, 1400]
     // band for `refSites` because the namespace helper only rewrites a
     // path string — it never adds or drops sites.
@@ -202,20 +214,41 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // a branch mismatch; this is fixture data quality, out of scope for
     // Sprint 9 #1 (documented in Deviations; future backlog candidate).
     //
+    // Sprint 9 #2 adds a new `ref-dest` kind for target-side validation.
+    // 5-fixture observation: **0 ref-dest errors** — every resolved ref
+    // target's kind matches the consumer's DEST declaration (the fixture
+    // data is internally consistent on the dest-kind axis). The helper
+    // is exercised by 14 unit tests on synthetic dirty data + 3 E2E
+    // tests on `validateProject`, and will catch real dest mismatches
+    // in user-loaded data going forward.
+    //
     // Band rationale:
-    //  - refSites  [1300, 1400] — unchanged; helper does not touch sites.
-    //  - cross-ref [800, 1100]  — accommodates the 1003 actual count;
-    //                             lower bound 800 guards against future
-    //                             refactors silently resolving genuine
-    //                             dangles (false negative); upper bound
-    //                             1100 guards against parser regressions
-    //                             inflating the error count.
-    //  - allErrors [800, 1100]  — mirrors cross-ref; single-doc errors are
-    //                             still 0 across these 5 fixtures.
+    //  - refSites    [1300, 1400] — unchanged; helpers do not touch sites.
+    //  - cross-ref   [800, 1100]  — accommodates 1003; lower bound guards
+    //                               against future false-negative rewrites
+    //                               silently resolving genuine dangles;
+    //                               upper bound guards against parser
+    //                               regressions inflating the count.
+    //  - ref-dest    [0, 200]     — new metric; 5 fixtures report 0 (clean).
+    //                               Lower bound 0 is permissive — ref-dest is
+    //                               opt-in (clean data has zero). Upper bound
+    //                               200 is a safety net for *catastrophic*
+    //                               over-fire regressions only (e.g. a wrong
+    //                               DEST_KIND_MAP entry causing thousands of
+    //                               refSites to mismatch at once would easily
+    //                               exceed 200); the band is intentionally not
+    //                               wide enough to "let" sustained misfires
+    //                               through silently.
+    //  - allErrors   [800, 1100]  — mirrors cross-ref (ref-dest is 0 on
+    //                               fixtures; can climb with dirty user
+    //                               data but the band catches parser
+    //                               regressions specifically).
     expect(refSites.length).toBeGreaterThanOrEqual(1300);
     expect(refSites.length).toBeLessThanOrEqual(1400);
     expect(crossRefErrors.length).toBeGreaterThanOrEqual(800);
     expect(crossRefErrors.length).toBeLessThanOrEqual(1100);
+    expect(refDestErrors.length).toBeGreaterThanOrEqual(0);
+    expect(refDestErrors.length).toBeLessThanOrEqual(200);
 
     // The single-doc baseline is preserved — total error count from
     // validateProject must be at least the cross-ref count (since cross-ref

@@ -471,6 +471,118 @@ describe('validateProject with cross-namespace references (Sprint 8 #1)', () => 
 });
 
 // ---------------------------------------------------------------------------
+// Sprint 9 #2 — target-side reference DEST-kind check (end-to-end)
+// ---------------------------------------------------------------------------
+
+describe('validateProject with reference DEST-kind mismatches (Sprint 9 #2)', () => {
+  it('emits a ref-dest error when ECUC-CONTAINER-VALUE points at a reference element', () => {
+    // Source container A has a param ref declaring DEST=ECUC-CONTAINER-VALUE,
+    // but the resolved target B is an ArxmlReference element (kind:'reference'),
+    // not a container. Target-side check must catch this.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          {
+            kind: 'container',
+            tagName: 'ECUC-CONTAINER-VALUE',
+            shortName: 'A',
+            params: {
+              MyRef: { type: 'reference', value: '/P/M/B', dest: 'ECUC-CONTAINER-VALUE' },
+            },
+            children: [],
+          },
+          // B is a named reference element (kind:'reference'), not a container.
+          {
+            kind: 'reference',
+            tagName: 'VALUE-REF',
+            shortName: 'B',
+            value: '/P/M/B',
+            dest: 'ECUC-REFERENCE-DEF',
+          },
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const refDestErrors = errors.filter((e) => e.kind === 'ref-dest');
+    expect(refDestErrors).toHaveLength(1);
+    expect(refDestErrors[0]).toMatchObject({
+      kind: 'ref-dest',
+      path: '/P/M/A',
+      paramKey: 'MyRef',
+      expected: 'ECUC-CONTAINER-VALUE',
+      actual: 'reference',
+    });
+    // No cross-ref error — the target resolves; only the kind mismatches.
+    expect(errors.filter((e) => e.kind === 'cross-ref')).toHaveLength(0);
+  });
+
+  it('emits no ref-dest error when ECUC-CONTAINER-VALUE correctly points at a container', () => {
+    // Sanity: clean case — source dest matches target kind, no error.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          makeContainer('B'),
+          {
+            kind: 'container',
+            tagName: 'ECUC-CONTAINER-VALUE',
+            shortName: 'A',
+            params: {
+              MyRef: { type: 'reference', value: '/P/M/B', dest: 'ECUC-CONTAINER-VALUE' },
+            },
+            children: [],
+          },
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    expect(errors.filter((e) => e.kind === 'ref-dest')).toHaveLength(0);
+  });
+
+  it('emits a ref-dest error when an ArxmlReference element has a mismatched dest', () => {
+    // Top-level ArxmlReference element (not param) — also covered by checkRefDests.
+    const doc = makeDoc({
+      pkgName: 'P',
+      elements: [
+        makeModule('M', [
+          // B is a reference element; consumer declares dest=ECUC-CONTAINER-VALUE
+          // (which expects a container/module target) → mismatch.
+          {
+            kind: 'reference',
+            tagName: 'LOCAL-REF',
+            shortName: 'Consumer',
+            value: '/P/M/B',
+            dest: 'ECUC-CONTAINER-VALUE',
+          },
+          {
+            kind: 'reference',
+            tagName: 'INNER-REF',
+            shortName: 'B',
+            value: '/P/M/B',
+            dest: 'ECUC-REFERENCE-DEF',
+          },
+        ]),
+      ],
+    });
+
+    const errors = validateProject([doc]);
+    const refDestErrors = errors.filter((e) => e.kind === 'ref-dest');
+    expect(refDestErrors).toHaveLength(1);
+    expect(refDestErrors[0]).toMatchObject({
+      kind: 'ref-dest',
+      path: '/P/M', // source path is the parent module
+      expected: 'ECUC-CONTAINER-VALUE',
+      actual: 'reference',
+    });
+    // ArxmlReference has no paramKey.
+    expect(refDestErrors[0]?.paramKey).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // validateProject (end-to-end)
 // ---------------------------------------------------------------------------
 

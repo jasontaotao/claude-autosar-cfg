@@ -14,7 +14,8 @@ export type ValidationErrorKind =
   | 'required'
   | 'schema'
   | 'multiplicity'
-  | 'cross-ref';
+  | 'cross-ref'
+  | 'ref-dest';
 
 /**
  * A single validation violation.

@@ -11,18 +11,19 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 
 ## Sprint 总览（v0.1.0 路线）
 
-| Sprint                                      | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S0** 脚手架                               | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                                                                                                                                                          |
-| **S1** F1 ARXML IO                          | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                                                                                                                                                      |
-| **S2** F2 Tree + 7-param editor             | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                                                                                                                                                          |
-| **S3** F3 Validation                        | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation                                                                                                                                      |
-| **S4** F4 Parser bug fix + verify format    | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation                                                                                                                               |
-| **S5** F5 Container multiplicity            | 增 ECUC container 实例数 [lower, upper] 校验                 | ✅   | 2026-06-15 | `5c47f37`                                          | `types.ts` 加 `'multiplicity'` kind + `EcucContainerSchemaEntry` interface + `ecucSubset.ts` 13 entries + `validate.ts` `checkContainerMultiplicity` + `ValidationPanel` 第 6 group + 117 tests / 95.1% coverage / 5/5 baseline 0 violation                                                                               |
-| **S6** F6 Cross-container reference         | 项目级 cross-ref API + `'cross-ref'` 第 7 kind               | ✅   | 2026-06-15 | TBD                                                | `types.ts` 加 `'cross-ref'` kind + `PathIndexEntry` + `RefSite` interface + `validate.ts` 加 `validateProject` / `buildPathIndex` / `extractReferences` / `checkCrossRefs` + ValidationPanel `.kind-cross-ref` teal + 146 tests / 94.95% coverage / 5/5 baseline 0 violation；parser `<REFERENCE-VALUES>` 解析留 Sprint 7 |
-| **S7** F7 ECUC-REFERENCE-VALUE              | parser + serializer REFERENCE-VALUES 解析/序列化             | ✅   | 2026-06-15 | `ff2c1d5`                                          | `types.ts` ParamValue.reference 加 `dest?` + parser `extractReferenceParams` 双 dialect 扫 + serializer `renderParamEntries` / `renderRegularParam` / `renderReferenceParam` + 5 fixture round-trip 恢复 + 1336 baseline signed-guard [1300, 1400] + 161 tests / 94.86% coverage / 5/5 baseline 0 violation               |
-| **S8** F8 #1 Cross-fixture namespace 归一化 | `normalizePath` 纯 helper + `checkCrossRefs` 入口归一化      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `normalizePath`（`/EAS → /EcucDefs`）+ 8 normalizePath 单测 + 3 validateProject 端到端 + fixtures test 注释更新（含 PLAN 漏错 1 处 + 双错配文档化）+ 172 tests / 94.98% / 80.48% branches / 5/5 baseline 0 violation；type 段错配未在 scope，留 Sprint 9+ #1                                             |
-| **S9** F9 #1 schema type-segment strip      | `tryStripTypeSegment` 纯 helper + `checkCrossRefs` 串接      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `tryStripTypeSegment`（白名单 `Pdu` / `ComIPdu` / `ComSignal` / `ComIPduGroup`）+ 12 单测 + `index.ts` barrel export + fixtures test 签名 guard 调 [800, 1100] + 198 tests / 95.33% / 82.67% branches / cross-ref 1336 → 1003（剩 1003 是 fixture 数据本身 dangling，deviation 文档化）                  |
+| Sprint                                      | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0** 脚手架                               | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                                                                                                                                                                                                                                                                |
+| **S1** F1 ARXML IO                          | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                                                                                                                                                                                                                                                            |
+| **S2** F2 Tree + 7-param editor             | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                                                                                                                                                                                                                                                                |
+| **S3** F3 Validation                        | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation                                                                                                                                                                                                                                            |
+| **S4** F4 Parser bug fix + verify format    | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation                                                                                                                                                                                                                                     |
+| **S5** F5 Container multiplicity            | 增 ECUC container 实例数 [lower, upper] 校验                 | ✅   | 2026-06-15 | `5c47f37`                                          | `types.ts` 加 `'multiplicity'` kind + `EcucContainerSchemaEntry` interface + `ecucSubset.ts` 13 entries + `validate.ts` `checkContainerMultiplicity` + `ValidationPanel` 第 6 group + 117 tests / 95.1% coverage / 5/5 baseline 0 violation                                                                                                                                                                                     |
+| **S6** F6 Cross-container reference         | 项目级 cross-ref API + `'cross-ref'` 第 7 kind               | ✅   | 2026-06-15 | TBD                                                | `types.ts` 加 `'cross-ref'` kind + `PathIndexEntry` + `RefSite` interface + `validate.ts` 加 `validateProject` / `buildPathIndex` / `extractReferences` / `checkCrossRefs` + ValidationPanel `.kind-cross-ref` teal + 146 tests / 94.95% coverage / 5/5 baseline 0 violation；parser `<REFERENCE-VALUES>` 解析留 Sprint 7                                                                                                       |
+| **S7** F7 ECUC-REFERENCE-VALUE              | parser + serializer REFERENCE-VALUES 解析/序列化             | ✅   | 2026-06-15 | `ff2c1d5`                                          | `types.ts` ParamValue.reference 加 `dest?` + parser `extractReferenceParams` 双 dialect 扫 + serializer `renderParamEntries` / `renderRegularParam` / `renderReferenceParam` + 5 fixture round-trip 恢复 + 1336 baseline signed-guard [1300, 1400] + 161 tests / 94.86% coverage / 5/5 baseline 0 violation                                                                                                                     |
+| **S8** F8 #1 Cross-fixture namespace 归一化 | `normalizePath` 纯 helper + `checkCrossRefs` 入口归一化      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `normalizePath`（`/EAS → /EcucDefs`）+ 8 normalizePath 单测 + 3 validateProject 端到端 + fixtures test 注释更新（含 PLAN 漏错 1 处 + 双错配文档化）+ 172 tests / 94.98% / 80.48% branches / 5/5 baseline 0 violation；type 段错配未在 scope，留 Sprint 9+ #1                                                                                                                                                   |
+| **S9** F9 #1 schema type-segment strip      | `tryStripTypeSegment` 纯 helper + `checkCrossRefs` 串接      | ✅   | 2026-06-15 | TBD                                                | `validate.ts` 加 `tryStripTypeSegment`（白名单 `Pdu` / `ComIPdu` / `ComSignal` / `ComIPduGroup`）+ 12 单测 + `index.ts` barrel export + fixtures test 签名 guard 调 [800, 1100] + 198 tests / 95.33% / 82.67% branches / cross-ref 1336 → 1003（剩 1003 是 fixture 数据本身 dangling，deviation 文档化）                                                                                                                        |
+| **S9** F9 #2 target-side ref dest 校验      | `checkRefDests` + `walkRefs` dest 透传 bug 修                | ✅   | 2026-06-15 | TBD                                                | `types.ts` union 加 `'ref-dest'` + `validate.ts` 加 `DEST_KIND_MAP`（3 条 + 静默 skip）+ `checkRefDests` + 串入 `validateProject` Step 5 + **walkRefs 修 bug**（param-level ref 漏传 `value.dest`，影响 2157 条 VALUE-REF）+ 14 unit + 3 E2E + fixtures guard 新增 `ref-dest` [0, 200] + `ValidationPanel.css` 加 `.kind-ref-dest` (amber-rose) + 215 tests / ref-dest 实测 0（5 fixture 干净，helper 验证于 3 E2E dirty data） |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -768,9 +769,73 @@ if (!pathIndex.has(resolved)) {
 
 - [x] `KNOWN_TYPE_SEGMENTS` 白名单 + 注释明确维护合约（#14 schema 扩张时同步）
 - [x] `validate.ts checkCrossRefs` 现在按 `normalizePath → tryStripTypeSegment → pathIndex.has` 三步流水线工作；后续可叠加更多纯 rewrite helper（如 #17 `/AUTOSAR_R2x/` 归一化）
-- [x] `index.ts` barrel 暴露两个 helper（`normalizePath`、`tryStripTypeSegment`），供 renderer / 未来 cross-doc 工具 / RTE path 生成复用
+- [x] `index.ts` barrel 暴露两个 helper（`normalizePath`、`tryStripTypeSegment`），供 renderer / 未来 cross-doc 工具 / RTE path生成复用
 - [x] 5/5 fixture 数字除 cross-ref 外全部不变；cross-ref 缩量 333（−25%）
 - [ ] fixture 数据本身的 dangling 1003 项 → 后续 backlog（Deviations #1）
+
+## Sprint 9 #2 — target-side ref dest 校验（✅ 2026-06-15 完成）
+
+### 完成情况
+
+- **215 tests pass / 0 fail / 0 skipped**（Sprint 9 #1 198 → #2 215，+17 新增：14 unit + 3 E2E）
+- coverage **95.33% stmts / 82.67% branches / 100% funcs**（持平，新增分支被新测覆盖）
+- 5/5 fixture round-trip 不退化
+- 关键数字变化：
+  - pathIndex.size 1611（不变）
+  - refSites.length 1336（不变）
+  - cross-ref errors 1003（不变）
+  - **ref-dest errors 0**（5 fixture 干净，3 E2E 用 dirty data 验证 helper 生效）
+  - validateProject total 1003（不变）
+
+### 解决什么问题
+
+Sprint 9 #1 ship 后剩 1003 cross-ref 错误（fixture 数据本身 branch mismatch），且 5 fixture 里的 2157 条 VALUE-REF 全部**没有任何 dest-side 校验**。现有 `walkReference`（validate.ts:87-100）只覆盖 schema-side + `kind:'reference'` element + 46 entries 中只有 2 条带 `refDest`——5 fixture 上 **0 命中**。
+
+本项 ship 解决**目标侧**（target-side）ref dest 校验 + **修一个 latent bug**：
+
+1. **新 helper** `checkRefDests`：cross-ref resolve 后，验证 `site.targetDest`（consumer 声明）↔ `pathIndex[resolved].kind`（target 实际身份）一致。新增 `'ref-dest'` kind。
+2. **DEST_KIND_MAP 静态表**（3 条 + 静默 skip）：
+   - `ECUC-CONTAINER-VALUE` → `'container' | 'module'`
+   - `ECUC-REFERENCE-DEF` → `'reference'`
+   - `ECUC-FOREIGN-REFERENCE-DEF` → `'reference'`
+3. **walkRefs bug 修**：原代码在 param-level ref 漏传 `value.dest` → `RefSite.targetDest`，导致 `checkRefDests` 对 fixture 数据零作用。1 行 spread 修复。
+
+### 改动清单（6 文件 + 2 新测试文件）
+
+| 文件                                                             | 改动                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core/validation/types.ts`                                   | `ValidationErrorKind` union 加 `'ref-dest'`（8 个 kind）                                                                                                                                                                       |
+| `src/core/validation/validate.ts`                                | 新增 `DEST_KIND_MAP` 常量 + `checkRefDests(refSites, pathIndex)` pure helper；`validateProject` 串入 Step 5；**walkRefs 修 bug**（param-level ref 漏传 `value.dest`）；JSDoc 维护合约（#14 schema 扩张时同步扩 DEST_KIND_MAP） |
+| `src/core/validation/index.ts`                                   | barrel re-export `checkRefDests`                                                                                                                                                                                               |
+| `src/core/validation/__tests__/checkRefDests.test.ts`            | **新文件**，14 unit tests（3 dest × 2 outcome + 4 edge + 1 payload 完整性 + 1 placeholder + 1 normalization）                                                                                                                  |
+| `src/core/validation/__tests__/validateProject.test.ts`          | 加 3 E2E（param-level mismatch / param-level pass / ArxmlReference element mismatch）                                                                                                                                          |
+| `src/core/validation/__tests__/validateProject.fixtures.test.ts` | baseline console.log 加 ref-dest 计数；签名 guard 新增 `refDestErrors` band [0, 200]；header 文档化 Sprint 9 #2 演化                                                                                                           |
+| `src/core/validation/__tests__/types.test.ts`                    | 修 stale 5-kinds 测试，改为枚举 8-kinds 真实 union + `ValidationErrorKind` 类型注解                                                                                                                                            |
+| `src/renderer/components/ValidationPanel.css`                    | 加 `.kind-ref-dest` 样式（amber-rose `#f59e0b`，与 `.kind-reference` 紫 / `.kind-cross-ref` teal 区分）                                                                                                                        |
+
+### Review 处理（code-reviewer 子 agent）
+
+| Finding                                                                                           | 处理                                                                                       |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| MEDIUM：fixtures guard band [0, 200] 注释误导                                                     | ✅ 改写注释，明示"catastrophic over-fire 守护"语义                                         |
+| LOW-1：`types.test.ts:81-84` 5-kinds 数组 stale                                                   | ✅ 改为枚举 8-kinds 真实 union + 类型注解                                                  |
+| LOW-2：`checkRefDests` / `checkCrossRefs` 共享 path-resolution helper（提取 `resolveTargetPath`） | 跳过（micro，JSDoc 已记录 coupling；当前重复仅 1 行）                                      |
+| LOW-3：`DEST_KIND_MAP` 用 `Set<kind>` 而非 `kind[]`                                               | 跳过（Set O(1) `has` vs Array.includes O(1-2)，n=1-2 无差异但语义 Set 更准确表达"多选一"） |
+| LOW-4：error payload 重复（paramKey 有/无 两个 literal）                                          | ✅ 提取 `base` 共享 literal，spread paramKey                                               |
+
+### Deviations
+
+1. **5 fixture ref-dest = 0 是"正确"结果**：fixture 数据 dest/type 完全自洽（VALUE-REF 全部用 `ECUC-CONTAINER-VALUE` 指向 container 实例）。helper 在 14 unit tests + 3 E2E 用 dirty synthetic data 验证语义正确，fixture 数据触发不了。但 helper 对**未来用户数据**会立即生效，捕获 dest/type 错配。documented in fixtures test header 注释。
+2. **walkRefs bug 修一并 ship**：原本只准备加 `checkRefDests`，但发现 `walkRefs` 在 param-level ref 漏传 `value.dest` 会让 helper 对 fixture 数据完全无效。1 行 spread 修是必要前置。无独立 commit。
+
+### Sprint 9 #2 → Sprint 9 #3 衔接
+
+- [x] `DEST_KIND_MAP` 维护合约注释（#14 schema 扩张时同步）
+- [x] `validate.ts validateProject` 现在按 5 步流水线工作：单文档 validate → buildPathIndex → extractReferences → checkCrossRefs → checkRefDests
+- [x] `walkRefs` bug 修保证所有 ref（param-level + element-level）的 dest 都透传到 RefSite
+- [x] `types.test.ts` 8-kinds 真实 union 枚举为新 kind 漂移守护
+- [x] ValidationPanel 新 kind `.kind-ref-dest` CSS 类已加，自动渲染
+- [ ] fixture 数据本身 1003 dangling → 后续 backlog
 
 ## 参考资料
 

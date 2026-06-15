@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import type {
   ValidationError,
+  ValidationErrorKind,
   ValidationResult,
   EcucSchemaEntry,
   EcucParamType,
@@ -78,8 +79,23 @@ describe('validation types', () => {
     expect(refEntry.refDest).toBe('ECUC-REFERENCE-DEF');
   });
 
-  it('ValidationErrorKind covers all 5 kinds (extensible)', () => {
-    const kinds = ['range', 'enum', 'reference', 'required', 'schema'] as const;
-    expect(kinds.length).toBe(5);
+  it('ValidationErrorKind union enumerates every kind declared in types.ts', () => {
+    // The canonical source of truth is `types.ts:ValidationErrorKind`.
+    // Keep this list in lockstep when adding a new kind; the check
+    // makes the contract explicit so the compiler complains on drift.
+    // As of Sprint 9 #2 the union has 8 members:
+    //   range, enum, reference, required, schema, multiplicity,
+    //   cross-ref, ref-dest
+    const kinds: readonly ValidationErrorKind[] = [
+      'range',
+      'enum',
+      'reference',
+      'required',
+      'schema',
+      'multiplicity',
+      'cross-ref',
+      'ref-dest',
+    ];
+    expect(kinds.length).toBe(8);
   });
 });

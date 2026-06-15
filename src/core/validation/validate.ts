@@ -386,6 +386,9 @@ export function validateProject(documents: readonly ArxmlDocument[]): readonly V
   // Step 4: run cross-ref existence check
   errors.push(...checkCrossRefs(refSites, pathIndex));
 
+  // Step 5: run target-side DEST-kind check (Sprint 9 #2)
+  errors.push(...checkRefDests(refSites, pathIndex));
+
   return errors;
 }
 
@@ -489,9 +492,16 @@ function walkRefs(parentPath: string, elements: readonly ArxmlElement[], sites: 
     const childPath = `${parentPath}/${el.shortName}`;
     for (const [paramKey, value] of Object.entries(el.params)) {
       if (value.type === 'reference') {
+        // Sprint 9 #2 fix: propagate ParamValue.dest (carried from the
+        // VALUE-REF's DEST attribute by the parser) into RefSite.targetDest
+        // so `checkRefDests` can run target-side validation on VALUE-REF
+        // params, not just ArxmlReference elements. Without this, param-
+        // level refs (the dominant case in 5-fixture data) always have
+        // targetDest === undefined and silently skip the dest-kind rule.
         sites.push({
           sourcePath: childPath,
           targetPath: value.value,
+          ...(value.dest !== undefined ? { targetDest: value.dest } : {}),
           tagName: paramKey,
           paramKey,
         });
@@ -546,6 +556,82 @@ export function checkCrossRefs(
               expected: 'resolvable absolute path',
               actual: site.targetPath,
             };
+      errors.push(error);
+    }
+  }
+  return errors;
+}
+
+// ============================================================================
+// Sprint 9 #2 — Target-side reference DEST-kind check
+// ============================================================================
+
+/**
+ * Map from `<VALUE-REF DEST="...">` (and `<REFERENCE-REF DEST="...">`)
+ * attribute values to the set of `PathIndexEntry.kind` values the
+ * resolved target is allowed to have. Mismatches become `'ref-dest'`
+ * validation errors.
+ *
+ * Conservative coverage — the ECUC DEST values not catalogued here
+ * (e.g. `ECUC-INTEGER-PARAM-DEF`, `ECUC-FUNCTION-NAME-DEF`) are
+ * skipped silently rather than over-flagged, because:
+ *   1. Their natural target is a *param value* not a path-indexed
+ *      container / module / reference; param values are not path
+ *      indexed today, so we have no ground truth to compare against.
+ *   2. False positives would erode user trust in the validation panel.
+ *
+ * Maintenance: when an AUTOSAR vendor dest value proves stable
+ * (e.g. `ECUC-CHOICE-REFERENCE-DEF` after Sprint 9 #14 CanIf), add
+ * the mapping here with one line + a unit test pinning the new rule.
+ */
+const DEST_KIND_MAP: ReadonlyMap<string, ReadonlySet<PathIndexEntry['kind']>> = new Map([
+  ['ECUC-CONTAINER-VALUE', new Set<PathIndexEntry['kind']>(['container', 'module'])],
+  ['ECUC-REFERENCE-DEF', new Set<PathIndexEntry['kind']>(['reference'])],
+  ['ECUC-FOREIGN-REFERENCE-DEF', new Set<PathIndexEntry['kind']>(['reference'])],
+]);
+
+/**
+ * Verify every reference site's declared DEST matches the actual kind
+ * of the resolved target. Complements the existing `'reference'` kind
+ * check (which is *schema-side*: source dest vs schema entry's
+ * refDest) — this is *target-side*: source dest vs resolved target kind.
+ *
+ * Pure / testable. Emits at most one `'ref-dest'` error per site.
+ * Skips:
+ *   - sites with `targetDest === undefined` (no rule to check)
+ *   - sites with `targetDest` not in `DEST_KIND_MAP` (no rule defined)
+ *   - placeholder targets (empty / trailing `/`) — owned by 'required'
+ *   - unresolved targets — owned by 'cross-ref' (no pathIndex entry)
+ *
+ * The site-level path normalisation matches `checkCrossRefs` exactly
+ * (`normalizePath` → `tryStripTypeSegment`) so the two checks look at
+ * the *same* resolved key.
+ */
+export function checkRefDests(
+  refSites: readonly RefSite[],
+  pathIndex: Map<string, PathIndexEntry>,
+): readonly ValidationError[] {
+  const errors: ValidationError[] = [];
+  for (const site of refSites) {
+    if (site.targetDest === undefined) continue;
+    if (isUnsetPlaceholder(site.targetPath)) continue;
+    const expectedKinds = DEST_KIND_MAP.get(site.targetDest);
+    if (expectedKinds === undefined) continue;
+    const resolved = tryStripTypeSegment(normalizePath(site.targetPath));
+    const entry = pathIndex.get(resolved);
+    if (entry === undefined) continue;
+    if (!expectedKinds.has(entry.kind)) {
+      const expectedList = [...expectedKinds].join('|');
+      const message = `Reference DEST "${site.targetDest}" expects ${expectedList}, but target is a ${entry.kind}`;
+      const base = {
+        kind: 'ref-dest' as const,
+        path: site.sourcePath,
+        message,
+        expected: site.targetDest,
+        actual: entry.kind,
+      };
+      const error: ValidationError =
+        site.paramKey !== undefined ? { ...base, paramKey: site.paramKey } : base;
       errors.push(error);
     }
   }
