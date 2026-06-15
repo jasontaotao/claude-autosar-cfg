@@ -143,4 +143,60 @@ describe('parseArxml', () => {
     expect(c.params['NoValue']).toBeUndefined();
     expect(Object.keys(c.params)).toHaveLength(1);
   });
+
+  // ---------- Sprint 4 T1: DEST-aware ParamValue parsing ----------
+  // EB tresos / Vector tools wrap boolean + string in NUMERICAL/TEXTUAL wrappers;
+  // only <DEFINITION-REF DEST="..."> tells us the real schema type.
+
+  it('parses BOOLEAN DEST inside NUMERICAL wrapper (EB tresos style) → boolean', () => {
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/A/B/FlagOn</DEFINITION-REF><VALUE>true</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params['FlagOn']).toEqual({ type: 'boolean', value: true });
+  });
+
+  it('parses BOOLEAN DEST (false) inside NUMERICAL wrapper → boolean(false)', () => {
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/A/B/FlagOff</DEFINITION-REF><VALUE>false</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params['FlagOff']).toEqual({ type: 'boolean', value: false });
+  });
+
+  it('parses STRING DEST inside TEXTUAL wrapper (ECUC-STRING-PARAM-DEF) → string', () => {
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/A/B/CddHeaderFile</DEFINITION-REF><VALUE>Det.c</VALUE></ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params['CddHeaderFile']).toEqual({ type: 'string', value: 'Det.c' });
+  });
+
+  it('parses FUNCTION-NAME DEST inside TEXTUAL wrapper (ECUC-FUNCTION-NAME-DEF) → string', () => {
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/A/B/WdgSetModeName</DEFINITION-REF><VALUE>Wdg_SetMode</VALUE></ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params['WdgSetModeName']).toEqual({ type: 'string', value: 'Wdg_SetMode' });
+  });
+
+  it('falls back to enum when TEXTUAL wrapper has no DEST (back-compat)', () => {
+    // No @_DEST on DEFINITION-REF → wrapper-tag fallback kicks in.
+    // TEXTUAL without DEST must remain 'enum' (per Sprint 4 plan §2.3 row 9).
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE><DEFINITION-REF>/A/B/BusType</DEFINITION-REF><VALUE>LSB</VALUE></ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params['BusType']).toEqual({ type: 'enum', value: 'LSB' });
+  });
 });

@@ -328,10 +328,19 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
       if (!wrapperTag.startsWith('ECUC-')) continue;
       for (const w of asArray<Record<string, unknown>>(raw)) {
         const defRef = w['DEFINITION-REF'];
-        const defPath =
-          typeof defRef === 'object' && defRef !== null
-            ? (defRef as Record<string, unknown>)['#text']
-            : undefined;
+        // <DEFINITION-REF> may be parsed as a plain string (text-only) or as an
+        // object containing { @_DEST, #text } when attributes are present.
+        let defPath: string | undefined;
+        let defDest: string | undefined;
+        if (typeof defRef === 'string') {
+          defPath = defRef;
+        } else if (typeof defRef === 'object' && defRef !== null) {
+          const obj = defRef as Record<string, unknown>;
+          const text = obj['#text'];
+          if (typeof text === 'string') defPath = text;
+          const dest = obj['@_DEST'];
+          if (typeof dest === 'string') defDest = dest;
+        }
         const valueRaw = w['VALUE'];
         if (defPath === undefined || typeof defPath !== 'string') continue;
         if (
@@ -342,7 +351,7 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
           // VALUE missing or wrong type — skip but don't fail
           continue;
         }
-        const param = parseParamValue(wrapperTag, valueRaw);
+        const param = parseParamValue(wrapperTag, valueRaw, defDest);
         // Key = last path segment after '/'
         const key = defPath.split('/').pop() ?? defPath;
         params[key] = param;
@@ -358,17 +367,46 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
   return { params, references };
 }
 
-function parseParamValue(wrapperTag: string, raw: string | number | boolean): ParamValue {
+function parseParamValue(
+  wrapperTag: string,
+  raw: string | number | boolean,
+  dest?: string,
+): ParamValue {
+  // 1. DEST attribute is the authoritative type signal when present.
+  //    EB tresos / Vector tools sometimes wrap BOOLEAN/STRING in NUMERICAL/TEXTUAL
+  //    wrappers — only the DEST tells us the real schema type.
+  if (dest === 'ECUC-BOOLEAN-PARAM-DEF') {
+    if (typeof raw === 'boolean') return { type: 'boolean', value: raw };
+    const s = String(raw).trim().toLowerCase();
+    return { type: 'boolean', value: s === 'true' || s === '1' };
+  }
+  if (dest === 'ECUC-STRING-PARAM-DEF' || dest === 'ECUC-FUNCTION-NAME-DEF') {
+    return { type: 'string', value: String(raw) };
+  }
+  if (dest === 'ECUC-ENUMERATION-PARAM-DEF') {
+    return { type: 'enum', value: String(raw) };
+  }
+  if (dest === 'ECUC-INTEGER-PARAM-DEF') {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && Number.isInteger(n)
+      ? { type: 'integer', value: n }
+      : { type: 'integer', value: Number(String(raw)) };
+  }
+  if (dest === 'ECUC-FLOAT-PARAM-DEF') {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return { type: 'float', value: n };
+  }
+
+  // 2. Fallback when DEST is missing — use wrapper tag + VALUE shape
+  //    (back-compat for fixtures / vendors that omit DEST).
   if (wrapperTag.includes('NUMERICAL')) {
     const n = typeof raw === 'number' ? raw : Number(raw);
     return Number.isInteger(n) ? { type: 'integer', value: n } : { type: 'float', value: n };
   }
   if (wrapperTag.includes('TEXTUAL')) {
-    // Distinguish enum vs string by tag hint (TEXTUAL covers both; treat as enum if
-    // non-numeric and matches typical enum pattern, else string). For F1 round-trip
-    // safety we treat TEXTUAL as 'enum' if it parses cleanly into an enum-looking value.
-    const s = String(raw);
-    return { type: 'enum', value: s };
+    // No DEST → conservative fallback to enum (TEXTUAL covers both
+    // enum and string historically).
+    return { type: 'enum', value: String(raw) };
   }
   if (wrapperTag.includes('BOOLEAN')) {
     return { type: 'boolean', value: raw === true || raw === 'true' };

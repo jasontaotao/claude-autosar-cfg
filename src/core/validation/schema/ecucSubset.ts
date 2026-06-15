@@ -40,90 +40,55 @@ import type { EcucSchemaEntry } from '../types.js';
  * in sample → user almost certainly expects it.)
  */
 export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
-  // ---- Sentinel entries for boolean and string param types ----
-  // The fixture parser does not currently produce `boolean` or `string`
-  // ParamValue types (booleans are wrapped in NUMERICAL, strings in TEXTUAL
-  // → enum). These entries are kept so the schema self-test can exercise
-  // all 6 ECUC param types; they do not appear in any fixture and so do
-  // not contribute to baseline regression. When the parser is taught to
-  // distinguish string vs enum and to read booleans from BOOLEAN-PARAM-DEF,
-  // promote real fixture paths here and remove the sentinels.
+  // ---- Det / DetGeneral (boolean + string params) ----
+  // ECUC boolean params carry DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF";
+  // the parser now reads these as ParamValue.type === 'boolean' and the
+  // schema mirrors that semantic directly.
   {
-    path: '/EcucDefs/__sentinel/BoolParam',
+    path: '/EcucDefs/Det/DetGeneral/DetDebugLoop',
     type: 'boolean',
     required: false,
   },
   {
-    path: '/EcucDefs/__sentinel/StringParam',
+    path: '/EcucDefs/Det/DetGeneral/DetForwardToDlt',
+    type: 'boolean',
+    required: false,
+  },
+  {
+    path: '/EcucDefs/Det/DetGeneral/VersionCheck',
+    type: 'boolean',
+    required: true,
+  },
+  {
+    path: '/EcucDefs/Det/DetGeneral/DetVersionApi',
+    type: 'boolean',
+    required: false,
+  },
+  {
+    path: '/EcucDefs/Det/DetGeneral/DetErrorHook',
+    // ECUC-STRING-PARAM-DEF — parser now reads TEXTUAL with DEST=string
+    // as ParamValue.type === 'string'. maxLength=256 follows the AUTOSAR
+    // upper bound used elsewhere in the standard.
+    type: 'string',
+    maxLength: 256,
+    required: false,
+  },
+  {
+    path: '/EcucDefs/Det/DetGeneral/CddHeaderFile',
     type: 'string',
     maxLength: 256,
     required: false,
   },
 
-  // ---- Det / DetGeneral (boolean + string params) ----
-  // Booleans in ECUC are wrapped in <ECUC-NUMERICAL-PARAM-VALUE> and the
-  // parser reads them as integer 0/1; the boolean flag is on the
-  // DEFINITION-REF DEST attribute. Schema uses integer 0..1 to match
-  // the parser's actual output (boolean round-trip is a Sprint 3 concern).
-  {
-    path: '/EcucDefs/Det/DetGeneral/DetDebugLoop',
-    type: 'integer',
-    min: 0,
-    max: 1,
-    required: false,
-  },
-  {
-    path: '/EcucDefs/Det/DetGeneral/DetForwardToDlt',
-    type: 'integer',
-    min: 0,
-    max: 1,
-    required: false,
-  },
-  {
-    path: '/EcucDefs/Det/DetGeneral/VersionCheck',
-    type: 'integer',
-    min: 0,
-    max: 1,
-    required: true,
-  },
-  {
-    path: '/EcucDefs/Det/DetGeneral/DetVersionApi',
-    type: 'integer',
-    min: 0,
-    max: 1,
-    required: false,
-  },
-  {
-    path: '/EcucDefs/Det/DetGeneral/DetErrorHook',
-    // Parser delivers TEXTUAL params as `enum`; schema uses enumeration
-    // to match the runtime type. Literals come from the fixture values.
-    // (String length validation is dropped until the parser distinguishes
-    // string vs enum by DEFINITION-REF DEST.)
-    type: 'enumeration',
-    enumLiterals: [''],
-    required: false,
-  },
-  {
-    path: '/EcucDefs/Det/DetGeneral/CddHeaderFile',
-    type: 'enumeration',
-    enumLiterals: [''],
-    required: false,
-  },
-
   // ---- WdgIf / WdgIfGeneral (boolean flags) ----
-  // See note above: parser delivers 0/1 integer, schema mirrors that.
   {
     path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfDevErrorDetect',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {
     path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfVersionInfoApi',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: false,
   },
 
@@ -136,9 +101,12 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
     required: true,
   },
   {
+    // WdgSetModeName is an ECUC-FUNCTION-NAME-DEF; parser now resolves it
+    // to ParamValue.type === 'string'. maxLength=256 follows the AUTOSAR
+    // upper bound for function-name strings.
     path: '/EcucDefs/WdgIf/WdgIfDevice/WdgSetModeName',
-    type: 'enumeration',
-    enumLiterals: ['Wdg_SetMode'],
+    type: 'string',
+    maxLength: 256,
     required: true,
   },
   {
@@ -192,9 +160,7 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
   },
   {
     path: '/EcucDefs/EcuC/EcucPduCollection/Pdu/UserDefine',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: false,
   },
   {
@@ -211,49 +177,36 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
   },
 
   // ---- PduR / PduRGeneral (boolean module-support flags) ----
-  // See note above: parser delivers 0/1 integer, schema mirrors that.
   {
     path: '/EcucDefs/PduR/PduRGeneral/CanIfModuleSupport',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {
     path: '/EcucDefs/PduR/PduRGeneral/CanTpModuleSupport',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: false,
   },
   {
     path: '/EcucDefs/PduR/PduRGeneral/ComModuleSupport',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {
     path: '/EcucDefs/PduR/PduRGeneral/DcmModuleSupport',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
 
   // ---- PduR / PduRBswModules (boolean BSW-module toggle set) ----
   {
     path: '/EcucDefs/PduR/PduRBswModules/PduRUpperModule',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {
     path: '/EcucDefs/PduR/PduRBswModules/PduRLowerModule',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: false,
   },
 
@@ -306,19 +259,14 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
   },
 
   // ---- Com / ComGeneral (boolean flags + integer support counter) ----
-  // See note above: parser delivers 0/1 integer, schema mirrors that.
   {
     path: '/EcucDefs/Com/ComGeneral/VersionCheck',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {
     path: '/EcucDefs/Com/ComGeneral/ComConfigurationUseDet',
-    type: 'integer',
-    min: 0,
-    max: 1,
+    type: 'boolean',
     required: true,
   },
   {

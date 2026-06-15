@@ -191,14 +191,21 @@ function renderParams(params: Readonly<Record<string, ParamValue>>): Record<stri
   const out: Record<string, unknown>[] = [];
   for (const [defName, value] of Object.entries(params)) {
     const wrapperTag = PARAM_TAG[value.type];
-    const paramDefType =
-      value.type === 'integer' || value.type === 'float'
+    // Preserve the precise DEST so that round-trip parse keeps ParamValue.type.
+    // Conflating integer/float (or string/enum) here would cause DEST-driven
+    // re-parse to flip types — see Sprint 4 T1 (parser.ts DEST-aware).
+    const paramDefType: string =
+      value.type === 'integer'
         ? 'ECUC-INTEGER-PARAM-DEF'
-        : value.type === 'boolean'
-          ? 'ECUC-BOOLEAN-PARAM-DEF'
-          : value.type === 'enum'
-            ? 'ECUC-ENUMERATION-PARAM-DEF'
-            : 'ECUC-STRING-PARAM-DEF';
+        : value.type === 'float'
+          ? 'ECUC-FLOAT-PARAM-DEF'
+          : value.type === 'boolean'
+            ? 'ECUC-BOOLEAN-PARAM-DEF'
+            : value.type === 'enum'
+              ? 'ECUC-ENUMERATION-PARAM-DEF'
+              : value.type === 'string'
+                ? 'ECUC-STRING-PARAM-DEF'
+                : 'ECUC-REFERENCE-DEF';
     out.push({
       [wrapperTag]: {
         'DEFINITION-REF': {

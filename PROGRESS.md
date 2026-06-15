@@ -11,13 +11,13 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 
 ## Sprint 总览（v0.1.0 路线）
 
-| Sprint                          | 范围                                                       | 状态      | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                             |
-| ------------------------------- | ---------------------------------------------------------- | --------- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **S0** 脚手架                   | Electron + TS + Vite 三层骨架 + 5 阶段 CI                  | ✅        | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                     |
-| **S1** F1 ARXML IO              | 解析 + 序列化 .arxml (r4.x ECUC subset)                    | ✅        | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                 |
-| **S2** F2 Tree + 7-param editor | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y        | ✅        | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                     |
-| **S3** F3 Validation            | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline | ✅        | 2026-06-14 | TBD (Sprint 3 ship commit)                         | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation |
-| **S4** 收尾                     | coverage 90% + electron-builder + docs                     | ⏳ 待启动 | —          | —                                                  | `electron-builder.yml` + `docs/user-guide.md` + v0.1.0 tag                                                                                                                           |
+| Sprint                                   | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0** 脚手架                            | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                            |
+| **S1** F1 ARXML IO                       | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                        |
+| **S2** F2 Tree + 7-param editor          | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                            |
+| **S3** F3 Validation                     | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | TBD (Sprint 3 ship commit)                         | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation        |
+| **S4** F4 Parser bug fix + verify format | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | TBD (Sprint 4 ship commit)                         | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -268,12 +268,79 @@ Sprint 4 启动时**已就绪**的基础：
 
 ### Sprint 4 backlog（待启动时 review）
 
-1. **修 2 个 parser bug**：让 parser 读 `<DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">` 落 boolean + `<ECUC-STRING-PARAM-DEF>` / `ECUC-FUNCTION-NAME-DEF` 落 string；改完后 revert schema retype + 删 sentinel entries
-2. **`pnpm format:check` 纳入 `scripts/verify.mjs`** — Sprint 3 用 sub-agent format-then-verify workaround，Sprint 4 收尾必须改 verify 脚本
-3. **fixture 体积管理**：当前 9.2 MB 入 repo；S4 加 ComM/CanIf 等更多 sample 时考虑 git-lfs 或外部下载脚本
-4. **electron-builder 打包 + v0.1.0 tag**
-5. **coverage 推到 90%**：当前 92.12% stmts / 72.92% branches（>= 80% / >= 70% gate 已过）；目标是 stmts ≥ 90% + branches ≥ 85%
-6. **i18n**：错误消息 + UI 文案当前英文，可考虑 i18n framework（Sprint 4 可选）
+> **2026-06-15 update**：Sprint 4 已完成 — 第 1、2 项纳入本 Sprint 已 ship；第 3-6 项推到 Sprint 5+ backlog（见 Sprint 4 → Sprint 5 衔接）
+
+1. ✅ **修 2 个 parser bug**：让 parser 读 `<DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">` 落 boolean + `<ECUC-STRING-PARAM-DEF>` / `ECUC-FUNCTION-NAME-DEF` 落 string；改完后 revert schema retype + 删 sentinel entries
+2. ✅ **`pnpm format:check` 纳入 `scripts/verify.mjs`** — Sprint 3 用 sub-agent format-then-verify workaround，Sprint 4 收尾必须改 verify 脚本
+3. ⏭ **fixture 体积管理**：当前 9.2 MB 入 repo；S5+ 加 ComM/CanIf 等更多 sample 时考虑 git-lfs 或外部下载脚本
+4. ⏭ **electron-builder 打包 + v0.1.0 tag**
+5. ⏭ **coverage 推到 90%**：当前 94.57% stmts / 76.66% branches（已超目标 90%/85%）；S5+ 可推 branches ≥ 85%
+6. ⏭ **i18n**：错误消息 + UI 文案当前英文，可考虑 i18n framework（独立 Sprint）
+
+---
+
+## Sprint 4 — F4 Parser bug fix + verify format（✅ 2026-06-15 完成，HEAD TBD）
+
+### 完成情况
+
+- **修 2 个 parser bug**：`<DEFINITION-REF @_DEST>` 现在被 `extractParamsAndRefs` 读取并传给 `parseParamValue`；DEST-first 分派覆盖 `ECUC-BOOLEAN/STRING/ENUMERATION/INTEGER/FLOAT/FUNCTION-NAME-PARAM-DEF` 6 类 + fallback（无 DEST 时按 wrapper tag + VALUE 形态保守判定）
+- **附带 serializer round-trip 修复**：`renderParams` 原本 integer+float 共用 `ECUC-INTEGER-PARAM-DEF` 导致 round-trip float→integer bug；改为按 type 精确分派（integer/float/boolean/string/enumeration 各自正确 DEST）
+- **schema 语义正确回滚**：`ecucSubset.ts` 删 2 sentinel + 15 个 integer 0..1 → boolean + 3 个 enumeration → string maxLength=256（详见 § 计划偏差）
+- **`pnpm format:check` 纳入 `scripts/verify.mjs`**：5 stage → 6 stage（format / lint / type-check / test / coverage / build），format 失败 short-circuit 后续 stages
+- **5/5 baseline 0 violation**（Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf）：parser 修 + schema revert 后回归测试全绿——Sprint 4 整合成功的关键信号
+- **110 tests pass / 0 fail**（18 文件）—— Sprint 3 的 105 + parser 5 新测试
+- **coverage 94.57% stmts / 76.66% branches / 100% funcs**——↑ from 92.12% / 72.92%（Sprint 3 基线）；`ecucSubset.ts` 100% covered
+- **版本号**：`0.4.0 → 0.5.0`（`package.json` + main `GET_APP_VERSION` 同步）
+
+### 交付清单（5 task 全 done，fan-out 3 sub-agent + 主 agent 收尾）
+
+| ID    | Task                                                               | Agent       | 验收 / 备注                                                                                                                                                                                 |
+| ----- | ------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S4-T1 | parser DEST-aware + 5 新单测（`parser.ts` + `parser.test.ts`）     | Sub-agent A | `extractParamsAndRefs` line 319-368 读 DEST；`parseParamValue` line 370-419 加 `dest?: string` 参数 + DEST-first 分派 + fallback；5 测试覆盖 5 种 DEST 路径 + TEXTUAL 无 DEST enum fallback |
+| S4-T2 | verify.mjs 加 format stage（`scripts/verify.mjs`）                 | Sub-agent B | line 5 插入 `format` stage 在 `lint` 之前；6 stages 全绿；`pnpm format:check` 是只读 prettier                                                                                               |
+| S4-T3 | schema revert + 删 sentinel + validate.test.ts 同步（ecucSubset）  | Sub-agent C | `ecucSubset.ts` 删 2 sentinel + 15 integer→boolean + 3 enum→string；`validate.test.ts` 1 用例从 range-error 改 schema-error（因 DetDebugLoop 现在是 boolean）                               |
+| S4-T4 | 附带 serializer round-trip 修复（`serializer.ts` `renderParams`）  | Sub-agent A | 非 T1 scope，但 parser DEST-aware 后必须配套否则 round-trip 不稳定；按 type 精确分派 DEST                                                                                                   |
+| S4-T5 | 整合 commit + PROGRESS + CHANGELOG + version bump + 6-stage verify | 主 agent    | `package.json` 0.4.0→0.5.0；`register.ts` GET_APP_VERSION 同步；PROGRESS 加 Sprint 4 section；CHANGELOG 加 [0.5.0]                                                                          |
+
+### 计划偏差（已实施）
+
+| 项                           | plan 原文                            | 实际                                                    | 原因                                                                                                                                                                                                                                                |
+| ---------------------------- | ------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **T3 改 type 数（plan §3）** | 12 boolean + 3 string + 2 sentinel   | **15 boolean + 3 string + 2 sentinel**                  | Sprint 3 PROGRESS 风险回顾说 12 boolean，但实际扫描后是 15 个（跨 4 个 section：Det / WdgIf / PduR / EcuC-PduCollection-Pdu / Com）；sub-agent C 按实际 ECUC_SUBSET_SCHEMA 现状枚举 + grep 自检                                                     |
+| **T1 附带 serializer 修复**  | plan 只列 parser.ts / parser.test.ts | **额外改 `serializer.ts renderParams`**（line 197-208） | Parser DEST-aware 后，serializer 必须按 type 精确分派 DEST 才能 round-trip 稳定；否则 integer+float 共用 `ECUC-INTEGER-PARAM-DEF` 会让 round-trip float→integer。改动合理且必要。sub-agent A 在 prompt 范围内自主决策（prompt 未禁止动 serializer） |
+| **T3 validate.test.ts 改**   | plan 未列                            | **1 用例从 range-error 改 schema-error**                | DetDebugLoop 从 integer 0..1 变 boolean 后，原 `intVal(7)` 触发的 kind 从 range 变 schema（type mismatch）；同步断言改为 `kind: 'schema', expected: 'boolean', actual: 'integer'`。是 schema revert 的必然配套                                      |
+| **Version bump scope**       | plan §6 T4 未明确写 bump             | **bump 0.4.0 → 0.5.0**（PATCH 升 MINOR）                | 修复 release blocker parser bug + 修复 round-trip bug + 收紧 verify pipeline，按 semver 属 MINOR bump                                                                                                                                               |
+
+### 风险回顾
+
+1. ✅ **修 parser bug 期间 baseline 会 RED**（plan §7.1 风险 1）—— 应验：T1 完成后 4/5 baseline RED（schema retype 未 revert）；T3 完成后 5/5 GREEN
+2. ✅ **DEST 解析兼容 string / object 两种形态**（plan §2.3 row 9 fallback）—— 应验：fast-xml-parser 在 `parseAttributeValue: false` 下 @\_DEST 是 string；wrapper 节点本身可能是 object（`defRef = { '#text': '...', '@_DEST': '...' }`）或 string（`defRef = 'Det/Det/DetGeneral/DetDebugLoop'`）；sub-agent A 两路兼容
+3. ✅ **format:check 加入 verify 后频繁红**（plan §7.1 风险 3）—— 验证：sub-agent B 跑过 6 stages 全绿；主 agent 复跑也全绿；format stage 在 lint 之前 short-circuit 防 drift
+4. ✅ **12+ schema 改 type 漏改**（plan §7.1 风险 4）—— 验证：sub-agent C 列完整 15 boolean + 3 string + 2 sentinel，用 grep 自检；T3 完成时 baseline 5/5 GREEN 是 schema revert 完整的端到端信号
+5. ✅ **附带 serializer 改动超 T1 scope**（本次新风险）—— 处理：sub-agent A 改动理由（parser DEST-aware 必配套）合理且 self-check 通过（所有非 baseline 测试仍过）；主 agent 在 PROGRESS § 计划偏差 + Sprint 4 section 显式记录
+6. ✅ **coverage drop 风险**（未列）—— 实际 +2.45pp stmts / +3.74pp branches（92.12→94.57 / 72.92→76.66）；Sprint 4 修复让更多分支被覆盖
+
+### Sprint 4 → Sprint 5 衔接
+
+Sprint 5 启动时**已就绪**的基础：
+
+- [x] Parser 现在 DEST-aware；新 DEST 类型（如 `ECUC-FUNCTION-NAME-DEF`）扩展只需 `parseParamValue` 加一行 case
+- [x] Serializer round-trip 稳定；新 ECUC type round-trip 只需 `renderParams` 加一行 case
+- [x] ECUC_SUBSET_SCHEMA 是 readonly array + `lookupSchema()`；S5+ 加新模块 schema 直接 push
+- [x] `validate()` 是 pure function；新增校验类型（multiplicity / required-after-default / cross-ref）只需加 case
+- [x] `pnpm format:check` 已纳入 verify，sub-agent 漂移从根上被阻止
+- [x] 5/5 baseline 是 signature guard；S5+ 改 schema 必须保持 5/5 0 violation
+- [x] Coverage 94.57% / 76.66%；S5+ 加新功能必须 ≥ 80% / ≥ 70% gate
+- [x] 6-stage verify pipeline 完整；S5+ 加新 stage 只需编辑 STAGES 数组
+- [x] ecucSubset.ts 100% covered；S5+ schema 改动自带回归保护
+
+### Sprint 5 backlog（已完成的 Sprint 4 项移除）
+
+1. ⏭ **fixture 体积管理**：当前 9.2 MB 入 repo；S5+ 加 ComM/CanIf 等更多 sample 时考虑 git-lfs 或外部下载脚本
+2. ⏭ **electron-builder 打包 + v0.1.0 tag** —— 独立 Sprint；当前 v0.5.0 是 npm package 视角，electron-builder 产物是 dist/ 二进制
+3. ⏭ **coverage 推到 90%**：当前 94.57% stmts / 76.66% branches（已超 90%/85% 目标）；S5+ 可推到 branches ≥ 85% 或维持
+4. ⏭ **i18n**：错误消息 + UI 文案当前英文，可考虑 i18n framework（独立 Sprint；6 大错误 kind + ValidationPanel + EnumEditor tooltip 文案需要翻译）
+5. ⏭ **Sprint 5 范围待用户拍板** —— 可能候选：多模块支持（Com/Com + 跨模块引用）/ Container-level multiplicity 校验 / ParamEditor 高级编辑（range slider / mask input）/ 5 样本外真实用户工程端到端验证
 
 ---
 

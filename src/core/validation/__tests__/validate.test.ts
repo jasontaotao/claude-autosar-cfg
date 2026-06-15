@@ -66,6 +66,7 @@ function makeReference(shortName: string, value: string, dest: string | undefine
 
 const intVal = (n: number): ParamValue => ({ type: 'integer', value: n });
 const floatVal = (n: number): ParamValue => ({ type: 'float', value: n });
+const boolVal = (b: boolean): ParamValue => ({ type: 'boolean', value: b });
 const enumVal = (s: string): ParamValue => ({ type: 'enum', value: s });
 
 // ---------------------------------------------------------------------------
@@ -223,8 +224,8 @@ describe('validate()', () => {
 
   it('walks nested 3-level containers and validates every constrained param', () => {
     // Det module with 3 levels of nesting, exercising all rule types:
-    //   - integer VersionCheck at level 2 (in range, OK)
-    //   - integer DetDebugLoop at level 2 (out of range → range error)
+    //   - boolean VersionCheck at level 2 (matches schema type, OK)
+    //   - integer DetDebugLoop at level 2 (mismatch: schema says boolean → schema error)
     //   - enum BitOrder at /EcucDefs/EcuC/EcucGeneral (mismatch → enum error)
     //   - reference DEST at level 3 (path not in schema → silently skipped)
     // No errors for the OK ones, errors for the rest.
@@ -240,8 +241,8 @@ describe('validate()', () => {
     const level2 = makeContainer(
       'DetGeneral',
       {
-        VersionCheck: intVal(1), // integer 0..1, in range — no error
-        DetDebugLoop: intVal(7), // integer 0..1, out of range — range error
+        VersionCheck: boolVal(true), // schema says boolean — OK
+        DetDebugLoop: intVal(7), // schema says boolean — schema (type) error
       },
       [level3],
     );
@@ -254,12 +255,12 @@ describe('validate()', () => {
 
     const errors = validate(doc);
 
-    // DetDebugLoop (integer) at level 2 — schema says 0..1, value 7 → range error
-    const rangeErr = errors.find((e) => e.path.endsWith('/DetDebugLoop'));
-    expect(rangeErr).toBeDefined();
-    expect(rangeErr!.kind).toBe('range');
-    expect(rangeErr!.expected).toBe('<= 1');
-    expect(rangeErr!.actual).toBe('7');
+    // DetDebugLoop (boolean schema, integer value) at level 2 → schema (type) error
+    const schemaErr = errors.find((e) => e.path.endsWith('/DetDebugLoop'));
+    expect(schemaErr).toBeDefined();
+    expect(schemaErr!.kind).toBe('schema');
+    expect(schemaErr!.expected).toBe('boolean');
+    expect(schemaErr!.actual).toBe('integer');
 
     // BitOrder (enum) at /EcucDefs/EcuC/EcucGeneral — schema says LSB
     const enumErr = errors.find((e) => e.path.endsWith('/BitOrder'));
@@ -267,15 +268,15 @@ describe('validate()', () => {
     expect(enumErr!.kind).toBe('enum');
     expect(enumErr!.actual).toBe('MSB');
 
-    // VersionCheck (integer) at level 2 — schema entry present, in range → no error
+    // VersionCheck (boolean) at level 2 — schema entry present, matches type → no error
     // DriverRef path is not in the schema → silently skipped (intentional).
 
     const refErrors = errors.filter((e) => e.kind === 'reference');
     expect(refErrors).toHaveLength(0);
 
-    // Total: range + enum = 2 errors. Verify no other kinds slipped in.
+    // Total: schema + enum = 2 errors. Verify no other kinds slipped in.
     expect(errors).toHaveLength(2);
-    expect(errors.every((e) => e.kind === 'range' || e.kind === 'enum')).toBe(true);
+    expect(errors.every((e) => e.kind === 'schema' || e.kind === 'enum')).toBe(true);
   });
 
   it('produces no errors for a fully-valid nested module', () => {

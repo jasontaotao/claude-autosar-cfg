@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 
 const STAGES = [
+  { name: 'format', cmd: 'pnpm', args: ['format:check'] },
   { name: 'lint', cmd: 'pnpm', args: ['lint'] },
   { name: 'type-check', cmd: 'pnpm', args: ['type-check'] },
   { name: 'test', cmd: 'pnpm', args: ['test'] },

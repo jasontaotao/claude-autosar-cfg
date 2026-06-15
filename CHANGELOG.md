@@ -5,6 +5,42 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-06-15 (Sprint 4)
+
+### Fixed
+
+- **parser**: `core/arxml/parser.ts` `extractParamsAndRefs` now reads `<DEFINITION-REF @_DEST>` attribute; `parseParamValue` signature gains `dest?: string` parameter and uses **DEST-first dispatch** to map AUTOSAR ECUC parameter types:
+  - `ECUC-BOOLEAN-PARAM-DEF` → `boolean` (accepts `true`/`false`/`1`/`0`)
+  - `ECUC-STRING-PARAM-DEF` / `ECUC-FUNCTION-NAME-DEF` → `string`
+  - `ECUC-ENUMERATION-PARAM-DEF` → `enum`
+  - `ECUC-INTEGER-PARAM-DEF` / `ECUC-FLOAT-PARAM-DEF` → `integer` / `float`
+  - No DEST + `ECUC-NUMERICAL-PARAM-VALUE` wrapper → `integer`/`float` by VALUE shape (backward compatible)
+  - No DEST + `ECUC-TEXTUAL-PARAM-VALUE` wrapper → `enum` (conservative fallback)
+- **serializer**: `core/arxml/serializer.ts` `renderParams` now dispatches by type to write the exact DEST attribute (`ECUC-INTEGER-PARAM-DEF` vs `ECUC-FLOAT-PARAM-DEF` vs `ECUC-STRING-PARAM-DEF` vs `ECUC-BOOLEAN-PARAM-DEF` vs `ECUC-ENUMERATION-PARAM-DEF`); previously integer+float shared `ECUC-INTEGER-PARAM-DEF` which silently corrupted round-trips.
+
+### Changed
+
+- `core/validation/schema/ecucSubset.ts` — **schema retype revert**: 15 boolean entries (Det/WdgIf/PduR/EcuC-PduCollection-Pdu/Com) now typed `boolean` (were `integer 0..1` workaround for Sprint 3 parser bug); 3 string entries (DetErrorHook, CddHeaderFile, WdgSetModeName) now typed `string` with `maxLength: 256` (were `enumeration` workaround); 2 sentinel entries removed (`/EcucDefs/__sentinel/BoolParam`, `/EcucDefs/__sentinel/StringParam`).
+- `core/validation/__tests__/validate.test.ts` — one test now expects `kind: 'schema', expected: 'boolean', actual: 'integer'` (was `kind: 'range'`); schema revert makes DetDebugLoop a `boolean` not `integer 0..1`.
+- `scripts/verify.mjs` — added `format` stage at position 1 (before `lint`); 5 stages → 6 stages. `format` failures short-circuit the rest of the pipeline.
+
+### Verified
+
+- `pnpm verify` — format / lint / type-check / test / coverage / build all green
+- **110 unit tests pass** across 18 test files (up from 105 in v0.4.0):
+  - Sprint 3 regression: 105 tests preserved
+  - Sprint 4 new: parser.test.ts +5 tests covering DEST-first dispatch (boolean true/false, string ECUC-STRING-PARAM-DEF, string ECUC-FUNCTION-NAME-DEF, TEXTUAL fallback to enum)
+- **Coverage**: 94.57% stmts / 76.66% branches / 100% funcs / 94.57% lines (up from 92.12% / 72.92% / 100% / 92.12% in v0.4.0); `core/validation/schema/ecucSubset.ts` 100% covered.
+- **5-sample baseline regression**: Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf all **0 violations** — schema revert integrated successfully with parser fix.
+- 6-stage CI: GitHub Actions expected 6/6 green (was 5/5; format stage added).
+
+### Deviations from plan
+
+- **15 boolean entries** (not 12 as listed in plan §3.1) — Sprint 3 PROGRESS risk review listed 12, but actual scan after parser fix surfaced 15 entries across Det/WdgIf/PduR/EcuC-PduCollection-Pdu/Com sections.
+- **serializer.ts also modified** — beyond the plan's `parser.ts` + `parser.test.ts` scope, `serializer.ts` `renderParams` needed a complementary fix: parser's DEST-aware output would have been corrupted on round-trip (float → integer) without this change. Same sub-agent self-checked via non-baseline test pass.
+- **`validate.test.ts` 1 test updated** — DetDebugLoop retype from `integer 0..1` to `boolean` changes the triggered error kind from `range` to `schema` (type mismatch). Schema revert is incomplete without this.
+- **version bump 0.4.0 → 0.5.0** — fixing two release-blocker parser bugs + serializer round-trip bug + tightening verify pipeline constitutes a MINOR bump per semver.
+
 ## [0.4.0] — 2026-06-14 (Sprint 3)
 
 ### Added
