@@ -114,6 +114,12 @@ function renderPackage(pkg: ArxmlPackage): Record<string, unknown> {
     // Group mixed-kind children by tagName so fast-xml-parser wraps each group.
     out['ELEMENTS'] = groupByTagName(pkg.elements.map(renderElement));
   }
+  // Sprint 9 #12: mirror nested <AR-PACKAGES> when the source document had a
+  // recursive package hierarchy. Only emitted when nested packages exist so
+  // the flat 5-fixture round-trip signature stays field-equal.
+  if (pkg.packages !== undefined && pkg.packages.length > 0) {
+    out['AR-PACKAGES'] = { 'AR-PACKAGE': pkg.packages.map(renderPackage) };
+  }
   return out;
 }
 

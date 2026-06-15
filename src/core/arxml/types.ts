@@ -18,6 +18,14 @@ export interface ArxmlPackage {
   readonly longName?: string;
   readonly path: string;
   readonly elements: readonly ArxmlElement[];
+  /**
+   * Nested AR-PACKAGES — recursive package hierarchy. Present only when the
+   * package contains `<AR-PACKAGES>` children (e.g. R21/R22 BSWMD + EcucValues
+   * with `AUTOSAR_R2x > EcucDefs > <module>` shape). Omitted for the flat
+   * single-level shape so existing 5-fixture round-trip signatures stay
+   * field-equal.
+   */
+  readonly packages?: readonly ArxmlPackage[];
 }
 
 export type ArxmlElement = ArxmlModule | ArxmlContainer | ArxmlReference;

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { parseArxml } from '../parser.js';
+import { serializeArxml } from '../serializer.js';
 import type { ArxmlModule, ArxmlContainer } from '../types.js';
 
 const MINIMAL_R46 = `<?xml version="1.0" encoding="UTF-8"?>
@@ -288,6 +289,186 @@ describe('parseArxml', () => {
         value: '/A/B/Target',
         dest: 'ECUC-CONTAINER-VALUE',
       });
+    });
+  });
+
+  // ---------- Sprint 9 #12: nested AR-PACKAGE recursion ----------
+  // Real-world R21/R22 BSW files (and the user's CanIf_bswmd.arxml /
+  // CanIf_EcucValues.arxml) use a 2+ level AR-PACKAGE hierarchy:
+  //   <AR-PACKAGES>
+  //     <AR-PACKAGE> ... <AR-PACKAGES>
+  //       <AR-PACKAGE> ... <ELEMENTS> ... </AR-PACKAGE>
+  //     </AR-PACKAGES> ... </AR-PACKAGE>
+  //   </AR-PACKAGES>
+  // The parser previously walked only the outer AR-PACKAGE and ignored nested
+  // ones, leaving elements: [] on the outer package and missing the entire
+  // module/configuration-value tree. RED tests below pin the recursion contract.
+
+  describe('nested AR-PACKAGE parsing', () => {
+    it('case 1: double-nested AR-PACKAGE exposes inner ECUC-MODULE-CONFIGURATION-VALUES', () => {
+      // Mimics R21/R22 BSWMD + EcucValues shape:
+      //   AUTOSAR_R21 > EcucModuleConfigurationValuess > CanIf (module)
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR_R21</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucModuleConfigurationValuess</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>CanIf</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>CanIfInitCfg</SHORT-NAME><PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/A/B/CfgSet</DEFINITION-REF><VALUE>CanIf_Config</VALUE></ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      // Outer package: AUTOSAR_R21, no direct elements, one nested package.
+      expect(r.value.packages).toHaveLength(1);
+      const outer = r.value.packages[0]!;
+      expect(outer.shortName).toBe('AUTOSAR_R21');
+      expect(outer.elements).toHaveLength(0);
+      expect(outer.packages).toBeDefined();
+      expect(outer.packages).toHaveLength(1);
+      const inner = outer.packages![0]!;
+      expect(inner.shortName).toBe('EcucModuleConfigurationValuess');
+      expect(inner.path).toBe('/AUTOSAR_R21/EcucModuleConfigurationValuess');
+      // Inner package owns the module — currently dropped, must be reachable.
+      expect(inner.elements).toHaveLength(1);
+      const mod = inner.elements[0] as ArxmlModule;
+      expect(mod.kind).toBe('module');
+      expect(mod.shortName).toBe('CanIf');
+      const c = mod.children[0] as ArxmlContainer;
+      expect(c.params['CfgSet']).toEqual({ type: 'string', value: 'CanIf_Config' });
+    });
+
+    it('case 2: triple-nested AR-PACKAGE recurses through every level', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L1</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L2</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L3</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.packages[0]!.shortName).toBe('L1');
+      const l2 = r.value.packages[0]!.packages![0]!;
+      expect(l2.shortName).toBe('L2');
+      const l3 = l2.packages![0]!;
+      expect(l3.shortName).toBe('L3');
+      expect(l3.elements).toHaveLength(1);
+      expect((l3.elements[0] as ArxmlModule).shortName).toBe('M');
+    });
+
+    it('case 3: outer package with both ELEMENTS and nested AR-PACKAGES (siblings)', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Outer</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>DirectModule</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>InnerPkg</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>NestedModule</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const outer = r.value.packages[0]!;
+      expect(outer.elements).toHaveLength(1);
+      expect((outer.elements[0] as ArxmlModule).shortName).toBe('DirectModule');
+      expect(outer.packages).toHaveLength(1);
+      expect(outer.packages![0]!.shortName).toBe('InnerPkg');
+      expect((outer.packages![0]!.elements[0] as ArxmlModule).shortName).toBe('NestedModule');
+    });
+
+    it('case 4: nested package without ELEMENTS still surfaces as ArxmlPackage with elements=[]', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Outer</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EmptyInner</SHORT-NAME></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const outer = r.value.packages[0]!;
+      expect(outer.packages).toHaveLength(1);
+      const inner = outer.packages![0]!;
+      expect(inner.shortName).toBe('EmptyInner');
+      expect(inner.elements).toEqual([]);
+      expect(inner.path).toBe('/Outer/EmptyInner');
+    });
+
+    it('case 5: nested package without nested AR-PACKAGES omits `packages` field (back-compat with flat fixtures)', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const pkg = r.value.packages[0]!;
+      // Existing fixture shape: `packages` field is absent (not an empty array),
+      // so the existing 5-fixture round-trip signature is preserved.
+      expect(pkg.packages).toBeUndefined();
+    });
+
+    it('case 6: missing nested package SHORT-NAME uses placeholder without crash', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Outer</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const outer = r.value.packages[0]!;
+      expect(outer.packages).toHaveLength(1);
+      expect(outer.packages![0]!.shortName).toMatch(/^<unnamed-/);
+      expect(outer.packages![0]!.elements).toHaveLength(1);
+    });
+
+    it('case 7: path computation correctly tracks nested package levels', () => {
+      // path field is the contract used by validate.ts / buildPathIndex to
+      // build the cross-ref target lookup; nesting must compose, not reset.
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P1</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P2</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value.packages[0]!.path).toBe('/P1');
+      expect(r.value.packages[0]!.packages![0]!.path).toBe('/P1/P2');
+    });
+
+    // Sprint 9 #12 (review M-3): end-to-end nested round-trip — parse →
+    // serialize → re-parse must produce a deep-equal document. Closes the
+    // loop between parser recursion and serializer output.
+    it('case 8: parse → serialize → re-parse of triple-nested ARXML is deep-equal', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L1</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L2</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>L3</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/A/B/X</DEFINITION-REF><VALUE>7</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const p1 = parseArxml(xml);
+      expect(p1.ok).toBe(true);
+      if (!p1.ok) return;
+      const s1 = serializeArxml(p1.value);
+      expect(s1.ok).toBe(true);
+      if (!s1.ok) return;
+      const p2 = parseArxml(s1.value);
+      expect(p2.ok).toBe(true);
+      if (!p2.ok) return;
+      // Deep-equal ArxmlDocument (path + nested packages + module + container + param).
+      expect(p2.value).toEqual(p1.value);
+      // Drill down to confirm the inner element survives the round-trip.
+      expect(p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]!.shortName).toBe('M');
+      const c = (p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]! as ArxmlModule)
+        .children[0] as ArxmlContainer;
+      expect(c.params['X']).toEqual({ type: 'integer', value: 7 });
+    });
+
+    // Sprint 9 #12 (review H-2): two packages with identical shortName in
+    // different branches must produce distinct `path` values. The path field
+    // is the lookup key for path.ts / buildPathIndex; collision would silently
+    // misroute cross-ref lookups.
+    it('case 9: identical shortName in different branches produces distinct paths', () => {
+      const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Outer</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>BranchA</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Def</SHORT-NAME></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE><AR-PACKAGE><SHORT-NAME>BranchB</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Def</SHORT-NAME></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const branchA = r.value.packages[0]!.packages![0]!;
+      const branchB = r.value.packages[0]!.packages![1]!;
+      const defA = branchA.packages![0]!;
+      const defB = branchB.packages![0]!;
+      expect(defA.shortName).toBe('Def');
+      expect(defB.shortName).toBe('Def');
+      // Distinct paths because of branch prefix.
+      expect(defA.path).toBe('/Outer/BranchA/Def');
+      expect(defB.path).toBe('/Outer/BranchB/Def');
+      expect(defA.path).not.toBe(defB.path);
+    });
+
+    // Sprint 9 #12 (review M-1): adversarial deep nesting must NOT blow the
+    // stack. Depth ceiling (16) silently truncates beyond that; the parse
+    // still succeeds with a partial tree.
+    it('case 10: 25-deep AR-PACKAGE nesting is truncated, not a stack overflow', () => {
+      // Build XML with 25 nested <AR-PACKAGE><AR-PACKAGES> levels.
+      let xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>`;
+      const depth = 25;
+      for (let i = 0; i < depth; i++) {
+        xml += `<AR-PACKAGE><SHORT-NAME>L${i}</SHORT-NAME><AR-PACKAGES>`;
+      }
+      xml += `<AR-PACKAGE><SHORT-NAME>Leaf</SHORT-NAME></AR-PACKAGE>`;
+      for (let i = 0; i < depth; i++) {
+        xml += `</AR-PACKAGES></AR-PACKAGE>`;
+      }
+      xml += `</AR-PACKAGES></AUTOSAR>`;
+      const r = parseArxml(xml);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      // Outer package is reachable; depth beyond ceiling is silently truncated
+      // (no exception thrown, parser contract intact).
+      expect(r.value.packages[0]!.shortName).toBe('L0');
     });
   });
 });

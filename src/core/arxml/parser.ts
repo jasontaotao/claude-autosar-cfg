@@ -188,7 +188,31 @@ function readLongName(elem: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+/**
+ * Sprint 9 #12 (review M-1): maximum AR-PACKAGE nesting depth. Real R21/R22 BSW
+ * files top out at 3-4 levels; the ceiling is generous so vendor quirks never
+ * hit it, while adversarial / malformed XML cannot blow the V8 stack. On
+ * overflow the deeper packages are silently dropped (same contract as missing
+ * AR-PACKAGES) rather than throwing — parseArxml should never throw.
+ */
+const MAX_ARPKG_DEPTH = 16;
+
 function walkPackages(node: Record<string, unknown>, parentPath: string): ArxmlPackage[] {
+  return walkPackagesAtDepth(node, parentPath, 0);
+}
+
+function walkPackagesAtDepth(
+  node: Record<string, unknown>,
+  parentPath: string,
+  depth: number,
+): ArxmlPackage[] {
+  if (depth > MAX_ARPKG_DEPTH) {
+    // Pathological / adversarial nesting — truncate at the limit. Parser
+    // contract stays intact (ok: true with truncated tree); the validation
+    // pipeline still surfaces the truncation through missing path-index
+    // entries for any deeper references.
+    return [];
+  }
   const arr = asArray<Record<string, unknown>>(node['AR-PACKAGE']);
   return arr.map((pkg, idx) => {
     const shortName = readShortName(pkg) ?? `<unnamed-${idx}>`;
@@ -200,11 +224,27 @@ function walkPackages(node: Record<string, unknown>, parentPath: string): ArxmlP
         : {},
       path,
     );
+    // Sprint 9 #12: recurse into nested <AR-PACKAGES>. R21/R22 BSW files use a
+    // 2+ level hierarchy (e.g. AUTOSAR_R22 > EcucDefs > <module>); before this
+    // change the outer package's elements were silently dropped because the
+    // walker only looked at pkg['ELEMENTS'].
+    const nestedPackagesRaw = pkg['AR-PACKAGES'];
+    const nested = walkPackagesAtDepth(
+      typeof nestedPackagesRaw === 'object' && nestedPackagesRaw !== null
+        ? (nestedPackagesRaw as Record<string, unknown>)
+        : {},
+      path,
+      depth + 1,
+    );
+    // Sprint 9 #12 (review M-2): bind readLongName once instead of calling it
+    // twice in the spread conditional.
+    const longName = readLongName(pkg);
     return {
       shortName,
-      ...(readLongName(pkg) !== undefined ? { longName: readLongName(pkg) as string } : {}),
+      ...(longName !== undefined ? { longName } : {}),
       path,
       elements,
+      ...(nested.length > 0 ? { packages: nested } : {}),
     };
   });
 }

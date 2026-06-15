@@ -616,7 +616,9 @@ Sprint 8 启动时**已就绪**的基础：
 - [x] fixtures test 区间守卫保持 [1300, 1400]；Sprint 9+ 加 type 段处理时需要放宽上界
 - [x] 5/5 baseline 0 per-doc violation 保持
 
-### Sprint 9 backlog（**Sprint 8 #1 已 ship；剩余 10 项 + Sprint 8 #1 暴露的 1 项新 = 11 项**）
+### Sprint 9 backlog（**Sprint 8 #1 已 ship；剩余 10 项 + Sprint 8 #1 暴露的 1 项新 + 用户真实 BSW 样本（S32K148_EAS_EB_3399A 经纬恒润 Intewell 工具链）暴露的 6 项 = 17 项**）
+
+#### 既有 11 项（Sprint 7/8 backlog carry-over）
 
 1. ⭐ **schema type 段 strip**（Sprint 8 #1 暴露根因；新 method `tryStripTypeSegment(path: string): string` 删除中间 type 段如 `/Pdu/`、`/ComIPdu/`、`/ComSignal/`、`/ComIPduGroup/`，在 `checkCrossRefs` 入口与 normalizePath 串联；预期 1336 → [0, 200] 真实降低）—— 新增
 2. **Ref dest 类型校验**（Sprint 8 backlog #2 / Sprint 7 #3）—— 依赖 #1
@@ -630,7 +632,78 @@ Sprint 8 启动时**已就绪**的基础：
 10. **i18n**（Sprint 7 backlog #10）
 11. **ParamEditor inline ref autocomplete**（用 path index 补全；Sprint 7 backlog #11）
 
+#### 新增 6 项（2026-06-15 用户提供真实 BSWMD + EcucValues 样本比对得出）
+
+12. ⭐ **嵌套 AR-PACKAGE 递归**（`parser.ts walkPackages` 当前只看 `pkg['ELEMENTS']` 不递归 `pkg['AR-PACKAGES']`）—— 用户给的 `CanIf_bswmd.arxml`(R22) 和 `CanIf_EcucValues.arxml`(R21) 都是 `<AR-PACKAGES><AR-PACKAGE><AR-PACKAGES><AR-PACKAGE><ELEMENTS>...` 双层嵌套结构；现状 parser 直接返回 `elements: []` 整棵树为空。**严重度：🔴 blocker，阻塞所有 R21/R22 标准 AUTOSAR 工程加载**。最小改动：在 `walkPackages` 末尾追加 `walkPackages(pkg['AR-PACKAGES'], path)` 递归调用 + 一组回归 fixture 验证 5 现有 fixture 不退化。Sprint 0 风险评估 #2（"r4.x AR-PACKAGE 嵌套 >10 层"）原计划 Sprint 1+ 才考虑，本项相当于提前收口。
+13. **模板侧 BSWMD 文件加载（`ECUC-*-DEF` 全套 tag 识别）** —— 当前 `classifyElement` 不识别 `<ECUC-MODULE-DEF>` / `<ECUC-PARAM-CONF-CONTAINER-DEF>` / `<ECUC-INTEGER-PARAM-DEF>` / `<ECUC-BOOLEAN-PARAM-DEF>` / `<ECUC-ENUMERATION-PARAM-DEF>` / `<ECUC-FLOAT-PARAM-DEF>` / `<ECUC-STRING-PARAM-DEF>` / `<ECUC-FUNCTION-NAME-DEF>` / `<ECUC-REFERENCE-DEF>` / `<ECUC-FOREIGN-REFERENCE-DEF>` 等 16 类 `*-DEF` tag，全部 silently drop。决策点二选一：(a) 完整模板侧编辑器（重投入，新 Sprint）；(b) 仅"读取 BSWMD 自动生成 schema 喂 ECUC_SUBSET_SCHEMA"（轻投入，与 #14 合并）。**建议：选 (b)，保持 BSWMD 为只读数据源，不做编辑**。
+14. **schema 库扩张至 CanIf / 多模块** —— `ECUC_SUBSET_SCHEMA` 当前只覆盖 5 模块（Det/WdgIf/EcuC/PduR/Com），46 条参数 + 13 条容器。CanIf 是用户给的真实工程关键模块，无 schema → `lookupSchema` 返回 `null` → 全部 silently skip → validation 假阴性（用户以为 0 violation，实际是 0 检查）。**优先级：与 #13 联动；要么手写 CanIf schema 条目（约 30-50 entry），要么从 #13 BSWMD 自动生成**。
+15. **`lookupSchema` 对 unknown path 显式日志（消除 silent skip）** —— `validate.ts:81` `if (entry === null) continue` 让 unconstrained param 完全无 feedback。改为：聚合每文档"uncovered param path"集合，在 ValidationPanel 显示 `info` 级 banner（"N 个参数无 schema 约束，建议扩 ECUC_SUBSET_SCHEMA"）。**优先级：中等，#14 落地前能避免用户误信 validation 结果**。
+16. **value-side 元数据保留**（`IMPLEMENTATION-CONFIG-VARIANT` / `MODULE-DESCRIPTION-REF` / `REFINED-MODULE-DEF-REF` / `LOWER-MULTIPLICITY` / `UPPER-MULTIPLICITY-INFINITE` / `MULTIPLICITY-CONFIG-CLASSES` / `SUPPORTED-CONFIG-VARIANTS` / `DESC` / `L-2` / `L-4`）—— 当前 parser 不读这些字段，serializer 也不输出。**影响**：round-trip 后 `IsExistingECUCDataset` 等外部 check tool 会因元数据缺失判失败；用户工程的 `ModuleDescription` 关联链断裂。**优先级：低，但应跟随 #12 一并修以减少回归**。
+17. **`/AUTOSAR_R2x/` 命名空间版本号归一化**（用户工程模板 R22 / 配置 R21 混用）—— `/AUTOSAR_R22/EcucDefs/...` 与 `/AUTOSAR_R21/EcucDefs/...` 在跨文档 cross-ref 时不会自动匹配。Sprint 9 #1 `tryStripTypeSegment` 不覆盖版本号维度。**风险**：R21 / R22 同一模块 schema 可能不同（如某 param 在 R21 是 integer 在 R22 是 enum），直接归一化会掩盖 schema drift。**建议**：先以 `info` 级 warning 报告版本号不一致（不静默重写），让用户决定是否接受归一化；不做硬 rewrite。
+
 ---
+
+## Sprint 9 #12 — 嵌套 AR-PACKAGE 递归（✅ 2026-06-15 完成）
+
+### 完成情况
+
+- **186 tests pass / 0 fail / 0 skipped**（172 baseline + 14 新增；5/5 fixture round-trip 不退化）
+- **coverage 95.18% / 82.21% / 100%**（branches 从 80.48% → 82.21%，新嵌套路径覆盖）
+- **5/5 baseline signed-guard 不变**：pathIndex 1611 / refSites 1336 / cross-ref 1336（与 Sprint 8 #1 一致；flat 5 fixture 不受递归改动影响）
+- **HEAD commit + GH Actions run URL 待 user 拍板后 push + 回填**
+- **版本号**：`0.9.0 → 0.9.1`（PATCH bump；纯 parser/serializer 增强，向后兼容）
+
+### 解决什么问题
+
+Sprint 8 #1 ship 后,用户给的两份真实 BSW 文件暴露问题：
+
+| 文件                                             | 形态                                                                                 | 旧 parser 行为                                           | 现 parser 行为        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------- | --------------------- |
+| `CanIf_bswmd.arxml` (R22 BSWMD, 198KB)           | `<AUTOSAR_R22><EcucDefs><ECUC-MODULE-DEF>...`                                        | outer package 拿不到内层 module，`elements: []` 整棵树空 | 递归拿全，module 可达 |
+| `CanIf_EcucValues.arxml` (R21 EcucValues, 123KB) | `<AUTOSAR_R21><EcucModuleConfigurationValuess><ECUC-MODULE-CONFIGURATION-VALUES>...` | 同上                                                     | 同上                  |
+
+加上 Sprint 0 风险评估 #2 原计划 Sprint 1+ 才收口的"r4.x `<AR-PACKAGE>` 嵌套 >10 层"问题,本次提前完成首段。
+
+### 改动清单（4 文件 + 3 测试文件）
+
+| 文件                                          | 改动                                                                                                                                                                                                        |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/arxml/types.ts`                     | `ArxmlPackage` 接口新增 `readonly packages?: readonly ArxmlPackage[]`（back-compat：flat fixture 不会出现该字段）                                                                                           |
+| `src/core/arxml/parser.ts`                    | `walkPackages` 末尾追加 `walkPackagesAtDepth(pkg['AR-PACKAGES'], path, depth+1)`；新增 `MAX_ARPKG_DEPTH = 16` 防御性深度上限（review M-1）；`readLongName` 双调用合并为单 bind（review M-2）                |
+| `src/core/arxml/serializer.ts`                | `renderPackage` 末尾追加 `if (pkg.packages !== undefined && pkg.packages.length > 0) out['AR-PACKAGES'] = { 'AR-PACKAGE': pkg.packages.map(renderPackage) }`                                                |
+| `src/core/arxml/path.ts`                      | `packageByPath` / `findByPath` 加递归（review H-1，**blocker**）；新增 `findPackageByPath` / `findRootPackageByShortName` / `findPackageByShortName` / `isPackage` 辅助函数                                 |
+| `src/core/arxml/__tests__/parser.test.ts`     | 新增 `nested AR-PACKAGE parsing` describe block：7 用例（双层/三层/混合/空 inner/back-compat/missing SHORT-NAME/path 累加）+ 3 验证用例（end-to-end nested round-trip / path collision / depth ceiling 25） |
+| `src/core/arxml/__tests__/serializer.test.ts` | 新增 2 用例：nested AR-PACKAGES 序列化 / flat fixture 不输出多余 AR-PACKAGES                                                                                                                                |
+| `src/core/arxml/__tests__/path.test.ts`       | 新增 2 用例：nested package `packageByPath` 解析 / 跨 nested package 的 `findByPath`                                                                                                                        |
+
+### Review 处理（code-reviewer 子 agent）
+
+| Finding                                         | 处理                                                            |
+| ----------------------------------------------- | --------------------------------------------------------------- |
+| **H-1 path.ts 不递归**（blocker）               | ✅ 已修 + 加 2 测试用例守护                                     |
+| **H-2 path 唯一性无 collision 测试**            | ✅ 加 `case 9`（两个 `Def` 在不同 branch，路径必须不同）        |
+| **M-1 无 depth guard**                          | ✅ 加 `MAX_ARPKG_DEPTH = 16` 静默截断 + `case 10` 25 层验证不抛 |
+| **M-2 readLongName 双调用**                     | ✅ bind 一次                                                    |
+| **M-3 serializer 测试无 end-to-end round-trip** | ✅ 加 `case 8` parse→serialize→re-parse deep-equal              |
+| L-1/L-2/L-3（polish）                           | 跳过（Sprint polish 阶段统一处理）                              |
+
+### Sprint 9 #12 → Sprint 9 #13 衔接
+
+- [x] `ArxmlPackage.packages?` 字段是 optional，flat 5 fixture 字段不变 → `validate.ts buildPathIndex` 行为不变
+- [x] `path.ts packageByPath / findByPath` 加递归后，cross-ref lookup 现在能正确解析 R21/R22 工程
+- [x] depth guard 静默截断，parser 不抛异常；adversarial input 不会 stack overflow
+- [x] 5/5 baseline 数字保持 — flat 5 fixture 完全不受影响
+- [x] 13 项 Sprint 9 backlog 中 #12 完成；剩余 12 + 1 后续 backlog（#13 模板侧加载 + #14 schema 扩张 CanIf 是下一个 ROI 候选）
+- [ ] 用户真实 `CanIf_bswmd.arxml` / `CanIf_EcucValues.arxml` 加入 fixture 库（涉及 Sprint 9 #7 fixture 体积管理）→ 后置
+
+### Sprint 9 剩余 backlog（**Sprint 9 #12 已 ship；剩余 16 项 = 既有 11 + 用户样本新增 5**）
+
+- #13 模板侧 BSWMD 加载（16 类 `*-DEF` tag）—— 与 #14 联动
+- #14 schema 库扩张到 CanIf / 多模块 —— 与 #13 联动
+- #15 `lookupSchema` unknown path 显式 log —— 不依赖 #14
+- #16 value-side 元数据保留（`IMPLEMENTATION-CONFIG-VARIANT` 等）—— 不依赖
+- #17 `/AUTOSAR_R2x/` 命名空间版本号归一化 —— 不依赖
+- #1-#11 既有 11 项（同上）
 
 ## 参考资料
 

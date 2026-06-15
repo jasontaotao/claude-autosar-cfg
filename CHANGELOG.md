@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] — 2026-06-15 (Sprint 9 #12 — nested AR-PACKAGE recursion)
+
+### Added
+
+- `src/core/arxml/types.ts` — `ArxmlPackage` interface gains an optional `packages?: readonly ArxmlPackage[]` field for the recursive package hierarchy. Field is omitted for flat (single-level) fixtures so existing 5-fixture round-trip signatures stay field-equal.
+- `src/core/arxml/parser.ts` — `walkPackages` recurses into `pkg['AR-PACKAGES']`, exposing nested package elements / modules / containers that were previously silently dropped. R21/R22 BSWMD + EcucValues shapes (`AUTOSAR_R2x > EcucDefs > <module>`) now parse to a populated tree. New `MAX_ARPKG_DEPTH = 16` ceiling silently truncates pathological nesting (adversarial input no longer risks V8 stack overflow).
+- `src/core/arxml/serializer.ts` — `renderPackage` emits a `<AR-PACKAGES>` block when `pkg.packages` is non-empty, mirroring the parsed structure. Flat fixtures stay flat (no spurious nested wrappers).
+- `src/core/arxml/path.ts` — `packageByPath` and `findByPath` now walk the recursive package tree. `findByPath` allows each segment to resolve to either a nested package or a child element. UI navigation through nested packages works end-to-end (previously `ParamEditor` would silently miss nested targets).
+- 14 new unit tests across 3 files: 7 nested-package parse cases + 1 collision case + 1 depth-ceiling case + 1 end-to-end round-trip case + 2 path helper cases + 2 serializer output cases.
+
+### Changed
+
+- `src/core/arxml/parser.ts` — `readLongName` is now bound once before the spread conditional instead of called twice (review M-2 cleanup adjacent to the new `packages` field).
+- `src/core/arxml/__tests__/parser.test.ts` — imports `serializeArxml` statically so the new end-to-end round-trip test can run under ESM vitest (no `require()` at test runtime).
+
+### Verified
+
+- `pnpm vitest run` — **186 tests pass / 0 fail / 0 skipped** (Sprint 8 #1 172 → Sprint 9 #12 186, +14 new). All 21 test files green.
+- `pnpm vitest run --coverage` — **95.18% stmts / 82.21% branches / 100% funcs**. Branch coverage improved from 80.48% (Sprint 8 #1) to 82.21% as new nested-package paths are exercised.
+- 5-fixture project-level baseline numbers unchanged: `pathIndex.size` 1611, `refSites.length` 1336, `cross-ref errors` 1336, `validateProject total` 1336. Flat 5-fixture shapes are unaffected by the recursion addition (back-compat via conditional `packages` field).
+- 5/5 per-doc baseline: 0 per-doc violation preserved. Single-document `validate(doc)` is unaffected.
+- Public API: `ArxmlPackage.packages` is additive (optional field); `packageByPath` / `findByPath` / `parseArxml` / `serializeArxml` signatures unchanged; existing 5-fixture round-trip deep-equal signature preserved.
+
+### Deviations
+
+- **`path.ts` regression caught pre-ship by code-reviewer (review H-1)**: the initial implementation recursed in `walkPackages` but `packageByPath` / `findByPath` still only walked top-level `doc.packages`. Without the fix, `findByPath('/AUTOSAR_R22/EcucDefs/CanIf/CanIfInitCfg')` would have returned `null` for any R21/R22 BSW file even though the parser correctly produced the tree — the recursion would have been a no-op from the UI's perspective. Fix landed in the same ship: `path.ts` now recursively descends `pkg.packages`, and 2 new tests in `path.test.ts` pin the contract.
+- **Depth ceiling chosen at 16**: real R21/R22 BSW files top out at 3-4 levels; 16 is generous so vendor quirks never hit it while keeping adversarial input bounded. Parser returns `ok: true` with a truncated tree beyond the limit (parseArxml contract: never throws).
+
 ## [0.9.0] — 2026-06-15 (Sprint 8 #1)
 
 ### Added

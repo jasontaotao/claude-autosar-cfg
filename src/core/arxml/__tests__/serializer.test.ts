@@ -86,6 +86,78 @@ describe('serializeArxml', () => {
     expect(r.value).toContain('<AR-PACKAGES');
   });
 
+  // ---------- Sprint 9 #12: nested AR-PACKAGE round-trip ----------
+  // After parser.walkPackages recurses into nested <AR-PACKAGES>, the serializer
+  // must mirror the structure so parse → serialize → re-parse is field-equal.
+
+  it('serializes nested AR-PACKAGES preserving the recursive package hierarchy', () => {
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Outer',
+          path: '/Outer',
+          elements: [],
+          packages: [
+            {
+              shortName: 'Inner',
+              path: '/Outer/Inner',
+              elements: [
+                {
+                  kind: 'module',
+                  tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                  shortName: 'M',
+                  params: {},
+                  references: [],
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const r = serializeArxml(doc);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Both layers emit nested <AR-PACKAGE> blocks.
+    expect(r.value).toContain('<AR-PACKAGES>');
+    expect(r.value).toContain('<SHORT-NAME>Outer</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>Inner</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>M</SHORT-NAME>');
+  });
+
+  it('omits AR-PACKAGES block when package has no nested packages (flat fixtures back-compat)', () => {
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Flat',
+          path: '/Flat',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'M',
+              params: {},
+              references: [],
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+    const r = serializeArxml(doc);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The flat fixture must not emit a spurious <AR-PACKAGES> inside Flat.
+    // We check that the XML only has the top-level <AR-PACKAGES> wrapper.
+    const matches = r.value.match(/<AR-PACKAGES>/g) ?? [];
+    expect(matches).toHaveLength(1);
+  });
+
   // Sprint 7 T1-B: serializer must emit <REFERENCE-VALUES><ECUC-REFERENCE-VALUE>
   // wrappers for params with type:'reference' so that round-trip parse → serialize →
   // re-parse keeps the params intact (5 fixture round-trip tests rely on this).
