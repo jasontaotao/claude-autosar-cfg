@@ -248,6 +248,47 @@ function typeMatches(value: ParamValue, expected: EcucSchemaEntry['type']): bool
 }
 
 // ============================================================================
+// Sprint 8 — Cross-fixture VALUE-REF namespace normalisation
+// ============================================================================
+
+/**
+ * Cross-fixture namespace map: collapses `/EAS/...` (definition-side
+ * target namespace emitted by EB tresos / Vector tools in fixture
+ * ARXML) to `/EcucDefs/...` (value-side namespace matching
+ * `AR-PACKAGE > SHORT-NAME = "EcucDefs"` used by buildPathIndex).
+ *
+ * Hard-coded as file-level constants — the 5 baseline fixtures only
+ * emit this one mismatch; if a future fixture surfaces a new
+ * namespace pair, add an `if` here WITHOUT changing the signature.
+ */
+const NAMESPACE_VALUE_PREFIX = '/EcucDefs';
+const NAMESPACE_DEFINITION_PREFIX = '/EAS';
+
+/**
+ * Normalize an absolute AUTOSAR path so cross-ref sites and
+ * path-index keys share the value-side namespace prefix. Pure /
+ * side-effect-free / immutable.
+ *
+ * Pass-through (return input unchanged) for:
+ *   - empty string (let `isUnsetPlaceholder` filter)
+ *   - bare typename with no leading `/` (e.g. `PDU-TO-FRAME-MAPPING/`,
+ *     already filtered by `isUnsetPlaceholder` elsewhere)
+ *   - paths already in the value-side namespace (`/EcucDefs/...`)
+ *   - paths with any other prefix (minimum-intrusion contract:
+ *     helper only collapses the one known mismatch)
+ *
+ * @param path absolute AUTOSAR path
+ * @returns normalized path; input preserved when no rewrite applies
+ */
+export function normalizePath(path: string): string {
+  if (path === '' || !path.startsWith('/')) return path;
+  if (path === NAMESPACE_DEFINITION_PREFIX || path.startsWith(`${NAMESPACE_DEFINITION_PREFIX}/`)) {
+    return `${NAMESPACE_VALUE_PREFIX}${path.slice(NAMESPACE_DEFINITION_PREFIX.length)}`;
+  }
+  return path;
+}
+
+// ============================================================================
 // Sprint 6 — Project-level validation: cross-container reference resolution
 // ============================================================================
 
@@ -413,7 +454,14 @@ export function checkCrossRefs(
   const errors: ValidationError[] = [];
   for (const site of refSites) {
     if (isUnsetPlaceholder(site.targetPath)) continue;
-    if (!pathIndex.has(site.targetPath)) {
+    // Sprint 8 T1: collapse the fixture's `/EAS/...` definition-side
+    // namespace onto the `/EcucDefs/...` value-side namespace used by
+    // buildPathIndex, so the path lookup actually matches. The
+    // `site.targetPath` field is intentionally left as the original
+    // string so the error payload's `actual` shows the fixture-original
+    // path and stays useful for cross-referencing the source ARXML.
+    const resolved = normalizePath(site.targetPath);
+    if (!pathIndex.has(resolved)) {
       const error: ValidationError =
         site.paramKey !== undefined
           ? {

@@ -9,6 +9,7 @@ export {
   buildPathIndex,
   extractReferences,
   checkCrossRefs,
+  normalizePath,
 } from './validate.js';
 
 export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';
