@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-06-15 (Sprint 8 #1)
+
+### Added
+
+- `core/validation/validate.ts` — new pure helper `normalizePath(path: string): string` collapses the cross-fixture `/EAS/...` definition-side namespace onto `/EcucDefs/...` (the value-side namespace used by `buildPathIndex`). Helper is idempotent, pass-through for empty / bare-typename / other-prefix inputs, and never throws.
+- `core/validation/__tests__/normalizePath.test.ts` — 8 unit tests covering: main `/EAS → /EcucDefs` rewrite; idempotence on `/EcucDefs/...`; empty / bare-typename / other-prefix pass-through; bare-`/EAS` / `/EAS/` edge cases; defensive `/EASx/...` non-match.
+- `core/validation/__tests__/validateProject.test.ts` — 3 end-to-end tests: `/EAS/...` target resolves against `/EcucDefs/...` pathIndex; `/EcucDefs/...` target idempotent; unresolvable target's error payload preserves the fixture-original `/EAS/...` string in `actual`.
+- `core/validation/index.ts` — barrel re-export `normalizePath` so callers (Renderer / future cross-doc tools / RTE path generation) can reuse the helper without touching the private submodule.
+
+### Changed
+
+- `core/validation/validate.ts` — `checkCrossRefs` now normalizes each `site.targetPath` via `normalizePath()` **before** the `pathIndex.has()` lookup. The `site.targetPath` field itself is left untouched (and the error payload's `actual` continues to carry the fixture-original `/EAS/...` string) so users can cross-reference the source ARXML.
+- `core/validation/__tests__/validateProject.fixtures.test.ts` — signature-interval guard header updated to document Sprint 8 #1 outcome. Interval stays `[1300, 1400]` for `refSites` / `crossRefErrors` / `allErrors`: Sprint 8 #1 closes the **namespace** half of the cross-fixture mismatch but **does not** touch the second half (schema type segments like `/Pdu/`, `/ComIPdu/` inserted between the parent container and the instance shortName), which is documented as Sprint 9+ backlog. All 1336 cross-ref errors today are gated on the type-segment mismatch; helper has no observable effect on the cross-ref count until Sprint 9+ adds the type-segment strip.
+
+### Verified
+
+- `pnpm verify` 6-stage pipeline: format / lint / type-check / test / coverage / build all green.
+- Test count: Sprint 7 161 → **172** (+8 normalizePath + 3 validateProject end-to-end).
+- Coverage: `94.98% stmts / 80.48% branches / 100% funcs` (Sprint 7 was 94.86% / 80%).
+- 5-fixture baseline numbers (Sprint 7 → Sprint 8 #1): `pathIndex.size` 1611 → 1611 (unchanged), `refSites.length` 1336 → 1336 (unchanged), `cross-ref errors` 1336 → 1336 (unchanged — see Changed section).
+- 5/5 per-doc baseline: 0 per-doc violation preserved (`validate(doc)` does not invoke `normalizePath`; the namespace rewrite lives entirely inside `checkCrossRefs`).
+- Public API: `buildPathIndex` / `extractReferences` / `checkCrossRefs` signatures unchanged. `RefSite.targetPath` and `ValidationError.actual` semantics unchanged (still carry fixture-original strings).
+
+### Deviations
+
+- **PLAN.md mis-identified the root cause**: Phase 1 reconnaissance confirmed the namespace mismatch (`/EAS/...` vs `/EcucDefs/...`) but missed a second mismatch layer — every `VALUE-REF` target in the 5 fixtures also carries a schema-side **type segment** (e.g. `Pdu` for `EcucPduCollection` container instances, `ComIPdu` / `ComSignal` / `ComIPduGroup` for Com containers) that `pathIndex` does not emit (pathIndex keys use the instance's own shortName directly, with no `Pdu` / `ComIPdu` / `ComSignal` / `ComIPduGroup` segment). After `normalizePath` rewrites `/EAS/...` to `/EcucDefs/...`, all 1336 cross-ref errors are still unresolved because of the type-segment gap. Sprint 8 #1 ships the namespace half as planned; the type-segment half is documented in the Sprint 8 section of `PROGRESS.md` and queued for Sprint 9+ as backlog item **#1**.
+- **Signature interval unchanged**: PLAN.md §4.2 / §5.2 / §6.2 projected the cross-ref count would drop from 1336 to `[0, 200]`. After implementation the count is still 1336 (every site has a type segment). The interval guard is updated narratively but the `[1300, 1400]` numeric range is kept to preserve the parser-dropout / double-count regression catch — Sprint 9+ will need to widen the upper bound when type-segment stripping lands.
+
 ## [0.8.0] — 2026-06-15 (Sprint 7)
 
 ### Added
