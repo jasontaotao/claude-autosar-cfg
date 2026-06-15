@@ -3,6 +3,12 @@
 // imports directly from submodules for tighter coupling.
 
 export * from './types.js';
-export { validate } from './validate.js';
+export {
+  validate,
+  validateProject,
+  buildPathIndex,
+  extractReferences,
+  checkCrossRefs,
+} from './validate.js';
 
 export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';

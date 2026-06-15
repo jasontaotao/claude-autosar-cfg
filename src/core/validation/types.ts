@@ -5,7 +5,7 @@
 
 /**
  * Validation error kinds.
- * Extend with new kinds as schema rules grow (multiplicity 已加入；未来可加 'duplicate' / 'pattern')。
+ * Extend with new kinds as schema rules grow (multiplicity 已加入；Sprint 6 加 'cross-ref' 校验跨容器引用)。
  */
 export type ValidationErrorKind =
   | 'range'
@@ -13,7 +13,8 @@ export type ValidationErrorKind =
   | 'reference'
   | 'required'
   | 'schema'
-  | 'multiplicity';
+  | 'multiplicity'
+  | 'cross-ref';
 
 /**
  * A single validation violation.
@@ -101,4 +102,49 @@ export interface EcucContainerSchemaEntry {
   readonly lower: number;
   /** Maximum number of direct child container instances. */
   readonly upper: number | 'unbounded';
+}
+
+/**
+ * Metadata for a single element in the project-wide path index.
+ *
+ * `path` is the absolute element path matching AUTOSAR ARXML
+ * VALUE-REF convention: "/<pkg.shortName>/<module.shortName>/<container.shortName>/...".
+ *
+ * `kind` mirrors ArxmlElement['kind'] (excluding 'module' nuances we don't index)
+ * so callers can later distinguish "ref target is a container" vs. "ref target is itself a reference".
+ *
+ * `dest` is the ECUC DEST attribute carried on the original element (containers may
+ * inherit DEST from <DEFINITION-REF>; references carry their <VALUE-REF DEST="…">).
+ */
+export interface PathIndexEntry {
+  readonly path: string;
+  readonly kind: 'module' | 'container' | 'reference';
+  readonly shortName: string;
+  readonly dest?: string;
+}
+
+/**
+ * A site where a cross-ref is consumed across the project. Comes from one of
+ * three places, distinguished by `paramKey` / `tagName` shape:
+ *
+ *   1. An ArxmlReference element walked under a container (paramKey undefined,
+ *      tagName === the original VALUE-REF / DEFINITION-REF tag string).
+ *   2. A container/module param with `value.type === 'reference'` (paramKey set
+ *      to the param key, tagName === paramKey for parity with reading code).
+ *   3. A module's top-level `references` string array (paramKey undefined,
+ *      tagName === 'MODULE-REF').
+ *
+ * `sourcePath` is the absolute path of the parent element holding the reference,
+ * used in error messages so users can locate the consumer.
+ *
+ * `targetPath` is the raw target string; trailing `/` or empty string is treated
+ * as an "unset placeholder" by checkCrossRefs and skipped (those are already
+ * covered by the 'required' kind in single-doc validate()).
+ */
+export interface RefSite {
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  readonly targetDest?: string;
+  readonly tagName: string;
+  readonly paramKey?: string;
 }

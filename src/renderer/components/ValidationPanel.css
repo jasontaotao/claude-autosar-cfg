@@ -116,6 +116,15 @@
   color: white;
 }
 
+/* S6-T2: Cross-container reference resolution failures — teal
+   (distinct from `.kind-reference` purple #a855f7: 'reference' covers
+   per-param DEST mismatch within a single doc; 'cross-ref' covers
+   project-wide reference target existence). */
+.kind-cross-ref {
+  background: #14b8a6;
+  color: white;
+}
+
 .kind-count {
   color: #6b7280;
   font-size: 11px;

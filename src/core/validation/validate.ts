@@ -12,7 +12,7 @@ import type {
 } from '../arxml/types.js';
 
 import { lookupContainerSchema, lookupSchema } from './schema/ecucSubset.js';
-import type { EcucSchemaEntry, ValidationError } from './types.js';
+import type { EcucSchemaEntry, PathIndexEntry, RefSite, ValidationError } from './types.js';
 
 /**
  * Validate `doc` against `ECUC_SUBSET_SCHEMA`.
@@ -245,4 +245,201 @@ function typeMatches(value: ParamValue, expected: EcucSchemaEntry['type']): bool
     case 'reference':
       return value.type === 'reference';
   }
+}
+
+// ============================================================================
+// Sprint 6 — Project-level validation: cross-container reference resolution
+// ============================================================================
+
+/**
+ * Validate the entire loaded project: every single-document check from
+ * Sprint 5 plus the new 'cross-ref' kind that verifies every reference's
+ * target exists somewhere in the project's path index.
+ *
+ * Single-document checks still run per document for backwards compatibility:
+ * range / enum / required / schema / multiplicity surface even when only
+ * one ARXML is loaded. Cross-ref checks only run when ≥1 document exists
+ * (no-op for empty project).
+ *
+ * Returns `readonly ValidationError[]` to match the single-document
+ * validate() contract — caller treats `.length === 0` as success.
+ */
+export function validateProject(documents: readonly ArxmlDocument[]): readonly ValidationError[] {
+  const errors: ValidationError[] = [];
+
+  // Step 1: aggregate single-document errors (preserves Sprint 5 semantics)
+  for (const doc of documents) {
+    errors.push(...validate(doc));
+  }
+
+  if (documents.length === 0) return errors;
+
+  // Step 2: build path index covering all documents
+  const pathIndex = buildPathIndex(documents);
+
+  // Step 3: extract every reference consumption site
+  const refSites = extractReferences(documents);
+
+  // Step 4: run cross-ref existence check
+  errors.push(...checkCrossRefs(refSites, pathIndex));
+
+  return errors;
+}
+
+/**
+ * Build path → element-metadata index covering every container, module, and
+ * named reference across the project. Pure / testable.
+ *
+ * Path format: "/<pkg.shortName>/<module.shortName>/.../<leaf.shortName>"
+ * (matches VALUE-REF strings emitted by AUTOSAR ARXML serializers).
+ *
+ * Note we key by pkg.shortName, NOT pkg.path — VALUE-REF targets are absolute
+ * AUTOSAR paths beginning with "/<pkgShortName>/...", which is what walkPathIndex
+ * builds. Iterating doc.packages and starting with `/${pkg.shortName}` keeps
+ * the index keys consistent with target strings.
+ */
+export function buildPathIndex(documents: readonly ArxmlDocument[]): Map<string, PathIndexEntry> {
+  const index = new Map<string, PathIndexEntry>();
+  for (const doc of documents) {
+    for (const pkg of doc.packages) {
+      walkPathIndex(`/${pkg.shortName}`, pkg.elements, index);
+    }
+  }
+  return index;
+}
+
+function walkPathIndex(
+  basePath: string,
+  elements: readonly ArxmlElement[],
+  index: Map<string, PathIndexEntry>,
+): void {
+  for (const el of elements) {
+    if (el.kind === 'reference') {
+      // Named references are addressable; nameless ones (rare, inline VALUE-REF
+      // inside SHORT-NAME-PATTERN) are not indexable as targets.
+      if (el.shortName !== undefined && el.shortName.length > 0) {
+        const p = `${basePath}/${el.shortName}`;
+        const entry: PathIndexEntry =
+          el.dest !== undefined
+            ? { path: p, kind: 'reference', shortName: el.shortName, dest: el.dest }
+            : { path: p, kind: 'reference', shortName: el.shortName };
+        index.set(p, entry);
+      }
+      continue;
+    }
+    // module or container
+    const p = `${basePath}/${el.shortName}`;
+    index.set(p, { path: p, kind: el.kind, shortName: el.shortName });
+    walkPathIndex(p, el.children, index);
+  }
+}
+
+/**
+ * Walk all documents to collect every reference consumption site (every
+ * ArxmlReference element). `sourcePath` records the parent container's
+ * absolute path so error messages can locate the consumer.
+ *
+ * Pure / testable.
+ */
+export function extractReferences(documents: readonly ArxmlDocument[]): readonly RefSite[] {
+  const sites: RefSite[] = [];
+  for (const doc of documents) {
+    for (const pkg of doc.packages) {
+      walkRefs(`/${pkg.shortName}`, pkg.elements, sites);
+    }
+  }
+  return sites;
+}
+
+function walkRefs(parentPath: string, elements: readonly ArxmlElement[], sites: RefSite[]): void {
+  for (const el of elements) {
+    if (el.kind === 'reference') {
+      const site: RefSite =
+        el.dest !== undefined
+          ? {
+              sourcePath: parentPath,
+              targetPath: el.value,
+              targetDest: el.dest,
+              tagName: el.tagName,
+            }
+          : {
+              sourcePath: parentPath,
+              targetPath: el.value,
+              tagName: el.tagName,
+            };
+      sites.push(site);
+      continue;
+    }
+    // module or container — also scan `params[]` for type:'reference' values
+    // (the parser folds VALUE-REFs inside ECUC-NUMERICAL-PARAM-VALUE /
+    // ECUC-REFERENCE-VALUE wrappers into container.params[], not as discrete
+    // ArxmlReference children).
+    //
+    // NOTE (Sprint 6 / D): we deliberately do NOT scan ArxmlModule.references[]
+    // here. Those strings are the module's own DEFINITION-REF (e.g.
+    // "/EAS/Det"), which point at the *schema definition* namespace
+    // (ECUC-MODULE-DEF), not at user-configured cross-container values.
+    // They are not project-internal cross-refs and would always fire as
+    // false-positive "cross-ref" errors against the value-side path index.
+    // Schema-side ref validation is out of scope for Sprint 6 — see Sprint 7
+    // backlog for REFERENCE-VALUES parser support + ref dest type checking.
+    const childPath = `${parentPath}/${el.shortName}`;
+    for (const [paramKey, value] of Object.entries(el.params)) {
+      if (value.type === 'reference') {
+        sites.push({
+          sourcePath: childPath,
+          targetPath: value.value,
+          tagName: paramKey,
+          paramKey,
+        });
+      }
+    }
+    // recurse into module / container children
+    walkRefs(childPath, el.children, sites);
+  }
+}
+
+/**
+ * Verify every reference site's targetPath resolves to an entry in pathIndex.
+ * Empty / trailing-slash paths are treated as unset placeholders and skipped —
+ * those are already surfaced by the 'required' kind in single-doc validate().
+ *
+ * Pure / testable. Returns one ValidationError per unresolved ref.
+ */
+export function checkCrossRefs(
+  refSites: readonly RefSite[],
+  pathIndex: Map<string, PathIndexEntry>,
+): readonly ValidationError[] {
+  const errors: ValidationError[] = [];
+  for (const site of refSites) {
+    if (isUnsetPlaceholder(site.targetPath)) continue;
+    if (!pathIndex.has(site.targetPath)) {
+      const error: ValidationError =
+        site.paramKey !== undefined
+          ? {
+              kind: 'cross-ref',
+              path: site.sourcePath,
+              paramKey: site.paramKey,
+              message: `Reference target not found: ${site.targetPath}`,
+              expected: 'resolvable absolute path',
+              actual: site.targetPath,
+            }
+          : {
+              kind: 'cross-ref',
+              path: site.sourcePath,
+              message: `Reference target not found: ${site.targetPath}`,
+              expected: 'resolvable absolute path',
+              actual: site.targetPath,
+            };
+      errors.push(error);
+    }
+  }
+  return errors;
+}
+
+function isUnsetPlaceholder(path: string): boolean {
+  // Two forms of "developer hasn't filled in target yet":
+  //   1. completely empty
+  //   2. ends in "/" (e.g. ".../PduRTxBuffer/")
+  return path === '' || path.endsWith('/');
 }

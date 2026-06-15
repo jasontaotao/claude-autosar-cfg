@@ -172,4 +172,39 @@ describe('ValidationPanel', () => {
     // Sanity: the other kind still rendered
     expect(screen.getByText(/^range$/i)).toBeInTheDocument();
   });
+
+  // S6-T2: ValidationPanel must surface the new 'cross-ref' kind
+  // (cross-container reference target existence) alongside the existing
+  // kinds, with the same group-by-kind logic and teal `.kind-cross-ref`
+  // CSS class for visual distinction from per-doc `.kind-reference`.
+
+  it('renders cross-ref kind with teal kind-cross-ref class', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'cross-ref',
+        path: '/Com/Com/PduGroup/PduIdRef',
+        message: 'Reference target /EcuC/EcuC/ComM/ComMPduGroup_0 not found',
+        expected: 'exists in project',
+        actual: 'missing',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    const { container } = render(<ValidationPanel />);
+
+    // The kind badge text comes from the dynamic group-by-kind map
+    // (Object.entries(grouped).map(...)). The 'cross-ref' kind
+    // should appear as a section label just like range/enum/etc.
+    expect(screen.getByText(/^cross-ref$/i)).toBeInTheDocument();
+    // And the kind badge carries the CSS class consumed by .kind-cross-ref
+    // (background #14b8a6 teal, white text).
+    expect(container.querySelector('.kind-cross-ref')).not.toBeNull();
+    // And the count badge reads the same
+    expect(screen.getByText(/1 violation$/i)).toBeInTheDocument();
+  });
 });
