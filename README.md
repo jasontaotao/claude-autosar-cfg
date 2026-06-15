@@ -2,11 +2,12 @@
 
 Standalone desktop GUI for AUTOSAR BSW (Basic Software) configuration.
 
-> **v0.6.0** — F1 IO + F2 Tree/Editor + F3 Validation + F4 Parser fix +
-> F5 Container multiplicity all shipped. Open `.arxml` → click any tree
-> node → edit parameters on the right → **auto-validate as you type**;
-> violations surface in the panel below the tree (6 kinds: `range` /
-> `enum` / `reference` / `required` / `schema` / `multiplicity`).
+> **v0.7.0** — F1 IO + F2 Tree/Editor + F3 Validation + F4 Parser fix +
+> F5 Container multiplicity + F6 Cross-container reference all shipped.
+> Open `.arxml` → click any tree node → edit parameters on the right →
+> **auto-validate as you type**; violations surface in the panel below
+> the tree (7 kinds: `range` / `enum` / `reference` / `required` /
+> `schema` / `multiplicity` / `cross-ref`).
 > See [CHANGELOG](./CHANGELOG.md) and [PROGRESS](./PROGRESS.md).
 
 ## Stack
@@ -83,6 +84,24 @@ If you skip `pnpm build`, `pnpm dev` will fail fast with a clear hint.
 - Validation panel surfaces `multiplicity` errors in their own group
   (indigo, distinct from the other 5 kinds)
 
+### F6 — Cross-container reference (v0.7.0)
+
+- New project-level API: `validateProject(documents)` aggregates
+  per-document validation + new `'cross-ref'` kind that walks every
+  reference site across the loaded project and verifies its target
+  path resolves to an entry in the global path index
+- 4 pure / testable helpers added to `core/validation`:
+  `buildPathIndex` / `extractReferences` / `checkCrossRefs` +
+  `validateProject` orchestrator
+- 7th `ValidationErrorKind: 'cross-ref'` (teal `#14b8a6`) joins the
+  6 existing kinds in the validation panel
+- Parser-side `<REFERENCE-VALUES>` (ECUC-REFERENCE-VALUE) wrapper
+  parsing is **out of scope for Sprint 6** — the 5 sample fixtures
+  carry ~2306 such wrappers; their cross-ref data flows through once
+  parser/serializer support lands in Sprint 7. Today's 5-fixture
+  baseline is 0 cross-ref violations (correct given current parser
+  surface) — see CHANGELOG 0.7.0 Deviations for the full rationale
+
 ## Usage
 
 1. Click **[Open ARXML]** to load a `.arxml` (try
@@ -92,8 +111,8 @@ If you skip `pnpm build`, `pnpm dev` will fail fast with a clear hint.
      Click the chevron to expand; click a row to select.
    - **Validation** (bottom): live violations grouped by kind
      (`range` / `enum` / `reference` / `required` / `schema` /
-     `multiplicity`). Click any violation to jump the tree selection to
-     its container.
+     `multiplicity` / `cross-ref`). Click any violation to jump the
+     tree selection to its container.
 3. The **right editor** lists all parameters on the selected node and
    renders each with the right input: `string` → text, `integer` /
    `float` → number, `boolean` → checkbox, `enum` → schema-aware
@@ -118,8 +137,8 @@ project (`S32K148_EAS_EB_3399A` — Det / EcuC / Com / PduR / WdgIf).
 pnpm format:check    # prettier --check (CI: bundled in lint job)
 pnpm lint            # eslint, 0 warnings
 pnpm type-check      # tsc --noEmit (tsconfig.json + tsconfig.web.json)
-pnpm test            # vitest run (117 unit tests across 18 files)
-pnpm test:coverage   # v8 coverage (>= 80% on core/, 95.1% stmts achieved)
+pnpm test            # vitest run (146 unit tests across 20 files)
+pnpm test:coverage   # v8 coverage (>= 80% on core/, 94.95% stmts achieved)
 pnpm build           # 3 vite builds: renderer + main + preload
 ```
 

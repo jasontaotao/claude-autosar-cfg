@@ -5,6 +5,44 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-06-15 (Sprint 6)
+
+### Added
+
+- `core/validation/types.ts` — `ValidationErrorKind` extended with `'cross-ref'` (7th kind, joins range/enum/reference/required/schema/multiplicity); new `PathIndexEntry` interface (`path` + `kind: 'module'|'container'|'reference'` + `shortName` + optional `dest`); new `RefSite` interface (`sourcePath` + `targetPath` + optional `targetDest` + `tagName` + optional `paramKey`).
+- `core/validation/validate.ts` — 4 new pure / testable exports building on the Sprint 5 single-document surface:
+  - `validateProject(documents)`: aggregates per-document `validate()` errors + project-wide cross-ref check; returns `readonly ValidationError[]` matching the Sprint 5 contract
+  - `buildPathIndex(documents)`: walks every module/container/named-reference across documents and indexes them under their absolute AUTOSAR path (`/<pkg.shortName>/.../<leaf.shortName>`)
+  - `extractReferences(documents)`: walks every `kind:'reference'` ArxmlElement plus every container/module `params[]` value with `type:'reference'` and collects them as `RefSite`s (deliberately skips `ArxmlModule.references[]` — those are schema-side DEFINITION-REFs, not project-internal cross-refs)
+  - `checkCrossRefs(refSites, pathIndex)`: emits one `'cross-ref'` `ValidationError` per unresolved target; skips empty / trailing-slash placeholders (those are surfaced by the `'required'` kind in single-doc `validate()`)
+- `core/validation/index.ts` — re-exports the 4 new symbols; type re-export already covered `PathIndexEntry` / `RefSite` / new `'cross-ref'` kind via `export * from './types.js'`.
+- `renderer/components/ValidationPanel.css` — `.kind-cross-ref` class (teal `#14b8a6`) for visual distinction from `.kind-reference` (purple — per-param DEST mismatch within a single doc) and the other 5 kinds.
+- 25 new unit tests in `core/validation/__tests__/validateProject.test.ts` across 4 describe blocks (7 buildPathIndex / 6 extractReferences / 6 checkCrossRefs / 5 validateProject + 1 parity-with-validate).
+- 3 new fixture tests in `core/validation/__tests__/validateProject.fixtures.test.ts` loading the 5 baseline ARXML files and surfacing real project-level numbers via stdout.
+- 1 new unit test in `renderer/components/__tests__/ValidationPanel.test.tsx` (renders cross-ref kind with teal `.kind-cross-ref` class).
+
+### Verified
+
+- `pnpm verify` — format / lint / type-check / test / coverage / build all green
+- **146 unit tests pass** across 20 test files (up from 117 in v0.6.0):
+  - Sprint 5 regression: 117 tests preserved
+  - Sprint 6 new: validateProject.test.ts +25 + validateProject.fixtures.test.ts +3 + ValidationPanel.test.tsx +1 = 29
+- **Coverage**: 94.95% stmts / 79.86% branches / 100% funcs / 94.95% lines (vs v0.6.0 95.1% / 78.07% / 100% / 95.1%; branches +1.79pp, stmts -0.15pp — the 0.15pp dip is the few uncovered defensive branches in the new `validate.ts` cross-ref helpers that real fixture data does not exercise until Sprint 7 lands REFERENCE-VALUES parsing; both numbers remain well above the ≥80% stmts / ≥70% branches gate). `core/validation/index.ts` 100% / `core/validation/types.ts` 100% / `core/validation/validate.ts` 94.38% / 89.53%.
+- **5-sample baseline regression**: Det_Det / EcuC_EcuC / Com_Com / PduR_PduR / WdgIf_WdgIf all **0 violations** across all 7 kinds (range/enum/reference/required/schema/multiplicity/cross-ref). The new `validateProject.fixtures.test.ts` prints the real numbers (pathIndex.size 1611, refSites.length 0, cross-ref errors 0, validateProject total 0) — see Deviations for why the cross-ref count is 0 today.
+- 6-stage CI: GitHub Actions expected 6/6 green.
+
+### Deviations from plan
+
+- **Parser does not parse `<REFERENCE-VALUES>` (ECUC-REFERENCE-VALUE) wrappers** — discovered during T3 fixture baseline. The 5 fixtures hold 2306 such wrappers (Com 1846 / PduR 458 / WdgIf 2) which contain the real cross-container `<VALUE-REF>` data, but `src/core/arxml/parser.ts` `extractParamsAndRefs()` only handles `<PARAMETER-VALUES>` (ECUC-NUMERICAL-PARAM-VALUE / ECUC-TEXTUAL-PARAM-VALUE). Result: `extractReferences()` finds 0 sites for the 5 fixtures today, and `validateProject` reports 0 cross-ref errors. **Parser/serializer support for REFERENCE-VALUES is deferred to Sprint 7** (plan §1.2 backlog item). The Sprint 6 cross-ref infrastructure (validateProject / buildPathIndex / extractReferences / checkCrossRefs / 'cross-ref' kind / UI color) is correct and tested with synthetic documents (25 unit tests); as soon as Sprint 7 lands REFERENCE-VALUES parsing, real cross-ref data will flow through with zero additional work in validation.
+- **`walkRefs` deliberately skips `ArxmlModule.references[]`** — plan §2.2 suggested those strings (module-level `<DEFINITION-REF>`) could feed into the path-index walk. Investigation showed they point at schema definition paths (`/EAS/Det` → ECUC-MODULE-DEF namespace), not project-internal value-side paths (`/EcucDefs/Det`). Including them would always trigger 5 false-positive "cross-ref" errors against the value-side path index. Comment block in `walkRefs()` documents the decision; schema-side ref validation is in the Sprint 7 backlog.
+- **`validateProject` returns `readonly ValidationError[]`, not `ValidationResult`** — plan §2.2 wrote `return { ok: errors.length === 0, errors }` but the Sprint 5 `validate()` returns `readonly ValidationError[]` directly (never a `ValidationResult` envelope). Matching that contract is the consistent choice for the project-level surface.
+- **`ValidationError` field is `path`, not `elementPath`** — plan §2.2 referenced `elementPath`; the actual `ValidationError` shape from Sprint 3/5 uses `path`. `checkCrossRefs` writes to `path` accordingly. The `paramKey` field is now also set when the ref site comes from a container/module param scan, mirroring how single-doc `walkContainer` populates it for `range`/`enum` errors.
+- **No `severity` field** — plan §2.2 referenced a `severity` field that does not exist on `ValidationError` (and was not part of Sprint 5). Not added.
+- **UI is CSS-driven, not map-driven** — plan §2.4 proposed `KIND_LABEL` / `KIND_COLOR` / `KIND_SORT_ORDER` typed maps. The actual ValidationPanel uses dynamic `kind-${kind}` className + raw `kind` string as label. T2 sub-agent only added `.kind-cross-ref` to the CSS file (4 lines) and 1 test case, leaving `ValidationPanel.tsx` untouched. No sort order added — kinds render in errors' arrival order, matching the Sprint 5 multiplicity rollout.
+- **Store is single-document** — plan §2.5 hedged on a `documents: ArxmlDocument[]` store shape; the actual store holds `doc: ArxmlDocument | null`. `validateProject` is exposed as a pure core API for now; UI integration of project-level validation is deferred to whichever Sprint introduces multi-document loading.
+- **`RefSite` gained an optional `paramKey` field** — plan's `RefSite` shape did not include it; sub-agent A added it during the walkRefs scan-params extension so error messages can identify which container param holds the dangling ref (mirrors single-doc `validate()` populating `ValidationError.paramKey`). Additive change, no break.
+- **version bump 0.6.0 → 0.7.0** — adding a new validation kind, a new project-level API, and two new exported types constitutes a MINOR bump per semver (additive feature, no breaking change to `validate()` / `EcucSchemaEntry` / `ValidationError` ABI).
+
 ## [0.6.0] — 2026-06-15 (Sprint 5)
 
 ### Added

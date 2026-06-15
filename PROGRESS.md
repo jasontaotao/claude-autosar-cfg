@@ -11,14 +11,15 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 
 ## Sprint 总览（v0.1.0 路线）
 
-| Sprint                                   | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                                                                    |
-| ---------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S0** 脚手架                            | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                                                                            |
-| **S1** F1 ARXML IO                       | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                                                                        |
-| **S2** F2 Tree + 7-param editor          | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                                                                            |
-| **S3** F3 Validation                     | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation                                                        |
-| **S4** F4 Parser bug fix + verify format | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation                                                 |
-| **S5** F5 Container multiplicity         | 增 ECUC container 实例数 [lower, upper] 校验                 | ✅   | 2026-06-15 | `5c47f37`                                          | `types.ts` 加 `'multiplicity'` kind + `EcucContainerSchemaEntry` interface + `ecucSubset.ts` 13 entries + `validate.ts` `checkContainerMultiplicity` + `ValidationPanel` 第 6 group + 117 tests / 95.1% coverage / 5/5 baseline 0 violation |
+| Sprint                                   | 范围                                                         | 状态 | 完成日     | HEAD                                               | 关键交付                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------ | ---- | ---------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0** 脚手架                            | Electron + TS + Vite 三层骨架 + 5 阶段 CI                    | ✅   | 2026-06-13 | `563f7a5`                                          | Hello Window + 5/5 CI jobs green                                                                                                                                                                                                                                                                                          |
+| **S1** F1 ARXML IO                       | 解析 + 序列化 .arxml (r4.x ECUC subset)                      | ✅   | 2026-06-14 | `3a7a039`                                          | `core/arxml/{parser,serializer}.ts` + IPC `arxml:open/parse/save` + 5 round-trip 样本 + 5 覆盖率补测                                                                                                                                                                                                                      |
+| **S2** F2 Tree + 7-param editor          | 左树右编辑器，7 mode 编辑，Zustand store，键盘 a11y          | ✅   | 2026-06-14 | `73909a1` (GH Actions run 27500975793 — 5/5 green) | `tree/{Tree,TreeNode}.tsx` + `editor/{ParamEditor,modes.ts,modes/*}.tsx` + `useArxmlStore` + 5 mutate round-trip                                                                                                                                                                                                          |
+| **S3** F3 Validation                     | ECUC subset schema + range/enum/ref 校验 + 5 样本 baseline   | ✅   | 2026-06-14 | `f6aef6b`                                          | `core/validation/{types,validate}.ts` + `schema/ecucSubset.ts` (46 entries) + `ValidationPanel.tsx` + `useDebouncedValidation` + EnumEditor 升级 dropdown + 5/5 baseline 0 violation                                                                                                                                      |
+| **S4** F4 Parser bug fix + verify format | 修 2 parser bug (DEST-aware) + schema revert + verify format | ✅   | 2026-06-15 | `9c37e53` (GH Actions run 27519501464 — 5/5 green) | `parser.ts` DEST-first dispatch + `serializer.ts` 精确 DEST + `ecucSubset.ts` 撤回 18 entry + 删 2 sentinel + `verify.mjs` 6-stage + 110 tests / 94.57% coverage / 5/5 baseline 0 violation                                                                                                                               |
+| **S5** F5 Container multiplicity         | 增 ECUC container 实例数 [lower, upper] 校验                 | ✅   | 2026-06-15 | `5c47f37`                                          | `types.ts` 加 `'multiplicity'` kind + `EcucContainerSchemaEntry` interface + `ecucSubset.ts` 13 entries + `validate.ts` `checkContainerMultiplicity` + `ValidationPanel` 第 6 group + 117 tests / 95.1% coverage / 5/5 baseline 0 violation                                                                               |
+| **S6** F6 Cross-container reference      | 项目级 cross-ref API + `'cross-ref'` 第 7 kind               | ✅   | 2026-06-15 | TBD                                                | `types.ts` 加 `'cross-ref'` kind + `PathIndexEntry` + `RefSite` interface + `validate.ts` 加 `validateProject` / `buildPathIndex` / `extractReferences` / `checkCrossRefs` + ValidationPanel `.kind-cross-ref` teal + 146 tests / 94.95% coverage / 5/5 baseline 0 violation；parser `<REFERENCE-VALUES>` 解析留 Sprint 7 |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -409,7 +410,84 @@ Sprint 5 启动时**已就绪**的基础：
 
 ---
 
-## 参考资料
+## Sprint 6 — F6 Cross-container reference 校验（✅ 2026-06-15 完成，HEAD TBD）
+
+### 完成情况
+
+- **项目级 cross-ref 校验上线**：新增 `validateProject(documents)` 项目级 API，与 Sprint 5 单文档 `validate(doc)` 平行；签名 `(readonly ArxmlDocument[]) => readonly ValidationError[]`，聚合单文档错误 + 新增 `'cross-ref'` 第 7 kind 检查
+- **4 个 pure / testable helper**：`buildPathIndex(documents) → Map<string, PathIndexEntry>` 构建项目全路径索引；`extractReferences(documents) → readonly RefSite[]` 收集所有引用消费位点（`kind:'reference'` element + container/module `params[type:'reference']`）；`checkCrossRefs(refSites, pathIndex) → ValidationError[]` 解析校验；`validateProject` 三步顺序编排
+- **`'cross-ref'` 第 7 kind**：`ValidationErrorKind` union 从 6 扩到 7；新增 `PathIndexEntry` + `RefSite` 两个 interface（前者 `path/kind/shortName/dest?`，后者 `sourcePath/targetPath/targetDest?/tagName/paramKey?`）
+- **空 / 末尾 `/` placeholder 跳过**：`isUnsetPlaceholder` 私有 helper 过滤未填占位符（`''` 或 `.../`），让"未设值"由 `'required'` kind 处理而非误报 `'cross-ref'`
+- **`'cross-ref'` UI 展示**：ValidationPanel 仍用 dynamic `kind-${kind}` className（CSS-driven 不动 .tsx 主体），新增 `.kind-cross-ref` teal `#14b8a6` 与现有 6 kind 视觉风格一致；teal 与 `.kind-reference` 紫色（Sprint 3 起的单文档 DEST 不匹配）配对但视觉可分
+- **5/5 baseline 0 violation 保持**（7 kind 全维度）—— 实际项目级 baseline 5 fixture `pathIndex.size:1611 / refSites.length:0 / cross-ref errors:0`；refSites 为 0 是因 parser 仅解析 `<PARAMETER-VALUES>`，**不解析** `<REFERENCE-VALUES>` wrapper（5 fixture 含 2306 wrapper），是已知偏差，留 Sprint 7
+- **146 tests pass / 0 fail**（20 文件）：Sprint 5 的 117 + validateProject.test.ts +25 + validateProject.fixtures.test.ts +3 + ValidationPanel.test.tsx +1
+- **coverage 94.95% stmts / 79.86% branches / 100% funcs**（vs Sprint 5 95.1% / 78.07%；branches +1.79pp，stmts -0.15pp）；`validation/types.ts` 100% / `validation/index.ts` 100% / `validate.ts` 94.38% / 89.53%
+- **版本号**：`0.6.0 → 0.7.0`（`package.json` + main `GET_APP_VERSION` 同步）
+
+### 交付清单（8 task 全 done，3 sub-agent fan-out + 主 agent T0+T4-T7 收尾）
+
+| ID    | 文件                                                                                                                           | Agent       | 验收 / 备注                                                                                                                                                                                                   |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S6-T0 | （摸底）`arxml/types.ts` / `validation/{types,validate,index}.ts` / `ValidationPanel.tsx` / `useArxmlStore.ts` / `pnpm vitest` | 主 agent    | 5 处 plan 偏差识别（validate 返回 array 非 ValidationResult / 字段 `path` 非 `elementPath` / 无 severity / UI CSS-driven 非 map-driven / store 单文档）；fan-out 前给 sub-agent 明确契约，避免返工            |
+| S6-T1 | `core/validation/types.ts` + `core/validation/validate.ts` + `core/validation/index.ts`                                        | Sub-agent A | `'cross-ref'` 7th kind + `PathIndexEntry` + `RefSite` interface + `validateProject` / `buildPathIndex` / `extractReferences` / `checkCrossRefs` + `walkPathIndex` / `walkRefs` / `isUnsetPlaceholder` private |
+| S6-T2 | `renderer/components/ValidationPanel.css` + `__tests__/ValidationPanel.test.tsx`                                               | Sub-agent B | `.kind-cross-ref` teal `#14b8a6`（4 行 CSS）+ 1 单测渲染 cross-ref kind；不动 ValidationPanel.tsx 主体（CSS-driven 现状最适配）                                                                               |
+| S6-T3 | `core/validation/__tests__/validateProject.test.ts` + `validateProject.fixtures.test.ts`                                       | Sub-agent C | 25 单测（4 describe block）+ 3 fixture baseline 单测（含 console.log 实数字 + soft 阈值）；fixture 测试暴露"parser 不解析 REFERENCE-VALUES"根因                                                               |
+| S6-T4 | `walkRefs` 扩展（扫 params[type:'reference']）+ `RefSite.paramKey?` 字段 + `checkCrossRefs` 透传 paramKey                      | 主 agent    | 选 C 后 sub-agent A 实现仅扫 element-level；主 agent 补 params 扫描；选 D 后撤销 module.references 扫描（schema-side ref，不参与）；fixture 重跑 5/5 baseline 0 violation                                     |
+| S6-T5 | `PROGRESS.md` + `package.json` 0.6.0→0.7.0 + `main/ipc/register.ts` GET_APP_VERSION + `README.md` banner+F6 + `CHANGELOG.md`   | 主 agent    | MINOR bump；4 处 version 同步；CHANGELOG 0.7.0 entry 含 8 处 Deviations；README F6 段说明 Sprint 7 parser 增强                                                                                                |
+| S6-T6 | `pnpm verify` 6 stage                                                                                                          | 主 agent    | format / lint / type-check / test / coverage / build 全绿；146 tests / 94.95% stmts / 79.86% branches                                                                                                         |
+| S6-T7 | 3+ commit（feat + docs+bump）                                                                                                  | 主 agent    | 不 push，等用户拍板 Sprint 5+6 一起 push 累计 5+ commits                                                                                                                                                      |
+
+### 计划偏差（已实施 — 共 8 处）
+
+| 项                                | plan 原文                                                             | 实际                                                                                                   | 原因                                                                                                                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **validateProject 返回类型**      | § 2.2 `return { ok: errors.length === 0, errors }` (ValidationResult) | `readonly ValidationError[]`（直接返回 array）                                                         | Sprint 5 `validate(doc)` 已返回 `readonly ValidationError[]`，从未走 ValidationResult；validateProject 必须匹配该契约保持一致性                                                              |
+| **ValidationError 字段名**        | § 2.2 用 `elementPath`                                                | 实际是 `path`                                                                                          | Sprint 3 types.ts 一直叫 `path`；plan 笔误                                                                                                                                                   |
+| **ValidationError severity**      | § 2.2 注释提到 `severity`                                             | 不存在该字段                                                                                           | Sprint 3 起 ValidationError 只有 kind/path/paramKey/message/expected/actual，从无 severity；plan 假想                                                                                        |
+| **UI 改造方式**                   | § 2.4 `KIND_LABEL/KIND_COLOR/KIND_SORT_ORDER` 三 map                  | ValidationPanel.tsx 是 CSS-driven (`kind-${kind}` className) + 原 `kind` 字符串作 label，无 map / sort | 现有 5/6 kind 都走这模式（dynamic className + 同 CSS 文件加规则）；改 map 会重构主体破 6 个原测试；T2 只加 4 行 CSS + 1 测试，零回归                                                         |
+| **store 单 vs 多文档**            | § 2.5 假设 store 持有 `documents: ArxmlDocument[]`                    | store 持有 `doc: ArxmlDocument \| null`（单文档）                                                      | 多文档 UI host 未到位；plan §2.5 已预案"本 Sprint 不强求 UI 端"；validateProject 仅作核心 pure API + 单测，UI 颜色支持 ready                                                                 |
+| **walkRefs 扫 module.references** | 隐含可扫                                                              | 不扫                                                                                                   | 5 fixture 跑出来发现 module.references 是模块自己的 DEFINITION-REF（`ECUC-MODULE-DEF:/EAS/Det`），是 schema-side 引用，非 project-internal cross-ref；扫描会触发 5 个 false-positive 错误    |
+| **RefSite.paramKey 字段**         | § 2.1 RefSite 无 paramKey                                             | 加 `paramKey?: string`                                                                                 | walkRefs 扫 container/module `params[type:'reference']` 时记录是哪个 param 持有引用；checkCrossRefs 把 paramKey 透传到 ValidationError，让错误消息能定位到 param level（与 range/enum 一致） |
+| **5 fixture cross-ref 实数据**    | § 3.6 期望 ~2282 refSites                                             | 实际 0 refSites                                                                                        | parser.ts `extractParamsAndRefs` 只处理 `<PARAMETER-VALUES>` wrapper，**不解析** `<REFERENCE-VALUES>` (ECUC-REFERENCE-VALUE)；5 fixture 含 2306 该 wrapper 但 parser 全部丢弃；推 Sprint 7   |
+
+### 风险回顾（plan §5 → 实际）
+
+1. ⚠ **5 fixture 互相不自洽 → cross-ref errors 上千**（plan 风险 1）—— **未发生**：实际 cross-ref errors = 0，因为 parser 不解析 REFERENCE-VALUES，没有 ref 数据进入校验。本次反而暴露 parser 根因，留 Sprint 7
+2. ⚠ **Parser 抽出的 `kind:'reference'` element 没有包含所有 VALUE-REF**（plan 风险 2，**中风险**）—— **完全命中**：5 fixture 含 2306 `<REFERENCE-VALUES>` wrapper 全部被 parser 跳过；这是 Sprint 6 最重要的发现，正在 CHANGELOG 0.7.0 Deviations + Sprint 7 backlog 文档化
+3. ✅ **ArxmlReference 在 element tree 中作为 children 还是作为 params**（plan 风险 3）—— **澄清**：`ArxmlContainer.children: ArxmlElement[]` 含 reference kind（element-level），但 parser 实际把绝大多数 VALUE-REF 折叠进 `params[type:'reference']`（param-level）；walkRefs 已扫两路
+4. ✅ **VALUE-REF 是绝对 path 还是相对**（plan 风险 4）—— **澄清**：从 fixture 看绝对 path 带前导 `/`；buildPathIndex 用 `/${pkg.shortName}/...` 匹配
+5. ✅ **Path index Map 30000 ref 内存 / 性能**（plan 风险 5）—— **未触发**：1611 项 `Map`，O(1) lookup，无性能问题
+6. ✅ **validate(single) 与 validateProject UI 端调用冲突**（plan 风险 6）—— **未发生**：UI 端只调 `validate(doc)`（store 单文档），validateProject 仅核心 API 可用
+7. ✅ **Empty placeholder 判定不准**（plan 风险 7）—— **未发生**：`isUnsetPlaceholder` 单测覆盖空 / `/EAS/.../` / 真实 path 三类
+8. ✅ **Sub-agent A/B 同改 index.ts re-export 冲突**（plan 风险 8）—— **未发生**：T1/T2 scope 严格分隔；index.ts 仅 T1 改
+9. ✅ **6-stage verify 在 Windows + Clash 慢**（plan 风险 9）—— **未发生**：verify 5.75s（含覆盖率收集）；build 9.6s 三 vite 加起来
+
+### Sprint 6 → Sprint 7 衔接
+
+Sprint 7 启动时**已就绪**的基础：
+
+- [x] `ValidationErrorKind` 联合现在是 7 kind（加 `'cross-ref'`）；S7+ 加新 kind（如 `'ref-dest-mismatch'`、`'cyclic-ref'`、`'definition-required'`）只需在 union 加 string + CSS 加 `.kind-{kind}` rule
+- [x] `validateProject(documents)` 已是项目级入口；S7 加 ref dest 类型校验只需新增 helper 并 push 进 errors 数组
+- [x] `PathIndexEntry` 含 `kind: 'module'|'container'|'reference'` + `dest?` 字段，S7 加"ref dest 必须匹配 target.kind/dest"语义校验已有上下文
+- [x] `RefSite` 含 `paramKey?` 字段，S7 加新校验时错误消息能定位到 param level
+- [x] `extractReferences` 既扫 element-level `kind:'reference'` 也扫 container/module `params[type:'reference']`，**Sprint 7 修 parser 加 REFERENCE-VALUES 解析后，零修改自动收集真实 cross-ref 数据**
+- [x] `validateProject.fixtures.test.ts` 锁定当前 baseline（pathIndex.size 1611 / refSites 0 / cross-ref 0），Sprint 7 parser 增强后这些断言会自然破，正好作为"新 baseline 数据已流入"的信号
+- [x] 6-stage verify pipeline 完整；S7+ 加新 stage 或 ratchet coverage 阈值只需编辑 STAGES 数组
+- [x] 5/5 baseline 是 signature guard；S7+ 改 parser/schema 必须保持 5/5 全 7 kind 0 violation（或文档化接受值）
+
+### Sprint 7 backlog（已完成 Sprint 6 项 + 新发现项）
+
+1. **parser 加 `<REFERENCE-VALUES>` (ECUC-REFERENCE-VALUE) wrapper 解析** —— Sprint 6 最重要的衍生 task；解析后 5 fixture cross-ref baseline 立刻从 0 跳到真实数（预期 ~2306 wrappers 中相当一部分会 dangling，因 fixture 是节选不自洽，届时需文档化接受值）
+2. **serializer 配套加 `<REFERENCE-VALUES>` 序列化** —— round-trip 必须保持稳定，否则 Sprint 1-5 round-trip 测试会破
+3. **Ref dest 类型校验**（如 `PduRSrcPduRef` 必须 DEST="ECUC-CONTAINER-VALUE"；DEST 不匹配也报错）—— plan §1.2 已列入
+4. **Cyclic ref detection**（A→B，B→A）—— plan §1.2 已列入
+5. **Dangling ref required check 升级**（path='' 或末尾 `/` 视作 unset；S7 可加 schema 控制"此 ref 必填" → 报 'required' 而非跳过）—— plan §1.2 已列入
+6. **递归 multiplicity**（Sprint 5 backlog 仍在；S7 与 cross-ref 校验同表）
+7. **fixture 体积管理**（9.2MB → git-lfs 或外部下载脚本）
+8. **electron-builder 打包**（独立 Sprint）
+9. **coverage 推到 branches ≥85%**
+10. **i18n**（独立 Sprint；7 kind error + ValidationPanel label + EnumEditor tooltip）
+11. **ParamEditor inline ref autocomplete**（用 path index 补全；产品方向，与校验独立）
 
 ---
 
