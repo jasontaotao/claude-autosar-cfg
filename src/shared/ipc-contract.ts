@@ -6,6 +6,10 @@ export const IPC_CHANNELS = {
   OPEN_ARXML_MULTI: 'arxml:open-multi',
   PARSE_ARXML: 'arxml:parse',
   SAVE_ARXML: 'arxml:save',
+  // Sprint 11 Phase 1 — project manifest IO
+  PROJECT_NEW: 'project:new',
+  PROJECT_OPEN: 'project:open',
+  PROJECT_SAVE: 'project:save',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

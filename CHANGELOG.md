@@ -5,6 +5,47 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-06-16 (Sprint 11 — Project Manifest + i18n)
+
+### Added
+
+- **Project Manifest** (`<name>.autosarcfg.json`) — distinguishes a user's project from a generic doc collection. Co-located with the value-side ARXMLs. Stores `id` (UUID) + `name` + `valueArxmlPaths` + `bswmdPaths`. Schema-versioned (`schemaVersion: "1"`).
+- `src/core/project/manifest.ts` — pure helpers `loadManifest(json)` / `saveManifest(m)` / `validateManifest(m)` / `createEmptyManifest(name)`. Path-shape checks refuse `..` / absolute / empty paths so a hostile manifest can't escape its directory at the main-process read step.
+- **i18n framework** — `src/shared/i18n.ts` exports `Messages` interface + `MessagesZhCN` + `MessagesEn` + `t(locale, key, params?)` helper. Parity test enforces both bundles cover the same key set. Default locale: `zh-CN` (per user request).
+- `src/renderer/components/ProjectPanel.tsx` + `.css` — sidebar that surfaces the project's value-side ARXMLs + BSWMDs, or shows a "no project loaded" hint with quick New/Open buttons in loose mode.
+- `src/renderer/hooks/useProjectActions.ts` — shared hook returning `newProject()` / `openProjectFromDialog()` / `saveProject()`. Both `AppHeader` and `ProjectPanel` consume it; no synthetic-click coupling.
+- IPC: `PROJECT_NEW` / `PROJECT_OPEN` / `PROJECT_SAVE` channels. `PROJECT_OPEN` returns `{ rel, path, content }` triples (matching by manifest-relative path so two docs sharing a basename pair correctly). Path-containment check via `path.relative` refuses escapes from the manifest directory.
+
+### Changed
+
+- `AppHeader` adds three project buttons (New / Open Project / Save Project) + a project chip when a project is open + a `中/EN` locale toggle. Every user-facing string routes through `t()`.
+- `ValidationPanel` / `ArxmlPanel` / `Tree` / `ParamEditor` translated. ParamEditor keeps the technical type names (`integer` / `float` / etc.) untranslated — they map to ECUC standard identifiers engineers read in English.
+- `useArxmlStore` gains `project` / `projectPath` / `locale` state + `openProject` / `closeProject` / `addBswmd` (Phase-1 stub) / `setLocale` actions. `addDocument` / `removeDocument` sync `project.valueArxmlPaths` when a project is open; loose mode (project null) is unchanged — 329 prior tests still pass.
+- `closeProject()` preserves `documents[]` and `dirtyPaths` so the user keeps editing in loose mode without losing unsaved changes.
+- `useDebouncedValidation` and the renderer data flow are unchanged; validation still runs on every mutation via the existing inline calls.
+- App version string `0.9.5` → `0.10.0` (minor bump: feature release).
+
+### Fixed
+
+- **HIGH: basename collision** in `openProject` — the renderer now matches by `rel` (manifest-relative path) instead of `path.endsWith(rel)`. Two ARXMLs sharing a basename in different sub-directories of the same project pair to the correct manifest slot.
+- **HIGH: synthetic-click coupling** — `ProjectPanel.LooseView` used to fire `document.querySelector(...).click()` on `AppHeader`'s buttons. Replaced with shared `useProjectActions` hook; `ProjectActionResult` discriminated union drives error feedback in either component.
+- **HIGH: silent data-loss risk** — Save Project only persists the manifest. Disabled when `dirtyPaths.size > 0`; tooltip routes the user to the per-doc Save flow via the new `app.project.saveBlockedDirty` i18n key.
+- `ArxmlPanel` no longer carries a local `FOOTER_KEYS` ad-hoc dictionary — replaced with `t('arxmlPanel.packages' | 'elements' | 'unsaved')` so the parity test enforces coverage.
+
+### Test coverage
+
+- 329 → 374 tests passing (+45): 19 manifest, 14 store project (including the new basename-collision test), 11 i18n.
+- All 5 baseline fixtures still produce the same `validateProject` totals: 782 cross-ref / 0 ref-dest / 0 ref-cycle. No regressions.
+- Stmts / branches coverage stay ≥96% / ≥85% — only additive code, no existing paths modified in a behavior-changing way.
+
+### Known gaps (deferred to Sprint 12+)
+
+- `formatParseError` strings in `AppHeader` stay English (parser error localisation needs main+renderer coordination).
+- OS dialog titles (Open ARXML / New Project / Save ARXML) are hardcoded English — would need a `locale` parameter in the IPC handler.
+- `ParamEditor` column headers (Param / Type / Value) and the `aria-label="Parameter editor"` stay English.
+- BSWMD parser (`src/core/bswmd/parser.ts`) is an empty placeholder — Sprint 11 Phase 2 wires it up next.
+- `addBswmd` store action is a Phase-1 no-op; the IPC `PROJECT_OPEN` already returns BSWMD content but the renderer ignores it until Phase 2 lands.
+
 ## [0.9.5] — 2026-06-16 (Sprint 9 #4 — shortName uniqueness fallback)
 
 ### Added

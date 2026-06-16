@@ -5,8 +5,17 @@
 //
 // Renders nothing when no doc is loaded — keeps the footer from
 // contributing empty space when the user has not opened a file yet.
+//
+// Sprint 11 Phase 1 (Option A) i18n: every label goes through
+// t(locale, key). Keys 'arxmlPanel.packages' / '.elements' / '.unsaved'
+// live in the shared Messages bundle so the parity test enforces
+// zh-CN / en coverage (an earlier ad-hoc `FOOTER_KEYS` local dict
+// bypassed the test; code-review M3).
+
+import type { JSX } from 'react';
 
 import type { ArxmlElement } from '@core/arxml/types.js';
+import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 
@@ -15,6 +24,7 @@ export function ArxmlPanel(): JSX.Element | null {
   const isActiveDirty = useArxmlStore((s) =>
     s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
   );
+  const locale = useArxmlStore((s) => s.locale);
 
   if (doc === null) return null;
 
@@ -27,20 +37,20 @@ export function ArxmlPanel(): JSX.Element | null {
   return (
     <footer className="status-footer" data-testid="status-footer">
       <span className="status-item">
-        Packages: <strong>{packageCount}</strong>
+        {t(locale, 'arxmlPanel.packages')}: <strong>{packageCount}</strong>
       </span>
       <span className="status-sep">•</span>
       <span className="status-item">
-        Elements: <strong>{elementCount}</strong>
+        {t(locale, 'arxmlPanel.elements')}: <strong>{elementCount}</strong>
       </span>
       <span className="status-sep">•</span>
       <span className="status-item">
-        AUTOSAR <strong>{doc.version}</strong>
+        {t(locale, 'app.docVersion', { version: doc.version })}
       </span>
       {isActiveDirty && (
         <>
           <span className="status-sep">•</span>
-          <span className="status-dirty">unsaved changes</span>
+          <span className="status-dirty">{t(locale, 'arxmlPanel.unsaved')}</span>
         </>
       )}
     </footer>

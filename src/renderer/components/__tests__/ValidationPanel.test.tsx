@@ -27,6 +27,10 @@ function resetStore(): void {
     error: null,
     validationErrors: [],
     lastValidatedAt: null,
+    // Sprint 11 Phase 1 (Option A) — pin locale to en so the
+    // "Validation" / "All checks passed" / "N violations" assertions
+    // keep matching after i18n landed.
+    locale: 'en',
   });
 }
 

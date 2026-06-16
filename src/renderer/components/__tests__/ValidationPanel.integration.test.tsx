@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlPackage } from '@core/arxml/types';
 
@@ -38,6 +38,12 @@ function buildDoc(): ArxmlDocument {
 }
 
 describe('ValidationPanel integration with store', () => {
+  beforeEach(() => {
+    // Sprint 11 Phase 1 (Option A) — pin to en so assertions on English
+    // badge text keep matching.
+    useArxmlStore.setState({ locale: 'en' });
+  });
+
   it('reflects validationErrors after setDoc on a violating param', () => {
     // T2 is still a stub (validate() returns []), so this test currently
     // shows 0 violations even with PduLength=999. We assert that the

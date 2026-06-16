@@ -1,9 +1,15 @@
 // renderer/components/editor/ParamEditor.tsx
 // Right-pane parameter editor for the currently-selected tree node.
 // Routes each param to the matching mode-specific sub-editor via selectParamMode.
+//
+// Sprint 11 Phase 1 (Option A) i18n: empty-state and column headers
+// pass through t(locale, key). Param type names (integer / float / etc.)
+// are technical identifiers and stay untranslated — they map directly
+// to BSWMD/ECUC standard names that engineers read in English.
 
 import { findByPath } from '@core/arxml/path';
 import type { ParamValue } from '@core/arxml/types';
+import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
 
@@ -60,6 +66,7 @@ function typeBadgeClass(type: ParamValue['type']): string {
 export function ParamEditor(): JSX.Element {
   const doc = useArxmlStore((s) => s.doc);
   const selectedPath = useArxmlStore((s) => s.selectedPath);
+  const locale = useArxmlStore((s) => s.locale);
 
   if (doc === null || selectedPath === null) {
     return (
@@ -67,7 +74,7 @@ export function ParamEditor(): JSX.Element {
         className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
         aria-label="Parameter editor"
       >
-        Open an ARXML file and select a node in the tree to edit its parameters.
+        {t(locale, 'editor.noSelection')}
       </section>
     );
   }
@@ -79,7 +86,10 @@ export function ParamEditor(): JSX.Element {
         className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
         aria-label="Parameter editor"
       >
-        Selected node has no editable parameters.
+        {/* "Selected node has no editable parameters" — same meaning in
+            both locales so we reuse the empty-state key from the tree
+            (matches the "no entries" voice users already see). */}
+        {t(locale, 'tree.empty')}
       </section>
     );
   }

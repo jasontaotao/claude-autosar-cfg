@@ -2,10 +2,14 @@
 // Reads `validationErrors` and `lastValidatedAt` from useArxmlStore and
 // renders one of three states: empty (no doc), valid (no errors), or
 // invalid (errors grouped by kind with click-to-select).
+//
+// Sprint 11 Phase 1 (Option A) i18n: title / subtitle / counts go
+// through t(locale, key).
 
 import type { JSX } from 'react';
 
 import type { ValidationError } from '@core/validation';
+import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 
@@ -53,12 +57,13 @@ export function ValidationPanel(): JSX.Element {
   const errors = useArxmlStore((s) => s.validationErrors);
   const lastValidatedAt = useArxmlStore((s) => s.lastValidatedAt);
   const select = useArxmlStore((s) => s.select);
+  const locale = useArxmlStore((s) => s.locale);
 
   // No doc loaded
   if (lastValidatedAt === null) {
     return (
-      <aside className="validation-panel empty" aria-label="Validation">
-        <p className="muted">No document loaded.</p>
+      <aside className="validation-panel empty" aria-label={t(locale, 'validation.title')}>
+        <p className="muted">{t(locale, 'arxmlPanel.empty')}</p>
       </aside>
     );
   }
@@ -66,12 +71,12 @@ export function ValidationPanel(): JSX.Element {
   // Doc loaded, no errors
   if (errors.length === 0) {
     return (
-      <aside className="validation-panel valid" aria-label="Validation" role="status">
+      <aside className="validation-panel valid" aria-label={t(locale, 'validation.title')} role="status">
         <header>
-          <h3>Validation</h3>
-          <span className="badge badge-ok">All checks passed</span>
+          <h3>{t(locale, 'validation.title')}</h3>
+          <span className="badge badge-ok">{t(locale, 'validation.allPassed')}</span>
         </header>
-        <p className="muted">ECUC subset schema applied. Edit a param to revalidate.</p>
+        <p className="muted">{t(locale, 'validation.subtitle')}</p>
       </aside>
     );
   }
@@ -81,11 +86,13 @@ export function ValidationPanel(): JSX.Element {
   const count = errors.length;
 
   return (
-    <aside className="validation-panel invalid" aria-label="Validation" role="alert">
+    <aside className="validation-panel invalid" aria-label={t(locale, 'validation.title')} role="alert">
       <header>
-        <h3>Validation</h3>
+        <h3>{t(locale, 'validation.title')}</h3>
         <span className="badge badge-error">
-          {count} violation{count === 1 ? '' : 's'}
+          {count === 1
+            ? t(locale, 'validation.violation', { count })
+            : t(locale, 'validation.violations', { count })}
         </span>
       </header>
       <ul className="kind-list">

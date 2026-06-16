@@ -1,5 +1,6 @@
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
+import { ProjectPanel } from './components/ProjectPanel';
 import { ValidationPanel } from './components/ValidationPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { Tree } from './components/tree/Tree';
@@ -17,6 +18,12 @@ export function App(): JSX.Element {
       <AppHeader />
       <main className="workspace">
         <div className="left-column">
+          {/* Sprint 11 Phase 1 — ProjectPanel sits at the top of the
+              left column. When a project is open it shows the manifest
+              summary; in loose mode it's a compact "no project" hint
+              with quick-action buttons. CSS grid auto-rows keep the
+              Tree (1fr) + ValidationPanel (auto) below it. */}
+          <ProjectPanel />
           <Tree store={useArxmlStore} />
           <ValidationPanel />
         </div>

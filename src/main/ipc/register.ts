@@ -1,9 +1,11 @@
 import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 
 import { dialog, ipcMain } from 'electron';
 
 import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
+import { createEmptyManifest, loadManifest, saveManifest } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   FileError,
@@ -11,6 +13,11 @@ import type {
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
+  ProjectNewRequest,
+  ProjectNewResult,
+  ProjectOpenResult,
+  ProjectSaveRequest,
+  ProjectSaveResult,
   SaveArxmlRequest,
   SaveArxmlResponse,
 } from '../../shared/types.js';
@@ -21,7 +28,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, async () => {
-    return '0.9.5';
+    return '0.10.0';
   });
 
   ipcMain.handle(
@@ -141,4 +148,198 @@ export function registerIpcHandlers(): void {
       }
     },
   );
+
+  // ============================================================
+  // Sprint 11 Phase 1 — Project manifest IO
+  // ============================================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_NEW,
+    async (_evt, req: ProjectNewRequest): Promise<ProjectNewResult> => {
+      // Default filename: `<safe-name>.autosarcfg.json`. Strip path-unsafe
+      // chars so a project named "My/Project: Demo" still saves cleanly.
+      const safe = req.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 64) || 'untitled';
+      const defaultName = `${safe}.autosarcfg.json`;
+
+      const result = await dialog.showSaveDialog({
+        title: 'New Project',
+        defaultPath: defaultName,
+        filters: [
+          { name: 'AutosarCfg Project', extensions: ['json'] },
+          { name: 'All', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePath === undefined) {
+        return { kind: 'canceled' };
+      }
+      const manifestPath = result.filePath;
+      const manifest = createEmptyManifest(req.name);
+      try {
+        await fs.writeFile(manifestPath, saveManifest(manifest), 'utf8');
+        return { kind: 'created', path: manifestPath, manifest };
+      } catch (e) {
+        return {
+          kind: 'write-failed',
+          message: e instanceof Error ? e.message : String(e),
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.PROJECT_OPEN, async (): Promise<ProjectOpenResult> => {
+    const dialogResult = await dialog.showOpenDialog({
+      title: 'Open Project',
+      properties: ['openFile'],
+      filters: [
+        { name: 'AutosarCfg Project', extensions: ['json'] },
+        { name: 'All', extensions: ['*'] },
+      ],
+    });
+    if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+      return { kind: 'canceled' };
+    }
+    const manifestPath = dialogResult.filePaths[0]!;
+    const manifestDir = path.dirname(manifestPath);
+
+    // Read + parse the manifest JSON
+    let manifestJson: string;
+    try {
+      manifestJson = await fs.readFile(manifestPath, 'utf8');
+    } catch (e) {
+      return {
+        kind: 'read-failed',
+        message: `Failed to read manifest: ${e instanceof Error ? e.message : String(e)}`,
+      };
+    }
+    const loaded = loadManifest(manifestJson);
+    if (!loaded.ok) {
+      return {
+        kind: 'read-failed',
+        message: `Invalid manifest: ${describeManifestError(loaded.error)}`,
+      };
+    }
+    const manifest = loaded.value;
+
+    // Resolve + read each referenced file with path-containment check.
+    // A manifest's paths are relative to its directory; we refuse anything
+    // that resolves outside `manifestDir` (defence-in-depth against a
+    // hostile manifest like `../../etc/passwd`). Each entry also carries
+    // the original `rel` so the renderer can pair it back to the manifest
+    // even when two entries share a basename (e.g. `subdir1/EcuC.arxml`
+    // and `subdir2/EcuC.arxml` both end in `EcuC.arxml`).
+    const docs: { rel: string; path: string; content: string }[] = [];
+    const bswmds: { rel: string; path: string; content: string }[] = [];
+    for (const rel of manifest.valueArxmlPaths) {
+      const resolved = path.resolve(manifestDir, rel);
+      if (!isPathInside(resolved, manifestDir)) {
+        return {
+          kind: 'read-failed',
+          message: `Manifest valueArxmlPaths entry escapes project directory: ${rel}`,
+        };
+      }
+      try {
+        const content = await fs.readFile(resolved, 'utf8');
+        docs.push({ rel, path: resolved, content });
+      } catch (e) {
+        return {
+          kind: 'read-failed',
+          message: `Failed to read ${resolved}: ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+    }
+    for (const rel of manifest.bswmdPaths) {
+      const resolved = path.resolve(manifestDir, rel);
+      if (!isPathInside(resolved, manifestDir)) {
+        return {
+          kind: 'read-failed',
+          message: `Manifest bswmdPaths entry escapes project directory: ${rel}`,
+        };
+      }
+      try {
+        const content = await fs.readFile(resolved, 'utf8');
+        bswmds.push({ rel, path: resolved, content });
+      } catch (e) {
+        return {
+          kind: 'read-failed',
+          message: `Failed to read ${resolved}: ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+    }
+
+    return { kind: 'opened', manifestPath, manifest, docs, bswmds };
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_SAVE,
+    async (_evt, req: ProjectSaveRequest): Promise<ProjectSaveResult> => {
+      const manifestDir = path.dirname(req.manifestPath);
+      // Phase 1: files are written verbatim to their declared paths. We
+      // don't constrain them to manifestDir because the renderer may have
+      // intentionally captured an "Open ARXML" file that's elsewhere on
+      // disk (the loose-mode back-compat contract). Path containment is
+      // enforced on PROJECT_OPEN, not PROJECT_SAVE.
+      for (const f of req.files) {
+        try {
+          await fs.writeFile(f.path, f.content, 'utf8');
+        } catch (e) {
+          return {
+            kind: 'write-failed',
+            message: `Failed to write ${f.path}: ${e instanceof Error ? e.message : String(e)}`,
+          };
+        }
+      }
+      try {
+        await fs.writeFile(req.manifestPath, saveManifest(req.manifest), 'utf8');
+        return { kind: 'saved', path: req.manifestPath };
+      } catch (e) {
+        return {
+          kind: 'write-failed',
+          message: `Failed to write manifest: ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+      // Reference `manifestDir` so the noUnusedLocals linter doesn't flag it
+      // — future phases may use it for output staging or relative-path
+      // re-writing. (Reachable only if Phase 2 adds extra logic above.)
+      void manifestDir;
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers (file-local)
+// ---------------------------------------------------------------------------
+
+/**
+ * Path-containment check. `child` must resolve to a path strictly inside
+ * `parent` (not equal to `parent` itself, not above it on any platform).
+ *
+ * Implemented with `path.relative` so Windows drive boundaries and mixed
+ * separators are handled correctly. Used by PROJECT_OPEN to refuse a
+ * hostile manifest listing paths like `../../etc/passwd`.
+ */
+function isPathInside(child: string, parent: string): boolean {
+  const rel = path.relative(parent, child);
+  // On different drives (Windows), path.relative returns an absolute path.
+  // An empty rel means child === parent (we want strictly inside).
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+/**
+ * Render a `ManifestError` as a single human-readable line. Used in
+ * `read-failed` IPC responses so the renderer can surface the cause
+ * without having to re-implement the kind switch.
+ */
+function describeManifestError(err: import('../../core/project/manifest.js').ManifestError): string {
+  switch (err.kind) {
+    case 'json-parse':
+      return `JSON parse error: ${err.message}`;
+    case 'invalid-shape':
+      return `shape error: ${err.message}`;
+    case 'version-mismatch':
+      return `schemaVersion mismatch (expected "${err.expected}", got "${err.found}")`;
+    case 'invalid-path':
+      return `${err.field} contains invalid path "${err.path}" (${err.reason})`;
+    case 'invalid-field':
+      return `${err.field}: ${err.message}`;
+  }
 }

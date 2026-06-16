@@ -3,10 +3,17 @@
 // import from `useArxmlStore` directly — that allows parallel work in
 // Branch A to land the store without touching this file. The store
 // surface used here is: { doc, selectedPath, select(path) }.
+//
+// Sprint 11 Phase 1 (Option A) i18n: the empty-state hint and aria-label
+// are localisable. `locale` is read from the store via a subscribe call
+// so the component stays store-agnostic (matches the existing pattern
+// used for doc + selectedPath).
 
 import { useEffect, useState } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
+import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n';
 
 import { TreeNode } from './TreeNode.js';
 
@@ -14,6 +21,7 @@ export interface ArxmlStoreSlice {
   readonly doc: ArxmlDocument | null;
   readonly selectedPath: string | null;
   readonly select: (path: string) => void;
+  readonly locale: Locale;
 }
 
 /** Minimal store contract — matches the slice this component reads. */
@@ -33,11 +41,13 @@ export function Tree({ store }: TreeProps): JSX.Element {
   // Instead, subscribe via store.subscribe and store local mirror.
   const [doc, setDoc] = useState<ArxmlDocument | null>(store.getState().doc);
   const [selectedPath, setSelectedPath] = useState<string | null>(store.getState().selectedPath);
+  const [locale, setLocale] = useState<Locale>(store.getState().locale);
   useEffect(() => {
     return store.subscribe(() => {
       const s = store.getState();
       setDoc(s.doc);
       setSelectedPath(s.selectedPath);
+      setLocale(s.locale);
     });
   }, [store]);
 
@@ -57,13 +67,16 @@ export function Tree({ store }: TreeProps): JSX.Element {
   if (doc === null) {
     return (
       <aside className="tree empty" data-testid="tree-empty">
-        No file loaded. Click &quot;Open ARXML&quot; to start.
+        {/* Sprint 11 Phase 1 (Option A) — tree-specific empty hint so the
+            wording matches the action button name (Open ARXML) without
+            having to alias arxmlPanel.empty. */}
+        {t(locale, 'tree.emptyHint')}
       </aside>
     );
   }
 
   return (
-    <aside className="tree" role="tree" aria-label="ARXML structure" data-testid="tree-root">
+    <aside className="tree" role="tree" aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })} data-testid="tree-root">
       {doc.packages.map((pkg: ArxmlPackage) =>
         renderPackage(pkg, 0, expanded, toggle, selectedPath, store),
       )}

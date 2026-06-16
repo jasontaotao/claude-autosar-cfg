@@ -11,6 +11,13 @@ import { ParamEditor } from '../ParamEditor';
 
 afterEach(cleanup);
 
+beforeEach(() => {
+  // Sprint 11 Phase 1 (Option A) — pin locale to en so the "Open an
+  // ARXML file..." assertion still matches (the empty-state string is
+  // t()-rendered, default locale is zh-CN).
+  useArxmlStore.setState({ locale: 'en' });
+});
+
 function makeDoc(): ArxmlDocument {
   const pkg: ArxmlPackage = {
     shortName: 'EAS',

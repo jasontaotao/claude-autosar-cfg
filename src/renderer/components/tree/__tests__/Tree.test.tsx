@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseArxml } from '@core/arxml/parser.js';
 import type { ArxmlDocument } from '@core/arxml/types.js';
+import type { Locale } from '@shared/i18n.js';
 
 import { Tree } from '../Tree.js';
 import type { ArxmlStoreApi } from '../Tree.js';
@@ -74,6 +75,8 @@ interface MockState {
   updateParam: ReturnType<typeof vi.fn>;
   markSaved: ReturnType<typeof vi.fn>;
   clear: ReturnType<typeof vi.fn>;
+  // Sprint 11 Phase 1 (Option A) — required by ArxmlStoreSlice.
+  locale: Locale;
 }
 
 function makeStoreApi(initial: Partial<MockState> = {}): {
@@ -91,6 +94,12 @@ function makeStoreApi(initial: Partial<MockState> = {}): {
     updateParam: vi.fn(),
     markSaved: vi.fn(),
     clear: vi.fn(),
+    // Sprint 11 Phase 1 (Option A) — Tree reads locale from the store
+    // so it can re-render the empty hint when the user toggles
+    // language. The mock store must satisfy the new ArxmlStoreSlice
+    // shape; defaulting to 'en' matches the test assertions below
+    // (e.g. "no file loaded" is the en-bundle empty hint).
+    locale: 'en',
     ...initial,
   };
   const api: ArxmlStoreApi = {

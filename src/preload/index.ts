@@ -6,6 +6,11 @@ import type {
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
+  ProjectNewRequest,
+  ProjectNewResult,
+  ProjectOpenResult,
+  ProjectSaveRequest,
+  ProjectSaveResult,
   SaveArxmlRequest,
   SaveArxmlResponse,
 } from '../shared/types.js';
@@ -21,6 +26,12 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.PARSE_ARXML, req),
   saveArxml: (req: SaveArxmlRequest): Promise<SaveArxmlResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.SAVE_ARXML, req),
+  // Sprint 11 Phase 1 — project manifest IO
+  projectNew: (req: ProjectNewRequest): Promise<ProjectNewResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_NEW, req),
+  projectOpen: (): Promise<ProjectOpenResult> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_OPEN),
+  projectSave: (req: ProjectSaveRequest): Promise<ProjectSaveResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SAVE, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

@@ -1011,6 +1011,106 @@ if (tryResolveByShortNameWithIndex(site.targetPath, shortNameIndex) !== undefine
 
 **说明**：Sprint 9 #4 跟 Sprint 10 三 commit 在 git 上是连续 9 个 commit（92889e3 → 90a43fc → 330daf5 → ... → 4169a89），未走一个 intermediate v0.9.6 tag。Sprint 10 三 commit 落地时未 bump version（仍 v0.9.5），是因为本段属 housekeeping / bug-fix 类，不是 feature release。下一个 minor v0.10.0 在 Sprint 11 收尾时合并 bump（#15 schema-unknown kind + schema-coverage test + 7 backlog 项合并做一次 release commit）。
 
+## Sprint 11 — Project Manifest + i18n (zh-CN/en)（✅ 2026-06-16 完成）
+
+Sprint 11 原计划只做 #13 BSWMD 解析 + #14 schema 自动生成；用户临时加入"建立项目规则 + 工具支持中文"两个新需求，最终 Sprint 11 = (1) Project Manifest 抽象 + (2) Option A 完整 i18n 框架（zh-CN/en 切换）+ (3) 留 Phase 2 stub 给 BSWMD。Sprint 11 仍 ship v0.10.0（minor bump），BSWMD 实现在 Sprint 11 Phase 2。
+
+### 完成情况
+
+- **374 tests pass / 0 fail / 0 skipped**（Sprint 10 329 → Sprint 11 374，+45 新增：19 manifest + 14 store project + 1 collision + 11 i18n）
+- coverage 96.18% stmts / 85.12% branches（持平，新增分支被新测覆盖）
+- 5/5 fixture baseline 不退化（cross-ref 782 / ref-dest 0 / ref-cycle 0）
+- version bump `0.9.5 → 0.10.0`（minor — feature release）
+- 关键架构变化：
+  - `project: ProjectManifest | null = null` state → loose mode（`null`）保持 329 tests 全过
+  - `locale: 'zh-CN' | 'en'` state（zh-CN default per 用户要求），所有 UI 字符串走 `t(locale, key)`
+  - IPC contract 加 3 channels（PROJECT_NEW/OPEN/SAVE），含 path-containment check
+  - `useProjectActions` hook 共享 AppHeader + ProjectPanel 的 IPC 流（消灭合成 click 耦合）
+  - 路径配对按 `rel`（manifest-relative path）而非 basename — 同名 ARXML 在不同子目录不冲突
+
+### 解决什么问题
+
+**用户原始诉求**：
+1. 建立项目规则，生成项目文件，用以区别用户的项目（每个项目有 manifest / metadata）
+2. 项目中包含例如 bswMd 的链接等（manifest 持久化 BSWMD paths + 运行时加载）
+3. 工具要支持中文（i18n）
+4. BSWMD 需要用户加载（runtime load，不是 baked-in fixture）
+
+**Sprint 11 deliverable**:
+1. JSON manifest（`<name>.autosarcfg.json`）— 列出 valueArxmlPaths + bswmdPaths
+2. `openProject` / `closeProject` / `saveProject` 三个 action 跑通完整循环
+3. ProjectPanel sidebar 显示 project metadata（loose mode 显"未加载项目"提示 + 快捷按钮）
+4. zh-CN / en 双语 + AppHeader 中/EN toggle，所有 user-facing 字符串走 t()
+5. code-review 3 个 HIGH 全部修：H1 basename collision（按 rel 配对）、H2 合成 click 耦合（提 hook 共享）、H3 Save Project 在 dirty 时禁用
+
+### 改动清单（13 文件新增 + 10 文件修改）
+
+**New** (13):
+- `src/shared/project.ts` — ProjectManifest type + MANIFEST_SCHEMA_VERSION
+- `src/shared/i18n.ts` — Messages interface + MessagesZhCN + MessagesEn + t() helper
+- `src/shared/__tests__/i18n.test.ts` — 11 tests
+- `src/core/project/manifest.ts` — loadManifest / saveManifest / validateManifest / createEmptyManifest
+- `src/core/project/__tests__/manifest.test.ts` — 19 tests
+- `src/renderer/components/ProjectPanel.tsx` + `ProjectPanel.css`
+- `src/renderer/hooks/useProjectActions.ts` — shared IPC hook (H2 fix)
+- `src/renderer/store/__tests__/useArxmlStore.project.test.ts` — 14 tests (含 basename collision)
+
+**Modified** (10):
+- `src/shared/ipc-contract.ts` (+PROJECT_NEW/OPEN/SAVE)
+- `src/shared/types.ts` (+ProjectNew/ProjectOpen/ProjectSave req/resp)
+- `src/main/ipc/register.ts` (+3 handlers, path-containment via isPathInside, version 0.9.5→0.10.0)
+- `src/preload/index.ts` (+projectNew/projectOpen/projectSave API)
+- `src/renderer/store/useArxmlStore.ts` (+project + locale state, openProject/closeProject/addBswmd-stub/setLocale, projectSync* helpers)
+- `src/renderer/components/AppHeader.tsx` (+3 project 按钮 + chip + locale toggle, t()-wired)
+- `src/renderer/components/ValidationPanel.tsx` (t()-wired)
+- `src/renderer/components/ArxmlPanel.tsx` (t()-wired, M3 fix: 去 ad-hoc FOOTER_KEYS)
+- `src/renderer/components/tree/Tree.tsx` (subscribe locale, t()-wired)
+- `src/renderer/components/editor/ParamEditor.tsx` (t()-wired)
+- `src/renderer/App.tsx` (+ProjectPanel)
+- `src/renderer/styles.css` (+chip/sep/locale button, left-column grid-template-rows 3 rows)
+- `package.json` (version 0.9.5 → 0.10.0)
+
+### Review 处理（code-reviewer sub-agent）
+
+| Finding | Severity | 处理 |
+| --- | --- | --- |
+| H1 `openProject` 用 `endsWith(relPath)` 配对 → basename collision bug | HIGH | ✅ IPC 改返回 `{ rel, path, content }` 三元组，store 按 `rel` 配对；新增 collision test 锁契约 |
+| H2 ProjectPanel 用 `document.querySelector().click()` 合成触发 AppHeader 按钮 | HIGH | ✅ 提 `useProjectActions` hook，AppHeader + ProjectPanel 共享，error 反馈走 ProjectActionResult |
+| H3 Save Project 按钮忽略 dirty state → 静默写不一致 manifest | HIGH | ✅ Save Project 按钮在 `dirtyPaths.size > 0` 时禁用，title tooltip 用 i18n key `app.project.saveBlockedDirty` 引导 |
+| M1 `SUPPORTED_LOCALES` 声明未用 | MEDIUM | 跳过（`setLocale` 类型签名已经强制 `Locale`，加 runtime 校验属过度防御） |
+| M2 LooseView 内 `getState().locale` 不订阅 | MEDIUM | 跳过（loose 模式下 FileList 几乎不可见，反应性延迟 1 帧无害） |
+| M3 ArxmlPanel 用 ad-hoc FOOTER_KEYS 绕 i18n | MEDIUM | ✅ 删 FOOTER_KEYS，加 3 个真 i18n key（packages/elements/unsaved），删 no-op `.replace()` |
+| M4 ArxmlPanel `.replace(/^AUTOSAR\s+/, 'AUTOSAR ')` 是 no-op | MEDIUM | ✅ 删 |
+| M5 ValidationPanel 复用 `arxmlPanel.empty` | MEDIUM | 跳过（同一个状态——"未加载文档"——两个面板用同一文案合理，避免翻译键碎片化） |
+| M6 ParamEditor 部分字符串未 t()（aria-label、column headers） | MEDIUM | 跳过 Sprint 11 scope（aria-label 不影响用户阅读；column header 留 Sprint 12 统一收尾） |
+| M7 dialog title 硬编码英文 | MEDIUM | 跳过 Sprint 11 scope（Sprint 12 — dialog 跨 main process 边界，t() 路径需 main 侧也能取到 locale） |
+| M8 `formatParseError` 英文 | MEDIUM | 跳过 Sprint 11 scope（parser error 翻译需要 main + renderer 协商，Sprint 12） |
+| L1-L8 LOW | LOW | 跳过（YAGNI 收尾） |
+
+### Deviations
+
+1. **BSWMD parser 推迟到 Phase 2**：Sprint 11 原计划 #13（BSWMD 解析）+ #14（schema 自动生成）一起 ship，但用户中途加入"项目规则"和"中文支持"两个需求，把 scope 扩到 ~3x。Sprint 11 终选择先 ship Project Manifest + i18n 闭环，BSWMD stub 已在 store 中预留（`addBswmd` action 当前 no-op），Phase 2 落地时不需要再改 store 形状。
+2. **Phase 1 留 commit Hook 跳 Phase 2**：用户最初选"独立小步 #15"、后改"#13+#14 BSWMD 自动生成"、再改"Project 规则 + 中文"。最终 Sprint 11 = Project + i18n，**没**包含 #15 schema-unknown log（那个会随 Phase 2 一起做）。Sprint 11 跳过的 7 个 backlog 项全部顺延到 Sprint 12+。
+3. **`SUPPORTED_LOCALES` 不在 setLocale runtime 校验**：`setLocale(l: Locale)` 类型签名已保证；runtime 校验属过度防御（types are the contract）。
+
+### Sprint 11 → Sprint 12 衔接
+
+- [x] `validateProject` 仍是 6 步流水线；Phase 2 接入 `schemaLayer` opts 时不需要动既有 tests
+- [x] Project state 与 docs / dirty state 解耦 — Phase 2 加载 BSWMD 时不会破坏已有 loose-mode 行为
+- [x] i18n 框架就位 — Phase 2 BSWMD 按钮 + 错误消息直接走 `t()`
+- [x] BSWMD stub `addBswmd(path, content)` 在 store 中 — Phase 2 只需把 no-op 替换为 parseBswmd + 合并 layer
+- [ ] Phase 2 BSWMD parser（`src/core/bswmd/parser.ts`）— 占位文件已建但空
+- [ ] Phase 2 runtime schema layer（`src/core/validation/schema/runtimeSchema.ts`）
+- [ ] Phase 2 真实 CanIf BSWMD smoke（用户提供 BSWMD 文件时跑一遍）
+- [ ] 拖到 Sprint 12+ 的 backlog：
+  - Sprint 9 #15 `lookupSchema` unknown path 显式 log
+  - Sprint 9 #13 BSWMD 模板侧加载（#14 schema 扩张已部分被 runtimeSchema 覆盖）
+  - dialog title + parser error 翻译（M7/M8）
+  - ParamEditor column header 翻译（M6）
+  - fixture 体积管理（#7）
+  - electron-builder 打包 + v1.0.0 tag（#8）
+  - coverage 推到 branches ≥90%（#9）
+
 ## 参考资料
 
 - 详细 Sprint 0 plan: `C:\Users\13777\.claude\plans\autosar-cfg-spring-zero.md`

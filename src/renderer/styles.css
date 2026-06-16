@@ -187,6 +187,81 @@ body,
   outline-offset: 1px;
 }
 
+/* ------------------------------------------------------------------ */
+/* Sprint 11 Phase 1 — project chip + action separator                */
+/* ------------------------------------------------------------------ */
+
+.app-project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.375rem;
+  background: #1e3a8a;
+  border: 1px solid #2563eb;
+  border-radius: 3px;
+  font-size: 0.6875rem;
+  color: #dbeafe;
+  max-width: 18rem;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+.app-project-chip-label {
+  color: #93c5fd;
+  font-weight: 500;
+  flex: 0 0 auto;
+}
+
+.app-project-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  flex: 1 1 auto;
+}
+
+.app-project-chip-close {
+  appearance: none;
+  background: none;
+  border: none;
+  color: #93c5fd;
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 0 0.125rem;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.app-project-chip-close:hover {
+  color: #fca5a5;
+  background: rgba(252, 165, 165, 0.1);
+}
+
+.app-project-chip-close:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.app-header-sep {
+  width: 1px;
+  height: 1.25rem;
+  background: #334155;
+  margin: 0 0.375rem;
+}
+
+/* Sprint 11 Phase 1 (Option A) — locale toggle in AppHeader.
+   Lives in the right-side stack next to the version string. Compact
+   square so the toggle doesn't crowd the existing 24px-tall status. */
+.app-btn-locale {
+  min-width: 1.75rem;
+  padding: 0.1875rem 0.375rem;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
+
 .app-btn {
   appearance: none;
   border: 1px solid #334155;
@@ -270,7 +345,10 @@ body,
 
 .left-column {
   display: grid;
-  grid-template-rows: 1fr auto;
+  /* Sprint 11 Phase 1 — ProjectPanel slot is `auto` (collapses to its
+     content height: 28px in loose mode, ~120-180px when a project is
+     open). Tree keeps the 1fr share of the leftover space. */
+  grid-template-rows: auto 1fr auto;
   gap: 1px;
   min-height: 0;
   min-width: 0;

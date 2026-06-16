@@ -19,6 +19,8 @@ import { ArxmlPanel } from '../ArxmlPanel.js';
 describe('ArxmlPanel status footer (Sprint 9 #5)', () => {
   beforeEach(() => {
     useArxmlStore.getState().clear();
+    // Sprint 11 Phase 1 (Option A) — tests assert on English labels.
+    useArxmlStore.getState().setLocale('en');
   });
 
   it('renders nothing when no doc is loaded', () => {

@@ -60,6 +60,10 @@ function makeDoc(version: ArxmlVersion = '4.2'): ArxmlDocument {
 describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
   beforeEach(() => {
     useArxmlStore.getState().clear();
+    // Sprint 11 Phase 1 (Option A) — default locale is 'zh-CN' for new
+    // users; tests assert on English strings (e.g. /Save/, "All checks
+    // passed") so we pin the locale to 'en' for the duration of the suite.
+    useArxmlStore.getState().setLocale('en');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = makeWindowApi();
   });
@@ -164,6 +168,7 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
 describe('AppHeader doc-tab strip (Sprint 10 #2)', () => {
   beforeEach(() => {
     useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = makeWindowApi();
   });
