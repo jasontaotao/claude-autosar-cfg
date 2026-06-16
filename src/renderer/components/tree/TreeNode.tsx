@@ -136,7 +136,15 @@ export function TreeNode({
       data-path={path}
       data-testid={`treeitem-${path}`}
       onKeyDown={handleKeyDown}
-      onClick={handleClick}
+      onClick={(e) => {
+        // Stop the click from bubbling to ancestor treeitems — each
+        // <div role="treeitem"> has its own handleClick, and without
+        // this guard a click on a deep child would also fire
+        // handleClick on every ancestor (toggling their expand state
+        // and overwriting selectedPath with the outermost path).
+        e.stopPropagation();
+        handleClick();
+      }}
       className="tree-item"
     >
       <div className="tree-item-row" style={{ paddingLeft: `${depth * 16}px` }} data-row-for={path}>

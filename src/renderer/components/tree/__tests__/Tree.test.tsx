@@ -319,6 +319,54 @@ describe('Tree (with doc)', () => {
     expect(dot).toHaveAttribute('aria-label', 'container');
     expect(dot).toHaveAttribute('title', 'container');
   });
+
+  it('clicking a deep leaf does not collapse its ancestor treeitems (event-bubble guard)', () => {
+    // Pre-fix: the outer <div role="treeitem"> onClick was the same
+    // handleClick as the label button, with no e.stopPropagation(). A
+    // click on a nested child treeitem bubbled up to every ancestor
+    // treeitem, calling handleClick on each — which both selected the
+    // ancestor AND toggled its expand state. Result: the top-most
+    // node collapsed after the user clicked around inside a deep
+    // subtree, and the selectedPath kept getting overwritten by the
+    // outermost ancestor (last onSelect wins).
+    const { api, state } = makeStoreApi({ doc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+
+    // Drill into EAS > EcuC so both ancestors are expanded.
+    const ePkg = within(tree).getByRole('treeitem', { name: /EAS/ });
+    fireEvent.click(within(ePkg).getByRole('button', { name: /toggle eas/i }));
+    const ecu = within(tree).getByRole('treeitem', { name: /EcuC/ });
+    fireEvent.click(within(ecu).getByRole('button', { name: /toggle ecuc/i }));
+
+    expect(ePkg).toHaveAttribute('aria-expanded', 'true');
+    expect(ecu).toHaveAttribute('aria-expanded', 'true');
+
+    // Click the deep leaf EcuCGeneral. Pre-fix this bubbles to EcuC
+    // and EAS, calling handleClick on each, which both selects the
+    // ancestor and collapses it. Post-fix, only EcuCGeneral is acted
+    // on — the leaf has no children so handleClick only selects it.
+    const leaf = within(tree).getByRole('treeitem', { name: /EcuCGeneral/ });
+    fireEvent.click(leaf);
+
+    // 1) Both ancestors remain expanded (the regression).
+    expect(ePkg).toHaveAttribute('aria-expanded', 'true');
+    expect(ecu).toHaveAttribute('aria-expanded', 'true');
+
+    // 2) The store was called with the leaf's path, and no ancestor
+    //    path was selected after the leaf click. The mock store's
+    //    `select` is a vi.fn() that does not propagate to the Tree's
+    //    local `selectedPath` mirror, so we assert against the mock
+    //    call log rather than aria-selected (consistent with the
+    //    existing 'selects a node on click' test on line ~234).
+    expect(state.select).toHaveBeenLastCalledWith('/EAS/EcuC/EcuCGeneral');
+    const allSelectCalls = state.select.mock.calls.map((c) => c[0]);
+    const lastLeafIdx = allSelectCalls.lastIndexOf('/EAS/EcuC/EcuCGeneral');
+    expect(lastLeafIdx).toBeGreaterThanOrEqual(0);
+    expect(allSelectCalls.slice(lastLeafIdx + 1)).not.toContain('/EAS');
+    expect(allSelectCalls.slice(lastLeafIdx + 1)).not.toContain('/EAS/EcuC');
+  });
 });
 
 // ---------------------------------------------------------------------------
