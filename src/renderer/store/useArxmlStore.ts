@@ -8,11 +8,11 @@ import type {
   ArxmlModule,
   ParamValue,
 } from '@core/arxml/types';
-import type { ProjectManifest } from '@shared/project';
-import { DEFAULT_LOCALE } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
 import type { ValidationError } from '@core/validation';
 import { validateProjectForRenderer } from '@core/validation';
+import { DEFAULT_LOCALE } from '@shared/i18n';
+import type { Locale } from '@shared/i18n';
+import type { ProjectManifest } from '@shared/project';
 
 /**
  * Renderer-side state for the open ARXML document set.
@@ -134,7 +134,11 @@ export interface ArxmlState {
      * it back to a manifest entry even when two docs share a
      * basename (e.g. `subdir1/EcuC.arxml` and `subdir2/EcuC.arxml`).
      */
-    readonly docs: readonly { readonly rel: string; readonly path: string; readonly content: string }[];
+    readonly docs: readonly {
+      readonly rel: string;
+      readonly path: string;
+      readonly content: string;
+    }[];
   }) => void;
   /**
    * Close the current project. Documents stay in the store (the user
@@ -209,9 +213,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const nextDocuments = state.documents.filter((_, i) => i !== idx);
     // If we removed the active doc, promote the first remaining (or null).
     const wasActive = state.activeDocumentPath === filePath;
-    const nextActive = wasActive
-      ? (nextPaths[0] ?? null)
-      : state.activeDocumentPath;
+    const nextActive = wasActive ? (nextPaths[0] ?? null) : state.activeDocumentPath;
     const activeIdx = nextActive === null ? -1 : nextPaths.indexOf(nextActive);
     const nextActiveDoc = activeIdx === -1 ? null : (nextDocuments[activeIdx] ?? null);
     // Project-sync: when a project is open, also drop the path from

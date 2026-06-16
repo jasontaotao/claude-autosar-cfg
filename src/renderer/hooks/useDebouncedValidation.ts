@@ -17,8 +17,8 @@ export function useDebouncedValidation(delayMs: number = 300): void {
   // returns a boolean that Zustand will re-evaluate whenever the Set
   // reference changes, which is what `updateParam` does.
   const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
-  const isActiveDirty = useArxmlStore((s) =>
-    s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
+  const isActiveDirty = useArxmlStore(
+    (s) => s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
   );
 
   useEffect(() => {

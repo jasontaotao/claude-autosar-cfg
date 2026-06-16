@@ -21,8 +21,8 @@ import { useArxmlStore } from '../store/useArxmlStore';
 
 export function ArxmlPanel(): JSX.Element | null {
   const doc = useArxmlStore((s) => s.doc);
-  const isActiveDirty = useArxmlStore((s) =>
-    s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
+  const isActiveDirty = useArxmlStore(
+    (s) => s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
   );
   const locale = useArxmlStore((s) => s.locale);
 
@@ -44,9 +44,7 @@ export function ArxmlPanel(): JSX.Element | null {
         {t(locale, 'arxmlPanel.elements')}: <strong>{elementCount}</strong>
       </span>
       <span className="status-sep">•</span>
-      <span className="status-item">
-        {t(locale, 'app.docVersion', { version: doc.version })}
-      </span>
+      <span className="status-item">{t(locale, 'app.docVersion', { version: doc.version })}</span>
       {isActiveDirty && (
         <>
           <span className="status-sep">•</span>

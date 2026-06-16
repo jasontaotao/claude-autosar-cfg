@@ -2,13 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
-
-import {
-  loadManifest,
-  saveManifest,
-  validateManifest,
-  createEmptyManifest,
-} from '../manifest.js';
+import { loadManifest, saveManifest, validateManifest, createEmptyManifest } from '../manifest.js';
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -90,7 +84,9 @@ describe('loadManifest', () => {
     if (!result.ok && result.error.kind === 'invalid-shape') {
       expect(result.error.message).toContain('id');
     } else {
-      expect.fail(`expected invalid-shape, got ${result.ok ? 'ok' : (result as { error: { kind: string } }).error.kind}`);
+      expect.fail(
+        `expected invalid-shape, got ${result.ok ? 'ok' : (result as { error: { kind: string } }).error.kind}`,
+      );
     }
   });
 

@@ -97,7 +97,10 @@ export function AppHeader(): JSX.Element {
         return;
       }
       case 'read-failed': {
-        setState({ error: t(locale, 'app.error.openFailed', { message: result.message }), busy: false });
+        setState({
+          error: t(locale, 'app.error.openFailed', { message: result.message }),
+          busy: false,
+        });
         return;
       }
       case 'opened':
@@ -132,7 +135,10 @@ export function AppHeader(): JSX.Element {
     const defaultName = basename(currentPath) || 'untitled.arxml';
     const saved = await window.autosarApi.saveArxml({ doc, defaultName });
     if (!saved.ok) {
-      setState({ error: t(locale, 'app.error.saveFailed', { message: saved.error.message }), busy: false });
+      setState({
+        error: t(locale, 'app.error.saveFailed', { message: saved.error.message }),
+        busy: false,
+      });
       return;
     }
     if (saved.value.canceled) {
@@ -187,8 +193,7 @@ export function AppHeader(): JSX.Element {
   // avoid silently writing a manifest that points at stale on-disk
   // content (data-loss risk).
   const projectDirtyCount = useArxmlStore((s) => s.dirtyPaths.size);
-  const canSaveProject =
-    project !== null && !state.busy && projectDirtyCount === 0;
+  const canSaveProject = project !== null && !state.busy && projectDirtyCount === 0;
   // Show only the file basename in the header; the full path is in the
   // tooltip so the bar stays compact even for long Windows paths.
   const fileName = filePath !== null ? basename(filePath) : null;
@@ -284,7 +289,11 @@ export function AppHeader(): JSX.Element {
         </button>
       </div>
       {documentPaths.length > 0 && (
-        <div className="app-doc-tabs" role="tablist" aria-label={t(locale, 'app.docTab.ariaLoaded')}>
+        <div
+          className="app-doc-tabs"
+          role="tablist"
+          aria-label={t(locale, 'app.docTab.ariaLoaded')}
+        >
           {documentPaths.map((p) => {
             const isActive = p === activeDocumentPath;
             return (
@@ -333,9 +342,14 @@ export function AppHeader(): JSX.Element {
           </span>
         )}
         {docVersion !== null && (
-          <span className="app-doc-version">{t(locale, 'app.docVersion', { version: docVersion })}</span>
+          <span className="app-doc-version">
+            {t(locale, 'app.docVersion', { version: docVersion })}
+          </span>
         )}
-        <span className="app-version" title={t(locale, 'app.versionLabel', { version: appVersion })}>
+        <span
+          className="app-version"
+          title={t(locale, 'app.versionLabel', { version: appVersion })}
+        >
           {t(locale, 'app.versionLabel', { version: appVersion })}
         </span>
       </div>

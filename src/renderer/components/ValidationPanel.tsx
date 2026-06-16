@@ -71,7 +71,11 @@ export function ValidationPanel(): JSX.Element {
   // Doc loaded, no errors
   if (errors.length === 0) {
     return (
-      <aside className="validation-panel valid" aria-label={t(locale, 'validation.title')} role="status">
+      <aside
+        className="validation-panel valid"
+        aria-label={t(locale, 'validation.title')}
+        role="status"
+      >
         <header>
           <h3>{t(locale, 'validation.title')}</h3>
           <span className="badge badge-ok">{t(locale, 'validation.allPassed')}</span>
@@ -86,7 +90,11 @@ export function ValidationPanel(): JSX.Element {
   const count = errors.length;
 
   return (
-    <aside className="validation-panel invalid" aria-label={t(locale, 'validation.title')} role="alert">
+    <aside
+      className="validation-panel invalid"
+      aria-label={t(locale, 'validation.title')}
+      role="alert"
+    >
       <header>
         <h3>{t(locale, 'validation.title')}</h3>
         <span className="badge badge-error">
@@ -116,9 +124,7 @@ export function ValidationPanel(): JSX.Element {
                         data-testid={`error-row-${i}`}
                       >
                         <code className="error-path">
-                          {err.paramKey !== undefined
-                            ? `${err.path} (${err.paramKey})`
-                            : err.path}
+                          {err.paramKey !== undefined ? `${err.path} (${err.paramKey})` : err.path}
                         </code>
                         <span className="error-msg">{err.message}</span>
                       </button>

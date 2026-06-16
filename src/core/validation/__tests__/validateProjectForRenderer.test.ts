@@ -22,12 +22,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlModule,
-  ParamValue,
-} from '../../arxml/types.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '../../arxml/types.js';
 import { validateProjectForRenderer } from '../index.js';
 
 // ---------------------------------------------------------------------------
@@ -191,9 +186,7 @@ describe('validateProjectForRenderer — cross-doc dangling ref', () => {
 
 describe('validateProjectForRenderer — return shape', () => {
   it('returns a readonly array (typed as readonly ValidationError[])', () => {
-    const errors = validateProjectForRenderer([
-      makeWdgIfDoc({ deviceIndex: 0, driverRef: '' }),
-    ]);
+    const errors = validateProjectForRenderer([makeWdgIfDoc({ deviceIndex: 0, driverRef: '' })]);
     // readonly arrays still have .length — the type contract is what matters
     expect(Array.isArray(errors)).toBe(true);
     expect(errors.length).toBeGreaterThanOrEqual(0);

@@ -19,6 +19,7 @@
 import type { JSX } from 'react';
 
 import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n';
 import type { ProjectManifest } from '@shared/project';
 
 import { useProjectActions } from '../hooks/useProjectActions';
@@ -38,13 +39,7 @@ interface FileListProps {
   readonly onRemove?: (path: string) => void;
 }
 
-function FileList({
-  title,
-  paths,
-  emptyHint,
-  testIdPrefix,
-  onRemove,
-}: FileListProps): JSX.Element {
+function FileList({ title, paths, emptyHint, testIdPrefix, onRemove }: FileListProps): JSX.Element {
   return (
     <div className="project-panel-section">
       <div className="project-panel-section-title">{title}</div>
@@ -79,7 +74,7 @@ function FileList({
 }
 
 interface LooseViewProps {
-  readonly locale: import('@shared/i18n').Locale;
+  readonly locale: Locale;
   readonly onNew: () => void;
   readonly onOpen: () => void;
 }
@@ -109,7 +104,7 @@ function LooseView({ locale, onNew, onOpen }: LooseViewProps): JSX.Element {
 }
 
 interface OpenViewProps {
-  readonly locale: import('@shared/i18n').Locale;
+  readonly locale: Locale;
   readonly manifest: ProjectManifest;
   readonly manifestPath: string;
   readonly onClose: () => void;

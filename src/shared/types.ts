@@ -1,6 +1,8 @@
 import type { ParseError } from '../core/arxml/parser.js';
 import type { SerializeError } from '../core/arxml/serializer.js';
 import type { ArxmlDocument, ArxmlElement, ArxmlVersion, Result } from '../core/arxml/types.js';
+import type { BswmdDocument, BswmdError } from '../core/project/bswmd.js';
+
 import type { ProjectManifest } from './project.js';
 
 export interface AppInfo {
@@ -56,7 +58,10 @@ export interface OpenArxmlResult {
  */
 export type OpenArxmlMultiResult =
   | { readonly kind: 'canceled' }
-  | { readonly kind: 'opened'; readonly results: readonly { readonly path: string; readonly content: string }[] }
+  | {
+      readonly kind: 'opened';
+      readonly results: readonly { readonly path: string; readonly content: string }[];
+    }
   | {
       readonly kind: 'partial';
       readonly opened: readonly { readonly path: string; readonly content: string }[];
@@ -82,6 +87,20 @@ export interface SaveArxmlRequest {
 }
 
 export type SaveArxmlResponse = Result<SaveArxmlResult, FileError>;
+
+// --- Sprint 12 #1 — BSWMD parser IPC types ---------------------------------
+
+/**
+ * Request payload for `BSWMD_PARSE`. The renderer passes the raw XML
+ * string (already read from disk by `project:open` — the handler does
+ * NOT touch the filesystem). `path` is optional debug context.
+ */
+export interface ParseBswmdRequest {
+  readonly content: string;
+  readonly path?: string;
+}
+
+export type ParseBswmdResponse = Result<BswmdDocument, BswmdError>;
 
 // --- F1 Project manifest IO types (Sprint 11 Phase 1) ----------------------
 
@@ -127,7 +146,11 @@ export type ProjectOpenResult =
         readonly path: string;
         readonly content: string;
       }[];
-      readonly bswmds: readonly { readonly rel: string; readonly path: string; readonly content: string }[];
+      readonly bswmds: readonly {
+        readonly rel: string;
+        readonly path: string;
+        readonly content: string;
+      }[];
     }
   | {
       readonly kind: 'read-failed';

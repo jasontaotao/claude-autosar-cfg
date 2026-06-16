@@ -211,7 +211,8 @@ describe('ValidationPanel', () => {
       {
         kind: 'ref-dest',
         path: '/Com/Com/ComConfig/PduGroup_0',
-        message: 'Reference DEST "ECUC-CONTAINER-VALUE" expects container|module, but target is a reference',
+        message:
+          'Reference DEST "ECUC-CONTAINER-VALUE" expects container|module, but target is a reference',
         expected: 'ECUC-CONTAINER-VALUE',
         actual: 'reference',
       },
@@ -233,7 +234,8 @@ describe('ValidationPanel', () => {
       {
         kind: 'ref-cycle',
         path: '/PduR/PduR/PduRRoutingPaths/PduRRoutingPath_0',
-        message: 'Cyclic reference: 3 edges /PduR/PduR/.../PduRRoutingPath_0 -> /PduR/.../DestPduRef -> /PduR/.../PduRRoutingPath_0',
+        message:
+          'Cyclic reference: 3 edges /PduR/PduR/.../PduRRoutingPath_0 -> /PduR/.../DestPduRef -> /PduR/.../PduRRoutingPath_0',
       },
     ];
     useArxmlStore.setState({

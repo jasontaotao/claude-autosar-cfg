@@ -5,7 +5,9 @@ import { dialog, ipcMain } from 'electron';
 
 import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
+import { parseBswmd } from '../../core/project/bswmd.js';
 import { createEmptyManifest, loadManifest, saveManifest } from '../../core/project/manifest.js';
+import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   FileError,
@@ -13,6 +15,8 @@ import type {
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
+  ParseBswmdRequest,
+  ParseBswmdResponse,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -28,7 +32,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, async () => {
-    return '0.10.0';
+    return '0.11.0';
   });
 
   ipcMain.handle(
@@ -269,6 +273,39 @@ export function registerIpcHandlers(): void {
     return { kind: 'opened', manifestPath, manifest, docs, bswmds };
   });
 
+  // Sprint 12 #1 — BSWMD schema-side parser. Pure-function handler:
+  // `project:open` already read the file content, so this just runs
+  // `parseBswmd` and re-shapes the Result envelope to the IPC type.
+  // Renderer integration (storing into `bswmdSchemas`) is Sprint 13.
+  //
+  // Size cap: `parseBswmd` runs `XMLValidator.validate` + `XMLParser.parse`
+  // on the full string in main-process memory. Without a cap, a renderer
+  // (or a tampered preload bridge) could OOM the process by passing a
+  // multi-GB string. 8 MiB is ~100× the largest real fixture
+  // (`Adc_bswmd.arxml` is 82 KiB) and still tight enough to be a useful
+  // ceiling for any sane BSWMD file. (Reviewer HIGH: equivalent cap on
+  // `parseArxml` is tracked for Sprint 13.)
+  const BSWMD_PARSE_MAX_BYTES = 8 * 1024 * 1024;
+  ipcMain.handle(
+    IPC_CHANNELS.BSWMD_PARSE,
+    async (_evt, req: ParseBswmdRequest): Promise<ParseBswmdResponse> => {
+      if (req.content.length > BSWMD_PARSE_MAX_BYTES) {
+        return {
+          ok: false,
+          error: {
+            kind: 'xml-malformed',
+            message: `BSWMD content exceeds ${BSWMD_PARSE_MAX_BYTES}-byte cap`,
+          },
+        };
+      }
+      const result = parseBswmd(req.content);
+      if (!result.ok) {
+        return { ok: false, error: result.error };
+      }
+      return { ok: true, value: result.value };
+    },
+  );
+
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_SAVE,
     async (_evt, req: ProjectSaveRequest): Promise<ProjectSaveResult> => {
@@ -329,7 +366,7 @@ function isPathInside(child: string, parent: string): boolean {
  * `read-failed` IPC responses so the renderer can surface the cause
  * without having to re-implement the kind switch.
  */
-function describeManifestError(err: import('../../core/project/manifest.js').ManifestError): string {
+function describeManifestError(err: ManifestError): string {
   switch (err.kind) {
     case 'json-parse':
       return `JSON parse error: ${err.message}`;

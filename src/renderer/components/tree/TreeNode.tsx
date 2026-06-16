@@ -18,8 +18,11 @@ type TreeKind = 'module' | 'container' | 'reference';
 
 interface TreeNodeProps {
   label: string;
-  /** Text badge shown after the label (used for packages: "package"). */
-  subtitle: string;
+  /** Text badge shown after the label (used for packages: "package").
+   *  Optional — element rows render a colored `kind` dot instead and omit
+   *  the text badge. Sprint 9 #4.x dropped the literal kind text; this prop
+   *  is now reserved for the package "package" badge. */
+  subtitle?: string;
   /** Optional kind indicator — renders a colored dot before the label. */
   kind?: TreeKind;
   path: string;

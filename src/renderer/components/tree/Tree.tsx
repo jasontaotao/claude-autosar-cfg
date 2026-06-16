@@ -76,7 +76,12 @@ export function Tree({ store }: TreeProps): JSX.Element {
   }
 
   return (
-    <aside className="tree" role="tree" aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })} data-testid="tree-root">
+    <aside
+      className="tree"
+      role="tree"
+      aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })}
+      data-testid="tree-root"
+    >
       {doc.packages.map((pkg: ArxmlPackage) =>
         renderPackage(pkg, 0, expanded, toggle, selectedPath, store),
       )}

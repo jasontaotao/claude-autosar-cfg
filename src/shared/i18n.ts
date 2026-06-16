@@ -82,6 +82,12 @@ export interface Messages {
   readonly 'projectPanel.closeAria': string; // {name}
   readonly 'projectPanel.removeArxmlAria': string; // {name}
 
+  // --- bswmd parser errors (BswmdError → human message) ---
+  readonly 'bswmdParser.xmlMalformed': string; // {message}
+  readonly 'bswmdParser.missingRoot': string;
+  readonly 'bswmdParser.unsupportedVersion': string; // {version}
+  readonly 'bswmdParser.invalidStructure': string; // {path} {message}
+
   // --- arxml panel (status footer) ---
   readonly 'arxmlPanel.empty': string;
   readonly 'arxmlPanel.packages': string;
@@ -151,9 +157,15 @@ export const MessagesZhCN: Messages = {
   'projectPanel.arxml.title': '值侧 ARXML',
   'projectPanel.arxml.empty': '尚未附加 ARXML。可使用"打开"按钮加载。',
   'projectPanel.bswmd.title': 'BSWMD',
-  'projectPanel.bswmd.empty': '未加载 BSWMD。Phase 2 将添加加载按钮。',
+  'projectPanel.bswmd.empty': '尚未加载 BSWMD。在项目清单中添加 bswmdPaths 条目即可加载。',
   'projectPanel.closeAria': '关闭项目 {name}',
   'projectPanel.removeArxmlAria': '从项目中移除 {name}',
+
+  // bswmd parser
+  'bswmdParser.xmlMalformed': 'BSWMD XML 格式错误: {message}',
+  'bswmdParser.missingRoot': 'BSWMD 缺少根元素 <AUTOSAR>',
+  'bswmdParser.unsupportedVersion': 'BSWMD 不支持的 AUTOSAR 版本: {version}',
+  'bswmdParser.invalidStructure': 'BSWMD 结构错误 ({path}): {message}',
 
   // arxml panel
   'arxmlPanel.empty': '未加载文档。',
@@ -222,9 +234,16 @@ export const MessagesEn: Messages = {
   'projectPanel.arxml.title': 'Value-side ARXMLs',
   'projectPanel.arxml.empty': 'No ARXMLs attached. Use Open ARXML to add some.',
   'projectPanel.bswmd.title': 'BSWMDs',
-  'projectPanel.bswmd.empty': 'No BSWMDs. Phase 2 will add a button to load them.',
+  'projectPanel.bswmd.empty':
+    'No BSWMDs loaded yet. Add entries to bswmdPaths in the project manifest.',
   'projectPanel.closeAria': 'Close project {name}',
   'projectPanel.removeArxmlAria': 'Remove {name} from project',
+
+  // bswmd parser
+  'bswmdParser.xmlMalformed': 'BSWMD XML malformed: {message}',
+  'bswmdParser.missingRoot': 'BSWMD missing root element <AUTOSAR>',
+  'bswmdParser.unsupportedVersion': 'BSWMD unsupported AUTOSAR version: {version}',
+  'bswmdParser.invalidStructure': 'BSWMD invalid structure at {path}: {message}',
 
   // arxml panel
   'arxmlPanel.empty': 'No document loaded.',
@@ -280,7 +299,7 @@ export function t(
   params?: Readonly<Record<string, string | number | boolean>>,
 ): string {
   const bundle = MESSAGES_BY_LOCALE[locale];
-  let template: string | undefined = bundle[key];
+  const template: string | undefined = bundle[key];
   if (template === undefined) {
     // Defensive guard — the parity test catches missing keys at build
     // time; this only fires for a typo at a call site.

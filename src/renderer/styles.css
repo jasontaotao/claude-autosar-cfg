@@ -487,6 +487,12 @@ body,
   vertical-align: middle;
   flex-shrink: 0;
 }
-.tree .kind-dot.kind-module { background: #2563eb; }
-.tree .kind-dot.kind-container { background: #16a34a; }
-.tree .kind-dot.kind-reference { background: #9333ea; }
+.tree .kind-dot.kind-module {
+  background: #2563eb;
+}
+.tree .kind-dot.kind-container {
+  background: #16a34a;
+}
+.tree .kind-dot.kind-reference {
+  background: #9333ea;
+}

@@ -12,11 +12,13 @@
 // in the main process; the manifest layer's job is to refuse anything that
 // could escape the project directory before we ever touch the filesystem.
 //
-// UUID generation uses `crypto.randomUUID()` (Node 14.17+, all evergreen
-// browsers). Falls back to a Math.random-based v4 if unavailable so the
-// helper works in older test runners.
-
-import { randomUUID } from 'node:crypto';
+// UUID generation uses `globalThis.crypto.randomUUID()`, which is the
+// standard Web Crypto API (Node 19+, Electron 30+, all evergreen browsers).
+// Reading from `globalThis` keeps this module zero-dep and lets it be
+// imported from the renderer bundle without dragging in `node:crypto` —
+// a previous `import { randomUUID } from 'node:crypto'` caused the
+// renderer rollup build to fail because `__vite-browser-external` has
+// no `randomUUID` export.
 
 import { MANIFEST_SCHEMA_VERSION } from '../../shared/project.js';
 import type { ManifestSchemaVersion, ProjectManifest } from '../../shared/project.js';
@@ -232,29 +234,17 @@ function classifyBadPath(p: string): 'parent-traversal' | 'absolute' | 'empty' |
 }
 
 /**
- * UUID v4 generator. Uses `crypto.randomUUID` when available, else falls
- * back to a Math.random-based generator so legacy test runners still work.
+ * UUID v4 generator. Reads `globalThis.crypto.randomUUID()` directly
+ * (Web Crypto standard). Throws if unavailable — at this point the
+ * runtime is too old to run the rest of the app anyway, so a clear
+ * failure is more useful than a non-cryptographic fallback.
  */
 function generateUuid(): string {
-  try {
-    return randomUUID();
-  } catch {
-    // Math.random-based fallback (RFC 4122 v4 layout, not cryptographically strong)
-    const hex = (n: number) => n.toString(16).padStart(2, '0');
-    const bytes = new Array(16)
-      .fill(0)
-      .map(() => Math.floor(Math.random() * 256));
-    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-    return [
-      ...bytes.slice(0, 4),
-      ...bytes.slice(4, 6),
-      ...bytes.slice(6, 8),
-      ...bytes.slice(8, 10),
-      ...bytes.slice(10, 16),
-    ]
-      .map(hex)
-      .join('')
-      .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+  const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
+  if (c === undefined || typeof c.randomUUID !== 'function') {
+    throw new Error(
+      'globalThis.crypto.randomUUID is not available — requires Node 19+ / Electron 30+ / evergreen browsers',
+    );
   }
+  return c.randomUUID();
 }

@@ -5,6 +5,54 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-06-16 (Sprint 12 #1 — BSWMD parser)
+
+### Added
+
+- **BSWMD parser** (`src/core/project/bswmd.ts`) — pure-TS, zero-dep schema-side parser. Recognises 2 dialects:
+  - **EB tresos** `<BSW-MODULE-DESCRIPTION>` — SHORT-NAME + MODULE-ID + PROVIDED-ENTRYS (both wrapper-shape with `<SHORT-NAME>` + `<ENTRY-REF>`, and the real-data fallback where `<BSW-MODULE-ENTRY-REF>` sits inside the wrapper without a `<SHORT-NAME>` sibling — entry short-name is derived from the last path segment and a warning is recorded).
+  - **AUTOSAR standard** `<ECUC-MODULE-DEF>` — full tree: CONTAINERS (ECUC-PARAM-CONF-CONTAINER-DEF + ECUC-CHOICE-ORIENTED-STRUCTURE-DEF) / SUB-CONTAINERS / PARAMETERS (integer / boolean / enumeration / float / string / **function-name**) / REFERENCES (ECUC-REFERENCE-DEF + ECUC-FOREIGN-REFERENCE-DEF) / MULTIPLICITY (number / 'infinite').
+- 4 lookup helpers for Sprint 13 validation integration: `findModuleByPath` / `lookupContainerDef` / `lookupParamDef` / `lookupReferenceDef`.
+- `BswmdError` discriminated union (4 kinds) mapped 1:1 to i18n keys.
+- `ProvidedEntry.entryKind` field (`@_DEST` attribute value, typically `BSW-MODULE-ENTRY`) — lets the Sprint 13 editor distinguish entry kinds when rendering.
+- IPC `bswmd:parse` channel — parse-only, file I/O stays in `project:open`. Renderer-side integration (`useArxmlStore.bswmdSchemas`) deferred to Sprint 13. **Size cap** of 8 MiB on incoming `content` (returns `xml-malformed` for larger payloads — prevents a tampered preload bridge from OOMing the main process).
+- BSWMD fixtures: `tests/fixtures/bswmd/Can_Bswmd.arxml` (14KB EB tresos) + `Adc_bswmd.arxml` (80KB AUTOSAR standard), byte-identical copies of real user data. Round-trip test asserts dialect, moduleId, container / param structure, recursive totals (7 containers / 42 parameters / 8 references for Adc), and real-data `providedEntries` recovery.
+- 4 new i18n keys (`bswmdParser.xmlMalformed` / `missingRoot` / `unsupportedVersion` / `invalidStructure`) for human-readable error messages; `projectPanel.bswmd.empty` updated to drop the "Phase 2 will add a button" stub.
+- Numeric-format AUTOSAR namespaces accepted in `SUPPORTED_VERSIONS` (e.g. `00046` ≡ R4.6); regex already supported the shape, the supported set just didn't list it.
+
+### Changed
+
+- App version string `0.10.0` → `0.11.0` (minor bump: feature release).
+- `vitest.config.ts` `include` glob now picks up `tests/**/__tests__/**/*.test.ts` so the new fixture-driven round-trip tests are discovered.
+- `vitest setup` (`src/test/setup.ts`) now fails fast with a clear message if `globalThis.crypto.randomUUID` is unavailable — protects manifest tests against future vitest/jsdom bumps that might drop the Web Crypto polyfill.
+- Lint drift (16 files prettier-formatted + 5 `import()`-type annotations split into top-level `import type` declarations) accumulated since Sprint 11 was committed — restored to parity.
+
+### Fixed
+
+- `TreeNodeProps.subtitle` changed from required to optional. Sprint 9 #4.x switched element rows from a text subtitle to a colored `kind` dot, but the type still declared `subtitle: string` — type-check failed → renderer build failed → entire AppHeader didn't render → "新建项目 / 打开项目 / 打开" 3 button 看似无反应.
+- `core/project/manifest.ts` UUID generator switched from `node:crypto` import to `globalThis.crypto.randomUUID()`. The previous import pulled `__vite-browser-external` into the renderer bundle, which has no `randomUUID` export → renderer build failed.
+- **HIGH (code-reviewer):** EB tresos `providedEntries` recovery — the original parser silently dropped entries where `<BSW-MODULE-ENTRY-REF-CONDITIONAL>` lacked a `<SHORT-NAME>` sibling (the real-world EB tresos shape). Now derives `shortName` from the inner `<BSW-MODULE-ENTRY-REF>`'s path text, captures `@_DEST` as `entryKind`, and pushes a fallback warning per entry.
+- **MEDIUM (code-reviewer):** `<ECUC-FUNCTION-NAME-DEF>` previously collapsed to `kind: 'string'`. Distinct `'function-name'` ParamKind added so the Sprint 13 editor can render a symbol picker instead of a free-text input.
+
+### Test coverage
+
+- 374 → 426 tests passing (+52): 22 bswmd parser core (incl. function-name + numeric-namespace + EB-tresos-fallback cases), 17 fixture round-trip (incl. recursive totals assertion), 5 IPC handler shape, 8 i18n.
+- All 5 baseline fixtures still produce the same `validateProject` totals: 782 cross-ref / 0 ref-dest / 0 ref-cycle. No regressions.
+- Stmts / branches coverage stay ≥96% / ≥85% — only additive code in the new dialect walker.
+
+### Code review
+
+- 0 critical / 0 high / 2 medium / 3 low remaining after pre-tag fixes. The 2 medium (default-value cross-validation against `enumerationLiterals`, recursion depth limit on deeply-nested `<CHOICES>`) and 3 low are deferred to Sprint 13+ with explicit notes. Verdict: **APPROVE**.
+
+### Known gaps (deferred to Sprint 13+)
+
+- Renderer integration — `useArxmlStore.bswmdSchemas` not yet populated. `project:open` already returns BSWMD content; Sprint 13 wires the store to call `bswmd:parse` on each entry and expose the resulting `BswmdDocument[]` to `validateProjectForRenderer`.
+- BSWMD serializer — read-only this sprint. Add when UI round-trip is needed.
+- Equivalent size cap on `arxml:parse` IPC channel (reviewer MEDIUM, deferred to keep this sprint's diff focused on BSWMD).
+- Default-value cross-validation against `enumerationLiterals` (push a warning if `<DEFAULT-VALUE>` is not in the literal set) — schema-side hardening for Sprint 13.
+- Recursion depth limit on `<CHOICES>` chains — current implementation trusts input depth; a pathological vendor file could stack-overflow. Tracked.
+- AppHeader Ribbon UI refactor (Sprint 12 #0) deferred — current single-row toolbar still ships in v0.11.0.
+
 ## [0.10.0] — 2026-06-16 (Sprint 11 — Project Manifest + i18n)
 
 ### Added

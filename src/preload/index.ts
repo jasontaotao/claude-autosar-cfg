@@ -6,6 +6,8 @@ import type {
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
+  ParseBswmdRequest,
+  ParseBswmdResponse,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -32,6 +34,9 @@ const api = {
   projectOpen: (): Promise<ProjectOpenResult> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_OPEN),
   projectSave: (req: ProjectSaveRequest): Promise<ProjectSaveResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SAVE, req),
+  // Sprint 12 #1 — BSWMD schema-side parser
+  parseBswmd: (req: ParseBswmdRequest): Promise<ParseBswmdResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.BSWMD_PARSE, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

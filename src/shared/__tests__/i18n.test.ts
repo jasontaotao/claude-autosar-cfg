@@ -64,6 +64,36 @@ describe('i18n — t() helper', () => {
     expect(out).toContain('{bswmdCount}');
     expect(out).toContain('2');
   });
+
+  it('renders BswmdError → human message for xml-malformed (zh-CN)', () => {
+    expect(t('zh-CN', 'bswmdParser.xmlMalformed', { message: 'unclosed tag' })).toBe(
+      'BSWMD XML 格式错误: unclosed tag',
+    );
+  });
+
+  it('renders BswmdError → human message for missing-root (en)', () => {
+    expect(t('en', 'bswmdParser.missingRoot')).toBe('BSWMD missing root element <AUTOSAR>');
+  });
+
+  it('renders BswmdError → human message for unsupported-version with version param', () => {
+    expect(t('en', 'bswmdParser.unsupportedVersion', { version: 'r3.5' })).toBe(
+      'BSWMD unsupported AUTOSAR version: r3.5',
+    );
+  });
+
+  it('renders BswmdError → human message for invalid-structure with path + message', () => {
+    expect(
+      t('zh-CN', 'bswmdParser.invalidStructure', {
+        path: '/AUTOSAR_R22/EcucDefs/Can',
+        message: '缺 SHORT-NAME',
+      }),
+    ).toBe('BSWMD 结构错误 (/AUTOSAR_R22/EcucDefs/Can): 缺 SHORT-NAME');
+  });
+
+  it('projectPanel.bswmd.empty no longer mentions "Phase 2" (Sprint 12 #1 ships BSWMD loading)', () => {
+    expect(t('en', 'projectPanel.bswmd.empty')).not.toContain('Phase 2');
+    expect(t('zh-CN', 'projectPanel.bswmd.empty')).not.toContain('Phase');
+  });
 });
 
 describe('i18n — message bundle parity', () => {

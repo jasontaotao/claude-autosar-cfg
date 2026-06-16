@@ -6,9 +6,11 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { parseArxml } from '@core/arxml/parser';
+import type { ArxmlDocument } from '@core/arxml/types';
+
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
-
 import { useArxmlStore } from '../useArxmlStore.js';
 
 // ---------------------------------------------------------------------------
@@ -134,11 +136,9 @@ describe('useArxmlStore — openProject', () => {
   it('clears dirtyPaths on open (fresh load = nothing dirty)', () => {
     // Arrange — pre-existing dirty doc
     useArxmlStore.getState().addDocument(parseArxmlOrThrow(MIN_ARXML), '/unrelated.arxml');
-    useArxmlStore.getState().updateParam(
-      '/EcucDefs/CanIf',
-      'NewParam',
-      { type: 'integer', value: 42 },
-    );
+    useArxmlStore
+      .getState()
+      .updateParam('/EcucDefs/CanIf', 'NewParam', { type: 'integer', value: 42 });
     expect(useArxmlStore.getState().dirtyPaths.size).toBeGreaterThan(0);
 
     // Act
@@ -172,10 +172,7 @@ describe('useArxmlStore — openProject', () => {
     expect(after.documentPaths).toEqual(['/proj/CanIf.arxml']);
     // Manifest still references Missing.arxml — Save Project will
     // produce a read-failed when re-opening unless the user adds it.
-    expect(after.project?.valueArxmlPaths).toEqual([
-      '/proj/CanIf.arxml',
-      '/proj/Missing.arxml',
-    ]);
+    expect(after.project?.valueArxmlPaths).toEqual(['/proj/CanIf.arxml', '/proj/Missing.arxml']);
   });
 
   it('pairs manifest entries by rel, not by basename (collision safety)', () => {
@@ -201,10 +198,7 @@ describe('useArxmlStore — openProject', () => {
 
     // Assert — both docs loaded, in manifest order, paired by rel
     const after = useArxmlStore.getState();
-    expect(after.documentPaths).toEqual([
-      '/proj/subdir1/EcuC.arxml',
-      '/proj/subdir2/EcuC.arxml',
-    ]);
+    expect(after.documentPaths).toEqual(['/proj/subdir1/EcuC.arxml', '/proj/subdir2/EcuC.arxml']);
     expect(after.documents).toHaveLength(2);
   });
 
@@ -240,11 +234,9 @@ describe('useArxmlStore — closeProject', () => {
       manifest: sampleManifest({ valueArxmlPaths: ['/proj/CanIf.arxml'] }),
       docs: [{ rel: '/proj/CanIf.arxml', path: '/proj/CanIf.arxml', content: MIN_ARXML }],
     });
-    useArxmlStore.getState().updateParam(
-      '/EcucDefs/CanIf',
-      'NewParam',
-      { type: 'integer', value: 42 },
-    );
+    useArxmlStore
+      .getState()
+      .updateParam('/EcucDefs/CanIf', 'NewParam', { type: 'integer', value: 42 });
     expect(useArxmlStore.getState().dirtyPaths.size).toBeGreaterThan(0);
 
     // Act
@@ -289,10 +281,7 @@ describe('useArxmlStore — project sync on add/remove', () => {
     });
 
     // Act
-    useArxmlStore.getState().addDocument(
-      parseArxmlOrThrow(MIN_ARXML),
-      '/proj/NewDoc.arxml',
-    );
+    useArxmlStore.getState().addDocument(parseArxmlOrThrow(MIN_ARXML), '/proj/NewDoc.arxml');
 
     // Assert
     const after = useArxmlStore.getState();
@@ -379,11 +368,9 @@ describe('useArxmlStore — markSaved in project mode', () => {
         { rel: '/proj/B.arxml', path: '/proj/B.arxml', content: MIN_ARXML },
       ],
     });
-    useArxmlStore.getState().updateParam(
-      '/EcucDefs/CanIf',
-      'NewParam',
-      { type: 'integer', value: 42 },
-    );
+    useArxmlStore
+      .getState()
+      .updateParam('/EcucDefs/CanIf', 'NewParam', { type: 'integer', value: 42 });
 
     // Act
     useArxmlStore.getState().markSaved('/proj/A.arxml');
@@ -399,8 +386,7 @@ describe('useArxmlStore — markSaved in project mode', () => {
 // Helper — parser import (avoids top-level parseArxml in test file)
 // ---------------------------------------------------------------------------
 
-import { parseArxml } from '@core/arxml/parser';
-function parseArxmlOrThrow(content: string): import('@core/arxml/types').ArxmlDocument {
+function parseArxmlOrThrow(content: string): ArxmlDocument {
   const result = parseArxml(content);
   if (!result.ok) throw new Error(`parse failed: ${result.error.kind}`);
   return result.value;

@@ -36,10 +36,7 @@ import { useArxmlStore } from '../useArxmlStore';
 // Test fixture builders (synthetic, in-memory)
 // ---------------------------------------------------------------------------
 
-function makeEcucDocWithParam(
-  ecucParamValue: number,
-  filePath: string,
-): ArxmlDocument {
+function makeEcucDocWithParam(ecucParamValue: number, filePath: string): ArxmlDocument {
   const general: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',

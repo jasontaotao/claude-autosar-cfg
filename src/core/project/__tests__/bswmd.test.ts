@@ -1,0 +1,801 @@
+// BSWMD parser tests — Sprint 12 #1 Task 1.
+//
+// Covers both BSWMD dialects observed in real EB tresos / AUTOSAR-standard
+// BSW Module Description files. Inline XML strings only — no fixture I/O.
+//
+// Conventions follow the rest of the core test suite (AAA pattern,
+// vitest `describe`/`it`/`expect`, descriptive behaviour names).
+
+import { describe, it, expect } from 'vitest';
+
+import {
+  parseBswmd,
+  findModuleByPath,
+  lookupContainerDef,
+  lookupParamDef,
+  lookupReferenceDef,
+} from '../bswmd.js';
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal EB tresos dialect (BswModuleDescription). Module-id is mandatory in
+ * this dialect; SHORT-NAME + MODULE-ID + PROVIDED-ENTRYS are the minimum we
+ * must be able to read.
+ */
+const EB_TRESOS_MINIMAL = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-0-3.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR_Can</SHORT-NAME>
+      <ELEMENTS>
+        <BSW-MODULE-DESCRIPTION>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <MODULE-ID>120</MODULE-ID>
+          <PROVIDED-ENTRYS>
+            <BSW-MODULE-ENTRY-REF-CONDITIONAL>
+              <SHORT-NAME>Can_Init</SHORT-NAME>
+              <ENTRY-REF DEST="BSW-MODULE-ENTRY">/AUTOSAR_Can/BswModuleEntrys/Can_Init</ENTRY-REF>
+            </BSW-MODULE-ENTRY-REF-CONDITIONAL>
+            <BSW-MODULE-ENTRY-REF-CONDITIONAL>
+              <SHORT-NAME>Can_MainFunction_Read</SHORT-NAME>
+              <ENTRY-REF DEST="BSW-MODULE-ENTRY">/AUTOSAR_Can/BswModuleEntrys/Can_MainFunction_Read</ENTRY-REF>
+            </BSW-MODULE-ENTRY-REF-CONDITIONAL>
+          </PROVIDED-ENTRYS>
+        </BSW-MODULE-DESCRIPTION>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/**
+ * Minimal AUTOSAR standard ECUC-MODULE-DEF. One top-level container with
+ * one integer param. Path computed as /AUTOSAR_R22/EcucDefs/Can.
+ */
+const AUTOSAR_MINIMAL = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-0-3.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR_R22</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>EcucDefs</SHORT-NAME>
+          <ELEMENTS>
+            <ECUC-MODULE-DEF>
+              <SHORT-NAME>Can</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <CONTAINERS>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanGeneral</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <PARAMETERS>
+                    <ECUC-INTEGER-PARAM-DEF>
+                      <SHORT-NAME>CanDevErrorDetect</SHORT-NAME>
+                      <MIN>0</MIN>
+                      <MAX>1</MAX>
+                      <DEFAULT-VALUE>1</DEFAULT-VALUE>
+                    </ECUC-INTEGER-PARAM-DEF>
+                  </PARAMETERS>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </CONTAINERS>
+            </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/**
+ * Two-level SUB-CONTAINERS nesting under CanConfigSet. Validates that
+ * `lookupContainerDef` recurses into subContainers.
+ */
+const NESTED_SUB_CONTAINERS = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>CanConfigSet</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <SUB-CONTAINERS>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanController</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <SUB-CONTAINERS>
+                    <ECUC-PARAM-CONF-CONTAINER-DEF>
+                      <SHORT-NAME>CanControllerConfig</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                    </ECUC-PARAM-CONF-CONTAINER-DEF>
+                  </SUB-CONTAINERS>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </SUB-CONTAINERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/** Multiple parameter kinds (integer, boolean, enumeration) under one container. */
+const MULTI_KIND_PARAMS = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Com</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>ComGeneral</SHORT-NAME>
+              <PARAMETERS>
+                <ECUC-INTEGER-PARAM-DEF>
+                  <SHORT-NAME>ComSupportedIPduGroups</SHORT-NAME>
+                  <MIN>0</MIN>
+                  <MAX>255</MAX>
+                  <DEFAULT-VALUE>1</DEFAULT-VALUE>
+                </ECUC-INTEGER-PARAM-DEF>
+                <ECUC-BOOLEAN-PARAM-DEF>
+                  <SHORT-NAME>ComConfigurationUseDet</SHORT-NAME>
+                  <DEFAULT-VALUE>false</DEFAULT-VALUE>
+                </ECUC-BOOLEAN-PARAM-DEF>
+                <ECUC-ENUMERATION-PARAM-DEF>
+                  <SHORT-NAME>ComPduIdType</SHORT-NAME>
+                  <LITERALS>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>FULL</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>EXTENDED</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                  </LITERALS>
+                  <DEFAULT-VALUE>FULL</DEFAULT-VALUE>
+                </ECUC-ENUMERATION-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/** REFERENCES — both ECUC-REFERENCE-DEF and ECUC-FOREIGN-REFERENCE-DEF under one container. */
+const REFERENCES_BOTH = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>PduR</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>PduRRoutingPath</SHORT-NAME>
+              <REFERENCES>
+                <ECUC-REFERENCE-DEF>
+                  <SHORT-NAME>PduRSrcPduRef</SHORT-NAME>
+                  <DESTINATION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Com/PduRRoutingPath</DESTINATION-REF>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-REFERENCE-DEF>
+                <ECUC-FOREIGN-REFERENCE-DEF>
+                  <SHORT-NAME>PduRSrcPduForeignRef</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+                </ECUC-FOREIGN-REFERENCE-DEF>
+              </REFERENCES>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/** CHOICES — ECUC-CHOICE-ORIENTED-STRUCTURE-DEF with nested choice containers. */
+const CHOICES = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>CanIf</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-CHOICE-ORIENTED-STRUCTURE-DEF>
+              <SHORT-NAME>CanIfBufferCfg</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+              <CHOICES>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanIfMailbox</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanIfFifo</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </CHOICES>
+            </ECUC-CHOICE-ORIENTED-STRUCTURE-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+// ---------------------------------------------------------------------------
+// parseBswmd — happy path
+// ---------------------------------------------------------------------------
+
+describe('parseBswmd — happy path', () => {
+  it('parses minimal EB tresos BSW-MODULE-DESCRIPTION with module-id and provided-entries', () => {
+    // Arrange + Act
+    const r = parseBswmd(EB_TRESOS_MINIMAL);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.modules).toHaveLength(1);
+    const mod = r.value.modules[0]!;
+    expect(mod.dialect).toBe('bsw-module-description');
+    expect(mod.shortName).toBe('Can');
+    expect(mod.path).toBe('/AUTOSAR_Can/Can');
+    expect(mod.moduleId).toBe(120);
+    expect(mod.providedEntries).toHaveLength(2);
+    expect(mod.providedEntries[0]!.shortName).toBe('Can_Init');
+    expect(mod.providedEntries[0]!.entryRefPath).toBe('/AUTOSAR_Can/BswModuleEntrys/Can_Init');
+    expect(mod.providedEntries[0]!.entryKind).toBe('BSW-MODULE-ENTRY');
+    expect(mod.providedEntries[1]!.shortName).toBe('Can_MainFunction_Read');
+    expect(mod.providedEntries[1]!.entryKind).toBe('BSW-MODULE-ENTRY');
+    expect(mod.containers).toHaveLength(0);
+    // Synthetic XML uses wrapper SHORT-NAME → no fallback warning fires.
+    expect(r.value.warnings.join(' ')).not.toMatch(/provided entry omits wrapper/);
+  });
+
+  it('recovers EB tresos providedEntries when wrapper omits <SHORT-NAME> (real-data shape)', () => {
+    // Arrange — exact shape observed in tests/fixtures/bswmd/Can_Bswmd.arxml.
+    // Wrapper has no <SHORT-NAME>; inner <BSW-MODULE-ENTRY-REF> carries
+    // @_DEST + the path text.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR_Can</SHORT-NAME>
+      <ELEMENTS>
+        <BSW-MODULE-DESCRIPTION>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <MODULE-ID>80</MODULE-ID>
+          <PROVIDED-ENTRYS>
+            <BSW-MODULE-ENTRY-REF-CONDITIONAL>
+              <BSW-MODULE-ENTRY-REF DEST="BSW-MODULE-ENTRY">/AUTOSAR_Can/BswModuleEntrys/Can_Init</BSW-MODULE-ENTRY-REF>
+            </BSW-MODULE-ENTRY-REF-CONDITIONAL>
+            <BSW-MODULE-ENTRY-REF-CONDITIONAL>
+              <BSW-MODULE-ENTRY-REF DEST="BSW-MODULE-ENTRY">/AUTOSAR_Can/BswModuleEntrys/Can_MainFunction_Mode</BSW-MODULE-ENTRY-REF>
+            </BSW-MODULE-ENTRY-REF-CONDITIONAL>
+          </PROVIDED-ENTRYS>
+        </BSW-MODULE-DESCRIPTION>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert — entries recovered with shortName derived from ref path.
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.modules[0]!;
+    expect(mod.providedEntries).toHaveLength(2);
+    expect(mod.providedEntries[0]!.shortName).toBe('Can_Init');
+    expect(mod.providedEntries[0]!.entryRefPath).toBe('/AUTOSAR_Can/BswModuleEntrys/Can_Init');
+    expect(mod.providedEntries[0]!.entryKind).toBe('BSW-MODULE-ENTRY');
+    expect(mod.providedEntries[0]!.path).toBe('/AUTOSAR_Can/Can/Can_Init');
+    expect(mod.providedEntries[1]!.shortName).toBe('Can_MainFunction_Mode');
+    // Fallback warning recorded once per entry — never silently drops.
+    const fallbackWarnings = r.value.warnings.filter((w) =>
+      /provided entry omits wrapper <SHORT-NAME>/.test(w),
+    );
+    expect(fallbackWarnings.length).toBe(2);
+  });
+
+  it('skips an unrecoverable provided entry (no SHORT-NAME, no inner ref) and records a warning', () => {
+    // Arrange
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>P</SHORT-NAME>
+      <ELEMENTS>
+        <BSW-MODULE-DESCRIPTION>
+          <SHORT-NAME>M</SHORT-NAME>
+          <MODULE-ID>1</MODULE-ID>
+          <PROVIDED-ENTRYS>
+            <BSW-MODULE-ENTRY-REF-CONDITIONAL/>
+          </PROVIDED-ENTRYS>
+        </BSW-MODULE-DESCRIPTION>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.modules[0]!;
+    expect(mod.providedEntries).toHaveLength(0);
+    const skipWarnings = r.value.warnings.filter((w) =>
+      /no <SHORT-NAME> and no usable entry ref/.test(w),
+    );
+    expect(skipWarnings.length).toBe(1);
+  });
+
+  it('parses minimal AUTOSAR ECUC-MODULE-DEF with one container and one integer param', () => {
+    // Arrange + Act
+    const r = parseBswmd(AUTOSAR_MINIMAL);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.modules).toHaveLength(1);
+    const mod = r.value.modules[0]!;
+    expect(mod.dialect).toBe('ecuc-module-def');
+    expect(mod.shortName).toBe('Can');
+    expect(mod.path).toBe('/AUTOSAR_R22/EcucDefs/Can');
+    expect(mod.moduleId).toBeNull();
+    expect(mod.containers).toHaveLength(1);
+    const c = mod.containers[0]!;
+    expect(c.shortName).toBe('CanGeneral');
+    expect(c.path).toBe('/AUTOSAR_R22/EcucDefs/Can/CanGeneral');
+    expect(c.parameters).toHaveLength(1);
+    const p = c.parameters[0]!;
+    expect(p.shortName).toBe('CanDevErrorDetect');
+    expect(p.kind).toBe('integer');
+    expect(p.defaultValue).toBe(1);
+    expect(p.minValue).toBe(0);
+    expect(p.maxValue).toBe(1);
+  });
+
+  it('recurses two levels deep through SUB-CONTAINERS', () => {
+    // Arrange + Act
+    const r = parseBswmd(NESTED_SUB_CONTAINERS);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.modules[0]!;
+    const top = mod.containers[0]!;
+    expect(top.shortName).toBe('CanConfigSet');
+    expect(top.subContainers).toHaveLength(1);
+    const mid = top.subContainers[0]!;
+    expect(mid.shortName).toBe('CanController');
+    expect(mid.subContainers).toHaveLength(1);
+    const leaf = mid.subContainers[0]!;
+    expect(leaf.shortName).toBe('CanControllerConfig');
+  });
+
+  it('parses PARAMETERS of multiple kinds (integer / boolean / enumeration)', () => {
+    // Arrange + Act
+    const r = parseBswmd(MULTI_KIND_PARAMS);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const params = r.value.modules[0]!.containers[0]!.parameters;
+    expect(params).toHaveLength(3);
+    const integer = params.find((p) => p.shortName === 'ComSupportedIPduGroups')!;
+    expect(integer.kind).toBe('integer');
+    expect(integer.minValue).toBe(0);
+    expect(integer.maxValue).toBe(255);
+    const boolean = params.find((p) => p.shortName === 'ComConfigurationUseDet')!;
+    expect(boolean.kind).toBe('boolean');
+    expect(boolean.defaultValue).toBe(false);
+    const enumeration = params.find((p) => p.shortName === 'ComPduIdType')!;
+    expect(enumeration.kind).toBe('enumeration');
+    expect(enumeration.enumerationLiterals).toEqual(['FULL', 'EXTENDED']);
+    expect(enumeration.defaultValue).toBe('FULL');
+  });
+
+  it('parses ECUC-FUNCTION-NAME-DEF as kind "function-name" (distinct from string)', () => {
+    // Arrange — ECUC-FUNCTION-NAME-DEF must NOT collapse to "string" because
+    // Sprint 13's editor will validate against a symbol table, not free text.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Os</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>OsHook</SHORT-NAME>
+              <PARAMETERS>
+                <ECUC-FUNCTION-NAME-DEF>
+                  <SHORT-NAME>ErrorHook</SHORT-NAME>
+                  <MIN-LENGTH>1</MIN-LENGTH>
+                  <MAX-LENGTH>32</MAX-LENGTH>
+                  <DEFAULT-VALUE>ErrorHook</DEFAULT-VALUE>
+                </ECUC-FUNCTION-NAME-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const fn = r.value.modules[0]!.containers[0]!.parameters[0]!;
+    expect(fn.kind).toBe('function-name');
+    expect(fn.kind).not.toBe('string');
+    expect(fn.shortName).toBe('ErrorHook');
+    expect(fn.defaultValue).toBe('ErrorHook');
+    expect(fn.minLength).toBe(1);
+    expect(fn.maxLength).toBe(32);
+  });
+
+  it('accepts the AUTOSAR numeric-format namespace (e.g. "00046")', () => {
+    // Arrange — AUTOSAR release namespaces use either "r4.x" or a numeric
+    // form like "00046". The regex must accept both shapes or newer BSWMD
+    // releases will be rejected as unsupported-version.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/00046">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>P</SHORT-NAME>
+      <ELEMENTS></ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.version).toBe('00046');
+  });
+
+  it('parses REFERENCES (ECUC-REFERENCE-DEF and ECUC-FOREIGN-REFERENCE-DEF)', () => {
+    // Arrange + Act
+    const r = parseBswmd(REFERENCES_BOTH);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const refs = r.value.modules[0]!.containers[0]!.references;
+    expect(refs).toHaveLength(2);
+    const dom = refs.find((x) => x.shortName === 'PduRSrcPduRef')!;
+    expect(dom.destKind).toBe('ECUC-PARAM-CONF-CONTAINER-DEF');
+    expect(dom.upperMultiplicity).toBe(1);
+    const foreign = refs.find((x) => x.shortName === 'PduRSrcPduForeignRef')!;
+    expect(foreign.destKind).toBe('ECUC-FOREIGN-REFERENCE-DEF');
+    expect(foreign.upperMultiplicity).toBe('infinite');
+  });
+
+  it('parses CHOICES (ECUC-CHOICE-ORIENTED-STRUCTURE-DEF) with nested choice containers', () => {
+    // Arrange + Act
+    const r = parseBswmd(CHOICES);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = r.value.modules[0]!.containers[0]!;
+    expect(c.choices).toHaveLength(2);
+    expect(c.choices[0]!.shortName).toBe('CanIfMailbox');
+    expect(c.choices[1]!.shortName).toBe('CanIfFifo');
+    expect(c.choices[0]!.path).toBe('/EcucDefs/CanIf/CanIfBufferCfg/CanIfMailbox');
+  });
+
+  it('maps UPPER-MULTIPLICITY-INFINITE=true to "infinite" on containers', () => {
+    // Arrange + Act
+    const r = parseBswmd(CHOICES);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = r.value.modules[0]!.containers[0]!;
+    expect(c.upperMultiplicity).toBe('infinite');
+  });
+
+  it('returns an empty modules list for an empty ELEMENTS block', () => {
+    // Arrange
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.0"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.modules).toEqual([]);
+    expect(r.value.warnings).toEqual([]);
+  });
+
+  it('collects warnings when an unknown ECUC-XXX-DEF kind is encountered', () => {
+    // Arrange
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Foo</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-UNKNOWN-WIDGET-DEF>
+              <SHORT-NAME>Unrecognized</SHORT-NAME>
+            </ECUC-UNKNOWN-WIDGET-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.warnings.length).toBeGreaterThan(0);
+    expect(r.value.warnings.join(' ')).toMatch(/ECUC-UNKNOWN-WIDGET-DEF|Foo/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseBswmd — error path
+// ---------------------------------------------------------------------------
+
+describe('parseBswmd — error path', () => {
+  it('returns xml-malformed for unclosed tag', () => {
+    // Arrange
+    const broken = '<?xml version="1.0"?><AUTOSAR><AR-PACKAGES><AR-PACKAGE>';
+
+    // Act
+    const r = parseBswmd(broken);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('xml-malformed');
+  });
+
+  it('returns missing-root when <AUTOSAR> is absent', () => {
+    // Arrange
+    const xml = '<?xml version="1.0"?><ROOT><AR-PACKAGES/></ROOT>';
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('missing-root');
+  });
+
+  it('returns unsupported-version for r3.x namespace', () => {
+    // Arrange
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r3.5">
+  <AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS></ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    if (r.error.kind === 'unsupported-version') {
+      expect(r.error.version).toBe('3.5');
+    } else {
+      expect.fail(`expected unsupported-version, got ${r.error.kind}`);
+    }
+  });
+
+  it('returns invalid-structure when ECUC-MODULE-DEF is missing SHORT-NAME', () => {
+    // Arrange
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <CONTAINERS></CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-structure');
+    if (r.error.kind === 'invalid-structure') {
+      expect(r.error.message).toMatch(/SHORT-NAME/);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lookup helpers
+// ---------------------------------------------------------------------------
+
+describe('findModuleByPath', () => {
+  it('finds a module by absolute path', () => {
+    // Arrange
+    const doc = parseBswmd(AUTOSAR_MINIMAL);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+
+    // Act
+    const mod = findModuleByPath(doc.value, '/AUTOSAR_R22/EcucDefs/Can');
+
+    // Assert
+    expect(mod).not.toBeNull();
+    expect(mod?.shortName).toBe('Can');
+  });
+
+  it('returns null when the module path does not exist', () => {
+    // Arrange
+    const doc = parseBswmd(AUTOSAR_MINIMAL);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+
+    // Act
+    const mod = findModuleByPath(doc.value, '/AUTOSAR_R22/EcucDefs/Missing');
+
+    // Assert
+    expect(mod).toBeNull();
+  });
+});
+
+describe('lookupContainerDef', () => {
+  it('finds a top-level container by short name', () => {
+    // Arrange
+    const doc = parseBswmd(AUTOSAR_MINIMAL);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const c = lookupContainerDef(mod, 'CanGeneral');
+
+    // Assert
+    expect(c).not.toBeNull();
+    expect(c?.shortName).toBe('CanGeneral');
+  });
+
+  it('finds a nested sub-container by short name (recurses)', () => {
+    // Arrange
+    const doc = parseBswmd(NESTED_SUB_CONTAINERS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const leaf = lookupContainerDef(mod, 'CanControllerConfig');
+
+    // Assert
+    expect(leaf).not.toBeNull();
+    expect(leaf?.path).toBe('/EcucDefs/Can/CanConfigSet/CanController/CanControllerConfig');
+  });
+
+  it('returns null when the container short name is unknown', () => {
+    // Arrange
+    const doc = parseBswmd(AUTOSAR_MINIMAL);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const c = lookupContainerDef(mod, 'DoesNotExist');
+
+    // Assert
+    expect(c).toBeNull();
+  });
+});
+
+describe('lookupParamDef', () => {
+  it('finds a parameter by short name within a container', () => {
+    // Arrange
+    const doc = parseBswmd(MULTI_KIND_PARAMS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const container = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const p = lookupParamDef(container, 'ComPduIdType');
+
+    // Assert
+    expect(p).not.toBeNull();
+    expect(p?.kind).toBe('enumeration');
+    expect(p?.enumerationLiterals).toEqual(['FULL', 'EXTENDED']);
+  });
+
+  it('returns null when the parameter short name is unknown', () => {
+    // Arrange
+    const doc = parseBswmd(MULTI_KIND_PARAMS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const container = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const p = lookupParamDef(container, 'NotAParam');
+
+    // Assert
+    expect(p).toBeNull();
+  });
+});
+
+describe('lookupReferenceDef', () => {
+  it('finds a reference by short name within a container', () => {
+    // Arrange
+    const doc = parseBswmd(REFERENCES_BOTH);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const container = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const r = lookupReferenceDef(container, 'PduRSrcPduRef');
+
+    // Assert
+    expect(r).not.toBeNull();
+    expect(r?.destKind).toBe('ECUC-PARAM-CONF-CONTAINER-DEF');
+  });
+
+  it('returns null when the reference short name is unknown', () => {
+    // Arrange
+    const doc = parseBswmd(REFERENCES_BOTH);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const container = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const r = lookupReferenceDef(container, 'NoSuchRef');
+
+    // Assert
+    expect(r).toBeNull();
+  });
+});

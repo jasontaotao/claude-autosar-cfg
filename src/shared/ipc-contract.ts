@@ -10,6 +10,8 @@ export const IPC_CHANNELS = {
   PROJECT_NEW: 'project:new',
   PROJECT_OPEN: 'project:open',
   PROJECT_SAVE: 'project:save',
+  // Sprint 12 #1 — BSWMD schema-side parser
+  BSWMD_PARSE: 'bswmd:parse',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
