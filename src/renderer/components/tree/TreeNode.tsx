@@ -51,9 +51,15 @@ export function TreeNode({
   }, [isLeaf, onToggle, path]);
 
   const handleClick = useCallback((): void => {
+    // Label / row click selects but does NOT toggle. The chevron is
+    // the sole click-driven way to expand / collapse — matches the
+    // standard file-tree pattern (VSCode, Finder, Windows Explorer)
+    // and avoids the trap where clicking a node to inspect it in
+    // the right pane also collapses it. Keyboard Enter/Space still
+    // toggles (see handleKeyDown) — that is the standard keyboard
+    // pattern and is intentionally different from mouse click.
     onSelect(path);
-    if (!isLeaf) onToggle(path);
-  }, [isLeaf, onSelect, onToggle, path]);
+  }, [onSelect, path]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>): void => {

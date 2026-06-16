@@ -367,6 +367,39 @@ describe('Tree (with doc)', () => {
     expect(allSelectCalls.slice(lastLeafIdx + 1)).not.toContain('/EAS');
     expect(allSelectCalls.slice(lastLeafIdx + 1)).not.toContain('/EAS/EcuC');
   });
+
+  it('clicking a non-leaf node label selects it without toggling expand state', () => {
+    // Pre-fix: the label button's onClick routed through handleClick
+    // which did onSelect + (if !isLeaf) onToggle. Result: clicking
+    // a non-leaf node's label to inspect it in the right pane also
+    // expanded / collapsed it. The chevron is the right place for
+    // toggle — match the standard file-tree pattern (VSCode, Finder,
+    // Windows Explorer) where label click = select, chevron click =
+    // toggle. Keyboard Enter/Space still toggles (also standard tree
+    // pattern); only the mouse label-click path is changed.
+    const { api, state } = makeStoreApi({ doc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    const ePkg = within(tree).getByRole('treeitem', { name: /EAS/ });
+
+    // Expand EAS via chevron.
+    fireEvent.click(within(ePkg).getByRole('button', { name: /toggle eas/i }));
+
+    // EcuC is currently collapsed. Click its LABEL (not the chevron).
+    // Use the label-/EAS/EcuC testid to target the label button
+    // specifically — the kind-dot aria-label bleeds into the label
+    // button's accessible name so a name-based query is ambiguous.
+    const ecu = within(tree).getByRole('treeitem', { name: /EcuC/ });
+    expect(ecu).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(within(ecu).getByTestId('label-/EAS/EcuC'));
+
+    // EcuC must remain collapsed (label click selects only).
+    expect(ecu).toHaveAttribute('aria-expanded', 'false');
+    // But select was called with the node's path.
+    expect(state.select).toHaveBeenLastCalledWith('/EAS/EcuC');
+  });
 });
 
 // ---------------------------------------------------------------------------
