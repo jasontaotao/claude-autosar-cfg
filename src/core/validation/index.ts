@@ -19,4 +19,7 @@ export {
   buildShortNameIndex,
 } from './validate.js';
 
+export { validateProjectForRenderer } from './dispatch.js';
+export type { ValidationLevel, DispatchOptions } from './dispatch.js';
+
 export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';
