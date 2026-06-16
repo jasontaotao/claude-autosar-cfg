@@ -138,7 +138,7 @@ function renderChildren(
       <TreeNode
         key={childPath}
         label={shortNameOf(el)}
-        subtitle={el.kind}
+        kind={el.kind}
         path={childPath}
         depth={depth}
         isLeaf={isLeaf}

@@ -318,3 +318,24 @@ body,
 .tree .tree-children {
   display: block;
 }
+
+/* Kind indicator dot — replaces the previous text subtitle on element
+   rows so the kind ('module' / 'container' / 'reference') does not
+   compete visually with the SHORT-NAME label. The dot sits inside the
+   label button before the label text, so the type is glanceable
+   without being read as part of the label name. EB tresos BSWMD files
+   collapse every row to `kind='container'` under the current parser —
+   the uniform color is then a feature (visually says "this is a
+   definition, not a value"), not a regression. */
+.tree .kind-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.tree .kind-dot.kind-module { background: #2563eb; }
+.tree .kind-dot.kind-container { background: #16a34a; }
+.tree .kind-dot.kind-reference { background: #9333ea; }

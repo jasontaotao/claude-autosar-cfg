@@ -259,6 +259,66 @@ describe('Tree (with doc)', () => {
     const otherPkg = within(tree).getByRole('treeitem', { name: /Com/ });
     expect(otherPkg).toHaveAttribute('aria-selected', 'false');
   });
+
+  it('renders the kind as a colored dot indicator instead of a text subtitle', () => {
+    // Pre-fix (Sprint 9 follow-up): the element kind ("module" / "container" /
+    // "reference") was rendered as a small text badge next to the label,
+    // and users scanning the EB tresos BSWMD file misread "module" as part
+    // of the label itself. The fix replaces that text badge with a colored
+    // dot indicator (aria-label + title carry the kind for screen readers
+    // and tooltips). Package rows still use the literal "package" subtitle
+    // because "package" is a different category, not an element kind.
+    const { api } = makeStoreApi({ doc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    const ePkg = within(tree).getByRole('treeitem', { name: /EAS/ });
+    fireEvent.click(within(ePkg).getByRole('button', { name: /toggle eas/i }));
+
+    const moduleRow = within(tree).getByRole('treeitem', { name: /EcuC/ });
+
+    // 1. The kind must NOT appear as visible text inside the label button.
+    //    Today the subtitle span renders the literal "module" as text — that
+    //    is exactly the misread we are eliminating.
+    const moduleLabelBtn = within(moduleRow).getByTestId('label-/EAS/EcuC');
+    expect(within(moduleLabelBtn).queryByText(/^module$/)).toBeNull();
+
+    // 2. The kind must be conveyed by a dedicated dot indicator span with
+    //    the kind-{kind} modifier class for color styling.
+    const dot = within(moduleRow).getByTestId('kind-dot-/EAS/EcuC');
+    expect(dot.tagName).toBe('SPAN');
+    expect(dot.className).toContain('kind-dot');
+    expect(dot.className).toContain('kind-module');
+
+    // 3. The dot exposes the kind to assistive tech (aria-label) and
+    //    to sighted users on hover (title).
+    expect(dot).toHaveAttribute('aria-label', 'module');
+    expect(dot).toHaveAttribute('title', 'module');
+  });
+
+  it('renders a green dot for container kind elements', () => {
+    // Regression guard for the container branch of the kind-dot contract:
+    // EcuCGeneral is a CONTAINER (kind="container") and must get the
+    // green kind-container dot, distinct from the blue module dot.
+    const { api } = makeStoreApi({ doc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    const ePkg = within(tree).getByRole('treeitem', { name: /EAS/ });
+    fireEvent.click(within(ePkg).getByRole('button', { name: /toggle eas/i }));
+    const moduleRow = within(tree).getByRole('treeitem', { name: /EcuC/ });
+    fireEvent.click(within(moduleRow).getByRole('button', { name: /toggle ecuc/i }));
+
+    const containerRow = within(tree).getByRole('treeitem', { name: /EcuCGeneral/ });
+    const containerLabelBtn = within(containerRow).getByTestId('label-/EAS/EcuC/EcuCGeneral');
+    expect(within(containerLabelBtn).queryByText(/^container$/)).toBeNull();
+
+    const dot = within(containerRow).getByTestId('kind-dot-/EAS/EcuC/EcuCGeneral');
+    expect(dot.className).toContain('kind-dot');
+    expect(dot.className).toContain('kind-container');
+    expect(dot).toHaveAttribute('aria-label', 'container');
+    expect(dot).toHaveAttribute('title', 'container');
+  });
 });
 
 // ---------------------------------------------------------------------------

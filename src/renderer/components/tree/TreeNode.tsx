@@ -11,9 +11,17 @@
 
 import { useCallback, type KeyboardEvent, type ReactNode } from 'react';
 
+/** Discriminator for the visual kind indicator (replaces the previous
+ *  text subtitle on element rows). Packages use the text "package" badge
+ *  instead — they do not have a `kind` field. */
+type TreeKind = 'module' | 'container' | 'reference';
+
 interface TreeNodeProps {
   label: string;
+  /** Text badge shown after the label (used for packages: "package"). */
   subtitle: string;
+  /** Optional kind indicator — renders a colored dot before the label. */
+  kind?: TreeKind;
   path: string;
   depth: number;
   isLeaf: boolean;
@@ -27,6 +35,7 @@ interface TreeNodeProps {
 export function TreeNode({
   label,
   subtitle,
+  kind,
   path,
   depth,
   isLeaf,
@@ -154,8 +163,16 @@ export function TreeNode({
           className="tree-label"
           data-testid={`label-${path}`}
         >
+          {kind !== undefined && (
+            <span
+              className={`kind-dot kind-${kind}`}
+              data-testid={`kind-dot-${path}`}
+              title={kind}
+              aria-label={kind}
+            />
+          )}
           <span className="tree-label-text">{label}</span>
-          <span className="tree-label-subtitle">{subtitle}</span>
+          {subtitle && <span className="tree-label-subtitle">{subtitle}</span>}
         </button>
       </div>
       {isExpanded && (
