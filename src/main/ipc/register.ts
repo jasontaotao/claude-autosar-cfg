@@ -13,6 +13,7 @@ import type {
   FileError,
   OpenArxmlMultiResult,
   OpenArxmlResult,
+  OpenBswmdResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -22,9 +23,23 @@ import type {
   ProjectOpenResult,
   ProjectSaveRequest,
   ProjectSaveResult,
+  ReadBswmdRequest,
+  ReadBswmdResponse,
   SaveArxmlRequest,
   SaveArxmlResponse,
 } from '../../shared/types.js';
+
+import { readBswmdHandler } from './bswmdReadHandler.js';
+
+/**
+ * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
+ * memory, Sprint 12 #1) and `bswmd:read` (file on disk, Sprint 12 #2).
+ * Without a cap a renderer (or a tampered preload bridge) could OOM
+ * the main process by passing / pointing at a multi-GB payload. 8 MiB
+ * is ~100× the largest real fixture (`Adc_bswmd.arxml` is 82 KiB) and
+ * still tight enough to be a useful ceiling for any sane BSWMD file.
+ */
+const BSWMD_MAX_BYTES = 8 * 1024 * 1024;
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.PING, async () => {
@@ -285,16 +300,15 @@ export function registerIpcHandlers(): void {
   // (`Adc_bswmd.arxml` is 82 KiB) and still tight enough to be a useful
   // ceiling for any sane BSWMD file. (Reviewer HIGH: equivalent cap on
   // `parseArxml` is tracked for Sprint 13.)
-  const BSWMD_PARSE_MAX_BYTES = 8 * 1024 * 1024;
   ipcMain.handle(
     IPC_CHANNELS.BSWMD_PARSE,
     async (_evt, req: ParseBswmdRequest): Promise<ParseBswmdResponse> => {
-      if (req.content.length > BSWMD_PARSE_MAX_BYTES) {
+      if (req.content.length > BSWMD_MAX_BYTES) {
         return {
           ok: false,
           error: {
             kind: 'xml-malformed',
-            message: `BSWMD content exceeds ${BSWMD_PARSE_MAX_BYTES}-byte cap`,
+            message: `BSWMD content exceeds ${BSWMD_MAX_BYTES}-byte cap`,
           },
         };
       }
@@ -303,6 +317,43 @@ export function registerIpcHandlers(): void {
         return { ok: false, error: result.error };
       }
       return { ok: true, value: result.value };
+    },
+  );
+
+  // Sprint 12 #2 — BSWMD file reader. Used by the renderer-driven
+  // "Load BSWMD" button (`useProjectActions.addBswmdFromDialog`).
+  // Reads the file from disk, applies the same 8 MiB cap as parse, and
+  // returns the raw string so the renderer can hand it to `parseBswmd`.
+  // (Equivalent cap on `parseArxml` is tracked for Sprint 13.)
+  ipcMain.handle(
+    IPC_CHANNELS.BSWMD_READ,
+    async (_evt, req: ReadBswmdRequest): Promise<ReadBswmdResponse> => {
+      return readBswmdHandler(req);
+    },
+  );
+
+  // Sprint 12 #2 — BSWMD file-open dialog. Lets the renderer pop a
+  // native `Open file…` filtered to `.arxml`/`.xml`. Returns either the
+  // picked absolute path or `canceled`. Pairs with `BSWMD_READ` (the
+  // renderer calls the reader next, which applies the 8 MiB cap and
+  // shape validation). Kept as a separate channel so a future change to
+  // dialog filters doesn't have to touch the read path.
+  ipcMain.handle(
+    IPC_CHANNELS.BSWMD_OPEN,
+    async (): Promise<OpenBswmdResult> => {
+      const result = await dialog.showOpenDialog({
+        title: 'Load BSWMD',
+        properties: ['openFile'],
+        filters: [
+          { name: 'BSWMD', extensions: ['arxml'] },
+          { name: 'XML', extensions: ['xml'] },
+          { name: 'All', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { kind: 'canceled' };
+      }
+      return { kind: 'ok', path: result.filePaths[0]! };
     },
   );
 

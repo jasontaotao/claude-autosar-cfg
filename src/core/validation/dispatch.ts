@@ -15,6 +15,7 @@
 
 import type { ArxmlDocument } from '../arxml/types.js';
 
+import type { SchemaLayer } from './runtimeSchema.js';
 import type { ValidationError } from './types.js';
 import { validate, validateProject } from './validate.js';
 
@@ -33,9 +34,16 @@ export type ValidationLevel = 'single' | 'project';
  * is intentionally extensible so future knobs (e.g. "max errors per kind",
  * "include info-level kinds") can land here without changing the
  * renderer-side call site signature.
+ *
+ * `schemaLayer` (Sprint 12 #2) — when provided, the validator consults
+ * the layer's params/containers index before the static
+ * `ECUC_SUBSET_SCHEMA` and emits `'schema-unknown'` errors for paths
+ * under known modules that aren't catalogued anywhere. Omit to keep the
+ * pre-Sprint 12 #2 behaviour (layer-less lookup).
  */
 export interface DispatchOptions {
   readonly level?: ValidationLevel;
+  readonly schemaLayer?: SchemaLayer;
 }
 
 /**
@@ -50,21 +58,27 @@ export interface DispatchOptions {
  *   the full 6-step pipeline. Surfaces all 9 ValidationErrorKind members
  *   for `documents.length > 0`; returns `[]` for `documents.length === 0`.
  *
+ * `opts.schemaLayer` (Sprint 12 #2) is forwarded to whichever pipeline
+ * runs so the layer-aware `'schema-unknown'` checks fire consistently
+ * from the renderer entry point.
+ *
  * @param documents the loaded ARXML document set (typically the renderer's
  *                  multi-doc store; can be empty).
- * @param opts dispatch overrides. Omit for the default `'project'` level.
+ * @param opts dispatch overrides. Omit for the default `'project'` level
+ *              and no layer (legacy behaviour).
  */
 export function validateProjectForRenderer(
   documents: readonly ArxmlDocument[],
   opts?: DispatchOptions,
 ): readonly ValidationError[] {
   const level: ValidationLevel = opts?.level ?? 'project';
+  const layer = opts?.schemaLayer;
   if (level === 'single') {
     const errors: ValidationError[] = [];
     for (const doc of documents) {
-      errors.push(...validate(doc));
+      errors.push(...validate(doc, layer));
     }
     return errors;
   }
-  return validateProject(documents);
+  return validateProject(documents, layer);
 }

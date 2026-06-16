@@ -27,6 +27,7 @@
 //   - PduR TP threshold sits at 7 across all instances, range 0..65535 used
 //     for CAN TP segmentation.
 
+import type { SchemaLayer } from '../runtimeSchema.js';
 import type { EcucSchemaEntry, EcucContainerSchemaEntry } from '../types.js';
 
 /**
@@ -387,8 +388,22 @@ export const ECUC_SUBSET_SCHEMA: readonly EcucSchemaEntry[] = [
 /**
  * Linear-scan lookup. Returns null when no entry matches the given path.
  * Paths are compared as exact strings; container wildcards are not supported.
+ *
+ * When a `SchemaLayer` is provided, the layer is consulted first
+ * (`layer.params`); only on a layer miss does the function fall through
+ * to the static `ECUC_SUBSET_SCHEMA`. The layer wins because the user's
+ * BSWMD is the authoritative schema-side spec for the modules it
+ * covers; the static subset is just baseline coverage for the 5 test
+ * fixtures that lack a layer.
+ *
+ * Backwards compatibility: the existing 2-arg call site
+ * `lookupSchema(paramPath)` continues to work — `layer` is optional.
  */
-export function lookupSchema(paramPath: string): EcucSchemaEntry | null {
+export function lookupSchema(paramPath: string, layer?: SchemaLayer): EcucSchemaEntry | null {
+  if (layer !== undefined) {
+    const fromLayer = layer.params.get(paramPath);
+    if (fromLayer !== undefined) return fromLayer;
+  }
   for (const entry of ECUC_SUBSET_SCHEMA) {
     if (entry.path === paramPath) return entry;
   }
@@ -441,8 +456,24 @@ export const ECUC_CONTAINER_SCHEMA: readonly EcucContainerSchemaEntry[] = [
 /**
  * Linear-scan lookup for container multiplicity.
  * Returns null when the path is not catalogued.
+ *
+ * When a `SchemaLayer` is provided, the layer is consulted first
+ * (`layer.containers`); only on a layer miss does the function fall
+ * through to the static `ECUC_CONTAINER_SCHEMA`. See `lookupSchema`
+ * for the precedence rationale.
+ *
+ * Backwards compatibility: the existing 2-arg call site
+ * `lookupContainerSchema(containerPath)` continues to work — `layer`
+ * is optional.
  */
-export function lookupContainerSchema(containerPath: string): EcucContainerSchemaEntry | null {
+export function lookupContainerSchema(
+  containerPath: string,
+  layer?: SchemaLayer,
+): EcucContainerSchemaEntry | null {
+  if (layer !== undefined) {
+    const fromLayer = layer.containers.get(containerPath);
+    if (fromLayer !== undefined) return fromLayer;
+  }
   for (const entry of ECUC_CONTAINER_SCHEMA) {
     if (entry.path === containerPath) return entry;
   }

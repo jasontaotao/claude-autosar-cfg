@@ -5,6 +5,37 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] - 2026-06-16 (Sprint 12 #2 - BSWMD renderer 集成)
+
+### Added
+
+- BSWMD schema-side 集成 (Sprint 12 #1 + #2 累计):
+  - `parseBswmd` + `BswmdDocument` types (Sprint 12 #1)
+  - `SchemaLayer` + `buildSchemaLayer(documents)` runtime schema layer
+  - validator 集成: `validate(doc, layer?)` / `validateProject(documents, layer?)` 接受可选 `SchemaLayer`
+  - **NEW** validation kind `'schema-unknown'`: emitted when a `SchemaLayer` is provided and a query path is in neither the layer nor the static `ECUC_SUBSET_SCHEMA` (gates on BSWMD-declared module)
+  - store: `bswmdSchemas: BswmdDocument[]` + `bswmdPaths: string[]` state; `addBswmd(path, content)` 真实实现 (含 dedupe by path 拒绝); `removeBswmd(path)` 新 action
+  - IPC: `bswmd:read` (file read, 8 MiB cap) + `bswmd:open` (file dialog)
+  - ProjectPanel: BSWMD FileList "Load BSWMD..." 按钮 + list item remove 按钮 (OpenView only; LooseView 不渲染 BSWMD section)
+  - useProjectActions: `addBswmdFromDialog()` 新 action, loose mode 直接拒绝
+  - 端到端 smoke: 真实 BSWMD fixture (`Adc_bswmd.arxml` 81KB) 跑 enum 合法/非法 + schema-unknown 三个 case
+
+### Changed
+
+- `lookupSchema(paramPath)` / `lookupContainerSchema(containerPath)` 接受可选 `SchemaLayer` (向后兼容; `layer=undefined` 行为不变)
+- App version string `0.11.0` → `0.12.0` (minor bump: feature release).
+
+### i18n
+
+- 6 new keys: `projectPanel.bswmd.add`, `projectPanel.bswmd.addAria`, `app.error.readBswmdFailed`, `app.error.parseBswmdFailed`, `app.error.duplicateBswmd`, `app.error.needProject`
+- `projectPanel.bswmd.empty` 文案更新 (反映 Sprint 12 #2 "Load BSWMD" 按钮)
+
+### Tests
+
+- 87 new tests (428 Sprint 12 #1 baseline + 87 = 515)
+- Coverage: 96.33% lines / 84.85% branches (目标 80% floor 守住)
+- 5/5 baseline fixtures 0 violation
+
 ## [0.11.0] — 2026-06-16 (Sprint 12 #1 — BSWMD parser)
 
 ### Added

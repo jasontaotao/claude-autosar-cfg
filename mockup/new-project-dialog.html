@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>New Project Dialog - Mockup</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Backdrop ── */
+  .backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+
+  /* ── Dialog ── */
+  .dialog {
+    background: #313244;
+    border: 1px solid #45475a;
+    border-radius: 12px;
+    width: 520px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .dialog-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    background: #181825;
+    border-bottom: 1px solid #45475a;
+  }
+  .dialog-header h2 {
+    font-size: 16px; font-weight: 600; color: #cdd6f4;
+  }
+  .dialog-close {
+    width: 28px; height: 28px; border: none; border-radius: 6px;
+    background: transparent; color: #6c7086; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .dialog-close:hover { background: #45475a; color: #cdd6f4; }
+
+  /* ── Body ── */
+  .dialog-body { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── Form Field ── */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-row { display: flex; gap: 8px; align-items: flex-end; }
+  .field label {
+    font-size: 13px; font-weight: 500; color: #a6adc8;
+  }
+  .field input[type="text"] {
+    flex: 1;
+    padding: 8px 12px;
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    color: #cdd6f4;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus { border-color: #89b4fa; }
+  .field input.error { border-color: #f38ba8; }
+  .field-hint {
+    font-size: 12px; color: #6c7086;
+  }
+  .field-error {
+    font-size: 12px; color: #f38ba8;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .filename-preview {
+    font-size: 12px; color: #a6adc8;
+    background: #1e1e2e;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: "Cascadia Code", "Consolas", monospace;
+    word-break: break-all;
+  }
+
+  /* ── Browse Button ── */
+  .btn-browse {
+    padding: 8px 14px;
+    background: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    color: #cdd6f4;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .btn-browse:hover { background: #585b70; }
+
+  /* ── Section Divider ── */
+  .section-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: #6c7086; font-size: 12px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .section-divider::after {
+    content: ""; flex: 1; height: 1px; background: #45475a;
+  }
+
+  /* ── Template Cards ── */
+  .template-grid { display: flex; flex-direction: column; gap: 8px; }
+  .template-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: #1e1e2e;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .template-card:hover { background: #11111b; }
+  .template-card.selected { border-color: #89b4fa; background: #11111b; }
+  .template-card input[type="radio"] { display: none; }
+  .template-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .template-icon.empty { background: #45475a; }
+  .template-icon.classic { background: #374151; }
+  .template-icon.clone { background: #3b3d5a; }
+  .template-info h4 { font-size: 13px; font-weight: 600; color: #cdd6f4; }
+  .template-info p { font-size: 12px; color: #6c7086; margin-top: 2px; }
+
+  /* ── BSWMD Chips ── */
+  .bswmd-section { display: flex; flex-direction: column; gap: 8px; }
+  .bswmd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .bswmd-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .bswmd-chip:hover { border-color: #89b4fa; }
+  .bswmd-chip.selected {
+    background: #1e3a5f;
+    border-color: #89b4fa;
+    color: #89b4fa;
+  }
+  .bswmd-chip input { display: none; }
+  .bswmd-check {
+    width: 14px; height: 14px;
+    border: 1.5px solid #585b70;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: transparent;
+    transition: all 0.15s;
+  }
+  .bswmd-chip.selected .bswmd-check {
+    background: #89b4fa;
+    border-color: #89b4fa;
+    color: #1e1e2e;
+  }
+
+  /* ── Footer ── */
+  .dialog-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 14px 20px;
+    background: #181825;
+    border-top: 1px solid #45475a;
+  }
+  .btn {
+    padding: 8px 20px;
+    border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-cancel {
+    background: #45475a;
+    color: #cdd6f4;
+  }
+  .btn-cancel:hover { background: #585b70; }
+  .btn-create {
+    background: #89b4fa;
+    color: #1e1e2e;
+    font-weight: 600;
+  }
+  .btn-create:hover { background: #74c7ec; }
+  .btn-create:disabled {
+    opacity: 0.4; cursor: not-allowed;
+  }
+
+  /* ── Keyboard Hints ── */
+  .kbd-hint {
+    display: flex; justify-content: center; gap: 16px;
+    padding: 8px;
+    font-size: 11px; color: #585b70;
+  }
+  kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 3px;
+    font-family: "Cascadia Code", monospace;
+    font-size: 11px;
+    color: #6c7086;
+  }
+
+  /* ── Variants ── */
+  .variant-label {
+    text-align: center; font-size: 14px; color: #89b4fa;
+    font-weight: 600; margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+
+  .variants-wrapper {
+    display: flex; flex-direction: column; gap: 60px;
+    padding: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="variants-wrapper">
+
+  <!-- ════════════════════════════════════════════ -->
+  <!--  Variant A: 最小可用版（Phase 1）          -->
+  <!-- ════════════════════════════════════════════ -->
+  <div>
+    <div class="variant-label">Variant A — 最小可用版（Phase 1）</div>
+    <div class="backdrop" style="position: relative;">
+      <div class="dialog">
+
+        <div class="dialog-header">
+          <h2>新建项目</h2>
+          <button class="dialog-close">✕</button>
+        </div>
+
+        <div class="dialog-body">
+
+          <!-- Project Name -->
+          <div class="field">
+            <label>项目名称 *</label>
+            <input type="text" value="我的项目" placeholder="输入项目名称" />
+            <div class="field-hint">用于显示和文件名，最长 64 字符</div>
+          </div>
+
+          <!-- Save Location -->
+          <div class="field">
+            <label>保存位置 *</label>
+            <div class="field-row">
+              <input type="text" value="D:\projects" placeholder="选择项目目录" />
+              <button class="btn-browse">浏览…</button>
+            </div>
+            <div class="filename-preview">📁 D:\projects\我的项目.autosarcfg.json</div>
+          </div>
+
+          <div class="section-divider">项目模板</div>
+
+          <!-- Templates -->
+          <div class="template-grid">
+            <label class="template-card selected">
+              <input type="radio" name="tpl-a" checked />
+              <div class="template-icon empty">📄</div>
+              <div class="template-info">
+                <h4>空项目</h4>
+                <p>从零开始，手动添加 ARXML 和 BSWMD</p>
+              </div>
+            </label>
+            <label class="template-card">
+              <input type="radio" name="tpl-a" />
+              <div class="template-icon classic">⚙️</div>
+              <div class="template-info">
+                <h4>AUTOSAR Classic 预设</h4>
+                <p>预选常用 BSW 模块（CanIf, ComM, EcuM…）</p>
+              </div>
+            </label>
+          </div>
+
+        </div>
+
+        <div class="dialog-footer">
+          <button class="btn btn-cancel">取消</button>
+          <button class="btn btn-create">创建</button>
+        </div>
+
+        <div class="kbd-hint">
+          <span><kbd>Enter</kbd> 创建</span>
+          <span><kbd>Esc</kbd> 取消</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!--  Variant B: 完整版（Phase 1 + 2）          -->
+  <!-- ════════════════════════════════════════════ -->
+  <div>
+    <div class="variant-label">Variant B — 完整版（含 BSWMD 模块选择）</div>
+    <div class="backdrop" style="position: relative;">
+      <div class="dialog">
+
+        <div class="dialog-header">
+          <h2>新建项目</h2>
+          <button class="dialog-close">✕</button>
+        </div>
+
+        <div class="dialog-body">
+
+          <!-- Project Name with error -->
+          <div class="field">
+            <label>项目名称 *</label>
+            <input type="text" class="error" value="测试项目" />
+            <div class="field-error">⚠ 当前目录下已存在同名项目</div>
+          </div>
+
+          <!-- Save Location -->
+          <div class="field">
+            <label>保存位置 *</label>
+            <div class="field-row">
+              <input type="text" value="D:\projects" />
+              <button class="btn-browse">浏览…</button>
+            </div>
+            <div class="filename-preview">📁 D:\projects\测试项目.autosarcfg.json</div>
+          </div>
+
+          <div class="section-divider">项目模板</div>
+
+          <!-- Templates -->
+          <div class="template-grid">
+            <label class="template-card">
+              <input type="radio" name="tpl-b" />
+              <div class="template-icon empty">📄</div>
+              <div class="template-info">
+                <h4>空项目</h4>
+                <p>从零开始</p>
+              </div>
+            </label>
+            <label class="template-card selected">
+              <input type="radio" name="tpl-b" checked />
+              <div class="template-icon classic">⚙️</div>
+              <div class="template-info">
+                <h4>AUTOSAR Classic 预设</h4>
+                <p>预选常用 BSW 模块</p>
+              </div>
+            </label>
+            <label class="template-card">
+              <input type="radio" name="tpl-b" />
+              <div class="template-icon clone">📋</div>
+              <div class="template-info">
+                <h4>从已有项目克隆</h4>
+                <p>复制项目结构和引用</p>
+              </div>
+            </label>
+          </div>
+
+          <div class="section-divider">BSWMD 模块</div>
+
+          <!-- BSWMD Chips -->
+          <div class="bswmd-section">
+            <div class="bswmd-chips">
+              <label class="bswmd-chip selected">
+                <input type="checkbox" checked />
+                <span class="bswmd-check">✓</span>
+                CanIf
+              </label>
+              <label class="bswmd-chip selected">
+                <input type="checkbox" checked />
+                <span class="bswmd-check">✓</span>
+                CanNm
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                CanTp
+              </label>
+              <label class="bswmd-chip selected">
+                <input type="checkbox" checked />
+                <span class="bswmd-check">✓</span>
+                ComM
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                EcuM
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                BswM
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                LinIf
+              </label>
+              <label class="bswmd-chip selected">
+                <input type="checkbox" checked />
+                <span class="bswmd-check">✓</span>
+                Com
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                NvM
+              </label>
+              <label class="bswmd-chip">
+                <input type="checkbox" />
+                <span class="bswmd-check">✓</span>
+                Fee
+              </label>
+            </div>
+            <div class="field-hint">选中的模块会自动生成空配置容器，后续可随时增删</div>
+          </div>
+
+        </div>
+
+        <div class="dialog-footer">
+          <button class="btn btn-cancel">取消</button>
+          <button class="btn btn-create" disabled>名称已存在</button>
+        </div>
+
+        <div class="kbd-hint">
+          <span><kbd>Enter</kbd> 创建</span>
+          <span><kbd>Esc</kbd> 取消</span>
+          <span><kbd>Tab</kbd> 切换区域</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!--  Variant C: 未保存保护确认弹窗            -->
+  <!-- ════════════════════════════════════════════ -->
+  <div>
+    <div class="variant-label">Variant C — 未保存保护（Confirm Dialog）</div>
+    <div class="backdrop" style="position: relative;">
+      <div class="dialog" style="width: 380px;">
+
+        <div class="dialog-header">
+          <h2>未保存的更改</h2>
+          <button class="dialog-close">✕</button>
+        </div>
+
+        <div class="dialog-body" style="gap: 12px;">
+          <div style="font-size: 14px; line-height: 1.6;">
+            当前项目 <strong style="color:#89b4fa">我的项目</strong> 有未保存的更改。
+            <br/>新建项目将丢失这些更改。
+          </div>
+          <div style="font-size: 13px; color: #a6adc8;">
+            建议先保存当前项目再创建新项目。
+          </div>
+        </div>
+
+        <div class="dialog-footer" style="gap: 8px;">
+          <button class="btn btn-cancel">继续编辑</button>
+          <button class="btn" style="background: #f38ba8; color: #1e1e2e; font-weight: 600;">不保存，新建</button>
+          <button class="btn btn-create">保存并新建</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Interactive Toggle ── -->
+<script>
+  // Template card selection
+  document.querySelectorAll('.template-grid').forEach(grid => {
+    grid.querySelectorAll('.template-card').forEach(card => {
+      card.addEventListener('click', () => {
+        grid.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+    });
+  });
+
+  // BSWMD chip toggle
+  document.querySelectorAll('.bswmd-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('selected');
+    });
+  });
+</script>
+
+</body>
+</html>

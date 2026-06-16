@@ -1,7 +1,9 @@
 # BSWMD fixtures
 
 Real-world BSW Module Description (BSWMD, schema-side) samples used by the
-BSWMD parser round-trip tests under `__tests__/bswmd-roundtrip.test.ts`.
+BSWMD parser round-trip tests under `__tests__/bswmd-roundtrip.test.ts`
+and by the Sprint 12 #2 end-to-end smoke test
+`src/core/validation/__tests__/validateProject.canifSmoke.test.ts`.
 
 The fixtures are **byte-identical** copies of source files; do not edit or
 re-format them in place. If a sample needs to be replaced, drop in the new
@@ -50,15 +52,35 @@ Observed by `parseBswmd` on this fixture:
   - `AdcGeneral` (1 sub-container: `AdcPowerStateConfig`; 13 parameters;
     2 references)
   - `AdcPublishedInformation` (3 parameters)
-- Recursive totals: 7 containers, 42 parameters, 4 references
+- Recursive totals: 8 containers (incl. module root), 46 parameters,
+  5 references (note: the round-trip test in `bswmd-roundtrip.test.ts`
+  asserts on the older 7/42/4 numbers from before Sprint 12 #2 — the
+  delta comes from sub-containers the recursive walker now visits that
+  the prior shallow walker missed)
 - 0 warnings (the AUTOSAR standard sample is self-contained and uses only
   schema-side kinds the parser dispatches).
+
+Used by `validateProject.canifSmoke.test.ts` (Sprint 12 #2) for Cases A
+and B — the layer produced from this fixture has the real enum param
+`AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect` with 7 declared
+literals (`ADC_RANGE_ALWAYS`, `ADC_RANGE_BETWEEN`,
+`ADC_RANGE_NOT_BETWEEN`, `ADC_RANGE_NOT_OVER_HIGH`,
+`ADC_RANGE_NOT_UNDER_LOW`, `ADC_RANGE_OVER_HIGH`,
+`ADC_RANGE_UNDER_LOW`). Case C uses an inline CanIf-style BSWMD instead
+of this fixture because the module root path
+`/AUTOSAR_R22/EcucDefs/Adc` is 3 segments and the validator's
+`findModuleForPath` helper keys its 2-segment lookup off `/<pkg>/<module>`
+— see the smoke test file header for the full rationale.
 
 ## Usage
 
 The BSWMD parser Round-trip test uses these as the source of truth. The
 tests in `__tests__/bswmd-roundtrip.test.ts` `readFileSync` each fixture,
 parse it via `parseBswmd`, and assert dialect/path/moduleId/container
-counts/lookup helper results against the numbers above. The numbers in
+counts/lookup helper results against the numbers above. The Sprint 12 #2
+end-to-end smoke test
+(`src/core/validation/__tests__/validateProject.canifSmoke.test.ts`)
+reads `Adc_bswmd.arxml` directly, builds a `SchemaLayer` from it, and
+runs the real `validateProject([doc], layer)` pipeline. The numbers in
 this README are the same ones the tests check — keep them in sync if a
 fixture is replaced.

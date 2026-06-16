@@ -1,6 +1,7 @@
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { ProjectPanel } from './components/ProjectPanel';
+import { PromptRoot } from './components/PromptDialog';
 import { ValidationPanel } from './components/ValidationPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { Tree } from './components/tree/Tree';
@@ -30,6 +31,7 @@ export function App(): JSX.Element {
         <ParamEditor />
       </main>
       <ArxmlPanel />
+      <PromptRoot />
     </div>
   );
 }

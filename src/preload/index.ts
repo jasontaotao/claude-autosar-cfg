@@ -4,6 +4,7 @@ import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
+  OpenBswmdResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -13,6 +14,8 @@ import type {
   ProjectOpenResult,
   ProjectSaveRequest,
   ProjectSaveResult,
+  ReadBswmdRequest,
+  ReadBswmdResponse,
   SaveArxmlRequest,
   SaveArxmlResponse,
 } from '../shared/types.js';
@@ -37,6 +40,14 @@ const api = {
   // Sprint 12 #1 — BSWMD schema-side parser
   parseBswmd: (req: ParseBswmdRequest): Promise<ParseBswmdResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.BSWMD_PARSE, req),
+  // Sprint 12 #2 — BSWMD file reader (renderer-driven "Load BSWMD")
+  readBswmd: (req: ReadBswmdRequest): Promise<ReadBswmdResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.BSWMD_READ, req),
+  // Sprint 12 #2 — BSWMD open-file dialog. Pairs with `readBswmd`:
+  // renderer asks main to show the picker, gets back the picked path,
+  // then asks main to read its content (with the 8 MiB cap).
+  openBswmdDialog: (): Promise<OpenBswmdResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.BSWMD_OPEN),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

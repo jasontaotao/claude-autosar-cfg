@@ -11,6 +11,8 @@ import type {
   ParamValue,
 } from '../arxml/types.js';
 
+import { findModuleForPath } from './runtimeSchema.js';
+import type { SchemaLayer } from './runtimeSchema.js';
 import { lookupContainerSchema, lookupSchema } from './schema/ecucSubset.js';
 import type { EcucSchemaEntry, PathIndexEntry, RefSite, ValidationError } from './types.js';
 
@@ -21,11 +23,24 @@ import type { EcucSchemaEntry, PathIndexEntry, RefSite, ValidationError } from '
  * looks up each param's absolute path in the schema, and emits a
  * `ValidationError` per violation. Returned list is a snapshot — the
  * caller may safely keep the reference for diagnostics.
+ *
+ * The optional `layer` argument (Sprint 12 #2) lets the caller override
+ * the static `ECUC_SUBSET_SCHEMA` with a runtime BSWMD-derived
+ * `SchemaLayer`. When provided, lookups consult the layer first and fall
+ * through to the static subset only on a layer miss. When provided, the
+ * validator additionally emits `'schema-unknown'` errors for paths that
+ * are *not* catalogued anywhere — the disambiguator for "outside any
+ * schema we know about" vs. the existing silent-skip behaviour for
+ * "in-schema-but-unconstrained" paths.
+ *
+ * Backwards compatibility: omitting `layer` preserves the pre-Sprint 12
+ * #2 single-doc pipeline exactly. The 5 baseline fixtures continue to
+ * validate with 0 errors.
  */
-export function validate(doc: ArxmlDocument): readonly ValidationError[] {
+export function validate(doc: ArxmlDocument, layer?: SchemaLayer): readonly ValidationError[] {
   const errors: ValidationError[] = [];
   for (const pkg of doc.packages) {
-    walkElements(pkg.path, pkg.elements, errors);
+    walkElements(pkg.path, pkg.elements, errors, layer);
   }
   return errors;
 }
@@ -34,6 +49,7 @@ function walkElements(
   parentPath: string,
   elements: readonly ArxmlElement[],
   errors: ValidationError[],
+  layer?: SchemaLayer,
 ): void {
   // Collect the child container types (shortName + count) at this level
   // so we can run multiplicity checks against siblings in one pass.
@@ -60,11 +76,11 @@ function walkElements(
       const childPath = `${parentPath}/${el.shortName}`;
       if (!checked.has(childPath)) {
         checked.add(childPath);
-        checkContainerMultiplicity(childPath, childCounts.get(el.shortName) ?? 0, errors);
+        checkContainerMultiplicity(childPath, childCounts.get(el.shortName) ?? 0, errors, layer);
       }
-      walkContainer(parentPath, el, errors);
+      walkContainer(parentPath, el, errors, layer);
     } else if (el.kind === 'reference') {
-      walkReference(parentPath, el, errors);
+      walkReference(parentPath, el, errors, layer);
     }
   }
 }
@@ -73,21 +89,43 @@ function walkContainer(
   parentPath: string,
   el: ArxmlModule | ArxmlContainer,
   errors: ValidationError[],
+  layer?: SchemaLayer,
 ): void {
   const elementPath = `${parentPath}/${el.shortName}`;
   for (const [paramKey, value] of Object.entries(el.params)) {
     const paramPath = `${elementPath}/${paramKey}`;
-    const entry = lookupSchema(paramPath);
-    if (entry === null) continue; // unconstrained
+    const entry = lookupSchema(paramPath, layer);
+    if (entry === null) {
+      // Layer-aware schema-unknown disambiguation: when a layer is
+      // provided and the path is under a known module, emit a
+      // 'schema-unknown' error so the renderer can surface the missing
+      // schema definition (e.g. user added a BSWMD-declared CanIf module
+      // but forgot to also load the BSWMD that defines CanIfInitConfiguration).
+      // Without a layer (5 baseline fixtures), preserve silent-skip.
+      if (layer !== undefined) {
+        emitSchemaUnknownIfInKnownModule(layer, paramPath, errors);
+      }
+      continue;
+    }
     checkParam(paramPath, paramKey, value, entry, errors);
   }
-  walkElements(elementPath, el.children, errors);
+  walkElements(elementPath, el.children, errors, layer);
 }
 
-function walkReference(parentPath: string, el: ArxmlReference, errors: ValidationError[]): void {
+function walkReference(
+  parentPath: string,
+  el: ArxmlReference,
+  errors: ValidationError[],
+  layer?: SchemaLayer,
+): void {
   const refPath = `${parentPath}/${el.shortName ?? el.value}`;
-  const entry = lookupSchema(refPath);
-  if (entry === null || entry.type !== 'reference') return;
+  const entry = lookupSchema(refPath, layer);
+  if (entry === null || entry.type !== 'reference') {
+    if (layer !== undefined) {
+      emitSchemaUnknownIfInKnownModule(layer, refPath, errors);
+    }
+    return;
+  }
   if (entry.refDest !== undefined && el.dest !== entry.refDest) {
     errors.push({
       kind: 'reference',
@@ -97,6 +135,39 @@ function walkReference(parentPath: string, el: ArxmlReference, errors: Validatio
       actual: el.dest ?? '<unset>',
     });
   }
+}
+
+/**
+ * Emit a `'schema-unknown'` error when `paramPath` is under a module the
+ * layer recognises (i.e. the layer's container index has the module
+ * root path) but the specific param path itself is not catalogued
+ * anywhere — neither in the layer's `params` map nor in
+ * `layer.sourcePaths`. This is the disambiguator between "BSWMD-declared
+ * module has no schema for this param" (emit) and "path is in some other
+ * schema table somewhere" (silent skip, the old behaviour).
+ *
+ * Implementation note: the layer's `sourcePaths` set contains every
+ * param + container path the BSWMD declares. A path that is *not* in
+ * `sourcePaths` but *is* under a known module is the "BSWMD says the
+ * module exists, but didn't declare this specific path" case we want
+ * to surface. Pure / side-effect-free (only `errors.push`).
+ */
+function emitSchemaUnknownIfInKnownModule(
+  layer: SchemaLayer,
+  paramPath: string,
+  errors: ValidationError[],
+): void {
+  // Collapse `/EAS → /EcucDefs` so BSWMD paths that survive a vendor's
+  // definition-side namespace collapse onto the same key the layer uses.
+  const normalised = normalizePath(paramPath);
+  if (layer.sourcePaths.has(normalised)) return;
+  const modulePath = findModuleForPath(layer, normalised);
+  if (modulePath === null) return;
+  errors.push({
+    kind: 'schema-unknown',
+    path: paramPath,
+    message: `BSWMD-declared module '${modulePath}' has no schema for '${paramPath}'`,
+  });
 }
 
 function checkParam(
@@ -206,9 +277,18 @@ function checkContainerMultiplicity(
   containerPath: string,
   instanceCount: number,
   errors: ValidationError[],
+  layer?: SchemaLayer,
 ): void {
-  const schema = lookupContainerSchema(containerPath);
-  if (schema === null) return;
+  const schema = lookupContainerSchema(containerPath, layer);
+  if (schema === null) {
+    // Layer-aware schema-unknown: same disambiguator as the param-level
+    // check above — if the layer knows the *parent* module but didn't
+    // declare this specific container type, surface it.
+    if (layer !== undefined) {
+      emitSchemaUnknownIfInKnownModule(layer, containerPath, errors);
+    }
+    return;
+  }
 
   if (instanceCount < schema.lower) {
     errors.push({
@@ -481,15 +561,25 @@ export function tryResolveByShortNameWithIndex(
  * one ARXML is loaded. Cross-ref checks only run when ≥1 document exists
  * (no-op for empty project).
  *
+ * The optional `layer` argument (Sprint 12 #2) threads a runtime
+ * BSWMD-derived `SchemaLayer` into every single-document `validate()`
+ * call so `'schema-unknown'` errors fire consistently across the whole
+ * project (see `validate()` for the semantics). Project-level checks
+ * (cross-ref / ref-dest / ref-cycle) are unaffected by the layer — they
+ * operate on the project path index, not on schema lookups.
+ *
  * Returns `readonly ValidationError[]` to match the single-document
  * validate() contract — caller treats `.length === 0` as success.
  */
-export function validateProject(documents: readonly ArxmlDocument[]): readonly ValidationError[] {
+export function validateProject(
+  documents: readonly ArxmlDocument[],
+  layer?: SchemaLayer,
+): readonly ValidationError[] {
   const errors: ValidationError[] = [];
 
   // Step 1: aggregate single-document errors (preserves Sprint 5 semantics)
   for (const doc of documents) {
-    errors.push(...validate(doc));
+    errors.push(...validate(doc, layer));
   }
 
   if (documents.length === 0) return errors;

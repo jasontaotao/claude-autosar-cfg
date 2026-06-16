@@ -94,6 +94,59 @@ describe('i18n — t() helper', () => {
     expect(t('en', 'projectPanel.bswmd.empty')).not.toContain('Phase 2');
     expect(t('zh-CN', 'projectPanel.bswmd.empty')).not.toContain('Phase');
   });
+
+  it('projectPanel.bswmd.empty reflects the Sprint 12 #2 "Load BSWMD" button (zh-CN + en)', () => {
+    expect(t('zh-CN', 'projectPanel.bswmd.empty')).toContain('加载 BSWMD');
+    expect(t('en', 'projectPanel.bswmd.empty')).toContain('Load BSWMD');
+  });
+
+  it('renders projectPanel.bswmd.add button label (zh-CN + en)', () => {
+    expect(t('zh-CN', 'projectPanel.bswmd.add')).toBe('加载 BSWMD...');
+    expect(t('en', 'projectPanel.bswmd.add')).toBe('Load BSWMD...');
+  });
+
+  it('renders projectPanel.bswmd.addAria with {name} placeholder (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'projectPanel.bswmd.addAria', { name: 'CanIf' }),
+    ).toBe('加载 BSWMD 文件 CanIf');
+    expect(
+      t('en', 'projectPanel.bswmd.addAria', { name: 'CanIf.arxml' }),
+    ).toBe('Load BSWMD file CanIf.arxml');
+  });
+
+  it('renders app.error.readBswmdFailed with {message} placeholder (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'app.error.readBswmdFailed', { message: 'ENOENT' }),
+    ).toBe('读取 BSWMD 失败: ENOENT');
+    expect(
+      t('en', 'app.error.readBswmdFailed', { message: 'ENOENT' }),
+    ).toBe('Failed to read BSWMD: ENOENT');
+  });
+
+  it('renders app.error.parseBswmdFailed with {message} placeholder (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'app.error.parseBswmdFailed', { message: 'xml malformed' }),
+    ).toBe('BSWMD 解析失败: xml malformed');
+    expect(
+      t('en', 'app.error.parseBswmdFailed', { message: 'xml malformed' }),
+    ).toBe('BSWMD parse failed: xml malformed');
+  });
+
+  it('renders app.error.duplicateBswmd with {path} placeholder (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' }),
+    ).toBe('BSWMD 已加载过: /x/CanIf.arxml');
+    expect(
+      t('en', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' }),
+    ).toBe('BSWMD already loaded: /x/CanIf.arxml');
+  });
+
+  it('renders app.error.needProject as a static string (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.error.needProject')).toBe('需要先打开或创建项目');
+    expect(t('en', 'app.error.needProject')).toBe(
+      'Please open or create a project first',
+    );
+  });
 });
 
 describe('i18n — message bundle parity', () => {

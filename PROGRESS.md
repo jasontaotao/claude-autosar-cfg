@@ -27,6 +27,7 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 | **S9** F9 #3 cyclic ref detection           | `checkRefCycles` DFS + 6 步流水线 + `resolveTargetPath` 提取                    | ✅   | 2026-06-15 | TBD                                                | `types.ts` union 加 `'ref-cycle'`（9 个 kind）+ `validate.ts` 新增 `resolveTargetPath`（落实 Sprint 9 #2 LOW-2 finding）+ `checkCrossRefs`/`checkRefDests` 切到 helper（refactor 不动行为）+ `checkRefCycles`（DFS + visited/onStack + canonical-key rotation dedup）+ 串入 `validateProject` Step 6 + 18 unit + 8 `resolveTargetPath` direct + 4 E2E + fixtures guard 新增 `ref-cycle` [0, 200] + `ValidationPanel.css` 加 `.kind-ref-cycle` (pink-rose `#db2777`) + 245 tests / ref-cycle 实测 0（5 fixture 干净）/ **95.84% stmts / 83.37% branches**；v0.9.3 → v0.9.4 PATCH bump                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **S11** Sprint 11 — Project Manifest + i18n | value-side 工程的 <name>.autosarcfg.json 持久化 + 完整 zh-CN/en 双语            | ✅   | 2026-06-16 | `1458816`                                          | `src/core/project/manifest.ts` (loadManifest/saveManifest/validateManifest/createEmptyManifest, path-shape 防 `..` / 绝对 / 空) + `src/shared/i18n.ts` (Messages interface + MessagesZhCN + MessagesEn + t(locale,key,params) + parity test) + `src/renderer/hooks/useProjectActions.ts` (替代 LooseView 合成 click 耦合) + IPC `PROJECT_NEW/OPEN/SAVE` (PROJECT_OPEN 用 `path.relative` 做 path-containment 防 hostile manifest) + ProjectPanel + AppHeader locale toggle 中/EN + 374 tests / 96.18% / 85.12% branches / 5/5 baseline 782 signed-guard [700, 850]；v0.9.5 → v0.10.0 MINOR bump                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **S12** Sprint 12 #1 — BSWMD parser         | schema-side BSWMD 解析器 (2 dialect) + IPC + fixtures + i18n + post-review 修复 | ✅   | 2026-06-16 | TBD                                                | `src/core/project/bswmd.ts` (~730 行) BswmdDocument / BswModuleDef / ContainerDef / ParamDef / ReferenceDef / ChoiceDef / ProvidedEntry types + parseBswmd + 4 lookup helpers (findModuleByPath / lookupContainerDef / lookupParamDef / lookupReferenceDef) 覆盖 EB tresos BSW-MODULE-DESCRIPTION + AUTOSAR ECUC-MODULE-DEF 2 dialect + 24 单测（含 ECUC-FUNCTION-NAME-DEF 拆为 'function-name' ParamKind / 00046 数字 namespace / EB tresos fallback 双 entry / unrecoverable entry skip） + IPC `bswmd:parse` (parse-only, 8 MiB size cap 防 OOM) + preload `parseBswmd` + 2 真实 fixture (Can_Bswmd.arxml 14KB / Adc_bswmd.arxml 80KB, byte-identical) + 17 round-trip 测试（含 7/42/8 recursive totals assertion + providedEntries recovery + fallback warning 计数） + 4 `bswmdParser.*` i18n key + `projectPanel.bswmd.empty` 去掉 "Phase 2" 提示 + Task 6 build 修复 (TreeNode subtitle optional + globalThis.crypto + 16 prettier drift + 5 import() type 拆分) + vitest setup 加 Web Crypto fail-fast guard + bswmd.ts 改 ProvidedEntry 加 entryKind + code-review 修 2 HIGH (providedEntries fallback / HIGH-2 design doc) + 4 MEDIUM/LOW (function-name 拆分 / crypto guard / size cap / numeric namespace / void tagName 清 / Adc totals) → **426 tests / 96.17% / 85.21% branches / 5/5 baseline 782 signed-guard [700, 850] / code-reviewer APPROVE (0 critical / 0 high / 2 medium / 3 low, 剩 Sprint 13+)**；v0.10.0 → v0.11.0 MINOR bump |
+| **S12#2** Sprint 12 #2 — BSWMD renderer 集成 | useArxmlStore.bswmdSchemas + addBswmd 替换 stub + ProjectPanel "Load BSWMD" + 真实 CanIf smoke (用 Adc fixture) | ✅ | 2026-06-16 | TBD | `src/core/validation/runtimeSchema.ts` (SchemaLayer + buildSchemaLayer + findModuleForPath; WIP → ship) + `src/core/validation/schema/ecucSubset.ts` (lookupSchema/lookupContainerSchema 接受 layer?) + `src/core/validation/validate.ts` (validate/validateProject 加 layer?; 透传到 walkContainer/walkReference/walkElements; emit schema-unknown via emitSchemaUnknownIfInKnownModule helper) + `src/core/validation/dispatch.ts` (DispatchOptions.schemaLayer) + `src/core/validation/types.ts` (新增 'schema-unknown' kind) + `src/renderer/store/useArxmlStore.ts` (bswmdSchemas + bswmdPaths state; addBswmd dedupe by path 拒绝 + re-validate with buildSchemaLayer; removeBswmd; project.bswmdPaths 双向同步; revalidateWithBswmd helper) + `src/main/ipc/bswmdReadHandler.ts` (新; 8 MiB cap; fs.stat 先于 fs.readFile) + `src/main/ipc/register.ts` (BSWMD_READ + BSWMD_OPEN handlers) + `src/preload/index.ts` (readBswmd + openBswmdDialog) + `src/shared/ipc-contract.ts` (BSWMD_READ + BSWMD_OPEN) + `src/shared/types.ts` (ReadBswmdRequest/Response + OpenBswmdResult) + `src/renderer/hooks/useProjectActions.ts` (addBswmdFromDialog, loose 直接 reject) + `src/renderer/components/ProjectPanel.tsx` (FileList onAdd + OpenView onAddBswmd/onRemoveBswmd; LooseView 不渲染 BSWMD section) + `src/shared/i18n.ts` (6 new keys + 改 bswmd.empty) → **515 tests / 96.33% / 84.85% branches / 5/5 baseline 782 signed-guard**; v0.11.0 → v0.12.0 MINOR bump |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -1117,6 +1118,110 @@ Sprint 11 原计划只做 #13 BSWMD 解析 + #14 schema 自动生成；用户临
   - fixture 体积管理（#7）
   - electron-builder 打包 + v1.0.0 tag（#8）
   - coverage 推到 branches ≥90%（#9）
+
+## Sprint 12 #2 — BSWMD renderer 集成 (✅ 2026-06-16 完成)
+
+### 背景
+
+Sprint 12 #1 落地了 schema-side BSWMD 解析器（`src/core/project/bswmd.ts`），但 validator / store / UI 三处仍是 stub：
+- validator 不知道 BSWMD 声明的 schema（只能在静态 `ECUC_SUBSET_SCHEMA` 表里查）
+- store 持有 `addBswmd(path, content)` no-op（`project:open` 已经把 BSWMD content 读回来了，但 store 没用上）
+- UI 没有 "Load BSWMD" 按钮；用户不知道 BSWMD 在哪加载
+
+Sprint 12 #2 把这三处串起来：runtime `SchemaLayer` 串到 validator（emit `'schema-unknown'` kind），store 真实化 `addBswmd` + 新 `removeBswmd`，ProjectPanel 加 Load 按钮 + remove 按钮，最后用真实 BSWMD fixture 跑端到端 smoke 收尾。
+
+### Sprint 12 #2 deliverable
+
+**Validator (Task 1)**
+- `src/core/validation/runtimeSchema.ts`（Sprint 12 #1 working tree WIP → ship）:
+  - `SchemaLayer` interface: `{ modules: Map<string, ModuleLayerEntry>, params: Map<string, ParamLayerEntry>, containers: Map<string, ContainerLayerEntry> }`
+  - `buildSchemaLayer(documents: BswmdDocument[]): SchemaLayer` 把多 BSWMD 文档合并成单 layer（last-write-wins collision policy）
+  - `findModuleForPath(layer, paramPath)` helper: 剥前 2 段 `<pkg>/<module>` 得到 module path，搜 layer.modules
+- `src/core/validation/schema/ecucSubset.ts`: `lookupSchema(paramPath, layer?)` 和 `lookupContainerSchema(containerPath, layer?)` 接受可选 `SchemaLayer`；layer 优先于静态表
+- `src/core/validation/validate.ts`: `validate(doc, layer?)` / `validateProject(documents, layer?)` 透传 layer 到 walkContainer / walkReference / walkElements；当 `layer != null` 且 lookup 返回 null + module path 在 layer.modules + paramPath 不在 sourcePaths → emit `'schema-unknown'` via `emitSchemaUnknownIfInKnownModule` helper
+- `src/core/validation/dispatch.ts`: `DispatchOptions.schemaLayer?: SchemaLayer` 透传
+- `src/core/validation/types.ts`: union 加 `'schema-unknown'` kind（gates on BSWMD-declared module）
+
+**Store (Task 2)**
+- `src/renderer/store/useArxmlStore.ts`:
+  - state 加 `bswmdSchemas: readonly BswmdDocument[]` + `bswmdPaths: readonly string[]`
+  - `addBswmd(path, content)` 替换 no-op: **先 dedupe by absolute path**（已存在 → setError + return，**不允许 replace**）→ parseBswmd → 失败 setError + return → 成功追加 + 当 project open 时同步 `project.bswmdPaths` + re-validate with `buildSchemaLayer(bswmdSchemas)` via `revalidateWithBswmd` helper
+  - `removeBswmd(path)` 新 action: 反向（移除 schemas/paths + project 同步 + re-validate）
+
+**IPC (Task 3)**
+- `src/main/ipc/bswmdReadHandler.ts` 新文件: `bswmd:read` handler，8 MiB size cap，`fs.stat` 先于 `fs.readFile`（避免大文件先 read 再 reject）
+- `src/main/ipc/register.ts`: 注册 `BSWMD_READ` + `BSWMD_OPEN` handlers
+- `src/preload/index.ts`: 暴露 `readBswmd` + `openBswmdDialog`
+- `src/shared/ipc-contract.ts`: `BSWMD_READ` + `BSWMD_OPEN` channel 常量
+- `src/shared/types.ts`: `ReadBswmdRequest/Response` + `OpenBswmdResult` types
+
+**Hook (Task 4)**
+- `src/renderer/hooks/useProjectActions.ts`:
+  - `addBswmdFromDialog(): Promise<ProjectActionResult>` 新 action
+  - **loose 模式直接 reject** (return `{ kind: 'error', message: t('app.error.needProject') }`) — 不允许在 loose mode 加载 BSWMD
+  - open mode: 调 IPC `readBswmd` → 调 `store.addBswmd`（store 自己负责 dedupe）→ 翻译 3 种 error branch (read-failed / parse-failed / duplicate) 到 zh-CN/en
+
+**UI (Task 5)**
+- `src/renderer/components/ProjectPanel.tsx`:
+  - **LooseView 不渲染 BSWMD section** (整段不显示 — 避免用户尝试在 loose mode 加载)
+  - OpenView 中 BSWMD FileList section 加 "Load BSWMD..." 按钮 (紧贴 title 右侧)
+  - list item 加 remove 按钮 (绑 `removeBswmd`)
+- `src/renderer/components/ProjectPanel.css`: `.project-panel-section-add` 小尺寸 ghost button 样式
+
+**i18n (Task 6)**
+- `src/shared/i18n.ts`:
+  - 6 new keys (zh-CN + en parity): `projectPanel.bswmd.add`, `projectPanel.bswmd.addAria {name}`, `app.error.readBswmdFailed {message}`, `app.error.parseBswmdFailed {message}`, `app.error.duplicateBswmd {path}`, `app.error.needProject`
+  - `projectPanel.bswmd.empty` 文案更新 (反映 Sprint 12 #2 "Load BSWMD" 按钮)
+
+**Smoke (Task 7)**
+- `tests/fixtures/bswmd/Adc_bswmd.arxml` (81KB, byte-identical) — 用 AUTOSAR standard dialect, vendor-namespace `/EAS/...` paths
+- `src/core/validation/__tests__/validateProject.canifSmoke.test.ts`: 端到端 — fs.readFile → parseBswmd → buildSchemaLayer → 构造 fake ArxmlDocument 走 validateProject:
+  - **Case A**: 合法 enum literal → 0 violations
+  - **Case B**: 非法 enum literal → emit enum 错误
+  - **Case C**: BSWMD-declared module 下不存在的 param → emit schema-unknown
+
+**Test count**: 33 (Task 1) + 15 (Task 2) + 11 (Task 3) + 9 (Task 4) + 6 (Task 5) + 7 (Task 6) + 6 (Task 7) = **87 new tests** (428 Sprint 12 #1 → 515). Coverage: **96.33% / 84.85% branches** / 5/5 baseline 782 signed-guard [700, 850].
+
+### Sprint 11 → Sprint 12 #2 衔接
+
+- [x] `validateProject` 6 步流水线扩展为 6+N 步（layer 是 opts，不影响主路径）— 既有 428 test 100% pass（无 regression）
+- [x] store `addBswmd(path, content)` stub 替换为真实实现（path 参数就是 Sprint 11 manifest 存好的 bswmdPath，无需读 manifest 二次拿 path）
+- [x] i18n 框架在 Sprint 11 落地，6 new key 直接走 `t(locale, key, params)`，parity 100%
+- [x] BSWMD parser (Sprint 12 #1) + schemaLayer (Sprint 12 #2) = schema-side 完整闭环，下一步只剩 serialize (Sprint 13+)
+- [x] 真实 fixture `Adc_bswmd.arxml` (80KB) round-trip + 端到端 smoke 三 case 跑通
+- [x] `projectPanel.bswmd.empty` 文案从"尚未加载 BSWMD"改为"加载 BSWMD 以启用 schema-driven validation"
+- [ ] BSWMD 模板侧加载（Sprint 9 #13）— schema 扩张已部分被 runtimeSchema 覆盖，余下 work 留 Sprint 13+
+- [ ] Sprint 9 #15 `lookupSchema` unknown path 显式 log — `'schema-unknown'` kind 已部分覆盖，留 Sprint 13+ 决定 log vs. validate panel 显示策略
+- [ ] dialog title + parser error 翻译 (M7/M8) — Sprint 11 已 i18n 框架就位但本 sprint 没补
+- [ ] ParamEditor column header 翻译 (M6) — 同上
+- [ ] fixture 体积管理 (#7) — `Adc_bswmd.arxml` 80KB 还不至于 git LFS，但若加 CanIf full module 需先评估
+- [ ] electron-builder 打包 + v1.0.0 tag (#8)
+- [ ] coverage 推到 branches ≥90% (#9)
+- [ ] **NEW: Task 1 `findModuleForPath` vendor-namespace 兼容性** — 当前实现剥前 2 段 `<pkg>/<module>` 是 `/EcucDefs/...` 标准 dialect 形状，vendor-namespace (`/EAS/...` 等) 兼容性未覆盖 (test 用 Adc fixture 是因为路径已经在 Sprint 8 #1 `normalizePath` 折叠过)。Sprint 13+ backlog
+
+### Deviations
+
+1. **`findModuleForPath` 2-segment vs 3-segment off-by-one**: plan 阶段 user 拍板"剥前 3 段 `/EcucDefs/<Module>`"是按 value-side 风格讲的。Task 1 实际实现剥前 2 段 `<pkg>/<module>`（与 `BswmdDocument.modulePath` 的 2-segment 形状一致），Adc fixture 因 Sprint 8 #1 `normalizePath` 已折叠 `/EAS → /EcucDefs` 所以能跑通。**Vendor-namespace (e.g. Vector / EB tresos) BSWMD 直接加载兼容性未在 Sprint 12 #2 scope** — 留 Sprint 13+ backlog (见衔接段最后一条)。
+2. **BSWMD 重复 path 拒绝 (user 拍板)**: `addBswmd` 重复 path 不 replace，setError + return；user 必须先 `removeBswmd` 再 `addBswmd`。原因：replace 会静默吃掉 dirty state，用户期望"加载"是显式 append/remove 序列。
+3. **Loose mode 不渲染 BSWMD section (user 拍板)**: LooseView 整段不显示 BSWMD FileList；`addBswmdFromDialog` 在 loose 模式直接 reject。理由：loose 模式没有 project manifest 持久化 BSWMD 路径，加载了 store 状态会变孤儿（重启后丢失），UX 不一致。
+4. **smoke 用 Adc 不是 CanIf**: Task 7 plan 是用用户提供的 CanIf BSWMD fixture，但 Sprint 12 #1 阶段用户没提供；用现有 `Adc_bswmd.arxml` 81KB 跑同等 3 case (合法 enum / 非法 enum / 不存在的 param) — Adc 包含完整 ECUC-MODULE-DEF + vendor-namespace paths + 多种 param kind，case 覆盖更广。CanIf fixture 留 Sprint 13+ (等用户提供)。
+5. **`schema-unknown` 触发条件算法固定**: 当 `layer != null` 且 lookup 返回 null + `findModuleForPath(layer, paramPath) != null` + paramPath 不在 `sourcePaths` 才 emit。`sourcePaths` 兜底避免 false positive（param path 在 BSWMD sourcePaths 列表里说明是"已知但未声明"，不算 unknown）。
+6. **`'schema-unknown'` 不动既有 5 步流水线**: 只是新增第 7 kind + 一个 `emitSchemaUnknownIfInKnownModule` helper 调用点；6 步流水线顺序不动（multiplicity → cross-ref → ref-dest → ref-cycle → constraints → 现有其它）；schema-unknown 在 walkContainer / walkReference / walkElements 入口处 emit。
+7. **`'schema-unknown'` 不计入 baseline signed-guard**: 因为 baseline 5 fixture 不提供 layer 时根本不 emit；guard 维持 Sprint 11 范围 [700, 850] cross-ref 0 violation。
+8. **fixtures README 不强补**: Task 7 `tests/fixtures/bswmd/README.md` 改动属"如有遗漏可补但不强制"；Sprint 12 #1 已记录 Adc + Can 路径，Sprint 12 #2 没有新 fixture，无须补 README。
+
+### 后续 Sprint 12+ backlog
+
+- [ ] Sprint 13+ 序列化 BSWMD round-trip（reader + writer；UI round-trip test）
+- [ ] Sprint 13+ CanIf 用户 BSWMD fixture 加载（等用户提供）
+- [ ] Sprint 13+ `findModuleForPath` vendor-namespace 兼容性（`/EAS/...` / `/Vector/...` / etc.）
+- [ ] Sprint 13+ Sprint 9 #15 `lookupSchema` unknown path 显式 log（`'schema-unknown'` kind 已部分覆盖；决定 log vs. validation panel 显示）
+- [ ] Sprint 13+ Sprint 9 #13 BSWMD 模板侧加载（schema 扩张留口）
+- [ ] Sprint 14+ dialog title + parser error 翻译（M7/M8）
+- [ ] Sprint 14+ ParamEditor column header 翻译（M6）
+- [ ] Sprint 14+ fixture 体积管理 (#7)（引入 CanIf / 大型 ECU extract 时评估 git LFS）
+- [ ] Sprint 15+ electron-builder 打包 + v1.0.0 tag (#8)
+- [ ] Sprint 15+ coverage 推到 branches ≥90% (#9)
 
 ## 参考资料
 

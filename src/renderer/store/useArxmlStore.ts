@@ -8,9 +8,11 @@ import type {
   ArxmlModule,
   ParamValue,
 } from '@core/arxml/types';
+import { parseBswmd } from '@core/project/bswmd.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { ValidationError } from '@core/validation';
-import { validateProjectForRenderer } from '@core/validation';
-import { DEFAULT_LOCALE } from '@shared/i18n';
+import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
+import { DEFAULT_LOCALE, t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 import type { ProjectManifest } from '@shared/project';
 
@@ -97,6 +99,18 @@ export interface ArxmlState {
   // each component on every render so it re-renders automatically.
   readonly locale: Locale;
 
+  // Sprint 12 #2 — runtime BSWMD schema state. Mirrors `valueArxmlPaths`
+  // semantics: insertion-ordered parallel arrays, with the source of
+  // truth being `project.bswmdPaths` when a project is open. In loose
+  // mode the store itself owns the path list (no project to mirror to).
+  //
+  // `bswmdSchemas` is the parsed BswmdDocument set consumed by
+  // `buildSchemaLayer` during re-validation. The BswmdDocument type
+  // itself carries no source path; we index the path in `bswmdPaths`
+  // parallel to it so `addBswmd` / `removeBswmd` can pair them.
+  readonly bswmdSchemas: readonly BswmdDocument[];
+  readonly bswmdPaths: readonly string[];
+
   // Multi-doc actions (Sprint 10 #2)
   addDocument: (doc: ArxmlDocument, filePath: string) => void;
   removeDocument: (filePath: string) => void;
@@ -147,12 +161,41 @@ export interface ArxmlState {
    */
   closeProject: () => void;
   /**
-   * Phase 1 stub. Phase 2 will parse `content` via `parseBswmd`,
-   * register the resulting schema layer, and update `project.bswmdPaths`.
-   * For now this is a no-op kept only so the IPC handler doesn't
-   * reference a non-existent action during Phase 1 integration.
+   * Sprint 12 #2 — load a BSWMD file. Behaviour:
+   *
+   *   1. If `path` is already in `bswmdPaths`, surface a localized
+   *      `'app.error.duplicateBswmd'` error and return without
+   *      mutating state. The user must `removeBswmd(path)` first
+   *      if they want to reload — a no-replace policy (user-confirmed
+   *      design decision Sprint 12 #2).
+   *   2. Parse `content` via `parseBswmd`. On failure surface the
+   *      parser's error message via `'app.error.parseBswmdFailed'`
+   *      and return without mutating state.
+   *   3. On success append the new `BswmdDocument` to `bswmdSchemas`,
+   *      append `path` to `bswmdPaths`, and (when a project is open)
+   *      append `path` to `project.bswmdPaths` so the next Save
+   *      Project persists it.
+   *   4. Re-run validation with `buildSchemaLayer(bswmdSchemas)` so
+   *      the new schema takes effect for the current document set.
+   *
+   * Loose mode (project === null) is allowed — the store holds
+   * `bswmdSchemas` / `bswmdPaths` independently of the manifest.
+   * The hook layer (`useProjectActions.addBswmdFromDialog`) is
+   * responsible for the "need project" gate at the UI boundary;
+   * the store itself stays schema-layer-agnostic.
    */
   addBswmd: (path: string, content: string) => void;
+  /**
+   * Sprint 12 #2 — unload a BSWMD file. No-op when `path` is unknown
+   * (the renderer treats a remove click on a stale id as a silent
+   * miss). On success, drops the entry from `bswmdSchemas` and
+   * `bswmdPaths` (using index correspondence — the two arrays are
+   * insertion-ordered parallels) and re-validates with the updated
+   * layer. When a project is open, also drops `path` from
+   * `project.bswmdPaths` so the next Save Project doesn't resurrect
+   * a deleted file.
+   */
+  removeBswmd: (path: string) => void;
 
   // Sprint 11 Phase 1 (Option A) — switch UI language.
   setLocale: (locale: Locale) => void;
@@ -174,6 +217,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   projectPath: null,
   // Sprint 11 Phase 1 (Option A) — i18n default.
   locale: DEFAULT_LOCALE,
+  // Sprint 12 #2 — BSWMD schema state. Empty by default; populated by
+  // addBswmd (file read via IPC) and consumed by revalidateWithBswmd
+  // for the project-level validation pass.
+  bswmdSchemas: [],
+  bswmdPaths: [],
 
   addDocument: (doc, filePath) => {
     const state = get();
@@ -307,6 +355,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       lastValidatedAt: null,
       project: null,
       projectPath: null,
+      // Sprint 12 #2 — BSWMD state. clear() drops loaded schemas and
+      // paths so a fresh load doesn't see stale schema-side coverage.
+      bswmdSchemas: [],
+      bswmdPaths: [],
       // Locale is a user preference — clear() resets docs but keeps
       // the language setting. Use setLocale() explicitly to change.
     }),
@@ -365,16 +417,69 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // changes. Use `clear()` to also drop documents.
     }),
 
-  addBswmd: (_path, _content) => {
-    // Phase 1 stub. Phase 2 will:
-    //   1. parseBswmd(content) → Result<BswmdDefinitions, BswmdParseError>
-    //   2. merge into `bswmdSchemas` (Phase 2 state field)
-    //   3. append path to `project.bswmdPaths` when project is open
-    //   4. re-trigger validate() so the new schema takes effect
-    //
-    // For Phase 1 we no-op silently. The IPC `project:open` handler
-    // already returns BSWMD content in its payload but the store
-    // ignores it until Phase 2 lands.
+  addBswmd: (path, content) => {
+    const state = get();
+    // Step 1: dedupe. Duplicate path is rejected (user-confirmed design
+    // decision #2). The user must call `removeBswmd(path)` first if
+    // they want to reload. This is the no-replace policy.
+    if (state.bswmdPaths.includes(path)) {
+      set({
+        error: t(state.locale, 'app.error.duplicateBswmd', { path }),
+      });
+      return;
+    }
+
+    // Step 2: parse. On failure surface the parser's localized error
+    // message and leave all state untouched (no partial add, no
+    // destructive clear of prior error).
+    const result = parseBswmd(content);
+    if (!result.ok) {
+      // The BswmdError union always carries a `message` for the
+      // xml-malformed / missing-root / invalid-structure kinds; the
+      // `unsupported-version` kind carries `version` instead, so we
+      // fall back to a stable human label for that one branch.
+      const message =
+        'message' in result.error ? result.error.message : `unsupported version: ${result.error.version}`;
+      set({
+        error: t(state.locale, 'app.error.parseBswmdFailed', { message }),
+      });
+      return;
+    }
+
+    // Step 3: commit. Append the schema + path, mirror to the
+    // manifest when a project is open, then re-validate using the
+    // freshly built layer.
+    const nextSchemas = [...state.bswmdSchemas, result.value];
+    const nextPaths = [...state.bswmdPaths, path];
+    const nextProject = projectSyncAddBswmdPath(state.project, path);
+    set({
+      bswmdSchemas: nextSchemas,
+      bswmdPaths: nextPaths,
+      project: nextProject,
+      error: null,
+      ...revalidateWithBswmd(state.documents, nextSchemas),
+    });
+  },
+
+  removeBswmd: (path) => {
+    const state = get();
+    const idx = state.bswmdPaths.indexOf(path);
+    // No-op on unknown path — a stale id from the renderer shouldn't
+    // blow up; it just doesn't match anything we hold.
+    if (idx === -1) return;
+
+    // BswmdDocument carries no source path; the parallel arrays
+    // guarantee the entry at the same index in bswmdSchemas is the
+    // one we're dropping.
+    const nextSchemas = state.bswmdSchemas.filter((_, i) => i !== idx);
+    const nextPaths = state.bswmdPaths.filter((p) => p !== path);
+    const nextProject = projectSyncRemoveBswmdPath(state.project, path);
+    set({
+      bswmdSchemas: nextSchemas,
+      bswmdPaths: nextPaths,
+      project: nextProject,
+      ...revalidateWithBswmd(state.documents, nextSchemas),
+    });
   },
 
   setLocale: (locale) => set({ locale }),
@@ -403,6 +508,49 @@ function projectSyncRemovePath(m: ProjectManifest | null, path: string): Project
   if (m === null) return null;
   if (!m.valueArxmlPaths.includes(path)) return m;
   return { ...m, valueArxmlPaths: m.valueArxmlPaths.filter((p) => p !== path) };
+}
+
+/**
+ * Sprint 12 #2 — BSWMD counterpart of `projectSyncAddPath`. Returns a
+ * new manifest with `path` appended to `bswmdPaths`, or the unchanged
+ * `m` if `m === null` (loose mode) or the path is already present.
+ * Pure — produces a new manifest reference only when needed.
+ */
+function projectSyncAddBswmdPath(m: ProjectManifest | null, path: string): ProjectManifest | null {
+  if (m === null) return null;
+  if (m.bswmdPaths.includes(path)) return m;
+  return { ...m, bswmdPaths: [...m.bswmdPaths, path] };
+}
+
+/**
+ * Sprint 12 #2 — BSWMD counterpart of `projectSyncRemovePath`. Returns
+ * a new manifest with `path` removed from `bswmdPaths`, or the
+ * unchanged `m` if `m === null` (loose mode) or the path isn't
+ * present.
+ */
+function projectSyncRemoveBswmdPath(m: ProjectManifest | null, path: string): ProjectManifest | null {
+  if (m === null) return null;
+  if (!m.bswmdPaths.includes(path)) return m;
+  return { ...m, bswmdPaths: m.bswmdPaths.filter((p) => p !== path) };
+}
+
+/**
+ * Sprint 12 #2 — re-validate the current document set against the given
+ * BSWMD schema set. Shared by `addBswmd` (post-add) and `removeBswmd`
+ * (post-remove) so the build-layer / dispatch / timestamp trio is
+ * kept consistent. Pure — only reads its inputs, returns a partial
+ * state object for the caller to spread into `set()`.
+ */
+function revalidateWithBswmd(
+  documents: readonly ArxmlDocument[],
+  schemas: readonly BswmdDocument[],
+): { readonly validationErrors: readonly ValidationError[]; readonly lastValidatedAt: number } {
+  return {
+    validationErrors: validateProjectForRenderer(documents, {
+      schemaLayer: buildSchemaLayer(schemas),
+    }),
+    lastValidatedAt: Date.now(),
+  };
 }
 
 /**

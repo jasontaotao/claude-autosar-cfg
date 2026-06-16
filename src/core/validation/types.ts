@@ -5,7 +5,7 @@
 
 /**
  * Validation error kinds.
- * Extend with new kinds as schema rules grow (multiplicity 已加入；Sprint 6 加 'cross-ref' 校验跨容器引用；Sprint 9 #2 加 'ref-dest'；Sprint 9 #3 加 'ref-cycle')。
+ * Extend with new kinds as schema rules grow (multiplicity 已加入；Sprint 6 加 'cross-ref' 校验跨容器引用；Sprint 9 #2 加 'ref-dest'；Sprint 9 #3 加 'ref-cycle'；Sprint 12 #2 加 'schema-unknown' — emitted when a `schemaLayer` is provided and a query path is in neither the layer nor the static `ECUC_SUBSET_SCHEMA`).
  */
 export type ValidationErrorKind =
   | 'range'
@@ -16,7 +16,8 @@ export type ValidationErrorKind =
   | 'multiplicity'
   | 'cross-ref'
   | 'ref-dest'
-  | 'ref-cycle';
+  | 'ref-cycle'
+  | 'schema-unknown';
 
 /**
  * A single validation violation.

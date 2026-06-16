@@ -95,13 +95,48 @@
   margin-top: 0.375rem;
 }
 
+.project-panel-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.125rem;
+}
+
 .project-panel-section-title {
   font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #475569;
-  margin-bottom: 0.125rem;
+  flex: 1 1 auto;
+}
+
+/* Sprint 12 #2 Task 5 — small ghost button rendered next to the
+ * section title for BSWMD's "Load BSWMD..." action. Reuses the
+ * existing slate palette so it sits in with the close (×) and the
+ * list remove (×) buttons already in the panel. */
+.project-panel-section-add {
+  appearance: none;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 0.625rem;
+  font-family: inherit;
+  line-height: 1.2;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.project-panel-section-add:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.project-panel-section-add:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
 }
 
 .project-panel-empty {

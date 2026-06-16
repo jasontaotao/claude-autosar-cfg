@@ -68,6 +68,10 @@ export interface Messages {
   readonly 'app.error.openProjectFailed': string; // {message}
   readonly 'app.error.saveProjectFailed': string; // {message}
   readonly 'app.error.openProjectParse': string; // {message}
+  readonly 'app.error.readBswmdFailed': string; // {message}
+  readonly 'app.error.parseBswmdFailed': string; // {message}
+  readonly 'app.error.duplicateBswmd': string; // {path}
+  readonly 'app.error.needProject': string;
   readonly 'app.locale.toggleAria': string; // "Switch language" / "切换语言"
 
   // --- project panel ---
@@ -79,6 +83,8 @@ export interface Messages {
   readonly 'projectPanel.arxml.empty': string;
   readonly 'projectPanel.bswmd.title': string;
   readonly 'projectPanel.bswmd.empty': string;
+  readonly 'projectPanel.bswmd.add': string;
+  readonly 'projectPanel.bswmd.addAria': string; // {name}
   readonly 'projectPanel.closeAria': string; // {name}
   readonly 'projectPanel.removeArxmlAria': string; // {name}
 
@@ -147,6 +153,10 @@ export const MessagesZhCN: Messages = {
   'app.error.openProjectFailed': '打开项目失败: {message}',
   'app.error.saveProjectFailed': '保存项目失败: {message}',
   'app.error.openProjectParse': '打开项目: {message}',
+  'app.error.readBswmdFailed': '读取 BSWMD 失败: {message}',
+  'app.error.parseBswmdFailed': 'BSWMD 解析失败: {message}',
+  'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
+  'app.error.needProject': '需要先打开或创建项目',
   'app.locale.toggleAria': '切换语言',
 
   // project panel
@@ -157,7 +167,9 @@ export const MessagesZhCN: Messages = {
   'projectPanel.arxml.title': '值侧 ARXML',
   'projectPanel.arxml.empty': '尚未附加 ARXML。可使用"打开"按钮加载。',
   'projectPanel.bswmd.title': 'BSWMD',
-  'projectPanel.bswmd.empty': '尚未加载 BSWMD。在项目清单中添加 bswmdPaths 条目即可加载。',
+  'projectPanel.bswmd.empty': '尚未加载 BSWMD。点击"加载 BSWMD"按钮添加 schema 文件。',
+  'projectPanel.bswmd.add': '加载 BSWMD...',
+  'projectPanel.bswmd.addAria': '加载 BSWMD 文件 {name}',
   'projectPanel.closeAria': '关闭项目 {name}',
   'projectPanel.removeArxmlAria': '从项目中移除 {name}',
 
@@ -224,6 +236,10 @@ export const MessagesEn: Messages = {
   'app.error.openProjectFailed': 'Open Project failed: {message}',
   'app.error.saveProjectFailed': 'Save Project failed: {message}',
   'app.error.openProjectParse': 'Open Project: {message}',
+  'app.error.readBswmdFailed': 'Failed to read BSWMD: {message}',
+  'app.error.parseBswmdFailed': 'BSWMD parse failed: {message}',
+  'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
+  'app.error.needProject': 'Please open or create a project first',
   'app.locale.toggleAria': 'Switch language',
 
   // project panel
@@ -235,7 +251,9 @@ export const MessagesEn: Messages = {
   'projectPanel.arxml.empty': 'No ARXMLs attached. Use Open ARXML to add some.',
   'projectPanel.bswmd.title': 'BSWMDs',
   'projectPanel.bswmd.empty':
-    'No BSWMDs loaded yet. Add entries to bswmdPaths in the project manifest.',
+    'No BSWMDs loaded yet. Click "Load BSWMD" to add a schema file.',
+  'projectPanel.bswmd.add': 'Load BSWMD...',
+  'projectPanel.bswmd.addAria': 'Load BSWMD file {name}',
   'projectPanel.closeAria': 'Close project {name}',
   'projectPanel.removeArxmlAria': 'Remove {name} from project',
 
