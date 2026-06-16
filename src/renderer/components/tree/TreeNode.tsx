@@ -128,36 +128,44 @@ export function TreeNode({
       data-testid={`treeitem-${path}`}
       onKeyDown={handleKeyDown}
       onClick={handleClick}
-      className="tree-row"
-      style={{ paddingLeft: `${depth * 16}px` }}
+      className="tree-item"
     >
-      {!isLeaf && (
+      <div className="tree-item-row" style={{ paddingLeft: `${depth * 16}px` }} data-row-for={path}>
+        {!isLeaf && (
+          <button
+            type="button"
+            aria-label={chevronLabel}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle();
+            }}
+            className="tree-chevron"
+            data-testid={`chevron-${path}`}
+          >
+            {isExpanded ? '▼' : '▶'}
+          </button>
+        )}
         <button
           type="button"
-          aria-label={chevronLabel}
           onClick={(e) => {
             e.stopPropagation();
-            handleToggle();
+            handleClick();
           }}
-          className="tree-chevron"
-          data-testid={`chevron-${path}`}
+          className="tree-label"
+          data-testid={`label-${path}`}
         >
-          {isExpanded ? '▼' : '▶'}
+          <span className="tree-label-text">{label}</span>
+          <span className="tree-label-subtitle">{subtitle}</span>
         </button>
+      </div>
+      {isExpanded && (
+        // role="group" holds the child treeitems as a vertical stack
+        // *below* the current row (column flex parent). Without this
+        // wrapper the children sit beside the label as flex items.
+        <div role="group" className="tree-children">
+          {children}
+        </div>
       )}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleClick();
-        }}
-        className="tree-label"
-        data-testid={`label-${path}`}
-      >
-        <span className="tree-label-text">{label}</span>
-        <span className="tree-label-subtitle">{subtitle}</span>
-      </button>
-      {isExpanded && children}
     </div>
   );
 }

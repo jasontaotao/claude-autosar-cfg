@@ -9,9 +9,16 @@ body,
   margin: 0;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #1e293b; /* explicit foreground — stops Tailwind preflight /
+                      dark-mode OS colour inheritance from making
+                      light-grey text bleed into the white Tree surface */
+  background: #f8fafc;
 }
 
-/* Sprint 3: split-view workspace + tree/editor/validation styling */
+/* Sprint 3 + Sprint 9 #5: split-view workspace + tree/editor/validation styling.
+   Sprint 9 #5 collapsed the previous bulky `app-header h1` block + ArxmlPanel
+   "ARXML I/O" card into a slim 40px top bar (`AppHeader`) and a status footer
+   (`ArxmlPanel` now renders only the summary line). */
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -19,25 +26,165 @@ body,
   background: #f8fafc;
 }
 
+/* ------------------------------------------------------------------ */
+/* AppHeader — slim 40px top bar                                       */
+/* ------------------------------------------------------------------ */
 .app-header {
-  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 40px;
+  flex: 0 0 40px;
+  padding: 0 0.75rem;
   background: #1e293b;
   color: #f1f5f9;
   border-bottom: 1px solid #0f172a;
+  font-size: 0.8125rem;
+  user-select: none;
 }
 
-.app-header h1 {
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.app-logo {
   font-size: 1rem;
+  color: #38bdf8;
+  line-height: 1;
+}
+
+.app-name {
   font-weight: 600;
-  margin: 0;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
-.app-header .version {
-  font-weight: 400;
-  color: #94a3b8;
+.app-doc-name {
   margin-left: 0.5rem;
+  padding: 0 0.5rem;
+  border-left: 1px solid #334155;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 30vw;
 }
 
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.app-header-error {
+  color: #fca5a5;
+  font-size: 0.75rem;
+  max-width: 30vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-doc-version {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.app-version {
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+.app-btn {
+  appearance: none;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.1875rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 3px;
+  cursor: pointer;
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.app-btn:hover:not(:disabled) {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.app-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.app-btn-save.is-dirty {
+  background: #b45309;
+  border-color: #c2410c;
+  color: #fff7ed;
+}
+
+.app-btn-save.is-dirty:hover:not(:disabled) {
+  background: #c2410c;
+  border-color: #ea580c;
+}
+
+/* ------------------------------------------------------------------ */
+/* Status footer (ArxmlPanel slim version)                             */
+/* ------------------------------------------------------------------ */
+.status-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 24px;
+  height: 24px;
+  padding: 0 0.75rem;
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 0.6875rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  user-select: none;
+}
+
+.status-item strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.status-sep {
+  color: #cbd5e1;
+}
+
+.status-dirty {
+  color: #b45309;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Workspace                                                          */
+/* ------------------------------------------------------------------ */
 .workspace {
   display: grid;
   grid-template-columns: minmax(280px, 30%) 1fr;
@@ -60,6 +207,12 @@ body,
 
 .tree {
   background: #ffffff;
+  color: #0f172a; /* slate-900 — TreeNode label foreground. Explicit so
+                    the row text is always visible on the white surface
+                    even if a parent cascades a lighter (or transparent)
+                    colour (e.g. when the host OS is in dark mode and a
+                    Tailwind preflight rule changes the inherited
+                    `color`). */
   overflow-y: auto;
   padding: 0.5rem;
   min-height: 0;
@@ -75,31 +228,62 @@ body,
 .editor {
   overflow-y: auto;
   padding: 1rem;
+  color: #1e293b; /* slate-800 — explicit so editor text stays readable
+                    regardless of the OS / Tailwind inherited colour */
+  background: #ffffff;
 }
 
-/* TreeNode — keep visual hierarchy tight, no nested list chrome */
+/* TreeNode — column flex parent so child treeitems stack *below*
+   the current row (not beside the label as flex items). The row
+   itself (chevron + label) is a separate flex container inside the
+   treeitem so the two children can flow as two visual rows.
+   Sprint 9 #5 fix: pre-fix the treeitem was `display: flex` (row
+   direction) which put expanded children in the same horizontal
+   flex flow as the chevron + label, so the EB tresos 84-module
+   expansion rendered as a single long horizontal bar. */
 .tree [role='treeitem'] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  color: #0f172a; /* slate-900 — explicit so the row text stays
+                    readable on the white tree surface in dark mode */
+}
+
+.tree .tree-item-row {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-  outline: none;
 }
 
-.tree [role='treeitem']:hover {
+/* Buttons inside the tree (chevron + label) inherit the system
+   `buttontext` colour which flips on dark-mode hosts. Force the
+   foreground to match the explicit tree colour. */
+.tree [role='treeitem'] button {
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tree .tree-item-row:hover {
   background: #f1f5f9;
 }
 
-.tree [role='treeitem'][aria-selected='true'] {
+.tree [role='treeitem'][aria-selected='true'] > .tree-item-row {
   background: #dbeafe;
   color: #1e3a8a;
   font-weight: 500;
 }
 
-.tree [role='treeitem']:focus-visible {
+.tree [role='treeitem']:focus-visible > .tree-item-row {
   box-shadow: 0 0 0 2px #2563eb;
 }
 
@@ -122,4 +306,15 @@ body,
   margin-left: 1rem;
   border-left: 1px dashed #e2e8f0;
   padding-left: 0.25rem;
+}
+
+/* Sprint 9 #5 fix: when TreeNode renders its children inline as direct
+   flex items of the row, the children line up horizontally next to the
+   label (single-row "stretched" bar — visible with the EB tresos
+   84-module case). Wrapping in `.tree-children` gives them a block
+   container so siblings stack vertically as a normal tree.
+   The parent `[role=treeitem]` is `display: flex; flex-direction: column`
+   so the children sit *below* the row instead of beside it. */
+.tree .tree-children {
+  display: block;
 }

@@ -64,23 +64,57 @@ export function Tree({ store }: TreeProps): JSX.Element {
 
   return (
     <aside className="tree" role="tree" aria-label="ARXML structure" data-testid="tree-root">
-      {doc.packages.map((pkg: ArxmlPackage) => (
-        <TreeNode
-          key={pkg.path}
-          label={pkg.shortName}
-          subtitle="package"
-          path={pkg.path}
-          depth={0}
-          isLeaf={pkg.elements.length === 0}
-          isExpanded={expanded.has(pkg.path)}
-          isSelected={selectedPath === pkg.path}
-          onToggle={toggle}
-          onSelect={(p) => store.getState().select(p)}
-        >
-          {renderChildren(pkg.elements, pkg.path, 1, expanded, toggle, selectedPath, store)}
-        </TreeNode>
-      ))}
+      {doc.packages.map((pkg: ArxmlPackage) =>
+        renderPackage(pkg, 0, expanded, toggle, selectedPath, store),
+      )}
     </aside>
+  );
+}
+
+/**
+ * Render a single ArxmlPackage as a TreeNode, recursively descending into
+ * sub-packages. Mirrors the call shape `renderChildren` uses for
+ * `ArxmlElement` children so the two iterators share the same toggle/select
+ * state propagation.
+ *
+ * `isLeaf` is `true` only when the package has no elements AND no
+ * sub-packages — i.e. a true empty package. Sprint 9 #12 added recursive
+ * `<AR-PACKAGES>` support to the parser; this renderer closes the matching
+ * UI gap (EB tresos BSWMD files wrap content in an outer
+ * `AUTOSAR > EcucDefs > <module-def>` shape that the previous flat
+ * `doc.packages.map` did not traverse).
+ */
+function renderPackage(
+  pkg: ArxmlPackage,
+  depth: number,
+  expanded: Set<string>,
+  toggle: (p: string) => void,
+  selectedPath: string | null,
+  store: ArxmlStoreApi,
+): JSX.Element {
+  const hasElements = pkg.elements.length > 0;
+  const hasSubPackages = pkg.packages !== undefined && pkg.packages.length > 0;
+  const isLeaf = !hasElements && !hasSubPackages;
+  return (
+    <TreeNode
+      key={pkg.path}
+      label={pkg.shortName}
+      subtitle="package"
+      path={pkg.path}
+      depth={depth}
+      isLeaf={isLeaf}
+      isExpanded={expanded.has(pkg.path)}
+      isSelected={selectedPath === pkg.path}
+      onToggle={toggle}
+      onSelect={(p) => store.getState().select(p)}
+    >
+      {hasSubPackages &&
+        pkg.packages!.map((sp) =>
+          renderPackage(sp, depth + 1, expanded, toggle, selectedPath, store),
+        )}
+      {hasElements &&
+        renderChildren(pkg.elements, pkg.path, depth + 1, expanded, toggle, selectedPath, store)}
+    </TreeNode>
   );
 }
 

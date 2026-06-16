@@ -1,146 +1,72 @@
-import { useState } from 'react';
+// ArxmlPanel: status footer that shows package / element counts after a
+// successful parse. File Open / Save actions now live in `AppHeader`
+// (slim top bar); this component only owns the read-only summary line
+// that anchors the bottom of the workspace.
+//
+// Renders nothing when no doc is loaded — keeps the footer from
+// contributing empty space when the user has not opened a file yet.
 
-import type {
-  ArxmlElement,
-  OpenArxmlResult,
-  ParseArxmlResponse,
-  ParseError,
-  SaveArxmlResponse,
-} from '../../shared/types.js';
+import type { ArxmlElement } from '@core/arxml/types.js';
+
 import { useArxmlStore } from '../store/useArxmlStore';
 
-interface ArxmlPanelState {
-  readonly error: string | null;
-  readonly busy: boolean;
-}
-
-const INITIAL: ArxmlPanelState = {
-  error: null,
-  busy: false,
-};
-
-/**
- * Narrow ParseError's 4 discriminated kinds to a single display string.
- * Avoids 'message' in parsed.error (which TS-narrows incorrectly across kinds
- * — only xml-malformed/missing-root/invalid-structure carry `message`,
- * unsupported-version carries `version`).
- */
-function formatParseError(e: ParseError): string {
-  switch (e.kind) {
-    case 'xml-malformed':
-      return `XML malformed: ${e.message}`;
-    case 'missing-root':
-      return `Missing root element: ${e.message}`;
-    case 'unsupported-version':
-      return `Unsupported AUTOSAR version: ${e.version}`;
-    case 'invalid-structure':
-      return `Invalid structure at ${e.path}: ${e.message}`;
-  }
-}
-
-export function ArxmlPanel(): JSX.Element {
-  const [state, setState] = useState<ArxmlPanelState>(INITIAL);
-  // T6: subscribe to the store directly so Save uses the latest mutated doc.
-  // ParamEditor calls store.updateParam() — reading state.doc would be stale.
+export function ArxmlPanel(): JSX.Element | null {
   const doc = useArxmlStore((s) => s.doc);
-  const filePath = useArxmlStore((s) => s.filePath);
   const dirty = useArxmlStore((s) => s.dirty);
 
-  const onOpen = async (): Promise<void> => {
-    setState({ busy: true, error: null });
-    const opened: OpenArxmlResult = await window.autosarApi.openArxml({
-      title: 'Open AUTOSAR ARXML',
-    });
-    if (opened.canceled || opened.content === undefined || opened.path === undefined) {
-      setState({ busy: false, error: null });
-      return;
-    }
-    const parsed: ParseArxmlResponse = await window.autosarApi.parseArxml({
-      path: opened.path,
-      content: opened.content,
-    });
-    if (!parsed.ok) {
-      setState({ busy: false, error: `Parse failed: ${formatParseError(parsed.error)}` });
-      return;
-    }
-    // T6: hand the parsed doc to the store (single source of truth).
-    useArxmlStore.getState().setDoc(parsed.value, opened.path);
-    setState({ busy: false, error: null });
-  };
+  if (doc === null) return null;
 
-  const onSave = async (): Promise<void> => {
-    if (doc === null) return;
-    setState({ busy: true, error: null });
-    const currentPath = filePath ?? '';
-    const defaultName = currentPath.split(/[\\/]/).pop() ?? 'untitled.arxml';
-    const saved: SaveArxmlResponse = await window.autosarApi.saveArxml({
-      doc,
-      defaultName,
-    });
-    if (!saved.ok) {
-      setState({ busy: false, error: `Save failed: ${saved.error.message}` });
-      return;
-    }
-    if (saved.value.canceled) {
-      setState({ busy: false, error: null });
-      return;
-    }
-    // T6: clear dirty flag + update file path in store.
-    useArxmlStore.getState().markSaved(saved.value.path ?? currentPath);
-    setState({ busy: false, error: null });
-  };
-
-  const packageCount = doc?.packages.length ?? 0;
-  const elementCount =
-    doc?.packages.reduce(
-      (acc, p) => acc + p.elements.length + countNestedElements(p.elements),
-      0,
-    ) ?? 0;
-
-  // T8: Save button enabled only when doc loaded AND has unsaved changes.
-  const canSave = doc !== null && !state.busy && dirty;
+  // Recursive count walks sub-packages too — EB tresos BSWMD files
+  // (AUTOSAR > EcucDefs > <modules>) and other nested layouts must count
+  // every element under the root, not just the top-level packages.
+  const packageCount = countPackages(doc.packages);
+  const elementCount = countElementsInPackages(doc.packages);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h2 className="mb-2 text-xl font-semibold">ARXML I/O</h2>
-      <p className="text-sm text-slate-600 dark:text-slate-300">
-        Open an AUTOSAR ARXML file, inspect it, and save changes back.
-      </p>
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={state.busy}
-          className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          Open ARXML
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave}
-          className={
-            dirty
-              ? 'rounded bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50'
-              : 'rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50'
-          }
-        >
-          {dirty ? 'Save (unsaved)' : 'Save ARXML'}
-        </button>
-      </div>
-      {filePath !== null && (
-        <p className="mt-3 font-mono text-xs text-slate-500">File: {filePath}</p>
+    <footer className="status-footer" data-testid="status-footer">
+      <span className="status-item">
+        Packages: <strong>{packageCount}</strong>
+      </span>
+      <span className="status-sep">•</span>
+      <span className="status-item">
+        Elements: <strong>{elementCount}</strong>
+      </span>
+      <span className="status-sep">•</span>
+      <span className="status-item">
+        AUTOSAR <strong>{doc.version}</strong>
+      </span>
+      {dirty && (
+        <>
+          <span className="status-sep">•</span>
+          <span className="status-dirty">unsaved changes</span>
+        </>
       )}
-      {doc !== null && (
-        <p className="mt-1 font-mono text-xs text-slate-500">
-          Packages: {packageCount} • Elements: {elementCount} • Version: {doc.version}
-        </p>
-      )}
-      {state.error !== null && (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{state.error}</p>
-      )}
-    </div>
+    </footer>
   );
+}
+
+function countPackages(pkgs: readonly { packages?: readonly unknown[] }[]): number {
+  let n = pkgs.length;
+  for (const p of pkgs) {
+    const subs = p.packages;
+    if (subs !== undefined)
+      n += countPackages(subs as readonly { packages?: readonly unknown[] }[]);
+  }
+  return n;
+}
+
+function countElementsInPackages(
+  pkgs: readonly { elements: readonly ArxmlElement[]; packages?: readonly unknown[] }[],
+): number {
+  let n = 0;
+  for (const p of pkgs) {
+    n += p.elements.length + countNestedElements(p.elements);
+    const subs = p.packages as
+      | readonly { elements: readonly ArxmlElement[]; packages?: readonly unknown[] }[]
+      | undefined;
+    if (subs !== undefined) n += countElementsInPackages(subs);
+  }
+  return n;
 }
 
 function countNestedElements(elements: readonly ArxmlElement[]): number {
