@@ -28,13 +28,25 @@ function groupByKind(
 }
 
 /**
- * Strip the trailing `/<paramKey>` from a full param path so the click
- * handler selects the parent container (where the param lives) rather
- * than a non-existent leaf.
+ * Sprint 10 #3: branch on err.paramKey to fix the element-level click
+ * bug. Pre-Sprint 10 #3, this function always stripped the trailing
+ * segment from err.path, which produced the wrong click target for
+ * element-level errors (multiplicity / cross-ref / ref-dest / ref-cycle)
+ * where err.path IS the element path itself (no paramKey).
+ *
+ * - param-level errors (range / enum / reference / required / schema):
+ *   err.path = container path + '/' + paramKey. Strip the paramKey
+ *   so the click selects the container that owns the param.
+ * - element-level errors (multiplicity / cross-ref / ref-dest /
+ *   ref-cycle): paramKey is undefined. err.path is the element path
+ *   itself. Return it unchanged so the click selects the element.
  */
-function extractContainerPath(paramPath: string): string {
-  const idx = paramPath.lastIndexOf('/');
-  return idx > 0 ? paramPath.slice(0, idx) : paramPath;
+function extractContainerPath(err: ValidationError): string {
+  if (err.paramKey === undefined) {
+    return err.path;
+  }
+  const idx = err.path.lastIndexOf('/');
+  return idx > 0 ? err.path.slice(0, idx) : err.path;
 }
 
 export function ValidationPanel(): JSX.Element {
@@ -92,11 +104,15 @@ export function ValidationPanel(): JSX.Element {
                       <button
                         type="button"
                         className="error-row"
-                        onClick={() => select(extractContainerPath(err.path))}
+                        onClick={() => select(extractContainerPath(err))}
                         title={err.message}
                         data-testid={`error-row-${i}`}
                       >
-                        <code className="error-path">{err.paramKey ?? err.path}</code>
+                        <code className="error-path">
+                          {err.paramKey !== undefined
+                            ? `${err.path} (${err.paramKey})`
+                            : err.path}
+                        </code>
                         <span className="error-msg">{err.message}</span>
                       </button>
                     </li>

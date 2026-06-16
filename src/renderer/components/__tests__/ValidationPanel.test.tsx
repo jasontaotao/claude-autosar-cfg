@@ -173,6 +173,101 @@ describe('ValidationPanel', () => {
     expect(screen.getByText(/^range$/i)).toBeInTheDocument();
   });
 
+  // Sprint 10 #3 — element-level click bug fix.
+  // Pre-Sprint 10 #3: extractContainerPath stripped the trailing segment
+  // from EVERY error, including element-level kinds (multiplicity,
+  // cross-ref, ref-dest, ref-cycle) where err.path IS the element path
+  // (no paramKey). That mis-clicked the parent, never the element itself.
+  // Fix: branch on err.paramKey !== undefined.
+  it('clicking a multiplicity row selects the element path (paramKey is undefined)', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'multiplicity',
+        path: '/EcucDefs/EcuC/EcucPduCollection',
+        message: 'Container instance count 0 below lower multiplicity 1',
+        expected: '>= 1',
+        actual: '0',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+    fireEvent.click(screen.getByTestId('error-row-0'));
+    // The element path itself — NOT a stripped parent.
+    expect(useArxmlStore.getState().selectedPath).toBe('/EcucDefs/EcuC/EcucPduCollection');
+  });
+
+  it('clicking a ref-dest row selects the element path (paramKey is undefined)', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'ref-dest',
+        path: '/Com/Com/ComConfig/PduGroup_0',
+        message: 'Reference DEST "ECUC-CONTAINER-VALUE" expects container|module, but target is a reference',
+        expected: 'ECUC-CONTAINER-VALUE',
+        actual: 'reference',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+    fireEvent.click(screen.getByTestId('error-row-0'));
+    expect(useArxmlStore.getState().selectedPath).toBe('/Com/Com/ComConfig/PduGroup_0');
+  });
+
+  it('clicking a ref-cycle row selects the element path (paramKey is undefined)', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'ref-cycle',
+        path: '/PduR/PduR/PduRRoutingPaths/PduRRoutingPath_0',
+        message: 'Cyclic reference: 3 edges /PduR/PduR/.../PduRRoutingPath_0 -> /PduR/.../DestPduRef -> /PduR/.../PduRRoutingPath_0',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+    fireEvent.click(screen.getByTestId('error-row-0'));
+    expect(useArxmlStore.getState().selectedPath).toBe(
+      '/PduR/PduR/PduRRoutingPaths/PduRRoutingPath_0',
+    );
+  });
+
+  it('clicking a cross-ref row selects the element path (paramKey is undefined)', () => {
+    const errors: ValidationError[] = [
+      {
+        kind: 'cross-ref',
+        path: '/Com/Com/PduGroup/PduIdRef',
+        message: 'Reference target /EcuC/EcuC/ComM/ComMPduGroup_0 not found',
+        expected: 'exists in project',
+        actual: 'missing',
+      },
+    ];
+    useArxmlStore.setState({
+      doc: emptyDoc,
+      filePath: 'x.arxml',
+      lastValidatedAt: Date.now(),
+      validationErrors: errors,
+    });
+
+    render(<ValidationPanel />);
+    fireEvent.click(screen.getByTestId('error-row-0'));
+    expect(useArxmlStore.getState().selectedPath).toBe('/Com/Com/PduGroup/PduIdRef');
+  });
+
   // S6-T2: ValidationPanel must surface the new 'cross-ref' kind
   // (cross-container reference target existence) alongside the existing
   // kinds, with the same group-by-kind logic and teal `.kind-cross-ref`

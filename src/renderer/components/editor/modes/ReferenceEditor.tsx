@@ -29,6 +29,13 @@ export function ReferenceEditor({ paramKey, value, containerPath }: Props): JSX.
           updateParam(containerPath, paramKey, {
             type: 'reference',
             value: e.target.value,
+            // Sprint 10 #3 — preserve the ECUC DEST attribute
+            // (CONTAINER-VALUE / REFERENCE-DEF / FOREIGN-REFERENCE-DEF)
+            // across edits. Pre-fix, the spread was missing `dest`, so
+            // the first user edit dropped the attribute, disabling
+            // checkRefDests (Sprint 9 #2) for that site and corrupting
+            // round-tripped ARXML.
+            ...(value.dest !== undefined ? { dest: value.dest } : {}),
           })
         }
       />
