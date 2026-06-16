@@ -12,7 +12,14 @@ import { useArxmlStore } from '../store/useArxmlStore';
  */
 export function useDebouncedValidation(delayMs: number = 300): void {
   const doc = useArxmlStore((s) => s.doc);
-  const dirty = useArxmlStore((s) => s.dirty);
+  // Re-validate when the active doc's dirty bit flips. dirtyPaths is a
+  // Set; reading `.has(activeDocumentPath)` from a Zustand selector
+  // returns a boolean that Zustand will re-evaluate whenever the Set
+  // reference changes, which is what `updateParam` does.
+  const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+  const isActiveDirty = useArxmlStore((s) =>
+    s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
+  );
 
   useEffect(() => {
     if (!doc) return;
@@ -20,5 +27,5 @@ export function useDebouncedValidation(delayMs: number = 300): void {
       useArxmlStore.getState().validate();
     }, delayMs);
     return () => clearTimeout(timer);
-  }, [doc, dirty, delayMs]);
+  }, [doc, isActiveDirty, activeDocumentPath, delayMs]);
 }

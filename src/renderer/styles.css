@@ -114,6 +114,79 @@ body,
   letter-spacing: 0.02em;
 }
 
+/* ------------------------------------------------------------------ */
+/* Sprint 10 #2 — doc-tab strip (loaded documents)                     */
+/* ------------------------------------------------------------------ */
+
+.app-doc-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.app-doc-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 3px;
+  font-size: 0.6875rem;
+  color: #cbd5e1;
+  max-width: 12rem;
+  flex: 0 0 auto;
+}
+
+.app-doc-tab.is-active {
+  background: #334155;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+.app-doc-tab-label {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-doc-tab-close {
+  appearance: none;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 0 0.125rem;
+  border-radius: 2px;
+}
+
+.app-doc-tab-close:hover {
+  color: #fca5a5;
+  background: rgba(252, 165, 165, 0.1);
+}
+
+.app-doc-tab-close:focus-visible,
+.app-doc-tab-label:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 1px;
+}
+
 .app-btn {
   appearance: none;
   border: 1px solid #334155;

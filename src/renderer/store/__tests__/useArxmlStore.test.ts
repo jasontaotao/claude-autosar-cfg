@@ -60,7 +60,7 @@ describe('useArxmlStore', () => {
     expect(next.doc).toBe(doc);
     expect(next.filePath).toBe('/tmp/foo.arxml');
     expect(next.selectedPath).toBeNull();
-    expect(next.dirty).toBe(false);
+    expect(next.dirtyPaths.has('/tmp/foo.arxml')).toBe(false);
     expect(next.error).toBeNull();
   });
 
@@ -109,8 +109,8 @@ describe('useArxmlStore', () => {
     });
     // Original store was empty before setDoc
     expect(beforeDoc).toBeNull();
-    // dirty flag set
-    expect(useArxmlStore.getState().dirty).toBe(true);
+    // active doc marked dirty
+    expect(useArxmlStore.getState().dirtyPaths.has('/tmp/foo.arxml')).toBe(true);
   });
 
   it('updateParam navigates nested container paths', () => {
@@ -140,18 +140,18 @@ describe('useArxmlStore', () => {
     const next = useArxmlStore.getState();
     // Same doc reference (no allocation when value is equal)
     expect(next.doc).toBe(doc);
-    expect(next.dirty).toBe(false);
+    expect(next.dirtyPaths.has('/tmp/foo.arxml')).toBe(false);
   });
 
-  it('markSaved clears dirty', () => {
+  it('markSaved clears dirty for the saved doc only', () => {
     useArxmlStore.getState().setDoc(buildDoc(), '/tmp/foo.arxml');
     useArxmlStore.getState().updateParam('/EAS/EcuC/EcuCGeneral', 'ConfigConsistencyRequired', {
       type: 'integer',
       value: 7,
     });
-    expect(useArxmlStore.getState().dirty).toBe(true);
+    expect(useArxmlStore.getState().dirtyPaths.has('/tmp/foo.arxml')).toBe(true);
     useArxmlStore.getState().markSaved('/tmp/foo.arxml');
-    expect(useArxmlStore.getState().dirty).toBe(false);
+    expect(useArxmlStore.getState().dirtyPaths.has('/tmp/foo.arxml')).toBe(false);
     expect(useArxmlStore.getState().filePath).toBe('/tmp/foo.arxml');
   });
 });

@@ -3,12 +3,15 @@
 // single borderless strip. The main content area below it now gets the
 // full vertical space for Tree / ParamEditor / ValidationPanel.
 //
-// Layout (left → right, single row, h-10 = 40px):
-//   [logo] [app-name]    [doc-name]    [Open] [Save]    [doc stats] [v0.9.5]
-//
-// File actions moved here from ArxmlPanel so the "ARXML I/O" card no longer
-// occupies a full content row. ArxmlPanel now only owns the slim status
-// footer (parse error + busy indicator) that sits below the workspace.
+// Sprint 10 #2 changes:
+//   - Open flow now uses `openArxmlMulti` (multi-select dialog) and feeds
+//     each result through `addDocument` (was `setDoc`).
+//   - New "doc-tab strip" between the actions and the right-side stats
+//     shows every loaded document (basename) with the active one
+//     highlighted; click to switch, × to close.
+//   - The store now owns the loaded-document set (`documents[]` +
+//     `activeDocumentPath`); `doc` and `filePath` remain as back-compat
+//     derived aliases for the existing single-doc renderer consumers.
 
 import { useEffect, useState } from 'react';
 
@@ -35,12 +38,24 @@ function formatParseError(e: ParseError): string {
   }
 }
 
+function basename(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
 export function AppHeader(): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
   const doc = useArxmlStore((s) => s.doc);
   const filePath = useArxmlStore((s) => s.filePath);
-  const dirty = useArxmlStore((s) => s.dirty);
+  const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+  const documentPaths = useArxmlStore((s) => s.documentPaths);
+  // isActiveDirty: derived from per-path Set (Sprint 10 #2 dirty refactor).
+  const isActiveDirty = useArxmlStore(
+    (s) => s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
+  );
+  const addDocument = useArxmlStore((s) => s.addDocument);
+  const removeDocument = useArxmlStore((s) => s.removeDocument);
+  const setActiveDocument = useArxmlStore((s) => s.setActiveDocument);
 
   useEffect(() => {
     void window.autosarApi.getAppVersion().then(setAppVersion);
@@ -48,28 +63,46 @@ export function AppHeader(): JSX.Element {
 
   const onOpen = async (): Promise<void> => {
     setState({ error: null, busy: true });
-    const opened = await window.autosarApi.openArxml({ title: 'Open AUTOSAR ARXML' });
-    if (opened.canceled || opened.content === undefined || opened.path === undefined) {
-      setState({ error: null, busy: false });
-      return;
+    const result = await window.autosarApi.openArxmlMulti({ title: 'Open AUTOSAR ARXML' });
+    switch (result.kind) {
+      case 'canceled': {
+        setState({ error: null, busy: false });
+        return;
+      }
+      case 'read-failed': {
+        setState({ error: `Open failed: ${result.message}`, busy: false });
+        return;
+      }
+      case 'opened':
+      case 'partial': {
+        const opened = result.kind === 'opened' ? result.results : result.opened;
+        const failed = result.kind === 'partial' ? result.failed : [];
+        let lastError: string | null = null;
+        for (const file of opened) {
+          const parsed: ParseArxmlResponse = await window.autosarApi.parseArxml({
+            path: file.path,
+            content: file.content,
+          });
+          if (!parsed.ok) {
+            lastError = `${basename(file.path)}: ${formatParseError(parsed.error)}`;
+            continue;
+          }
+          addDocument(parsed.value, file.path);
+        }
+        if (failed.length > 0) {
+          lastError = failed.map((f) => `${basename(f.path)}: ${f.message}`).join('; ');
+        }
+        setState({ error: lastError, busy: false });
+        return;
+      }
     }
-    const parsed: ParseArxmlResponse = await window.autosarApi.parseArxml({
-      path: opened.path,
-      content: opened.content,
-    });
-    if (!parsed.ok) {
-      setState({ error: `Parse failed: ${formatParseError(parsed.error)}`, busy: false });
-      return;
-    }
-    useArxmlStore.getState().setDoc(parsed.value, opened.path);
-    setState({ error: null, busy: false });
   };
 
   const onSave = async (): Promise<void> => {
     if (doc === null) return;
     setState({ error: null, busy: true });
     const currentPath = filePath ?? '';
-    const defaultName = currentPath.split(/[\\/]/).pop() ?? 'untitled.arxml';
+    const defaultName = basename(currentPath) || 'untitled.arxml';
     const saved = await window.autosarApi.saveArxml({ doc, defaultName });
     if (!saved.ok) {
       setState({ error: `Save failed: ${saved.error.message}`, busy: false });
@@ -83,10 +116,10 @@ export function AppHeader(): JSX.Element {
     setState({ error: null, busy: false });
   };
 
-  const canSave = doc !== null && !state.busy && dirty;
+  const canSave = doc !== null && !state.busy && isActiveDirty;
   // Show only the file basename in the header; the full path is in the
   // tooltip so the bar stays compact even for long Windows paths.
-  const fileName = filePath?.split(/[\\/]/).pop() ?? null;
+  const fileName = filePath !== null ? basename(filePath) : null;
   const docVersion = doc?.version ?? null;
 
   return (
@@ -97,8 +130,8 @@ export function AppHeader(): JSX.Element {
         </span>
         <span className="app-name">claude-AutosarCfg</span>
         {fileName !== null && (
-          <span className="app-doc-name" title={filePath ?? ''}>
-            {dirty ? '● ' : ''}
+          <span className="app-doc-name" title={filePath ?? ''} data-testid="app-doc-name">
+            {isActiveDirty ? '● ' : ''}
             {fileName}
           </span>
         )}
@@ -117,12 +150,46 @@ export function AppHeader(): JSX.Element {
           type="button"
           onClick={onSave}
           disabled={!canSave}
-          className={`app-btn app-btn-save ${dirty ? 'is-dirty' : ''}`}
+          className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
           data-testid="btn-save"
         >
-          {dirty ? 'Save *' : 'Save'}
+          {isActiveDirty ? 'Save *' : 'Save'}
         </button>
       </div>
+      {documentPaths.length > 0 && (
+        <div className="app-doc-tabs" role="tablist" aria-label="Loaded documents">
+          {documentPaths.map((p) => {
+            const isActive = p === activeDocumentPath;
+            return (
+              <div
+                key={p}
+                className={`app-doc-tab ${isActive ? 'is-active' : ''}`}
+                data-testid={`doc-tab-${p}`}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className="app-doc-tab-label"
+                  onClick={() => setActiveDocument(p)}
+                  title={p}
+                >
+                  {basename(p)}
+                </button>
+                <button
+                  type="button"
+                  className="app-doc-tab-close"
+                  aria-label={`Close ${basename(p)}`}
+                  onClick={() => removeDocument(p)}
+                  data-testid={`doc-tab-close-${p}`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="app-header-right">
         {state.error !== null && (
           <span className="app-header-error" role="alert">

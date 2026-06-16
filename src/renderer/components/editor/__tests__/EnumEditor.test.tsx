@@ -41,7 +41,7 @@ describe('EnumEditor', () => {
       doc: null,
       filePath: null,
       selectedPath: null,
-      dirty: false,
+      dirtyPaths: new Set<string>(),
       error: null,
       validationErrors: [],
       lastValidatedAt: null,

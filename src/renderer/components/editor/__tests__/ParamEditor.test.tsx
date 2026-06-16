@@ -86,6 +86,6 @@ describe('ParamEditor', () => {
     const cont = updated.packages[0]?.elements[0];
     if (cont === undefined || cont.kind !== 'container') return;
     expect(cont.params['Count']).toEqual({ type: 'integer', value: 7 });
-    expect(useArxmlStore.getState().dirty).toBe(true);
+    expect(useArxmlStore.getState().dirtyPaths.has('/EAS')).toBe(true);
   });
 });

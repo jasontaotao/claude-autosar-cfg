@@ -7,6 +7,7 @@ import { serializeArxml } from '../../core/arxml/serializer.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   FileError,
+  OpenArxmlMultiResult,
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
@@ -58,6 +59,52 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.PARSE_ARXML,
     async (_evt, req: ParseArxmlRequest): Promise<ParseArxmlResponse> => {
       return parseArxml(req.content);
+    },
+  );
+
+  // Sprint 10 #2 — multi-file open. Returns a discriminated union so the
+  // renderer can distinguish "user canceled" from "all opened" from
+  // "some opened, some failed" from "OS-level read error". Replaces the
+  // silent-failure pattern where a read-failure was collapsed into a
+  // canceled result (silent-failure-hunter finding #4).
+  ipcMain.handle(
+    IPC_CHANNELS.OPEN_ARXML_MULTI,
+    async (_evt, opts?: { readonly title?: string }): Promise<OpenArxmlMultiResult> => {
+      const result = await dialog.showOpenDialog({
+        title: opts?.title ?? 'Open ARXML',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'ARXML', extensions: ['arxml'] },
+          { name: 'XML', extensions: ['xml'] },
+          { name: 'All', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { kind: 'canceled' };
+      }
+      const opened: { path: string; content: string }[] = [];
+      const failed: { path: string; message: string }[] = [];
+      for (const path of result.filePaths) {
+        try {
+          const content = await fs.readFile(path, 'utf8');
+          opened.push({ path, content });
+        } catch (err) {
+          failed.push({
+            path,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (failed.length === 0) {
+        return { kind: 'opened', results: opened };
+      }
+      if (opened.length === 0) {
+        return {
+          kind: 'read-failed',
+          message: failed.map((f) => `${f.path}: ${f.message}`).join('\n'),
+        };
+      }
+      return { kind: 'partial', opened, failed };
     },
   );
 

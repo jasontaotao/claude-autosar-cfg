@@ -72,8 +72,8 @@ describe('useArxmlStore - validation sync', () => {
       value: true,
     });
     const next = useArxmlStore.getState();
-    // dirty set
-    expect(next.dirty).toBe(true);
+    // active doc marked dirty
+    expect(next.dirtyPaths.has('/tmp/foo.arxml')).toBe(true);
     // validationErrors array present (still [] from stub)
     expect(Array.isArray(next.validationErrors)).toBe(true);
     // timestamp updated
@@ -100,8 +100,8 @@ describe('useArxmlStore - validation sync', () => {
     expect(next.lastValidatedAt).toBe(beforeTs);
     // Doc reference preserved
     expect(next.doc).toBe(doc);
-    // dirty NOT set
-    expect(next.dirty).toBe(false);
+    // dirty NOT set (same value, no mutation)
+    expect(next.dirtyPaths.has('/tmp/foo.arxml')).toBe(false);
   });
 
   it('validate() action alone re-runs validation', () => {

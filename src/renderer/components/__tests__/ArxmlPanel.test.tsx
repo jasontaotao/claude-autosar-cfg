@@ -123,7 +123,7 @@ describe('ArxmlPanel status footer (Sprint 9 #5)', () => {
       },
       '/x.arxml',
     );
-    useArxmlStore.setState({ dirty: true });
+    useArxmlStore.setState({ dirtyPaths: new Set(['/x.arxml']) });
     render(<ArxmlPanel />);
     expect(screen.getByText(/unsaved changes/)).toBeInTheDocument();
   });

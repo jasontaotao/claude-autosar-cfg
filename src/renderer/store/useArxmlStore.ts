@@ -8,19 +8,34 @@ import type {
   ParamValue,
 } from '@core/arxml/types';
 import type { ValidationError } from '@core/validation';
-import { validate as runValidation } from '@core/validation';
+import { validateProjectForRenderer } from '@core/validation';
 
 /**
- * Renderer-side state for the currently-open ARXML document.
+ * Renderer-side state for the open ARXML document set.
+ *
+ * Sprint 10 #2 widened the store from single-doc to multi-doc. The
+ * canonical state is the (documents, documentPaths, activeDocumentPath)
+ * triple; the legacy single-doc fields (doc, filePath) are derived
+ * from the active document and kept for back-compat with the existing
+ * renderer consumers (AppHeader, ArxmlPanel, ParamEditor, etc.).
+ *
+ * @deprecated `doc` and `filePath` are derived from `activeDocumentPath`.
+ *             New code should read `documents` + `activeDocumentPath`
+ *             directly. The legacy fields will be removed in v1.0 once
+ *             every consumer migrates to a per-document model.
  *
  * Holds:
- *   - `doc` — parsed ArxmlDocument (immutable)
- *   - `filePath` — origin path on disk
+ *   - `documents` / `documentPaths` — the loaded document set; parallel
+ *     arrays (one ArxmlDocument per filePath), insertion-ordered.
+ *   - `activeDocumentPath` — the path of the document currently shown
+ *     in the tree / ParamEditor; null when nothing is open.
+ *   - `doc` / `filePath` — back-compat aliases of the active doc/path.
  *   - `selectedPath` — element path currently highlighted in the tree
- *   - `dirty` — true if doc has unpersisted mutations
+ *   - `dirty` — true if any loaded doc has unpersisted mutations
  *   - `error` — last displayable error string (parser/save)
- *   - `validationErrors` — latest validation results (sync-revalidated
- *     on every doc mutation; consumers may also force via `validate()`)
+ *   - `validationErrors` — latest validation results across ALL loaded
+ *     documents (Sprint 10 #2: was single-doc only, now project-level
+ *     via `validateProjectForRenderer(documents)`)
  *   - `lastValidatedAt` — `Date.now()` timestamp of the last validation
  *     run, or null when no doc is loaded
  *
@@ -29,15 +44,51 @@ import { validate as runValidation } from '@core/validation';
  * equality for downstream `useStore(selector)` consumers.
  */
 export interface ArxmlState {
+  // Multi-doc state (canonical)
+  readonly documents: readonly ArxmlDocument[];
+  readonly documentPaths: readonly string[];
+  readonly activeDocumentPath: string | null;
+
+  // Back-compat single-doc aliases (derived from active)
+  /** @deprecated use `documents` + `activeDocumentPath` instead. */
   readonly doc: ArxmlDocument | null;
+  /** @deprecated use `documentPaths` + `activeDocumentPath` instead. */
   readonly filePath: string | null;
+
+  // Per-renderer UI state
   readonly selectedPath: string | null;
-  readonly dirty: boolean;
+  /**
+   * Per-document dirty state. Each entry is the filePath of a document
+   * that has unpersisted mutations. Consumers computing "is the active
+   * doc dirty" should read this set against `activeDocumentPath`:
+   *
+   *   const isActiveDirty =
+   *     activeDocumentPath !== null && dirtyPaths.has(activeDocumentPath);
+   *
+   * Pre-Sprint 10 #2, this was a single `boolean` representing the
+   * project-wide dirty state. That semantic broke in the multi-doc
+   * world (saving doc B would clear dirty even if doc A was still
+   * dirty). The Set is the correct per-path representation.
+   */
+  readonly dirtyPaths: ReadonlySet<string>;
   readonly error: string | null;
   readonly validationErrors: readonly ValidationError[];
   readonly lastValidatedAt: number | null;
 
+  // Multi-doc actions (Sprint 10 #2)
+  addDocument: (doc: ArxmlDocument, filePath: string) => void;
+  removeDocument: (filePath: string) => void;
+  setActiveDocument: (filePath: string | null) => void;
+
+  // Back-compat single-doc action. Since Sprint 10 #2, `setDoc` is
+  // equivalent to `addDocument`: it appends the doc if `filePath` is new,
+  // or replaces the existing entry if `filePath` is already loaded, and
+  // sets the active doc to `filePath`. New code should call `addDocument`
+  // directly; this is kept only because every existing call site (renderer
+  // tests, fixture setup) uses it and we don't want to migrate them yet.
   setDoc: (doc: ArxmlDocument, filePath: string) => void;
+
+  // Other actions
   select: (path: string | null) => void;
   updateParam: (containerPath: string, paramKey: string, value: ParamValue) => void;
   markSaved: (filePath: string) => void;
@@ -47,61 +98,162 @@ export interface ArxmlState {
 }
 
 export const useArxmlStore = create<ArxmlState>((set, get) => ({
+  documents: [],
+  documentPaths: [],
+  activeDocumentPath: null,
   doc: null,
   filePath: null,
   selectedPath: null,
-  dirty: false,
+  dirtyPaths: new Set<string>(),
   error: null,
   validationErrors: [],
   lastValidatedAt: null,
 
-  setDoc: (doc, filePath) =>
+  addDocument: (doc, filePath) => {
+    const state = get();
+    const existingIdx = state.documentPaths.indexOf(filePath);
+    let nextDocuments: readonly ArxmlDocument[];
+    if (existingIdx === -1) {
+      nextDocuments = [...state.documents, doc];
+    } else {
+      nextDocuments = state.documents.map((d, i) => (i === existingIdx ? doc : d));
+    }
     set({
+      documents: nextDocuments,
+      documentPaths: state.documentPaths.includes(filePath)
+        ? state.documentPaths
+        : [...state.documentPaths, filePath],
+      activeDocumentPath: filePath,
       doc,
       filePath,
       selectedPath: null,
-      dirty: false,
+      // Newly loaded doc is fresh; other docs' dirty state is preserved.
+      dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
       error: null,
-      validationErrors: runValidation(doc),
+      validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
-    }),
+    });
+  },
+
+  removeDocument: (filePath) => {
+    const state = get();
+    const idx = state.documentPaths.indexOf(filePath);
+    if (idx === -1) return;
+    const nextPaths = state.documentPaths.filter((_, i) => i !== idx);
+    const nextDocuments = state.documents.filter((_, i) => i !== idx);
+    // If we removed the active doc, promote the first remaining (or null).
+    const wasActive = state.activeDocumentPath === filePath;
+    const nextActive = wasActive
+      ? (nextPaths[0] ?? null)
+      : state.activeDocumentPath;
+    const activeIdx = nextActive === null ? -1 : nextPaths.indexOf(nextActive);
+    const nextActiveDoc = activeIdx === -1 ? null : (nextDocuments[activeIdx] ?? null);
+    set({
+      documents: nextDocuments,
+      documentPaths: nextPaths,
+      activeDocumentPath: nextActive,
+      doc: nextActiveDoc,
+      filePath: nextActive,
+      // The removed doc's dirty bit is dropped; other docs' dirty state
+      // is preserved.
+      dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
+      validationErrors: validateProjectForRenderer(nextDocuments),
+      lastValidatedAt: Date.now(),
+    });
+  },
+
+  setActiveDocument: (filePath) => {
+    const state = get();
+    if (filePath === null) {
+      set({ activeDocumentPath: null, doc: null, filePath: null });
+      return;
+    }
+    const idx = state.documentPaths.indexOf(filePath);
+    if (idx === -1) return; // unknown path → no-op
+    const nextDoc = state.documents[idx] ?? null;
+    set({
+      activeDocumentPath: filePath,
+      doc: nextDoc,
+      filePath,
+    });
+  },
+
+  setDoc: (doc, filePath) => {
+    get().addDocument(doc, filePath);
+  },
 
   select: (path) => set({ selectedPath: path }),
 
   updateParam: (containerPath, paramKey, value) => {
     const state = get();
-    if (state.doc === null) return;
-    const next = applyParamUpdate(state.doc, containerPath, paramKey, value);
-    if (next === state.doc) return;
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const activeDoc = state.documents[activeIdx]!;
+    const nextActiveDoc = applyParamUpdate(activeDoc, containerPath, paramKey, value);
+    if (nextActiveDoc === activeDoc) return;
+    const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
     set({
-      doc: next,
-      dirty: true,
-      validationErrors: runValidation(next),
+      documents: nextDocuments,
+      doc: nextActiveDoc,
+      // Mark only the active doc as dirty; other docs' dirty state is
+      // preserved (per-path Set, not project-wide boolean).
+      dirtyPaths: addToDirty(state.dirtyPaths, state.activeDocumentPath),
+      validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
     });
   },
 
-  markSaved: (filePath) => set({ dirty: false, filePath }),
+  markSaved: (filePath) =>
+    set({
+      // Clear the dirty bit for the saved doc only. Other dirty docs are
+      // preserved (per-path Set).
+      dirtyPaths: dropFromDirty(get().dirtyPaths, filePath),
+    }),
 
   setError: (msg) => set({ error: msg }),
 
   validate: () => {
     const state = get();
-    if (state.doc === null) return;
-    set({ validationErrors: runValidation(state.doc), lastValidatedAt: Date.now() });
+    set({
+      validationErrors: validateProjectForRenderer(state.documents),
+      lastValidatedAt: Date.now(),
+    });
   },
 
   clear: () =>
     set({
+      documents: [],
+      documentPaths: [],
+      activeDocumentPath: null,
       doc: null,
       filePath: null,
       selectedPath: null,
-      dirty: false,
+      dirtyPaths: new Set<string>(),
       error: null,
       validationErrors: [],
       lastValidatedAt: null,
     }),
 }));
+
+// ---------------------------------------------------------------------------
+// ReadonlySet helpers — pure, allocation-free when the entry is already
+// present (addToDirty) or already absent (dropFromDirty).
+// ---------------------------------------------------------------------------
+
+function addToDirty(set: ReadonlySet<string>, path: string): ReadonlySet<string> {
+  if (set.has(path)) return set;
+  const next = new Set(set);
+  next.add(path);
+  return next;
+}
+
+function dropFromDirty(set: ReadonlySet<string>, path: string): ReadonlySet<string> {
+  if (!set.has(path)) return set;
+  const next = new Set(set);
+  next.delete(path);
+  return next;
+}
 
 // ---------------------------------------------------------------------------
 // Immutable param update — produces a new doc only when the param value

@@ -67,7 +67,8 @@ interface MockState {
   doc: ArxmlDocument | null;
   filePath: string | null;
   selectedPath: string | null;
-  dirty: boolean;
+  dirtyPaths: ReadonlySet<string>;
+  activeDocumentPath: string | null;
   setDoc: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
   updateParam: ReturnType<typeof vi.fn>;
@@ -83,7 +84,8 @@ function makeStoreApi(initial: Partial<MockState> = {}): {
     doc: null,
     filePath: null,
     selectedPath: null,
-    dirty: false,
+    dirtyPaths: new Set<string>(),
+    activeDocumentPath: null,
     setDoc: vi.fn(),
     select: vi.fn(),
     updateParam: vi.fn(),

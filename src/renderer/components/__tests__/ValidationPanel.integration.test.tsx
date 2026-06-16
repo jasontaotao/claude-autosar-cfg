@@ -82,6 +82,6 @@ describe('ValidationPanel integration with store', () => {
     // Count is whatever T2's validator produces; we only assert that
     // lastValidatedAt advances, proving the store re-ran validation.
     expect(after).toEqual(before);
-    expect(useArxmlStore.getState().dirty).toBe(true);
+    expect(useArxmlStore.getState().dirtyPaths.has('/EcucDefs/Pdu.arxml')).toBe(true);
   });
 });

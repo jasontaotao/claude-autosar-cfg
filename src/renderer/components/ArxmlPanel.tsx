@@ -12,7 +12,9 @@ import { useArxmlStore } from '../store/useArxmlStore';
 
 export function ArxmlPanel(): JSX.Element | null {
   const doc = useArxmlStore((s) => s.doc);
-  const dirty = useArxmlStore((s) => s.dirty);
+  const isActiveDirty = useArxmlStore((s) =>
+    s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
+  );
 
   if (doc === null) return null;
 
@@ -35,7 +37,7 @@ export function ArxmlPanel(): JSX.Element | null {
       <span className="status-item">
         AUTOSAR <strong>{doc.version}</strong>
       </span>
-      {dirty && (
+      {isActiveDirty && (
         <>
           <span className="status-sep">•</span>
           <span className="status-dirty">unsaved changes</span>

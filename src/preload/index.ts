@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
+  OpenArxmlMultiResult,
   OpenArxmlResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
@@ -14,6 +15,8 @@ const api = {
   getAppVersion: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION),
   openArxml: (opts?: { readonly title?: string }): Promise<OpenArxmlResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.OPEN_ARXML, opts),
+  openArxmlMulti: (opts?: { readonly title?: string }): Promise<OpenArxmlMultiResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.OPEN_ARXML_MULTI, opts),
   parseArxml: (req: ParseArxmlRequest): Promise<ParseArxmlResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.PARSE_ARXML, req),
   saveArxml: (req: SaveArxmlRequest): Promise<SaveArxmlResponse> =>
