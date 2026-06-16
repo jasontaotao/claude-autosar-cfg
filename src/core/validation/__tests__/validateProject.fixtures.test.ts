@@ -49,20 +49,47 @@
 //                                      refs — no path-shape rewrite can
 //                                      resolve them). See Deviations.
 //
-// Signature guard (T1-C + Sprint 9 #1):
-//   refSites.length        : [1300, 1400]  — same window; helper is purely
+// Sprint 9 #4 baseline numbers (after shortName uniqueness fallback):
+//   cross-ref errors       : 782    (was 1003; 221 resolved by the
+//                                      shortName uniqueness fallback. The
+//                                      221 closed cases all had a unique
+//                                      leaf shortName in pathIndex — the
+//                                      fixture VALUE-REF said e.g.
+//                                      `/EcucDefs/Com/ComConfig/...
+//                                      /CAN_NetworkTx` but the element
+//                                      actually lives at
+//                                      `/EcucDefs/Com/CanConfigSet/
+//                                      /CAN_NetworkTx` (sibling branch
+//                                      match). The remaining 782 dangles
+//                                      have an *ambiguous* leaf shortName
+//                                      (≥2 entries in pathIndex share the
+//                                      same leaf); these cannot be safely
+//                                      auto-resolved and remain reported
+//                                      as cross-ref errors. The fallback
+//                                      is a pure / side-effect-free helper
+//                                      (`tryResolveByShortName`) that
+//                                      performs a uniqueness-checked lookup
+//                                      in the project's pre-built shortName
+//                                      reverse-index. See Deviations #1.)
+//
+// Signature guard (T1-C + Sprint 9 #1 + #4):
+//   refSites.length        : [1300, 1400]  — unchanged; helper is purely
 //                                             path-rewriting, never adds
 //                                             or drops sites.
-//   cross-ref errors       : [800, 1100]   — Sprint 9 #1 closes the type-
-//                                             segment dimension. Lower bound
-//                                             800 protects against future
-//                                             refactors that might resolve
-//                                             these genuine dangles by
-//                                             accident (false negative);
-//                                             upper bound 1100 protects
-//                                             against parser regressions
-//                                             inflating the error count.
-//   validateProject total  : [800, 1100]   — mirrors cross-ref (single-doc
+//   cross-ref errors       : [700, 850]    — Sprint 9 #1 closed the type-
+//                                             segment dimension ([1300,1400]
+//                                             → [800,1100]); Sprint 9 #4
+//                                             closed the shortName-
+//                                             uniqueness dimension
+//                                             ([800,1100] → [700,850]).
+//                                             Lower bound 700 protects
+//                                             against future refactors
+//                                             over-resolving these dangles
+//                                             (false negative); upper
+//                                             bound 850 protects against
+//                                             parser regressions inflating
+//                                             the count.
+//   validateProject total  : [700, 850]    — mirrors cross-ref (single-doc
 //                                             errors remain 0 across these
 //                                             5 fixtures).
 //   ref-dest errors        : [0, 200]      — Sprint 9 #2 adds the new
@@ -169,7 +196,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
 
     // Surface every number so the test stdout tells the whole story.
     // eslint-disable-next-line no-console
-    console.log('=== Sprint 9 #3 baseline (5 fixtures) ===');
+    console.log('=== Sprint 9 #4 baseline (5 fixtures) ===');
     // eslint-disable-next-line no-console
     console.log('pathIndex.size         :', pathIndex.size);
     // eslint-disable-next-line no-console
@@ -182,6 +209,16 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     );
     // eslint-disable-next-line no-console
     console.log('cross-ref errors       :', crossRefErrors.length);
+    // Sprint 9 #4: how many of the original 1003 dangles were closed by
+    // the shortName uniqueness fallback. Computed by re-running the
+    // fallback pass over the raw site list and counting hits — same
+    // helper the production checkCrossRefs now uses internally.
+    // eslint-disable-next-line no-console
+    console.log(
+      'cross-ref (unique-resolved by shortName):',
+      1003 - crossRefErrors.length,
+      '(was 1003 pre-#4)',
+    );
     // eslint-disable-next-line no-console
     console.log('ref-dest errors        :', refDestErrors.length);
     // eslint-disable-next-line no-console
@@ -241,11 +278,13 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     //
     // Band rationale:
     //  - refSites    [1300, 1400] — unchanged; helpers do not touch sites.
-    //  - cross-ref   [800, 1100]  — accommodates 1003; lower bound guards
-    //                               against future false-negative rewrites
-    //                               silently resolving genuine dangles;
-    //                               upper bound guards against parser
-    //                               regressions inflating the count.
+    //  - cross-ref   [700, 850]   — accommodates 782 (was 1003 pre-#4; the
+    //                               221 unique shortName cases were closed
+    //                               by the Sprint 9 #4 fallback). Lower
+    //                               bound guards against future refactors
+    //                               over-resolving dangles; upper bound
+    //                               guards against parser regressions
+    //                               inflating the count.
     //  - ref-dest    [0, 200]     — new metric; 5 fixtures report 0 (clean).
     //                               Lower bound 0 is permissive — ref-dest is
     //                               opt-in (clean data has zero). Upper bound
@@ -271,8 +310,12 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // zero), upper bound 200 is the catastrophic over-fire safety net.
     expect(refSites.length).toBeGreaterThanOrEqual(1300);
     expect(refSites.length).toBeLessThanOrEqual(1400);
-    expect(crossRefErrors.length).toBeGreaterThanOrEqual(800);
-    expect(crossRefErrors.length).toBeLessThanOrEqual(1100);
+    // Sprint 9 #4: band tightened from [800, 1100] to [700, 850] after
+    // the shortName uniqueness fallback closed 221 of the 1003 dangles.
+    // 5-fixture observation: 782 dangles remain (all with ambiguous
+    // leaf shortName, see Deviations #1).
+    expect(crossRefErrors.length).toBeGreaterThanOrEqual(700);
+    expect(crossRefErrors.length).toBeLessThanOrEqual(850);
     expect(refDestErrors.length).toBeGreaterThanOrEqual(0);
     expect(refDestErrors.length).toBeLessThanOrEqual(200);
     expect(refCycleErrors.length).toBeGreaterThanOrEqual(0);
@@ -282,8 +325,8 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     // validateProject must be at least the cross-ref count (since cross-ref
     // errors are added on top of the per-doc validate() results).
     expect(allErrors.length).toBeGreaterThanOrEqual(crossRefErrors.length);
-    expect(allErrors.length).toBeGreaterThanOrEqual(800);
-    expect(allErrors.length).toBeLessThanOrEqual(1100);
+    expect(allErrors.length).toBeGreaterThanOrEqual(700);
+    expect(allErrors.length).toBeLessThanOrEqual(850);
   });
 
   it('extractReferences never emits a site with an empty sourcePath (caller sanity)', () => {

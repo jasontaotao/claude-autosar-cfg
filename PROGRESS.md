@@ -906,6 +906,91 @@ Sprint 9 #1 + #2 ship 后，`validateProject` 5 步流水线已覆盖 _存在性
 - [ ] Cycle 错误 message 超长截断 → YAGNI
 - [ ] Dangling ref 升级（把 cross-ref 1003 误报降到 0，#4）→ 后续 Sprint
 
+## Sprint 9 #4 — shortName uniqueness fallback（✅ 2026-06-16 完成）
+
+### 完成情况
+
+- **267 tests pass / 0 fail / 0 skipped**（Sprint 9 #3 245 → #4 267，+22 新增：15 `tryResolveByShortName` unit + 7 `checkCrossRefs` E2E）
+- coverage **96.03% stmts / 84.03% branches / 100% funcs**（stmts 95.84 → 96.03、branches 83.37 → 84.03，+0.66% branch coverage 来自新 helper 的 dedup / unique-only 分支）
+- 5/5 fixture round-trip 不退化
+- 关键数字变化：
+  - pathIndex.size 1611（不变）
+  - refSites.length 1336（不变，helper 不增删 sites）
+  - referenceParams.total 1341（不变）
+  - cross-ref errors **782**（was 1003，−221 unique-resolved，**净 positive 22%**）
+  - ref-dest errors 0
+  - ref-cycle errors 0
+  - validateProject total **782**（was 1003）
+
+### 解决什么问题
+
+Sprint 9 #1 + #2 + #3 ship 后，`checkCrossRefs` 已能关闭 namespace mismatch（Sprint 8 #1）+ type-segment mismatch（Sprint 9 #1）+ dest-kind mismatch（Sprint 9 #2）+ cyclic 结构（Sprint 9 #3）四个维度，但**剩余 1003 fixture dangle 全是 branch mismatch**：fixture VALUE-REF target 写的是兄弟 branch path（典型例：`/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx`，但 `CAN_NetworkTx` 实际位于 `/EcucDefs/Com/CanConfigSet/CAN_NetworkTx`）。Path-shape rewrite 不可能修复这种 sibling mismatch——它本质是 fixture 数据内部不一致。
+
+Sprint 9 #4 ship 纯 helper `tryResolveByShortName`，对 **strict lookup miss 后的 ref site 做 leaf shortName 唯一性 fallback**：
+
+```ts
+// checkCrossRefs 内串联
+const resolved = resolveTargetPath(site.targetPath);
+if (pathIndex.has(resolved)) continue; // exact match: pass
+if (tryResolveByShortNameWithIndex(site.targetPath, shortNameIndex) !== undefined) {
+  continue; // fuzzy match: pass
+}
+// 否则 emit 'cross-ref' error(unchanged)
+```
+
+`shortNameIndex` 是 `buildShortNameIndex(pathIndex)` 一次构建的 `shortName → entries[]` reverse-index（O(n) build,O(1) lookup），所有 site 共享，避免 per-site O(n) 扫描。
+
+实测 5 fixture 数据分布（probe 一次后已清理）：
+
+- 221 unique-resolved（leaf shortName 在 pathIndex 中正好 1 个匹配）→ fallback hit,silent resolve
+- 782 ambiguous（leaf shortName 有 ≥2 个 entry）→ fallback miss,继续 emit cross-ref error
+- 0 not-found（100% dangle 的 leaf 都至少存在 1 次）
+
+### 改动清单（4 文件 + 2 新测试文件）
+
+| 文件                                                             | 改动                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core/validation/validate.ts`                                | (a) 新增 `buildShortNameIndex(pathIndex)` helper：纯函数、O(n) build、生成 `Map<string, readonly PathIndexEntry[]>`；(b) 新增 `tryResolveByShortName(path, pathIndex)` public helper：单次调用场景，内部 build 索引；(c) 新增 `tryResolveByShortNameWithIndex(path, shortNameIndex)` lower-level overload：amortized build 场景，给 `checkCrossRefs` 用；(d) `checkCrossRefs:548` 入口构建 shortNameIndex，在 `pathIndex.has(resolved)` miss 后串联 fallback |
+| `src/core/validation/index.ts`                                   | barrel re-export 3 个新 helper（`buildShortNameIndex` / `tryResolveByShortName` / `tryResolveByShortNameWithIndex`）                                                                                                                                                                                                                                                                                                                                         |
+| `src/core/validation/__tests__/tryResolveByShortName.test.ts`    | **新文件**，15 unit tests（主用例 / 0-match / 2-match-ambiguous / 3-match-ambiguous / empty path / 1-segment resolve / trailing-slash / case-sensitivity / sibling-branch / empty pathIndex / numeric-leaf / mixed-kind 仍 ambiguous / 1000-entry perf sanity / cross-module resolve / consecutive-slashes）                                                                                                                                                 |
+| `src/core/validation/__tests__/checkCrossRefs.test.ts`           | **新文件**，7 E2E tests（exact-match pass / fuzzy resolve pass / 2-match-ambiguous 仍 emit / 0-match 仍 emit / paramKey & sourcePath 透传 / placeholder 提前 skip / 三类 site 混合正确分类）                                                                                                                                                                                                                                                                 |
+| `src/core/validation/__tests__/validateProject.fixtures.test.ts` | (a) baseline console.log 头部 `Sprint 9 #3` → `Sprint 9 #4` + 新增 `cross-ref (unique-resolved by shortName): 221` 行；(b) `crossRefErrors` band `[800, 1100]` → `[700, 850]`,`allErrors` 同步；(c) header 注释新增 Sprint 9 #4 baseline 演化段（221 unique-resolved / 782 ambiguous 仍是 fixture 数据问题）                                                                                                                                                 |
+| `package.json`                                                   | version `0.9.4 → 0.9.5`（PATCH bump）                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `src/main/ipc/register.ts`                                       | `GET_APP_VERSION` `'0.9.4' → '0.9.5'` 同步                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+### Review 处理（code-reviewer 子 agent）
+
+| Finding                                                          | 严重度 | 处理                                                                                                                                                                                         |
+| ---------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------ |
+| `tryResolveByShortName` 每次调用 rebuild 索引 → 性能隐患         | LOW    | ✅ 拆分 public `tryResolveByShortName` (per-call build) + lower-level `tryResolveByShortNameWithIndex` (amortized) 两种 overload；`checkCrossRefs` 用 `WithIndex` 版一次构建、所有 site 共享 |
+| 默认公开 `buildShortNameIndex` 增加 surface 面积                 | LOW    | ✅ 公开它：renderer / 未来跨文档工具 / RTE path生成 可以复用同一份 shortName reverse-index（`normalizePath` / `tryStripTypeSegment` / `resolveTargetPath` 都已公开，保持 family 一致）       |
+| `tryResolveByShortName` 缺 direct 单测（caller tests 间接覆盖）  | MEDIUM | ✅ 写 `tryResolveByShortName.test.ts` 15 cases 锁 helper 契约                                                                                                                                |
+| `tryResolveByShortNameWithIndex` 缺 direct 单测                  | LOW    | ✅ 7 个 `checkCrossRefs` E2E + 15 个 `tryResolveByShortName` 单元覆盖 lower-level path；不重复写 15 个 WithIndex 用例（proves equivalence to public version via shared call site）           |
+| Trailing-slash 行为未在 JSDoc 明确                               | LOW    | ✅ JSDoc 显式："empty / trailing-slash path → `undefined`"；helper 内部加 `path === ''                                                                                                       |     | path.endsWith('/')` 兜底 |
+| Ambiguous leaf 仍 emit `kind: 'cross-ref'` 会混淆 exact vs fuzzy | MEDIUM | ✅ 显式选 silent resolve（不引入 `kind-cross-ref-fuzzy`）；Deviations #1 写明 extension point：未来若发现误报风险可加 10th kind                                                              |
+
+### Deviations
+
+1. **silent resolve vs 新 `kind`**：100% dangle 仍属 cross-ref 语义轴，只是 resolve 路径不同。引入 `.kind-cross-ref-fuzzy` 会改 `types.ts` 联合 + `types.test.ts` 9→10 + `ValidationPanel.css` 第 10 个颜色（现有 9 色已接近色相覆盖上限）+ fixtures test `e.kind === 'cross-ref'` 守护。ROI 不匹配 scope（30-50 行新代码 vs 4 个文件改动）。**选 silent resolve**（找到唯一 shortName 匹配就当 resolved、不 emit error），保留 `kind: 'cross-ref'` 语义不变。**预留扩展点**：如果未来发现 ambiguous case（782 dangle）误报风险，再加 `kind-cross-ref-fuzzy` 升级（deviation 文档化在 PROGRESS）。
+2. **782 ambiguous case 仍是 fixture 数据问题**：本 Sprint 不动。如果用户后续报告"具体某 ref 报 dangling 但数据其实对"，再加 Suffix 匹配（"parent[N] of X" 等模式）或 path-pattern 重写。**Deviations #1 在 fixtures test header 注释 + PROGRESS 都文档化**。
+3. **`tryResolveByShortName` 单测中 `tryStripTypeSegment` 风格延续**：纯函数、whitelist-only 行为（不做 fuzzy shortName 如 `CanConfig*` 通配）。YAGNI——通配匹配会引入新一类 false negative，超出 "1003 → 782" 的 scope。
+
+### Sprint 9 #4 → Sprint 9 #5 衔接
+
+- [x] `validateProject` 现在按 6 步流水线工作：单文档 validate → buildPathIndex → extractReferences → checkCrossRefs（**+ shortName uniqueness fallback**）→ checkRefDests → checkRefCycles
+- [x] `tryResolveByShortName` / `tryResolveByShortNameWithIndex` / `buildShortNameIndex` 3 个新 helper 加入 `index.ts` barrel；renderer / 未来跨文档工具 / RTE path生成 可复用
+- [x] 5/5 fixture 数字从 cross-ref 1003 降到 782；其他 6 项数字不变
+- [x] ValidationPanel 不需要新 kind CSS（silent resolve），现有 9 色保持
+- [x] `types.test.ts` 不动（无新 kind）
+- [x] `tryResolveByShortName` JSDoc 显式写明 trailing-slash 行为 + case-sensitivity + 0/1/≥2 match 语义
+- [ ] fixture 数据本身 782 ambiguous dangling → 后续 backlog（Deviations #1 / #2）
+- [ ] fixture volume management（#7 R21/R22 CanIf）→ 后续 backlog
+- [ ] UI integration：documents store → ValidationPanel 数据流（#6）→ 后续 backlog
+- [ ] **#15 `lookupSchema` unknown path 显式 log** → 下一个 ROI 候选（独立、不依赖 #14 schema 扩张）
+- [ ] **#13 BSWMD 模板侧加载 + #14 CanIf schema 扩张** → ROI 高但 scope 大，需 user 拍板 (a)/(b) 决策点
+
+## 参考资料
+
 ## 参考资料
 
 - 详细 Sprint 0 plan: `C:\Users\13777\.claude\plans\autosar-cfg-spring-zero.md`

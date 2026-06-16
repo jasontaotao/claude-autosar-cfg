@@ -20,7 +20,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, async () => {
-    return '0.9.4';
+    return '0.9.5';
   });
 
   ipcMain.handle(

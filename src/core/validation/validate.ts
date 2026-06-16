@@ -374,6 +374,100 @@ export function resolveTargetPath(path: string): string {
 }
 
 // ============================================================================
+// Sprint 9 #4 — shortName uniqueness fallback resolver
+// ============================================================================
+
+/**
+ * Build a `shortName → entries[]` reverse index from a pathIndex. Exported
+ * so callers handling many sites (e.g. `checkCrossRefs`) can amortise the
+ * O(n) build cost across all lookups: build once, pass the result to
+ * `tryResolveByShortName` for each site. For a single-shot lookup, call
+ * `tryResolveByShortName` directly — it builds its own index internally.
+ *
+ * Pure / side-effect-free: the input `pathIndex` is never mutated. The
+ * returned map is a fresh `Map` owned by the caller.
+ */
+export function buildShortNameIndex(
+  pathIndex: ReadonlyMap<string, PathIndexEntry>,
+): ReadonlyMap<string, readonly PathIndexEntry[]> {
+  const out = new Map<string, PathIndexEntry[]>();
+  for (const entry of pathIndex.values()) {
+    const arr = out.get(entry.shortName);
+    if (arr === undefined) {
+      out.set(entry.shortName, [entry]);
+    } else {
+      arr.push(entry);
+    }
+  }
+  return out;
+}
+
+/**
+ * Fallback resolver for cross-ref strict-lookup misses. Closes
+ * branch-mismatch cases like:
+ *
+ *   target: `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx`
+ *   actual: `/EcucDefs/Com/CanConfigSet/CAN_NetworkTx`
+ *   leaf:   `CAN_NetworkTx` (unique in pathIndex → resolve)
+ *
+ * The `path` argument should already be `resolveTargetPath`-normalised
+ * (namespace + type-segment strip); this helper does no further path
+ * rewriting. It compares the leaf shortName against `pathIndex` and
+ * returns the unique match if there is exactly one.
+ *
+ * Semantics:
+ *   - 0 match    → `undefined` (caller emits cross-ref error)
+ *   - 1 match    → the `PathIndexEntry` (caller treats as resolved)
+ *   - ≥2 matches → `undefined` (ambiguous; caller emits cross-ref error)
+ *   - empty / trailing-slash path → `undefined` (placeholder filter is the
+ *     caller's job, but this guard makes the helper safe in isolation)
+ *   - case-sensitive: `CanX` does not match `canx`
+ *
+ * Pure / side-effect-free / immutable. Does not mutate `pathIndex` or
+ * the entries it returns. For high-volume callers (`checkCrossRefs` with
+ * 1336 sites), prefer building the shortName index once via
+ * `buildShortNameIndex` and passing it to the lower-level overload.
+ *
+ * @param path the (already-normalised) target path to look up.
+ * @param pathIndex the project's full path index.
+ * @returns the unique `PathIndexEntry` matching the leaf shortName, or
+ *          `undefined` if the leaf is missing or ambiguous.
+ */
+export function tryResolveByShortName(
+  path: string,
+  pathIndex: ReadonlyMap<string, PathIndexEntry>,
+): PathIndexEntry | undefined {
+  const shortNameIndex = buildShortNameIndex(pathIndex);
+  return tryResolveByShortNameWithIndex(path, shortNameIndex);
+}
+
+/**
+ * Lower-level overload of `tryResolveByShortName` that accepts a
+ * pre-built shortName index. Most callers should use the public
+ * `tryResolveByShortName`; this overload is for hot loops that build
+ * the shortName index once and look up many times (see
+ * `checkCrossRefs`). Exported for symmetry with `buildShortNameIndex`
+ * and the `normalizePath` / `tryStripTypeSegment` / `resolveTargetPath`
+ * helper family.
+ */
+export function tryResolveByShortNameWithIndex(
+  path: string,
+  shortNameIndex: ReadonlyMap<string, readonly PathIndexEntry[]>,
+): PathIndexEntry | undefined {
+  // Trailing-slash placeholder: `isUnsetPlaceholder` is the caller's
+  // responsibility in the validation pipeline, but we guard here so the
+  // helper is safe in isolation (per JSDoc).
+  if (path === '' || path.endsWith('/')) return undefined;
+  const segments = path.split('/').filter((s) => s.length > 0);
+  const leaf = segments[segments.length - 1];
+  if (leaf === undefined || leaf.length === 0) return undefined;
+  const matches = shortNameIndex.get(leaf);
+  if (matches === undefined) return undefined;
+  if (matches.length !== 1) return undefined; // 0 (covered above) or ≥2
+  return matches[0];
+}
+
+// ============================================================================
 // Sprint 6 — Project-level validation: cross-container reference resolution
 // ============================================================================
 
@@ -550,6 +644,11 @@ export function checkCrossRefs(
   pathIndex: Map<string, PathIndexEntry>,
 ): readonly ValidationError[] {
   const errors: ValidationError[] = [];
+  // Sprint 9 #4: build the shortName reverse-index once for the whole
+  // call. The lookup is O(1) per site; building is O(n) in pathIndex
+  // size. Sharing the index across all sites is what makes the fallback
+  // effectively free at the 1336-site scale.
+  const shortNameIndex = buildShortNameIndex(pathIndex);
   for (const site of refSites) {
     if (isUnsetPlaceholder(site.targetPath)) continue;
     // Sprint 8 T1: collapse the fixture's `/EAS/...` definition-side
@@ -564,26 +663,34 @@ export function checkCrossRefs(
     // string so the error payload's `actual` shows the fixture-original
     // path and stays useful for cross-referencing the source ARXML.
     const resolved = resolveTargetPath(site.targetPath);
-    if (!pathIndex.has(resolved)) {
-      const error: ValidationError =
-        site.paramKey !== undefined
-          ? {
-              kind: 'cross-ref',
-              path: site.sourcePath,
-              paramKey: site.paramKey,
-              message: `Reference target not found: ${site.targetPath}`,
-              expected: 'resolvable absolute path',
-              actual: site.targetPath,
-            }
-          : {
-              kind: 'cross-ref',
-              path: site.sourcePath,
-              message: `Reference target not found: ${site.targetPath}`,
-              expected: 'resolvable absolute path',
-              actual: site.targetPath,
-            };
-      errors.push(error);
-    }
+    if (pathIndex.has(resolved)) continue;
+    // Sprint 9 #4 fallback: if the strict lookup miss is due to a
+    // branch mismatch (e.g. fixture VALUE-REF says
+    // `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx` but the
+    // element actually lives at `/EcucDefs/Com/CanConfigSet/CAN_NetworkTx`
+    // — a sibling branch), try resolving by the target's leaf shortName
+    // uniqueness. If exactly one entry in pathIndex has the leaf
+    // shortName, treat the site as resolved. If 0 or ≥2, fall through
+    // to the cross-ref error path.
+    if (tryResolveByShortNameWithIndex(site.targetPath, shortNameIndex) !== undefined) continue;
+    const error: ValidationError =
+      site.paramKey !== undefined
+        ? {
+            kind: 'cross-ref',
+            path: site.sourcePath,
+            paramKey: site.paramKey,
+            message: `Reference target not found: ${site.targetPath}`,
+            expected: 'resolvable absolute path',
+            actual: site.targetPath,
+          }
+        : {
+            kind: 'cross-ref',
+            path: site.sourcePath,
+            message: `Reference target not found: ${site.targetPath}`,
+            expected: 'resolvable absolute path',
+            actual: site.targetPath,
+          };
+    errors.push(error);
   }
   return errors;
 }

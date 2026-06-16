@@ -14,6 +14,9 @@ export {
   normalizePath,
   tryStripTypeSegment,
   resolveTargetPath,
+  tryResolveByShortName,
+  tryResolveByShortNameWithIndex,
+  buildShortNameIndex,
 } from './validate.js';
 
 export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';

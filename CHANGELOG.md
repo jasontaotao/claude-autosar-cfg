@@ -5,6 +5,38 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.9.5] — 2026-06-16 (Sprint 9 #4 — shortName uniqueness fallback)
+
+### Added
+
+- `src/core/validation/validate.ts` — new pure helper `tryResolveByShortName(path, pathIndex): PathIndexEntry | undefined` that resolves a cross-ref target's leaf shortName against the project's path index. Returns the unique `PathIndexEntry` matching the leaf if there is exactly one; returns `undefined` if the leaf is missing or ambiguous. Closes branch-mismatch cases where the fixture VALUE-REF says e.g. `/EcucDefs/Com/ComConfig/ComIPduGroup/CAN_NetworkTx` but the element actually lives at `/EcucDefs/Com/CanConfigSet/CAN_NetworkTx` (sibling branch match). Pure / side-effect-free / immutable.
+- `src/core/validation/validate.ts` — new pure helper `tryResolveByShortNameWithIndex(path, shortNameIndex): PathIndexEntry | undefined`, the lower-level overload that accepts a pre-built shortName reverse-index. Used by `checkCrossRefs` to amortise the O(n) index-build cost across all sites.
+- `src/core/validation/validate.ts` — new pure helper `buildShortNameIndex(pathIndex): ReadonlyMap<string, readonly PathIndexEntry[]>` that builds a `shortName → entries[]` reverse index. O(n) build, O(1) lookup.
+- `src/core/validation/__tests__/tryResolveByShortName.test.ts` — 15 unit tests covering: main case, 0-match, 2-match ambiguous, 3-match ambiguous, empty path, 1-segment path, trailing-slash, case-sensitivity, sibling-branch, empty pathIndex, numeric-leaf, mixed-kind duplicates, 1000-entry perf sanity, cross-module resolve, consecutive-slashes.
+- `src/core/validation/__tests__/checkCrossRefs.test.ts` — 7 E2E tests verifying the fallback integration: exact match still works, branch-mismatch target resolves, ambiguous leaf still emits cross-ref, missing leaf still emits cross-ref, paramKey / sourcePath preserved on emitted error, placeholder filtering runs before fallback, mixed classification in a single call.
+
+### Changed
+
+- `src/core/validation/validate.ts` — `checkCrossRefs` builds a shortName reverse-index once at function entry (`O(n)`), then after the strict `pathIndex.has(resolveTargetPath(...))` lookup, runs the leaf-uniqueness fallback via `tryResolveByShortNameWithIndex`. If the fallback hits, the site is treated as resolved and no error is emitted. Misses (0 match or ≥2 ambiguous) fall through to the existing cross-ref error path unchanged.
+- `src/core/validation/index.ts` — barrel re-exports `buildShortNameIndex`, `tryResolveByShortName`, and `tryResolveByShortNameWithIndex` alongside the existing `normalizePath` / `tryStripTypeSegment` / `resolveTargetPath` family.
+- `src/core/validation/__tests__/validateProject.fixtures.test.ts` — baseline console.log now prints `cross-ref (unique-resolved by shortName): N` line; signature guard band tightened from `[800, 1100]` to `[700, 850]` for both `crossRefErrors.length` and `allErrors.length` to reflect the 221-site reduction; header comment block updated to document the Sprint 7 → Sprint 8 #1 → Sprint 9 #1 → Sprint 9 #2 → Sprint 9 #3 → Sprint 9 #4 baseline evolution.
+- `package.json` — version `0.9.4 → 0.9.5` (PATCH bump; pure helper addition).
+- `src/main/ipc/register.ts` — `GET_APP_VERSION` `'0.9.4' → '0.9.5'` sync.
+
+### Verified
+
+- `pnpm vitest run` — **267 tests pass / 0 fail / 0 skipped** (Sprint 9 #3 245 → Sprint 9 #4 267, +22 new). All 27 test files green.
+- `pnpm vitest run --coverage` — **96.03% stmts / 84.03% branches / 100% funcs** (Sprint 9 #3 95.84% / 83.37% / 100%; +0.19% stmts, +0.66% branches from the new dedup / unique-only branches).
+- 5-fixture project-level baseline numbers (Sprint 9 #4): `pathIndex.size` 1611, `refSites.length` 1336, `referenceParams.total` 1341, `cross-ref errors` **782** (was 1003, −221 unique-resolved), `ref-dest errors` 0, `ref-cycle errors` 0, `validateProject total` **782**.
+- 5/5 per-doc baseline: 0 per-doc violation preserved.
+- Public API: `checkCrossRefs` / `validateProject` / `buildPathIndex` / `extractReferences` signatures unchanged (the new helper is internal; only the public barrel re-exports the standalone helpers). Existing 5-fixture round-trip deep-equal signature preserved. Existing `'cross-ref'` kind behaviour unchanged — silent resolve is the new behaviour, but the error kind is the same as before when a site does not resolve.
+
+### Deviations
+
+- **silent resolve vs new `kind-cross-ref-fuzzy`**: the 1003 dangles closed by the fallback are silently resolved rather than emitted as a new `kind`. Introducing a 10th `ValidationErrorKind` would require a `types.ts` union extension, a `types.test.ts` 9→10 update, a new `ValidationPanel.css` colour (current 9 colours already approach the upper limit of distinct hues), and a fixtures-test `e.kind === 'cross-ref'` guard rewrite. The silent-resolve trade-off loses the "this was a fuzzy resolve, not an exact match" audit signal, but keeps the scope at 30-50 new lines instead of 4-file cross-cutting changes. Documented in PROGRESS §Deviations #1 with an explicit extension point: if ambiguous-case false-negative risk surfaces in user data, add `kind-cross-ref-fuzzy` then.
+- **782 ambiguous dangles remain as genuine cross-ref errors**: the 1003 dangles were partitioned as 221 unique (1 match in pathIndex), 782 ambiguous (≥2 matches), 0 not-found. The 221 unique cases close cleanly; the 782 ambiguous cases share a leaf shortName with at least one other element and cannot be safely auto-resolved without a richer heuristic (suffix matching, parent-N lookup, etc). These remain reported as `kind: 'cross-ref'` errors and constitute fixture data quality issues (branch-mismatch cross-references in real BSW configuration data), not validator gaps. Documented in PROGRESS §Deviations #2.
+- **No `'cross-ref-fuzzy'` UI test additions**: same convention as Sprint 9 #2 and #3 — `ValidationPanel.tsx` is data-driven via `groupByKind` + `Object.entries(grouped).map(...)`, so no kind auto-rendering change was needed. The two `ValidationPanel` integration tests verify the panel renders without crashing; they do not assert a specific kind set, so no test was added for the silent-resolve change. The `kind: 'cross-ref'` CSS class is purely visual and matches the existing convention of untested visual styling.
+
 ## [0.9.3] — 2026-06-15 (Sprint 9 #2 — target-side ref dest validation)
 
 ### Added
