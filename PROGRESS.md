@@ -989,7 +989,27 @@ if (tryResolveByShortNameWithIndex(site.targetPath, shortNameIndex) !== undefine
 - [ ] **#15 `lookupSchema` unknown path 显式 log** → 下一个 ROI 候选（独立、不依赖 #14 schema 扩张）
 - [ ] **#13 BSWMD 模板侧加载 + #14 CanIf schema 扩张** → ROI 高但 scope 大，需 user 拍板 (a)/(b) 决策点
 
-## 参考资料
+## Sprint 9 #4.x — tree-UI polish（✅ 2026-06-16 完成）
+
+四个 unlogged commit — 每次来自用户实测反馈（标签 / 嵌套渲染 / 多次点击 collapsed 顶层 / label click 误折叠）。本段补 PROGRESS trail-of-evidence。
+
+- **330daf5** `feat(validate): Sprint 10 #1 validateProjectForRenderer dispatch helper`
+  core 新 dispatch 入口。`level: 'single' | 'project'`，默认 `'project'`。10 unit tests（291 → 301），dispatch.ts 100% coverage，project coverage 96.18/84.53。
+- **8a8ceaf** `feat(ui): Sprint 9 #5 AppHeader refactor + #12 nested AR-PACKAGES renderer`
+  40px AppHeader + 24px status footer；Tree 递归 `renderPackage` over `pkg.packages`（Sprint 9 #12 渲染侧）。一 commit 三 sub-feature，因为 working-tree diff 在 styles.css / Tree.test.tsx 上 hunk 混在一起。
+- **0f33a08** `feat(tree): show element kind as colored dot, not text subtitle`
+  2 行 JSX；纯 presentational。
+- **6a4b10f** `fix(tree): stop click bubbling so deep clicks don't collapse ancestors`
+  外层 div onClick 加 `stopPropagation`，点击只在 target treeitem 上生效。Pre-fix：嵌套点击 bubble 到所有祖先，每个祖先都触发 handleClick（overwrite selectedPath + toggle 所有祖先 expand）→ 顶层节点 collapse。
+- **90a43fc** `fix(tree): label click selects only, chevron/Enter/Space toggle`
+  `handleClick` 现在只调 `onSelect`，不再附带 `onToggle`。Chevron click + Enter/Space 仍 toggle。Pre-fix：label click 误折叠非叶节点（违反 VSCode/Finder/Explorer 习惯 —— label = select、chevron = toggle）。3 commit 链：90a43fc 行为修复 + 6a4b10f 上游 guard + 0f33a08 视觉 polish。
+
+数字（整个 #4.x 段累积）：
+- 270 → **329 tests**（+59 — #1 10 + #2 ~21 含 dirty per-path regression + #3 7 + AppHeader doc-tab 5 + 既有 baseline 调整）
+- coverage 95.33/82.67 → **96.18/85.12** stmts/branches
+- 5/5 fixture cross-ref baseline 仍 **782**（未变）
+
+**说明**：Sprint 9 #4 跟 Sprint 10 三 commit 在 git 上是连续 9 个 commit（92889e3 → 90a43fc → 330daf5 → ... → 4169a89），未走一个 intermediate v0.9.6 tag。Sprint 10 三 commit 落地时未 bump version（仍 v0.9.5），是因为本段属 housekeeping / bug-fix 类，不是 feature release。下一个 minor v0.10.0 在 Sprint 11 收尾时合并 bump（#15 schema-unknown kind + schema-coverage test + 7 backlog 项合并做一次 release commit）。
 
 ## 参考资料
 
