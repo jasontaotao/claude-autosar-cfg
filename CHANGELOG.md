@@ -5,6 +5,40 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] - 2026-06-17 — Sprint 13 #1
+
+### Added (backend only — no UI)
+
+- **`src/main/templates/`** new module (7 files, 19 tests):
+  - `discoverBuiltinTemplates(samplesRoot)` — opt-in scan of `<samplesRoot>/<id>/template.json` directories; warns + skips on parse / id-mismatch failures (one bad template never blocks discovery of the others)
+  - `copyTemplateFilesToDir(template, samplesRoot, destDir)` — copy template files into a project directory, preserving `<templateId>/<relPath>` layout
+  - `parseTemplateManifest(raw)` — hand-rolled type guard (no Zod, no new deps); validates `{ id: kebab-case, displayName, description }`
+  - `walkArxml(root, opts)` — recursive `*.arxml` finder with `bswmd/` exclusion; skips hidden dirs
+  - `classTemplateError(kind, message, details?)` — structured error envelope (7 kinds: 3 discovery + 4 IPC)
+- **IPC channels**: `templates:list`, `templates:copy`
+- **IPC types**: `TemplateListRequest/Response`, `TemplateCopyRequest/Response` in `src/shared/types.ts`
+- **IPC handler**: `src/main/ipc/templatesHandler.ts` — `templatesListHandler` (returns summaries without leaking absolute paths), `templatesCopyHandler` (validates destDir + known template, then delegates to copy), `initBuiltinTemplatesCache()` (boot-time discovery, called from `app.whenReady` in `src/main/index.ts`), `resolveSamplesRoot()` (dev path: `app.getAppPath()/samples`; prod: `process.resourcesPath/samples`; returns null if neither exists)
+- **Preload bridge**: `window.api.listTemplates()`, `window.api.copyTemplate(req)`
+- **6 new i18n keys**: `template.empty/classic/clone.{displayName,description}` (zh-CN + en parity preserved)
+- **`package.json` `build.extraResources`**: includes `samples/` in install bundles
+- **`samples/arxml/.gitkeep`**: restored from stash as 5/5 baseline item
+- **`samples/README.md`**: clarification note added — `bswmd/` (lowercase) is the convention for new templates; legacy `Bswmd/` (capital B) under `samples/arxml/<Module>/` is vendor sync data, silently ignored by the opt-in `template.json` gate
+
+### Behavior
+
+- Renderer (NewProjectDialog) is **unchanged** in this sprint. Sprint 13 #2 (Stage 3.3) will add the `TemplateCard` picker UI; the backend is ready and tested.
+- The 100+ reference BSWMD under `samples/arxml/<Module>/Bswmd/` (capital B, legacy vendor sync) remain on disk and are silently ignored by `discoverBuiltinTemplates` (no `template.json` → opt-in skip).
+
+### Tests
+
+- **678 → 703 tests** (+25):
+  - 5 `parseTemplateManifest` cases
+  - 9 `discoverBuiltinTemplates` cases (using 6 fixture directories under `tests/fixtures/templates/samples-root/`)
+  - 5 `copyTemplateFilesToDir` cases
+  - 6 IPC handler cases (`templates:list` × 2, `templates:copy` × 4)
+- **Coverage**: 96.78% stmts / 87.01% branches / 100% funcs (Sprint 12 #3 baseline 96.47% / 85.45% / 100% preserved; coverage **improved** by +0.31pp stmts / +1.56pp branches)
+- **5/5 baseline guards**: all green; new item `samples/arxml/.gitkeep exists` added
+
 ## [0.13.0] - 2026-06-17
 
 ### Added
