@@ -468,15 +468,16 @@ body,
   background: #e5e7eb;
 }
 
-.left-column {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 1px;
-  min-height: 0;
-  min-width: 0;
-  background: #e5e7eb;
-  overflow: hidden;
-}
+/* .left-column — removed in Sprint 13 #2 Task 5.
+   The left column is now a single <LeftPanel /> instance which owns
+   its own `.left-panel` grid (auto 1fr auto for tab-bar /
+   tab-content / tree). The previous stacked layout
+   (project-info-or-loose-banner / Tree / ValidationPanel) lived in
+   `<div className="left-column">` and used the grid below. The rule
+   is intentionally kept as a stub for one commit cycle so any
+   in-flight E2E / Playwright selectors that still match by className
+   keep a stable surface; it can be deleted in a follow-up cleanup
+   once the test suite confirms nothing depends on the selector. */
 
 /* ------------------------------------------------------------------ */
 /* Tree — JetBrains-style light gray background                       */

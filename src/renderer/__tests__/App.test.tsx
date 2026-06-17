@@ -222,31 +222,37 @@ describe('App (Sprint 12 #3 Task 8 part 2 — dialog host mounting)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Sprint 13+ — left-column project-panel gate (regression for the
-// LooseView removal in commit 1de85c0). Without this gate App.tsx
-// renders the open-mode ProjectPanelInfo only when a project is open,
-// leaving the top of the left column empty in loose mode. The fix
-// mounts a compact banner with quick-action buttons instead.
+// Sprint 13 #2 Task 5 — App mounts <LeftPanel /> instead of the
+// stacked <ProjectPanelInfo /> + <Tree /> + <ValidationPanel />
+// layout. The LeftPanel is the source of truth for the left column:
+// it owns the tab bar, the per-tab panes, and the always-visible Tree
+// at the bottom.
+//
+// Tests pin:
+//   1. Loose mode: only the "files" + "validate" tabs render (the
+//      "project" tab is gated on a project being open).
+//   2. Project mode: all three tabs render.
+//   3. The "project" tab pane is the source of ProjectPanelInfo
+//      (it carries the `project-panel-open` testid that downstream
+//      styling / E2E tests rely on).
+//   4. The "files" tab pane hosts the FileListTab, the "validate" tab
+//      pane hosts the embedded ValidationPanel, and the Tree is
+//      always visible below the tab content area.
 // ---------------------------------------------------------------------------
 
-describe('App left-column project panel (Sprint 13+)', () => {
-  it('renders loose-mode banner (text-only hint, no New/Open buttons) when no project is open', () => {
-    // Sprint 13+ follow-up: user removed the loose banner's quick-action
-    // buttons because they duplicated the AppHeader project menu. The
-    // banner is now text-only; users reach New / Open via the menu.
+describe('App left column (Sprint 13 #2 Task 5 — LeftPanel wired in)', () => {
+  it('renders LeftPanel with the files + validate tabs visible in loose mode', () => {
     render(<App />);
-    const banner = screen.getByTestId('project-panel-loose');
-    expect(banner).toBeInTheDocument();
-    expect(banner.textContent).toMatch(/No project loaded/);
-    // Quick-action buttons must NOT exist anymore (regression for the
-    // duplicate-controls removal).
-    expect(screen.queryByTestId('project-panel-loose-new')).toBeNull();
-    expect(screen.queryByTestId('project-panel-loose-open')).toBeNull();
+    // Loose mode: no project tab.
+    expect(screen.queryByTestId('left-tab-project')).toBeNull();
+    expect(screen.getByTestId('left-tab-files')).toBeInTheDocument();
+    expect(screen.getByTestId('left-tab-validate')).toBeInTheDocument();
+    // The default tab in loose mode is 'files' (LeftPanel falls back
+    // from a persisted 'project' to 'files' via useEffect).
+    expect(screen.getByTestId('left-pane-files')).toBeInTheDocument();
   });
 
-  it('does not render loose-mode banner when a project is open', () => {
-    // Seed the store with a minimal project + path so App's
-    // `project !== null && projectPath !== null` gate flips.
+  it('renders all three tabs when a project is open', () => {
     useArxmlStore.setState({
       project: {
         schemaVersion: '1',
@@ -258,10 +264,49 @@ describe('App left-column project panel (Sprint 13+)', () => {
       projectPath: 'C:/tmp/demo.autosarcfg.json',
     });
     render(<App />);
-    expect(screen.queryByTestId('project-panel-loose')).toBeNull();
-    // The open-mode panel mounts; use the manifest-title testid rather
-    // than `getByText('demo')` because the AppHeader project chip also
-    // renders the project name and would match twice.
+    expect(screen.getByTestId('left-tab-project')).toBeInTheDocument();
+    expect(screen.getByTestId('left-tab-files')).toBeInTheDocument();
+    expect(screen.getByTestId('left-tab-validate')).toBeInTheDocument();
+  });
+
+  it('mounts ProjectPanelInfo inside the project tab pane when a project is open', () => {
+    useArxmlStore.setState({
+      project: {
+        schemaVersion: '1',
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'demo',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+      },
+      projectPath: 'C:/tmp/demo.autosarcfg.json',
+      leftTab: 'project',
+    });
+    render(<App />);
+    // The project tab is selected; ProjectPanelInfo should render
+    // inside its tabpanel and carry the open-mode testid.
+    expect(screen.getByTestId('left-pane-project')).toBeInTheDocument();
     expect(screen.getByTestId('project-panel-open')).toBeInTheDocument();
+  });
+
+  it('does NOT render the legacy stacked-layout testids (left-column / project-panel-loose / project-panel-open outside the tab pane)', () => {
+    // Regression: App.tsx no longer owns a `left-column` div with a
+    // ProjectPanelInfo / Tree / ValidationPanel stack — that block
+    // is replaced by a single <LeftPanel />. The loose-mode banner
+    // and the open-mode top-level panel are owned by LeftPanel now.
+    useArxmlStore.setState({
+      project: {
+        schemaVersion: '1',
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'demo',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+      },
+      projectPath: 'C:/tmp/demo.autosarcfg.json',
+    });
+    render(<App />);
+    // Legacy stacked-layout testids must be gone.
+    expect(screen.queryByTestId('project-panel-loose')).toBeNull();
+    expect(screen.queryByTestId('project-panel-loose-new')).toBeNull();
+    expect(screen.queryByTestId('project-panel-loose-open')).toBeNull();
   });
 });

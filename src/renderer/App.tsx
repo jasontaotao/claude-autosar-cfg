@@ -36,21 +36,16 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { t } from '@shared/i18n';
-
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ErrorBanner } from './components/ErrorBanner';
+import { LeftPanel } from './components/LeftPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
-import { ProjectPanelInfo } from './components/ProjectPanel';
 import { PromptRoot } from './components/PromptDialog';
-import { ValidationPanel } from './components/ValidationPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
-import { Tree } from './components/tree/Tree';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useProjectActions } from './hooks/useProjectActions';
-import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
   // Sprint 3: 300ms debounced revalidation safety net.
@@ -81,26 +76,24 @@ export function App(): JSX.Element {
   // the result via the store's `error` field (Task 7) so the dialog
   // can read it back on the next render — the return value is
   // redundant at the mount site.
-  const { submitNewProject, addBswmdFromDialog, removeBswmdWithGuard } = useProjectActions();
+  const { submitNewProject } = useProjectActions();
   const handleNewProjectSubmit = (name: string, directory: string): void => {
     void submitNewProject(name, directory);
   };
 
-  // Sprint 13 refactor — ProjectPanel was split into ProjectPanelInfo
-  // (presentational, props-only) so it can be mounted inside LeftPanel's
-  // tabbed layout (see LeftPanel.tsx). App.tsx temporarily mounts the
-  // open-mode variant here while LeftPanel integration is still WIP; the
-  // loose-mode UI (no-project banner + quick actions) was removed in
-  // commit 1de85c0 along with the split. To keep this path functional
-  // we gate on `project !== null` and pass the props ProjectPanelInfo
-  // needs. The `LeftPanel` WIP file in the repo is the long-term
-  // replacement and supersedes this block once its TypeScript surface
-  // is complete.
-  const locale = useArxmlStore((s) => s.locale);
-  const project = useArxmlStore((s) => s.project);
-  const projectPath = useArxmlStore((s) => s.projectPath);
-  const closeProject = useArxmlStore((s) => s.closeProject);
-  const removeDocument = useArxmlStore((s) => s.removeDocument);
+  // Sprint 13 #2 Task 5 — the left column is now a single
+  // <LeftPanel /> instance. LeftPanel owns the project / files /
+  // validate tab bar, mounts ProjectPanelInfo inside the project tab
+  // when a project is open, mounts FileListTab in the files tab,
+  // mounts the embedded ValidationPanel in the validate tab, and
+  // renders the Tree below the tab content (always visible).
+  //
+  // The previous stacked layout
+  // (ProjectPanelInfo-or-loose-banner / Tree / ValidationPanel) and
+  // the `.left-column` CSS grid are no longer mounted here — they
+  // were the source of the cramped "ecuc 内容层级" surface and the
+  // loose-mode empty-top-of-column bug. The replacement surfaces
+  // the same controls in a tabbed layout with a stable Tree footer.
 
   return (
     <div className="app-shell">
@@ -111,40 +104,7 @@ export function App(): JSX.Element {
           the "view 窗口" affordance when the banner itself overflows. */}
       <ErrorBanner />
       <main className="workspace">
-        <div className="left-column">
-          {/* Sprint 13 refactor — ProjectPanel was split into
-              ProjectPanelInfo (presentational, props-only). App.tsx
-              mounts:
-                - ProjectPanelInfo when a project is open
-                - a compact LooseView banner (text + New/Open) otherwise
-              The original LooseView was deleted in commit 1de85c0; this
-              block restores the loose-mode UX so the top of the left
-              column is never empty. CSS grid auto-rows keep the Tree
-              (1fr) + ValidationPanel (auto) below it. */}
-          {project !== null && projectPath !== null ? (
-            <ProjectPanelInfo
-              locale={locale}
-              manifest={project}
-              manifestPath={projectPath}
-              onClose={closeProject}
-              onRemoveArxml={removeDocument}
-              onAddBswmd={() => void addBswmdFromDialog()}
-              onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
-            />
-          ) : (
-            // Sprint 13+ follow-up: user removed the New/Open quick
-            // actions here because they duplicated the AppHeader
-            // project menu. The banner is now a text-only hint that
-            // complements (does not repeat) the menu bar controls.
-            <div className="project-panel project-panel-loose" data-testid="project-panel-loose">
-              <span className="project-panel-loose-text">
-                {t(locale, 'projectPanel.loose.text')}
-              </span>
-            </div>
-          )}
-          <Tree store={useArxmlStore} />
-          <ValidationPanel />
-        </div>
+        <LeftPanel />
         <ParamEditor />
       </main>
       <ArxmlPanel />
