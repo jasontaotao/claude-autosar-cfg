@@ -34,6 +34,7 @@ import type {
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
+import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
  * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
@@ -363,6 +364,10 @@ export function registerIpcHandlers(): void {
       return pickDirHandler(req);
     },
   );
+
+  // Sprint 13 #1 — built-in template IPC.
+  ipcMain.handle(IPC_CHANNELS.TEMPLATES_LIST, async (_e, req) => templatesListHandler(req));
+  ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => templatesCopyHandler(req));
 
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_SAVE,

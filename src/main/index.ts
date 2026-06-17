@@ -46,6 +46,11 @@ async function createMainWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  // Sprint 13 #1 — populate the built-in templates cache at boot.
+  // The cache is read-only after this; no file watcher needed because
+  // samples/ is part of the install, not user-mutable.
+  const { initBuiltinTemplatesCache } = await import('./ipc/templatesHandler.js');
+  initBuiltinTemplatesCache();
   await createMainWindow();
 
   app.on('activate', () => {
