@@ -2,7 +2,18 @@
 // Reference: AUTOSAR TPS_StandardizationTemplate (4.x).
 //   https://www.autosar.org/fileadmin/standards/foundation/22-11/AUTOSAR_TPS_StandardizationTemplate.pdf
 
-export type ArxmlVersion = '4.2' | '4.4' | '4.6' | '4.7' | '5.0' | '00005' | '00006';
+export type ArxmlVersion =
+  | '4.2'
+  | '4.4'
+  | '4.6'
+  | '4.7'
+  | '5.0'
+  | '00005'
+  | '00006'
+  | '00046'
+  | '00048'
+  | '00049'
+  | '00050';
 
 export interface ArxmlDocument {
   /** Root file path or logical name */
@@ -80,6 +91,13 @@ export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.6',
   '4.7',
   '5.0',
+  // 5-digit literals — AUTOSAR standard form for R4.4+ releases:
+  // 00046 = R4.6, 00048 = R19-11, 00049 = R20-11, 00050 = R21-11.
+  // 00047 (R4.7) intentionally omitted — no fixture proves vendor emission yet.
+  '00046',
+  '00048',
+  '00049',
+  '00050',
 ] as const;
 
 /**
