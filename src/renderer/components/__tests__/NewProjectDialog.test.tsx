@@ -28,11 +28,14 @@
 //      (`locale` selector); flipping locale flips the labels
 //  12. `onSubmit` may be `async` (returns a Promise); dialog handles
 //      both sync and async cases
+//  13. Stage 3.3 — the dialog body embeds a `TemplateCardRow`; the
+//      Empty card is interactive, Classic/Clone show "coming soon".
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Locale } from '@shared/i18n';
+import type { TemplateListResponse } from '@shared/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { NewProjectDialog } from '../NewProjectDialog.js';
@@ -43,15 +46,43 @@ import { NewProjectDialog } from '../NewProjectDialog.js';
 
 interface AutosarApiStub {
   readonly pickDir: ReturnType<typeof vi.fn>;
+  readonly listTemplates: ReturnType<typeof vi.fn>;
 }
 
 let originalAutosarApi: unknown;
 
-function installPickDirApi(
-  result: { kind: 'picked'; dirPath: string } | { kind: 'canceled' },
+function installAutosarApi(
+  opts: {
+    readonly pickDirResult?: { kind: 'picked'; dirPath: string } | { kind: 'canceled' };
+    readonly listTemplatesResult?: TemplateListResponse;
+  } = {},
 ): AutosarApiStub {
-  const pickDir = vi.fn().mockResolvedValue(result);
-  const stub: AutosarApiStub = { pickDir };
+  const pickDir = vi.fn().mockResolvedValue(opts.pickDirResult ?? { kind: 'canceled' });
+  const listTemplates = vi.fn().mockResolvedValue(
+    opts.listTemplatesResult ?? {
+      templates: [
+        {
+          id: 'empty',
+          displayNameKey: 'template.empty.displayName',
+          descriptionKey: 'template.empty.description',
+          fileCount: 0,
+        },
+        {
+          id: 'classic',
+          displayNameKey: 'template.classic.displayName',
+          descriptionKey: 'template.classic.description',
+          fileCount: 3,
+        },
+        {
+          id: 'clone',
+          displayNameKey: 'template.clone.displayName',
+          descriptionKey: 'template.clone.description',
+          fileCount: 0,
+        },
+      ],
+    },
+  );
+  const stub: AutosarApiStub = { pickDir, listTemplates };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).window.autosarApi = stub;
   return stub;
@@ -201,7 +232,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
 
   it('invokes window.autosarApi.pickDir with the current dir and refills the dir input', async () => {
     setOpen(true);
-    const api = installPickDirApi({ kind: 'picked', dirPath: '/picked/dir' });
+    const api = installAutosarApi({ pickDirResult: { kind: 'picked', dirPath: '/picked/dir' } });
     render(<NewProjectDialog onSubmit={() => {}} />);
     fireEvent.change(screen.getByTestId('npd-dir-input'), {
       target: { value: '/seed' },
@@ -214,7 +245,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
 
   it('does NOT refill the dir input when the user cancels the picker', async () => {
     setOpen(true);
-    installPickDirApi({ kind: 'canceled' });
+    installAutosarApi({ pickDirResult: { kind: 'canceled' } });
     render(<NewProjectDialog onSubmit={() => {}} />);
     fireEvent.change(screen.getByTestId('npd-dir-input'), {
       target: { value: '/seed' },
@@ -302,5 +333,89 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     });
     fireEvent.keyDown(screen.getByTestId('npd-name-input'), { key: 'Enter' });
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 3.3 — TemplateCardRow integration
+// ---------------------------------------------------------------------------
+
+describe('NewProjectDialog (Sprint 13+ Stage 3.3 — TemplateCard row)', () => {
+  it('renders the TemplateCardRow container inside the dialog body when open', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    // The row container is always present; the actual cards appear
+    // after the IPC resolves.
+    expect(screen.getByTestId('tpl-card-row')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+  });
+
+  it('renders all three template cards (Empty / Classic / Clone) after the IPC resolves', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('tpl-card-classic')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-card-clone')).toBeInTheDocument();
+  });
+
+  it('clicking the Empty card marks it as selected (but does NOT call onSubmit)', async () => {
+    installAutosarApi();
+    setOpen(true);
+    const onSubmit = vi.fn();
+    render(<NewProjectDialog onSubmit={onSubmit} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('tpl-card-empty'));
+    expect(screen.getByTestId('tpl-card-empty').className).toMatch(/tpl-card--selected/);
+    // Stage 3.3: the card selection is purely visual. The Create
+    // button is still the single source of truth for submission.
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('resets the selected template when the dialog closes and reopens', async () => {
+    installAutosarApi();
+    setOpen(true);
+    const { rerender } = render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('tpl-card-empty'));
+    expect(screen.getByTestId('tpl-card-empty').className).toMatch(/tpl-card--selected/);
+
+    // Close + reopen.
+    setOpen(false);
+    rerender(<NewProjectDialog onSubmit={() => undefined} />);
+    setOpen(true);
+    rerender(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty').className).not.toMatch(/tpl-card--selected/);
+    });
+  });
+
+  it('clicking Create with valid inputs still invokes onSubmit(name, dir) — template row does not block submission', async () => {
+    installAutosarApi();
+    setOpen(true);
+    const onSubmit = vi.fn();
+    render(<NewProjectDialog onSubmit={onSubmit} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+    // Click Empty to ensure the card-selection path doesn't interfere.
+    fireEvent.click(screen.getByTestId('tpl-card-empty'));
+    fireEvent.change(screen.getByTestId('npd-name-input'), {
+      target: { value: 'MyProject' },
+    });
+    fireEvent.change(screen.getByTestId('npd-dir-input'), {
+      target: { value: '/tmp' },
+    });
+    fireEvent.click(screen.getByTestId('npd-create'));
+    expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp');
   });
 });

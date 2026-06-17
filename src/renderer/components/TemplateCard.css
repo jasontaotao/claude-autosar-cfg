@@ -1,0 +1,91 @@
+/* TemplateCard — Sprint 13+ Stage 3.3 Task 2.
+
+   Catppuccin Mocha palette to match the rest of the app
+   (.npd-* uses the same --color-* tokens; we hard-code the
+   values here to avoid a dependency on global variables since
+   the renderer doesn't currently publish a CSS tokens sheet).
+
+   The card is a real <button> so it's keyboard-focusable by
+   default — no extra tabindex is needed. */
+
+.tpl-card {
+  position: relative;
+  appearance: none;
+  text-align: left;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 8px;
+  padding: 12px 12px 10px 12px;
+  color: #cdd6f4;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+  font-family: inherit;
+  min-height: 96px;
+}
+
+.tpl-card:hover:not(.tpl-card--disabled):not(.tpl-card--selected) {
+  border-color: #585b70;
+  background: #181825;
+}
+
+.tpl-card:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+.tpl-card--selected {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.13);
+}
+
+.tpl-card--selected:hover {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.18);
+}
+
+.tpl-card--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tpl-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cdd6f4;
+  padding-right: 56px; /* room for the "coming soon" badge */
+}
+
+.tpl-card-desc {
+  font-size: 11px;
+  color: #a6adc8;
+  line-height: 1.45;
+}
+
+.tpl-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #6c7086;
+  margin-top: auto;
+}
+
+.tpl-card-soon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(249, 226, 175, 0.15);
+  color: #f9e2af;
+  border: 1px solid rgba(249, 226, 175, 0.25);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  pointer-events: none; /* don't block hover/click on the card */
+}

@@ -103,6 +103,13 @@ export interface Messages {
   readonly 'projectPanel.bswmd.addAria': string; // {name}
   readonly 'projectPanel.closeAria': string; // {name}
   readonly 'projectPanel.removeArxmlAria': string; // {name}
+  // Sprint 13 Stage 3.5 — Combined Tree View virtual entry inside the
+  // file list. Renders at the top of the ARXML group when at least one
+  // document is loaded; clicking it switches the store to combined mode.
+  readonly 'fileList.combinedView': string;
+  readonly 'fileList.combinedViewAria': string;
+  readonly 'arxmlPanel.combinedDocs': string; // {count}
+  readonly 'arxmlPanel.combinedView': string;
 
   // --- new project dialog (Sprint 12 #3 Phase 1) ---
   readonly 'newProject.title': string;
@@ -114,6 +121,9 @@ export interface Messages {
   readonly 'newProject.browse': string;
   readonly 'newProject.create': string;
   readonly 'newProject.cancel': string;
+  // Sprint 13+ Stage 3.3 — TemplateCard row label inside the
+  // NewProjectDialog body. Sits between the dir input and the cards.
+  readonly 'newProject.templateLabel': string;
 
   // --- confirm dialog (Sprint 12 #3 Phase 1) ---
   readonly 'confirm.unsaved.title': string;
@@ -204,6 +214,9 @@ export interface Messages {
   readonly 'template.classic.description': string;
   readonly 'template.clone.displayName': string;
   readonly 'template.clone.description': string;
+  // Sprint 13+ Stage 3.3 — "coming soon" badge label shown on
+  // disabled TemplateCard variants (Classic / Clone).
+  readonly 'template.comingSoon': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -277,6 +290,10 @@ export const MessagesZhCN: Messages = {
   'projectPanel.bswmd.addAria': '加载 BSWMD 文件 {name}',
   'projectPanel.closeAria': '关闭项目 {name}',
   'projectPanel.removeArxmlAria': '从项目中移除 {name}',
+  'fileList.combinedView': '合并视图',
+  'fileList.combinedViewAria': '切换到合并视图',
+  'arxmlPanel.combinedDocs': '合并视图（{count} 个文档）',
+  'arxmlPanel.combinedView': '合并视图',
 
   // new project dialog
   'newProject.title': '新建项目',
@@ -288,6 +305,7 @@ export const MessagesZhCN: Messages = {
   'newProject.browse': '浏览…',
   'newProject.create': '创建',
   'newProject.cancel': '取消',
+  'newProject.templateLabel': '选择模板',
 
   // confirm dialog
   'confirm.unsaved.title': '未保存的更改',
@@ -370,6 +388,7 @@ export const MessagesZhCN: Messages = {
   'template.classic.description': '预填常见 BSWMD 的项目模板',
   'template.clone.displayName': '克隆（即将上线）',
   'template.clone.description': '基于现有项目创建副本',
+  'template.comingSoon': '即将推出',
 };
 
 // ---------------------------------------------------------------------------
@@ -441,6 +460,10 @@ export const MessagesEn: Messages = {
   'projectPanel.bswmd.addAria': 'Load BSWMD file {name}',
   'projectPanel.closeAria': 'Close project {name}',
   'projectPanel.removeArxmlAria': 'Remove {name} from project',
+  'fileList.combinedView': 'Combined view',
+  'fileList.combinedViewAria': 'Switch to combined view',
+  'arxmlPanel.combinedDocs': 'Combined view ({count} documents)',
+  'arxmlPanel.combinedView': 'Combined view',
 
   // new project dialog
   'newProject.title': 'New Project',
@@ -452,6 +475,7 @@ export const MessagesEn: Messages = {
   'newProject.browse': 'Browse...',
   'newProject.create': 'Create',
   'newProject.cancel': 'Cancel',
+  'newProject.templateLabel': 'Choose a template',
 
   // confirm dialog
   'confirm.unsaved.title': 'Unsaved Changes',
@@ -537,6 +561,7 @@ export const MessagesEn: Messages = {
   'template.classic.description': 'Project template with common BSWMD prefilled',
   'template.clone.displayName': 'Clone (coming soon)',
   'template.clone.description': 'Create a copy of an existing project',
+  'template.comingSoon': 'Coming Soon',
 };
 
 // ---------------------------------------------------------------------------

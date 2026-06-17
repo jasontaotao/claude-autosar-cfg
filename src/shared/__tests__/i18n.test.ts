@@ -397,6 +397,18 @@ describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 T
       'Project name cannot exceed 64 characters',
     );
   });
+
+  // Sprint 13+ Stage 3.3 — "coming soon" badge for disabled
+  // TemplateCard variants. Parity with the existing template.* keys.
+  it('renders template.comingSoon (zh-CN + en)', () => {
+    expect(t('zh-CN', 'template.comingSoon')).toBe('即将推出');
+    expect(t('en', 'template.comingSoon')).toBe('Coming Soon');
+  });
+
+  it('renders newProject.templateLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.templateLabel')).toBe('选择模板');
+    expect(t('en', 'newProject.templateLabel')).toBe('Choose a template');
+  });
 });
 
 describe('i18n — message bundle parity', () => {

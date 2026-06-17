@@ -228,3 +228,35 @@
   font-size: 11px;
   color: #6c7086;
 }
+
+/* Sprint 13+ Stage 3.3 — TemplateCardRow embedded in the body.
+   The row sits between the dir field and the footer. It owns its
+   own internal grid; we just give it a little breathing room. */
+.npd-template-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.npd-template-row-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a6adc8;
+}
+
+.npd-template-row-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  min-height: 96px; /* matches .tpl-card min-height to avoid layout shift */
+}
+
+.tpl-card-skeleton {
+  /* Tiny placeholder so the grid keeps its min-height before the IPC
+     resolves. Visually subtle; the user perceives it as the card
+     still loading. */
+  background: #1e1e2e;
+  border: 1px dashed #45475a;
+  border-radius: 8px;
+  min-height: 96px;
+}

@@ -19,8 +19,14 @@
 // able to open it from IPC error paths and lets the hook layer
 // (Task 5) own the dirty-protection gating.
 //
+// Sprint 13+ Stage 3.3 — the dialog body now embeds a
+// `TemplateCardRow` (Empty / Classic / Clone). Only the Empty card
+// is actionable; the others render the "coming soon" badge. Card
+// selection is visual only — submission still flows through
+// `onSubmit(name, dir)`. Stage 3.4 will widen `onSubmit` to take
+// `(name, dir, templateId)` so the host can react to the pick.
+//
 // What this component does NOT do (deferred to other tasks / phases):
-//   - Templates (Phase 2 / Sprint 13 #1)
 //   - BSWMD chip multi-select (Phase 3 / Sprint 13 #2)
 //   - Overwrite-confirm flow when the target manifest already exists
 //     (Task 5 — handled at the IPC layer + ConfirmDialog call site)
@@ -37,6 +43,7 @@ import { t } from '@shared/i18n';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import { validateProjectName } from './NewProjectDialog.validate';
+import { TemplateCardRow } from './TemplateCardRow';
 
 import './NewProjectDialog.css';
 
@@ -88,6 +95,11 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
   const [name, setName] = useState('');
   const [dir, setDir] = useState('');
   const [busy, setBusy] = useState(false);
+  // Sprint 13+ Stage 3.3 — currently-selected template id. Visual
+  // only at this stage; submission still flows through `onSubmit`.
+  // Reset to null on dialog close (handled in the same effect that
+  // resets name/dir).
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +119,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     setName('');
     setDir('');
     setBusy(false);
+    setSelectedTemplateId(null);
     return undefined;
   }, [open]);
 
@@ -295,6 +308,10 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
               {filenamePreview}
             </div>
           </div>
+
+          {/* Sprint 13+ Stage 3.3 — template picker. Visual selection
+              only at this stage; submission is unchanged. */}
+          <TemplateCardRow selectedId={selectedTemplateId} onSelect={setSelectedTemplateId} />
         </div>
 
         <div className="npd-footer">
