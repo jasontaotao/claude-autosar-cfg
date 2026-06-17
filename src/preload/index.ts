@@ -20,6 +20,9 @@ import type {
   ReadBswmdResponse,
   SaveArxmlRequest,
   SaveArxmlResponse,
+  TemplateCopyRequest,
+  TemplateCopyResponse,
+  TemplateListResponse,
 } from '../shared/types.js';
 
 const api = {
@@ -55,6 +58,15 @@ const api = {
   // that as `ProjectNewRequest.directory` when creating the project.
   pickDir: (req: PickDirRequest): Promise<PickDirResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PICK_DIR, req),
+  // Sprint 13 #1 — built-in template list. Renderer does not call
+  // this in Sprint 13 #1; it is exposed so the IPC contract is
+  // complete and the bridge is ready for Sprint 13 #2's picker.
+  listTemplates: (): Promise<TemplateListResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_LIST, {}),
+  // Sprint 13 #1 — copy a template into a project dir. Not called
+  // by the renderer in Sprint 13 #1.
+  copyTemplate: (req: TemplateCopyRequest): Promise<TemplateCopyResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_COPY, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);
