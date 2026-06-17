@@ -42,7 +42,13 @@ export type ParseError =
   | { readonly kind: 'invalid-structure'; readonly path: string; readonly message: string };
 
 const NS_PATTERN = /\/schema\/(r\d+\.\d+|\d{5,6})/;
-const XSD_PATTERN = /AUTOSAR_(\d)-(\d)-(\d)\.xsd/;
+// AUTOSAR ships schemaLocation in two forms:
+//   1. Dashed:   AUTOSAR_4-2-2.xsd  (R4.2 / R4.4 / R4.6 / R4.7 / R5.0)
+//   2. 5-digit:  AUTOSAR_00046.xsd  (R4.4+ standard form: 00046=R4.6,
+//                                     00048=R19-11, 00049=R20-11, 00050=R21-11)
+// The 5-digit literal IS the version — no transformation needed. We capture
+// groups 1-3 for the dashed form and group 4 for the 5-digit form.
+const XSD_PATTERN = /(?:AUTOSAR_(\d)-(\d)-(\d)\.xsd|AUTOSAR_(\d{5})\.xsd)/;
 
 export function parseArxml(
   xml: string,
@@ -133,7 +139,7 @@ export function parseArxml(
 // Internal helpers (private)
 // -----------------------------------------------------------------------------
 
-function detectVersion(autosar: Record<string, unknown>): ArxmlVersion | null {
+export function detectVersion(autosar: Record<string, unknown>): ArxmlVersion | null {
   const xmlns = typeof autosar['@_xmlns'] === 'string' ? (autosar['@_xmlns'] as string) : '';
   const xsi = autosar['@_xsi:schemaLocation'];
   const loc = typeof xsi === 'string' ? xsi : xmlns;
@@ -142,19 +148,24 @@ function detectVersion(autosar: Record<string, unknown>): ArxmlVersion | null {
   if (m) {
     const raw = m[1];
     if (raw !== undefined) {
-      // Map schema r4.6 → "4.6"; 00005/00006 → those literals
       if (raw.startsWith('r')) candidate = raw.slice(1) as ArxmlVersion;
       else if (raw === '00005' || raw === '00006') candidate = raw;
     }
   }
-  // AUTOSAR 4.0/4.1 namespace only distinguishes at schemaLocation (e.g.
-  // `AUTOSAR_4-2-2.xsd`). If the namespace hint is r4.0 and SUPPORTED list
-  // does not include '4.0', fall back to the schemaLocation's MAJOR.MINOR.
-  if (candidate === null || !SUPPORTED_ARXML_VERSIONS.includes(candidate)) {
-    if (typeof xsi === 'string') {
-      const xm = XSD_PATTERN.exec(xsi);
-      if (xm && xm[1] !== undefined && xm[2] !== undefined) {
+  // 4.0/4.1 namespace only distinguishes at schemaLocation. Try the
+  // schemaLocation XSD name regardless of whether the namespace matched,
+  // because the 5-digit xsd form is the authoritative version hint for
+  // R4.4+ AUTOSAR releases (EB tresos convention).
+  if (typeof xsi === 'string') {
+    const xm = XSD_PATTERN.exec(xsi);
+    if (xm) {
+      // Dashed form: AUTOSAR_4-2-2.xsd → '4.2'
+      if (xm[1] !== undefined && xm[2] !== undefined) {
         candidate = `${xm[1]}.${xm[2]}` as ArxmlVersion;
+      }
+      // 5-digit form: AUTOSAR_00046.xsd → '00046'
+      else if (xm[4] !== undefined) {
+        candidate = xm[4] as ArxmlVersion;
       }
     }
   }
