@@ -5,6 +5,55 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.15.0] - 2026-06-17 — Wave 1 (Sprint 13 #2 + Stage 4 + 5.D)
+
+### Added
+
+- **Left-panel tab refactor** (Sprint 13 #2 Stage 3.1, commit `142c968`)
+  - `App.tsx` mounts single `<LeftPanel />` instance; old stacked layout (ProjectPanelInfo / loose banner / Tree / ValidationPanel) removed
+  - `LeftPanel` owns project / files / validate tab bar + always-visible Tree footer
+  - Loose mode hides "project" tab automatically
+  - 4 new App integration tests + 7 wiring tests
+- **Stage 4 i18n polish M6/M7/M8** (commit `b924ccb`, with 8 keys shipped in `679ff25`)
+  - **M6**: ParamEditor column headers localized — `editor.col.param` / `type` / `value` (zh-CN + en)
+  - **M7**: OS pickDir dialog title localized — `dialog.pickDir.title` + `PickDirRequest.locale` IPC contract
+  - **M8**: AppHeader `formatParseError` localized — `parserError.xmlMalformed` / `missingRoot` / `unsupportedVersion` / `invalidStructure`
+  - i18n parity test 58 cases all green
+- **Stage 5.D validators** (commit `ecb7385`)
+  - **arxml:parse size cap**: 32 MiB on parse IPC, mirrors BSWMD_READ/BSWMD_PARSE pattern; extracted to `src/main/ipc/parseArxmlHandler.ts` (new)
+  - **default-value cross enumerationLiterals**: warning (non-fatal) when `<DEFAULT-VALUE>` is not in the literal set; walks subContainers + choices recursively
+  - **`<CHOICES>` recursion depth limit**: `MAX_CONTAINER_DEPTH = 64` fatal `invalid-structure`; XMLParser `maxNestedTags` bumped to 200 (two-layer defense)
+
+### Changed
+
+- **Phase 1 cleanup of Sprint 12 #3** (Stage 3.2, commit `679ff25`)
+  - **`saveAndProceed` button real implementation**: `guardedDirtySwitch` accepts a `save` callback; `saveProject()` runs first, success proceeds, failure surfaces typed error
+  - **`overwrite-confirm` IPC result → 2-button ConfirmDialog**: 覆盖/重命名 via i18n (`confirm.overwrite.{title,message,continueLabel,discardLabel}`); retry path uses `overwrite: true` flag
+  - **`store.pendingAction` dead code removed**: `PendingAction` type + field + setter deleted; 5 hook call sites + 1 test import + 11 dialog tests removed
+  - **per-action i18n for `confirm.unsaved.message`**: 12 new keys (4 actions × 3 messages: `message` / `discard` / `saveAndNew`); `SwitchingAction` + `toI18nAxis()` helper added
+
+### Fixed
+
+- `<CHOICES>` recursive parse: defense against pathological vendor file stack overflow (MAX_CONTAINER_DEPTH = 64)
+- arxml:parse OOM risk: 32 MiB cap on parse IPC (was unbounded)
+
+### Tests
+
+- **703 → 746 tests (+43)**:
+  - Stage 3.1: +11 (4 App + 7 wiring)
+  - Stage 3.2: +18 (saveAndProceed + overwrite + per-action i18n)
+  - Stage 4: +0 net (consumer code only; i18n keys shipped in 679ff25)
+  - Stage 5.D: +14 (6 size cap + 4 default-value + 1 depth + 3 misc from parseArxml.test.ts)
+- **Coverage**: 96.58% stmts / 86.68% branches / 100% funcs (within 0.2% of v0.14.0 baseline 96.78% / 87.01% / 100%)
+- **5/5 baseline**: cross-ref 782 signed-guard [700, 850] preserved; ref-dest 0 / ref-cycle 0 / schema-unknown 0
+
+### Code review (per-agent)
+
+- Stage 3.1: APPROVE (0/0/1/1) — informational MEDIUM + LOW
+- Stage 3.2: WARN (1/2/2) — HIGH scope creep (8 Stage 4 i18n keys physically in 679ff25; Agent C detected and shipped only consumer code in b924ccb; functionality split across two commits, accepted for Wave 1 coordination)
+- Stage 5.D: APPROVE (0/0/0/3) — LOW cosmetic only
+- Stage 4: APPROVE (0/0/0/0) — clean
+
 ## [0.14.0] - 2026-06-17 — Sprint 13 #1
 
 ### Added (backend only — no UI)
