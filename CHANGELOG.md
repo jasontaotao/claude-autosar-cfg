@@ -5,6 +5,53 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.16.1] - 2026-06-17 — Wave 3 (Sprint 13 #2 Stage 3.4)
+
+### Added
+
+- **BSWMD chip multi-select in NewProjectDialog** (commit `c382a5d`)
+  - Backend `templates:list` IPC now exposes `bswmdPaths: string[]` per builtin template (Stage 2 extension)
+  - `src/renderer/components/BswmdChip.tsx` (47L) — single chip component (toggleable)
+  - `src/renderer/components/BswmdChipRow.tsx` (76L) — multi-select row container
+  - `src/renderer/components/BswmdChip.css` (78L) — Catppuccin Mocha styling
+  - `BswmdChipRow` rendered below TemplateCardRow only on the **Classic** template path (Empty/Clone hidden)
+  - Selected chips reset on dialog close + on template switch (covered by 2 explicit tests)
+  - New i18n keys: `newProject.bswmdLabel` (选择 BSWMD 模块 / BSWMD Modules) + `newProject.bswmdHint` (多选/支持取消勾选) + `newProject.noBswmd` (Classic 模板下无可用 BSWMD)
+  - 7 new BswmdChipRow tests + backend IPC test extensions
+
+### Changed
+
+- `NewProjectDialogProps.onSubmit` signature: `(name, dir)` → `(name, dir, opts?: { bswmdPaths?: readonly string[] })`
+  - Backward-compatible: opts is optional; existing callers pass 2 args
+  - `useProjectActions.submitNewProject` reads `opts.bswmdPaths` and threads through to `projectNew` IPC as `bswmdPaths?: string[]` field
+  - IPC contract: `ProjectNewRequest.bswmdPaths?: string[]` added (also optional, backward-compatible)
+- `TemplateCardRow` lifted from owned-fetch to controlled component (parent NewProjectDialog now passes `bswmdPaths` array; old IPC fetch path retained as a fallback for tests)
+
+### Behavior
+
+- Selecting BSWMD chips in NewProjectDialog → `manifest.bswmdPaths` populated on creation
+- Stage 3.4 **does NOT copy BSWMD files into project dir** (only writes the manifest pointers); copy is deferred to a future stage (Agent G follow-up note)
+- Production `samples/` currently has only `arxml/`; no `classic/bswmd/` shipped. The IPC stub returns `bswmdPaths: ['/samples/classic/bswmd/Can.arxml']` from test fixtures. Stage 2 plan Task 11 (extraResources) handles this when real samples land.
+
+### Tests
+
+- **809 → 830 tests (+21)**:
+  - BswmdChipRow: 7 cases (empty / single / multi / select/deselect / reset on template switch / reset on dialog close)
+  - Backend templates IPC: +1 case for `bswmdPaths` exposure
+  - NewProjectDialog integration: +5 cases (chip behavior on each template path)
+  - useProjectActions.submitNewProject: +8 cases (bswmdPaths threading)
+- **Coverage**: 96.65% stmts / 86.55% branches / 100% funcs (parity with v0.16.0)
+- **5/5 baseline**: verify all green; cross-ref 830 signed-guard [700, 850] PASS
+
+### Code review
+
+- **WARN**: code-reviewer agent invocation was interrupted during this stage (auto-mode classifier transient block). Agent G performed self-review:
+  - IPC contract backward-compatible (new optional field on both ends)
+  - State-reset semantics verified (close + template switch both reset selectedBswmdPaths)
+  - `isTemplateAvailable('classic')` flipped to true (was false in Stage 3.3); existing tests updated
+  - No CRITICAL or HIGH issues identified
+  - **Deferred to follow-up stage**: BSWMD file copy into project dir on project:new (currently only manifest pointers are written)
+
 ## [0.16.0] - 2026-06-17 — Wave 2 (Sprint 13 #2 Stage 3.3 + Stage 3.5)
 
 ### Added
