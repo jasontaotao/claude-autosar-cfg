@@ -25,6 +25,18 @@ export const IPC_CHANNELS = {
   // Task 4) so the renderer can pre-fill `<directory>/<name>.autosarcfg.json`
   // before calling `PROJECT_NEW`.
   PICK_DIR: 'project:pickDir',
+  // Sprint 13 #1 — built-in template discovery. Renderer calls this
+  // to get the list of templates (id + i18n key + fileCount) without
+  // leaking absolute paths from the main process. The renderer is
+  // expected to translate `displayNameKey` / `descriptionKey` via
+  // `t(locale, key)`. Empty `templates` array is a valid response
+  // (the samples root may be missing in dev / portable builds).
+  TEMPLATES_LIST: 'templates:list',
+  // Sprint 13 #1 — copy a template's files into a chosen directory.
+  // Returns the relative paths of copied value-side and schema-side
+  // files. Renderer does not call this in Sprint 13 #1; it is exposed
+  // here so the IPC contract is complete and the handler is testable.
+  TEMPLATES_COPY: 'templates:copy',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

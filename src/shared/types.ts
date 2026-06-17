@@ -179,6 +179,37 @@ export type PickDirResult =
   | { readonly kind: 'picked'; readonly dirPath: string }
   | { readonly kind: 'canceled' };
 
+// --- Sprint 13 #1 — built-in template IPC types ---------------------------
+
+export interface TemplateListRequest {
+  // No fields. Reserved for future filters (e.g. vendor dialect).
+  readonly _placeholder?: never;
+}
+
+export interface TemplateListResponse {
+  readonly templates: ReadonlyArray<{
+    readonly id: string;
+    readonly displayNameKey: string;
+    readonly descriptionKey: string;
+    readonly fileCount: number;
+    // Absolute paths are NOT exposed to the renderer. Renderer
+    // cannot read `process.resourcesPath` and does not need to;
+    // it only renders a picker.
+  }>;
+}
+
+export interface TemplateCopyRequest {
+  readonly templateId: string;
+  /** Absolute path of the target directory. Main has already shown a
+   *  directory picker; renderer forwards the chosen path verbatim. */
+  readonly destDir: string;
+}
+
+export interface TemplateCopyResponse {
+  readonly copiedValueArxml: readonly string[];
+  readonly copiedBswmd: readonly string[];
+}
+
 // --- F1 Project manifest IO types (Sprint 11 Phase 1) ----------------------
 
 /**
