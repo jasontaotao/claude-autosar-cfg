@@ -145,6 +145,68 @@ describe('i18n — t() helper', () => {
     expect(t('zh-CN', 'app.error.needProject')).toBe('需要先打开或创建项目');
     expect(t('en', 'app.error.needProject')).toBe('Please open or create a project first');
   });
+
+  it('renders editor.col.param (zh-CN + en)', () => {
+    expect(t('zh-CN', 'editor.col.param')).toBe('参数');
+    expect(t('en', 'editor.col.param')).toBe('Param');
+  });
+
+  it('renders editor.col.type (zh-CN + en)', () => {
+    expect(t('zh-CN', 'editor.col.type')).toBe('类型');
+    expect(t('en', 'editor.col.type')).toBe('Type');
+  });
+
+  it('renders editor.col.value (zh-CN + en)', () => {
+    expect(t('zh-CN', 'editor.col.value')).toBe('取值');
+    expect(t('en', 'editor.col.value')).toBe('Value');
+  });
+
+  it('renders dialog.pickDir.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'dialog.pickDir.title')).toBe('选择项目目录');
+    expect(t('en', 'dialog.pickDir.title')).toBe('Choose Project Directory');
+  });
+
+  it('renders parserError.xmlMalformed with {message} placeholder (zh-CN + en)', () => {
+    expect(t('zh-CN', 'parserError.xmlMalformed', { message: 'unclosed tag' })).toBe(
+      'XML 格式错误: unclosed tag',
+    );
+    expect(t('en', 'parserError.xmlMalformed', { message: 'unclosed tag' })).toBe(
+      'XML malformed: unclosed tag',
+    );
+  });
+
+  it('renders parserError.missingRoot with {message} placeholder (zh-CN + en)', () => {
+    expect(t('zh-CN', 'parserError.missingRoot', { message: 'expected <AUTOSAR>' })).toBe(
+      '缺少根元素: expected <AUTOSAR>',
+    );
+    expect(t('en', 'parserError.missingRoot', { message: 'expected <AUTOSAR>' })).toBe(
+      'Missing root element: expected <AUTOSAR>',
+    );
+  });
+
+  it('renders parserError.unsupportedVersion with {version} placeholder (zh-CN + en)', () => {
+    expect(t('zh-CN', 'parserError.unsupportedVersion', { version: '3.5' })).toBe(
+      '不支持的 AUTOSAR 版本: 3.5',
+    );
+    expect(t('en', 'parserError.unsupportedVersion', { version: '3.5' })).toBe(
+      'Unsupported AUTOSAR version: 3.5',
+    );
+  });
+
+  it('renders parserError.invalidStructure with {path} and {message} placeholders (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'parserError.invalidStructure', {
+        path: '/EAS/EcucDefs/Can',
+        message: '缺 SHORT-NAME',
+      }),
+    ).toBe('结构错误 /EAS/EcucDefs/Can: 缺 SHORT-NAME');
+    expect(
+      t('en', 'parserError.invalidStructure', {
+        path: '/EAS/EcucDefs/Can',
+        message: 'missing SHORT-NAME',
+      }),
+    ).toBe('Invalid structure at /EAS/EcucDefs/Can: missing SHORT-NAME');
+  });
 });
 
 describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 Task 8 part 1)', () => {
@@ -234,6 +296,85 @@ describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 T
   it('renders confirm.unsaved.saveAndNew (zh-CN + en)', () => {
     expect(t('zh-CN', 'confirm.unsaved.saveAndNew')).toBe('保存并新建');
     expect(t('en', 'confirm.unsaved.saveAndNew')).toBe('Save & New');
+  });
+
+  // Sprint 13 #2 Stage 3.2 Task 4 — per-action confirm variants.
+  // The dirty-guard used to render "新建项目" wording for every trigger;
+  // these 12 keys (4 actions × 3 axes: message / discard / saveAndNew)
+  // restore action-accurate text.
+  it('renders confirm.unsaved.message.new with {name} (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.unsaved.message.new', { name: 'P' });
+    expect(zh).toBe('当前项目 P 有未保存的更改。\n新建项目将丢失这些更改。');
+    const en = t('en', 'confirm.unsaved.message.new', { name: 'P' });
+    expect(en).toBe('Project "P" has unsaved changes.\nCreating a new project will discard them.');
+  });
+
+  it('renders confirm.unsaved.message.open with {name} (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.unsaved.message.open', { name: 'P' });
+    expect(zh).toBe('当前项目 P 有未保存的更改。\n打开其他项目将丢失这些更改。');
+    const en = t('en', 'confirm.unsaved.message.open', { name: 'P' });
+    expect(en).toBe('Project "P" has unsaved changes.\nOpening another project will discard them.');
+  });
+
+  it('renders confirm.unsaved.message.addBswmd with {name} (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.unsaved.message.addBswmd', { name: 'P' });
+    expect(zh).toBe('当前项目 P 有未保存的更改。\n添加 BSWMD 将丢失这些更改。');
+    const en = t('en', 'confirm.unsaved.message.addBswmd', { name: 'P' });
+    expect(en).toBe('Project "P" has unsaved changes.\nAdding a BSWMD will discard them.');
+  });
+
+  it('renders confirm.unsaved.message.removeBswmd with {name} {target} (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.unsaved.message.removeBswmd', { name: 'P', target: 'Can' });
+    expect(zh).toBe('当前项目 P 有未保存的更改。\n移除 BSWMD Can 将丢失这些更改。');
+    const en = t('en', 'confirm.unsaved.message.removeBswmd', { name: 'P', target: 'Can' });
+    expect(en).toBe('Project "P" has unsaved changes.\nRemoving BSWMD Can will discard them.');
+  });
+
+  it('renders confirm.unsaved.discard.{new,open,addBswmd,removeBswmd} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.discard.new')).toBe('不保存，新建');
+    expect(t('en', 'confirm.unsaved.discard.new')).toBe('Discard & New');
+    expect(t('zh-CN', 'confirm.unsaved.discard.open')).toBe('不保存，打开');
+    expect(t('en', 'confirm.unsaved.discard.open')).toBe('Discard & Open');
+    expect(t('zh-CN', 'confirm.unsaved.discard.addBswmd')).toBe('不保存，添加');
+    expect(t('en', 'confirm.unsaved.discard.addBswmd')).toBe('Discard & Add');
+    expect(t('zh-CN', 'confirm.unsaved.discard.removeBswmd')).toBe('不保存，移除');
+    expect(t('en', 'confirm.unsaved.discard.removeBswmd')).toBe('Discard & Remove');
+  });
+
+  it('renders confirm.unsaved.saveAndNew.{new,open,addBswmd,removeBswmd} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew.new')).toBe('保存并新建');
+    expect(t('en', 'confirm.unsaved.saveAndNew.new')).toBe('Save & New');
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew.open')).toBe('保存并打开');
+    expect(t('en', 'confirm.unsaved.saveAndNew.open')).toBe('Save & Open');
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew.addBswmd')).toBe('保存并添加');
+    expect(t('en', 'confirm.unsaved.saveAndNew.addBswmd')).toBe('Save & Add');
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew.removeBswmd')).toBe('保存并移除');
+    expect(t('en', 'confirm.unsaved.saveAndNew.removeBswmd')).toBe('Save & Remove');
+  });
+
+  // Sprint 13 #2 Stage 3.2 Task 5 — overwrite-confirm dialog keys.
+  // 2-button confirm (覆盖 / 重命名) shown when project:new IPC returns
+  // overwrite-confirm.
+  it('renders confirm.overwrite.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.overwrite.title')).toBe('文件已存在');
+    expect(t('en', 'confirm.overwrite.title')).toBe('File Exists');
+  });
+
+  it('renders confirm.overwrite.message with {path} (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.overwrite.message', { path: '/x/p.json' });
+    expect(zh).toBe('文件 /x/p.json 已存在。\n是否覆盖现有项目？');
+    const en = t('en', 'confirm.overwrite.message', { path: '/x/p.json' });
+    expect(en).toBe('File /x/p.json already exists.\nOverwrite the existing project?');
+  });
+
+  it('renders confirm.overwrite.continueLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.overwrite.continueLabel')).toBe('重命名');
+    expect(t('en', 'confirm.overwrite.continueLabel')).toBe('Rename');
+  });
+
+  it('renders confirm.overwrite.discardLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.overwrite.discardLabel')).toBe('覆盖');
+    expect(t('en', 'confirm.overwrite.discardLabel')).toBe('Overwrite');
   });
 
   it('renders app.error.projectNameEmpty (zh-CN + en)', () => {

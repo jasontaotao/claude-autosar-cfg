@@ -122,6 +122,33 @@ export interface Messages {
   readonly 'confirm.unsaved.discard': string;
   readonly 'confirm.unsaved.saveAndNew': string;
 
+  // --- per-action confirm variants (Sprint 13 #2 Stage 3.2 Task 4) ---
+  // The dirty-guard ConfirmDialog was previously a single string set
+  // hard-wired to "新建项目" wording, even when the trigger was
+  // openProject / addBswmd / removeBswmd. Per-action keys give each
+  // trigger accurate, action-matched text.
+  readonly 'confirm.unsaved.message.new': string; // {name}
+  readonly 'confirm.unsaved.message.open': string; // {name}
+  readonly 'confirm.unsaved.message.addBswmd': string; // {name}
+  readonly 'confirm.unsaved.message.removeBswmd': string; // {name} {target}
+  readonly 'confirm.unsaved.discard.new': string;
+  readonly 'confirm.unsaved.discard.open': string;
+  readonly 'confirm.unsaved.discard.addBswmd': string;
+  readonly 'confirm.unsaved.discard.removeBswmd': string;
+  readonly 'confirm.unsaved.saveAndNew.new': string;
+  readonly 'confirm.unsaved.saveAndNew.open': string;
+  readonly 'confirm.unsaved.saveAndNew.addBswmd': string;
+  readonly 'confirm.unsaved.saveAndNew.removeBswmd': string;
+
+  // --- overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5) ---
+  // When `project:new` IPC returns `{ kind: 'overwrite-confirm', path }`
+  // the renderer pops a 2-button confirm (覆盖 / 重命名) instead of the
+  // previous "硬编码 error 提示用户改名" flow.
+  readonly 'confirm.overwrite.title': string;
+  readonly 'confirm.overwrite.message': string; // {path}
+  readonly 'confirm.overwrite.continueLabel': string;
+  readonly 'confirm.overwrite.discardLabel': string;
+
   // --- bswmd parser errors (BswmdError → human message) ---
   readonly 'bswmdParser.xmlMalformed': string; // {message}
   readonly 'bswmdParser.missingRoot': string;
@@ -144,6 +171,21 @@ export interface Messages {
   // --- param editor ---
   readonly 'editor.noSelection': string;
   readonly 'editor.invalidValue': string;
+  readonly 'editor.col.param': string; // Sprint 13+ Stage 4 M6 — table column header
+  readonly 'editor.col.type': string; // Sprint 13+ Stage 4 M6 — table column header
+  readonly 'editor.col.value': string; // Sprint 13+ Stage 4 M6 — table column header
+
+  // --- OS dialog titles (Sprint 13+ Stage 4 M7) ---
+  readonly 'dialog.pickDir.title': string;
+
+  // --- parse errors (Sprint 13+ Stage 4 M8) ---
+  // AppHeader.formatParseError keys. These mirror the shape of
+  // `bswmdParser.*` keys but cover value-side ARXML parse errors
+  // (ParseError from core/arxml/parser.ts).
+  readonly 'parserError.xmlMalformed': string; // {message}
+  readonly 'parserError.missingRoot': string; // {message}
+  readonly 'parserError.unsupportedVersion': string; // {version}
+  readonly 'parserError.invalidStructure': string; // {path} {message}
 
   // --- tree ---
   readonly 'tree.empty': string;
@@ -254,6 +296,28 @@ export const MessagesZhCN: Messages = {
   'confirm.unsaved.discard': '不保存，新建',
   'confirm.unsaved.saveAndNew': '保存并新建',
 
+  // confirm dialog — per-action variants (Sprint 13 #2 Stage 3.2 Task 4)
+  'confirm.unsaved.message.new': '当前项目 {name} 有未保存的更改。\n新建项目将丢失这些更改。',
+  'confirm.unsaved.message.open': '当前项目 {name} 有未保存的更改。\n打开其他项目将丢失这些更改。',
+  'confirm.unsaved.message.addBswmd':
+    '当前项目 {name} 有未保存的更改。\n添加 BSWMD 将丢失这些更改。',
+  'confirm.unsaved.message.removeBswmd':
+    '当前项目 {name} 有未保存的更改。\n移除 BSWMD {target} 将丢失这些更改。',
+  'confirm.unsaved.discard.new': '不保存，新建',
+  'confirm.unsaved.discard.open': '不保存，打开',
+  'confirm.unsaved.discard.addBswmd': '不保存，添加',
+  'confirm.unsaved.discard.removeBswmd': '不保存，移除',
+  'confirm.unsaved.saveAndNew.new': '保存并新建',
+  'confirm.unsaved.saveAndNew.open': '保存并打开',
+  'confirm.unsaved.saveAndNew.addBswmd': '保存并添加',
+  'confirm.unsaved.saveAndNew.removeBswmd': '保存并移除',
+
+  // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
+  'confirm.overwrite.title': '文件已存在',
+  'confirm.overwrite.message': '文件 {path} 已存在。\n是否覆盖现有项目？',
+  'confirm.overwrite.continueLabel': '重命名',
+  'confirm.overwrite.discardLabel': '覆盖',
+
   // bswmd parser
   'bswmdParser.xmlMalformed': 'BSWMD XML 格式错误: {message}',
   'bswmdParser.missingRoot': 'BSWMD 缺少根元素 <AUTOSAR>',
@@ -276,6 +340,18 @@ export const MessagesZhCN: Messages = {
   // editor
   'editor.noSelection': '请从树中选择一个元素',
   'editor.invalidValue': '无效值',
+  'editor.col.param': '参数',
+  'editor.col.type': '类型',
+  'editor.col.value': '取值',
+
+  // OS dialog titles
+  'dialog.pickDir.title': '选择项目目录',
+
+  // parse errors
+  'parserError.xmlMalformed': 'XML 格式错误: {message}',
+  'parserError.missingRoot': '缺少根元素: {message}',
+  'parserError.unsupportedVersion': '不支持的 AUTOSAR 版本: {version}',
+  'parserError.invalidStructure': '结构错误 {path}: {message}',
 
   // tree
   'tree.empty': '（空）',
@@ -385,6 +461,30 @@ export const MessagesEn: Messages = {
   'confirm.unsaved.discard': 'Discard & New',
   'confirm.unsaved.saveAndNew': 'Save & New',
 
+  // confirm dialog — per-action variants (Sprint 13 #2 Stage 3.2 Task 4)
+  'confirm.unsaved.message.new':
+    'Project "{name}" has unsaved changes.\nCreating a new project will discard them.',
+  'confirm.unsaved.message.open':
+    'Project "{name}" has unsaved changes.\nOpening another project will discard them.',
+  'confirm.unsaved.message.addBswmd':
+    'Project "{name}" has unsaved changes.\nAdding a BSWMD will discard them.',
+  'confirm.unsaved.message.removeBswmd':
+    'Project "{name}" has unsaved changes.\nRemoving BSWMD {target} will discard them.',
+  'confirm.unsaved.discard.new': 'Discard & New',
+  'confirm.unsaved.discard.open': 'Discard & Open',
+  'confirm.unsaved.discard.addBswmd': 'Discard & Add',
+  'confirm.unsaved.discard.removeBswmd': 'Discard & Remove',
+  'confirm.unsaved.saveAndNew.new': 'Save & New',
+  'confirm.unsaved.saveAndNew.open': 'Save & Open',
+  'confirm.unsaved.saveAndNew.addBswmd': 'Save & Add',
+  'confirm.unsaved.saveAndNew.removeBswmd': 'Save & Remove',
+
+  // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
+  'confirm.overwrite.title': 'File Exists',
+  'confirm.overwrite.message': 'File {path} already exists.\nOverwrite the existing project?',
+  'confirm.overwrite.continueLabel': 'Rename',
+  'confirm.overwrite.discardLabel': 'Overwrite',
+
   // bswmd parser
   'bswmdParser.xmlMalformed': 'BSWMD XML malformed: {message}',
   'bswmdParser.missingRoot': 'BSWMD missing root element <AUTOSAR>',
@@ -407,6 +507,18 @@ export const MessagesEn: Messages = {
   // editor
   'editor.noSelection': 'Open an ARXML file and select a node in the tree to edit its parameters.',
   'editor.invalidValue': 'Invalid value',
+  'editor.col.param': 'Param',
+  'editor.col.type': 'Type',
+  'editor.col.value': 'Value',
+
+  // OS dialog titles
+  'dialog.pickDir.title': 'Choose Project Directory',
+
+  // parse errors
+  'parserError.xmlMalformed': 'XML malformed: {message}',
+  'parserError.missingRoot': 'Missing root element: {message}',
+  'parserError.unsupportedVersion': 'Unsupported AUTOSAR version: {version}',
+  'parserError.invalidStructure': 'Invalid structure at {path}: {message}',
 
   // tree
   'tree.empty': '(empty)',

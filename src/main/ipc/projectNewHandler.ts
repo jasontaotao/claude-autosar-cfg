@@ -111,13 +111,19 @@ export async function projectNewHandler(req: ProjectNewRequest): Promise<Project
   // --- 4. Overwrite check (race-free, click-time) --------------------
   // `fs.access` throws ENOENT if the file doesn't exist; any other
   // outcome (no throw, or a different error) we treat as "file exists".
-  try {
-    await fs.access(filePath);
-    return { kind: 'overwrite-confirm', path: filePath };
-  } catch {
-    // Expected: ENOENT -> file does not exist -> fall through to create.
-    // Other errors (EACCES, etc.) will resurface on `writeFile` below
-    // with their real message; we don't shadow them here.
+  // Sprint 13 #2 Stage 3.2 Task 2: when the renderer passes
+  // `overwrite: true` (only set after the user has confirmed the
+  // overwrite in the ConfirmDialog), we skip the existence check and
+  // fall straight through to `writeFile` below.
+  if (req.overwrite !== true) {
+    try {
+      await fs.access(filePath);
+      return { kind: 'overwrite-confirm', path: filePath };
+    } catch {
+      // Expected: ENOENT -> file does not exist -> fall through to create.
+      // Other errors (EACCES, etc.) will resurface on `writeFile` below
+      // with their real message; we don't shadow them here.
+    }
   }
 
   // --- 5. Create + write the manifest --------------------------------

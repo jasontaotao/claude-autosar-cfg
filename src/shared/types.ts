@@ -156,9 +156,16 @@ export type OpenBswmdResult =
  * Request payload for `PICK_DIR`. `defaultPath` is optional and is
  * forwarded to `dialog.showOpenDialog` as-is — when omitted, the OS
  * picks the default starting location.
+ *
+ * `locale` (Sprint 13+ Stage 4 M7) is the renderer's current i18n
+ * locale; main uses it to render the dialog title via the shared
+ * `t(locale, key)` helper. When omitted, main falls back to `'en'`
+ * (the hard-coded English title) — this is a defensive default for
+ * older callers and the IPC contract is backward-compatible.
  */
 export interface PickDirRequest {
   readonly defaultPath?: string;
+  readonly locale?: 'zh-CN' | 'en';
 }
 
 /**
@@ -234,6 +241,14 @@ export interface TemplateCopyResponse {
 export interface ProjectNewRequest {
   readonly name: string;
   readonly directory: string;
+  /**
+   * Sprint 13 #2 Stage 3.2 Task 2: when true, the main handler skips
+   * the `fs.access` file-exists check and force-writes the manifest.
+   * The renderer only sets this on a re-invocation after the user has
+   * confirmed the overwrite via the ConfirmDialog (which translates
+   * the `overwrite-confirm` IPC result into a "覆盖" / "重命名" choice).
+   */
+  readonly overwrite?: boolean;
 }
 
 /**

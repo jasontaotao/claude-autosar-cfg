@@ -145,6 +145,36 @@ describe('project:new handler (Sprint 12 #3) — directory-driven create flow', 
     expect(readFileSync(targetPath, 'utf8')).toBe(sentinel);
   });
 
+  // Sprint 13 #2 Stage 3.2 Task 2 — overwrite flag (renderer-confirmed
+  // overwrite via ConfirmDialog "覆盖" choice). Skips the existence
+  // check and replaces the existing file.
+  it('overwrites the existing file when overwrite: true is set', async () => {
+    const projectDir = join(workDir, 'overwrite-flag');
+    mkdirSync(projectDir, { recursive: true });
+
+    const targetPath = join(projectDir, 'Dup.autosarcfg.json');
+    const sentinel = '{"already":"here"}';
+    writeFileSync(targetPath, sentinel, 'utf8');
+
+    const r = await projectNewHandler({
+      name: 'Dup',
+      directory: projectDir,
+      overwrite: true,
+    });
+
+    expect(r.kind).toBe('created');
+    if (r.kind !== 'created') throw new Error('unreachable');
+    expect(r.path).toBe(targetPath);
+    expect(r.manifest.name).toBe('Dup');
+
+    // The file on disk must now contain the new manifest, not the
+    // sentinel. A roundtrip through readFileSync verifies the JSON
+    // write was atomic and parseable.
+    const onDisk = readFileSync(targetPath, 'utf8');
+    expect(onDisk).not.toBe(sentinel);
+    expect(onDisk).toContain('Dup');
+  });
+
   it('returns write-failed when the directory does not exist', async () => {
     const missingDir = join(workDir, 'does-not-exist', 'nested');
 

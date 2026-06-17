@@ -46,20 +46,22 @@ import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
 import * as ConfirmDialogModule from '../../components/ConfirmDialog.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-import type { PendingAction } from '../../store/useArxmlStore.js';
 import { useProjectActions } from '../useProjectActions.js';
 
 // ---------------------------------------------------------------------------
 // Store dialog-state patch
 // ---------------------------------------------------------------------------
 //
-// Sprint 12 #3 Task 7 added three top-level setters to the store
-// (`setNewProjectDialogOpen`, `setConfirmDialogOpen`,
-// `setPendingAction`). They're consumed by the hook. If those setters
-// aren't yet present on the store (e.g. tests run against an older
-// branch), this helper installs no-op shims so the hook can still be
-// called without throwing. Production builds where Task 7 has shipped
-// already have the real setters and the patch is a no-op.
+// Sprint 12 #3 Task 7 added two top-level setters to the store
+// (`setNewProjectDialogOpen`, `setConfirmDialogOpen`). They're consumed
+// by the hook. If those setters aren't yet present on the store (e.g.
+// tests run against an older branch), this helper installs no-op shims
+// so the hook can still be called without throwing. Production builds
+// where Task 7 has shipped already have the real setters and the
+// patch is a no-op. (Sprint 13 #2 Stage 3.2 Task 3 removed the
+// `setPendingAction` setter — the `pendingAction` field had zero
+// consumers, so the dispatch layer is now promise-driven from the
+// hook directly.)
 // ---------------------------------------------------------------------------
 
 function ensureDialogStatePatch(): void {
@@ -77,14 +79,6 @@ function ensureDialogStatePatch(): void {
       confirmDialogOpen: false,
       setConfirmDialogOpen: (open: boolean) => {
         useArxmlStore.setState({ confirmDialogOpen: open });
-      },
-    } as never);
-  }
-  if (typeof state.setPendingAction !== 'function') {
-    useArxmlStore.setState({
-      pendingAction: null,
-      setPendingAction: (action: PendingAction | null) => {
-        useArxmlStore.setState({ pendingAction: action });
       },
     } as never);
   }
@@ -256,11 +250,21 @@ interface AutosarApiStub {
   projectNew: (req: {
     readonly name: string;
     readonly directory: string;
+    readonly overwrite?: boolean;
   }) => Promise<ProjectNewResultLike>;
   projectOpen: () => Promise<ProjectOpenResultLike>;
+  projectSave: (req: {
+    readonly manifestPath: string;
+    readonly manifest: ProjectManifest;
+    readonly files: readonly unknown[];
+  }) => Promise<ProjectSaveResultLike>;
   openBswmdDialog: () => Promise<BswmdDialogResult>;
   readBswmd: (req: { readonly path: string }) => Promise<ReadResult>;
 }
+
+type ProjectSaveResultLike =
+  | { readonly kind: 'saved' }
+  | { readonly kind: 'write-failed'; readonly message: string };
 
 let originalAutosarApi: unknown;
 
@@ -286,6 +290,7 @@ function installApiStub(stub: Partial<AutosarApiStub>): AutosarApiStub {
     projectNew:
       stub.projectNew ?? (async () => ({ kind: 'write-failed', message: 'unconfigured stub' })),
     projectOpen: stub.projectOpen ?? (async () => ({ kind: 'canceled' })),
+    projectSave: stub.projectSave ?? (async () => ({ kind: 'saved' as const })),
     openBswmdDialog: stub.openBswmdDialog ?? (async () => ({ kind: 'canceled' })),
     readBswmd:
       stub.readBswmd ?? (async () => ({ kind: 'read-failed', message: 'unconfigured stub' })),
@@ -299,7 +304,7 @@ function installApiStub(stub: Partial<AutosarApiStub>): AutosarApiStub {
 // ===========================================================================
 
 describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 Task 5)', () => {
-  it('newProject() flips newProjectDialogOpen=true and sets pendingAction — no IPC', async () => {
+  it('newProject() flips newProjectDialogOpen=true — no IPC, no pendingAction', async () => {
     // Arrange — no project, install a stub that would fail the test if
     // newProject accidentally called IPC.
     const projectNewSpy = vi.fn(async () => ({
@@ -313,12 +318,14 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.newProject();
 
-    // Assert — IPC NOT called; dialog open + pending action set; returns ok
+    // Assert — IPC NOT called; dialog open; returns ok
+    // (Stage 3.2 Task 3: pendingAction field removed from store; the
+    // hook no longer mirrors anything to a store-level pending
+    // action — the dialog state itself IS the pending intent.)
     expect(projectNewSpy).not.toHaveBeenCalled();
     expect(response.kind).toBe('ok');
     const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
-    expect(after.pendingAction).toEqual({ kind: 'newProject' });
   });
 
   it('newProject() with clean state (no dirty) opens dialog directly', async () => {
@@ -354,18 +361,50 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
   });
+
+  // Stage 3.2 Task 1 — 'saveAndProceed' now actually saves the
+  // project before opening the dialog. Verify the new flow.
+  it('newProject() with dirty state + "saveAndProceed" calls projectSave and proceeds', async () => {
+    const projectSaveSpy = vi.fn(async () => ({ kind: 'saved' as const }));
+    installApiStub({ projectSave: projectSaveSpy });
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    makeDirty();
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.newProject();
+
+    expect(projectSaveSpy).toHaveBeenCalledTimes(1);
+    expect(response.kind).toBe('ok');
+    const after = useArxmlStore.getState();
+    expect(after.newProjectDialogOpen).toBe(true);
+  });
+
+  it('newProject() with dirty state + "saveAndProceed" + projectSave failure returns error', async () => {
+    installApiStub({
+      projectSave: async () => ({ kind: 'write-failed' as const, message: 'EACCES' }),
+    });
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    makeDirty();
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.newProject();
+
+    expect(response.kind).toBe('error');
+    if (response.kind !== 'error') throw new Error('unreachable');
+    expect(response.message).toContain('EACCES');
+    expect(useArxmlStore.getState().newProjectDialogOpen).toBe(false);
+  });
 });
 
 // ===========================================================================
 // Section 2 — `submitNewProject(name, dir)` IPC result switch
 // ===========================================================================
 
-describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
-  it('"created" → close dialog + openProject + clears pendingAction', async () => {
+describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5 + Stage 3.2 Task 2)', () => {
+  it('"created" → close dialog + openProject (no pendingAction to clear)', async () => {
     // Arrange — open dialog first (mimics NewProjectDialog being visible)
     act(() => {
       useArxmlStore.getState().setNewProjectDialogOpen(true);
-      useArxmlStore.getState().setPendingAction({ kind: 'newProject' });
     });
     const manifest = sampleManifest({ name: 'NewProj' });
     installApiStub({
@@ -380,40 +419,96 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
     expect(response.kind).toBe('ok');
     const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(false);
-    expect(after.pendingAction).toBeNull();
     expect(after.project?.name).toBe('NewProj');
     expect(after.projectPath).toBe('/d/NewProj.autosarcfg.json');
   });
 
-  it('"overwrite-confirm" → returns error, dialog stays open (Phase 1 simplification)', async () => {
-    // Arrange — dialog already open
+  // Stage 3.2 Task 2: overwrite-confirm no longer bubbles a hard-coded
+  // error. It pops a 2-button ConfirmDialog (覆盖 / 重命名) and re-invokes
+  // projectNew with overwrite: true on the 覆盖 branch.
+  it('"overwrite-confirm" + confirm "覆盖" → retries projectNew with overwrite: true', async () => {
     act(() => {
       useArxmlStore.getState().setNewProjectDialogOpen(true);
-      useArxmlStore.getState().setPendingAction({ kind: 'newProject' });
     });
-    installApiStub({
-      projectNew: async () => ({
-        kind: 'overwrite-confirm',
-        path: '/d/NewProj.autosarcfg.json',
-      }),
-    });
+    let callCount = 0;
+    const projectNewSpy = vi.fn(
+      async (req: { name: string; directory: string; overwrite?: boolean }) => {
+        callCount++;
+        if (req.overwrite === true) {
+          return {
+            kind: 'created' as const,
+            path: '/d/NewProj.autosarcfg.json',
+            manifest: sampleManifest({ name: 'NewProj' }),
+          };
+        }
+        return { kind: 'overwrite-confirm' as const, path: '/d/NewProj.autosarcfg.json' };
+      },
+    );
+    installApiStub({ projectNew: projectNewSpy });
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('discard' as never);
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.submitNewProject('NewProj', '/d');
 
-    // Assert — error result; dialog remains open so user can edit
+    expect(response.kind).toBe('ok');
+    expect(callCount).toBe(2);
+    expect(projectNewSpy).toHaveBeenNthCalledWith(1, {
+      name: 'NewProj',
+      directory: '/d',
+    });
+    expect(projectNewSpy).toHaveBeenNthCalledWith(2, {
+      name: 'NewProj',
+      directory: '/d',
+      overwrite: true,
+    });
+    const after = useArxmlStore.getState();
+    expect(after.newProjectDialogOpen).toBe(false);
+    expect(after.project?.name).toBe('NewProj');
+  });
+
+  it('"overwrite-confirm" + confirm "重命名" → returns canceled, dialog stays open', async () => {
+    act(() => {
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+    });
+    const projectNewSpy = vi.fn(async () => ({
+      kind: 'overwrite-confirm' as const,
+      path: '/d/NewProj.autosarcfg.json',
+    }));
+    installApiStub({ projectNew: projectNewSpy });
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.submitNewProject('NewProj', '/d');
+
+    expect(response.kind).toBe('canceled');
+    expect(projectNewSpy).toHaveBeenCalledTimes(1);
+    expect(useArxmlStore.getState().newProjectDialogOpen).toBe(true);
+    expect(useArxmlStore.getState().project).toBeNull();
+  });
+
+  it('"overwrite-confirm" + confirm "覆盖" + retry write-failed → returns error, dialog stays open', async () => {
+    act(() => {
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+    });
+    const projectNewSpy = vi.fn(async (req: { overwrite?: boolean }) => {
+      if (req.overwrite === true) {
+        return { kind: 'write-failed' as const, message: 'EACCES overwrite' };
+      }
+      return { kind: 'overwrite-confirm' as const, path: '/d/NewProj.autosarcfg.json' };
+    });
+    installApiStub({ projectNew: projectNewSpy });
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('discard' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.submitNewProject('NewProj', '/d');
+
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
-    expect(response.message).toContain('NewProj.autosarcfg.json');
-    const after = useArxmlStore.getState();
-    expect(after.newProjectDialogOpen).toBe(true);
-    expect(after.pendingAction).toEqual({ kind: 'newProject' });
-    expect(after.project).toBeNull();
+    expect(response.message).toBe('EACCES overwrite');
+    expect(useArxmlStore.getState().newProjectDialogOpen).toBe(true);
   });
 
   it('"write-failed" → returns error with the IPC message', async () => {
-    // Arrange
     act(() => {
       useArxmlStore.getState().setNewProjectDialogOpen(true);
     });
@@ -424,11 +519,9 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
       }),
     });
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.submitNewProject('Foo', '/d');
 
-    // Assert
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toBe('EACCES: permission denied');
@@ -436,7 +529,6 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
   });
 
   it('"invalid-name" → returns error with the IPC message', async () => {
-    // Arrange
     act(() => {
       useArxmlStore.getState().setNewProjectDialogOpen(true);
     });
@@ -447,11 +539,9 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
       }),
     });
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.submitNewProject('foo/bar', '/d');
 
-    // Assert
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toContain('path separators');
@@ -530,23 +620,47 @@ describe('useProjectActions — openProjectFromDialog dirty-guard (Sprint 12 #3 
     expect(useArxmlStore.getState().project?.name).toBe('Opened');
   });
 
-  it('isDirty=true + user picks "saveAndProceed" → returns canceled (Phase 1 TODO)', async () => {
-    // Arrange — dirty project, saveProject cannot save without a path on disk,
-    // so Phase 1 treats saveAndProceed as canceled. Phase 2 will wire saveProject
-    // before the proceed branch.
+  it('isDirty=true + user picks "saveAndProceed" + projectSave success → proceeds to IPC', async () => {
+    // Stage 3.2 Task 1: 'saveAndProceed' now actually calls projectSave
+    // before proceeding.
     makeDirty();
     vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
-    const projectOpenSpy = vi.fn();
-    installApiStub({ projectOpen: projectOpenSpy });
+    const projectSaveSpy = vi.fn(async () => ({ kind: 'saved' as const }));
+    const projectOpenSpy = vi.fn(async () => ({
+      kind: 'opened' as const,
+      manifestPath: '/o/other.json',
+      manifest: sampleManifest({ name: 'Opened' }),
+      docs: [],
+    }));
+    installApiStub({ projectSave: projectSaveSpy, projectOpen: projectOpenSpy });
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.openProjectFromDialog();
 
-    // Assert — IPC NOT called; user keeps the dirty project intact
+    expect(projectSaveSpy).toHaveBeenCalledTimes(1);
+    expect(projectOpenSpy).toHaveBeenCalledTimes(1);
+    expect(response.kind).toBe('ok');
+    expect(useArxmlStore.getState().project?.name).toBe('Opened');
+  });
+
+  it('isDirty=true + user picks "saveAndProceed" + projectSave failure → returns error', async () => {
+    // Stage 3.2 Task 1: save failure must surface as a typed error,
+    // not silently cancel.
+    makeDirty();
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    const projectOpenSpy = vi.fn();
+    installApiStub({
+      projectSave: async () => ({ kind: 'write-failed' as const, message: 'EIO' }),
+      projectOpen: projectOpenSpy,
+    });
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.openProjectFromDialog();
+
+    expect(response.kind).toBe('error');
+    if (response.kind !== 'error') throw new Error('unreachable');
+    expect(response.message).toContain('EIO');
     expect(projectOpenSpy).not.toHaveBeenCalled();
-    expect(response.kind).toBe('canceled');
-    expect(useArxmlStore.getState().project?.name).toBe('Test Project');
   });
 });
 
@@ -594,20 +708,44 @@ describe('useProjectActions — addBswmdFromDialog dirty-guard (Sprint 12 #3 Tas
     expect(useArxmlStore.getState().bswmdPaths).toHaveLength(0);
   });
 
-  it('isDirty=true + user picks "saveAndProceed" → returns canceled (Phase 1 TODO)', async () => {
-    // Arrange — dirty project, confirm → saveAndProceed
+  it('isDirty=true + user picks "saveAndProceed" + projectSave success → proceeds to file picker', async () => {
+    // Stage 3.2 Task 1: 'saveAndProceed' now actually saves before
+    // opening the file picker.
     makeDirty();
     vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
-    const openSpy = vi.fn();
-    installApiStub({ openBswmdDialog: openSpy });
+    const projectSaveSpy = vi.fn(async () => ({ kind: 'saved' as const }));
+    const openStub = vi.fn(async () => ({ kind: 'ok' as const, path: '/tmp/clean.arxml' }));
+    installApiStub({
+      projectSave: projectSaveSpy,
+      openBswmdDialog: openStub,
+      readBswmd: async () => ({ kind: 'ok', content: MIN_BSWMD }),
+    });
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.addBswmdFromDialog();
 
-    // Assert — Phase 1 simplification: skip save + cancel
+    expect(projectSaveSpy).toHaveBeenCalledTimes(1);
+    expect(openStub).toHaveBeenCalledTimes(1);
+    expect(response.kind).toBe('ok');
+    expect(useArxmlStore.getState().bswmdPaths).toEqual(['/tmp/clean.arxml']);
+  });
+
+  it('isDirty=true + user picks "saveAndProceed" + projectSave failure → returns error, picker NOT called', async () => {
+    makeDirty();
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    const openSpy = vi.fn();
+    installApiStub({
+      projectSave: async () => ({ kind: 'write-failed' as const, message: 'EIO' }),
+      openBswmdDialog: openSpy,
+    });
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.addBswmdFromDialog();
+
+    expect(response.kind).toBe('error');
+    if (response.kind !== 'error') throw new Error('unreachable');
+    expect(response.message).toContain('EIO');
     expect(openSpy).not.toHaveBeenCalled();
-    expect(response.kind).toBe('canceled');
   });
 });
 
@@ -665,18 +803,37 @@ describe('useProjectActions — removeBswmdWithGuard (Sprint 12 #3 Task 5)', () 
     expect(useArxmlStore.getState().bswmdPaths).toEqual(['/schemas/PduR.arxml']);
   });
 
-  it('isDirty=true + user picks "saveAndProceed" → returns canceled (Phase 1 TODO)', async () => {
-    // Arrange
+  it('isDirty=true + user picks "saveAndProceed" + projectSave success → removes BSWMD', async () => {
+    // Stage 3.2 Task 1: 'saveAndProceed' now actually saves before
+    // removing the BSWMD.
     makeDirty();
     useArxmlStore.getState().addBswmd('/schemas/CanTp.arxml', MIN_BSWMD);
     vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    const projectSaveSpy = vi.fn(async () => ({ kind: 'saved' as const }));
+    installApiStub({ projectSave: projectSaveSpy });
 
-    // Act
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.removeBswmdWithGuard('/schemas/CanTp.arxml');
 
-    // Assert — Phase 1 simplification: skip save + cancel
-    expect(response.kind).toBe('canceled');
+    expect(projectSaveSpy).toHaveBeenCalledTimes(1);
+    expect(response.kind).toBe('ok');
+    expect(useArxmlStore.getState().bswmdPaths).toEqual([]);
+  });
+
+  it('isDirty=true + user picks "saveAndProceed" + projectSave failure → returns error, BSWMD kept', async () => {
+    makeDirty();
+    useArxmlStore.getState().addBswmd('/schemas/CanTp.arxml', MIN_BSWMD);
+    vi.spyOn(ConfirmDialogModule, 'confirm').mockResolvedValue('saveAndProceed' as never);
+    installApiStub({
+      projectSave: async () => ({ kind: 'write-failed' as const, message: 'EIO' }),
+    });
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.removeBswmdWithGuard('/schemas/CanTp.arxml');
+
+    expect(response.kind).toBe('error');
+    if (response.kind !== 'error') throw new Error('unreachable');
+    expect(response.message).toContain('EIO');
     expect(useArxmlStore.getState().bswmdPaths).toEqual(['/schemas/CanTp.arxml']);
   });
 
@@ -693,6 +850,100 @@ describe('useProjectActions — removeBswmdWithGuard (Sprint 12 #3 Task 5)', () 
     // the no-op semantics of the underlying store action.
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(response.kind).toBe('canceled');
+  });
+});
+
+// ===========================================================================
+// Section 5b — Sprint 13 #2 Stage 3.2 Task 4: per-action confirm labels
+// ===========================================================================
+//
+// The dirty-guard confirm dialog now uses per-action keys so the
+// message / discard / save labels match the trigger. Each switching
+// action must pass distinct strings to confirm() so the user sees
+// the right text. We pin the labels via the confirmSpy call args.
+
+describe('useProjectActions — per-action confirm labels (Stage 3.2 Task 4)', () => {
+  it('newProject guard passes the newProject variant of discard / save labels', async () => {
+    makeDirty();
+    const confirmSpy = vi
+      .spyOn(ConfirmDialogModule, 'confirm')
+      .mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.newProject();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    const opts = confirmSpy.mock.calls[0]![0];
+    // zh-CN labels for the newProject axis
+    expect(opts.message).toContain('新建项目将丢失这些更改');
+    expect(opts.discardLabel).toBe('不保存，新建');
+    expect(opts.saveLabel).toBe('保存并新建');
+    // title and continueLabel are shared across actions
+    expect(opts.title).toBe('未保存的更改');
+    expect(opts.continueLabel).toBe('继续编辑');
+  });
+
+  it('openProjectFromDialog guard passes the openProject variant (zh-CN)', async () => {
+    makeDirty();
+    const confirmSpy = vi
+      .spyOn(ConfirmDialogModule, 'confirm')
+      .mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.openProjectFromDialog();
+
+    const opts = confirmSpy.mock.calls[0]![0];
+    expect(opts.message).toContain('打开其他项目将丢失这些更改');
+    expect(opts.discardLabel).toBe('不保存，打开');
+    expect(opts.saveLabel).toBe('保存并打开');
+  });
+
+  it('addBswmdFromDialog guard passes the addBswmd variant (zh-CN)', async () => {
+    makeDirty();
+    const confirmSpy = vi
+      .spyOn(ConfirmDialogModule, 'confirm')
+      .mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.addBswmdFromDialog();
+
+    const opts = confirmSpy.mock.calls[0]![0];
+    expect(opts.message).toContain('添加 BSWMD 将丢失这些更改');
+    expect(opts.discardLabel).toBe('不保存，添加');
+    expect(opts.saveLabel).toBe('保存并添加');
+  });
+
+  it('removeBswmdWithGuard guard passes the removeBswmd variant with target interpolation', async () => {
+    makeDirty();
+    useArxmlStore.getState().addBswmd('/schemas/CanIf.arxml', MIN_BSWMD);
+    const confirmSpy = vi
+      .spyOn(ConfirmDialogModule, 'confirm')
+      .mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.removeBswmdWithGuard('/schemas/CanIf.arxml');
+
+    const opts = confirmSpy.mock.calls[0]![0];
+    expect(opts.message).toContain('移除 BSWMD /schemas/CanIf.arxml 将丢失这些更改');
+    expect(opts.discardLabel).toBe('不保存，移除');
+    expect(opts.saveLabel).toBe('保存并移除');
+  });
+
+  it('per-action labels also localize to en when locale="en"', async () => {
+    useArxmlStore.getState().setLocale('en');
+    makeDirty();
+    const confirmSpy = vi
+      .spyOn(ConfirmDialogModule, 'confirm')
+      .mockResolvedValue('continue' as never);
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.openProjectFromDialog();
+
+    const opts = confirmSpy.mock.calls[0]![0];
+    expect(opts.title).toBe('Unsaved Changes');
+    expect(opts.message).toContain('Opening another project will discard them');
+    expect(opts.discardLabel).toBe('Discard & Open');
+    expect(opts.saveLabel).toBe('Save & Open');
   });
 });
 
