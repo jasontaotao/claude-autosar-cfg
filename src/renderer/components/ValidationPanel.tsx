@@ -128,7 +128,9 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
                           data-testid={`error-row-${i}`}
                         >
                           <code className="error-path">
-                            {err.paramKey !== undefined ? `${err.path} (${err.paramKey})` : err.path}
+                            {err.paramKey !== undefined
+                              ? `${err.path} (${err.paramKey})`
+                              : err.path}
                           </code>
                           <span className="error-msg">{err.message}</span>
                         </button>

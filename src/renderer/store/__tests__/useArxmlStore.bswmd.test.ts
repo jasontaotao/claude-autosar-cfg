@@ -108,10 +108,7 @@ const MALFORMED_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
   </AR-PACKAGES>
 </AUTOSAR>`;
 
-const ADC_BSWMD_PATH = join(
-  process.cwd(),
-  'tests/fixtures/bswmd/Adc_bswmd.arxml',
-);
+const ADC_BSWMD_PATH = join(process.cwd(), 'tests/fixtures/bswmd/Adc_bswmd.arxml');
 
 function sampleManifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
   return {
@@ -294,10 +291,7 @@ describe('useArxmlStore — addBswmd project sync (Sprint 12 #2)', () => {
     // Assert
     const after = useArxmlStore.getState();
     expect(after.bswmdPaths).toEqual(['/schemas/A.bswmd.arxml', '/schemas/B.bswmd.arxml']);
-    expect(after.project?.bswmdPaths).toEqual([
-      '/schemas/A.bswmd.arxml',
-      '/schemas/B.bswmd.arxml',
-    ]);
+    expect(after.project?.bswmdPaths).toEqual(['/schemas/A.bswmd.arxml', '/schemas/B.bswmd.arxml']);
   });
 });
 

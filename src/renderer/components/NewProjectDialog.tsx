@@ -62,7 +62,9 @@ export interface NewProjectDialogProps {
 interface AutosarApiLike {
   readonly pickDir: (req: {
     readonly defaultPath?: string;
-  }) => Promise<{ readonly kind: 'picked'; readonly dirPath: string } | { readonly kind: 'canceled' }>;
+  }) => Promise<
+    { readonly kind: 'picked'; readonly dirPath: string } | { readonly kind: 'canceled' }
+  >;
 }
 
 // ---------------------------------------------------------------------------

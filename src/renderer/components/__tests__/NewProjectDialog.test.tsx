@@ -209,9 +209,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     fireEvent.click(screen.getByTestId('npd-browse'));
     await waitFor(() => expect(api.pickDir).toHaveBeenCalledTimes(1));
     expect(api.pickDir).toHaveBeenCalledWith({ defaultPath: '/seed' });
-    await waitFor(() =>
-      expect(screen.getByTestId('npd-dir-input')).toHaveValue('/picked/dir'),
-    );
+    await waitFor(() => expect(screen.getByTestId('npd-dir-input')).toHaveValue('/picked/dir'));
   });
 
   it('does NOT refill the dir input when the user cancels the picker', async () => {
@@ -245,9 +243,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
       target: { value: '/tmp' },
     });
     fireEvent.keyDown(nameInput, { key: 'Enter' });
-    await waitFor(() =>
-      expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp'),
-    );
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp'));
   });
 
   it('clicking Create with valid inputs invokes onSubmit(name, dir)', () => {

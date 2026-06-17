@@ -48,7 +48,9 @@ function param(overrides: Partial<ParamDef> & Pick<ParamDef, 'shortName' | 'path
   };
 }
 
-function reference(overrides: Partial<ReferenceDef> & Pick<ReferenceDef, 'shortName' | 'path'>): ReferenceDef {
+function reference(
+  overrides: Partial<ReferenceDef> & Pick<ReferenceDef, 'shortName' | 'path'>,
+): ReferenceDef {
   return {
     shortName: overrides.shortName,
     path: overrides.path,
@@ -73,7 +75,9 @@ function container(
   };
 }
 
-function module(overrides: Partial<BswModuleDef> & Pick<BswModuleDef, 'shortName' | 'path'>): BswModuleDef {
+function module(
+  overrides: Partial<BswModuleDef> & Pick<BswModuleDef, 'shortName' | 'path'>,
+): BswModuleDef {
   return {
     shortName: overrides.shortName,
     path: overrides.path,

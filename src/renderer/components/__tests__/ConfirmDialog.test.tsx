@@ -138,9 +138,7 @@ describe('ConfirmDialog (Sprint 12 #3 Task 6)', () => {
     // overlay should now show the second dialog.
     const p2 = confirm({ title: 'second', message: 'm2' });
     // Wait for re-render to show the new title.
-    await waitFor(() =>
-      expect(screen.getByTestId('confirm-title')).toHaveTextContent('second'),
-    );
+    await waitFor(() => expect(screen.getByTestId('confirm-title')).toHaveTextContent('second'));
     fireEvent.click(screen.getByTestId('confirm-saveAndProceed'));
     await waitFor(() => expect(p2).resolves.toBe('saveAndProceed'));
   });

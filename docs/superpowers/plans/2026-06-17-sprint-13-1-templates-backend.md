@@ -11,6 +11,7 @@
 **Spec:** [`docs/superpowers/specs/2026-06-17-sprint-13-1-templates-backend-design.md`](../specs/2026-06-17-sprint-13-1-templates-backend-design.md)
 
 **Project conventions** (verified from Sprint 12 #1 #2 #3 code):
+
 - IPC channels in `src/shared/ipc-contract.ts` as `IPC_CHANNELS` const
 - IPC request/response types in `src/shared/types.ts`
 - Handlers in `src/main/ipc/*Handler.ts` returning discriminated union `{ kind: 'ok', ... } | { kind: '<error>', message }`
@@ -26,6 +27,7 @@
 ## File Structure
 
 **New files (8):**
+
 - `src/main/templates/types.ts` — `BuiltinTemplate`, `TemplateManifest`, `CopyResult`, `TemplateListResult`, `TemplateCopyResult`
 - `src/main/templates/errors.ts` — `TemplateErrorKind` union + `classTemplateError()` + helpers
 - `src/main/templates/parse-manifest.ts` — hand-rolled `parseTemplateManifest()` type guard
@@ -36,12 +38,14 @@
 - `src/main/ipc/templatesHandler.ts` — IPC handler
 
 **New test files (4):**
+
 - `src/main/templates/__tests__/parse-manifest.test.ts` (5 cases)
 - `src/main/templates/__tests__/discover.test.ts` (9 cases)
 - `src/main/templates/__tests__/copy.test.ts` (5 cases)
 - `src/main/ipc/__tests__/templatesHandler.test.ts` (6 cases)
 
 **New fixture directories (under `tests/fixtures/templates/`):**
+
 - `tests/fixtures/templates/samples-root/empty/template.json` (valid)
 - `tests/fixtures/templates/samples-root/classic/template.json` (valid)
 - `tests/fixtures/templates/samples-root/clone/template.json` (valid)
@@ -52,6 +56,7 @@
 - `tests/fixtures/templates/samples-root/classic/EcuExtract.arxml` (1 real value-side for fileCount assertion)
 
 **Modified files (5):**
+
 - `src/shared/ipc-contract.ts` — add `TEMPLATES_LIST` + `TEMPLATES_COPY`
 - `src/shared/types.ts` — add 4 IPC request/response interfaces + `TemplateErrorKind` re-export
 - `src/main/ipc/register.ts` — register `templatesHandler`
@@ -65,6 +70,7 @@
 ## Task 1: Types + Errors (foundation, no tests)
 
 **Files:**
+
 - Create: `src/main/templates/types.ts`
 - Create: `src/main/templates/errors.ts`
 
@@ -92,9 +98,9 @@ Write this file verbatim:
  * because the key is stable across locales (the string is not).
  */
 export interface BuiltinTemplate {
-  readonly id: string;                          // 'empty' | 'classic' | 'clone' (kebab-case, must match dirname)
-  readonly displayNameKey: string;              // 'template.empty.displayName'
-  readonly descriptionKey: string;              // 'template.empty.description'
+  readonly id: string; // 'empty' | 'classic' | 'clone' (kebab-case, must match dirname)
+  readonly displayNameKey: string; // 'template.empty.displayName'
+  readonly descriptionKey: string; // 'template.empty.description'
   /** Absolute paths to value-side ARXML files within `samplesRoot`. */
   readonly valueArxmlPaths: readonly string[];
   /** Absolute paths to schema-side BSWMD files within `<templateId>/bswmd/`. */
@@ -179,6 +185,7 @@ git commit -m "feat(templates): add BuiltinTemplate / TemplateError types (Sprin
 ## Task 2: `parseTemplateManifest` type guard + tests
 
 **Files:**
+
 - Create: `src/main/templates/parse-manifest.ts`
 - Create: `src/main/templates/__tests__/parse-manifest.test.ts`
 
@@ -310,6 +317,7 @@ git commit -m "feat(templates): add parseTemplateManifest type guard (Sprint 13 
 ## Task 3: `walkArxml` + `discoverBuiltinTemplates` + tests
 
 **Files:**
+
 - Create: `src/main/templates/walk-arxml.ts`
 - Create: `src/main/templates/discover.ts`
 - Create: `tests/fixtures/templates/samples-root/{empty,classic,clone,no-template-json,invalid-template,id-mismatch}/...`
@@ -322,43 +330,51 @@ git commit -m "feat(templates): add parseTemplateManifest type guard (Sprint 13 
 Create the following files:
 
 **`tests/fixtures/templates/samples-root/empty/template.json`:**
+
 ```json
 { "id": "empty", "displayName": "Empty Project", "description": "Start fresh" }
 ```
 
 **`tests/fixtures/templates/samples-root/classic/template.json`:**
+
 ```json
 { "id": "classic", "displayName": "Classic", "description": "Common BSWMD prefilled" }
 ```
 
 **`tests/fixtures/templates/samples-root/clone/template.json`:**
+
 ```json
 { "id": "clone", "displayName": "Clone", "description": "Copy of existing project" }
 ```
 
 **`tests/fixtures/templates/samples-root/no-template-json/Can/Bswmd/Can_bswmd.arxml`:**
 Take the first 200 bytes of `tests/fixtures/bswmd/Can_Bswmd.arxml` (which exists per Sprint 12 #1 fixtures) and write to this path. Use:
+
 ```bash
 mkdir -p tests/fixtures/templates/samples-root/no-template-json/Can/Bswmd
 head -c 200 tests/fixtures/bswmd/Can_Bswmd.arxml > tests/fixtures/templates/samples-root/no-template-json/Can/Bswmd/Can_bswmd.arxml
 ```
 
 **`tests/fixtures/templates/samples-root/invalid-template/template.json`:**
+
 ```json
 { "id": "invalid-template" }
 ```
 
 **`tests/fixtures/templates/samples-root/id-mismatch/template.json`:**
+
 ```json
 { "id": "different", "displayName": "x", "description": "y" }
 ```
 
 **`tests/fixtures/templates/samples-root/classic/EcuExtract.arxml`:**
+
 ```bash
 head -c 200 tests/fixtures/arxml/EcuC_EcuC.arxml > tests/fixtures/templates/samples-root/classic/EcuExtract.arxml
 ```
 
 **`tests/fixtures/templates/samples-root/classic/bswmd/Can_bswmd.arxml`:**
+
 ```bash
 mkdir -p tests/fixtures/templates/samples-root/classic/bswmd
 head -c 200 tests/fixtures/bswmd/Can_Bswmd.arxml > tests/fixtures/templates/samples-root/classic/bswmd/Can_bswmd.arxml
@@ -393,12 +409,22 @@ import { discoverBuiltinTemplates } from '../discover.js';
 
 const FIXTURE_ROOT = join(
   dirname(new URL(import.meta.url).pathname),
-  '..', '..', '..', '..', 'tests', 'fixtures', 'templates', 'samples-root',
+  '..',
+  '..',
+  '..',
+  '..',
+  'tests',
+  'fixtures',
+  'templates',
+  'samples-root',
 );
 
 let tempRoots: string[] = [];
 function makeTempRoot(): string {
-  const r = join(tmpdir(), `claude-autosarcfg-discover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const r = join(
+    tmpdir(),
+    `claude-autosarcfg-discover-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
   mkdirSync(r, { recursive: true });
   tempRoots.push(r);
   return r;
@@ -419,7 +445,7 @@ describe('discoverBuiltinTemplates (Sprint 13 #1)', () => {
   it('returns 1 BuiltinTemplate for a single-valid-template fixture', () => {
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
     // we only check the 'empty' template here, not all 3
-    const empty = r.find(t => t.id === 'empty');
+    const empty = r.find((t) => t.id === 'empty');
     expect(empty).toBeDefined();
     expect(empty!.displayNameKey).toBe('template.empty.displayName');
     expect(empty!.descriptionKey).toBe('template.empty.description');
@@ -430,14 +456,14 @@ describe('discoverBuiltinTemplates (Sprint 13 #1)', () => {
 
   it('returns 3 templates sorted alphabetically by id', () => {
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
-    expect(r.map(t => t.id)).toEqual(['classic', 'clone', 'empty']);
+    expect(r.map((t) => t.id)).toEqual(['classic', 'clone', 'empty']);
   });
 
   it('skips directories without template.json (opt-in)', () => {
     // no-template-json/ exists with BSWMD inside but no template.json
     // → must NOT appear in result
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
-    expect(r.find(t => t.id === 'no-template-json')).toBeUndefined();
+    expect(r.find((t) => t.id === 'no-template-json')).toBeUndefined();
   });
 
   it('skips directories with invalid JSON in template.json', () => {
@@ -447,33 +473,35 @@ describe('discoverBuiltinTemplates (Sprint 13 #1)', () => {
     mkdirSync(bad);
     writeFileSync(join(bad, 'template.json'), '{ this is not json');
     const r = discoverBuiltinTemplates(root);
-    expect(r.find(t => t.id === 'bad-json')).toBeUndefined();
+    expect(r.find((t) => t.id === 'bad-json')).toBeUndefined();
   });
 
   it('skips directories whose template.json fails the type guard (missing displayName)', () => {
     // invalid-template/ is in the fixture and is missing displayName
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
-    expect(r.find(t => t.id === 'invalid-template')).toBeUndefined();
+    expect(r.find((t) => t.id === 'invalid-template')).toBeUndefined();
   });
 
   it('skips directories whose template.json id does not match dirname', () => {
     // id-mismatch/ has id="different" inside it
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
-    expect(r.find(t => t.id === 'id-mismatch')).toBeUndefined();
+    expect(r.find((t) => t.id === 'id-mismatch')).toBeUndefined();
   });
 
   it('skips hidden directories (names starting with .)', () => {
     const root = makeTempRoot();
     mkdirSync(join(root, '.hidden'));
-    writeFileSync(join(root, '.hidden', 'template.json'),
-      JSON.stringify({ id: '.hidden', displayName: 'h', description: 'h' }));
+    writeFileSync(
+      join(root, '.hidden', 'template.json'),
+      JSON.stringify({ id: '.hidden', displayName: 'h', description: 'h' }),
+    );
     const r = discoverBuiltinTemplates(root);
-    expect(r.find(t => t.id === '.hidden')).toBeUndefined();
+    expect(r.find((t) => t.id === '.hidden')).toBeUndefined();
   });
 
   it('classifies classic/ EcuExtract.arxml as valueArxmlPaths and classic/bswmd/Can_bswmd.arxml as bswmdPaths', () => {
     const r = discoverBuiltinTemplates(FIXTURE_ROOT);
-    const classic = r.find(t => t.id === 'classic')!;
+    const classic = r.find((t) => t.id === 'classic')!;
     expect(classic.fileCount).toBe(2);
     expect(classic.valueArxmlPaths.length).toBe(1);
     expect(classic.valueArxmlPaths[0]).toMatch(/[\\/]classic[\\/]EcuExtract\.arxml$/);
@@ -538,7 +566,11 @@ export function walkArxml(root: string, opts: WalkArxmlOptions = {}): string[] {
         // Probe via statSync in case Dirent.isFile() is unreliable on
         // some platforms (CIFS mounts etc). Not strictly needed but
         // cheap insurance.
-        try { if (!statSync(full).isFile()) continue; } catch { continue; }
+        try {
+          if (!statSync(full).isFile()) continue;
+        } catch {
+          continue;
+        }
       }
     }
   }
@@ -579,8 +611,14 @@ import { walkArxml } from './walk-arxml.js';
 
 /** Module-level logger. Wired by `bootstrap.ts` to `app._logger`. */
 type Logger = { warn: (msg: string, meta?: unknown) => void };
-let logger: Logger = { warn: (m) => { /* eslint-disable-next-line no-console */ console.warn(m); } };
-export function setTemplatesLogger(l: Logger): void { logger = l; }
+let logger: Logger = {
+  warn: (m) => {
+    /* eslint-disable-next-line no-console */ console.warn(m);
+  },
+};
+export function setTemplatesLogger(l: Logger): void {
+  logger = l;
+}
 
 export function discoverBuiltinTemplates(samplesRoot: string): BuiltinTemplate[] {
   if (!existsSync(samplesRoot)) {
@@ -588,14 +626,15 @@ export function discoverBuiltinTemplates(samplesRoot: string): BuiltinTemplate[]
     return [];
   }
 
-  const entries = readdirSync(samplesRoot, { withFileTypes: true })
-    .filter(e => e.isDirectory() && !e.name.startsWith('.'));
+  const entries = readdirSync(samplesRoot, { withFileTypes: true }).filter(
+    (e) => e.isDirectory() && !e.name.startsWith('.'),
+  );
 
   const templates: BuiltinTemplate[] = [];
   for (const entry of entries) {
     const dirPath = join(samplesRoot, entry.name);
     const manifestPath = join(dirPath, 'template.json');
-    if (!existsSync(manifestPath)) continue;   // opt-in: skip reference data
+    if (!existsSync(manifestPath)) continue; // opt-in: skip reference data
 
     let manifest: TemplateManifest | null = null;
     try {
@@ -626,8 +665,8 @@ export function discoverBuiltinTemplates(samplesRoot: string): BuiltinTemplate[]
       id: manifest.id,
       displayNameKey: `template.${manifest.id}.displayName`,
       descriptionKey: `template.${manifest.id}.description`,
-      valueArxmlPaths: valueRel.map(p => resolve(dirPath, p)),
-      bswmdPaths: bswmdRel.map(p => resolve(dirPath, p)),
+      valueArxmlPaths: valueRel.map((p) => resolve(dirPath, p)),
+      bswmdPaths: bswmdRel.map((p) => resolve(dirPath, p)),
       fileCount: valueRel.length + bswmdRel.length,
     });
   }
@@ -661,6 +700,7 @@ git commit -m "feat(templates): add discoverBuiltinTemplates + walkArxml (Sprint
 ## Task 4: `copyTemplateFilesToDir` + tests
 
 **Files:**
+
 - Create: `src/main/templates/copy.ts`
 - Create: `src/main/templates/__tests__/copy.test.ts`
 
@@ -680,7 +720,15 @@ Write `src/main/templates/__tests__/copy.test.ts` verbatim:
 //   4. value+bswmd mixed template (classic) → both copied, fileCount matches
 //   5. source path does not exist on disk → throws file-copy-failed
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 
@@ -724,10 +772,7 @@ describe('copyTemplateFilesToDir (Sprint 13 #1)', () => {
     writeFileSync(join(src, 'sub', 'b.arxml'), '<B/>', { recursive: true });
     const t = makeTemplate({
       id: 't',
-      valueArxmlPaths: [
-        resolve(src, 'a.arxml'),
-        resolve(src, 'sub/b.arxml'),
-      ],
+      valueArxmlPaths: [resolve(src, 'a.arxml'), resolve(src, 'sub/b.arxml')],
       bswmdPaths: [],
     });
     const dest = join(workDir, 'dest');
@@ -870,6 +915,7 @@ git commit -m "feat(templates): add copyTemplateFilesToDir (Sprint 13 #1 Task 4)
 ## Task 5: `src/main/templates/index.ts` re-exports
 
 **Files:**
+
 - Create: `src/main/templates/index.ts`
 
 Pure barrel file. No new tests (the consumers in Task 6 will exercise everything).
@@ -892,15 +938,8 @@ export { copyTemplateFilesToDir } from './copy.js';
 export { parseTemplateManifest } from './parse-manifest.js';
 export { walkArxml } from './walk-arxml.js';
 export { classTemplateError } from './errors.js';
-export type {
-  BuiltinTemplate,
-  TemplateManifest,
-  CopyResult,
-} from './types.js';
-export type {
-  TemplateError,
-  TemplateErrorKind,
-} from './errors.js';
+export type { BuiltinTemplate, TemplateManifest, CopyResult } from './types.js';
+export type { TemplateError, TemplateErrorKind } from './errors.js';
 ```
 
 ### Step 2: Verify TypeScript compiles
@@ -920,6 +959,7 @@ git commit -m "feat(templates): add index.ts re-exports (Sprint 13 #1 Task 5)"
 ## Task 6: IPC types + channel constants
 
 **Files:**
+
 - Modify: `src/shared/ipc-contract.ts:25-50` (add 2 channels after PICK_DIR)
 - Modify: `src/shared/types.ts:1-30` (add 4 interfaces at end of file)
 
@@ -998,6 +1038,7 @@ git commit -m "feat(shared): add templates:list / templates:copy IPC types (Spri
 ## Task 7: `templatesHandler` + tests
 
 **Files:**
+
 - Create: `src/main/ipc/templatesHandler.ts`
 - Create: `src/main/ipc/__tests__/templatesHandler.test.ts`
 
@@ -1209,8 +1250,8 @@ export function __setTestCache(templates: BuiltinTemplate[] | null): BuiltinTemp
  */
 export function resolveSamplesRoot(): string | null {
   const candidates: string[] = [
-    `${app.getAppPath()}/samples`,                                              // dev
-    `${process.resourcesPath}/samples`,                                         // prod
+    `${app.getAppPath()}/samples`, // dev
+    `${process.resourcesPath}/samples`, // prod
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
@@ -1235,7 +1276,7 @@ export async function templatesListHandler(
   _req: TemplateListRequest,
 ): Promise<TemplateListResponse> {
   return {
-    templates: _builtinTemplates.map(t => ({
+    templates: _builtinTemplates.map((t) => ({
       id: t.id,
       displayNameKey: t.displayNameKey,
       descriptionKey: t.descriptionKey,
@@ -1247,7 +1288,7 @@ export async function templatesListHandler(
 export async function templatesCopyHandler(
   req: TemplateCopyRequest,
 ): Promise<TemplateCopyResponse> {
-  const template = _builtinTemplates.find(t => t.id === req.templateId);
+  const template = _builtinTemplates.find((t) => t.id === req.templateId);
   if (!template) {
     throw classTemplateError('unknown-template', `未找到模板: ${req.templateId}`, {
       templateId: req.templateId,
@@ -1262,8 +1303,8 @@ export async function templatesCopyHandler(
   // project-relative paths (the renderer will often want to display
   // them in a tree view next to other project files).
   return {
-    copiedValueArxml: result.copiedValueArxml.map(p => relative(req.destDir, p)),
-    copiedBswmd: result.copiedBswmd.map(p => relative(req.destDir, p)),
+    copiedValueArxml: result.copiedValueArxml.map((p) => relative(req.destDir, p)),
+    copiedBswmd: result.copiedBswmd.map((p) => relative(req.destDir, p)),
   };
 }
 ```
@@ -1290,6 +1331,7 @@ git commit -m "feat(ipc): add templates:list / templates:copy handlers (Sprint 1
 ## Task 8: Register handlers in `register.ts` + boot wiring in `main/index.ts`
 
 **Files:**
+
 - Modify: `src/main/ipc/register.ts` (add 2 `ipcMain.handle` lines for the new channels)
 - Modify: `src/main/index.ts` (call `initBuiltinTemplatesCache()` after `app.whenReady`)
 
@@ -1304,9 +1346,9 @@ Read `src/main/ipc/register.ts`. The function `registerIpcHandlers` should alrea
 In `src/main/ipc/register.ts`, find the existing `ipcMain.handle` for `PICK_DIR` (the last registration). Add the following two registrations immediately after, before the closing `}` of the function:
 
 ```typescript
-  // Sprint 13 #1 — built-in template IPC.
-  ipcMain.handle(IPC_CHANNELS.TEMPLATES_LIST, async (_e, req) => templatesListHandler(req));
-  ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => templatesCopyHandler(req));
+// Sprint 13 #1 — built-in template IPC.
+ipcMain.handle(IPC_CHANNELS.TEMPLATES_LIST, async (_e, req) => templatesListHandler(req));
+ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => templatesCopyHandler(req));
 ```
 
 Add the corresponding imports at the top of `register.ts` (next to the existing handler imports — look for the `import { projectNewHandler } from './projectNewHandler.js'` block and follow the same pattern):
@@ -1350,6 +1392,7 @@ git commit -m "feat(ipc): wire templates:list / templates:copy into register + b
 ## Task 9: Preload bridge
 
 **Files:**
+
 - Modify: `src/preload/index.ts` (add 2 `invoke` wrappers in the `api` object)
 - Modify: `src/preload/index.d.ts` (add 2 method signatures to the `Api` interface)
 
@@ -1419,6 +1462,7 @@ git commit -m "feat(preload): expose listTemplates / copyTemplate (Sprint 13 #1 
 ## Task 10: i18n keys (6 new)
 
 **Files:**
+
 - Modify: `src/shared/i18n.ts:43-100` (add 6 keys to `Messages` interface)
 - Modify: `src/shared/i18n.ts:151-258` (add 6 entries to `MessagesZhCN`)
 - Modify: `src/shared/i18n.ts:259-360` (add 6 entries to `MessagesEn`)
@@ -1489,6 +1533,7 @@ git commit -m "feat(i18n): add 6 template.* keys zh-CN + en (Sprint 13 #1 Task 1
 ## Task 11: `package.json` extraResources
 
 **Files:**
+
 - Modify: `package.json` (add `extraResources` block to `build`)
 
 ### Step 1: Add `extraResources` block
@@ -1531,11 +1576,12 @@ git commit -m "build: add extraResources samples/ for electron-builder (Sprint 1
 ## Task 12: `samples/README.md` case-flip hygiene
 
 **Files:**
+
 - Modify: `samples/README.md:71-76` (replace `Bswmd/` references in the file-classification table)
 
 ### Step 1: Inspect the README table
 
-Read `samples/README.md` lines 65-85 (the "文件分类规则" / "File classification rules" section). The table uses `bswmd/` (lowercase) for the *intended* template convention but the 100+ reference BSWMD on disk use `Bswmd/` (capital B). The opt-in gate (`template.json` present) means the 100+ dirs are never classified — they are silent reference data. The README's example is correct (lowercase for new templates); the 100+ on disk are an intentional legacy shape. The fix is a clarifying note, not a rename.
+Read `samples/README.md` lines 65-85 (the "文件分类规则" / "File classification rules" section). The table uses `bswmd/` (lowercase) for the _intended_ template convention but the 100+ reference BSWMD on disk use `Bswmd/` (capital B). The opt-in gate (`template.json` present) means the 100+ dirs are never classified — they are silent reference data. The README's example is correct (lowercase for new templates); the 100+ on disk are an intentional legacy shape. The fix is a clarifying note, not a rename.
 
 ### Step 2: Add a one-line clarification
 
@@ -1562,6 +1608,7 @@ git commit -m "docs(samples): clarify bswmd/ case convention vs legacy Bswmd/ (S
 ## Task 13: Final verify — coverage, baseline 5/5, version bump, CHANGELOG, commit, push
 
 **Files:**
+
 - Modify: `package.json` (bump `version` 0.13.0 → 0.14.0)
 - Modify: `CHANGELOG.md` (add Sprint 13 #1 entry)
 
@@ -1583,6 +1630,7 @@ Expected: both exit 0. The project uses `--max-warnings 0` (per `package.json`),
 
 Run: `pnpm test -- --coverage`
 Expected:
+
 - stmts ≥ 96% (baseline 96.47%)
 - branches ≥ 85% (baseline 85.45%)
 - funcs = 100% (baseline 100%)
@@ -1592,6 +1640,7 @@ If coverage is below baseline, identify the gap (`pnpm test -- --coverage --repo
 ### Step 4: Verify 5/5 baseline guards
 
 The 5 baseline items per spec §5.4:
+
 1. **cross-ref 782 signed-guard [700, 850]**: this is enforced by the existing `tests/fixtures/bswmd/__tests__/bswmd-roundtrip.test.ts` style count assertion. Running `pnpm test` covers it.
 2. **ref-dest = 0**: covered by `src/core/validation/__tests__/validateProject.canifSmoke.test.ts` (per the earlier grep). Running `pnpm test` covers it.
 3. **ref-cycle = 0**: same as above.
@@ -1664,24 +1713,24 @@ Open `C:\Users\13777\.claude\projects\D--claude-proj2\memory\claude-autosarcfg-o
 
 ## Spec Coverage Check (self-review)
 
-| Spec section | Implemented in |
-|---|---|
-| §2.1 高层流程 | Task 8 (initBuiltinTemplatesCache) + Task 7 (handlers) + Task 9 (preload) |
-| §2.2 不引新依赖 | Plan adds zero deps (hand-rolled type guard, no Zod) |
-| §2.3 严格分层 | All Task 1-5 files in `src/main/templates/` import only core/shared/node/electron; Task 7 handler imports both `main/templates` and `shared/types` |
-| §2.4 错误处理 | Task 1 (errors.ts) + Task 3 (warn + skip in discover) + Task 4 (throw in copy) + Task 7 (throw in handler) |
-| §3 Module layout | Tasks 1-9 mirror spec §3 exactly |
-| §3.3 公开 API | Task 1 (types) + Task 3 (discover) + Task 4 (copy) + Task 5 (index re-exports) |
-| §3.4 IPC 契约 | Task 6 (4 interfaces added to `src/shared/types.ts`) |
-| §3.5 Error envelope | Task 1 (TemplateError 7-kind) + Task 4 (file-copy-failed throw) + Task 7 (handler throw) |
-| §3.6 i18n key 设计 | Task 10 (6 keys × 2 locales) |
-| §3.7 package.json | Task 11 (extraResources block) |
-| §4 Data flow | Task 3 (discover internals) + Task 4 (copy internals) + Task 7 (handler behavior) |
-| §5 Testing strategy | Tasks 2, 3, 4, 7 (25 cases) + Task 13 (coverage verify) |
-| §5.4 5/5 baseline | Task 13 Step 4 (verify all 5) |
-| §6 Out of scope | Nothing in this plan touches TemplateCard UI / classic content / clone IPC / chips / saveAndProceed / overwrite-confirm / vendor BSWMD / i18n M6-M8 / serialize / vendor-namespace / fixture volume / electron-builder packaging / coverage ≥90% |
-| §7.3 Hygiene | Task 12 (samples/README.md clarification) |
-| §8 Deliverable checklist | All 14 items covered across Tasks 1-13 |
+| Spec section             | Implemented in                                                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| §2.1 高层流程            | Task 8 (initBuiltinTemplatesCache) + Task 7 (handlers) + Task 9 (preload)                                                                                                                                                                        |
+| §2.2 不引新依赖          | Plan adds zero deps (hand-rolled type guard, no Zod)                                                                                                                                                                                             |
+| §2.3 严格分层            | All Task 1-5 files in `src/main/templates/` import only core/shared/node/electron; Task 7 handler imports both `main/templates` and `shared/types`                                                                                               |
+| §2.4 错误处理            | Task 1 (errors.ts) + Task 3 (warn + skip in discover) + Task 4 (throw in copy) + Task 7 (throw in handler)                                                                                                                                       |
+| §3 Module layout         | Tasks 1-9 mirror spec §3 exactly                                                                                                                                                                                                                 |
+| §3.3 公开 API            | Task 1 (types) + Task 3 (discover) + Task 4 (copy) + Task 5 (index re-exports)                                                                                                                                                                   |
+| §3.4 IPC 契约            | Task 6 (4 interfaces added to `src/shared/types.ts`)                                                                                                                                                                                             |
+| §3.5 Error envelope      | Task 1 (TemplateError 7-kind) + Task 4 (file-copy-failed throw) + Task 7 (handler throw)                                                                                                                                                         |
+| §3.6 i18n key 设计       | Task 10 (6 keys × 2 locales)                                                                                                                                                                                                                     |
+| §3.7 package.json        | Task 11 (extraResources block)                                                                                                                                                                                                                   |
+| §4 Data flow             | Task 3 (discover internals) + Task 4 (copy internals) + Task 7 (handler behavior)                                                                                                                                                                |
+| §5 Testing strategy      | Tasks 2, 3, 4, 7 (25 cases) + Task 13 (coverage verify)                                                                                                                                                                                          |
+| §5.4 5/5 baseline        | Task 13 Step 4 (verify all 5)                                                                                                                                                                                                                    |
+| §6 Out of scope          | Nothing in this plan touches TemplateCard UI / classic content / clone IPC / chips / saveAndProceed / overwrite-confirm / vendor BSWMD / i18n M6-M8 / serialize / vendor-namespace / fixture volume / electron-builder packaging / coverage ≥90% |
+| §7.3 Hygiene             | Task 12 (samples/README.md clarification)                                                                                                                                                                                                        |
+| §8 Deliverable checklist | All 14 items covered across Tasks 1-13                                                                                                                                                                                                           |
 
 **Gaps**: None. Spec §8 checklist item 11 ("667 tests 全过") is slightly off — actual is 665 (640 baseline + 25 new), and i18n parity test does not add separate test cases (auto-enforced by existing `i18n.test.ts`). The spec's count was 667 because it counted 6 i18n parity "assertions" as test cases. Functionally equivalent.
 

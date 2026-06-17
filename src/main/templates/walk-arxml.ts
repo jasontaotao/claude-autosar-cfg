@@ -12,7 +12,7 @@
 // BSWMD under `samples/arxml/<Module>/Bswmd/` are filtered out by the
 // opt-in gate on `template.json`, so this never matters for them.)
 
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 
 export interface WalkArxmlOptions {
@@ -25,7 +25,7 @@ export function walkArxml(root: string, opts: WalkArxmlOptions = {}): string[] {
   const stack: string[] = [root];
   while (stack.length > 0) {
     const cur = stack.pop()!;
-    let entries: import('node:fs').Dirent[];
+    let entries: Dirent[];
     try {
       entries = readdirSync(cur, { withFileTypes: true });
     } catch {

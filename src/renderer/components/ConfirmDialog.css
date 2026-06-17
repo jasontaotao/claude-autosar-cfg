@@ -14,13 +14,13 @@
 }
 
 .confirm-dialog {
-  background: #313244;          /* --color-surface */
-  border: 1px solid #45475a;    /* --color-border */
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
   border-radius: 12px;
   min-width: 360px;
   max-width: 440px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  color: #cdd6f4;               /* --color-text */
+  color: #cdd6f4; /* --color-text */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #181825;          /* --color-bg (darker) */
+  background: #181825; /* --color-bg (darker) */
   padding: 14px 20px;
   border-bottom: 1px solid #45475a;
 }
@@ -46,7 +46,7 @@
   appearance: none;
   background: transparent;
   border: none;
-  color: #a6adc8;               /* --color-text-dim */
+  color: #a6adc8; /* --color-text-dim */
   font-size: 16px;
   cursor: pointer;
   padding: 4px 8px;
@@ -89,7 +89,10 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .confirm-btn-cancel {
@@ -103,8 +106,8 @@
 }
 
 .confirm-btn-danger {
-  background: #f38ba8;          /* --color-error */
-  color: #1e1e2e;               /* dark text on bright pink */
+  background: #f38ba8; /* --color-error */
+  color: #1e1e2e; /* dark text on bright pink */
   font-weight: 600;
   border-color: #f38ba8;
 }
@@ -115,7 +118,7 @@
 }
 
 .confirm-btn-create {
-  background: #89b4fa;          /* --color-accent */
+  background: #89b4fa; /* --color-accent */
   color: #1e1e2e;
   font-weight: 600;
   border-color: #89b4fa;

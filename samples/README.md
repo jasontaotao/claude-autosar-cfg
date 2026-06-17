@@ -50,9 +50,9 @@ samples/
 
 ```jsonc
 {
-  "id": "classic-can-if",           // kebab-case，必须与子目录名一致
-  "displayName": "Classic CAN-IF",  // picker 显示名
-  "description": "..."              // picker 副标题（说明模板用途）
+  "id": "classic-can-if", // kebab-case，必须与子目录名一致
+  "displayName": "Classic CAN-IF", // picker 显示名
+  "description": "...", // picker 副标题（说明模板用途）
 }
 ```
 
@@ -66,14 +66,14 @@ samples/
 
 `src/main/templates/index.ts` 的 `copyTemplateFilesToDir` 用纯路径约定分类：
 
-| 位置 | 归类 |
-|---|---|
-| `<id>/<file>.arxml`（顶层） | `valueArxmlPaths` |
-| `<id>/<sub>/<file>.arxml` | `valueArxmlPaths`（`sub` 保留） |
-| `<id>/bswmd/<file>.arxml` | `bswmdPaths` |
-| `<id>/bswmd/<sub>/<file>.arxml` | `bswmdPaths`（`sub` 保留） |
-| 非 `.arxml` 文件 | 跳过（不拷） |
-| `template.json` | 跳过（不拷） |
+| 位置                            | 归类                            |
+| ------------------------------- | ------------------------------- |
+| `<id>/<file>.arxml`（顶层）     | `valueArxmlPaths`               |
+| `<id>/<sub>/<file>.arxml`       | `valueArxmlPaths`（`sub` 保留） |
+| `<id>/bswmd/<file>.arxml`       | `bswmdPaths`                    |
+| `<id>/bswmd/<sub>/<file>.arxml` | `bswmdPaths`（`sub` 保留）      |
+| 非 `.arxml` 文件                | 跳过（不拷）                    |
+| `template.json`                 | 跳过（不拷）                    |
 
 > **大小写注意**：上述约定 `bswmd/`（小写 b）是**新模板**的标准。仓库内现有的 100+ 参考 BSWMD（`samples/arxml/<Module>/Bswmd/<Module>_bswmd.arxml`，大写 B）属于历史 vendor 上游 sync 数据，**没有** `template.json` 标记，被 opt-in gate 静默忽略，不会出现在 picker 中。新建模板时务必用 `bswmd/`（小写）。
 
@@ -100,11 +100,11 @@ picker 里看到的"Display Name"**直接来自 `template.json` 的 `displayName
 }
 ```
 
-| 阶段 | 路径 |
-|---|---|
-| 开发期 | `<repo-root>/samples/`（main process 读 `app.getAppPath()/samples`） |
+| 阶段              | 路径                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| 开发期            | `<repo-root>/samples/`（main process 读 `app.getAppPath()/samples`）                                 |
 | 生产期（Windows） | `<install-dir>/resources/samples/`（NSIS 默认装到 `C:\Program Files\AutosarCfg\resources\samples\`） |
-| 运行时 | `process.resourcesPath + '/samples'`（main process 读） |
+| 运行时            | `process.resourcesPath + '/samples'`（main process 读）                                              |
 
 ## 维护守则
 

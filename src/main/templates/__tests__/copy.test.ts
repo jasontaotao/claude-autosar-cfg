@@ -7,14 +7,7 @@
 //   4. value+bswmd mixed template (classic) → both copied, fileCount matches
 //   5. source path does not exist on disk → throws file-copy-failed
 
-import {
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  existsSync,
-  mkdtempSync,
-  rmSync,
-} from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 

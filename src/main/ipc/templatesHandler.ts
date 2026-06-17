@@ -18,6 +18,12 @@ import { relative } from 'node:path';
 
 import { app } from 'electron';
 
+import type {
+  TemplateListRequest,
+  TemplateListResponse,
+  TemplateCopyRequest,
+  TemplateCopyResponse,
+} from '../../shared/types.js';
 import {
   copyTemplateFilesToDir,
   discoverBuiltinTemplates,
@@ -25,12 +31,6 @@ import {
   setTemplatesLogger,
 } from '../templates/index.js';
 import type { BuiltinTemplate } from '../templates/types.js';
-import type {
-  TemplateListRequest,
-  TemplateListResponse,
-  TemplateCopyRequest,
-  TemplateCopyResponse,
-} from '../../shared/types.js';
 
 /** Underlying cache slot. Set by main/index.ts at boot, or by tests. */
 let _builtinTemplates: BuiltinTemplate[] = [];

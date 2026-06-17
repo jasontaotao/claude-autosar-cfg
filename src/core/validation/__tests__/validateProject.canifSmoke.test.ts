@@ -64,9 +64,7 @@ function loadAdcLayer(): ReturnType<typeof buildSchemaLayer> {
   const xml = readFileSync(FIXTURE_PATH, 'utf-8');
   const result = parseBswmd(xml);
   if (!result.ok) {
-    throw new Error(
-      `Failed to parse Adc_bswmd.arxml: ${JSON.stringify(result.error)}`,
-    );
+    throw new Error(`Failed to parse Adc_bswmd.arxml: ${JSON.stringify(result.error)}`);
   }
   // README quotes 1 module / 7 containers / 42 params / 4 refs for this
   // fixture; the smoke test asserts the layer is non-trivial so the enum
@@ -99,9 +97,7 @@ function loadAdcLayer(): ReturnType<typeof buildSchemaLayer> {
  * touching the rest of the path. Default is the valid `ADC_RANGE_ALWAYS`
  * literal so the smoke call site reads naturally.
  */
-function makeAdcArxml(
-  paramEntries: Readonly<Record<string, ParamValue>>,
-): ArxmlDocument {
+function makeAdcArxml(paramEntries: Readonly<Record<string, ParamValue>>): ArxmlDocument {
   const adcChannel: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',
@@ -276,7 +272,9 @@ describe('CanIf/Adc BSWMD end-to-end smoke (Sprint 12 #2)', () => {
     // The AdcChannelRangeSelect enum param is the linchpin of cases A/B;
     // assert it is keyed exactly as the validator expects.
     expect(
-      layer.params.has('/AUTOSAR_R22/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect'),
+      layer.params.has(
+        '/AUTOSAR_R22/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
+      ),
     ).toBe(true);
   });
 });
@@ -367,9 +365,7 @@ describe('Case C — ARXML with undeclared param under known module', () => {
     const schemaUnknown = errors.filter((e) => e.kind === 'schema-unknown');
 
     expect(schemaUnknown).toHaveLength(1);
-    expect(schemaUnknown[0]?.path).toBe(
-      '/EcucDefs/CanIf/CanIfGeneral/SomeFakeParam',
-    );
+    expect(schemaUnknown[0]?.path).toBe('/EcucDefs/CanIf/CanIfGeneral/SomeFakeParam');
     // The diagnostic must name the canonical module path so the renderer
     // can show "BSWMD-declared module '/EcucDefs/CanIf' has no schema
     // for '/EcucDefs/CanIf/CanIfGeneral/SomeFakeParam'".

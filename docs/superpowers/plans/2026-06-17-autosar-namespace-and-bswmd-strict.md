@@ -15,16 +15,20 @@
 ## Task 1: Extend `ArxmlVersion` + `SUPPORTED_ARXML_VERSIONS` with 5-digit literals
 
 **Files:**
+
 - Modify: `src/core/arxml/types.ts:5` (ArxmlVersion type)
 - Modify: `src/core/arxml/types.ts:77-83` (SUPPORTED_ARXML_VERSIONS)
 
 - [ ] **Step 1: Update `ArxmlVersion` union type**
 
 In `src/core/arxml/types.ts`, change line 5 from:
+
 ```ts
 export type ArxmlVersion = '4.2' | '4.4' | '4.6' | '4.7' | '5.0' | '00005' | '00006';
 ```
+
 to:
+
 ```ts
 export type ArxmlVersion =
   | '4.2'
@@ -43,6 +47,7 @@ export type ArxmlVersion =
 - [ ] **Step 2: Update `SUPPORTED_ARXML_VERSIONS` constant**
 
 In the same file, change lines 77-83 from:
+
 ```ts
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.2',
@@ -52,7 +57,9 @@ export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '5.0',
 ] as const;
 ```
+
 to:
+
 ```ts
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.2',
@@ -92,6 +99,7 @@ git commit -m "feat(arxml): add 00046/00048/00049/00050 to supported version set
 ## Task 2: Extend `XSD_PATTERN` to recognise the 5-digit form
 
 **Files:**
+
 - Modify: `src/core/arxml/parser.ts:45` (XSD_PATTERN constant)
 - Test: `src/core/arxml/__tests__/parser-namespace.test.ts` (new file)
 
@@ -106,9 +114,9 @@ describe('XSD_PATTERN namespace detection', () => {
   it('matches the legacy dashed form AUTOSAR_4-2-2.xsd', async () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion(
-      '<AUTOSAR xmlns="http://autosar.org/schema/r4.2" '
-      + 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-      + 'xsi:schemaLocation="http://autosar.org/schema/r4.2 AUTOSAR_4-2-2.xsd"></AUTOSAR>',
+      '<AUTOSAR xmlns="http://autosar.org/schema/r4.2" ' +
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+        'xsi:schemaLocation="http://autosar.org/schema/r4.2 AUTOSAR_4-2-2.xsd"></AUTOSAR>',
     );
     expect(r).toBe('4.2');
   });
@@ -116,9 +124,9 @@ describe('XSD_PATTERN namespace detection', () => {
   it('matches the 5-digit form AUTOSAR_00046.xsd', async () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion(
-      '<AUTOSAR xmlns="http://autosar.org/schema/r4.0" '
-      + 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-      + 'xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00046.xsd"></AUTOSAR>',
+      '<AUTOSAR xmlns="http://autosar.org/schema/r4.0" ' +
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+        'xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00046.xsd"></AUTOSAR>',
     );
     expect(r).toBe('00046');
   });
@@ -126,9 +134,9 @@ describe('XSD_PATTERN namespace detection', () => {
   it('matches the 5-digit form AUTOSAR_00049.xsd (R20-11)', async () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion(
-      '<AUTOSAR xmlns="http://autosar.org/schema/r4.0" '
-      + 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
-      + 'xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd"></AUTOSAR>',
+      '<AUTOSAR xmlns="http://autosar.org/schema/r4.0" ' +
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+        'xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd"></AUTOSAR>',
     );
     expect(r).toBe('00049');
   });
@@ -163,10 +171,13 @@ Expected: 3 tests run. The `4.2` test PASSES; the two 5-digit tests FAIL because
 - [ ] **Step 5: Extend `XSD_PATTERN`**
 
 In `src/core/arxml/parser.ts:45`, change:
+
 ```ts
 const XSD_PATTERN = /AUTOSAR_(\d)-(\d)-(\d)\.xsd/;
 ```
+
 to:
+
 ```ts
 // AUTOSAR ships schemaLocation in two forms:
 //   1. Dashed:   AUTOSAR_4-2-2.xsd  (R4.2 / R4.4 / R4.6 / R4.7 / R5.0)
@@ -239,6 +250,7 @@ git commit -m "feat(arxml): detect AUTOSAR 5-digit xsd form (00046/00048/00049/0
 ## Task 3: Verify EB tresos fixtures parse via `parseArxml`
 
 **Files:**
+
 - Test: append to `src/core/arxml/__tests__/parser-namespace.test.ts`
 
 This task validates Task 2 against real vendor data, not just synthetic strings.
@@ -305,6 +317,7 @@ git commit -m "test(arxml): EB tresos R4.4/R19-11/R20-11/R21-11 regression fixtu
 ## Task 4: Add strict reject for pure-BSWMD files in `parseArxml`
 
 **Files:**
+
 - Modify: `src/core/arxml/parser.ts` (add post-walk check + helpers)
 - Test: append to `src/core/arxml/__tests__/parser-namespace.test.ts`
 
@@ -466,8 +479,8 @@ if (!findAnyModuleInPackages(packages) && findAnyDefInPackages(packages)) {
       kind: 'invalid-structure',
       path: '/',
       message:
-        'Loaded file is a BSW Module Description (BSWMD, schema only). '
-        + 'Open it via "Load BSWMD" instead of "Open ARXML".',
+        'Loaded file is a BSW Module Description (BSWMD, schema only). ' +
+        'Open it via "Load BSWMD" instead of "Open ARXML".',
     },
   };
 }
@@ -495,6 +508,7 @@ git commit -m "feat(arxml): strict reject pure BSWMD files with hint message"
 ## Task 5: Replace serializer `buildXmlns` + `buildSchemaLocation` with lookup table
 
 **Files:**
+
 - Modify: `src/core/arxml/serializer.ts:99-105` (two functions replaced by one table)
 - Test: append to `src/core/arxml/__tests__/parser-namespace.test.ts` (or new `serializer-roundtrip.test.ts` if preferred)
 
@@ -629,6 +643,7 @@ git commit -m "feat(arxml): serializer uses version→schemaLocation lookup tabl
 ## Task 6: Update existing `parser.test.ts` for strict-reject coverage
 
 **Files:**
+
 - Modify: `src/core/arxml/__tests__/parser.test.ts` (append one test)
 
 This task ensures that the existing test file documents the strict-reject contract alongside the value-side contract, so future contributors see both in one file.
@@ -707,6 +722,7 @@ Expected: Line coverage on `src/core/arxml/parser.ts` and `src/core/arxml/serial
 - [ ] **Step 5: Final commit (if any fmt/lint auto-fixes applied)**
 
 If `pnpm format:check` reports drift:
+
 ```bash
 pnpm format
 git add -A

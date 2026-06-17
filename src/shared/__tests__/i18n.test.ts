@@ -106,46 +106,44 @@ describe('i18n — t() helper', () => {
   });
 
   it('renders projectPanel.bswmd.addAria with {name} placeholder (zh-CN + en)', () => {
-    expect(
-      t('zh-CN', 'projectPanel.bswmd.addAria', { name: 'CanIf' }),
-    ).toBe('加载 BSWMD 文件 CanIf');
-    expect(
-      t('en', 'projectPanel.bswmd.addAria', { name: 'CanIf.arxml' }),
-    ).toBe('Load BSWMD file CanIf.arxml');
+    expect(t('zh-CN', 'projectPanel.bswmd.addAria', { name: 'CanIf' })).toBe(
+      '加载 BSWMD 文件 CanIf',
+    );
+    expect(t('en', 'projectPanel.bswmd.addAria', { name: 'CanIf.arxml' })).toBe(
+      'Load BSWMD file CanIf.arxml',
+    );
   });
 
   it('renders app.error.readBswmdFailed with {message} placeholder (zh-CN + en)', () => {
-    expect(
-      t('zh-CN', 'app.error.readBswmdFailed', { message: 'ENOENT' }),
-    ).toBe('读取 BSWMD 失败: ENOENT');
-    expect(
-      t('en', 'app.error.readBswmdFailed', { message: 'ENOENT' }),
-    ).toBe('Failed to read BSWMD: ENOENT');
+    expect(t('zh-CN', 'app.error.readBswmdFailed', { message: 'ENOENT' })).toBe(
+      '读取 BSWMD 失败: ENOENT',
+    );
+    expect(t('en', 'app.error.readBswmdFailed', { message: 'ENOENT' })).toBe(
+      'Failed to read BSWMD: ENOENT',
+    );
   });
 
   it('renders app.error.parseBswmdFailed with {message} placeholder (zh-CN + en)', () => {
-    expect(
-      t('zh-CN', 'app.error.parseBswmdFailed', { message: 'xml malformed' }),
-    ).toBe('BSWMD 解析失败: xml malformed');
-    expect(
-      t('en', 'app.error.parseBswmdFailed', { message: 'xml malformed' }),
-    ).toBe('BSWMD parse failed: xml malformed');
+    expect(t('zh-CN', 'app.error.parseBswmdFailed', { message: 'xml malformed' })).toBe(
+      'BSWMD 解析失败: xml malformed',
+    );
+    expect(t('en', 'app.error.parseBswmdFailed', { message: 'xml malformed' })).toBe(
+      'BSWMD parse failed: xml malformed',
+    );
   });
 
   it('renders app.error.duplicateBswmd with {path} placeholder (zh-CN + en)', () => {
-    expect(
-      t('zh-CN', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' }),
-    ).toBe('BSWMD 已加载过: /x/CanIf.arxml');
-    expect(
-      t('en', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' }),
-    ).toBe('BSWMD already loaded: /x/CanIf.arxml');
+    expect(t('zh-CN', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' })).toBe(
+      'BSWMD 已加载过: /x/CanIf.arxml',
+    );
+    expect(t('en', 'app.error.duplicateBswmd', { path: '/x/CanIf.arxml' })).toBe(
+      'BSWMD already loaded: /x/CanIf.arxml',
+    );
   });
 
   it('renders app.error.needProject as a static string (zh-CN + en)', () => {
     expect(t('zh-CN', 'app.error.needProject')).toBe('需要先打开或创建项目');
-    expect(t('en', 'app.error.needProject')).toBe(
-      'Please open or create a project first',
-    );
+    expect(t('en', 'app.error.needProject')).toBe('Please open or create a project first');
   });
 });
 
@@ -162,9 +160,7 @@ describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 T
 
   it('renders newProject.nameHint (zh-CN + en)', () => {
     expect(t('zh-CN', 'newProject.nameHint')).toBe('用于显示和文件名，最长 64 字符');
-    expect(t('en', 'newProject.nameHint')).toBe(
-      'For display and filename, max 64 characters',
-    );
+    expect(t('en', 'newProject.nameHint')).toBe('For display and filename, max 64 characters');
   });
 
   it('renders newProject.dirLabel (zh-CN + en)', () => {
@@ -173,9 +169,7 @@ describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 T
   });
 
   it('renders newProject.dirHint (zh-CN + en)', () => {
-    expect(t('zh-CN', 'newProject.dirHint')).toBe(
-      '选择项目目录（manifest 文件将保存在此目录下）',
-    );
+    expect(t('zh-CN', 'newProject.dirHint')).toBe('选择项目目录（manifest 文件将保存在此目录下）');
     expect(t('en', 'newProject.dirHint')).toBe(
       'Select project directory (manifest file will be saved here)',
     );

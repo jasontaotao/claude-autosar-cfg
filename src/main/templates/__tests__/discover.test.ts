@@ -13,8 +13,8 @@
 //      (classic has 1 EcuExtract.arxml at root + 1 BSWMD in bswmd/)
 
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';

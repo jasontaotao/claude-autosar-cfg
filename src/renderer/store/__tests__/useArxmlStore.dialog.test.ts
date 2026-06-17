@@ -195,7 +195,12 @@ describe('useArxmlStore — dialog state (Sprint 12 #3 Task 7)', () => {
       // Discriminator round-trip across all 4 kinds. The TS type system
       // enforces this at compile time; this test pins the runtime shape
       // so a future refactor doesn't accidentally drop a kind.
-      const kinds: PendingAction['kind'][] = ['newProject', 'openProject', 'addBswmd', 'removeBswmd'];
+      const kinds: PendingAction['kind'][] = [
+        'newProject',
+        'openProject',
+        'addBswmd',
+        'removeBswmd',
+      ];
       for (const kind of kinds) {
         useArxmlStore.getState().setPendingAction({ kind } as PendingAction);
         const after = useArxmlStore.getState().pendingAction;

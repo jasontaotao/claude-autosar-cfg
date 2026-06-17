@@ -7,6 +7,7 @@
 ## Pre-flight: Commit Sprint 12 #2 first (推荐)
 
 **Sprint 12 #2 还在 working tree, 515 tests pass, v0.12.0 已 bump 但未 commit。** 强烈建议:
+
 - **Phase 0**: commit Sprint 12 #2 (`feat(sprint12-2): BSWMD renderer integration (v0.12.0)`) — 9 tasks 完成
 - 然后做 Sprint 12 #3 (v0.13.0 MINOR bump)
 
@@ -22,85 +23,85 @@
 
 ### Phase 1 — 统一弹窗 + 验证 + dirty 保护 (核心, 9 tasks)
 
-| # | Task | Files |
-|---|------|-------|
-| 1 | `NewProjectDialog` 组件 (Catppuccin Mocha, portal + overlay, 3 input sections) | `components/NewProjectDialog.{tsx,css}` |
-| 2 | `validateProjectName(value)` 纯函数 (空 / 非法字符 `<>:"/\\|?*` / >64 / 重名) | `NewProjectDialog.tsx` 内 |
-| 3 | `project:pickDir` IPC (`dialog.showOpenDialog({ properties: ['openDirectory'] })`) | `ipc-contract.ts` + `types.ts` + `register.ts` + `preload/index.ts` |
-| 4 | `ProjectNewRequest` 扩展 `directory: string`, 移除 OS save dialog, 改 main handler 拼 `.autosarcfg.json`, 加 `'overwrite-confirm'` result kind | `types.ts` + `register.ts` |
-| 5 | `useProjectActions.newProject` 重写: 打开 NewProjectDialog → 收集 {name, directory} → IPC | `useProjectActions.ts` |
-| 6 | `ConfirmDialog` 组件 (3 按钮: 继续编辑 / 不保存新建 / 保存并新建) | `components/ConfirmDialog.{tsx,css}` |
-| 7 | Store `isDirty` getter (`dirtyPaths.size > 0`) + dirty 保护集成到 **all switching actions** (newProject / openProject / addBswmd / removeBswmd 都触发 ConfirmDialog) | `useArxmlStore.ts` + `useProjectActions.ts` |
-| 8 | `App.tsx` 挂载 NewProjectDialog + ConfirmDialog root; i18n ~15 新 keys | `App.tsx` + `i18n.ts` |
-| 9 | Playwright E2E + code-reviewer + PROGRESS + CHANGELOG + version 0.13.0 | E2E + docs + version |
+| #   | Task                                                                                                                                                                 | Files                                                               |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------- |
+| 1   | `NewProjectDialog` 组件 (Catppuccin Mocha, portal + overlay, 3 input sections)                                                                                       | `components/NewProjectDialog.{tsx,css}`                             |
+| 2   | `validateProjectName(value)` 纯函数 (空 / 非法字符 `<>:"/\\                                                                                                          | ?\*` / >64 / 重名)                                                  | `NewProjectDialog.tsx` 内 |
+| 3   | `project:pickDir` IPC (`dialog.showOpenDialog({ properties: ['openDirectory'] })`)                                                                                   | `ipc-contract.ts` + `types.ts` + `register.ts` + `preload/index.ts` |
+| 4   | `ProjectNewRequest` 扩展 `directory: string`, 移除 OS save dialog, 改 main handler 拼 `.autosarcfg.json`, 加 `'overwrite-confirm'` result kind                       | `types.ts` + `register.ts`                                          |
+| 5   | `useProjectActions.newProject` 重写: 打开 NewProjectDialog → 收集 {name, directory} → IPC                                                                            | `useProjectActions.ts`                                              |
+| 6   | `ConfirmDialog` 组件 (3 按钮: 继续编辑 / 不保存新建 / 保存并新建)                                                                                                    | `components/ConfirmDialog.{tsx,css}`                                |
+| 7   | Store `isDirty` getter (`dirtyPaths.size > 0`) + dirty 保护集成到 **all switching actions** (newProject / openProject / addBswmd / removeBswmd 都触发 ConfirmDialog) | `useArxmlStore.ts` + `useProjectActions.ts`                         |
+| 8   | `App.tsx` 挂载 NewProjectDialog + ConfirmDialog root; i18n ~15 新 keys                                                                                               | `App.tsx` + `i18n.ts`                                               |
+| 9   | Playwright E2E + code-reviewer + PROGRESS + CHANGELOG + version 0.13.0                                                                                               | E2E + docs + version                                                |
 
 ### Phase 2 — 模板 (3 tasks, Sprint 13 #1)
 
-| # | Task | Files |
-|---|------|-------|
-| 10 | `TemplateCard` 组件 + `templates.ts` (empty/classic/clone 定义) | `components/TemplateCard.tsx` + `shared/templates.ts` |
-| 11 | Classic 模板预填 bswmdPaths | `types.ts` + `register.ts` |
-| 12 | Clone 模板 (`project:clone` IPC, 二级文件选择) | `register.ts` + `types.ts` |
+| #   | Task                                                            | Files                                                 |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| 10  | `TemplateCard` 组件 + `templates.ts` (empty/classic/clone 定义) | `components/TemplateCard.tsx` + `shared/templates.ts` |
+| 11  | Classic 模板预填 bswmdPaths                                     | `types.ts` + `register.ts`                            |
+| 12  | Clone 模板 (`project:clone` IPC, 二级文件选择)                  | `register.ts` + `types.ts`                            |
 
 ### Phase 3 — BSWMD 模块多选 (2 tasks, Sprint 13 #2)
 
-| # | Task | Files |
-|---|------|-------|
-| 13 | `BswmdChip` 组件 (pill, 选中态高亮) | `components/BswmdChip.tsx` + CSS |
-| 14 | NewProjectDialog 集成 BSWMD chips + 创建后自动 addBswmd | `NewProjectDialog.tsx` + store |
+| #   | Task                                                    | Files                            |
+| --- | ------------------------------------------------------- | -------------------------------- |
+| 13  | `BswmdChip` 组件 (pill, 选中态高亮)                     | `components/BswmdChip.tsx` + CSS |
+| 14  | NewProjectDialog 集成 BSWMD chips + 创建后自动 addBswmd | `NewProjectDialog.tsx` + store   |
 
 ## Patterns to Mirror
 
-| Category | Source | Pattern |
-|---|---|---|
-| Dialog | `PromptDialog.tsx` (1-30) | `createPortal` + `externalSetState` + promise resolve |
-| Hook | `useProjectActions.ts:36-63` | `prompt → IPC → store.openProject → error translation` |
-| IPC handler | `register.ts:160-191` `PROJECT_NEW` | `dialog.showSaveDialog` + `createEmptyManifest` + `fs.writeFile` |
-| IPC contract | `ipc-contract.ts` + `types.ts` | channel name constant + discriminated union result |
-| Store action | `useArxmlStore.ts:314-357` `openProject` | parse docs + set state + re-validate |
-| Validation | `manifest.ts:classifyBadPath` | pure function `null \| error string` |
-| i18n | `i18n.ts:78-89` | zh/en key parity, `{param}` template |
-| Test | `components/__tests__/AppHeader.test.tsx` | `@testing-library/react` + render + `getByTestId` |
+| Category     | Source                                    | Pattern                                                          |
+| ------------ | ----------------------------------------- | ---------------------------------------------------------------- |
+| Dialog       | `PromptDialog.tsx` (1-30)                 | `createPortal` + `externalSetState` + promise resolve            |
+| Hook         | `useProjectActions.ts:36-63`              | `prompt → IPC → store.openProject → error translation`           |
+| IPC handler  | `register.ts:160-191` `PROJECT_NEW`       | `dialog.showSaveDialog` + `createEmptyManifest` + `fs.writeFile` |
+| IPC contract | `ipc-contract.ts` + `types.ts`            | channel name constant + discriminated union result               |
+| Store action | `useArxmlStore.ts:314-357` `openProject`  | parse docs + set state + re-validate                             |
+| Validation   | `manifest.ts:classifyBadPath`             | pure function `null \| error string`                             |
+| i18n         | `i18n.ts:78-89`                           | zh/en key parity, `{param}` template                             |
+| Test         | `components/__tests__/AppHeader.test.tsx` | `@testing-library/react` + render + `getByTestId`                |
 
 ## Files to Change (Phase 1)
 
-| File | Action | Why |
-|---|---|---|
-| `src/renderer/components/NewProjectDialog.tsx` | CREATE | 统一弹窗组件 (Variant A 起步, Phase 2/3 扩展) |
-| `src/renderer/components/NewProjectDialog.css` | CREATE | Catppuccin Mocha 样式 (参照 mockup CSS) |
-| `src/renderer/components/ConfirmDialog.tsx` | CREATE | 未保存保护 (Variant C) |
-| `src/renderer/components/ConfirmDialog.css` | CREATE | ConfirmDialog 样式 |
-| `src/shared/ipc-contract.ts` | UPDATE | `PICK_DIR: 'project:pickDir'` |
-| `src/shared/types.ts` | UPDATE | `PickDirRequest/Result` + `ProjectNewRequest.directory` + `'overwrite-confirm'` kind |
-| `src/main/ipc/register.ts` | UPDATE | `PICK_DIR` handler + `PROJECT_NEW` 改用 directory 拼接 + overwrite check |
-| `src/preload/index.ts` | UPDATE | 暴露 `pickDir` |
-| `src/renderer/hooks/useProjectActions.ts` | UPDATE | `newProject` 重写 (移除 `prompt()`, 打开 NewProjectDialog) |
-| `src/renderer/store/useArxmlStore.ts` | UPDATE | `newProjectDialogOpen` / `confirmDialogOpen` state + `isDirty` getter |
-| `src/renderer/App.tsx` | UPDATE | 挂载 NewProjectDialog + ConfirmDialog root |
-| `src/shared/i18n.ts` | UPDATE | ~15 新 keys (zh/en parity) |
-| `src/renderer/components/__tests__/NewProjectDialog.test.tsx` | CREATE | 验证 + 渲染 + 交互 |
-| `src/renderer/components/__tests__/ConfirmDialog.test.tsx` | CREATE | 3 按钮分支 |
-| `src/main/ipc/__tests__/pickDir.test.ts` | CREATE | picked / canceled |
-| `src/main/ipc/__tests__/projectNew.test.ts` | UPDATE | 新字段 + overwrite-confirm |
-| `src/renderer/hooks/__tests__/useProjectActions.test.ts` | UPDATE | mock NewProjectDialog 流程 |
-| `src/renderer/store/__tests__/useArxmlStore.project.test.ts` | UPDATE | `isDirty` getter |
-| `src/shared/__tests__/i18n.test.ts` | UPDATE | 新 keys parity |
-| `PROGRESS.md` | UPDATE | Sprint 12 #3 段落 |
-| `CHANGELOG.md` | UPDATE | 0.13.0 条目 |
-| `package.json` | UPDATE | version `0.12.0` → `0.13.0` |
-| `tests/e2e/new-project-dialog.spec.ts` | CREATE | Playwright E2E |
+| File                                                          | Action | Why                                                                                  |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------ |
+| `src/renderer/components/NewProjectDialog.tsx`                | CREATE | 统一弹窗组件 (Variant A 起步, Phase 2/3 扩展)                                        |
+| `src/renderer/components/NewProjectDialog.css`                | CREATE | Catppuccin Mocha 样式 (参照 mockup CSS)                                              |
+| `src/renderer/components/ConfirmDialog.tsx`                   | CREATE | 未保存保护 (Variant C)                                                               |
+| `src/renderer/components/ConfirmDialog.css`                   | CREATE | ConfirmDialog 样式                                                                   |
+| `src/shared/ipc-contract.ts`                                  | UPDATE | `PICK_DIR: 'project:pickDir'`                                                        |
+| `src/shared/types.ts`                                         | UPDATE | `PickDirRequest/Result` + `ProjectNewRequest.directory` + `'overwrite-confirm'` kind |
+| `src/main/ipc/register.ts`                                    | UPDATE | `PICK_DIR` handler + `PROJECT_NEW` 改用 directory 拼接 + overwrite check             |
+| `src/preload/index.ts`                                        | UPDATE | 暴露 `pickDir`                                                                       |
+| `src/renderer/hooks/useProjectActions.ts`                     | UPDATE | `newProject` 重写 (移除 `prompt()`, 打开 NewProjectDialog)                           |
+| `src/renderer/store/useArxmlStore.ts`                         | UPDATE | `newProjectDialogOpen` / `confirmDialogOpen` state + `isDirty` getter                |
+| `src/renderer/App.tsx`                                        | UPDATE | 挂载 NewProjectDialog + ConfirmDialog root                                           |
+| `src/shared/i18n.ts`                                          | UPDATE | ~15 新 keys (zh/en parity)                                                           |
+| `src/renderer/components/__tests__/NewProjectDialog.test.tsx` | CREATE | 验证 + 渲染 + 交互                                                                   |
+| `src/renderer/components/__tests__/ConfirmDialog.test.tsx`    | CREATE | 3 按钮分支                                                                           |
+| `src/main/ipc/__tests__/pickDir.test.ts`                      | CREATE | picked / canceled                                                                    |
+| `src/main/ipc/__tests__/projectNew.test.ts`                   | UPDATE | 新字段 + overwrite-confirm                                                           |
+| `src/renderer/hooks/__tests__/useProjectActions.test.ts`      | UPDATE | mock NewProjectDialog 流程                                                           |
+| `src/renderer/store/__tests__/useArxmlStore.project.test.ts`  | UPDATE | `isDirty` getter                                                                     |
+| `src/shared/__tests__/i18n.test.ts`                           | UPDATE | 新 keys parity                                                                       |
+| `PROGRESS.md`                                                 | UPDATE | Sprint 12 #3 段落                                                                    |
+| `CHANGELOG.md`                                                | UPDATE | 0.13.0 条目                                                                          |
+| `package.json`                                                | UPDATE | version `0.12.0` → `0.13.0`                                                          |
+| `tests/e2e/new-project-dialog.spec.ts`                        | CREATE | Playwright E2E                                                                       |
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|---|---|---|
-| 重名检测需要 IPC 访问文件系统 (项目名 vs 目录下 `.autosarcfg.json` 是否已存在) | Medium | `PROJECT_NEW` handler 加 `fs.access` 检查; 存在时返回 `'overwrite-confirm'` kind; dialog 显示红色错误 + 创建按钮 disabled; **OR** `NewProjectDialog` mount 时 fire-and-forget `pickDir` 后端, 显示后端结果 (race-y) |
-| 移除 OS save dialog, 用户失去自定义文件扩展名能力 | Low | `.autosarcfg.json` 固定后缀已够用; 用户可通过目录选择控制位置; 在 dialog 文案中说明 |
-| `isDirty` getter 性能 (遍历 `dirtyPaths` map) | Low | map 通常 <100 entries, O(n) 可忽略 |
-| NewProjectDialog 与 PromptDialog 共存期间的 portal 冲突 | Low | 各自独立 portal root, z-index 错开 (9999 vs 9998) |
-| Phase 2 克隆涉及文件复制, 大项目可能慢 | Medium | 后台执行 + 进度条 (Phase 3 再做) |
-| **Sprint 12 #2 + #3 一起 ship**: working tree 复杂, 1 commit 难 review | High | **Pre-flight Phase 0**: 先 commit Sprint 12 #2 (v0.12.0), 然后 Sprint 12 #3 (v0.13.0) |
-| ~~dirty 保护触发范围: 仅 newProject vs openProject 也触发~~ | 已定 | **all switching actions**: newProject / openProject / addBswmd / removeBswmd 全部触发 ConfirmDialog (user 拍板) |
+| Risk                                                                           | Likelihood | Mitigation                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 重名检测需要 IPC 访问文件系统 (项目名 vs 目录下 `.autosarcfg.json` 是否已存在) | Medium     | `PROJECT_NEW` handler 加 `fs.access` 检查; 存在时返回 `'overwrite-confirm'` kind; dialog 显示红色错误 + 创建按钮 disabled; **OR** `NewProjectDialog` mount 时 fire-and-forget `pickDir` 后端, 显示后端结果 (race-y) |
+| 移除 OS save dialog, 用户失去自定义文件扩展名能力                              | Low        | `.autosarcfg.json` 固定后缀已够用; 用户可通过目录选择控制位置; 在 dialog 文案中说明                                                                                                                                 |
+| `isDirty` getter 性能 (遍历 `dirtyPaths` map)                                  | Low        | map 通常 <100 entries, O(n) 可忽略                                                                                                                                                                                  |
+| NewProjectDialog 与 PromptDialog 共存期间的 portal 冲突                        | Low        | 各自独立 portal root, z-index 错开 (9999 vs 9998)                                                                                                                                                                   |
+| Phase 2 克隆涉及文件复制, 大项目可能慢                                         | Medium     | 后台执行 + 进度条 (Phase 3 再做)                                                                                                                                                                                    |
+| **Sprint 12 #2 + #3 一起 ship**: working tree 复杂, 1 commit 难 review         | High       | **Pre-flight Phase 0**: 先 commit Sprint 12 #2 (v0.12.0), 然后 Sprint 12 #3 (v0.13.0)                                                                                                                               |
+| ~~dirty 保护触发范围: 仅 newProject vs openProject 也触发~~                    | 已定       | **all switching actions**: newProject / openProject / addBswmd / removeBswmd 全部触发 ConfirmDialog (user 拍板)                                                                                                     |
 
 ## Acceptance (Phase 1)
 

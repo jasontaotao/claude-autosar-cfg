@@ -44,9 +44,7 @@ export function FileListTab(): JSX.Element {
       {/* Loose mode header */}
       {!isProjectOpen && (
         <div className="file-list-tab-loose">
-          <span className="file-list-tab-loose-text">
-            {t(locale, 'projectPanel.loose.text')}
-          </span>
+          <span className="file-list-tab-loose-text">{t(locale, 'projectPanel.loose.text')}</span>
           <button
             type="button"
             className="file-list-tab-loose-btn"
@@ -75,9 +73,7 @@ export function FileListTab(): JSX.Element {
           )}
         </div>
         {arxmlPaths.length === 0 ? (
-          <div className="file-list-tab-empty">
-            {t(locale, 'projectPanel.arxml.empty')}
-          </div>
+          <div className="file-list-tab-empty">{t(locale, 'projectPanel.arxml.empty')}</div>
         ) : (
           arxmlPaths.map((p) => {
             const isActive = p === activeDocumentPath;
@@ -130,16 +126,10 @@ export function FileListTab(): JSX.Element {
             )}
           </div>
           {bswmdPaths.length === 0 ? (
-            <div className="file-list-tab-empty">
-              {t(locale, 'projectPanel.bswmd.empty')}
-            </div>
+            <div className="file-list-tab-empty">{t(locale, 'projectPanel.bswmd.empty')}</div>
           ) : (
             bswmdPaths.map((p) => (
-              <div
-                key={p}
-                className="file-list-tab-item"
-                data-testid={`file-list-tab-bswmd-${p}`}
-              >
+              <div key={p} className="file-list-tab-item" data-testid={`file-list-tab-bswmd-${p}`}>
                 <span className="file-list-tab-item-icon">📘</span>
                 <span className="file-list-tab-item-name" title={p}>
                   {basename(p)}

@@ -519,7 +519,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // `unsupported-version` kind carries `version` instead, so we
       // fall back to a stable human label for that one branch.
       const message =
-        'message' in result.error ? result.error.message : `unsupported version: ${result.error.version}`;
+        'message' in result.error
+          ? result.error.message
+          : `unsupported version: ${result.error.version}`;
       set({
         error: t(state.locale, 'app.error.parseBswmdFailed', { message }),
       });
@@ -626,7 +628,10 @@ function projectSyncAddBswmdPath(m: ProjectManifest | null, path: string): Proje
  * unchanged `m` if `m === null` (loose mode) or the path isn't
  * present.
  */
-function projectSyncRemoveBswmdPath(m: ProjectManifest | null, path: string): ProjectManifest | null {
+function projectSyncRemoveBswmdPath(
+  m: ProjectManifest | null,
+  path: string,
+): ProjectManifest | null {
   if (m === null) return null;
   if (!m.bswmdPaths.includes(path)) return m;
   return { ...m, bswmdPaths: m.bswmdPaths.filter((p) => p !== path) };

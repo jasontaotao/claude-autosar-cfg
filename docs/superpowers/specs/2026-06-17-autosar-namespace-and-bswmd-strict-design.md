@@ -13,7 +13,7 @@
 Loading a real-world BSWMD file from EB tresos via "Open ARXML" or programmatically through `parseArxml` produces one of three failure modes:
 
 1. **`unsupported-version` for R4.4+ AUTOSAR files** — `parser.ts:detectVersion` rejects any file whose `xsi:schemaLocation` uses the 5-digit AUTOSAR form (`AUTOSAR_00046.xsd` / `00048.xsd` / `00049.xsd` / `00050.xsd`) instead of the older dashed form (`AUTOSAR_4-2-2.xsd`). EB tresos R4.4.0 / R19-11 / R20-11 / R21-11 ship exclusively with the 5-digit form; the parser rejects all of them.
-2. **BSWMD files that *do* pass version detection produce an empty tree** — the user's `C:\EB\tresos\autosar\4.2.2\AUTOSAR_MOD_ECUConfigurationParameters.arxml` is reported as `version=4.2, packages=1, top-elements=0`. The 252 `ECUC-MODULE-DEF` and 3038 `ECUC-PARAM-CONF-CONTAINER-DEF` schema definitions become empty containers because `classifyElement` does not extract parameters from `*-DEF` children.
+2. **BSWMD files that _do_ pass version detection produce an empty tree** — the user's `C:\EB\tresos\autosar\4.2.2\AUTOSAR_MOD_ECUConfigurationParameters.arxml` is reported as `version=4.2, packages=1, top-elements=0`. The 252 `ECUC-MODULE-DEF` and 3038 `ECUC-PARAM-CONF-CONTAINER-DEF` schema definitions become empty containers because `classifyElement` does not extract parameters from `*-DEF` children.
 3. **Silent confusion on the GUI side** — the user reported "loaded the file but no parameters showed up". There is no error, no warning, no hint that the file was a BSWMD (schema) rather than an ECUC values file. The Tree renders an empty package.
 
 ### Validation Evidence (already collected this session)
@@ -28,14 +28,14 @@ R21-11: FAIL unsupported-version  ← bug 1+2
 
 Fixtures available locally for regression tests:
 
-| Path | Size | Version | Element kind |
-|---|---|---|---|
-| `C:\EB\tresos\autosar\4.2.2\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 12.5 MB | 4.2 | BSWMD |
-| `C:\EB\tresos\autosar\4.4.0\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 15.4 MB | 4.4 | BSWMD |
-| `C:\EB\tresos\autosar\R19-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 16.1 MB | 19-11 | BSWMD |
-| `C:\EB\tresos\autosar/R20-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 14.4 MB | 20-11 | BSWMD |
-| `C:\EB\tresos\autosar/R21-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 15.4 MB | 21-11 | BSWMD |
-| `C:\Program Files (x86)\FlexCFG\BSWMD\AUTOSAR_R{18,20,21,22}\**` | ≈400 files | R4.6 schema | BSWMD |
+| Path                                                                       | Size       | Version     | Element kind |
+| -------------------------------------------------------------------------- | ---------- | ----------- | ------------ |
+| `C:\EB\tresos\autosar\4.2.2\AUTOSAR_MOD_ECUConfigurationParameters.arxml`  | 12.5 MB    | 4.2         | BSWMD        |
+| `C:\EB\tresos\autosar\4.4.0\AUTOSAR_MOD_ECUConfigurationParameters.arxml`  | 15.4 MB    | 4.4         | BSWMD        |
+| `C:\EB\tresos\autosar\R19-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 16.1 MB    | 19-11       | BSWMD        |
+| `C:\EB\tresos\autosar/R20-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 14.4 MB    | 20-11       | BSWMD        |
+| `C:\EB\tresos\autosar/R21-11\AUTOSAR_MOD_ECUConfigurationParameters.arxml` | 15.4 MB    | 21-11       | BSWMD        |
+| `C:\Program Files (x86)\FlexCFG\BSWMD\AUTOSAR_R{18,20,21,22}\**`           | ≈400 files | R4.6 schema | BSWMD        |
 
 The 4.2.2 file is "supported" only because of the dashed-form `AUTOSAR_4-2-2.xsd` schemaLocation matching the parser's `XSD_PATTERN` fallback. Any EB tresos file beyond 4.2.2 silently fails.
 
@@ -67,12 +67,14 @@ The 4.2.2 file is "supported" only because of the dashed-form `AUTOSAR_4-2-2.xsd
 ### 3.1 Dual-form `XSD_PATTERN` extension (`parser.ts`)
 
 **Current**:
+
 ```ts
 const NS_PATTERN = /\/schema\/(r\d+\.\d+|\d{5,6})/;
 const XSD_PATTERN = /AUTOSAR_(\d)-(\d)-(\d)\.xsd/;
 ```
 
 **Change**:
+
 ```ts
 // AUTOSAR uses two schemaLocation forms:
 //   1. Dashed: AUTOSAR_4-2-2.xsd, AUTOSAR_4-6-0.xsd, AUTOSAR_4-7-0.xsd
@@ -85,6 +87,7 @@ const XSD_PATTERN = /(?:AUTOSAR_(\d)-(\d)-(\d)\.xsd|AUTOSAR_(\d{5})\.xsd)/;
 ```
 
 **Version extraction logic** in `detectVersion`:
+
 ```ts
 const xm = XSD_PATTERN.exec(xsi);
 if (xm) {
@@ -104,20 +107,33 @@ The `ArxmlVersion` union type must widen to accept `'00046' | '00048' | '00049' 
 ### 3.2 `SUPPORTED_ARXML_VERSIONS` extension (`types.ts`)
 
 **Current**:
+
 ```ts
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
-  '4.2', '4.4', '4.6', '4.7', '5.0',
+  '4.2',
+  '4.4',
+  '4.6',
+  '4.7',
+  '5.0',
 ] as const;
 ```
 
 **Change**:
+
 ```ts
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   // Dashed form (legacy)
-  '4.2', '4.4', '4.6', '4.7', '5.0',
+  '4.2',
+  '4.4',
+  '4.6',
+  '4.7',
+  '5.0',
   // 5-digit form (AUTOSAR standard for R4.4+)
   // 00046 = R4.6, 00048 = R19-11, 00049 = R20-11, 00050 = R21-11
-  '00046', '00048', '00049', '00050',
+  '00046',
+  '00048',
+  '00049',
+  '00050',
 ] as const;
 ```
 
@@ -126,6 +142,7 @@ Rationale for omitting `'00047'`: We have no fixture proving R4.7 ships with the
 ### 3.3 `serializer.ts:buildSchemaLocation` mirror
 
 **Current** (approximation — actual code may vary):
+
 ```ts
 function buildSchemaLocation(version: ArxmlVersion): string {
   return `http://autosar.org/schema/r${version} AUTOSAR_${version.replace('.', '-')}.xsd`;
@@ -158,16 +175,17 @@ const XSD_FOR_VERSION: Record<ArxmlVersion, string> = {
 
 ```ts
 // After walkPackages, in parseArxml:
-const hasValues = packages.some(pkg => pkgHasValueInstance(pkg));
-const hasDefs = packages.some(pkg => pkgHasDefInstance(pkg));
+const hasValues = packages.some((pkg) => pkgHasValueInstance(pkg));
+const hasDefs = packages.some((pkg) => pkgHasDefInstance(pkg));
 if (!hasValues && hasDefs) {
   return {
     ok: false,
     error: {
       kind: 'invalid-structure',
       path: '/',
-      message: 'Loaded file is a BSW Module Description (BSWMD, schema only). '
-             + 'Open it via "Load BSWMD" instead of "Open ARXML".',
+      message:
+        'Loaded file is a BSW Module Description (BSWMD, schema only). ' +
+        'Open it via "Load BSWMD" instead of "Open ARXML".',
     },
   };
 }
@@ -204,16 +222,16 @@ The 12-16 MB EB tresos fixtures stay on disk as **integration-only** fixtures (r
 
 ## 4. Failure Modes & Edge Cases
 
-| Case | Current behavior | New behavior |
-|---|---|---|
-| File uses `r20-11` literal namespace (no AUTOSAR vendor does this currently) | `unsupported-version` | `unsupported-version` (unchanged — we have no fixture proving this format exists) |
-| File uses `r4.0` namespace + `AUTOSAR_00048.xsd` schemaLocation (EB tresos R19-11) | `unsupported-version` | OK, version=`00048` (G1+G2) |
-| File uses `r4.2` namespace + `AUTOSAR_4-2-2.xsd` schemaLocation | OK | OK (unchanged) |
-| File uses dashed `AUTOSAR_4-4-0.xsd` (theoretical) | OK | OK (unchanged) |
-| BSWMD file (only `*-DEF`) | OK, empty tree | `invalid-structure` with hint (G3) |
-| Mixed file (one value + one def) | OK | OK (unchanged) |
-| File with no `xsi:schemaLocation` and `r4.0` namespace | OK via namespace fallback | OK (unchanged) |
-| File with no namespace at all | `unsupported-version` | `unsupported-version` (unchanged) |
+| Case                                                                               | Current behavior          | New behavior                                                                      |
+| ---------------------------------------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| File uses `r20-11` literal namespace (no AUTOSAR vendor does this currently)       | `unsupported-version`     | `unsupported-version` (unchanged — we have no fixture proving this format exists) |
+| File uses `r4.0` namespace + `AUTOSAR_00048.xsd` schemaLocation (EB tresos R19-11) | `unsupported-version`     | OK, version=`00048` (G1+G2)                                                       |
+| File uses `r4.2` namespace + `AUTOSAR_4-2-2.xsd` schemaLocation                    | OK                        | OK (unchanged)                                                                    |
+| File uses dashed `AUTOSAR_4-4-0.xsd` (theoretical)                                 | OK                        | OK (unchanged)                                                                    |
+| BSWMD file (only `*-DEF`)                                                          | OK, empty tree            | `invalid-structure` with hint (G3)                                                |
+| Mixed file (one value + one def)                                                   | OK                        | OK (unchanged)                                                                    |
+| File with no `xsi:schemaLocation` and `r4.0` namespace                             | OK via namespace fallback | OK (unchanged)                                                                    |
+| File with no namespace at all                                                      | `unsupported-version`     | `unsupported-version` (unchanged)                                                 |
 
 ---
 

@@ -136,8 +136,8 @@ export function parseArxml(
         kind: 'invalid-structure',
         path: '/',
         message:
-          'Loaded file is a BSW Module Description (BSWMD, schema only). '
-          + 'Open it via "Load BSWMD" instead of "Open ARXML".',
+          'Loaded file is a BSW Module Description (BSWMD, schema only). ' +
+          'Open it via "Load BSWMD" instead of "Open ARXML".',
       },
     };
   }

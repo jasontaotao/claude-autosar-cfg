@@ -19,9 +19,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import type { BuiltinTemplate, TemplateManifest } from './types.js';
 import { classTemplateError } from './errors.js';
 import { parseTemplateManifest } from './parse-manifest.js';
+import type { BuiltinTemplate, TemplateManifest } from './types.js';
 import { walkArxml } from './walk-arxml.js';
 
 /** Module-level logger. Wired by `bootstrap.ts` to `app._logger`. */

@@ -14,10 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  MAX_NAME_LENGTH,
-  validateProjectName,
-} from '../NewProjectDialog.validate.js';
+import { MAX_NAME_LENGTH, validateProjectName } from '../NewProjectDialog.validate.js';
 
 describe('validateProjectName (Sprint 12 #3 Task 2)', () => {
   it('returns "empty" for an empty string', () => {

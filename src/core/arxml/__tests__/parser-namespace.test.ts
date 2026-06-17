@@ -11,8 +11,7 @@ describe('XSD_PATTERN namespace detection', () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion({
       '@_xmlns': 'http://autosar.org/schema/r4.2',
-      '@_xsi:schemaLocation':
-        'http://autosar.org/schema/r4.2 AUTOSAR_4-2-2.xsd',
+      '@_xsi:schemaLocation': 'http://autosar.org/schema/r4.2 AUTOSAR_4-2-2.xsd',
     });
     expect(r).toBe('4.2');
   });
@@ -21,8 +20,7 @@ describe('XSD_PATTERN namespace detection', () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion({
       '@_xmlns': 'http://autosar.org/schema/r4.0',
-      '@_xsi:schemaLocation':
-        'http://autosar.org/schema/r4.0 AUTOSAR_00046.xsd',
+      '@_xsi:schemaLocation': 'http://autosar.org/schema/r4.0 AUTOSAR_00046.xsd',
     });
     expect(r).toBe('00046');
   });
@@ -31,8 +29,7 @@ describe('XSD_PATTERN namespace detection', () => {
     const { detectVersion } = await import('../parser-internals.js');
     const r = detectVersion({
       '@_xmlns': 'http://autosar.org/schema/r4.0',
-      '@_xsi:schemaLocation':
-        'http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd',
+      '@_xsi:schemaLocation': 'http://autosar.org/schema/r4.0 AUTOSAR_00049.xsd',
     });
     expect(r).toBe('00049');
   });

@@ -31,15 +31,8 @@ import type {
   ArxmlModule,
   ParamValue,
 } from '../../arxml/types.js';
-import type {
-  BswModuleDef,
-  BswmdDocument,
-  ContainerDef,
-  ParamDef,
-} from '../../project/bswmd.js';
-import {
-  buildSchemaLayer,
-} from '../runtimeSchema.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '../../project/bswmd.js';
+import { buildSchemaLayer } from '../runtimeSchema.js';
 import { validate, validateProject } from '../validate.js';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +68,9 @@ function container(
   };
 }
 
-function module(overrides: Partial<BswModuleDef> & Pick<BswModuleDef, 'shortName' | 'path'>): BswModuleDef {
+function module(
+  overrides: Partial<BswModuleDef> & Pick<BswModuleDef, 'shortName' | 'path'>,
+): BswModuleDef {
   return {
     shortName: overrides.shortName,
     path: overrides.path,
@@ -273,9 +268,7 @@ describe('validate(doc, layer) — schema-unknown for unknown paths under known 
     const errors = validate(doc, localLayer);
     const schemaUnknown = errors.filter((e) => e.kind === 'schema-unknown');
     expect(schemaUnknown).toHaveLength(1);
-    expect(schemaUnknown[0]!.path).toBe(
-      '/EcucDefs/CanIf/CanIfInitConfiguration/MysteryParam',
-    );
+    expect(schemaUnknown[0]!.path).toBe('/EcucDefs/CanIf/CanIfInitConfiguration/MysteryParam');
   });
 
   it('does not emit schema-unknown for a path the layer DOES declare', () => {
@@ -458,8 +451,6 @@ describe('validateProject(documents, layer) — threads layer into single-doc ch
       ]),
     );
 
-    expect(
-      validateProject([arxml]).some((e) => e.kind === 'schema-unknown'),
-    ).toBe(false);
+    expect(validateProject([arxml]).some((e) => e.kind === 'schema-unknown')).toBe(false);
   });
 });

@@ -16,8 +16,8 @@
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
-import type { BuiltinTemplate, CopyResult } from './types.js';
 import { classTemplateError } from './errors.js';
+import type { BuiltinTemplate, CopyResult } from './types.js';
 
 export function copyTemplateFilesToDir(
   template: BuiltinTemplate,

@@ -13,18 +13,18 @@
 //   6. copy: file-copy-failed when source file is missing on disk
 
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { BuiltinTemplate } from '../../templates/types.js';
 import {
   __setTestCache,
   __setTestResolveSamplesRoot,
   templatesListHandler,
   templatesCopyHandler,
 } from '../templatesHandler.js';
-import type { BuiltinTemplate } from '../../templates/types.js';
 
 let workDir: string;
 let samplesRoot: string;

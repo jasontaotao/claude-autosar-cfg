@@ -8,10 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { IPC_CHANNELS, type IpcChannel } from '../ipc-contract.js';
-import type {
-  ReadBswmdRequest,
-  ReadBswmdResponse,
-} from '../types.js';
+import type { ReadBswmdRequest, ReadBswmdResponse } from '../types.js';
 
 describe('IPC contract (Sprint 12 #2)', () => {
   it('exposes BSWMD_READ channel with the agreed name', () => {
