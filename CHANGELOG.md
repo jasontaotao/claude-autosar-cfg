@@ -5,6 +5,70 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-06-17 — Release Ready (Wave 4: coverage ≥90% + version bump)
+
+The first **release-ready major** for claude-AutosarCfg. All Wave 1–3 work
+(Left-panel, Phase 1 cleanup, Stage 4 i18n, validators, TemplateCard picker,
+BSWMD chip multi-select, Combined Tree View) is shipped and verified. Branch
+coverage has been pushed from 85.45% to **90.72%** (≥ 90% ship-gate met).
+
+### Added (Wave 4)
+
+- **Branch coverage ≥ 90% ship gate** (commit `TBD`):
+  - Branches: 85.45% → **90.72%** (+5.27 pp)
+  - Statements: 96.47% → 97.52% (+1.05 pp)
+  - Functions: 100% (parity)
+  - Tests: 678 → **876** (+198 cumulative since v0.13.0)
+  - New test file: `src/shared/__tests__/path.test.ts` (7 tests)
+  - Coverage closes: path.ts branches, serializer option flags, parser
+    defensive structure checks, runtimeSchema choices/maxLength mapping,
+    validate.ts walkReference layer-aware paths, manifest non-string path
+    entries, bswmd AR-PACKAGES missing branch.
+
+### Changed
+
+- `package.json` version: `0.16.1` → **`1.0.0`** (MAJOR — release-ready)
+- No behavioral changes from v0.16.1. This release pins the cumulative
+  Sprint 12 / Sprint 13 / Wave 1-3 surface as the v1.0.0 contract.
+
+### Tests
+
+- **876 tests** (1 skipped; parity with v0.16.1 baseline + Wave 4 additions)
+- **Coverage**: **97.52% stmts / 90.72% branches / 100% funcs / 97.52% lines**
+- **5/5 baseline**: format + lint + type-check + test + build all green
+- **Signed-guard**: 830 cross-ref baseline preserved [700, 850]
+
+### Cumulative work since v0.1.0 (release notes summary)
+
+| Stage | Highlights |
+|-------|-----------|
+| Sprint 0-9 | Core parser, validator, BSWMD, 5-fixture cross-ref baseline (782 signed) |
+| Sprint 10-11 | Renderer store, NewProjectDialog, save/load, IPC handlers |
+| Sprint 12 #1 | Namespace-aware path normalize (Sprint 9 #12) |
+| Sprint 12 #2 | Runtime BSWMD schema layer + schema-unknown disambiguator |
+| Sprint 12 #3 | NewProjectDialog unification, dirty-switch confirm, ipc contract |
+| Sprint 13 #1 | Templates backend (`templates:list` / `templates:copy` IPC, 25 tests) |
+| Sprint 13 Stage 3 | Left-panel + FileListTab refactor |
+| Sprint 13 Stage 3.3 | TemplateCard picker (Empty/Classic/Clone) |
+| Sprint 13 Stage 3.4 | BSWMD chip multi-select (Classic template) |
+| Sprint 13 Stage 3.5 | Combined Tree View across multiple loaded documents |
+| Sprint 13 Stage 4 | i18n polish M6/M7/M8 (column header / OS dialog / parse error) |
+| Sprint 13 Stage 5.D | Validators: size cap + default-value + CHOICES depth |
+| Wave 4.B | Coverage ≥90% (this release) |
+
+### Verification
+
+```text
+=== Stage: format ===      PASS (prettier --check clean)
+=== Stage: lint ===        PASS (eslint --max-warnings 0 clean)
+=== Stage: type-check ===  PASS (tsc --noEmit both projects clean)
+=== Stage: test ===        PASS (876 passed | 1 skipped)
+=== Stage: coverage ===    PASS (90.72% branches, 97.52% stmts)
+=== Stage: build ===       PASS (vite build renderer + main + preload)
+```
+
+---
+
 ## [0.16.1] - 2026-06-17 — Wave 3 (Sprint 13 #2 Stage 3.4)
 
 ### Added

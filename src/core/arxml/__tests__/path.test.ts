@@ -182,4 +182,132 @@ describe('path helpers', () => {
     const byIndex1 = findByPathMultiDoc(docs, paths, '/[doc:1]/EAS/Can/CanConfigSet');
     expect(byIndex1?.filePath).toBe('/b/Can.arxml');
   });
+
+  // ---------- Wave 4.B coverage (branches < 90% target) ----------
+  // These cases close the remaining branch gaps in path.ts. They focus on
+  // edge conditions: too-short paths, missing root packages, descending into
+  // a reference (leaf), final cursor that is a package (not element), value
+  // mismatch in paramsEqual, and the docIdx >= length guard in the multi-doc
+  // path. They are pure data — no new fixtures needed beyond what is already
+  // imported above.
+
+  it('findByPath returns null when the path has fewer than two segments', () => {
+    const r = parseArxml(NESTED_XML);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    // No leading slash → single segment after filter
+    expect(findByPath(r.value, 'EAS')).toBeNull();
+    // Only a leading slash → empty segments after filter
+    expect(findByPath(r.value, '/')).toBeNull();
+    // Empty string → empty segments after filter
+    expect(findByPath(r.value, '')).toBeNull();
+  });
+
+  it('findByPath returns null when the root package is not in the document', () => {
+    const r = parseArxml(NESTED_XML);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    // /EAS exists but /NoSuchRoot does not
+    expect(findByPath(r.value, '/NoSuchRoot/EcuC/EcuCGeneral')).toBeNull();
+  });
+
+  it('findByPath returns null when descending into a reference element', () => {
+    // The parser surfaces reference values as `params` entries, not as
+    // `kind: 'reference'` child elements. But the path walker still has to
+    // handle the case defensively — if it ever encountered a reference
+    // element in `children`, it must refuse to descend (references are
+    // leaves). Build a doc by hand with a synthetic reference child.
+    const refChild = {
+      kind: 'reference' as const,
+      tagName: 'ECUC-REFERENCE-VALUE',
+      shortName: 'RefOne',
+      value: '/EAS/Mod/Cfg/RefOne',
+    };
+    const containerWithRef = {
+      kind: 'container' as const,
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'Cfg',
+      params: {},
+      children: [refChild],
+    };
+    const module = {
+      kind: 'module' as const,
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Mod',
+      params: {},
+      children: [containerWithRef],
+      references: [],
+    };
+    const pkg = {
+      shortName: 'EAS',
+      path: '/EAS',
+      elements: [module],
+    };
+    const doc: ArxmlDocument = {
+      path: 'synthetic',
+      version: '4.6',
+      packages: [pkg],
+    };
+    // The reference itself resolves fine
+    expect(findByPath(doc, '/EAS/Mod/Cfg/RefOne')).not.toBeNull();
+    // Trying to descend further into the reference returns null (leaf)
+    expect(findByPath(doc, '/EAS/Mod/Cfg/RefOne/Inner')).toBeNull();
+  });
+
+  it('findByPath returns null when the final cursor is a package rather than an element', () => {
+    // The path /EAS has exactly one segment — caught by the early length check.
+    // But /EAS/somePackageIfPresent would land on a package and fail the
+    // final `isPackage(cursor)` guard. Our NESTED_XML does not have nested
+    // <AR-PACKAGE> entries under EAS, so create a doc with one.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>EAS</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>Nested</SHORT-NAME></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    // The leaf cursor is a package (Nested), not an element — null
+    expect(findByPath(r.value, '/EAS/Nested')).toBeNull();
+  });
+
+  it('paramsEqual detects a value mismatch on equal-length equal-key objects', () => {
+    // Same keys, same length, but the value at 'x' differs — the loop
+    // catches it and returns false.
+    const a = { x: 1, y: 'same' };
+    const b = { x: 2, y: 'same' };
+    expect(paramsEqual(a, b)).toBe(false);
+  });
+
+  it('findByPathMultiDoc returns null when path has fewer than two segments', () => {
+    const docs = [buildCanDoc()];
+    const paths = ['/tmp/Can.arxml'];
+    // Single basename segment only
+    expect(findByPathMultiDoc(docs, paths, '/Can.arxml')).toBeNull();
+    // Empty after filter
+    expect(findByPathMultiDoc(docs, paths, '/')).toBeNull();
+    expect(findByPathMultiDoc(docs, paths, '')).toBeNull();
+  });
+
+  it('findByPathMultiDoc returns null when [doc:N] index is out of range', () => {
+    const docs = [buildCanDoc()];
+    const paths = ['/tmp/Can.arxml'];
+    // Index 5 is beyond the filePaths array length (1)
+    expect(findByPathMultiDoc(docs, paths, '/[doc:5]/EAS/Can/CanConfigSet')).toBeNull();
+  });
+
+  it('findByPathMultiDoc returns null when [doc:N] index is negative', () => {
+    // Negative index is rejected by the `n >= 0` guard.
+    const docs = [buildCanDoc(), buildCanDoc()];
+    const paths = ['/a/Can.arxml', '/b/Can.arxml'];
+    expect(findByPathMultiDoc(docs, paths, '/[doc:-1]/EAS/Can/CanConfigSet')).toBeNull();
+  });
+
+  it('findByPathMultiDoc strips basename and resolves path with Windows separators in filePath', () => {
+    // The internal `lastSegment` helper splits on / and \. filePaths with
+    // backslashes should still match the basename head segment.
+    const docs = [buildCanDoc()];
+    const paths = ['C:\\tmp\\Can.arxml'];
+    const found = findByPathMultiDoc(docs, paths, '/Can.arxml/EAS/Can/CanConfigSet');
+    expect(found).not.toBeNull();
+    expect(found?.filePath).toBe('C:\\tmp\\Can.arxml');
+  });
 });

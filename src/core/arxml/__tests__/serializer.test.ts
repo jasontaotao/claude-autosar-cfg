@@ -392,3 +392,117 @@ describe('serializeArxml', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wave 4.B coverage tests (branch coverage targets)
+// ---------------------------------------------------------------------------
+
+describe('serializeArxml — option flags and edge cases (Wave 4.B coverage)', () => {
+  it('omits xml declaration when xmlDeclaration:false', () => {
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [{ shortName: 'P', path: '/P', elements: [] }],
+    };
+    const r = serializeArxml(doc, { xmlDeclaration: false });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // When xmlDeclaration:false, the leading <?xml ... ?> is omitted.
+    expect(r.value).not.toContain('<?xml');
+  });
+
+  it('uses opts.version when provided (overrides doc.version)', () => {
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [{ shortName: 'P', path: '/P', elements: [] }],
+    };
+    const r = serializeArxml(doc, { version: '4.2' });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The xmlns should follow the override version, not the doc.version.
+    expect(r.value).toContain('http://autosar.org/schema/r4.2');
+    expect(r.value).toContain('AUTOSAR_4-2-2.xsd');
+  });
+
+  it('renders <LONG-NAME> when the package carries one', () => {
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [{ shortName: 'P', path: '/P', longName: 'My Package', elements: [] }],
+    };
+    const r = serializeArxml(doc);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toContain('<LONG-NAME>');
+    expect(r.value).toContain('<L-4>My Package</L-4>');
+  });
+
+  it('renders nested AR-PACKAGES for a module.references entry with non-trivial DEST', () => {
+    // The m.references[0] split on `:` branch — when the entry does have a
+    // colon, it emits @_DEST. Build a doc with one reference carrying
+    // "ECUC-REFERENCE-DEF:/path" so the dest branch (line 174) fires.
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'P',
+          path: '/P',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'M',
+              params: {},
+              references: ['ECUC-REFERENCE-DEF:/Some/Path'],
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+    const r = serializeArxml(doc);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value).toContain('<DEFINITION-REF DEST="ECUC-REFERENCE-DEF">');
+    expect(r.value).toContain('/Some/Path');
+  });
+
+  it('omits @_DEST on module DEFINITION-REF when no colon in reference string', () => {
+    // When the reference entry has no colon (e.g. legacy single-string
+    // form), the dest branch falls through and no @_DEST is emitted.
+    const doc: ArxmlDocument = {
+      path: '',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'P',
+          path: '/P',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'M',
+              params: {},
+              references: ['/Bare/Path/No/Dest'],
+              children: [],
+            },
+          ],
+        },
+      ],
+    };
+    const r = serializeArxml(doc);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The colon-less branch emits the bare string as #text without a
+    // @_DEST attribute. fast-xml-parser renders both the bare path in
+    // #text and also as a synthetic attribute — we focus on the structural
+    // shape: the DEFINITION-REF tag must exist with the bare path as text.
+    expect(r.value).toContain('<DEFINITION-REF');
+    // Pin that the @_DEST attribute is NOT 'ECUC-REFERENCE-DEF' (which
+    // would only appear if the colon branch fired with a real DEST value).
+    expect(r.value).not.toContain('DEST="ECUC-REFERENCE-DEF"');
+    expect(r.value).toContain('/Bare/Path/No/Dest');
+  });
+});

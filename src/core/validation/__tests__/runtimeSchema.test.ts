@@ -332,3 +332,112 @@ describe('findModuleForPath', () => {
     expect(findModuleForPath(empty, '/EcucDefs/CanIf/CanIfGeneral/CanIfDevErrorDetect')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// buildSchemaLayer — choices and maxLength (Wave 4.B branch coverage)
+// ---------------------------------------------------------------------------
+
+describe('buildSchemaLayer — choices indexing', () => {
+  it('recursively indexes params/containers inside <CHOICES> branches', () => {
+    // A <CHOICES> container holds alternative sub-containers. The indexer
+    // walks each choice branch with the same recursive helper, so a param
+    // declared inside a choice branch must appear in the layer's `params`
+    // map AND in `sourcePaths` (line 126-128 of runtimeSchema.ts).
+    const choiceBranch = container({
+      shortName: 'CanIfTxBufferCfg',
+      path: '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg',
+      parameters: [
+        param({
+          shortName: 'CanIfTxBufferSize',
+          path: '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg/CanIfTxBufferSize',
+          kind: 'integer',
+        }),
+      ],
+    });
+    const parentWithChoice = container({
+      shortName: 'CanIfBufferCfg',
+      path: '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg',
+      choices: [choiceBranch],
+    });
+    const canIf = module({
+      shortName: 'CanIf',
+      path: '/EcucDefs/CanIf',
+      containers: [parentWithChoice],
+    });
+    const layer = buildSchemaLayer([makeDoc([canIf])]);
+
+    // The choice-branch container is indexed in containers.
+    expect(
+      layer.containers.has(
+        '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg',
+      ),
+    ).toBe(true);
+    // The choice-branch param is indexed in params.
+    const entry = layer.params.get(
+      '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg/CanIfTxBufferSize',
+    );
+    expect(entry).toBeDefined();
+    expect(entry!.type).toBe('integer');
+    // Both the choice-branch container and its param show up in sourcePaths.
+    expect(
+      layer.sourcePaths.has(
+        '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg',
+      ),
+    ).toBe(true);
+    expect(
+      layer.sourcePaths.has(
+        '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfBufferCfg/CanIfTxBufferCfg/CanIfTxBufferSize',
+      ),
+    ).toBe(true);
+  });
+
+  it('maps maxLength into the schema entry when the param has a maxLength constraint', () => {
+    // When a ParamDef has maxLength != null, paramDefToSchemaEntry sets
+    // entry.maxLength (line 161-163). This test pins the contract.
+    const stringParam = param({
+      shortName: 'CanIfWakeupSrc',
+      path: '/EcucDefs/CanIf/CanIfInitConfiguration/CanIfWakeupSrc',
+      kind: 'string',
+      maxLength: 32,
+    });
+    const canIfInit = container({
+      shortName: 'CanIfInitConfiguration',
+      path: '/EcucDefs/CanIf/CanIfInitConfiguration',
+      parameters: [stringParam],
+    });
+    const canIf = module({
+      shortName: 'CanIf',
+      path: '/EcucDefs/CanIf',
+      containers: [canIfInit],
+    });
+    const layer = buildSchemaLayer([makeDoc([canIf])]);
+    const entry = layer.params.get('/EcucDefs/CanIf/CanIfInitConfiguration/CanIfWakeupSrc');
+    expect(entry).toBeDefined();
+    expect(entry!.maxLength).toBe(32);
+  });
+
+  it('maps enumerationLiterals into the schema entry when present', () => {
+    // The 4-branch switch in paramDefToSchemaEntry (lines 155-166) covers
+    // min/max/maxLength/enumLiterals. Pin the enumLiterals mapping.
+    const enumParam = param({
+      shortName: 'BitOrder',
+      path: '/EcucDefs/EcuC/EcucGeneral/BitOrder',
+      kind: 'enumeration',
+      enumerationLiterals: ['LSB', 'MSB'],
+    });
+    const ecucGeneral = container({
+      shortName: 'EcucGeneral',
+      path: '/EcucDefs/EcuC/EcucGeneral',
+      parameters: [enumParam],
+    });
+    const eucC = module({
+      shortName: 'EcuC',
+      path: '/EcucDefs/EcuC',
+      containers: [ecucGeneral],
+    });
+    const layer = buildSchemaLayer([makeDoc([eucC])]);
+    const entry = layer.params.get('/EcucDefs/EcuC/EcucGeneral/BitOrder');
+    expect(entry).toBeDefined();
+    expect(entry!.enumLiterals).toEqual(['LSB', 'MSB']);
+  });
+});

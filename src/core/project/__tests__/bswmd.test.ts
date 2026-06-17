@@ -740,6 +740,19 @@ describe('parseBswmd — error path', () => {
     expect(r.error.kind).toBe('missing-root');
   });
 
+  it('returns missing-root when <AUTOSAR> is missing <AR-PACKAGES>', () => {
+    // Branch coverage — line 226 in bswmd.ts fires when AR-PACKAGES is
+    // missing from the AUTOSAR element.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <OTHER/>
+</AUTOSAR>`;
+    const r = parseBswmd(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('missing-root');
+  });
+
   it('returns unsupported-version for r3.x namespace', () => {
     // Arrange
     const xml = `<?xml version="1.0"?>

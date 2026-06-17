@@ -276,6 +276,27 @@ describe('validateManifest', () => {
     }
   });
 
+  it('rejects a non-string path entry (defensive: path == 123 in array)', () => {
+    // The TS types enforce string[] but at runtime the validator must
+    // refuse non-string entries. Cast through `unknown` to simulate
+    // a malformed input from disk.
+    const m = {
+      ...SAMPLE,
+      valueArxmlPaths: [123 as unknown as string],
+    };
+    const result = validateManifest(m);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe('invalid-path');
+      if (result.error.kind === 'invalid-path') {
+        // The validator coerces the bad value via String(p) before
+        // returning. Verify the field/path fields are populated.
+        expect(result.error.field).toBe('valueArxmlPaths');
+        expect(result.error.reason).toBe('empty');
+      }
+    }
+  });
+
   it('rejects empty name', () => {
     // Arrange
     const m: ProjectManifest = { ...SAMPLE, name: '' };

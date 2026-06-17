@@ -500,3 +500,135 @@ describe('parseArxml', () => {
     expect(r.error.kind).toBe('invalid-structure');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Wave 4.B branch coverage tests (parser.ts missing branches)
+// ---------------------------------------------------------------------------
+
+describe('parseArxml — defensive structure validation', () => {
+  it('returns missing-root when XML is well-formed but has no AUTOSAR root', () => {
+    // Line 106 — top-level key other than AUTOSAR is missing/null
+    const r = parseArxml('<?xml version="1.0"?><OTHER><FOO/></OTHER>');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('missing-root');
+  });
+
+  it('returns missing-root when AUTOSAR root is missing AR-PACKAGES', () => {
+    // Line 116 — AR-PACKAGES not present in the AUTOSAR element
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><OTHER/></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('missing-root');
+  });
+
+  it('returns unsupported-version when version cannot be detected', () => {
+    // Line 111 — AUTOSAR has no version + opts.version is undefined.
+    // detectVersion reads the xsi:schemaLocation or the xmlns namespace.
+    // An empty xmlns with no schemaLocation yields null.
+    const xml = `<?xml version="1.0"?><AUTOSAR><AR-PACKAGES></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('unsupported-version');
+  });
+
+  it('returns unsupported-version for an r-form namespace without a supported xsd (line 168-169)', () => {
+    // Line 168 — r-form (`r4.0`, `r4.2`, ...) is stripped and checked
+    // against SUPPORTED_ARXML_VERSIONS. An `r99.0` namespace maps to
+    // '99.0' which is NOT in the supported set → returns null →
+    // unsupported-version error.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r99.0"><AR-PACKAGES></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('unsupported-version');
+  });
+
+  it('parses <SHORT-NAME> when wrapped in object form (line 202-204 readShortName)', () => {
+    // Line 202 — fast-xml-parser may emit SHORT-NAME as `{ '#text': 'Name' }`
+    // when the element has attributes. Build a SHORT-NAME in object form.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME><L-4>InnerName</L-4></SHORT-NAME></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The parser falls through (no #text, no string) — readShortName returns
+    // undefined → package shortName is undefined → element dropped.
+    // This is a sanity test that the parser doesn't crash on this shape.
+    expect(Array.isArray(r.value.packages)).toBe(true);
+  });
+
+  it('parses <LONG-NAME><L-4>...</L-4></LONG-NAME> into package.longName (line 211-214)', () => {
+    // Line 211 — LONG-NAME in object form with L-4 child is read out as a
+    // string into package.longName.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><LONG-NAME><L-4>My Long Package Name</L-4></LONG-NAME></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.packages[0]!.longName).toBe('My Long Package Name');
+  });
+
+  it('skips PARAMETER-VALUES entries with DEFINITION-REF object but no #text (line 437-444)', () => {
+    // Line 444 — DEFINITION-REF is an object with attributes but no #text
+    // body. defPath stays undefined and the entry is silently dropped.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF"></DEFINITION-REF><VALUE>42</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    // No key was added — the entry was dropped silently.
+    expect(c.params).toEqual({});
+  });
+
+  it('skips REFERENCE-VALUES entries with DEFINITION-REF object but no #text (line 477-484)', () => {
+    // The standard REFERENCE-VALUES branch hits the same DEFINITION-REF
+    // extraction. Drop entries with no body.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF"></DEFINITION-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const c = mod.children[0] as ArxmlContainer;
+    expect(c.params).toEqual({});
+  });
+
+  it('drops ECUC-CONTAINER-VALUE without SHORT-NAME (line 381)', () => {
+    // buildContainer returns null when shortName is undefined → element
+    // is silently dropped.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><PARAMETER-VALUES></PARAMETER-VALUES></ECUC-CONTAINER-VALUE><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    // Only the second (named) container survives.
+    expect(mod.children).toHaveLength(1);
+    expect(mod.children[0]!.shortName).toBe('C');
+  });
+
+  it('walks SUB-CONTAINERS into module.children (line 362-363)', () => {
+    // The SUB-CONTAINERS branch on a module is rarely used (CONTAINERS is
+    // the standard shape), but the walker handles it identically. Pin it.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><SUB-CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>SubA</SHORT-NAME></ECUC-CONTAINER-VALUE></SUB-CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    expect(mod.children).toHaveLength(1);
+    expect(mod.children[0]!.shortName).toBe('SubA');
+  });
+
+  it('drops generic ECUC-* elements without SHORT-NAME (line 334-338)', () => {
+    // The fallback "any ECUC-* tag is treated as a container if it has a
+    // SHORT-NAME" branch. With no SHORT-NAME the entry is dropped.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-SOME-UNKNOWN-TAG><SHORT-NAME>HasName</SHORT-NAME></ECUC-SOME-UNKNOWN-TAG><ECUC-ANOTHER-UNKNOWN></ECUC-ANOTHER-UNKNOWN></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    // Only the named generic tag survives; the unnamed one is dropped.
+    expect(mod.children).toHaveLength(1);
+    expect(mod.children[0]!.shortName).toBe('HasName');
+  });
+});

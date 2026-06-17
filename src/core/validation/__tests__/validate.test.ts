@@ -14,6 +14,9 @@ import type {
   ArxmlReference,
   ParamValue,
 } from '../../arxml/types.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '../../project/bswmd.js';
+import { buildSchemaLayer } from '../runtimeSchema.js';
+import type { SchemaLayer } from '../runtimeSchema.js';
 import * as schemaModule from '../schema/ecucSubset.js';
 import { validate } from '../validate.js';
 
@@ -421,5 +424,205 @@ describe('container-level multiplicity', () => {
 
     const errors = validate(doc);
     expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wave 4.B coverage tests (branch coverage targets)
+// ---------------------------------------------------------------------------
+
+describe('validate() — string maxLength and walkReference layer paths', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits a range error when a string param exceeds the schema maxLength', () => {
+    // /EcucDefs/Det/DetGeneral/DetErrorHook is `string` with maxLength=256.
+    // A 257-char value triggers the maxLength branch (line 219-232).
+    const oversize = 'x'.repeat(257);
+    const detGeneral = makeContainer(
+      'DetGeneral',
+      { DetErrorHook: { type: 'string', value: oversize } as ParamValue },
+      [],
+    );
+    const det = makeModule('Det', {}, [detGeneral]);
+    const doc = makeDoc(det);
+
+    const errors = validate(doc);
+    const rangeErr = errors.find((e) => e.kind === 'range' && e.path.endsWith('/DetErrorHook'));
+    expect(rangeErr).toBeDefined();
+    expect(rangeErr!.expected).toBe('<= 256 chars');
+    expect(rangeErr!.actual).toBe('257 chars');
+  });
+
+  it('does not emit a range error when a string param is exactly at maxLength', () => {
+    // Boundary value — exactly 256 chars, length > maxLength is false.
+    const exact = 'x'.repeat(256);
+    const detGeneral = makeContainer(
+      'DetGeneral',
+      { DetErrorHook: { type: 'string', value: exact } as ParamValue },
+      [],
+    );
+    const det = makeModule('Det', {}, [detGeneral]);
+    const doc = makeDoc(det);
+
+    const errors = validate(doc);
+    expect(errors.filter((e) => e.path.endsWith('/DetErrorHook'))).toEqual([]);
+  });
+
+  it('emits a reference DEST error when refPath is in schema but DEST mismatches', () => {
+    // /EcucDefs/WdgIf/WdgIfDevice/WdgIfDriverRef expects DEST=ECUC-CONTAINER-VALUE.
+    // Provide a reference with the right path but wrong DEST.
+    const wdgIfDevice = makeContainer('WdgIfDevice', {}, [
+      makeReference('WdgIfDriverRef', '/Some/Target', 'WRONG-DEST'),
+    ]);
+    const wdgIf = makeModule('WdgIf', {}, [wdgIfDevice]);
+    const doc = makeDoc(wdgIf);
+
+    const errors = validate(doc);
+    const refErr = errors.find((e) => e.kind === 'reference');
+    expect(refErr).toBeDefined();
+    expect(refErr!.expected).toBe('ECUC-CONTAINER-VALUE');
+    expect(refErr!.actual).toBe('WRONG-DEST');
+  });
+
+  it('emits a reference error with "<unset>" actual when ref has no dest attribute', () => {
+    // When the source reference has `dest === undefined`, the validator
+    // reports the actual as the literal string "<unset>" for diagnostics.
+    const wdgIfDevice = makeContainer('WdgIfDevice', {}, [
+      makeReference('WdgIfDriverRef', '/Some/Target', undefined),
+    ]);
+    const wdgIf = makeModule('WdgIf', {}, [wdgIfDevice]);
+    const doc = makeDoc(wdgIf);
+
+    const errors = validate(doc);
+    const refErr = errors.find((e) => e.kind === 'reference');
+    expect(refErr).toBeDefined();
+    expect(refErr!.actual).toBe('<unset>');
+  });
+});
+
+describe('validate() — schema-unknown layer-aware disambiguator (line 124-126)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function buildLayerForEcuC(): SchemaLayer {
+    // Build a minimal BSWMD-derived layer that knows about EcuC but does
+    // NOT catalogue `/EcucDefs/EcuC/EcucGeneral/DetErrorHook`. When a doc
+    // has DetErrorHook under /EcucDefs/EcuC (note: this is a path inside a
+    // known module), the layer-aware path emits schema-unknown.
+    const ecucGeneralParams: ParamDef[] = [
+      {
+        path: '/EcucDefs/EcuC/EcucGeneral/BitOrder',
+        shortName: 'BitOrder',
+        kind: 'enumeration',
+        defaultValue: null,
+        minValue: null,
+        maxValue: null,
+        minLength: null,
+        maxLength: null,
+        enumerationLiterals: ['LSB'],
+      },
+    ];
+    const ecucGeneralContainer: ContainerDef = {
+      path: '/EcucDefs/EcuC/EcucGeneral',
+      shortName: 'EcucGeneral',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      parameters: ecucGeneralParams,
+      references: [],
+      subContainers: [],
+      choices: [],
+    };
+    const eucCModule: BswModuleDef = {
+      path: '/EcucDefs/EcuC',
+      shortName: 'EcuC',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      containers: [ecucGeneralContainer],
+      providedEntries: [],
+    };
+    const doc: BswmdDocument = { version: '4.6', modules: [eucCModule], warnings: [] };
+    return buildSchemaLayer([doc]);
+  }
+
+  it('emits schema-unknown when layer is provided and a path is under a known module', () => {
+    const layer = buildLayerForEcuC();
+    // Build doc with /EcucDefs/EcuC/EcucGeneral/DetErrorHook — undeclared
+    // path but inside a known module.
+    const ecucGeneral = makeContainer(
+      'EcucGeneral',
+      { DetErrorHook: { type: 'string', value: 'foo' } as ParamValue },
+      [],
+    );
+    const eucC = makeModule('EcuC', {}, [ecucGeneral]);
+    const doc = makeDoc(eucC);
+
+    const errors = validate(doc, layer);
+    const schemaUnknown = errors.find((e) => e.kind === 'schema-unknown');
+    expect(schemaUnknown).toBeDefined();
+    expect(schemaUnknown!.path).toBe('/EcucDefs/EcuC/EcucGeneral/DetErrorHook');
+    expect(schemaUnknown!.message).toContain('BSWMD-declared module');
+  });
+
+  it('does NOT emit schema-unknown when the undeclared path is outside any known module', () => {
+    const layer = buildLayerForEcuC();
+    // /EcucDefs/OtherMod/... is not under any module the layer knows.
+    // The disambiguator returns silently in this case.
+    const other = makeContainer('OtherGeneral', { Foo: intVal(1) }, []);
+    const otherMod = makeModule('OtherMod', {}, [other]);
+    const doc = makeDoc(otherMod);
+
+    const errors = validate(doc, layer);
+    expect(errors.filter((e) => e.kind === 'schema-unknown')).toEqual([]);
+  });
+
+  it('does NOT emit schema-unknown when the undeclared path IS catalogued by the layer (sourcePaths hit)', () => {
+    const layer = buildLayerForEcuC();
+    // BitOrder is declared in the layer (sourcePaths includes it).
+    const ecucGeneral = makeContainer('EcucGeneral', { BitOrder: enumVal('LSB') }, []);
+    const eucC = makeModule('EcuC', {}, [ecucGeneral]);
+    const doc = makeDoc(eucC);
+
+    const errors = validate(doc, layer);
+    expect(errors.filter((e) => e.kind === 'schema-unknown')).toEqual([]);
+  });
+
+  it('emits schema-unknown for a reference element whose path is under a known module', () => {
+    // The walkReference branch (lines 123-127) when layer is provided and
+    // refPath is NOT in schema. Build a reference under /EcucDefs/EcuC/...
+    // The reference path will not be in the layer's sourcePaths set, but
+    // it IS under a known module → schema-unknown should fire.
+    const ecucGeneral = makeContainer('EcucGeneral', {}, [
+      makeReference('DetErrorHookRef', '/Target/Path', 'ECUC-CONTAINER-VALUE'),
+    ]);
+    const eucC = makeModule('EcuC', {}, [ecucGeneral]);
+    const doc = makeDoc(eucC);
+
+    const layer = buildLayerForEcuC();
+    const errors = validate(doc, layer);
+    const schemaUnknown = errors.find(
+      (e) => e.kind === 'schema-unknown' && e.path.endsWith('/DetErrorHookRef'),
+    );
+    expect(schemaUnknown).toBeDefined();
+  });
+
+  it('silently skips (no schema-unknown) when a reference is outside any known module', () => {
+    // Same layer, but the reference lives under /EcucDefs/OtherMod — not
+    // under any known module → emitSchemaUnknownIfInKnownModule returns
+    // silently. The reference path is also not in schema, so walkReference
+    // returns without error.
+    const other = makeContainer('OtherGeneral', {}, [
+      makeReference('SomeRef', '/X/Y', 'ECUC-CONTAINER-VALUE'),
+    ]);
+    const otherMod = makeModule('OtherMod', {}, [other]);
+    const doc = makeDoc(otherMod);
+
+    const layer = buildLayerForEcuC();
+    const errors = validate(doc, layer);
+    expect(errors).toEqual([]);
   });
 });
