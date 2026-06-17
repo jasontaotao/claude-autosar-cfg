@@ -154,6 +154,14 @@ export interface Messages {
   readonly 'leftPanel.tab.project': string;
   readonly 'leftPanel.tab.files': string;
   readonly 'leftPanel.tab.validate': string;
+
+  // --- templates (Sprint 13 #1) ---
+  readonly 'template.empty.displayName': string;
+  readonly 'template.empty.description': string;
+  readonly 'template.classic.displayName': string;
+  readonly 'template.classic.description': string;
+  readonly 'template.clone.displayName': string;
+  readonly 'template.clone.description': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -278,6 +286,14 @@ export const MessagesZhCN: Messages = {
   'leftPanel.tab.project': '项目',
   'leftPanel.tab.files': '文件',
   'leftPanel.tab.validate': '验证',
+
+  // templates (Sprint 13 #1)
+  'template.empty.displayName': '空项目',
+  'template.empty.description': '从零开始创建项目',
+  'template.classic.displayName': '经典（即将上线）',
+  'template.classic.description': '预填常见 BSWMD 的项目模板',
+  'template.clone.displayName': '克隆（即将上线）',
+  'template.clone.description': '基于现有项目创建副本',
 };
 
 // ---------------------------------------------------------------------------
@@ -401,6 +417,14 @@ export const MessagesEn: Messages = {
   'leftPanel.tab.project': 'Project',
   'leftPanel.tab.files': 'Files',
   'leftPanel.tab.validate': 'Validate',
+
+  // templates (Sprint 13 #1)
+  'template.empty.displayName': 'Empty Project',
+  'template.empty.description': 'Start a new project from scratch',
+  'template.classic.displayName': 'Classic (coming soon)',
+  'template.classic.description': 'Project template with common BSWMD prefilled',
+  'template.clone.displayName': 'Clone (coming soon)',
+  'template.clone.description': 'Create a copy of an existing project',
 };
 
 // ---------------------------------------------------------------------------
