@@ -1,0 +1,162 @@
+/* FileListTab — ARXML + BSWMD file lists in the "files" tab */
+
+.file-list-tab {
+  padding: 8px 12px;
+}
+
+.file-list-tab-group {
+  margin-bottom: 8px;
+}
+
+.file-list-tab-group:last-child {
+  margin-bottom: 0;
+}
+
+.file-list-tab-group-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-list-tab-count {
+  font-size: 9px;
+  font-weight: 600;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 14px;
+}
+
+.file-list-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #1e293b;
+  transition: background 0.08s ease;
+  border-left: 3px solid transparent;
+}
+
+.file-list-tab-item:hover {
+  background: #e8ecf1;
+}
+
+.file-list-tab-item.is-active-doc {
+  background: rgba(59, 130, 246, 0.08);
+  border-left-color: #3b82f6;
+  color: #1e3a8a;
+  font-weight: 500;
+}
+
+.file-list-tab-item-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.file-list-tab-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-list-tab-item-remove {
+  appearance: none;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  flex: 0 0 auto;
+}
+
+.file-list-tab-item:hover .file-list-tab-item-remove {
+  opacity: 1;
+}
+
+.file-list-tab-item-remove:hover {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.06);
+}
+
+.file-list-tab-empty {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.file-list-tab-add {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed #d1d5db;
+  color: #475569;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+  transition: border-color 0.08s ease;
+}
+
+.file-list-tab-add:hover {
+  border-color: #3b82f6;
+  color: #1e3a8a;
+}
+
+.file-list-tab-add:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+/* ── Loose mode header ── */
+
+.file-list-tab-loose {
+  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 11px;
+}
+
+.file-list-tab-loose-text {
+  color: #64748b;
+  font-style: italic;
+  flex: 1 1 auto;
+}
+
+.file-list-tab-loose-btn {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #1e293b;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.08s ease;
+}
+
+.file-list-tab-loose-btn:hover {
+  border-color: #3b82f6;
+  color: #1e3a8a;
+}

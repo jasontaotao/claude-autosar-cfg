@@ -1,0 +1,88 @@
+/* LeftPanel — tabbed left sidebar (tab bar + content grid + tree area) */
+
+.left-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Tab bar ── */
+
+.left-panel-tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.left-panel-tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition:
+    color 0.1s ease,
+    border-color 0.1s ease,
+    background 0.1s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.left-panel-tab:hover {
+  color: #334155;
+  background: #e8ecf1;
+}
+
+.left-panel-tab.is-active {
+  color: #1e3a8a;
+  border-bottom-color: #3b82f6;
+  background: #f5f7fa;
+}
+
+.left-panel-tab-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: #ef4444;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 16px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ── Tab content ── */
+
+.left-panel-content {
+  min-height: 0;
+  overflow-y: auto;
+  background: #f5f7fa;
+}
+
+.left-panel-pane {
+  padding: 0;
+}
+
+/* ── Tree area ── */
+
+.left-panel-tree {
+  border-top: 1px solid #e2e8f0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.left-panel-tree > .tree {
+  flex: 1;
+  min-height: 80px;
+}
