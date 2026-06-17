@@ -7,13 +7,12 @@
 //   - list of BSWMDs (basename + remove button, Sprint 12 #2)
 //   - Close Project button
 //
-// In loose mode (no project), renders a single-line hint prompting the
-// user to create or open a project. This keeps the panel visible so the
-// user knows the project concept exists, but it never eats vertical
-// space from the Tree. Sprint 12 #2 Task 5: loose mode does NOT show
-// the BSWMD section at all — loose mode cannot load BSWMDs (user-
-// confirmed design decision; the store-level gate happens inside
-// `useProjectActions.addBswmdFromDialog`).
+// Sprint 13 refactor: this file now ONLY exports `ProjectPanelInfo` —
+// the open-mode render. Loose mode (no project open) is handled by
+// `FileListTab` which renders its own compact New/Open header inline.
+// The top-level `ProjectPanel` switch was removed because the new
+// `LeftPanel` decides which tab to show; the "project" tab is hidden
+// in loose mode, so ProjectPanel only needs the open branch.
 //
 // Sprint 11 Phase 1 (Option A) i18n: every visible string goes through
 // t(locale, key) so the panel flips between zh-CN and en with the
@@ -26,7 +25,6 @@ import type { Locale } from '@shared/i18n';
 import { basename } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
-import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import './ProjectPanel.css';
@@ -101,37 +99,14 @@ function FileList({
   );
 }
 
-interface LooseViewProps {
-  readonly locale: Locale;
-  readonly onNew: () => void;
-  readonly onOpen: () => void;
-}
-
-function LooseView({ locale, onNew, onOpen }: LooseViewProps): JSX.Element {
-  return (
-    <div className="project-panel project-panel-loose" data-testid="project-panel-loose">
-      <span className="project-panel-loose-text">{t(locale, 'projectPanel.loose.text')}</span>
-      <button
-        type="button"
-        className="project-panel-btn"
-        onClick={onNew}
-        data-testid="project-panel-loose-new"
-      >
-        {t(locale, 'projectPanel.loose.new')}
-      </button>
-      <button
-        type="button"
-        className="project-panel-btn"
-        onClick={onOpen}
-        data-testid="project-panel-loose-open"
-      >
-        {t(locale, 'projectPanel.loose.open')}
-      </button>
-    </div>
-  );
-}
-
-interface OpenViewProps {
+/**
+ * Props for `ProjectPanelInfo`. The parent (`LeftPanel` in Sprint 13)
+ * is responsible for the `project === null` gate and only mounts
+ * `ProjectPanelInfo` when both `manifest` and `manifestPath` are
+ * non-null. Keeping this component pure (no null guards inside) makes
+ * the render path simple and the props contract obvious.
+ */
+export interface ProjectPanelInfoProps {
   readonly locale: Locale;
   readonly manifest: ProjectManifest;
   readonly manifestPath: string;
@@ -141,7 +116,13 @@ interface OpenViewProps {
   readonly onRemoveBswmd: (path: string) => void;
 }
 
-function OpenView({
+/**
+ * Sprint 13 refactor — renamed from the private `OpenView` and
+ * exported. Mounted by `LeftPanel` as the body of the "project" tab
+ * when a project is open. Pure render — no store reads, no hooks
+ * beyond i18n lookups inside the leaf `FileList`.
+ */
+export function ProjectPanelInfo({
   locale,
   manifest,
   manifestPath,
@@ -149,7 +130,7 @@ function OpenView({
   onRemoveArxml,
   onAddBswmd,
   onRemoveBswmd,
-}: OpenViewProps): JSX.Element {
+}: ProjectPanelInfoProps): JSX.Element {
   return (
     <div className="project-panel project-panel-open" data-testid="project-panel-open">
       <header className="project-panel-header">
@@ -192,63 +173,5 @@ function OpenView({
         onRemove={onRemoveBswmd}
       />
     </div>
-  );
-}
-
-export function ProjectPanel(): JSX.Element {
-  const project = useArxmlStore((s) => s.project);
-  const projectPath = useArxmlStore((s) => s.projectPath);
-  const removeDocument = useArxmlStore((s) => s.removeDocument);
-  const removeBswmd = useArxmlStore((s) => s.removeBswmd);
-  const closeProject = useArxmlStore((s) => s.closeProject);
-  const locale = useArxmlStore((s) => s.locale);
-  // Sprint 11 Phase 1 (H2 fix) — use the shared hook instead of
-  // dispatching synthetic clicks on AppHeader's buttons. The hook
-  // returns the same ProjectActionResult that AppHeader wires to its
-  // local error banner; here we silently consume it (the panel is a
-  // sidebar, not an error surface).
-  //
-  // Sprint 12 #2 Task 5: `addBswmdFromDialog` is the loose-mode-aware
-  // IPC + store.addBswmd wrapper. It's added by Sprint 12 #2 Task 4
-  // (parallel); if Task 4 hasn't landed yet the property is undefined
-  // and the add button silently no-ops, which is acceptable for the
-  // Task 5 UI shell — the button itself renders, the wiring lights up
-  // when Task 4 ships.
-  const { newProject, openProjectFromDialog, addBswmdFromDialog } = useProjectActions();
-
-  const handleAddBswmd = (): void => {
-    if (addBswmdFromDialog === undefined) return;
-    void addBswmdFromDialog();
-  };
-
-  // Loose mode — render the compact hint. Sprint 12 #2 Task 5: the
-  // BSWMD section is intentionally absent here (loose mode cannot
-  // load BSWMDs — user-confirmed design decision; the gate is also
-  // enforced inside `useProjectActions.addBswmdFromDialog` for
-  // defense in depth).
-  if (project === null || projectPath === null) {
-    return (
-      <LooseView
-        locale={locale}
-        onNew={() => {
-          void newProject();
-        }}
-        onOpen={() => {
-          void openProjectFromDialog();
-        }}
-      />
-    );
-  }
-
-  return (
-    <OpenView
-      locale={locale}
-      manifest={project}
-      manifestPath={projectPath}
-      onClose={closeProject}
-      onRemoveArxml={removeDocument}
-      onAddBswmd={handleAddBswmd}
-      onRemoveBswmd={removeBswmd}
-    />
   );
 }

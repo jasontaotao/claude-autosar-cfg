@@ -154,4 +154,21 @@ describe('useArxmlStore', () => {
     expect(useArxmlStore.getState().dirtyPaths.has('/tmp/foo.arxml')).toBe(false);
     expect(useArxmlStore.getState().filePath).toBe('/tmp/foo.arxml');
   });
+
+  // Sprint 13 refactor — leftTab default + toggle.
+  // Default is 'files' because the existing UX flow is "open or create
+  // a project first"; the project tab only makes sense after a project
+  // is open. setLeftTab is a pure single-field setter — no side effects.
+  describe('leftTab (Sprint 13 refactor)', () => {
+    it('默认是 files', () => {
+      expect(useArxmlStore.getState().leftTab).toBe('files');
+    });
+
+    it('setLeftTab 切换', () => {
+      useArxmlStore.getState().setLeftTab('validate');
+      expect(useArxmlStore.getState().leftTab).toBe('validate');
+      useArxmlStore.getState().setLeftTab('project');
+      expect(useArxmlStore.getState().leftTab).toBe('project');
+    });
+  });
 });

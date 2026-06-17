@@ -78,6 +78,17 @@ export type PendingAction =
   | { readonly kind: 'addBswmd'; readonly path: string; readonly content: string }
   | { readonly kind: 'removeBswmd'; readonly path: string };
 
+/**
+ * Sprint 13 refactor — left-tab id for the refactored left column. The
+ * three tabs are mutually exclusive; the user switches between them via
+ * the `setLeftTab` action. The default is `'files'` because the existing
+ * UX flow is "open or create a project first" — the project tab only
+ * makes sense after a project is open, and the files tab is always
+ * visible. Loose-mode consumers hide the project tab entirely; the
+ * 'project' id stays in the union for type completeness.
+ */
+export type LeftTabId = 'project' | 'files' | 'validate';
+
 export interface ArxmlState {
   // Multi-doc state (canonical)
   readonly documents: readonly ArxmlDocument[];
@@ -122,6 +133,12 @@ export interface ArxmlState {
   // `setLocale` is the only mutator; the locale is read by t() inside
   // each component on every render so it re-renders automatically.
   readonly locale: Locale;
+
+  // Sprint 13 refactor — left-column active tab. Default 'files' (see
+  // LeftTabId JSDoc). `setLeftTab` is the only mutator; LeftPanel reads
+  // this and renders one of the three tab contents.
+  readonly leftTab: LeftTabId;
+  setLeftTab: (tab: LeftTabId) => void;
 
   // Sprint 12 #2 — runtime BSWMD schema state. Mirrors `valueArxmlPaths`
   // semantics: insertion-ordered parallel arrays, with the source of
@@ -260,6 +277,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   projectPath: null,
   // Sprint 11 Phase 1 (Option A) — i18n default.
   locale: DEFAULT_LOCALE,
+  // Sprint 13 refactor — left-tab default. 'files' is the post-Sprint-11
+  // baseline: the project tab only makes sense when a project is open,
+  // and the files tab is always visible. LeftPanel may override the
+  // initial active tab visually (hiding 'project' in loose mode) but
+  // the store-level default stays 'files'.
+  leftTab: 'files',
   // Sprint 12 #2 — BSWMD schema state. Empty by default; populated by
   // addBswmd (file read via IPC) and consumed by revalidateWithBswmd
   // for the project-level validation pass.
@@ -540,6 +563,14 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   },
 
   setLocale: (locale) => set({ locale }),
+
+  // Sprint 13 refactor — setLeftTab. Single-field set, no side
+  // effects. The default 'files' is restored on `clear()` only if
+  // the user wants a clean slate; we don't auto-flip the tab on
+  // other store events because tabs are pure UI state independent
+  // of project lifecycle (e.g. closing a project doesn't force the
+  // user back to the files tab).
+  setLeftTab: (tab) => set({ leftTab: tab }),
 
   // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
   // touch a single field and are intentionally side-effect-free: the

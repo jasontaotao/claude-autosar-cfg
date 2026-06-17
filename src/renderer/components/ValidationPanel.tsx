@@ -53,7 +53,7 @@ function extractContainerPath(err: ValidationError): string {
   return idx > 0 ? err.path.slice(0, idx) : err.path;
 }
 
-export function ValidationPanel(): JSX.Element {
+export function ValidationPanel({ embedded = false }: { embedded?: boolean }): JSX.Element {
   const errors = useArxmlStore((s) => s.validationErrors);
   const lastValidatedAt = useArxmlStore((s) => s.lastValidatedAt);
   const select = useArxmlStore((s) => s.select);
@@ -61,15 +61,30 @@ export function ValidationPanel(): JSX.Element {
 
   // No doc loaded
   if (lastValidatedAt === null) {
+    const inner = <p className="muted">{t(locale, 'arxmlPanel.empty')}</p>;
+    if (embedded) {
+      return (
+        <div className="validation-panel-embedded" data-testid="validation-embedded-empty">
+          {inner}
+        </div>
+      );
+    }
     return (
       <aside className="validation-panel empty" aria-label={t(locale, 'validation.title')}>
-        <p className="muted">{t(locale, 'arxmlPanel.empty')}</p>
+        {inner}
       </aside>
     );
   }
 
   // Doc loaded, no errors
   if (errors.length === 0) {
+    if (embedded) {
+      return (
+        <div className="validation-panel-embedded" data-testid="validation-embedded-valid">
+          <p className="muted">{t(locale, 'validation.subtitle')}</p>
+        </div>
+      );
+    }
     return (
       <aside
         className="validation-panel valid"
@@ -88,6 +103,46 @@ export function ValidationPanel(): JSX.Element {
   // Doc loaded with errors — group by kind
   const grouped = groupByKind(errors);
   const count = errors.length;
+
+  if (embedded) {
+    return (
+      <div className="validation-panel-embedded" data-testid="validation-embedded-invalid">
+        <ul className="kind-list">
+          {Object.entries(grouped).map(([kind, items]) => (
+            <li key={kind}>
+              <details open>
+                <summary>
+                  <span className={`kind-badge kind-${kind}`}>{kind}</span>
+                  <span className="kind-count">{items.length}</span>
+                </summary>
+                <ul className="error-list">
+                  {items.map((err, i) => {
+                    const key = `${err.path}-${err.paramKey ?? ''}-${i}`;
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          className="error-row"
+                          onClick={() => select(extractContainerPath(err))}
+                          title={err.message}
+                          data-testid={`error-row-${i}`}
+                        >
+                          <code className="error-path">
+                            {err.paramKey !== undefined ? `${err.path} (${err.paramKey})` : err.path}
+                          </code>
+                          <span className="error-msg">{err.message}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <aside
