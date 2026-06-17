@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 
 import { parseArxml } from '@core/arxml/parser';
+import { findByPathMultiDoc } from '@core/arxml/path';
 import type {
   ArxmlContainer,
   ArxmlDocument,
   ArxmlElement,
   ArxmlModule,
+  ArxmlPackage,
   ParamValue,
 } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
@@ -133,6 +135,18 @@ export interface ArxmlState {
   // parallel to it so `addBswmd` / `removeBswmd` can pair them.
   readonly bswmdSchemas: readonly BswmdDocument[];
   readonly bswmdPaths: readonly string[];
+
+  // Sprint 13 Stage 3.5 — Combined Tree View. `viewMode` switches
+  // between the legacy single-doc Tree and the synthesised multi-doc
+  // view. `displayDoc` is the derived field Tree reads: in single mode
+  // it equals `doc`; in combined mode it is a virtual ArxmlDocument
+  // whose top-level packages are per-file basenames and whose child
+  // paths are prefixed with the source file's basename. `setViewMode`
+  // resets `selectedPath` so a stale single-mode path doesn't leak
+  // into the combined view (and vice versa).
+  readonly viewMode: 'single' | 'combined';
+  readonly displayDoc: ArxmlDocument | null;
+  setViewMode: (mode: 'single' | 'combined') => void;
 
   // Sprint 12 #3 Task 7 — top-level dialog state. The store owns these
   // flags (not local component state) so the `useProjectActions` hook
@@ -268,6 +282,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // for the project-level validation pass.
   bswmdSchemas: [],
   bswmdPaths: [],
+  // Sprint 13 Stage 3.5 — combined view defaults. `viewMode` starts
+  // 'single' so the existing 746-test baseline sees no change; the
+  // 'combined' mode is opt-in via the [Combined] virtual entry in
+  // FileListTab.
+  viewMode: 'single',
+  displayDoc: null,
   // Sprint 12 #3 Task 7 — dialog state defaults. Both dialogs start
   // closed; no pending action. The `isDirty` getter is a function on
   // the state (zustand permits functions in state alongside data) so
@@ -288,14 +308,17 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // Project-sync: when a project is open, also append the new path to
     // the manifest's valueArxmlPaths so the next Save Project persists it.
     const nextProject = projectSyncAddPath(state.project, filePath);
+    const nextPaths = state.documentPaths.includes(filePath)
+      ? state.documentPaths
+      : [...state.documentPaths, filePath];
+    const nextDisplayDoc = computeDisplayDoc(state.viewMode, doc, nextDocuments, nextPaths);
     set({
       documents: nextDocuments,
-      documentPaths: state.documentPaths.includes(filePath)
-        ? state.documentPaths
-        : [...state.documentPaths, filePath],
+      documentPaths: nextPaths,
       activeDocumentPath: filePath,
       doc,
       filePath,
+      displayDoc: nextDisplayDoc,
       selectedPath: null,
       // Newly loaded doc is fresh; other docs' dirty state is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
@@ -320,12 +343,19 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // Project-sync: when a project is open, also drop the path from
     // the manifest so Save Project doesn't resurrect a deleted file.
     const nextProject = projectSyncRemovePath(state.project, filePath);
+    const nextDisplayDoc = computeDisplayDoc(
+      state.viewMode,
+      nextActiveDoc,
+      nextDocuments,
+      nextPaths,
+    );
     set({
       documents: nextDocuments,
       documentPaths: nextPaths,
       activeDocumentPath: nextActive,
       doc: nextActiveDoc,
       filePath: nextActive,
+      displayDoc: nextDisplayDoc,
       // The removed doc's dirty bit is dropped; other docs' dirty state
       // is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
@@ -338,7 +368,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   setActiveDocument: (filePath) => {
     const state = get();
     if (filePath === null) {
-      set({ activeDocumentPath: null, doc: null, filePath: null });
+      set({
+        activeDocumentPath: null,
+        doc: null,
+        filePath: null,
+        displayDoc: computeDisplayDoc(state.viewMode, null, state.documents, state.documentPaths),
+      });
       return;
     }
     const idx = state.documentPaths.indexOf(filePath);
@@ -348,6 +383,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       activeDocumentPath: filePath,
       doc: nextDoc,
       filePath,
+      displayDoc: computeDisplayDoc(state.viewMode, nextDoc, state.documents, state.documentPaths),
     });
   },
 
@@ -359,6 +395,44 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
 
   updateParam: (containerPath, paramKey, value) => {
     const state = get();
+    if (state.documents.length === 0) return;
+    // Combined-mode routing (Sprint 13 Stage 3.5): when viewMode is
+    // 'combined', the selectedPath is prefixed with the source file's
+    // basename. Resolve it back to the source document via
+    // findByPathMultiDoc and mutate THAT document, not the active one.
+    // In 'single' mode, containerPath is a regular path inside the
+    // active doc and we keep the legacy route.
+    if (state.viewMode === 'combined') {
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+      if (hit === null) return;
+      const { doc: sourceDoc, filePath: sourcePath } = hit;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
+      if (sourceIdx === -1) return;
+      // The source's own path doesn't carry the basename prefix, so
+      // we strip it for the underlying applyParamUpdate.
+      const innerPath = stripCombinedPrefix(containerPath, sourcePath);
+      if (innerPath === null) return;
+      const nextSourceDoc = applyParamUpdate(sourceDoc, innerPath, paramKey, value);
+      if (nextSourceDoc === sourceDoc) return;
+      const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
+      const nextActiveDoc = state.activeDocumentPath === sourcePath ? nextSourceDoc : state.doc;
+      const nextDisplayDoc = computeDisplayDoc(
+        state.viewMode,
+        nextActiveDoc,
+        nextDocuments,
+        state.documentPaths,
+      );
+      set({
+        documents: nextDocuments,
+        doc: nextActiveDoc,
+        displayDoc: nextDisplayDoc,
+        dirtyPaths: addToDirty(state.dirtyPaths, sourcePath),
+        validationErrors: validateProjectForRenderer(nextDocuments),
+        lastValidatedAt: Date.now(),
+      });
+      return;
+    }
+    // Legacy single-mode path.
     if (state.activeDocumentPath === null || state.doc === null) return;
     const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
     if (activeIdx === -1) return;
@@ -369,6 +443,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     set({
       documents: nextDocuments,
       doc: nextActiveDoc,
+      displayDoc: computeDisplayDoc(
+        state.viewMode,
+        nextActiveDoc,
+        nextDocuments,
+        state.documentPaths,
+      ),
       // Mark only the active doc as dirty; other docs' dirty state is
       // preserved (per-path Set, not project-wide boolean).
       dirtyPaths: addToDirty(state.dirtyPaths, state.activeDocumentPath),
@@ -401,6 +481,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       activeDocumentPath: null,
       doc: null,
       filePath: null,
+      displayDoc: null,
       selectedPath: null,
       dirtyPaths: new Set<string>(),
       error: null,
@@ -417,6 +498,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // ConfirmDialog / NewProjectDialog.
       newProjectDialogOpen: false,
       confirmDialogOpen: false,
+      // Sprint 13 Stage 3.5 — view mode reset. clear() returns to
+      // 'single' so a fresh project doesn't open in combined mode by
+      // accident; the user re-opens the combined view explicitly.
+      viewMode: 'single',
       // Locale is a user preference — clear() resets docs but keeps
       // the language setting. Use setLocale() explicitly to change.
     }),
@@ -454,6 +539,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       activeDocumentPath: activePath,
       doc: activeDoc,
       filePath: activePath,
+      displayDoc: computeDisplayDoc(get().viewMode, activeDoc, orderedDocuments, orderedPaths),
       selectedPath: null,
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
@@ -551,6 +637,17 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // of project lifecycle (e.g. closing a project doesn't force the
   // user back to the files tab).
   setLeftTab: (tab) => set({ leftTab: tab }),
+
+  // Sprint 13 Stage 3.5 — combined view toggle. Resets selectedPath
+  // so a path from the previous mode doesn't survive the flip (a
+  // single-mode path like `/EAS/Adc/AdcConfig` would not resolve
+  // inside the combined view because the combined root is `[Combined]`
+  // whose top-level packages are file basenames, not root packages).
+  setViewMode: (mode) => {
+    const state = get();
+    const displayDoc = computeDisplayDoc(mode, state.doc, state.documents, state.documentPaths);
+    set({ viewMode: mode, displayDoc, selectedPath: null });
+  },
 
   // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
   // touch a single field and are intentionally side-effect-free: the
@@ -753,4 +850,144 @@ function paramValueEquals(a: ParamValue, b: ParamValue): boolean {
 function shortName(e: ArxmlElement): string {
   if (e.kind === 'reference') return e.shortName ?? e.value;
   return e.shortName;
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 13 Stage 3.5 — Combined Tree View helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute `displayDoc` based on the current viewMode and document set.
+ * Pure helper extracted so every mutator can recompute consistently
+ * without inline branching. In 'single' mode it returns the active
+ * `doc`; in 'combined' mode it returns a freshly synthesised virtual
+ * document (or null when no docs are loaded).
+ */
+function computeDisplayDoc(
+  mode: 'single' | 'combined',
+  activeDoc: ArxmlDocument | null,
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): ArxmlDocument | null {
+  if (mode === 'single') {
+    return activeDoc;
+  }
+  if (documents.length === 0) return null;
+  return buildCombinedDocument(documents, filePaths);
+}
+
+/**
+ * Last segment of a file path (after the last `/` or `\`). Mirrors
+ * `@shared/path#basename` but kept inline so the store has no shared
+ * dependency (the store is consumed in the renderer; this also keeps
+ * the `core/` import graph one-way).
+ */
+function lastSegment(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
+/**
+ * Sprint 13 Stage 3.5 — Combined Tree View. Synthesise a virtual
+ * ArxmlDocument whose top-level packages are the per-file basenames of
+ * the loaded documents, and whose child paths are prefixed with the
+ * source file's basename (or `[doc:N]` for same-basename duplicates).
+ * Used as the `displayDoc` value when `viewMode === 'combined'`. The
+ * Tree component reads `displayDoc` instead of `doc` and renders one
+ * branch per loaded file.
+ *
+ * Wrapping is shallow: each package is a fresh object with its
+ * `shortName` / `path` rewritten, but the original `elements` array
+ * is reused. Mutation through `updateParam` reaches the source
+ * document because it routes via `findByPathMultiDoc` rather than
+ * mutating the wrapped packages.
+ */
+function buildCombinedDocument(
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): ArxmlDocument {
+  // Disambiguate basenames that collide across files. The first file
+  // keeps its literal basename; subsequent collisions fall back to
+  // `[doc:N]`. This is the inverse of `findByPathMultiDoc`'s index
+  // parsing, so a round-trip `select(path)` then `updateParam(path)`
+  // resolves back to the same source.
+  const basenameSeen = new Map<string, number>();
+  const combinedPackages: ArxmlPackage[] = [];
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    const base = lastSegment(filePath);
+    const seen = basenameSeen.get(base) ?? 0;
+    basenameSeen.set(base, seen + 1);
+    const segmentName = seen === 0 ? base : `[doc:${i}]`;
+    // Each source doc may have multiple root packages (e.g.
+    // `AUTOSAR_R22 > EcucDefs` + `LifeCycleInfoSets`). Wrap each
+    // one so it sits under the basename branch.
+    for (const pkg of documents[i]?.packages ?? []) {
+      combinedPackages.push(wrapPackageUnderSegment(pkg, segmentName));
+    }
+  }
+  return {
+    path: '[Combined]',
+    // Combined docs share the version of the most-recently-added
+    // source — Tree doesn't render the version so this only matters
+    // for `app.docVersion` in ArxmlPanel. The footer uses the last
+    // loaded doc; carrying a placeholder here is acceptable.
+    version: '4.6',
+    packages: combinedPackages,
+  };
+}
+
+/**
+ * Return a new ArxmlPackage whose `shortName` and `path` are prefixed
+ * with the basename segment, with `elements` / nested `packages`
+ * shallowly re-wrapped so every descendant path carries the prefix.
+ * The original element/param objects are reused (immutable contract);
+ * only path-bearing objects are re-created.
+ */
+function wrapPackageUnderSegment(pkg: ArxmlPackage, segment: string): ArxmlPackage {
+  const newPath = `/${segment}${pkg.path}`;
+  return {
+    ...pkg,
+    shortName: segment,
+    path: newPath,
+    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    elements: pkg.elements.map((el) => wrapElement(el, newPath)),
+  };
+}
+
+function wrapNestedPackage(pkg: ArxmlPackage, segment: string): ArxmlPackage {
+  const newPath = `/${segment}${pkg.path}`;
+  return {
+    ...pkg,
+    path: newPath,
+    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    elements: pkg.elements.map((el) => wrapElement(el, newPath)),
+  };
+}
+
+function wrapElement(el: ArxmlElement, parentPath: string): ArxmlElement {
+  const childPath = `${parentPath}/${el.shortName}`;
+  if (el.kind === 'reference') return { ...el };
+  return {
+    ...el,
+    children: el.children.map((c) => wrapElement(c, childPath)),
+  };
+}
+
+/**
+ * Strip the basename / `[doc:N]` prefix from a combined-mode path so
+ * the inner path can be passed to `applyParamUpdate` (which expects a
+ * regular path inside the source document). Mirrors
+ * `findByPathMultiDoc`'s prefix-parsing logic. Returns null when the
+ * prefix doesn't match the source file's basename or index.
+ */
+function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): string | null {
+  const segments = combinedPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const [head, ...rest] = segments;
+  if (head === undefined) return null;
+  // Accept either the literal basename or the [doc:N] index form.
+  if (head !== lastSegment(sourceFilePath) && !/^\[doc:\d+\]$/.test(head)) {
+    return null;
+  }
+  return `/${rest.join('/')}`;
 }

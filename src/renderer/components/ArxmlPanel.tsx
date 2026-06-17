@@ -11,6 +11,11 @@
 // live in the shared Messages bundle so the parity test enforces
 // zh-CN / en coverage (an earlier ad-hoc `FOOTER_KEYS` local dict
 // bypassed the test; code-review M3).
+//
+// Sprint 13 Stage 3.5 (Combined Tree View): in combined mode the
+// footer renders the document count + aggregate package / element
+// counts across every loaded doc, plus an aggregate dirty indicator
+// that fires when ANY doc is dirty (not just the active one).
 
 import type { JSX } from 'react';
 
@@ -21,21 +26,42 @@ import { useArxmlStore } from '../store/useArxmlStore';
 
 export function ArxmlPanel(): JSX.Element | null {
   const doc = useArxmlStore((s) => s.doc);
-  const isActiveDirty = useArxmlStore(
-    (s) => s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
-  );
+  const documents = useArxmlStore((s) => s.documents);
+  const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+  const dirtyPaths = useArxmlStore((s) => s.dirtyPaths);
+  const viewMode = useArxmlStore((s) => s.viewMode);
   const locale = useArxmlStore((s) => s.locale);
 
   if (doc === null) return null;
 
-  // Recursive count walks sub-packages too — EB tresos BSWMD files
-  // (AUTOSAR > EcucDefs > <modules>) and other nested layouts must count
-  // every element under the root, not just the top-level packages.
-  const packageCount = countPackages(doc.packages);
-  const elementCount = countElementsInPackages(doc.packages);
+  // Aggregate counts span every loaded doc in combined mode; single
+  // mode only counts the active one (matches the legacy rendering).
+  const sourceDocs = viewMode === 'combined' ? documents : [doc];
+  const sourceVersion = doc.version;
+
+  let packageCount = 0;
+  let elementCount = 0;
+  for (const d of sourceDocs) {
+    packageCount += countPackages(d.packages);
+    elementCount += countElementsInPackages(d.packages);
+  }
+
+  // Dirty: combined → any doc; single → only the active doc.
+  const isDirty =
+    viewMode === 'combined'
+      ? dirtyPaths.size > 0
+      : activeDocumentPath !== null && dirtyPaths.has(activeDocumentPath);
 
   return (
     <footer className="status-footer" data-testid="status-footer">
+      {viewMode === 'combined' && (
+        <>
+          <span className="status-item">
+            {t(locale, 'arxmlPanel.combinedDocs', { count: sourceDocs.length })}
+          </span>
+          <span className="status-sep">•</span>
+        </>
+      )}
       <span className="status-item">
         {t(locale, 'arxmlPanel.packages')}: <strong>{packageCount}</strong>
       </span>
@@ -44,8 +70,8 @@ export function ArxmlPanel(): JSX.Element | null {
         {t(locale, 'arxmlPanel.elements')}: <strong>{elementCount}</strong>
       </span>
       <span className="status-sep">•</span>
-      <span className="status-item">{t(locale, 'app.docVersion', { version: doc.version })}</span>
-      {isActiveDirty && (
+      <span className="status-item">{t(locale, 'app.docVersion', { version: sourceVersion })}</span>
+      {isDirty && (
         <>
           <span className="status-sep">•</span>
           <span className="status-dirty">{t(locale, 'arxmlPanel.unsaved')}</span>

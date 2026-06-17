@@ -66,6 +66,11 @@ function makeDoc(): ArxmlDocument {
 
 interface MockState {
   doc: ArxmlDocument | null;
+  // Sprint 13 Stage 3.5 — Tree now reads `displayDoc` instead of
+  // `doc`. The mock wires the two together (defaulting `displayDoc`
+  // to `doc` when the test does not set it explicitly) so the 550+
+  // existing single-mode tests keep working without changes.
+  displayDoc: ArxmlDocument | null;
   filePath: string | null;
   selectedPath: string | null;
   dirtyPaths: ReadonlySet<string>;
@@ -83,8 +88,9 @@ function makeStoreApi(initial: Partial<MockState> = {}): {
   api: ArxmlStoreApi;
   state: MockState;
 } {
-  const state: MockState = {
+  const merged: MockState = {
     doc: null,
+    displayDoc: null,
     filePath: null,
     selectedPath: null,
     dirtyPaths: new Set<string>(),
@@ -102,6 +108,10 @@ function makeStoreApi(initial: Partial<MockState> = {}): {
     locale: 'en',
     ...initial,
   };
+  if (merged.displayDoc === null) {
+    merged.displayDoc = merged.doc;
+  }
+  const state = merged;
   const api: ArxmlStoreApi = {
     getState: () => state,
     subscribe: () => () => undefined,
@@ -548,5 +558,90 @@ describe('Tree (keyboard accessibility)', () => {
     fireEvent.keyDown(ePkg, { key: ' ' });
     expect(state.select).toHaveBeenCalledWith('/EAS');
     expect(ePkg).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint 13 Stage 3.5 — Combined Tree View
+// In combined mode the store's `displayDoc` is a virtual document whose
+// top-level packages are file basenames. Tree must render those as
+// top-level treeitems so the user sees one branch per loaded file.
+// ---------------------------------------------------------------------------
+describe('Tree (combined mode)', () => {
+  it('renders one top-level treeitem per file basename when displayDoc is the combined doc', () => {
+    // Build a tiny combined doc with two basenames.
+    const combined: ArxmlDocument = {
+      path: '[Combined]',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Adc.arxml',
+          path: '/Adc.arxml/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'Adc',
+              params: {},
+              children: [],
+              references: [],
+            },
+          ],
+        },
+        {
+          shortName: 'Can.arxml',
+          path: '/Can.arxml/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'Can',
+              params: {},
+              children: [],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+    const { api, state } = makeStoreApi({ displayDoc: combined });
+    expect(state.displayDoc).toBe(combined);
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    expect(within(tree).getByRole('treeitem', { name: /Adc\.arxml/ })).toBeInTheDocument();
+    expect(within(tree).getByRole('treeitem', { name: /Can\.arxml/ })).toBeInTheDocument();
+  });
+
+  it('combined mode: clicking a child module calls select with the basename-prefixed path', () => {
+    const combined: ArxmlDocument = {
+      path: '[Combined]',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Can.arxml',
+          path: '/Can.arxml/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'Can',
+              params: {},
+              children: [],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+    const { api, state } = makeStoreApi({ displayDoc: combined });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    const fileBranch = within(tree).getByRole('treeitem', { name: /Can\.arxml/ });
+    fireEvent.click(within(fileBranch).getByRole('button', { name: /toggle can\.arxml/i }));
+    const module = within(tree).getByRole('treeitem', { name: /Can$/ });
+    fireEvent.click(module);
+    expect(state.select).toHaveBeenCalledWith('/Can.arxml/EAS/Can');
   });
 });

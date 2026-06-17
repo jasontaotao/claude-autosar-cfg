@@ -122,4 +122,40 @@ describe('ParamEditor', () => {
     expect(screen.getByRole('columnheader', { name: '类型' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: '取值' })).toBeInTheDocument();
   });
+
+  // ---------- Sprint 13 Stage 3.5 (Combined Tree View) ----------
+  // In combined mode the selectedPath is prefixed with the source
+  // file's basename. ParamEditor must resolve it back to the source
+  // document via findByPathMultiDoc; updateParam goes through the
+  // store which already routes via the basename prefix (see
+  // useArxmlStore.updateParam).
+
+  it('combined mode: resolves basename-prefixed path and renders the source element', () => {
+    const doc = makeDoc();
+    useArxmlStore.getState().setDoc(doc, '/tmp/EcuC.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    useArxmlStore.getState().select('/EcuC.arxml/EAS/EcuCGeneral');
+    render(<ParamEditor />);
+    // EcuCGeneral still renders — the basename prefix is stripped on read.
+    expect(screen.getByRole('heading', { name: 'EcuCGeneral' })).toBeInTheDocument();
+  });
+
+  it('combined mode: editing a param routes the mutation to the source document', () => {
+    const doc = makeDoc();
+    useArxmlStore.getState().setDoc(doc, '/tmp/EcuC.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    useArxmlStore.getState().select('/EcuC.arxml/EAS/EcuCGeneral');
+    render(<ParamEditor />);
+
+    const countInput = screen.getByLabelText('Count value');
+    fireEvent.change(countInput, { target: { value: '99' } });
+
+    const updated = useArxmlStore.getState().doc;
+    expect(updated).not.toBeNull();
+    if (updated === null) return;
+    const cont = updated.packages[0]?.elements[0];
+    if (cont === undefined || cont.kind !== 'container') return;
+    expect(cont.params['Count']).toEqual({ type: 'integer', value: 99 });
+    expect(useArxmlStore.getState().dirtyPaths.has('/tmp/EcuC.arxml')).toBe(true);
+  });
 });

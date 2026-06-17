@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { parseArxml } from '../parser.js';
-import { packageByPath, findByPath, paramsEqual } from '../path.js';
+import { packageByPath, findByPath, paramsEqual, findByPathMultiDoc } from '../path.js';
+import type { ArxmlDocument } from '../types.js';
 
 const NESTED_XML = `<?xml version="1.0"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
@@ -98,5 +99,87 @@ describe('path helpers', () => {
     expect(found?.element.kind).toBe('container');
     if (found?.element.kind !== 'container') return;
     expect(found.element.shortName).toBe('CanIfInitCfg');
+  });
+
+  // ---------- Sprint 13 Stage 3.5 (Combined Tree View) ----------
+  // Combined Tree View synthesises a virtual ArxmlDocument whose packages
+  // are the per-file basenames, and child paths are prefixed with the
+  // original file's basename. `findByPathMultiDoc` strips that basename
+  // prefix and routes the lookup back to the source document.
+
+  function buildCanDoc(): ArxmlDocument {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>EAS</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>Can</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE><SHORT-NAME>CanConfigSet</SHORT-NAME>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/EAS/Can/CanConfigSet/CanIfSupport</DEFINITION-REF>
+              <VALUE>1</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`Can parse: ${r.error}`);
+    return r.value;
+  }
+
+  function buildAdcDoc(): ArxmlDocument {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>EAS</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>Adc</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE><SHORT-NAME>AdcConfigSet</SHORT-NAME></ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`Adc parse: ${r.error}`);
+    return r.value;
+  }
+
+  it('findByPathMultiDoc strips basename prefix and routes to source doc', () => {
+    const docs: readonly ArxmlDocument[] = [buildAdcDoc(), buildCanDoc()];
+    const paths = ['/tmp/Adc.arxml', '/tmp/Can.arxml'];
+    // combined path uses the basename as the FIRST segment
+    const found = findByPathMultiDoc(docs, paths, '/Can.arxml/EAS/Can/CanConfigSet');
+    expect(found).not.toBeNull();
+    expect(found?.filePath).toBe('/tmp/Can.arxml');
+    expect(found?.element.shortName).toBe('CanConfigSet');
+  });
+
+  it('findByPathMultiDoc returns null when basename prefix is unknown', () => {
+    const docs = [buildCanDoc()];
+    const paths = ['/tmp/Can.arxml'];
+    const found = findByPathMultiDoc(docs, paths, '/Missing.arxml/EAS/Can/CanConfigSet');
+    expect(found).toBeNull();
+  });
+
+  it('findByPathMultiDoc returns null when inner path does not exist in source', () => {
+    const docs = [buildCanDoc()];
+    const paths = ['/tmp/Can.arxml'];
+    const found = findByPathMultiDoc(docs, paths, '/Can.arxml/EAS/Missing/CanConfigSet');
+    expect(found).toBeNull();
+  });
+
+  it('findByPathMultiDoc handles same-basename disambiguation by filePath', () => {
+    // Two Can.arxml files in different directories — basename alone is
+    // ambiguous. The combined view falls back to [doc:N] index naming for
+    // duplicates; findByPathMultiDoc supports that form too.
+    const docs = [buildCanDoc(), buildCanDoc()];
+    const paths = ['/a/Can.arxml', '/b/Can.arxml'];
+    const byIndex = findByPathMultiDoc(docs, paths, '/[doc:0]/EAS/Can/CanConfigSet');
+    expect(byIndex).not.toBeNull();
+    expect(byIndex?.filePath).toBe('/a/Can.arxml');
+    const byIndex1 = findByPathMultiDoc(docs, paths, '/[doc:1]/EAS/Can/CanConfigSet');
+    expect(byIndex1?.filePath).toBe('/b/Can.arxml');
   });
 });

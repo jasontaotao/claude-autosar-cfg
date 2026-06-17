@@ -108,6 +108,69 @@ function isPackage(value: ArxmlElement | ArxmlPackage): value is ArxmlPackage {
   return !('kind' in value);
 }
 
+/**
+ * Combined Tree View (Sprint 13 Stage 3.5) — locate an element across
+ * multiple loaded documents.
+ *
+ * The combined view synthesises a virtual ArxmlDocument whose top-level
+ * packages are the per-file basenames; child paths are prefixed with the
+ * source file's basename (or `[doc:N]` for same-basename duplicates).
+ * `findByPathMultiDoc` strips that prefix and routes the lookup back to
+ * the source document, returning the located element alongside the
+ * source `filePath` so the caller can dispatch a `updateParam` mutation
+ * to the right document.
+ *
+ * Returns null when:
+ *   - the leading segment is neither a known basename nor a `[doc:N]`
+ *     index token
+ *   - the source document exists but the inner path misses
+ *
+ * Pure — no I/O, no mutation. Used by the renderer's ParamEditor to
+ * resolve a `selectedPath` from the combined view back to the original
+ * ArxmlDocument.
+ */
+export function findByPathMultiDoc(
+  docs: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+  combinedPath: string,
+): { doc: ArxmlDocument; filePath: string; pkg: ArxmlPackage; element: ArxmlElement } | null {
+  const segments = combinedPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const [head, ...rest] = segments;
+  if (head === undefined) return null;
+  // Resolve the source doc from the head segment. Two forms supported:
+  //   - basename:    "/Can.arxml/..." → match filePath whose basename is "Can.arxml"
+  //   - index token: "/[doc:0]/..."   → match by filePaths position
+  let docIdx: number = -1;
+  if (/^\[doc:\d+\]$/.test(head)) {
+    const n = Number.parseInt(head.slice(5, -1), 10);
+    if (Number.isInteger(n) && n >= 0 && n < filePaths.length) {
+      docIdx = n;
+    }
+  } else {
+    docIdx = filePaths.findIndex((p) => lastSegment(p) === head);
+  }
+  if (docIdx === -1) return null;
+  const doc = docs[docIdx];
+  const filePath = filePaths[docIdx];
+  if (doc === undefined || filePath === undefined) return null;
+  // Reassemble the inner path with a leading slash so findByPath can
+  // anchor on the first root-package segment.
+  const innerPath = `/${rest.join('/')}`;
+  const found = findByPath(doc, innerPath);
+  if (found === null) return null;
+  return { doc, filePath, pkg: found.pkg, element: found.element };
+}
+
+/**
+ * Last segment of a file path (after the last `/` or `\`). Mirrors
+ * `@shared/path#basename` but kept inline so the `core/` layer stays
+ * zero-dep on `shared/`.
+ */
+function lastSegment(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
 /** Equality check on params dict. Key-order independent; values via JSON. */
 export function paramsEqual(
   a: Readonly<Record<string, unknown>>,

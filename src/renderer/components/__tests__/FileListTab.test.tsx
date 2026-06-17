@@ -88,4 +88,61 @@ describe('FileListTab', () => {
       screen.getByText((content) => content.includes('尚未附加') || /empty/i.test(content)),
     ).toBeTruthy();
   });
+
+  // ----- Sprint 13 Stage 3.5 (Combined Tree View) -----
+  // The [Combined] virtual entry sits at the top of the ARXML list when
+  // at least one document is loaded. Clicking it switches the store
+  // to combined mode; clicking a regular file switches back to single
+  // and sets that file as active.
+
+  it('shows the [Combined] virtual entry when at least one ARXML is loaded', () => {
+    useArxmlStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      project: { valueArxmlPaths: ['/p/EcuC.arxml'], bswmdPaths: [] } as any,
+      documentPaths: ['/p/EcuC.arxml'],
+      activeDocumentPath: '/p/EcuC.arxml',
+    });
+    render(<FileListTab />);
+    expect(screen.getByTestId('file-list-tab-combined')).toBeTruthy();
+  });
+
+  it('hides the [Combined] entry when no ARXML is loaded', () => {
+    useArxmlStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      project: { valueArxmlPaths: [], bswmdPaths: [] } as any,
+      documentPaths: [],
+    });
+    render(<FileListTab />);
+    expect(screen.queryByTestId('file-list-tab-combined')).toBeNull();
+  });
+
+  it('clicking [Combined] switches viewMode to combined and resets active to null', () => {
+    useArxmlStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      project: { valueArxmlPaths: ['/p/EcuC.arxml'], bswmdPaths: [] } as any,
+      documentPaths: ['/p/EcuC.arxml'],
+      activeDocumentPath: '/p/EcuC.arxml',
+    });
+    render(<FileListTab />);
+    fireEvent.click(screen.getByTestId('file-list-tab-combined'));
+    expect(useArxmlStore.getState().viewMode).toBe('combined');
+    // activeDocumentPath is preserved by setViewMode (it only resets
+    // selectedPath) so the user can flip back to single mode without
+    // losing their last-active doc.
+  });
+
+  it('clicking a regular file resets viewMode to single and sets active', () => {
+    useArxmlStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      project: { valueArxmlPaths: ['/p/A.arxml', '/p/B.arxml'], bswmdPaths: [] } as any,
+      documentPaths: ['/p/A.arxml', '/p/B.arxml'],
+      activeDocumentPath: '/p/A.arxml',
+      viewMode: 'combined',
+    });
+    render(<FileListTab />);
+    fireEvent.click(screen.getByTestId('file-list-tab-arxml-/p/B.arxml'));
+    const state = useArxmlStore.getState();
+    expect(state.viewMode).toBe('single');
+    expect(state.activeDocumentPath).toBe('/p/B.arxml');
+  });
 });

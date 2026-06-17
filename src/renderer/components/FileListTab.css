@@ -160,3 +160,17 @@
   border-color: #3b82f6;
   color: #1e3a8a;
 }
+
+/* Sprint 13 Stage 3.5 — Combined Tree View virtual entry. Same
+   shape as a regular file item so the layout stays consistent, but
+   uses the link icon and an italic name to signal it's a virtual
+   aggregate, not a real file on disk. */
+.file-list-tab-item-combined {
+  background: #f1f5f9;
+  border-bottom: 1px dashed #cbd5e1;
+  font-weight: 600;
+}
+
+.file-list-tab-item-combined:hover {
+  background: #e2e8f0;
+}

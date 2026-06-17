@@ -18,7 +18,13 @@ import type { Locale } from '@shared/i18n';
 import { TreeNode } from './TreeNode.js';
 
 export interface ArxmlStoreSlice {
+  // Sprint 13 Stage 3.5 — Tree reads `displayDoc` (the synthesised
+  // virtual ArxmlDocument in combined mode, or the active `doc` in
+  // single mode). `doc` is still on the slice for back-compat with
+  // older test fixtures and the optional `api.getState().doc` access
+  // pattern, but `displayDoc` is the source of truth for rendering.
   readonly doc: ArxmlDocument | null;
+  readonly displayDoc: ArxmlDocument | null;
   readonly selectedPath: string | null;
   readonly select: (path: string) => void;
   readonly locale: Locale;
@@ -39,13 +45,18 @@ export function Tree({ store }: TreeProps): JSX.Element {
   // We do NOT use the store via a React hook to avoid coupling the
   // file to a specific store implementation (Zustand, custom, etc.).
   // Instead, subscribe via store.subscribe and store local mirror.
-  const [doc, setDoc] = useState<ArxmlDocument | null>(store.getState().doc);
+  // Sprint 13 Stage 3.5 — use `displayDoc` so the combined view is
+  // visible automatically. Tests / single-mode callers that don't
+  // populate `displayDoc` fall back to `doc` so the existing
+  // baseline is preserved.
+  const initialDisplay = store.getState().displayDoc ?? store.getState().doc;
+  const [doc, setDoc] = useState<ArxmlDocument | null>(initialDisplay);
   const [selectedPath, setSelectedPath] = useState<string | null>(store.getState().selectedPath);
   const [locale, setLocale] = useState<Locale>(store.getState().locale);
   useEffect(() => {
     return store.subscribe(() => {
       const s = store.getState();
-      setDoc(s.doc);
+      setDoc(s.displayDoc ?? s.doc);
       setSelectedPath(s.selectedPath);
       setLocale(s.locale);
     });

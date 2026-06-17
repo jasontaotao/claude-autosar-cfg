@@ -5,7 +5,10 @@
 // buttons above the file lists.
 //
 // Clicking an ARXML file switches the active document via
-// `setActiveDocument`, which updates the Tree view.
+// `setActiveDocument` and (if currently in combined mode) flips back
+// to single mode. Clicking the [Combined] virtual entry at the top
+// of the list switches to combined mode, where the Tree renders one
+// branch per loaded file.
 // BSWMD files are read-only entries with remove buttons.
 
 import type { JSX } from 'react';
@@ -22,7 +25,9 @@ export function FileListTab(): JSX.Element {
   const project = useArxmlStore((s) => s.project);
   const documentPaths = useArxmlStore((s) => s.documentPaths);
   const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+  const viewMode = useArxmlStore((s) => s.viewMode);
   const setActiveDocument = useArxmlStore((s) => s.setActiveDocument);
+  const setViewMode = useArxmlStore((s) => s.setViewMode);
   const removeDocument = useArxmlStore((s) => s.removeDocument);
   const bswmdPaths = useArxmlStore((s) => s.bswmdPaths);
   const removeBswmd = useArxmlStore((s) => s.removeBswmd);
@@ -33,6 +38,7 @@ export function FileListTab(): JSX.Element {
 
   // ARXML paths: from project manifest when open, from store otherwise
   const arxmlPaths = isProjectOpen ? project.valueArxmlPaths : documentPaths;
+  const isCombinedActive = viewMode === 'combined';
 
   const handleAddBswmd = (): void => {
     if (addBswmdFromDialog === undefined) return;
@@ -75,44 +81,79 @@ export function FileListTab(): JSX.Element {
         {arxmlPaths.length === 0 ? (
           <div className="file-list-tab-empty">{t(locale, 'projectPanel.arxml.empty')}</div>
         ) : (
-          arxmlPaths.map((p) => {
-            const isActive = p === activeDocumentPath;
-            return (
-              <div
-                key={p}
-                className={`file-list-tab-item${isActive ? ' is-active-doc' : ''}`}
-                onClick={() => setActiveDocument(p)}
-                data-testid={`file-list-tab-arxml-${p}`}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
+          <>
+            {/* Sprint 13 Stage 3.5 — Combined Tree View entry. Sits at
+                the top of the ARXML list when at least one doc is
+                loaded. Highlighted as the active "doc" when
+                viewMode === 'combined'. */}
+            <div
+              className={`file-list-tab-item file-list-tab-item-combined${
+                isCombinedActive ? ' is-active-doc' : ''
+              }`}
+              onClick={() => setViewMode('combined')}
+              data-testid="file-list-tab-combined"
+              role="button"
+              tabIndex={0}
+              aria-label={t(locale, 'fileList.combinedViewAria')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setViewMode('combined');
+                }
+              }}
+            >
+              <span className="file-list-tab-item-icon">🔗</span>
+              <span className="file-list-tab-item-name">{t(locale, 'fileList.combinedView')}</span>
+            </div>
+            {arxmlPaths.map((p) => {
+              const isActive = p === activeDocumentPath && !isCombinedActive;
+              return (
+                <div
+                  key={p}
+                  className={`file-list-tab-item${isActive ? ' is-active-doc' : ''}`}
+                  onClick={() => {
+                    // Switching to a file in the list always returns
+                    // to single mode — the combined view is opt-in.
+                    if (viewMode === 'combined') {
+                      setViewMode('single');
+                    }
                     setActiveDocument(p);
-                  }
-                }}
-              >
-                <span className="file-list-tab-item-icon">📄</span>
-                <span className="file-list-tab-item-name" title={p}>
-                  {basename(p)}
-                </span>
-                <button
-                  type="button"
-                  className="file-list-tab-item-remove"
-                  aria-label={t(locale, 'projectPanel.removeArxmlAria', {
-                    name: basename(p),
-                  })}
-                  data-testid={`file-list-tab-arxml-remove-${p}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeDocument(p);
+                  }}
+                  data-testid={`file-list-tab-arxml-${p}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (viewMode === 'combined') {
+                        setViewMode('single');
+                      }
+                      setActiveDocument(p);
+                    }
                   }}
                 >
-                  ×
-                </button>
-              </div>
-            );
-          })
+                  <span className="file-list-tab-item-icon">📄</span>
+                  <span className="file-list-tab-item-name" title={p}>
+                    {basename(p)}
+                  </span>
+                  <button
+                    type="button"
+                    className="file-list-tab-item-remove"
+                    aria-label={t(locale, 'projectPanel.removeArxmlAria', {
+                      name: basename(p),
+                    })}
+                    data-testid={`file-list-tab-arxml-remove-${p}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeDocument(p);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
 

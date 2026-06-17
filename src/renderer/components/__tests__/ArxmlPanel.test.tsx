@@ -129,4 +129,101 @@ describe('ArxmlPanel status footer (Sprint 9 #5)', () => {
     render(<ArxmlPanel />);
     expect(screen.getByText(/unsaved changes/)).toBeInTheDocument();
   });
+
+  // ---------- Sprint 13 Stage 3.5 (Combined Tree View) ----------
+  // In combined mode the footer shows aggregate counts across every
+  // loaded document, and the dirty indicator fires when ANY doc is
+  // dirty (not just the active one). The view-mode label prefixes
+  // the footer to make the active view obvious.
+
+  it('combined mode: shows the document count and aggregate packages/elements', () => {
+    useArxmlStore.getState().setDoc(
+      {
+        path: '/a.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Adc',
+                params: {},
+                children: [],
+                references: [],
+              },
+            ],
+          },
+        ],
+      },
+      '/a.arxml',
+    );
+    useArxmlStore.getState().addDocument(
+      {
+        path: '/b.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Can',
+                params: {},
+                children: [],
+                references: [],
+              },
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'CanNm',
+                params: {},
+                children: [],
+                references: [],
+              },
+            ],
+          },
+        ],
+      },
+      '/b.arxml',
+    );
+    useArxmlStore.getState().setViewMode('combined');
+    render(<ArxmlPanel />);
+    const footer = screen.getByTestId('status-footer');
+    // 2 documents aggregated
+    expect(footer.textContent).toMatch(/2 documents/);
+    // 2 packages (one per file's wrapped EAS)
+    expect(footer.textContent).toMatch(/Packages:\s*2/);
+    // 3 elements (1 + 2)
+    expect(footer.textContent).toMatch(/Elements:\s*3/);
+  });
+
+  it('combined mode: dirty indicator fires when ANY loaded doc is dirty', () => {
+    useArxmlStore.getState().setDoc(
+      {
+        path: '/a.arxml',
+        version: '4.6',
+        packages: [],
+      },
+      '/a.arxml',
+    );
+    useArxmlStore.getState().addDocument(
+      {
+        path: '/b.arxml',
+        version: '4.6',
+        packages: [],
+      },
+      '/b.arxml',
+    );
+    useArxmlStore.getState().setViewMode('combined');
+    // b.arxml is dirty; a.arxml is not. Combined view treats the
+    // project as dirty (any doc is dirty).
+    useArxmlStore.setState({ dirtyPaths: new Set(['/b.arxml']) });
+    render(<ArxmlPanel />);
+    expect(screen.getByText(/unsaved changes/)).toBeInTheDocument();
+  });
 });

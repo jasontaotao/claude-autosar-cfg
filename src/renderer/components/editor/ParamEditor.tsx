@@ -6,9 +6,17 @@
 // pass through t(locale, key). Param type names (integer / float / etc.)
 // are technical identifiers and stay untranslated — they map directly
 // to BSWMD/ECUC standard names that engineers read in English.
+//
+// Sprint 13 Stage 3.5 (Combined Tree View): in combined mode the
+// store's `selectedPath` is prefixed with the source file's basename
+// (or `[doc:N]` for same-basename duplicates). We resolve the basename
+// via `findByPathMultiDoc` so the editor renders the correct source
+// element. `updateParam` already routes via the basename prefix in
+// the store, so the per-row Editor components keep emitting the
+// unchanged `containerPath` and the store handles the prefix.
 
-import { findByPath } from '@core/arxml/path';
-import type { ParamValue } from '@core/arxml/types';
+import { findByPath, findByPathMultiDoc } from '@core/arxml/path';
+import type { ArxmlElement, ParamValue } from '@core/arxml/types';
 import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
@@ -65,10 +73,23 @@ function typeBadgeClass(type: ParamValue['type']): string {
 
 export function ParamEditor(): JSX.Element {
   const doc = useArxmlStore((s) => s.doc);
+  const documents = useArxmlStore((s) => s.documents);
+  const documentPaths = useArxmlStore((s) => s.documentPaths);
+  const viewMode = useArxmlStore((s) => s.viewMode);
   const selectedPath = useArxmlStore((s) => s.selectedPath);
   const locale = useArxmlStore((s) => s.locale);
 
-  if (doc === null || selectedPath === null) {
+  if ((doc === null && viewMode === 'single') || selectedPath === null) {
+    return (
+      <section
+        className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+        aria-label="Parameter editor"
+      >
+        {t(locale, 'editor.noSelection')}
+      </section>
+    );
+  }
+  if (viewMode === 'combined' && documents.length === 0) {
     return (
       <section
         className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
@@ -79,8 +100,18 @@ export function ParamEditor(): JSX.Element {
     );
   }
 
-  const found = findByPath(doc, selectedPath);
-  if (found === null || (found.element.kind !== 'module' && found.element.kind !== 'container')) {
+  // Sprint 13 Stage 3.5 — combined-mode lookup. The selectedPath is
+  // prefixed with the source file's basename; findByPathMultiDoc
+  // strips the prefix and returns the source document's element.
+  let element: ArxmlElement | null = null;
+  if (viewMode === 'combined') {
+    const hit = findByPathMultiDoc(documents, documentPaths, selectedPath);
+    element = hit === null ? null : hit.element;
+  } else {
+    const found = findByPath(doc!, selectedPath);
+    element = found === null ? null : found.element;
+  }
+  if (element === null || (element.kind !== 'module' && element.kind !== 'container')) {
     return (
       <section
         className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
@@ -94,7 +125,6 @@ export function ParamEditor(): JSX.Element {
     );
   }
 
-  const { element } = found;
   const entries = Object.entries(element.params);
 
   return (
