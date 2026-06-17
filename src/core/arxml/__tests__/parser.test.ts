@@ -471,4 +471,32 @@ describe('parseArxml', () => {
       expect(r.value.packages[0]!.shortName).toBe('L0');
     });
   });
+
+  // ---------- Sprint 12 (namespace compatibility): strict-reject breadcrumb ----------
+  // The full strict-reject contract coverage lives in parser-namespace.test.ts.
+  // This single case documents, next to the value-side tests, that a pure-BSWMD
+  // file (only ECUC-MODULE-DEF inside ELEMENTS, no ECUC-MODULE-CONFIGURATION-VALUES)
+  // must be rejected with `invalid-structure` rather than silently accepted.
+
+  it('rejects pure-BSWMD files with invalid-structure (strict mode)', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.6 AUTOSAR_4-6-0.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcuC</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>EcuC</SHORT-NAME>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-structure');
+  });
 });
