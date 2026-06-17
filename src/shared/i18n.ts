@@ -180,7 +180,7 @@ export interface Messages {
 
   // --- parse errors (Sprint 13+ Stage 4 M8) ---
   // AppHeader.formatParseError keys. These mirror the shape of
-  // `bswmdParser.*` keys but cover value-side ARXML parse errors
+  // bswmdParser.* keys but cover value-side ARXML parse errors
   // (ParseError from core/arxml/parser.ts).
   readonly 'parserError.xmlMalformed': string; // {message}
   readonly 'parserError.missingRoot': string; // {message}
