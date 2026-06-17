@@ -205,14 +205,17 @@ describe('serializer version fidelity', () => {
     },
   );
 
-  it('round-trips a 5-digit-versioned document', () => {
-    const doc = mkDoc('00049');
-    const ser = serializeArxml(doc);
-    expect(ser.ok).toBe(true);
-    if (!ser.ok) return;
-    const re = parseArxml(ser.value);
-    expect(re.ok).toBe(true);
-    if (!re.ok) return;
-    expect(re.value.version).toBe('00049');
-  });
+  it.each(['00046', '00048', '00049', '00050'] as const)(
+    'round-trips a 5-digit-versioned document (%s)',
+    (v) => {
+      const doc = mkDoc(v);
+      const ser = serializeArxml(doc);
+      expect(ser.ok).toBe(true);
+      if (!ser.ok) return;
+      const re = parseArxml(ser.value);
+      expect(re.ok).toBe(true);
+      if (!re.ok) return;
+      expect(re.value.version).toBe(v);
+    },
+  );
 });
