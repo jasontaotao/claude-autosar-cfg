@@ -223,7 +223,8 @@ describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
 
   it('renders the parse-error in Chinese when locale is zh-CN', async () => {
     useArxmlStore.getState().setLocale('zh-CN');
-    const api = (globalThis as { window: { autosarApi: MockWindowAutosarApi } }).window.autosarApi;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
     api.openArxmlMulti.mockResolvedValue({
       kind: 'opened',
       results: [{ path: '/p/Bad.arxml', content: '<bad/>' }],
@@ -248,7 +249,8 @@ describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
 
   it('renders the parse-error in English when locale is en', async () => {
     useArxmlStore.getState().setLocale('en');
-    const api = (globalThis as { window: { autosarApi: MockWindowAutosarApi } }).window.autosarApi;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
     api.openArxmlMulti.mockResolvedValue({
       kind: 'opened',
       results: [{ path: '/p/Bad.arxml', content: '<bad/>' }],

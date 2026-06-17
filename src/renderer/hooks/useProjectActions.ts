@@ -342,6 +342,7 @@ export function useProjectActions(): {
             case 'invalid-name':
               return { kind: 'error', message: retry.message };
           }
+          break;
         }
         case 'write-failed':
           return { kind: 'error', message: result.message };
