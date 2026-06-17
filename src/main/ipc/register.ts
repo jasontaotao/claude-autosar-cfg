@@ -39,11 +39,16 @@ import { projectNewHandler } from './projectNewHandler.js';
  * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
  * memory, Sprint 12 #1) and `bswmd:read` (file on disk, Sprint 12 #2).
  * Without a cap a renderer (or a tampered preload bridge) could OOM
- * the main process by passing / pointing at a multi-GB payload. 8 MiB
- * is ~100× the largest real fixture (`Adc_bswmd.arxml` is 82 KiB) and
- * still tight enough to be a useful ceiling for any sane BSWMD file.
+ * the main process by passing / pointing at a multi-GB payload.
+ *
+ * Sized at 32 MiB to cover the AUTOSAR standard master ECUC parameter
+ * definition file (`AUTOSAR_MOD_ECUConfigurationParameters.arxml`,
+ * ~12 MiB at R4.2.2) with ~2.6× headroom for future AUTOSAR releases.
+ * Vendor BSWMDs (EB tresos Adc/Can fixtures) remain well under 100 KiB
+ * so this ceiling is invisible to the common case but does not block
+ * the legitimate "load the AUTOSAR master BSWMD" path.
  */
-const BSWMD_MAX_BYTES = 8 * 1024 * 1024;
+const BSWMD_MAX_BYTES = 32 * 1024 * 1024;
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.PING, async () => {
@@ -286,10 +291,10 @@ export function registerIpcHandlers(): void {
   // Size cap: `parseBswmd` runs `XMLValidator.validate` + `XMLParser.parse`
   // on the full string in main-process memory. Without a cap, a renderer
   // (or a tampered preload bridge) could OOM the process by passing a
-  // multi-GB string. 8 MiB is ~100× the largest real fixture
-  // (`Adc_bswmd.arxml` is 82 KiB) and still tight enough to be a useful
-  // ceiling for any sane BSWMD file. (Reviewer HIGH: equivalent cap on
-  // `parseArxml` is tracked for Sprint 13.)
+  // multi-GB string. 32 MiB covers the AUTOSAR master BSWMD (~12 MiB
+  // at R4.2.2) with 2.6× headroom; see `BSWMD_MAX_BYTES` above for the
+  // rationale. (Reviewer HIGH: equivalent cap on `parseArxml` is
+  // tracked for Sprint 13.)
   ipcMain.handle(
     IPC_CHANNELS.BSWMD_PARSE,
     async (_evt, req: ParseBswmdRequest): Promise<ParseBswmdResponse> => {
@@ -312,7 +317,7 @@ export function registerIpcHandlers(): void {
 
   // Sprint 12 #2 — BSWMD file reader. Used by the renderer-driven
   // "Load BSWMD" button (`useProjectActions.addBswmdFromDialog`).
-  // Reads the file from disk, applies the same 8 MiB cap as parse, and
+  // Reads the file from disk, applies the same 32 MiB cap as parse, and
   // returns the raw string so the renderer can hand it to `parseBswmd`.
   // (Equivalent cap on `parseArxml` is tracked for Sprint 13.)
   ipcMain.handle(
@@ -325,27 +330,24 @@ export function registerIpcHandlers(): void {
   // Sprint 12 #2 — BSWMD file-open dialog. Lets the renderer pop a
   // native `Open file…` filtered to `.arxml`/`.xml`. Returns either the
   // picked absolute path or `canceled`. Pairs with `BSWMD_READ` (the
-  // renderer calls the reader next, which applies the 8 MiB cap and
+  // renderer calls the reader next, which applies the 32 MiB cap and
   // shape validation). Kept as a separate channel so a future change to
   // dialog filters doesn't have to touch the read path.
-  ipcMain.handle(
-    IPC_CHANNELS.BSWMD_OPEN,
-    async (): Promise<OpenBswmdResult> => {
-      const result = await dialog.showOpenDialog({
-        title: 'Load BSWMD',
-        properties: ['openFile'],
-        filters: [
-          { name: 'BSWMD', extensions: ['arxml'] },
-          { name: 'XML', extensions: ['xml'] },
-          { name: 'All', extensions: ['*'] },
-        ],
-      });
-      if (result.canceled || result.filePaths.length === 0) {
-        return { kind: 'canceled' };
-      }
-      return { kind: 'ok', path: result.filePaths[0]! };
-    },
-  );
+  ipcMain.handle(IPC_CHANNELS.BSWMD_OPEN, async (): Promise<OpenBswmdResult> => {
+    const result = await dialog.showOpenDialog({
+      title: 'Load BSWMD',
+      properties: ['openFile'],
+      filters: [
+        { name: 'BSWMD', extensions: ['arxml'] },
+        { name: 'XML', extensions: ['xml'] },
+        { name: 'All', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { kind: 'canceled' };
+    }
+    return { kind: 'ok', path: result.filePaths[0]! };
+  });
 
   // Sprint 12 #3 — directory picker for the New Project flow. Pairs
   // with `PROJECT_NEW` (Task 4), which expects the user-supplied

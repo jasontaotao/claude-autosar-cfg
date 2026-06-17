@@ -47,9 +47,8 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.BSWMD_READ, req),
   // Sprint 12 #2 — BSWMD open-file dialog. Pairs with `readBswmd`:
   // renderer asks main to show the picker, gets back the picked path,
-  // then asks main to read its content (with the 8 MiB cap).
-  openBswmdDialog: (): Promise<OpenBswmdResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.BSWMD_OPEN),
+  // then asks main to read its content (with the 32 MiB cap).
+  openBswmdDialog: (): Promise<OpenBswmdResult> => ipcRenderer.invoke(IPC_CHANNELS.BSWMD_OPEN),
   // Sprint 12 #3 — directory picker for the New Project flow. Pairs
   // with `projectNew`: the renderer asks main to show a folder picker,
   // gets back the chosen absolute path (or `canceled`), and supplies

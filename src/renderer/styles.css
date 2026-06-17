@@ -96,6 +96,27 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-header-error-dismiss {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+
+.app-header-error-dismiss:hover,
+.app-header-error-dismiss:focus {
+  opacity: 1;
+  outline: 1px solid currentColor;
+  border-radius: 2px;
 }
 
 .app-doc-version {
@@ -290,6 +311,116 @@ body,
 .app-btn-save.is-dirty:hover:not(:disabled) {
   background: #c2410c;
   border-color: #ea580c;
+}
+
+/* ------------------------------------------------------------------ */
+/* EB-style project dropdown menu                                     */
+/* ------------------------------------------------------------------ */
+
+.app-menu-trigger {
+  position: relative;
+}
+
+.app-menu-btn {
+  appearance: none;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 3px 8px 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.app-menu-btn:hover,
+.app-menu-btn.is-open {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.app-menu-chevron {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.app-menu-btn.is-open .app-menu-chevron {
+  transform: rotate(180deg);
+}
+
+.app-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 210px;
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  z-index: 1000;
+}
+
+.app-dropdown-group-label {
+  font-size: 10px;
+  color: #484f58;
+  padding: 6px 10px 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.app-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #c9d1d9;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.app-dropdown-item:hover:not(:disabled) {
+  background: #30363d;
+}
+
+.app-dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.app-dropdown-icon {
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.app-dropdown-shortcut {
+  margin-left: auto;
+  font-size: 10px;
+  color: #484f58;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.app-dropdown-divider {
+  height: 1px;
+  background: #30363d;
+  margin: 4px 8px;
 }
 
 /* ------------------------------------------------------------------ */

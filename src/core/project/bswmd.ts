@@ -148,6 +148,7 @@ const SUPPORTED_VERSIONS = new Set([
   '00005',
   '00006',
   '00046',
+  '00051',
 ]);
 
 export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {

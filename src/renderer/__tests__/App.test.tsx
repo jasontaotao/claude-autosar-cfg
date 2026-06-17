@@ -220,3 +220,48 @@ describe('App (Sprint 12 #3 Task 8 part 2 — dialog host mounting)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sprint 13+ — left-column project-panel gate (regression for the
+// LooseView removal in commit 1de85c0). Without this gate App.tsx
+// renders the open-mode ProjectPanelInfo only when a project is open,
+// leaving the top of the left column empty in loose mode. The fix
+// mounts a compact banner with quick-action buttons instead.
+// ---------------------------------------------------------------------------
+
+describe('App left-column project panel (Sprint 13+)', () => {
+  it('renders loose-mode banner (text-only hint, no New/Open buttons) when no project is open', () => {
+    // Sprint 13+ follow-up: user removed the loose banner's quick-action
+    // buttons because they duplicated the AppHeader project menu. The
+    // banner is now text-only; users reach New / Open via the menu.
+    render(<App />);
+    const banner = screen.getByTestId('project-panel-loose');
+    expect(banner).toBeInTheDocument();
+    expect(banner.textContent).toMatch(/No project loaded/);
+    // Quick-action buttons must NOT exist anymore (regression for the
+    // duplicate-controls removal).
+    expect(screen.queryByTestId('project-panel-loose-new')).toBeNull();
+    expect(screen.queryByTestId('project-panel-loose-open')).toBeNull();
+  });
+
+  it('does not render loose-mode banner when a project is open', () => {
+    // Seed the store with a minimal project + path so App's
+    // `project !== null && projectPath !== null` gate flips.
+    useArxmlStore.setState({
+      project: {
+        schemaVersion: '1',
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'demo',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+      },
+      projectPath: 'C:/tmp/demo.autosarcfg.json',
+    });
+    render(<App />);
+    expect(screen.queryByTestId('project-panel-loose')).toBeNull();
+    // The open-mode panel mounts; use the manifest-title testid rather
+    // than `getByText('demo')` because the AppHeader project chip also
+    // renders the project name and would match twice.
+    expect(screen.getByTestId('project-panel-open')).toBeInTheDocument();
+  });
+});

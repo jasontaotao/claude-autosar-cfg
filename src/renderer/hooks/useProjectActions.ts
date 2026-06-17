@@ -75,7 +75,9 @@ function setPendingAction(action: unknown): void {
  * 'continue' / 'saveAndProceed' both cancel, 'discard' proceeds.
  * Phase 2 will add a real saveProject branch for 'saveAndProceed'.
  */
-async function guardedDirtySwitch(): Promise<{ readonly proceed: true } | { readonly proceed: false }> {
+async function guardedDirtySwitch(): Promise<
+  { readonly proceed: true } | { readonly proceed: false }
+> {
   const locale: Locale = useArxmlStore.getState().locale;
   if (useArxmlStore.getState().dirtyPaths.size === 0) {
     return { proceed: true };
@@ -310,7 +312,7 @@ export function useProjectActions(): {
   //      picker filtered to .arxml/.xml). If the user dismisses, the
   //      IPC returns `canceled` and we forward that.
   //   3. Read the chosen file via `bswmd:read`. The handler applies
-  //      the 8 MiB cap and returns either the raw string or a
+  //      the 32 MiB cap and returns either the raw string or a
   //      single-line `read-failed` message; we surface the latter
   //      through `app.error.readBswmdFailed`.
   //   4. Hand the content to `store.addBswmd`. The store itself is
@@ -383,24 +385,21 @@ export function useProjectActions(): {
   // the hook layer (so callers don't have to special-case "the click
   // missed").
   // -------------------------------------------------------------------------
-  const removeBswmdWithGuard = useCallback(
-    async (path: string): Promise<ProjectActionResult> => {
-      // Bail up-front on unknown paths so we don't even open the
-      // ConfirmDialog for a no-op click.
-      if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
-        return { kind: 'canceled' };
-      }
-      const guard = await guardedDirtySwitch();
-      if (!guard.proceed) {
-        setPendingAction(null);
-        return { kind: 'canceled' };
-      }
-      useArxmlStore.getState().removeBswmd(path);
+  const removeBswmdWithGuard = useCallback(async (path: string): Promise<ProjectActionResult> => {
+    // Bail up-front on unknown paths so we don't even open the
+    // ConfirmDialog for a no-op click.
+    if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
+      return { kind: 'canceled' };
+    }
+    const guard = await guardedDirtySwitch();
+    if (!guard.proceed) {
       setPendingAction(null);
-      return { kind: 'ok' };
-    },
-    [],
-  );
+      return { kind: 'canceled' };
+    }
+    useArxmlStore.getState().removeBswmd(path);
+    setPendingAction(null);
+    return { kind: 'ok' };
+  }, []);
 
   return {
     newProject,

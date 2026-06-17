@@ -72,9 +72,22 @@ export interface Messages {
   readonly 'app.error.parseBswmdFailed': string; // {message}
   readonly 'app.error.duplicateBswmd': string; // {path}
   readonly 'app.error.needProject': string;
+  readonly 'app.error.dismissAria': string;
+  readonly 'app.error.copyAria': string;
+  readonly 'app.error.copy': string;
+  readonly 'app.error.viewAria': string;
+  readonly 'app.error.viewHint': string;
+  readonly 'app.error.view': string;
+  readonly 'app.error.viewerTitle': string;
+  readonly 'app.error.viewerCloseAria': string;
+  readonly 'app.error.dismissAll': string;
   readonly 'app.error.projectNameEmpty': string;
   readonly 'app.error.projectNameInvalid': string;
   readonly 'app.error.projectNameTooLong': string;
+  readonly 'app.menu.project': string;
+  readonly 'app.menu.projectManage': string;
+  readonly 'app.menu.fileOps': string;
+  readonly 'app.open.arxml': string;
   readonly 'app.locale.toggleAria': string; // "Switch language" / "切换语言"
 
   // --- project panel ---
@@ -183,9 +196,22 @@ export const MessagesZhCN: Messages = {
   'app.error.parseBswmdFailed': 'BSWMD 解析失败: {message}',
   'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
   'app.error.needProject': '需要先打开或创建项目',
+  'app.error.dismissAria': '关闭提醒',
+  'app.error.copyAria': '复制错误内容',
+  'app.error.copy': '复制',
+  'app.error.viewAria': '查看完整错误',
+  'app.error.viewHint': '点击查看完整错误',
+  'app.error.view': '查看',
+  'app.error.viewerTitle': '错误详情',
+  'app.error.viewerCloseAria': '关闭错误详情',
+  'app.error.dismissAll': '关闭并清除',
   'app.error.projectNameEmpty': '项目名称不能为空',
   'app.error.projectNameInvalid': '项目名称含非法字符：< > : " / \\ | ? *',
   'app.error.projectNameTooLong': '项目名称不能超过 64 字符',
+  'app.menu.project': '项目',
+  'app.menu.projectManage': '项目管理',
+  'app.menu.fileOps': '文件操作',
+  'app.open.arxml': '打开 ARXML…',
   'app.locale.toggleAria': '切换语言',
 
   // project panel
@@ -292,9 +318,22 @@ export const MessagesEn: Messages = {
   'app.error.parseBswmdFailed': 'BSWMD parse failed: {message}',
   'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
   'app.error.needProject': 'Please open or create a project first',
+  'app.error.dismissAria': 'Dismiss notification',
+  'app.error.copyAria': 'Copy error to clipboard',
+  'app.error.copy': 'Copy',
+  'app.error.viewAria': 'View full error',
+  'app.error.viewHint': 'Click to view full error',
+  'app.error.view': 'View',
+  'app.error.viewerTitle': 'Error details',
+  'app.error.viewerCloseAria': 'Close error details',
+  'app.error.dismissAll': 'Dismiss & clear',
   'app.error.projectNameEmpty': 'Project name cannot be empty',
   'app.error.projectNameInvalid': 'Project name contains invalid characters: < > : " / \\ | ? *',
   'app.error.projectNameTooLong': 'Project name cannot exceed 64 characters',
+  'app.menu.project': 'Project',
+  'app.menu.projectManage': 'Project',
+  'app.menu.fileOps': 'File Operations',
+  'app.open.arxml': 'Open ARXML…',
   'app.locale.toggleAria': 'Switch language',
 
   // project panel
@@ -305,8 +344,7 @@ export const MessagesEn: Messages = {
   'projectPanel.arxml.title': 'Value-side ARXMLs',
   'projectPanel.arxml.empty': 'No ARXMLs attached. Use Open ARXML to add some.',
   'projectPanel.bswmd.title': 'BSWMDs',
-  'projectPanel.bswmd.empty':
-    'No BSWMDs loaded yet. Click "Load BSWMD" to add a schema file.',
+  'projectPanel.bswmd.empty': 'No BSWMDs loaded yet. Click "Load BSWMD" to add a schema file.',
   'projectPanel.bswmd.add': 'Load BSWMD...',
   'projectPanel.bswmd.addAria': 'Load BSWMD file {name}',
   'projectPanel.closeAria': 'Close project {name}',
@@ -325,7 +363,8 @@ export const MessagesEn: Messages = {
 
   // confirm dialog
   'confirm.unsaved.title': 'Unsaved Changes',
-  'confirm.unsaved.message': 'Project "{name}" has unsaved changes.\nCreating a new project will discard them.',
+  'confirm.unsaved.message':
+    'Project "{name}" has unsaved changes.\nCreating a new project will discard them.',
   'confirm.unsaved.continue': 'Keep Editing',
   'confirm.unsaved.discard': 'Discard & New',
   'confirm.unsaved.saveAndNew': 'Save & New',

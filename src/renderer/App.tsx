@@ -36,11 +36,14 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
+import { t } from '@shared/i18n';
+
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { ConfirmRoot } from './components/ConfirmDialog';
+import { ErrorBanner } from './components/ErrorBanner';
 import { NewProjectDialog } from './components/NewProjectDialog';
-import { ProjectPanel } from './components/ProjectPanel';
+import { ProjectPanelInfo } from './components/ProjectPanel';
 import { PromptRoot } from './components/PromptDialog';
 import { ValidationPanel } from './components/ValidationPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
@@ -78,22 +81,67 @@ export function App(): JSX.Element {
   // the result via the store's `error` field (Task 7) so the dialog
   // can read it back on the next render — the return value is
   // redundant at the mount site.
-  const { submitNewProject } = useProjectActions();
+  const { submitNewProject, addBswmdFromDialog, removeBswmdWithGuard } = useProjectActions();
   const handleNewProjectSubmit = (name: string, directory: string): void => {
     void submitNewProject(name, directory);
   };
 
+  // Sprint 13 refactor — ProjectPanel was split into ProjectPanelInfo
+  // (presentational, props-only) so it can be mounted inside LeftPanel's
+  // tabbed layout (see LeftPanel.tsx). App.tsx temporarily mounts the
+  // open-mode variant here while LeftPanel integration is still WIP; the
+  // loose-mode UI (no-project banner + quick actions) was removed in
+  // commit 1de85c0 along with the split. To keep this path functional
+  // we gate on `project !== null` and pass the props ProjectPanelInfo
+  // needs. The `LeftPanel` WIP file in the repo is the long-term
+  // replacement and supersedes this block once its TypeScript surface
+  // is complete.
+  const locale = useArxmlStore((s) => s.locale);
+  const project = useArxmlStore((s) => s.project);
+  const projectPath = useArxmlStore((s) => s.projectPath);
+  const closeProject = useArxmlStore((s) => s.closeProject);
+  const removeDocument = useArxmlStore((s) => s.removeDocument);
+
   return (
     <div className="app-shell">
       <AppHeader />
+      {/* Sprint 13+ — full-width error strip below the header. Reads
+          store.error; AppHeader no longer renders the inline corner
+          span. Clicking the message opens <ErrorViewerModal /> for
+          the "view 窗口" affordance when the banner itself overflows. */}
+      <ErrorBanner />
       <main className="workspace">
         <div className="left-column">
-          {/* Sprint 11 Phase 1 — ProjectPanel sits at the top of the
-              left column. When a project is open it shows the manifest
-              summary; in loose mode it's a compact "no project" hint
-              with quick-action buttons. CSS grid auto-rows keep the
-              Tree (1fr) + ValidationPanel (auto) below it. */}
-          <ProjectPanel />
+          {/* Sprint 13 refactor — ProjectPanel was split into
+              ProjectPanelInfo (presentational, props-only). App.tsx
+              mounts:
+                - ProjectPanelInfo when a project is open
+                - a compact LooseView banner (text + New/Open) otherwise
+              The original LooseView was deleted in commit 1de85c0; this
+              block restores the loose-mode UX so the top of the left
+              column is never empty. CSS grid auto-rows keep the Tree
+              (1fr) + ValidationPanel (auto) below it. */}
+          {project !== null && projectPath !== null ? (
+            <ProjectPanelInfo
+              locale={locale}
+              manifest={project}
+              manifestPath={projectPath}
+              onClose={closeProject}
+              onRemoveArxml={removeDocument}
+              onAddBswmd={() => void addBswmdFromDialog()}
+              onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
+            />
+          ) : (
+            // Sprint 13+ follow-up: user removed the New/Open quick
+            // actions here because they duplicated the AppHeader
+            // project menu. The banner is now a text-only hint that
+            // complements (does not repeat) the menu bar controls.
+            <div className="project-panel project-panel-loose" data-testid="project-panel-loose">
+              <span className="project-panel-loose-text">
+                {t(locale, 'projectPanel.loose.text')}
+              </span>
+            </div>
+          )}
           <Tree store={useArxmlStore} />
           <ValidationPanel />
         </div>

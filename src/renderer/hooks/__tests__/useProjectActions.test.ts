@@ -46,6 +46,7 @@ import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
 import * as ConfirmDialogModule from '../../components/ConfirmDialog.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
+import type { PendingAction } from '../../store/useArxmlStore.js';
 import { useProjectActions } from '../useProjectActions.js';
 
 // ---------------------------------------------------------------------------
@@ -62,7 +63,7 @@ import { useProjectActions } from '../useProjectActions.js';
 // ---------------------------------------------------------------------------
 
 function ensureDialogStatePatch(): void {
-  const state = useArxmlStore.getState() as Record<string, unknown>;
+  const state = useArxmlStore.getState();
   if (typeof state.setNewProjectDialogOpen !== 'function') {
     useArxmlStore.setState({
       newProjectDialogOpen: false,
@@ -82,7 +83,7 @@ function ensureDialogStatePatch(): void {
   if (typeof state.setPendingAction !== 'function') {
     useArxmlStore.setState({
       pendingAction: null,
-      setPendingAction: (action: unknown) => {
+      setPendingAction: (action: PendingAction | null) => {
         useArxmlStore.setState({ pendingAction: action });
       },
     } as never);
@@ -217,12 +218,10 @@ function openProjectWithDoc(path = '/proj/p.json'): void {
  */
 function makeDirty(): void {
   openProjectWithDoc();
-  useArxmlStore
-    .getState()
-    .updateParam('/EAS/EcuC/EcuCGeneral', 'ConfigConsistencyRequired', {
-      type: 'integer',
-      value: 99,
-    });
+  useArxmlStore.getState().updateParam('/EAS/EcuC/EcuCGeneral', 'ConfigConsistencyRequired', {
+    type: 'integer',
+    value: 99,
+  });
   expect(useArxmlStore.getState().dirtyPaths.size).toBeGreaterThan(0);
 }
 
@@ -246,11 +245,18 @@ type ProjectOpenResultLike =
     }
   | { readonly kind: 'read-failed'; readonly message: string };
 
-type BswmdDialogResult = { readonly kind: 'ok'; readonly path: string } | { readonly kind: 'canceled' };
-type ReadResult = { readonly kind: 'ok'; readonly content: string } | { readonly kind: 'read-failed'; readonly message: string };
+type BswmdDialogResult =
+  | { readonly kind: 'ok'; readonly path: string }
+  | { readonly kind: 'canceled' };
+type ReadResult =
+  | { readonly kind: 'ok'; readonly content: string }
+  | { readonly kind: 'read-failed'; readonly message: string };
 
 interface AutosarApiStub {
-  projectNew: (req: { readonly name: string; readonly directory: string }) => Promise<ProjectNewResultLike>;
+  projectNew: (req: {
+    readonly name: string;
+    readonly directory: string;
+  }) => Promise<ProjectNewResultLike>;
   projectOpen: () => Promise<ProjectOpenResultLike>;
   openBswmdDialog: () => Promise<BswmdDialogResult>;
   readBswmd: (req: { readonly path: string }) => Promise<ReadResult>;
@@ -277,11 +283,12 @@ afterEach(() => {
 
 function installApiStub(stub: Partial<AutosarApiStub>): AutosarApiStub {
   const merged: AutosarApiStub = {
-    projectNew: stub.projectNew ?? (async () => ({ kind: 'canceled' as never })),
-    projectOpen:
-      stub.projectOpen ?? (async () => ({ kind: 'canceled' })),
+    projectNew:
+      stub.projectNew ?? (async () => ({ kind: 'write-failed', message: 'unconfigured stub' })),
+    projectOpen: stub.projectOpen ?? (async () => ({ kind: 'canceled' })),
     openBswmdDialog: stub.openBswmdDialog ?? (async () => ({ kind: 'canceled' })),
-    readBswmd: stub.readBswmd ?? (async () => ({ kind: 'read-failed', message: 'unconfigured stub' })),
+    readBswmd:
+      stub.readBswmd ?? (async () => ({ kind: 'read-failed', message: 'unconfigured stub' })),
   };
   (window as { autosarApi?: unknown }).autosarApi = merged;
   return merged;
@@ -309,7 +316,7 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     // Assert — IPC NOT called; dialog open + pending action set; returns ok
     expect(projectNewSpy).not.toHaveBeenCalled();
     expect(response.kind).toBe('ok');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
     expect(after.pendingAction).toEqual({ kind: 'newProject' });
   });
@@ -319,7 +326,7 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     const { result } = renderHook(() => useProjectActions());
     const response = await result.current.newProject();
     expect(response.kind).toBe('ok');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
   });
 
@@ -332,7 +339,7 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     const response = await result.current.newProject();
 
     expect(response.kind).toBe('canceled');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(false);
   });
 
@@ -344,7 +351,7 @@ describe('useProjectActions — newProject opens NewProjectDialog (Sprint 12 #3 
     const response = await result.current.newProject();
 
     expect(response.kind).toBe('ok');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
   });
 });
@@ -357,8 +364,8 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
   it('"created" → close dialog + openProject + clears pendingAction', async () => {
     // Arrange — open dialog first (mimics NewProjectDialog being visible)
     act(() => {
-      (useArxmlStore.getState() as Record<string, unknown>).setNewProjectDialogOpen(true);
-      (useArxmlStore.getState() as Record<string, unknown>).setPendingAction({ kind: 'newProject' });
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+      useArxmlStore.getState().setPendingAction({ kind: 'newProject' });
     });
     const manifest = sampleManifest({ name: 'NewProj' });
     installApiStub({
@@ -371,18 +378,18 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
 
     // Assert
     expect(response.kind).toBe('ok');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(false);
     expect(after.pendingAction).toBeNull();
-    expect((after as { project: ProjectManifest | null }).project?.name).toBe('NewProj');
+    expect(after.project?.name).toBe('NewProj');
     expect(after.projectPath).toBe('/d/NewProj.autosarcfg.json');
   });
 
   it('"overwrite-confirm" → returns error, dialog stays open (Phase 1 simplification)', async () => {
     // Arrange — dialog already open
     act(() => {
-      (useArxmlStore.getState() as Record<string, unknown>).setNewProjectDialogOpen(true);
-      (useArxmlStore.getState() as Record<string, unknown>).setPendingAction({ kind: 'newProject' });
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+      useArxmlStore.getState().setPendingAction({ kind: 'newProject' });
     });
     installApiStub({
       projectNew: async () => ({
@@ -399,16 +406,16 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toContain('NewProj.autosarcfg.json');
-    const after = useArxmlStore.getState() as Record<string, unknown>;
+    const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(true);
     expect(after.pendingAction).toEqual({ kind: 'newProject' });
-    expect((after as { project: ProjectManifest | null }).project).toBeNull();
+    expect(after.project).toBeNull();
   });
 
   it('"write-failed" → returns error with the IPC message', async () => {
     // Arrange
     act(() => {
-      (useArxmlStore.getState() as Record<string, unknown>).setNewProjectDialogOpen(true);
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
     });
     installApiStub({
       projectNew: async () => ({
@@ -425,13 +432,13 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toBe('EACCES: permission denied');
-    expect((useArxmlStore.getState() as Record<string, unknown>).newProjectDialogOpen).toBe(true);
+    expect(useArxmlStore.getState().newProjectDialogOpen).toBe(true);
   });
 
   it('"invalid-name" → returns error with the IPC message', async () => {
     // Arrange
     act(() => {
-      (useArxmlStore.getState() as Record<string, unknown>).setNewProjectDialogOpen(true);
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
     });
     installApiStub({
       projectNew: async () => ({
@@ -448,7 +455,7 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5)', () => {
     expect(response.kind).toBe('error');
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toContain('path separators');
-    expect((useArxmlStore.getState() as Record<string, unknown>).newProjectDialogOpen).toBe(true);
+    expect(useArxmlStore.getState().newProjectDialogOpen).toBe(true);
   });
 });
 

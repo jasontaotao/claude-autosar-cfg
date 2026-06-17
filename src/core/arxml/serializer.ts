@@ -125,6 +125,7 @@ const SCHEMA_LOCATION: Record<ArxmlVersion, { readonly xmlns: string; readonly x
   '00048': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00048.xsd' },
   '00049': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00049.xsd' },
   '00050': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00050.xsd' },
+  '00051': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00051.xsd' },
 };
 
 function buildXmlns(v: ArxmlVersion): string {

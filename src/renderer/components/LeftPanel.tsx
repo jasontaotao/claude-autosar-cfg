@@ -22,6 +22,7 @@ import { useEffect, type JSX } from 'react';
 
 import { t } from '@shared/i18n';
 
+import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import { FileListTab } from './FileListTab';
@@ -51,10 +52,14 @@ export function LeftPanel(): JSX.Element {
   const setLeftTab = useArxmlStore((s) => s.setLeftTab);
   const locale = useArxmlStore((s) => s.locale);
   const project = useArxmlStore((s) => s.project);
+  const projectPath = useArxmlStore((s) => s.projectPath);
+  const closeProject = useArxmlStore((s) => s.closeProject);
+  const removeDocument = useArxmlStore((s) => s.removeDocument);
   const errors = useArxmlStore((s) => s.validationErrors);
   const lastValidatedAt = useArxmlStore((s) => s.lastValidatedAt);
+  const { addBswmdFromDialog, removeBswmdWithGuard } = useProjectActions();
 
-  const isProjectOpen = project !== null;
+  const isProjectOpen = project !== null && projectPath !== null;
 
   // Filter tabs based on mode
   const visibleTabs = TABS.filter((tab) => !tab.projectOnly || isProjectOpen);
@@ -71,8 +76,7 @@ export function LeftPanel(): JSX.Element {
   }, [leftTab, isProjectOpen, setLeftTab]);
 
   // Ensure active tab is valid for current mode
-  const activeTab =
-    leftTab === 'project' && !isProjectOpen ? 'files' : leftTab;
+  const activeTab = leftTab === 'project' && !isProjectOpen ? 'files' : leftTab;
 
   const errorCount = lastValidatedAt !== null ? errors.length : 0;
 
@@ -97,9 +101,7 @@ export function LeftPanel(): JSX.Element {
               data-testid={`left-tab-${tab.id}`}
             >
               {label}
-              {showBadge && (
-                <span className="left-panel-tab-badge">{errorCount}</span>
-              )}
+              {showBadge && <span className="left-panel-tab-badge">{errorCount}</span>}
             </button>
           );
         })}
@@ -115,7 +117,15 @@ export function LeftPanel(): JSX.Element {
             aria-labelledby="left-tab-project"
             data-testid="left-pane-project"
           >
-            <ProjectPanelInfo />
+            <ProjectPanelInfo
+              locale={locale}
+              manifest={project}
+              manifestPath={projectPath}
+              onClose={closeProject}
+              onRemoveArxml={removeDocument}
+              onAddBswmd={() => void addBswmdFromDialog()}
+              onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
+            />
           </div>
         )}
         {activeTab === 'files' && (

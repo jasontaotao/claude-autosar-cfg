@@ -1,7 +1,5 @@
-// AppHeader: slim 40px top bar that consolidates the previous App.tsx h1
-// (logo + version) and ArxmlPanel (Open / Save buttons + doc stats) into a
-// single borderless strip. The main content area below it now gets the
-// full vertical space for Tree / ParamEditor / ValidationPanel.
+// AppHeader: slim top bar — EB tresos-style dropdown for low-frequency
+// project/file operations, toolbar buttons for high-frequency Save actions.
 //
 // Sprint 10 #2 changes:
 //   - Open flow now uses `openArxmlMulti` (multi-select dialog) and feeds
@@ -27,8 +25,15 @@
 //   - Every user-facing string is rendered through t(locale, key).
 //   - A 中/EN toggle in the header switches `store.locale`; all
 //     t()-consuming components re-render.
+//
+// Menu redesign (EB tresos style):
+//   - Low-frequency actions (New Project / Open Project / Open ARXML)
+//     moved into a hover-to-open dropdown menu.
+//   - High-frequency actions (Save Project / Save ARXML) remain as
+//     toolbar buttons.
+//   - Project chip moved to the right section.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { t } from '../../shared/i18n.js';
 import { basename } from '../../shared/path.js';
@@ -37,11 +42,10 @@ import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 interface AppHeaderState {
-  readonly error: string | null;
   readonly busy: boolean;
 }
 
-const INITIAL: AppHeaderState = { error: null, busy: false };
+const INITIAL: AppHeaderState = { busy: false };
 
 function formatParseError(e: ParseError): string {
   switch (e.kind) {
@@ -59,17 +63,26 @@ function formatParseError(e: ParseError): string {
 export function AppHeader(): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
+  // 项目下拉菜单状态
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doc = useArxmlStore((s) => s.doc);
   const filePath = useArxmlStore((s) => s.filePath);
-  const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
-  const documentPaths = useArxmlStore((s) => s.documentPaths);
   // isActiveDirty: derived from per-path Set (Sprint 10 #2 dirty refactor).
   const isActiveDirty = useArxmlStore(
     (s) => s.activeDocumentPath !== null && s.dirtyPaths.has(s.activeDocumentPath),
   );
   const addDocument = useArxmlStore((s) => s.addDocument);
-  const removeDocument = useArxmlStore((s) => s.removeDocument);
-  const setActiveDocument = useArxmlStore((s) => s.setActiveDocument);
+  // Sprint 13+ — `activeDocumentPath`, `documentPaths`,
+  // `setActiveDocument`, and `removeDocument` were dropped here because
+  // they only served the doc-tab strip + active-doc name display. Both
+  // features were removed; the loaded-doc set is now navigable via
+  // the LeftPanel "files" tab (FileListTab) instead.
+  // Sprint 13+ — error surface moved to a sibling <ErrorBanner /> that
+  // sits below the header. AppHeader now writes its action failures
+  // straight to the store via `setError`; the banner picks them up.
+  const setStoreError = useArxmlStore((s) => s.setError);
   // Sprint 11 Phase 1 — project state + actions
   const project = useArxmlStore((s) => s.project);
   const projectPath = useArxmlStore((s) => s.projectPath);
@@ -81,23 +94,68 @@ export function AppHeader(): JSX.Element {
   // ProjectPanel.LooseView uses, so no synthetic-click coupling.
   const { newProject, openProjectFromDialog, saveProject } = useProjectActions();
 
+  // unmount 时清理关闭定时器，避免泄漏
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     void window.autosarApi.getAppVersion().then(setAppVersion);
   }, []);
 
+  // 下拉菜单：点击外部关闭
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent): void => {
+      if (menuRef.current !== null && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  // 下拉菜单：Escape 关闭
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [menuOpen]);
+
+  const openMenu = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setMenuOpen(true);
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    closeTimerRef.current = setTimeout(() => {
+      setMenuOpen(false);
+      closeTimerRef.current = null;
+    }, 150);
+  }, []);
+
   const onOpen = async (): Promise<void> => {
-    setState({ error: null, busy: true });
+    setState({ busy: true });
+    setStoreError(null);
     const result = await window.autosarApi.openArxmlMulti({ title: 'Open AUTOSAR ARXML' });
     switch (result.kind) {
       case 'canceled': {
-        setState({ error: null, busy: false });
+        setState({ busy: false });
         return;
       }
       case 'read-failed': {
-        setState({
-          error: t(locale, 'app.error.openFailed', { message: result.message }),
-          busy: false,
-        });
+        setState({ busy: false });
+        setStoreError(t(locale, 'app.error.openFailed', { message: result.message }));
         return;
       }
       case 'opened':
@@ -119,7 +177,8 @@ export function AppHeader(): JSX.Element {
         if (failed.length > 0) {
           lastError = failed.map((f) => `${basename(f.path)}: ${f.message}`).join('; ');
         }
-        setState({ error: lastError, busy: false });
+        setState({ busy: false });
+        setStoreError(lastError);
         return;
       }
     }
@@ -127,74 +186,55 @@ export function AppHeader(): JSX.Element {
 
   const onSave = async (): Promise<void> => {
     if (doc === null) return;
-    setState({ error: null, busy: true });
+    setState({ busy: true });
+    setStoreError(null);
     const currentPath = filePath ?? '';
     const defaultName = basename(currentPath) || 'untitled.arxml';
     const saved = await window.autosarApi.saveArxml({ doc, defaultName });
     if (!saved.ok) {
-      setState({
-        error: t(locale, 'app.error.saveFailed', { message: saved.error.message }),
-        busy: false,
-      });
+      setState({ busy: false });
+      setStoreError(t(locale, 'app.error.saveFailed', { message: saved.error.message }));
       return;
     }
     if (saved.value.canceled) {
-      setState({ error: null, busy: false });
+      setState({ busy: false });
       return;
     }
     useArxmlStore.getState().markSaved(saved.value.path ?? currentPath);
-    setState({ error: null, busy: false });
+    setState({ busy: false });
   };
 
   // -----------------------------------------------------------------
   // Sprint 11 Phase 1 — project handlers
-  //
-  // All three delegate to `useProjectActions` so the IPC + dialog +
-  // store-mutate flow lives in one place (shared with ProjectPanel).
-  // Each handler funnels its ProjectActionResult into the local error
-  // state so the user sees the same "X failed: ..." banner regardless
-  // of which button they clicked.
   // -----------------------------------------------------------------
 
   const onProjectNew = async (): Promise<void> => {
-    setState({ error: null, busy: true });
+    setState({ busy: true });
+    setStoreError(null);
     const r = await newProject();
-    setState({
-      error: r.kind === 'error' ? r.message : null,
-      busy: false,
-    });
+    setState({ busy: false });
+    if (r.kind === 'error') setStoreError(r.message);
   };
 
   const onProjectOpen = async (): Promise<void> => {
-    setState({ error: null, busy: true });
+    setState({ busy: true });
+    setStoreError(null);
     const r = await openProjectFromDialog();
-    setState({
-      error: r.kind === 'error' ? r.message : null,
-      busy: false,
-    });
+    setState({ busy: false });
+    if (r.kind === 'error') setStoreError(r.message);
   };
 
   const onProjectSave = async (): Promise<void> => {
-    setState({ error: null, busy: true });
+    setState({ busy: true });
+    setStoreError(null);
     const r = await saveProject();
-    setState({
-      error: r.kind === 'error' ? r.message : null,
-      busy: false,
-    });
+    setState({ busy: false });
+    if (r.kind === 'error') setStoreError(r.message);
   };
 
   const canSave = doc !== null && !state.busy && isActiveDirty;
-  // Sprint 11 Phase 1 (code-review H3): Save Project only persists the
-  // manifest JSON. Per-doc ARXML content goes through the existing
-  // saveArxml flow. Disable Save Project when any doc is dirty to
-  // avoid silently writing a manifest that points at stale on-disk
-  // content (data-loss risk).
   const projectDirtyCount = useArxmlStore((s) => s.dirtyPaths.size);
   const canSaveProject = project !== null && !state.busy && projectDirtyCount === 0;
-  // Show only the file basename in the header; the full path is in the
-  // tooltip so the bar stays compact even for long Windows paths.
-  const fileName = filePath !== null ? basename(filePath) : null;
-  const docVersion = doc?.version ?? null;
 
   return (
     <header className="app-header" data-testid="app-header">
@@ -203,6 +243,137 @@ export function AppHeader(): JSX.Element {
           ⊟
         </span>
         <span className="app-name">claude-AutosarCfg</span>
+        {/* Sprint 13+ — removed the active-doc basename + dirty marker
+            (app-doc-name) and AUTOSAR version chip (app-doc-version)
+            because the user considers them "ecuc 内容层级" — noise on
+            a menu bar that should only carry functional controls. The
+            tree view already names the loaded ECUC module; the menu
+            bar should just give the user buttons. */}
+      </div>
+      <div className="app-header-actions">
+        {/* 项目下拉菜单（EB tresos 风格）：低频操作收进菜单 */}
+        <div
+          className="app-menu-trigger"
+          ref={menuRef}
+          onMouseEnter={openMenu}
+          onMouseLeave={scheduleClose}
+          data-testid="menu-project-trigger"
+        >
+          <button
+            type="button"
+            className={`app-menu-btn ${menuOpen ? 'is-open' : ''}`}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            {t(locale, 'app.menu.project')}
+            <svg
+              className="app-menu-chevron"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div
+              className="app-dropdown"
+              role="menu"
+              onMouseEnter={openMenu}
+              onMouseLeave={scheduleClose}
+            >
+              <div className="app-dropdown-group-label">{t(locale, 'app.menu.projectManage')}</div>
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onProjectNew();
+                }}
+                disabled={state.busy}
+                data-testid="btn-project-new"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  📁
+                </span>
+                {t(locale, 'app.project.new')}
+              </button>
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onProjectOpen();
+                }}
+                disabled={state.busy}
+                data-testid="btn-project-open"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  📂
+                </span>
+                {t(locale, 'app.project.open')}
+              </button>
+              <div className="app-dropdown-divider" role="separator" />
+              <div className="app-dropdown-group-label">{t(locale, 'app.menu.fileOps')}</div>
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onOpen();
+                }}
+                disabled={state.busy}
+                data-testid="btn-open"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  📄
+                </span>
+                {t(locale, 'app.open.arxml')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <span className="app-header-sep" aria-hidden="true" />
+
+        {/* 高频操作：保存按钮常驻工具栏 */}
+        <button
+          type="button"
+          onClick={onProjectSave}
+          disabled={!canSaveProject}
+          className="app-btn app-btn-save"
+          data-testid="btn-project-save"
+          title={
+            projectDirtyCount > 0
+              ? t(locale, 'app.project.saveBlockedDirty', {
+                  count: projectDirtyCount,
+                })
+              : undefined
+          }
+        >
+          {t(locale, 'app.project.save')}
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!canSave}
+          className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
+          data-testid="btn-save"
+        >
+          {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
+        </button>
+      </div>
+      {/* Sprint 13+ — removed the doc-tab strip (app-doc-tabs) that showed
+          every loaded ARXML as a tab in the menu bar. User feedback:
+          the menu bar should only carry functional controls; the loaded
+          doc set is already navigable via FileListTab in the LeftPanel
+          (tabbed sidebar) so showing them in the menu bar too was
+          redundant decoration. */}
+      <div className="app-header-right">
         {project !== null && (
           <span
             className="app-project-chip"
@@ -222,108 +393,6 @@ export function AppHeader(): JSX.Element {
             </button>
           </span>
         )}
-        {fileName !== null && (
-          <span className="app-doc-name" title={filePath ?? ''} data-testid="app-doc-name">
-            {isActiveDirty ? t(locale, 'app.docNameDirtyMark') : ''}
-            {fileName}
-          </span>
-        )}
-      </div>
-      <div className="app-header-actions">
-        <button
-          type="button"
-          onClick={onProjectNew}
-          disabled={state.busy}
-          className="app-btn"
-          data-testid="btn-project-new"
-        >
-          {t(locale, 'app.project.new')}
-        </button>
-        <button
-          type="button"
-          onClick={onProjectOpen}
-          disabled={state.busy}
-          className="app-btn"
-          data-testid="btn-project-open"
-        >
-          {t(locale, 'app.project.open')}
-        </button>
-        <button
-          type="button"
-          onClick={onProjectSave}
-          disabled={!canSaveProject}
-          className="app-btn app-btn-save"
-          data-testid="btn-project-save"
-          title={
-            projectDirtyCount > 0
-              ? // Inline-only message; full key added to Messages below.
-                t(locale, 'app.project.saveBlockedDirty', {
-                  count: projectDirtyCount,
-                })
-              : undefined
-          }
-        >
-          {t(locale, 'app.project.save')}
-        </button>
-        <span className="app-header-sep" aria-hidden="true" />
-        <button
-          type="button"
-          onClick={onOpen}
-          disabled={state.busy}
-          className="app-btn"
-          data-testid="btn-open"
-        >
-          {t(locale, 'app.open')}
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave}
-          className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
-          data-testid="btn-save"
-        >
-          {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
-        </button>
-      </div>
-      {documentPaths.length > 0 && (
-        <div
-          className="app-doc-tabs"
-          role="tablist"
-          aria-label={t(locale, 'app.docTab.ariaLoaded')}
-        >
-          {documentPaths.map((p) => {
-            const isActive = p === activeDocumentPath;
-            return (
-              <div
-                key={p}
-                className={`app-doc-tab ${isActive ? 'is-active' : ''}`}
-                data-testid={`doc-tab-${p}`}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  className="app-doc-tab-label"
-                  onClick={() => setActiveDocument(p)}
-                  title={p}
-                >
-                  {basename(p)}
-                </button>
-                <button
-                  type="button"
-                  className="app-doc-tab-close"
-                  aria-label={t(locale, 'app.docTab.closeAria', { name: basename(p) })}
-                  onClick={() => removeDocument(p)}
-                  data-testid={`doc-tab-close-${p}`}
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <div className="app-header-right">
         <button
           type="button"
           className="app-btn app-btn-locale"
@@ -333,16 +402,10 @@ export function AppHeader(): JSX.Element {
         >
           {locale === 'zh-CN' ? 'EN' : '中'}
         </button>
-        {state.error !== null && (
-          <span className="app-header-error" role="alert">
-            {state.error}
-          </span>
-        )}
-        {docVersion !== null && (
-          <span className="app-doc-version">
-            {t(locale, 'app.docVersion', { version: docVersion })}
-          </span>
-        )}
+        {/* Sprint 13+ — removed the doc-version chip (e.g. "AUTOSAR 4.2")
+            because the menu bar should only carry functional controls.
+            The tree / status bar already surfaces the active doc's
+            AUTOSAR version when the user is editing it. */}
         <span
           className="app-version"
           title={t(locale, 'app.versionLabel', { version: appVersion })}

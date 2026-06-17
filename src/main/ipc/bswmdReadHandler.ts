@@ -12,7 +12,7 @@
 // only needs to know "did it read? if not, what went wrong?"
 //
 // Caps + safety:
-//   - 8 MiB cap on file size (same as `bswmd:parse`). Without a cap a
+//   - 32 MiB cap on file size (same as `bswmd:parse`). Without a cap a
 //     renderer (or tampered preload bridge) could OOM the main process.
 //   - Reject empty / whitespace-only paths up-front. node:fs handles
 //     these but with confusing errors; an explicit reject is cheaper
@@ -28,9 +28,16 @@ import type { ReadBswmdRequest, ReadBswmdResponse } from '../../shared/types.js'
  * Hard cap on the BSWMD file size the handler will read. Mirrors
  * `BSWMD_PARSE_MAX_BYTES` in `register.ts` — kept as a separate
  * constant so `parseBswmd` and `readBswmd` could diverge later if one
- * needs a tighter limit. Today they share the 8 MiB ceiling.
+ * needs a tighter limit. Today they share the 32 MiB ceiling.
+ *
+ * Sized to cover the AUTOSAR standard master ECUC parameter definition
+ * file (`AUTOSAR_MOD_ECUConfigurationParameters.arxml`, ~12 MiB at
+ * R4.2.2) with ~2.6× headroom for growth across future AUTOSAR
+ * releases (R19-11 / R20-11 / R21-11 master BSWMDs trend similarly).
+ * Still tight enough to be a useful ceiling against a renderer pushing
+ * a multi-GB binary blob.
  */
-const BSWMD_MAX_BYTES = 8 * 1024 * 1024;
+const BSWMD_MAX_BYTES = 32 * 1024 * 1024;
 
 export async function readBswmdHandler(req: ReadBswmdRequest): Promise<ReadBswmdResponse> {
   // Reject empty / whitespace-only paths up-front. node:fs would reject
@@ -55,9 +62,17 @@ export async function readBswmdHandler(req: ReadBswmdRequest): Promise<ReadBswmd
   }
 
   if (size > BSWMD_MAX_BYTES) {
+    // Human-readable MiB units beat raw byte counts — a renderer showing
+    // "32.0 MiB" tells the user "this is roughly the cap" without forcing
+    // them to divide 33,554,432 by 1024 twice. The renderer wraps this
+    // with `app.error.readBswmdFailed` (zh-CN: "读取 BSWMD 失败: ...")
+    // so the cap-exceeded case becomes "读取 BSWMD 失败: 文件过大 (12.0
+    // MiB),最大 32.0 MiB。请确认文件完整无损。" in zh-CN.
+    const sizeMiB = (size / (1024 * 1024)).toFixed(1);
+    const capMiB = (BSWMD_MAX_BYTES / (1024 * 1024)).toFixed(1);
     return {
       kind: 'read-failed',
-      message: `BSWMD file exceeds ${BSWMD_MAX_BYTES}-byte cap (${size} bytes)`,
+      message: `file too large (${sizeMiB} MiB, max ${capMiB} MiB). Check that the file is complete and not corrupted.`,
     };
   }
 

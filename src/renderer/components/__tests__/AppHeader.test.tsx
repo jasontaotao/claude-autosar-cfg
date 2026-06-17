@@ -89,27 +89,19 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     expect(screen.queryByText(/^AUTOSAR 4\./)).toBeNull();
   });
 
-  it('shows only the file basename (not the full Windows path) when a doc is loaded', () => {
+  it('does NOT show a doc-name or doc-version even when a doc is loaded (regression for "ecuc 内容层级" removal)', () => {
+    // Sprint 13+ — the menu bar should only carry functional controls.
+    // The active-doc basename + AUTOSAR version chip were removed from
+    // AppHeader's left/right corners because they duplicated the loaded
+    // doc's information (already visible in Tree / FileListTab). This
+    // test pins the absence so a future change can't silently bring
+    // the chrome back.
     useArxmlStore
       .getState()
       .setDoc(makeDoc(), 'C:/some/path/AUTOSAR_MOD_ECUConfigurationParameters.arxml');
     render(<AppHeader />);
-    // The doc-name span in app-header-left carries the basename (Sprint 9 #5).
-    // Sprint 10 #2 added the doc-tab strip which also shows the basename —
-    // disambiguate via the data-testid.
-    const docName = screen.getByTestId('app-doc-name');
-    expect(docName).toBeInTheDocument();
-    expect(docName.getAttribute('title')).toBe(
-      'C:/some/path/AUTOSAR_MOD_ECUConfigurationParameters.arxml',
-    );
-    expect(docName.textContent).toContain('AUTOSAR_MOD_ECUConfigurationParameters.arxml');
-    expect(docName.textContent).not.toContain('C:/some/path/');
-  });
-
-  it('renders the AUTOSAR document version after a doc is loaded', () => {
-    useArxmlStore.getState().setDoc(makeDoc(), '/p/x.arxml');
-    render(<AppHeader />);
-    expect(screen.getByText(/^AUTOSAR 4\.2$/)).toBeInTheDocument();
+    expect(screen.queryByTestId('app-doc-name')).toBeNull();
+    expect(screen.queryByText(/^AUTOSAR 4\.2$/)).toBeNull();
   });
 
   it('Save button is disabled when doc is clean; enabled + has dirty class when dirty', () => {
@@ -132,6 +124,8 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = api;
     render(<AppHeader />);
+    // 打开下拉菜单，再点击"打开 ARXML"
+    fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
     expect(api.openArxmlMulti).toHaveBeenCalledTimes(1);
     expect(api.openArxmlMulti).toHaveBeenCalledWith({ title: 'Open AUTOSAR ARXML' });
@@ -150,6 +144,8 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = api;
     render(<AppHeader />);
+    // 打开下拉菜单，再点击"打开 ARXML"
+    fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
     // parseArxml called once per file
     await vi.waitFor(() => expect(api.parseArxml).toHaveBeenCalledTimes(2));
@@ -173,69 +169,39 @@ describe('AppHeader doc-tab strip (Sprint 10 #2)', () => {
     (globalThis as any).window.autosarApi = makeWindowApi();
   });
 
-  it('does not render the doc-tab strip when no docs are loaded', () => {
+  it('does NOT render the doc-tab strip — even when multiple docs are loaded (regression for "ecuc 内容层级" removal)', () => {
+    // Sprint 13+ — the menu bar should only carry functional controls.
+    // The doc-tab strip (each loaded ARXML shown as a clickable tab in
+    // the menu bar) was removed because the loaded doc set is now
+    // navigable via FileListTab in the LeftPanel. This test pins the
+    // absence so a future change can't silently bring the strip back.
+    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/Com.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
+    useArxmlStore.getState().setActiveDocument('C:/path/Com.arxml');
+
     render(<AppHeader />);
     expect(screen.queryByRole('tablist')).toBeNull();
-  });
-
-  it('renders one tab per loaded doc, basename only, with the active highlighted', () => {
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/Com.arxml');
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
-    useArxmlStore.getState().setActiveDocument('C:/path/Com.arxml');
-
-    render(<AppHeader />);
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(2);
-    // Basenames (use role=tab to disambiguate from the doc-name span in app-header-left)
-    const comTab = screen.getByRole('tab', { name: 'Com.arxml' });
-    const pduRTab = screen.getByRole('tab', { name: 'PduR.arxml' });
-    expect(comTab).toBeInTheDocument();
-    expect(pduRTab).toBeInTheDocument();
-    // Active highlight: the wrapper div carries the is-active class, the
-    // button (which is the role=tab element) carries aria-selected.
-    expect(comTab.getAttribute('aria-selected')).toBe('true');
-    expect(pduRTab.getAttribute('aria-selected')).toBe('false');
-    const activeWrapper = screen.getByTestId('doc-tab-C:/path/Com.arxml');
-    expect(activeWrapper.className).toContain('is-active');
-    const inactiveWrapper = screen.getByTestId('doc-tab-C:/path/PduR.arxml');
-    expect(inactiveWrapper.className).not.toContain('is-active');
-  });
-
-  it('clicking a non-active tab switches the active document', () => {
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/Com.arxml');
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
-    useArxmlStore.getState().setActiveDocument('C:/path/Com.arxml');
-
-    render(<AppHeader />);
-    fireEvent.click(screen.getByRole('tab', { name: 'PduR.arxml' }));
-    expect(useArxmlStore.getState().activeDocumentPath).toBe('C:/path/PduR.arxml');
-  });
-
-  it('clicking the × button on a tab removes the document', () => {
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/Com.arxml');
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
-    useArxmlStore.getState().setActiveDocument('C:/path/Com.arxml');
-
-    render(<AppHeader />);
-    const closeBtn = screen.getByTestId('doc-tab-close-C:/path/PduR.arxml');
-    fireEvent.click(closeBtn);
-    // Com.arxml remains, PduR.arxml removed
-    const next = useArxmlStore.getState();
-    expect(next.documentPaths).toEqual(['C:/path/Com.arxml']);
-    expect(next.activeDocumentPath).toBe('C:/path/Com.arxml');
-  });
-
-  it('removing the active doc promotes the first remaining (or null if last)', () => {
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/Com.arxml');
-    useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
-    // active is PduR.arxml (the last added)
-    expect(useArxmlStore.getState().activeDocumentPath).toBe('C:/path/PduR.arxml');
-
-    render(<AppHeader />);
-    fireEvent.click(screen.getByTestId('doc-tab-close-C:/path/PduR.arxml'));
-    const next = useArxmlStore.getState();
-    expect(next.documentPaths).toEqual(['C:/path/Com.arxml']);
-    // First remaining becomes active
-    expect(next.activeDocumentPath).toBe('C:/path/Com.arxml');
+    // Spot-check the old per-doc testids are gone too.
+    expect(screen.queryByTestId('doc-tab-C:/path/Com.arxml')).toBeNull();
+    expect(screen.queryByTestId('doc-tab-close-C:/path/PduR.arxml')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sprint 13+ — store-error banner surfacing
+// ---------------------------------------------------------------------------
+//
+// Background: load failures that originate outside AppHeader (BSWMD load
+// from ProjectPanel / FileListTab via useProjectActions.addBswmdFromDialog,
+// the store.addBswmd failure path, future cross-store error sources)
+// write to `useArxmlStore.error` but AppHeader previously only rendered
+// its own local `state.error`. The result was a silent failure — the
+// user clicked a button, nothing happened, no feedback.
+//
+// Sprint 13+ follow-up: the inline span was too cramped (max-width
+// 30vw + ellipsis) and the error message was clipped for any failure
+// with multi-segment content. The store-error surface moved to a
+// dedicated <ErrorBanner /> component mounted as a sibling of
+// AppHeader (see ErrorBanner.test.tsx for the new tests). AppHeader
+// no longer renders an inline error — it just writes action failures
+// to the store via `setError`.

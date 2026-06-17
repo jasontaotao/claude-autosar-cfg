@@ -57,6 +57,7 @@ describe('LeftPanel', () => {
     useArxmlStore.setState({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       project: { name: 'demo', valueArxmlPaths: [], bswmdPaths: [] } as any,
+      projectPath: 'C:/demo.autosarcfg.json',
     });
     render(<LeftPanel />);
     expect(screen.getByTestId('left-tab-project')).toBeTruthy();
@@ -68,6 +69,7 @@ describe('LeftPanel', () => {
     useArxmlStore.setState({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       project: { name: 'demo', valueArxmlPaths: [], bswmdPaths: [] } as any,
+      projectPath: 'C:/demo.autosarcfg.json',
     });
     render(<LeftPanel />);
     fireEvent.click(screen.getByTestId('left-tab-validate'));
