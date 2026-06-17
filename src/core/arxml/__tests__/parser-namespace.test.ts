@@ -67,3 +67,98 @@ describe('EB tresos real fixture compatibility', () => {
     });
   }
 });
+
+describe('BSWMD-as-value strict reject', () => {
+  const PURE_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.6 AUTOSAR_4-6-0.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcuC</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>EcuC</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>EcuCGeneral</SHORT-NAME>
+              <PARAMETERS>
+                <ECUC-INTEGER-PARAM-DEF>
+                  <SHORT-NAME>SleepMode</SHORT-NAME>
+                  <MIN>0</MIN>
+                  <MAX>10</MAX>
+                </ECUC-INTEGER-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+  it('rejects pure BSWMD with invalid-structure and hint message', () => {
+    const r = parseArxml(PURE_BSWMD);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-structure');
+    if (r.error.kind !== 'invalid-structure') return;
+    expect(r.error.message).toMatch(/BSWMD|BSW Module Description|Load BSWMD/i);
+  });
+
+  const MIXED = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.6 AUTOSAR_4-6-0.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Mixed</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>CanConfigSet</SHORT-NAME>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/X</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Schema</SHORT-NAME>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+  it('parses mixed (value + def) files successfully', () => {
+    const r = parseArxml(MIXED);
+    expect(r.ok).toBe(true);
+  });
+
+  const VALUE_ONLY = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.6 AUTOSAR_4-6-0.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Values</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Can</SHORT-NAME>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+  it('parses value-only files successfully (regression)', () => {
+    const r = parseArxml(VALUE_ONLY);
+    expect(r.ok).toBe(true);
+  });
+});

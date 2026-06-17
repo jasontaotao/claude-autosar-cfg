@@ -125,6 +125,23 @@ export function parseArxml(
     };
   }
 
+  // Strict reject: a file with only schema definitions (-DEF) and zero
+  // value instances (ECUC-MODULE-CONFIGURATION-VALUES) is a BSWMD, not an
+  // ECUC values file. Direct the user to the BSWMD loader rather than
+  // silently producing an empty module tree.
+  if (!findAnyModuleInPackages(packages) && findAnyDefInPackages(packages)) {
+    return {
+      ok: false,
+      error: {
+        kind: 'invalid-structure',
+        path: '/',
+        message:
+          'Loaded file is a BSW Module Description (BSWMD, schema only). '
+          + 'Open it via "Load BSWMD" instead of "Open ARXML".',
+      },
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -258,6 +275,36 @@ function walkPackagesAtDepth(
       ...(nested.length > 0 ? { packages: nested } : {}),
     };
   });
+}
+
+/**
+ * Walk a package subtree looking for any module element
+ * (ECUC-MODULE-CONFIGURATION-VALUES that survived classifyElement's
+ * 'module' branch). Used to distinguish value files from pure schema files.
+ */
+function findAnyModuleInPackages(packages: readonly ArxmlPackage[]): boolean {
+  for (const pkg of packages) {
+    if (pkg.elements.some((e) => e.kind === 'module')) return true;
+    if (pkg.packages !== undefined && findAnyModuleInPackages(pkg.packages)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Walk a package subtree looking for any element whose original tagName
+ * ends in '-DEF' (i.e. schema definition). Pure-BSWMD files contain only
+ * such elements; mixed files contain at least one module element.
+ */
+function findAnyDefInPackages(packages: readonly ArxmlPackage[]): boolean {
+  for (const pkg of packages) {
+    if (pkg.elements.some((e) => e.tagName.endsWith('-DEF'))) return true;
+    if (pkg.packages !== undefined && findAnyDefInPackages(pkg.packages)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function walkElements(node: Record<string, unknown>, parentPath: string): ArxmlElement[] {
