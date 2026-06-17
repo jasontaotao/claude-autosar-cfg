@@ -1,8 +1,10 @@
 import { readFileSync, existsSync } from 'node:fs';
+
 import { describe, it, expect } from 'vitest';
+
 import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
-import type { ArxmlDocument } from '../types.js';
+import type { ArxmlDocument, ArxmlVersion } from '../types.js';
 
 describe('XSD_PATTERN namespace detection', () => {
   it('matches the legacy dashed form AUTOSAR_4-2-2.xsd', async () => {
@@ -166,7 +168,7 @@ describe('BSWMD-as-value strict reject', () => {
 });
 
 describe('serializer version fidelity', () => {
-  const mkDoc = (v: '4.2' | '4.6' | '00046' | '00049'): ArxmlDocument => ({
+  const mkDoc = (v: ArxmlVersion): ArxmlDocument => ({
     path: '/test.arxml',
     version: v,
     packages: [
