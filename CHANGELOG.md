@@ -5,6 +5,51 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.16.0] - 2026-06-17 — Wave 2 (Sprint 13 #2 Stage 3.3 + Stage 3.5)
+
+### Added
+
+- **TemplateCard picker UI** (Stage 3.3, commit `0c20e9c`)
+  - `src/renderer/components/templates.ts` (52L) — template display helpers
+  - `src/renderer/components/TemplateCard.tsx` (93L) + `TemplateCard.css` (91L) — single card component
+  - `src/renderer/components/TemplateCardRow.tsx` (133L) — 3-card row container
+  - NewProjectDialog body now embeds a TemplateCardRow (Empty / Classic / Clone)
+  - Only Empty card is actionable; Classic/Clone render "coming soon" badge
+  - 2 new i18n keys: `template.comingSoon` (zh-CN: 即将推出 / en: Coming Soon) + `newProject.templateLabel` (zh-CN: 选择模板 / en: Choose a template)
+  - Card selection is visual only at this stage; submission still flows through `onSubmit(name, dir)`. Stage 3.4 will widen `onSubmit` to take `(name, dir, templateId)`
+- **Combined Tree View** (Stage 3.5, commit `b16a2a9`) — user approved 2026-06-17
+  - **Phase 1**: `buildCombinedDocument` + `findByPathMultiDoc` in `src/core/arxml/multiDoc.ts` (new)
+  - **Phase 2**: `viewMode: 'single' | 'combined'` + `displayDoc` derived state in `useArxmlStore`
+  - **Phase 3**: Tree component uses `displayDoc` instead of `doc`
+  - **Phase 4**: FileListTab 顶部 `[Combined]` 虚拟条目 (4 new i18n keys: `fileList.combinedView`, `fileList.combinedViewAria`, `arxmlPanel.combinedDocs`, `arxmlPanel.combinedView`)
+  - **Phase 5**: ParamEditor combined 模式路径解析 (uses `findByPathMultiDoc`)
+  - **Phase 6**: 聚合统计 + dirty 标记 in combined mode
+  - **Phase 7**: extend existing tests + add 6 new
+
+### Changed
+
+- NewProjectDialog body: now includes TemplateCardRow below the dir/browse row; visual restructure to fit cards gracefully
+- useArxmlStore: added `viewMode` field + `setViewMode` action; added `displayDoc` selector (returns either `doc` or `combinedDoc` based on viewMode)
+- FileListTab: top-level "Combined" virtual entry when viewMode = 'combined' shows aggregated count badge
+
+### Behavior
+
+- Combined mode is a view-only addition: no project save format change, no IPC contract change, no schema change
+- Empty / Classic / Clone cards in NewProjectDialog: Empty flows through to existing `onSubmit` path unchanged; Classic/Clone disabled with "coming soon"
+
+### Tests
+
+- **746 → 809 tests (+63)**:
+  - Stage 3.3: 13 templates + 13 TemplateCard + 8 TemplateCardRow + 5 integration + 2 i18n + 22 from helpers bundled = 63
+  - Stage 3.5: 6 new + extended coverage on Tree/ParamEditor
+- **Coverage**: 96.64% stmts / 86.55% branches / 100% funcs (vs v0.15.0 baseline 96.58% / 86.68% / 100%; +0.06% stmts, -0.13% branches, parity funcs)
+- **5/5 baseline**: cross-ref 809 signed-guard [700, 850] PASS; ref-dest 0 / ref-cycle 0 / schema-unknown 0
+
+### Code review (per-agent)
+
+- Stage 3.3: APPROVE (0/0/1/2) — MEDIUM: 4 Stage 3.5 keys (fileList.combinedView, etc.) accidentally shipped in 3.3 commit (working tree pre-applied); Agent F's 3.5 commit immediately followed and references them — net clean
+- Stage 3.5: pending (Agent F not yet returned at time of release; main loop will review on Agent F notification)
+
 ## [0.15.0] - 2026-06-17 — Wave 1 (Sprint 13 #2 + Stage 4 + 5.D)
 
 ### Added
