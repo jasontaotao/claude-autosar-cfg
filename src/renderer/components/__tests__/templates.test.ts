@@ -23,6 +23,7 @@ const SAMPLE_TEMPLATE = {
   displayNameKey: 'template.empty.displayName',
   descriptionKey: 'template.empty.description',
   fileCount: 0,
+  bswmdPaths: [],
 } as const;
 
 const CLASSIC_TEMPLATE = {
@@ -30,6 +31,7 @@ const CLASSIC_TEMPLATE = {
   displayNameKey: 'template.classic.displayName',
   descriptionKey: 'template.classic.description',
   fileCount: 3,
+  bswmdPaths: [],
 } as const;
 
 const CLONE_TEMPLATE = {
@@ -37,6 +39,7 @@ const CLONE_TEMPLATE = {
   displayNameKey: 'template.clone.displayName',
   descriptionKey: 'template.clone.description',
   fileCount: 0,
+  bswmdPaths: [],
 } as const;
 
 beforeEach(() => {
@@ -87,8 +90,10 @@ describe('templates helper — isTemplateAvailable', () => {
     expect(isTemplateAvailable('empty')).toBe(true);
   });
 
-  it('returns false for the classic template (coming soon)', () => {
-    expect(isTemplateAvailable('classic')).toBe(false);
+  // Sprint 13+ Stage 3.4 — classic is now actionable (BSWMD chip
+  // multi-select is wired on top of it). Clone is still coming soon.
+  it('returns true for the classic template (Stage 3.4 wires BSWMD chips)', () => {
+    expect(isTemplateAvailable('classic')).toBe(true);
   });
 
   it('returns false for the clone template (coming soon)', () => {

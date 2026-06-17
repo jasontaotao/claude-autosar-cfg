@@ -127,7 +127,17 @@ export async function projectNewHandler(req: ProjectNewRequest): Promise<Project
   }
 
   // --- 5. Create + write the manifest --------------------------------
-  const manifest = createEmptyManifest(req.name);
+  // Sprint 13+ Stage 3.4 — `createEmptyManifest` produces a manifest
+  // with `bswmdPaths: []`. When the renderer passes `bswmdPaths`
+  // (the user pre-selected via BswmdChipRow), we override the
+  // empty array with the caller's selection. The IPC contract
+  // treats the value as opaque — main does not validate that the
+  // files exist; that's a Stage 3.5+ concern (copy BSWMDs into
+  // the project dir, then load them on project:open).
+  const manifest = {
+    ...createEmptyManifest(req.name),
+    bswmdPaths: req.bswmdPaths !== undefined ? [...req.bswmdPaths] : [],
+  };
   try {
     await fs.writeFile(filePath, saveManifest(manifest), 'utf8');
     return { kind: 'created', path: filePath, manifest };

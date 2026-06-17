@@ -455,11 +455,13 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5 + Stage 3.
     expect(projectNewSpy).toHaveBeenNthCalledWith(1, {
       name: 'NewProj',
       directory: '/d',
+      bswmdPaths: [],
     });
     expect(projectNewSpy).toHaveBeenNthCalledWith(2, {
       name: 'NewProj',
       directory: '/d',
       overwrite: true,
+      bswmdPaths: [],
     });
     const after = useArxmlStore.getState();
     expect(after.newProjectDialogOpen).toBe(false);
@@ -546,6 +548,62 @@ describe('useProjectActions — submitNewProject (Sprint 12 #3 Task 5 + Stage 3.
     if (response.kind !== 'error') throw new Error('unreachable');
     expect(response.message).toContain('path separators');
     expect(useArxmlStore.getState().newProjectDialogOpen).toBe(true);
+  });
+
+  // Sprint 13+ Stage 3.4 — `bswmdPaths` is forwarded to the IPC
+  // verbatim, and `manifest.bswmdPaths` is set from the response so
+  // the open project sees the user's pre-selection.
+  it('forwards opts.bswmdPaths to projectNew IPC and into the new manifest', async () => {
+    act(() => {
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+    });
+    const projectNewSpy = vi.fn(
+      async (req: { name: string; directory: string; bswmdPaths?: readonly string[] }) => ({
+        kind: 'created' as const,
+        path: '/d/NewProj.autosarcfg.json',
+        manifest: sampleManifest({ name: 'NewProj', bswmdPaths: req.bswmdPaths ?? [] }),
+      }),
+    );
+    installApiStub({ projectNew: projectNewSpy });
+
+    const { result } = renderHook(() => useProjectActions());
+    const response = await result.current.submitNewProject('NewProj', '/d', {
+      bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
+    });
+
+    expect(response.kind).toBe('ok');
+    expect(projectNewSpy).toHaveBeenCalledWith({
+      name: 'NewProj',
+      directory: '/d',
+      bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
+    });
+    expect(useArxmlStore.getState().project?.bswmdPaths).toEqual([
+      '/samples/classic/bswmd/Can.arxml',
+    ]);
+  });
+
+  it('omitting opts sends bswmdPaths: [] (backward-compatible with Stage 3.3 callers)', async () => {
+    act(() => {
+      useArxmlStore.getState().setNewProjectDialogOpen(true);
+    });
+    const projectNewSpy = vi.fn(
+      async (req: { name: string; directory: string; bswmdPaths?: readonly string[] }) => ({
+        kind: 'created' as const,
+        path: '/d/NewProj.autosarcfg.json',
+        manifest: sampleManifest({ name: 'NewProj', bswmdPaths: req.bswmdPaths ?? [] }),
+      }),
+    );
+    installApiStub({ projectNew: projectNewSpy });
+
+    const { result } = renderHook(() => useProjectActions());
+    await result.current.submitNewProject('NewProj', '/d');
+
+    expect(projectNewSpy).toHaveBeenCalledWith({
+      name: 'NewProj',
+      directory: '/d',
+      bswmdPaths: [],
+    });
+    expect(useArxmlStore.getState().project?.bswmdPaths).toEqual([]);
   });
 });
 

@@ -20,6 +20,7 @@ const EMPTY: TemplateRow = {
   displayNameKey: 'template.empty.displayName',
   descriptionKey: 'template.empty.description',
   fileCount: 0,
+  bswmdPaths: [],
 };
 
 const CLASSIC: TemplateRow = {
@@ -27,6 +28,7 @@ const CLASSIC: TemplateRow = {
   displayNameKey: 'template.classic.displayName',
   descriptionKey: 'template.classic.description',
   fileCount: 3,
+  bswmdPaths: [],
 };
 
 const CLONE: TemplateRow = {
@@ -34,6 +36,7 @@ const CLONE: TemplateRow = {
   displayNameKey: 'template.clone.displayName',
   descriptionKey: 'template.clone.description',
   fileCount: 0,
+  bswmdPaths: [],
 };
 
 afterEach(() => {
@@ -67,18 +70,23 @@ describe('TemplateCard', () => {
   });
 
   it('does NOT call onSelect when a disabled (coming soon) card is clicked', () => {
+    // Sprint 13+ Stage 3.4 — classic is now available (the BSWMD
+    // chip row wires on top of it). Clone is the remaining
+    // disabled "coming soon" card.
     const onSelect = vi.fn();
-    render(<TemplateCard template={CLASSIC} selected={false} onSelect={onSelect} />);
-    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    render(<TemplateCard template={CLONE} selected={false} onSelect={onSelect} />);
+    fireEvent.click(screen.getByTestId('tpl-card-clone'));
     expect(onSelect).not.toHaveBeenCalled();
   });
 
   it('shows the "coming soon" badge for disabled templates and hides it for available ones', () => {
+    // Stage 3.4 — classic is now actionable. Clone is the
+    // "coming soon" placeholder.
     const { rerender } = render(
-      <TemplateCard template={CLASSIC} selected={false} onSelect={() => undefined} />,
+      <TemplateCard template={CLONE} selected={false} onSelect={() => undefined} />,
     );
-    expect(screen.getByTestId('tpl-card-classic-soon')).toBeInTheDocument();
-    expect(screen.getByTestId('tpl-card-classic-soon')).toHaveTextContent('Coming Soon');
+    expect(screen.getByTestId('tpl-card-clone-soon')).toBeInTheDocument();
+    expect(screen.getByTestId('tpl-card-clone-soon')).toHaveTextContent('Coming Soon');
 
     rerender(<TemplateCard template={EMPTY} selected={false} onSelect={() => undefined} />);
     expect(screen.queryByTestId('tpl-card-empty-soon')).toBeNull();
@@ -130,9 +138,11 @@ describe('TemplateCard', () => {
   });
 
   it('does NOT trigger onSelect on Enter for disabled cards', () => {
+    // Stage 3.4 — classic is now available; clone is the disabled
+    // "coming soon" placeholder.
     const onSelect = vi.fn();
-    render(<TemplateCard template={CLASSIC} selected={false} onSelect={onSelect} />);
-    fireEvent.keyDown(screen.getByTestId('tpl-card-classic'), { key: 'Enter' });
+    render(<TemplateCard template={CLONE} selected={false} onSelect={onSelect} />);
+    fireEvent.keyDown(screen.getByTestId('tpl-card-clone'), { key: 'Enter' });
     expect(onSelect).not.toHaveBeenCalled();
   });
 });

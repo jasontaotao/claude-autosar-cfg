@@ -124,6 +124,17 @@ export interface Messages {
   // Sprint 13+ Stage 3.3 — TemplateCard row label inside the
   // NewProjectDialog body. Sits between the dir input and the cards.
   readonly 'newProject.templateLabel': string;
+  // Sprint 13+ Stage 3.4 — BSWMD chip multi-select inside
+  // NewProjectDialog. Rendered when the user picks the Classic
+  // template (or any template whose `bswmdPaths` is non-empty). The
+  // label is the section heading; the hint explains multi-select
+  // semantics; `noBswmd` is the empty-state message for templates
+  // that ship without BSWMDs (the row is suppressed entirely when
+  // no template is selected, but the field is here for the rare
+  // case where a template's `bswmd/` dir is removed on disk).
+  readonly 'newProject.bswmdLabel': string;
+  readonly 'newProject.bswmdHint': string;
+  readonly 'newProject.noBswmd': string;
 
   // --- confirm dialog (Sprint 12 #3 Phase 1) ---
   readonly 'confirm.unsaved.title': string;
@@ -306,6 +317,9 @@ export const MessagesZhCN: Messages = {
   'newProject.create': '创建',
   'newProject.cancel': '取消',
   'newProject.templateLabel': '选择模板',
+  'newProject.bswmdLabel': '预填 BSWMD',
+  'newProject.bswmdHint': '可多选；将随模板一并拷贝到项目目录',
+  'newProject.noBswmd': '该模板未携带 BSWMD',
 
   // confirm dialog
   'confirm.unsaved.title': '未保存的更改',
@@ -476,6 +490,9 @@ export const MessagesEn: Messages = {
   'newProject.create': 'Create',
   'newProject.cancel': 'Cancel',
   'newProject.templateLabel': 'Choose a template',
+  'newProject.bswmdLabel': 'Preload BSWMDs',
+  'newProject.bswmdHint': 'Select multiple; they will be copied to your project',
+  'newProject.noBswmd': 'This template has no BSWMD files',
 
   // confirm dialog
   'confirm.unsaved.title': 'Unsaved Changes',

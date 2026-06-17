@@ -22,6 +22,13 @@ export interface TemplateRow {
   readonly displayNameKey: string;
   readonly descriptionKey: string;
   readonly fileCount: number;
+  /**
+   * Sprint 13+ Stage 3.4 — absolute on-disk paths of BSWMD files
+   * that the template ships with. Surfaced to the user as multi-
+   * select chips in NewProjectDialog when the Classic template is
+   * picked. Empty for templates without a `bswmd/` directory.
+   */
+  readonly bswmdPaths: readonly string[];
 }
 
 /**
@@ -41,12 +48,21 @@ export function getTemplateDescription(locale: Locale, template: TemplateRow): s
 }
 
 /**
- * Stage 3.3 availability gate.
+ * Stage 3.3 + 3.4 availability gate.
  *
- * Returns true only for the `empty` template. The other templates
- * (`classic`, `clone`) are present in the IPC response (so the UI
- * can show them as "coming soon" placeholders) but not actionable.
+ * Returns true for templates whose metadata the renderer can
+ * consume end-to-end:
+ *   - `empty` — always available (zero-config starter project).
+ *   - `classic` — Stage 3.4 wires the BSWMD chip multi-select on
+ *     top of this template, so the card is actionable. Until the
+ *     main process ships template files for `classic` the IPC
+ *     stub returns `bswmdPaths: []` and the chip row stays empty
+ *     — the card remains clickable but creation just doesn't
+ *     pre-load any BSWMDs.
+ *   - `clone` — still a "coming soon" placeholder. Returns false
+ *     so the card stays disabled and the "coming soon" badge
+ *     shows; a future stage will wire it.
  */
 export function isTemplateAvailable(templateId: string): boolean {
-  return templateId === 'empty';
+  return templateId === 'empty' || templateId === 'classic';
 }

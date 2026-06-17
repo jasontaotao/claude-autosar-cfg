@@ -228,3 +228,69 @@ describe('project:new handler (Sprint 12 #3) — directory-driven create flow', 
     expect(r.manifest.name).toBe('@#$');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sprint 13+ Stage 3.4 — `bswmdPaths` opt on `ProjectNewRequest`. The
+// renderer (NewProjectDialog → BswmdChipRow) forwards the user's
+// pre-selected BSWMD paths to the IPC; main writes them into the
+// new manifest. Omitting the field defaults to an empty list (back-
+// compatible with Stage 3.3 callers).
+// ---------------------------------------------------------------------------
+
+describe('project:new handler (Sprint 13+ Stage 3.4) — bswmdPaths', () => {
+  it('writes the bswmdPaths from the request into the new manifest', async () => {
+    const projectDir = join(workDir, 'bswmd-write');
+    mkdirSync(projectDir, { recursive: true });
+
+    const r = await projectNewHandler({
+      name: 'ClassicProj',
+      directory: projectDir,
+      bswmdPaths: ['/samples/classic/bswmd/Can.arxml', '/samples/classic/bswmd/EcuC.arxml'],
+    });
+
+    expect(r.kind).toBe('created');
+    if (r.kind !== 'created') throw new Error('unreachable');
+    expect(r.manifest.bswmdPaths).toEqual([
+      '/samples/classic/bswmd/Can.arxml',
+      '/samples/classic/bswmd/EcuC.arxml',
+    ]);
+    // The on-disk JSON must round-trip the same field so a future
+    // openProject call sees the selection.
+    const onDisk = readFileSync(r.path, 'utf8');
+    expect(onDisk).toContain('Can.arxml');
+    expect(onDisk).toContain('EcuC.arxml');
+  });
+
+  it('omitting bswmdPaths defaults to an empty list (Stage 3.3 callers)', async () => {
+    const projectDir = join(workDir, 'bswmd-default');
+    mkdirSync(projectDir, { recursive: true });
+
+    const r = await projectNewHandler({ name: 'EmptyProj', directory: projectDir });
+
+    expect(r.kind).toBe('created');
+    if (r.kind !== 'created') throw new Error('unreachable');
+    expect(r.manifest.bswmdPaths).toEqual([]);
+  });
+
+  it('re-threads bswmdPaths on the overwrite retry', async () => {
+    const projectDir = join(workDir, 'bswmd-overwrite');
+    mkdirSync(projectDir, { recursive: true });
+    // Pre-create a sentinel at the target path so the first call
+    // returns overwrite-confirm.
+    const targetPath = join(projectDir, 'Proj.autosarcfg.json');
+    writeFileSync(targetPath, '{}', 'utf8');
+
+    // Bypass the overwrite-confirm branch by passing `overwrite: true`
+    // directly and asserting bswmdPaths lands in the manifest.
+    const r = await projectNewHandler({
+      name: 'Proj',
+      directory: projectDir,
+      overwrite: true,
+      bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
+    });
+
+    expect(r.kind).toBe('created');
+    if (r.kind !== 'created') throw new Error('unreachable');
+    expect(r.manifest.bswmdPaths).toEqual(['/samples/classic/bswmd/Can.arxml']);
+  });
+});

@@ -267,6 +267,26 @@ describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 T
     expect(t('en', 'newProject.cancel')).toBe('Cancel');
   });
 
+  // Sprint 13+ Stage 3.4 — BSWMD chip multi-select strings. The
+  // parity test below also iterates the bundle, but these explicit
+  // cases document the expected translations for the chip row.
+  it('renders newProject.bswmdLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.bswmdLabel')).toBe('预填 BSWMD');
+    expect(t('en', 'newProject.bswmdLabel')).toBe('Preload BSWMDs');
+  });
+
+  it('renders newProject.bswmdHint (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.bswmdHint')).toBe('可多选；将随模板一并拷贝到项目目录');
+    expect(t('en', 'newProject.bswmdHint')).toBe(
+      'Select multiple; they will be copied to your project',
+    );
+  });
+
+  it('renders newProject.noBswmd (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.noBswmd')).toBe('该模板未携带 BSWMD');
+    expect(t('en', 'newProject.noBswmd')).toBe('This template has no BSWMD files');
+  });
+
   it('renders confirm.unsaved.title (zh-CN + en)', () => {
     expect(t('zh-CN', 'confirm.unsaved.title')).toBe('未保存的更改');
     expect(t('en', 'confirm.unsaved.title')).toBe('Unsaved Changes');

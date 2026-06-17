@@ -223,7 +223,11 @@ export function useProjectActions(): {
   readonly saveProject: () => Promise<ProjectActionResult>;
   readonly addBswmdFromDialog: () => Promise<ProjectActionResult>;
   readonly removeBswmdWithGuard: (path: string) => Promise<ProjectActionResult>;
-  readonly submitNewProject: (name: string, directory: string) => Promise<ProjectActionResult>;
+  readonly submitNewProject: (
+    name: string,
+    directory: string,
+    opts?: { readonly bswmdPaths?: readonly string[] },
+  ) => Promise<ProjectActionResult>;
 } {
   // -------------------------------------------------------------------------
   // `saveProject` is declared first so the dirty-guard helper can close
@@ -285,8 +289,17 @@ export function useProjectActions(): {
   //     stays open.
   // -------------------------------------------------------------------------
   const submitNewProject = useCallback(
-    async (name: string, directory: string): Promise<ProjectActionResult> => {
-      const result = await window.autosarApi.projectNew({ name, directory });
+    async (
+      name: string,
+      directory: string,
+      opts: { readonly bswmdPaths?: readonly string[] } = {},
+    ): Promise<ProjectActionResult> => {
+      // Stage 3.4 — forward the user-selected BSWMD paths (if any)
+      // to the projectNew IPC. Main writes them into the new
+      // manifest's bswmdPaths. Empty array when the user picked
+      // Empty / Clone or didn't select any chips.
+      const bswmdPaths = [...(opts.bswmdPaths ?? [])];
+      const result = await window.autosarApi.projectNew({ name, directory, bswmdPaths });
       switch (result.kind) {
         case 'created':
           setNewProjectDialogOpen(false);
@@ -313,10 +326,13 @@ export function useProjectActions(): {
           }
           // 'discard' → user chose overwrite; retry IPC with the
           // overwrite flag so the handler skips the existence check.
+          // Stage 3.4 — re-thread the same bswmdPaths to the retry so
+          // the user doesn't lose their selection after the confirm.
           const retry = await window.autosarApi.projectNew({
             name,
             directory,
             overwrite: true,
+            bswmdPaths,
           });
           switch (retry.kind) {
             case 'created':

@@ -42,6 +42,7 @@ import { ConfirmRoot } from './components/ConfirmDialog';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
+import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { PromptRoot } from './components/PromptDialog';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
@@ -55,13 +56,13 @@ export function App(): JSX.Element {
 
   // Sprint 12 #3 Phase 1 Task 5 — `submitNewProject` is the dirty-
   // guarded submitter for `<NewProjectDialog />`. When the user clicks
-  // Create inside the dialog, the host passes `{name, dir}` back to
-  // this handler, which is responsible for:
+  // Create inside the dialog, the host passes `{name, dir, opts?}` back
+  // to this handler, which is responsible for:
   //
   //   1. Reading `isDirty()` from the store and, if true, opening
   //      ConfirmDialog via the module-level `confirm({...})` API.
   //   2. On `discard` / `saveAndProceed`, calling
-  //      `window.autosarApi.projectNew({ name, directory })`.
+  //      `window.autosarApi.projectNew({ name, directory, bswmdPaths })`.
   //   3. On `'created'`, dispatching `store.openProject(...)` and
   //      closing the dialog via `setNewProjectDialogOpen(false)`.
   //   4. On `'overwrite-confirm'` / `'invalid-name'` /
@@ -72,13 +73,21 @@ export function App(): JSX.Element {
   //
   // The wrapper discards the `ProjectActionResult` because
   // `<NewProjectDialog onSubmit>` is typed as
-  // `(name, dir) => void | Promise<void>`. The hook itself surfaces
-  // the result via the store's `error` field (Task 7) so the dialog
-  // can read it back on the next render — the return value is
-  // redundant at the mount site.
+  // `(name, dir, opts?) => void | Promise<void>`. The hook itself
+  // surfaces the result via the store's `error` field (Task 7) so
+  // the dialog can read it back on the next render — the return
+  // value is redundant at the mount site.
+  //
+  // Sprint 13+ Stage 3.4 — `opts` is the new third argument carrying
+  // `bswmdPaths` (the absolute paths the user pre-selected via the
+  // BSWMD chip row). We forward it verbatim to the hook.
   const { submitNewProject } = useProjectActions();
-  const handleNewProjectSubmit = (name: string, directory: string): void => {
-    void submitNewProject(name, directory);
+  const handleNewProjectSubmit = (
+    name: string,
+    directory: string,
+    opts?: NewProjectSubmitOpts,
+  ): void => {
+    void submitNewProject(name, directory, opts);
   };
 
   // Sprint 13 #2 Task 5 — the left column is now a single

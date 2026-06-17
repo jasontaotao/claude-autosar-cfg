@@ -94,6 +94,14 @@ export async function templatesListHandler(
       displayNameKey: `template.${t.id}.displayName`,
       descriptionKey: `template.${t.id}.description`,
       fileCount: t.fileCount,
+      // Sprint 13+ Stage 3.4 — surface bswmdPaths so the renderer
+      // can render multi-select chips for the Classic template. The
+      // path values were computed by `discoverBuiltinTemplates` as
+      // absolute paths inside the resolved samples root; we hand
+      // them back to the renderer verbatim (no further resolution).
+      // For templates without a `bswmd/` dir (e.g. `empty`, `clone`)
+      // this is an empty array.
+      bswmdPaths: [...t.bswmdPaths],
     })),
   };
 }

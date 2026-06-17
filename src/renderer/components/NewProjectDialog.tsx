@@ -5,8 +5,8 @@
 // project name and target directory in one place, previews the
 // resulting `<dir>/<name>.autosarcfg.json` path live, validates the
 // name as the user types, and hands the validated `{name, dir}` pair
-// to a host-provided `onSubmit(name, dir)` callback. The callback
-// owner (App.tsx → useProjectActions.newProject in Task 5) decides
+// to a host-provided `onSubmit(name, dir, opts?)` callback. The
+// callback owner (App.tsx → useProjectActions.submitNewProject) decides
 // what to do with it: invoke `window.autosarApi.projectNew`, dispatch
 // the resulting manifest into the store, and dismiss the dialog.
 //
@@ -17,19 +17,28 @@
 // — the caller reacts to the returned data outside the component.
 // Driving it through `newProjectDialogOpen` keeps `useProjectActions`
 // able to open it from IPC error paths and lets the hook layer
-// (Task 5) own the dirty-protection gating.
+// own the dirty-protection gating.
 //
-// Sprint 13+ Stage 3.3 — the dialog body now embeds a
-// `TemplateCardRow` (Empty / Classic / Clone). Only the Empty card
-// is actionable; the others render the "coming soon" badge. Card
-// selection is visual only — submission still flows through
-// `onSubmit(name, dir)`. Stage 3.4 will widen `onSubmit` to take
-// `(name, dir, templateId)` so the host can react to the pick.
+// Sprint 13+ Stage 3.3 — the dialog body embeds a `TemplateCardRow`
+// (Empty / Classic / Clone). Only the Empty card is actionable in
+// Stage 3.3; the others render the "coming soon" badge. Card
+// selection is purely visual at this stage.
+//
+// Sprint 13+ Stage 3.4:
+//   - The dialog lifts the templates-list IPC fetch from
+//     `TemplateCardRow` so it can use the resolved rows to look up
+//     the selected template's `bswmdPaths`.
+//   - The dialog adds a `BswmdChipRow` under the template cards.
+//     The chip row is only rendered for the Classic template
+//     (or any template whose `bswmdPaths` is non-empty); for Empty
+//     and Clone the row is suppressed entirely.
+//   - `onSubmit` widens to `(name, dir, opts?)`; `opts.bswmdPaths`
+//     carries the user-selected BSWMD absolute paths to the host
+//     (which forwards them to `projectNew` IPC).
 //
 // What this component does NOT do (deferred to other tasks / phases):
-//   - BSWMD chip multi-select (Phase 3 / Sprint 13 #2)
 //   - Overwrite-confirm flow when the target manifest already exists
-//     (Task 5 — handled at the IPC layer + ConfirmDialog call site)
+//     (handled at the IPC layer + ConfirmDialog call site).
 //   - Calling IPC directly (`window.autosarApi.projectNew`). The host
 //     wires that through the `onSubmit` prop so the component stays
 //     purely UI + form-state.
@@ -39,11 +48,14 @@ import { createPortal } from 'react-dom';
 
 import type { Locale } from '@shared/i18n';
 import { t } from '@shared/i18n';
+import type { TemplateListResponse } from '@shared/types';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 
+import { BswmdChipRow } from './BswmdChipRow';
 import { validateProjectName } from './NewProjectDialog.validate';
 import { TemplateCardRow } from './TemplateCardRow';
+import { type TemplateRow } from './templates';
 
 import './NewProjectDialog.css';
 
@@ -52,13 +64,31 @@ import './NewProjectDialog.css';
 // ---------------------------------------------------------------------------
 
 /**
+ * Optional per-submit context passed from the dialog to the host. Stage
+ * 3.4 currently only ships `bswmdPaths`; future stages (template
+ * selection, etc.) can add fields here without breaking older
+ * callers — every key is optional.
+ */
+export interface NewProjectSubmitOpts {
+  /** Absolute paths of the BSWMDs the user pre-selected via
+   *  `BswmdChipRow`. The host forwards them to the `projectNew`
+   *  IPC; main writes them into the new manifest's
+   *  `bswmdPaths`. */
+  readonly bswmdPaths?: readonly string[];
+}
+
+/**
  * The host wires `onSubmit` to whatever pipeline it wants (typically
- * `useProjectActions.newProject`). Returning a Promise is allowed —
+ * `useProjectActions.submitNewProject`). Returning a Promise is allowed —
  * the dialog does not await the result; the host is responsible for
  * closing the dialog on success or surfacing an error on failure.
  */
 export interface NewProjectDialogProps {
-  readonly onSubmit: (name: string, directory: string) => void | Promise<void>;
+  readonly onSubmit: (
+    name: string,
+    directory: string,
+    opts?: NewProjectSubmitOpts,
+  ) => void | Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +103,25 @@ interface AutosarApiLike {
   }) => Promise<
     { readonly kind: 'picked'; readonly dirPath: string } | { readonly kind: 'canceled' }
   >;
+  readonly listTemplates: () => Promise<TemplateListResponse>;
 }
+
+// ---------------------------------------------------------------------------
+// Hard-coded fallback for the "no templates on disk" case. The
+// renderer's job is to keep the user productive even when the main
+// process hasn't shipped the samples dir — so we always offer Empty.
+// Mirrors `TemplateCardRow.FALLBACK_TEMPLATES` from Stage 3.3.
+// ---------------------------------------------------------------------------
+
+const FALLBACK_TEMPLATES: readonly TemplateRow[] = [
+  {
+    id: 'empty',
+    displayNameKey: 'template.empty.displayName',
+    descriptionKey: 'template.empty.description',
+    fileCount: 0,
+    bswmdPaths: [],
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -100,8 +148,70 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
   // Reset to null on dialog close (handled in the same effect that
   // resets name/dir).
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  // Sprint 13+ Stage 3.4 — the resolved list of templates (with
+  // `bswmdPaths` per template) lives here. The dialog needs the
+  // metadata to decide whether to render the chip row and to look
+  // up the selected template's bswmdPaths.
+  const [templates, setTemplates] = useState<readonly TemplateRow[]>([]);
+  // `true` while the IPC fetch is still in flight. Cleared by the
+  // .then() / .catch() handlers. Drives the loading skeleton in
+  // TemplateCardRow.
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  // Stage 3.4 — absolute paths of the BSWMDs the user has currently
+  // selected via the chip row. Reset to [] when the template changes
+  // (so a previous Classic pick doesn't leak into an Empty pick) and
+  // when the dialog closes.
+  const [selectedBswmdPaths, setSelectedBswmdPaths] = useState<readonly string[]>([]);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Sprint 13+ Stage 3.4 — lift the templates IPC fetch from
+  // TemplateCardRow (Stage 3.3 owned it there). The dialog re-fetches
+  // the same list because it now needs the per-template `bswmdPaths`
+  // metadata, and keeping the fetch in the row would force the row
+  // to expose the underlying list to its host. Hoisting the fetch
+  // up lets the dialog feed the row the resolved list directly.
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    setTemplatesLoading(true);
+    const api = (globalThis as { window?: { autosarApi?: AutosarApiLike } }).window?.autosarApi;
+    if (api === undefined || typeof api.listTemplates !== 'function') {
+      // No preload bridge (jsdom without the stub), or the stub is
+      // a partial that doesn't include listTemplates (e.g. an older
+      // App test fixture). Still show Empty so the layout doesn't
+      // collapse; a real renderer build always has the full bridge.
+      setTemplates(FALLBACK_TEMPLATES);
+      setTemplatesLoading(false);
+      return (): void => {
+        cancelled = true;
+      };
+    }
+    void api
+      .listTemplates()
+      .then((res) => {
+        if (cancelled) return;
+        if (res.templates.length === 0) {
+          setTemplates(FALLBACK_TEMPLATES);
+        } else {
+          setTemplates(res.templates);
+        }
+        setTemplatesLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Defensive: log the failure so a future regression is visible,
+        // but degrade to the Empty-only fallback so the dialog still
+        // works. The user can create an Empty project regardless.
+        // eslint-disable-next-line no-console
+        console.warn('[NewProjectDialog] listTemplates() failed; falling back to Empty', err);
+        setTemplates(FALLBACK_TEMPLATES);
+        setTemplatesLoading(false);
+      });
+    return (): void => {
+      cancelled = true;
+    };
+  }, [open]);
 
   // Auto-focus the name input every time the dialog opens so the
   // user can start typing immediately.
@@ -120,6 +230,9 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     setDir('');
     setBusy(false);
     setSelectedTemplateId(null);
+    setSelectedBswmdPaths([]);
+    setTemplatesLoading(true);
+    setTemplates([]);
     return undefined;
   }, [open]);
 
@@ -139,6 +252,13 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     name: name || '(name)',
   });
 
+  // Stage 3.4 — look up the selected template's bswmdPaths so we can
+  // render the chip row. `undefined` when the IPC hasn't resolved or
+  // the user hasn't picked a template yet.
+  const selectedTemplate = templates.find((tmpl) => tmpl.id === selectedTemplateId);
+  const selectedTemplateBswmdPaths = selectedTemplate?.bswmdPaths ?? [];
+  const showBswmdChipRow = selectedTemplate !== undefined && selectedTemplateBswmdPaths.length > 0;
+
   const handleCancel = (): void => {
     setOpen(false);
   };
@@ -154,7 +274,13 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     // future React batching change).
     const submittedName = name;
     const submittedDir = dir;
-    const result = onSubmit(submittedName, submittedDir);
+    // Stage 3.4 — forward the selected BSWMD paths (if any) via opts.
+    // When the chip row wasn't shown (Empty / Clone / no template),
+    // `selectedBswmdPaths` is [] so the IPC gets an empty array.
+    const opts: NewProjectSubmitOpts = {
+      bswmdPaths: [...selectedBswmdPaths],
+    };
+    const result = onSubmit(submittedName, submittedDir, opts);
     // If the host returned a Promise, mark busy so the user can't
     // double-click Create while IPC is in flight. We don't await —
     // the host owns the dialog-close decision (e.g. closing only on
@@ -205,6 +331,25 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     }
     // 'canceled' → leave the field alone, user may have a path
     // already typed that they want to keep.
+  };
+
+  // Stage 3.3 + 3.4 — template card selection. Switching templates
+  // resets the BSWMD selection (a previous Classic pick of `Can.arxml`
+  // should not leak into an Empty pick that doesn't show chips).
+  const handleTemplateSelect = (templateId: string): void => {
+    setSelectedTemplateId(templateId);
+    setSelectedBswmdPaths([]);
+  };
+
+  // Stage 3.4 — BSWMD chip toggle. Adds the path if missing,
+  // removes it if already present. The host receives the absolute
+  // path so it can pass it straight to the projectNew IPC.
+  const handleBswmdToggle = (absolutePath: string): void => {
+    setSelectedBswmdPaths((prev) =>
+      prev.includes(absolutePath)
+        ? prev.filter((p) => p !== absolutePath)
+        : [...prev, absolutePath],
+    );
   };
 
   // Map the validator's error kind to the localized message text.
@@ -309,9 +454,25 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
             </div>
           </div>
 
-          {/* Sprint 13+ Stage 3.3 — template picker. Visual selection
-              only at this stage; submission is unchanged. */}
-          <TemplateCardRow selectedId={selectedTemplateId} onSelect={setSelectedTemplateId} />
+          {/* Sprint 13+ Stage 3.3 — template picker. Card selection
+              is purely visual at this stage; submission is unchanged. */}
+          <TemplateCardRow
+            templates={templates}
+            selectedId={selectedTemplateId}
+            onSelect={handleTemplateSelect}
+            loading={templatesLoading}
+          />
+          {/* Sprint 13+ Stage 3.4 — BSWMD chip multi-select. Renders
+              only when the selected template ships BSWMDs (currently
+              only Classic). Empty / Clone / unselected suppress the
+              row entirely. */}
+          {showBswmdChipRow ? (
+            <BswmdChipRow
+              bswmdPaths={selectedTemplateBswmdPaths}
+              selectedPaths={selectedBswmdPaths}
+              onToggle={handleBswmdToggle}
+            />
+          ) : null}
         </div>
 
         <div className="npd-footer">

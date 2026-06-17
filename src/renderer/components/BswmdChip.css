@@ -1,0 +1,72 @@
+/* BSWMD chip row — Sprint 13+ Stage 3.4.
+
+   Catppuccin Mocha palette to match the rest of the dialog
+   (.npd-* uses the same hard-coded hex values; the renderer
+   doesn't publish a CSS tokens sheet yet). The chip is a
+   real <button> so it's keyboard-focusable by default. */
+
+.npd-bswmd-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.npd-bswmd-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a6adc8;
+}
+
+.npd-bswmd-hint {
+  font-size: 12px;
+  color: #6c7086;
+}
+
+.npd-bswmd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.npd-bswmd-empty {
+  font-size: 12px;
+  color: #6c7086;
+  font-style: italic;
+}
+
+.bswmd-chip {
+  appearance: none;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 14px;
+  padding: 4px 12px;
+  color: #cdd6f4;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.bswmd-chip:hover:not(.bswmd-chip--selected) {
+  border-color: #585b70;
+  background: #181825;
+}
+
+.bswmd-chip:focus-visible {
+  outline: 2px solid #89b4fa;
+  outline-offset: 2px;
+}
+
+.bswmd-chip--selected {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.13);
+  color: #cdd6f4;
+}
+
+.bswmd-chip--selected:hover {
+  border-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.18);
+}

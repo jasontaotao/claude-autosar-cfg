@@ -199,9 +199,21 @@ export interface TemplateListResponse {
     readonly displayNameKey: string;
     readonly descriptionKey: string;
     readonly fileCount: number;
-    // Absolute paths are NOT exposed to the renderer. Renderer
-    // cannot read `process.resourcesPath` and does not need to;
-    // it only renders a picker.
+    /**
+     * Sprint 13+ Stage 3.4 — absolute on-disk paths of schema-side
+     * BSWMD files within the template's `bswmd/` subdirectory. The
+     * renderer surfaces them as multi-select chips in
+     * `NewProjectDialog` (Classic template). Empty for templates
+     * without a `bswmd/` dir (e.g. `empty`, `clone`).
+     *
+     * Absolute paths are exposed because the renderer cannot
+     * import `node:path` to resolve `process.resourcesPath`
+     * itself, and the chip row needs the full path to thread
+     * back to the `projectNew` IPC. The renderer treats them
+     * as opaque strings (basename for display, full path for
+     * IPC); it does not read, write, or evaluate the path.
+     */
+    readonly bswmdPaths: readonly string[];
   }>;
 }
 
@@ -249,6 +261,20 @@ export interface ProjectNewRequest {
    * the `overwrite-confirm` IPC result into a "覆盖" / "重命名" choice).
    */
   readonly overwrite?: boolean;
+  /**
+   * Sprint 13+ Stage 3.4 — absolute paths of BSWMD files the user
+   * pre-selected via `BswmdChipRow` in NewProjectDialog. Main writes
+   * them into the new manifest's `bswmdPaths`. Empty array when
+   * the user picked a template without BSWMDs (Empty / Clone) or
+   * didn't select any chips.
+   *
+   * Paths are kept as-is — main does NOT validate that the files
+   * exist on disk. Future work (Stage 3.5+) may copy the referenced
+   * files into the project dir; this IPC just records the manifest
+   * pointer. Renderer callers must read paths straight from the
+   * `templates:list` IPC response.
+   */
+  readonly bswmdPaths?: readonly string[];
 }
 
 /**

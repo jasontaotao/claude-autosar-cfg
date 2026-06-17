@@ -68,6 +68,7 @@ describe('templates:list handler (Sprint 13 #1)', () => {
       displayNameKey: 'template.empty.displayName',
       descriptionKey: 'template.empty.description',
       fileCount: 0,
+      bswmdPaths: [],
     });
     expect(r.templates[1]?.fileCount).toBe(2);
   });
@@ -76,6 +77,17 @@ describe('templates:list handler (Sprint 13 #1)', () => {
     __setTestCache([]);
     const r = await templatesListHandler({});
     expect(r).toEqual({ templates: [] });
+  });
+
+  it('exposes bswmdPaths in the list response (Sprint 13+ Stage 3.4)', async () => {
+    __setTestCache([
+      makeTemplate({
+        id: 'classic',
+        bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
+      }),
+    ]);
+    const r = await templatesListHandler({});
+    expect(r.templates[0]?.bswmdPaths).toEqual(['/samples/classic/bswmd/Can.arxml']);
   });
 });
 

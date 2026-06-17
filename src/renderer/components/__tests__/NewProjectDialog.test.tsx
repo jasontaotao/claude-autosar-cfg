@@ -66,18 +66,24 @@ function installAutosarApi(
           displayNameKey: 'template.empty.displayName',
           descriptionKey: 'template.empty.description',
           fileCount: 0,
+          bswmdPaths: [],
         },
         {
           id: 'classic',
           displayNameKey: 'template.classic.displayName',
           descriptionKey: 'template.classic.description',
           fileCount: 3,
+          // Stage 3.4 — surface one BSWMD so the chip row has something
+          // to render when Classic is picked. Empty/Clone ship with
+          // no BSWMDs.
+          bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
         },
         {
           id: 'clone',
           displayNameKey: 'template.clone.displayName',
           descriptionKey: 'template.clone.description',
           fileCount: 0,
+          bswmdPaths: [],
         },
       ],
     },
@@ -274,10 +280,12 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
       target: { value: '/tmp' },
     });
     fireEvent.keyDown(nameInput, { key: 'Enter' });
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp'));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp', { bswmdPaths: [] }),
+    );
   });
 
-  it('clicking Create with valid inputs invokes onSubmit(name, dir)', () => {
+  it('clicking Create with valid inputs invokes onSubmit(name, dir, opts)', () => {
     setOpen(true);
     const onSubmit = vi.fn();
     render(<NewProjectDialog onSubmit={onSubmit} />);
@@ -289,7 +297,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     });
     fireEvent.click(screen.getByTestId('npd-create'));
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp');
+    expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp', { bswmdPaths: [] });
   });
 
   it('clicking Cancel closes the dialog without invoking onSubmit', () => {
@@ -416,6 +424,125 @@ describe('NewProjectDialog (Sprint 13+ Stage 3.3 — TemplateCard row)', () => {
       target: { value: '/tmp' },
     });
     fireEvent.click(screen.getByTestId('npd-create'));
-    expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp');
+    expect(onSubmit).toHaveBeenCalledWith('MyProject', '/tmp', { bswmdPaths: [] });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stage 3.4 — BSWMD chip multi-select
+// ---------------------------------------------------------------------------
+
+describe('NewProjectDialog (Sprint 13+ Stage 3.4 — BSWMD chips)', () => {
+  it('does NOT render the BswmdChipRow when Empty is selected (no BSWMDs)', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-empty')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('tpl-card-empty'));
+    expect(screen.queryByTestId('bswmd-chip-row')).toBeNull();
+    expect(screen.queryByTestId('bswmd-chip-empty')).toBeNull();
+  });
+
+  it('renders the BswmdChipRow with chips when Classic is selected', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-classic')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => {
+      expect(screen.getByTestId('bswmd-chip-row')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('bswmd-chip-Can.arxml')).toBeInTheDocument();
+  });
+
+  it('clicking a chip toggles its selected state (aria-pressed flips)', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => screen.getByTestId('tpl-card-classic'));
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    const chip = screen.getByTestId('bswmd-chip-Can.arxml');
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(chip);
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(chip);
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does NOT render the BswmdChipRow when Clone is selected (no BSWMDs)', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('tpl-card-clone')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('tpl-card-clone'));
+    expect(screen.queryByTestId('bswmd-chip-row')).toBeNull();
+  });
+
+  it('switches Classic → Empty → Classic resets the chip selection', async () => {
+    installAutosarApi();
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => screen.getByTestId('tpl-card-classic'));
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    const chip = screen.getByTestId('bswmd-chip-Can.arxml');
+    fireEvent.click(chip);
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    // Switch to Empty — the chip row disappears; the chip state
+    // is internal to the dialog so it is forgotten on switch.
+    fireEvent.click(screen.getByTestId('tpl-card-empty'));
+    expect(screen.queryByTestId('bswmd-chip-row')).toBeNull();
+    // Switch back to Classic — the chip should re-render unselected.
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    expect(screen.getByTestId('bswmd-chip-Can.arxml').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('clicking Create with Classic + 1 selected BSWMD forwards it in opts.bswmdPaths', async () => {
+    installAutosarApi();
+    setOpen(true);
+    const onSubmit = vi.fn();
+    render(<NewProjectDialog onSubmit={onSubmit} />);
+    await waitFor(() => screen.getByTestId('tpl-card-classic'));
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    fireEvent.click(screen.getByTestId('bswmd-chip-Can.arxml'));
+    fireEvent.change(screen.getByTestId('npd-name-input'), {
+      target: { value: 'MyClassic' },
+    });
+    fireEvent.change(screen.getByTestId('npd-dir-input'), {
+      target: { value: '/tmp' },
+    });
+    fireEvent.click(screen.getByTestId('npd-create'));
+    expect(onSubmit).toHaveBeenCalledWith('MyClassic', '/tmp', {
+      bswmdPaths: ['/samples/classic/bswmd/Can.arxml'],
+    });
+  });
+
+  it('closing the dialog resets the chip selection (next open starts clean)', async () => {
+    installAutosarApi();
+    setOpen(true);
+    const { rerender } = render(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => screen.getByTestId('tpl-card-classic'));
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    fireEvent.click(screen.getByTestId('bswmd-chip-Can.arxml'));
+    expect(screen.getByTestId('bswmd-chip-Can.arxml').getAttribute('aria-pressed')).toBe('true');
+
+    setOpen(false);
+    rerender(<NewProjectDialog onSubmit={() => undefined} />);
+    setOpen(true);
+    rerender(<NewProjectDialog onSubmit={() => undefined} />);
+    await waitFor(() => screen.getByTestId('tpl-card-classic'));
+    fireEvent.click(screen.getByTestId('tpl-card-classic'));
+    await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
+    expect(screen.getByTestId('bswmd-chip-Can.arxml').getAttribute('aria-pressed')).toBe('false');
   });
 });
