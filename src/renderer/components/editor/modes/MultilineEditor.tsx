@@ -20,7 +20,7 @@ export function MultilineEditor({ paramKey, value, containerPath }: Props): JSX.
       rows={3}
       value={value.value}
       aria-label={`${paramKey} value`}
-      className="w-full rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+      className="w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
       onChange={(e) =>
         updateParam(containerPath, paramKey, { type: 'string', value: e.target.value })
       }

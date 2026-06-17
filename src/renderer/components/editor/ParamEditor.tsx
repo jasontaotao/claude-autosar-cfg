@@ -127,50 +127,147 @@ export function ParamEditor(): JSX.Element {
 
   const entries = Object.entries(element.params);
 
+  // Sprint 13+ Q2 — EcuC-style two-segment grouping. Params are
+  // sorted into a "value" bucket (all non-reference types) and a
+  // "reference" bucket. Each bucket renders its own heading with a
+  // count badge and a table; an empty bucket still renders the
+  // heading + a localised "(none)" row so the layout does not jump
+  // when the user navigates between nodes with different param mixes.
+  const valueEntries = entries.filter(([, v]) => v.type !== 'reference');
+  const referenceEntries = entries.filter(([, v]) => v.type === 'reference');
+
   return (
     <section
       className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
       aria-label="Parameter editor"
     >
-      <header className="mb-3 flex items-center gap-2">
-        <h2 className="text-lg font-semibold">{element.shortName}</h2>
-        <span className="rounded bg-slate-200 px-2 py-0.5 text-xs uppercase tracking-wide text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+      <header className="mb-4 flex items-center gap-2">
+        {/* Sprint 13+ Q2 — explicit text-slate-900 / dark:text-slate-50
+            so the element shortName is unambiguously visible in both
+            themes. The previous `text-lg font-semibold` left the
+            color to inherit, which could collapse to a low-contrast
+            tone in certain light-mode backgrounds. */}
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+          {element.shortName}
+        </h2>
+        <span
+          className="rounded bg-slate-200 px-2 py-0.5 text-sm font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+          data-testid="editor-kind-badge"
+        >
           {element.kind}
         </span>
       </header>
 
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500">No parameters on this node.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">No parameters on this node.</p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
-              <th className="py-1 pr-2">{t(locale, 'editor.col.param')}</th>
-              <th className="py-1 pr-2">{t(locale, 'editor.col.type')}</th>
-              <th className="py-1">{t(locale, 'editor.col.value')}</th>
+        <div className="space-y-5">
+          <ParamCategorySection
+            label={t(locale, 'params.category.value', { count: valueEntries.length })}
+            emptyLabel={t(locale, 'params.category.empty')}
+            entries={valueEntries}
+            selectedPath={selectedPath}
+            columnHeaders={{
+              param: t(locale, 'editor.col.param'),
+              type: t(locale, 'editor.col.type'),
+              value: t(locale, 'editor.col.value'),
+            }}
+            testId="editor-category-value"
+          />
+          <ParamCategorySection
+            label={t(locale, 'params.category.reference', { count: referenceEntries.length })}
+            emptyLabel={t(locale, 'params.category.empty')}
+            entries={referenceEntries}
+            selectedPath={selectedPath}
+            columnHeaders={{
+              param: t(locale, 'editor.col.param'),
+              type: t(locale, 'editor.col.type'),
+              value: t(locale, 'editor.col.value'),
+            }}
+            testId="editor-category-reference"
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface ParamCategorySectionProps {
+  readonly label: string;
+  readonly emptyLabel: string;
+  readonly entries: ReadonlyArray<readonly [string, ParamValue]>;
+  readonly selectedPath: string;
+  readonly columnHeaders: { readonly param: string; readonly type: string; readonly value: string };
+  readonly testId: string;
+}
+
+/** Render one EcuC-style category section: a heading with a count
+ *  badge, and a table of (param, type, value) rows. When the category
+ *  is empty the heading still appears and the table is replaced with a
+ *  single "(none)" row so the surrounding layout does not shift. */
+function ParamCategorySection({
+  label,
+  emptyLabel,
+  entries,
+  selectedPath,
+  columnHeaders,
+  testId,
+}: ParamCategorySectionProps): JSX.Element {
+  return (
+    <section data-testid={testId} aria-label={label}>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+        {label}
+      </h3>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
+            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">
+              {columnHeaders.param}
+            </th>
+            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">
+              {columnHeaders.type}
+            </th>
+            <th className="py-1 text-slate-700 dark:text-slate-300">
+              {columnHeaders.value}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.length === 0 ? (
+            <tr>
+              <td
+                colSpan={3}
+                className="py-2 text-center text-xs italic text-slate-400 dark:text-slate-500"
+              >
+                {emptyLabel}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {entries.map(([key, val]) => {
+          ) : (
+            entries.map(([key, val]) => {
               const mode = selectParamMode(val, key);
               const Editor = MODE_COMPONENT_MAP[mode];
               return (
-                <tr key={key} className="border-b border-slate-100 dark:border-slate-700">
-                  <td className="py-2 pr-2 font-mono text-xs">{key}</td>
-                  <td className="py-2 pr-2">
+                <tr
+                  key={key}
+                  className="border-b border-slate-100 text-slate-900 dark:border-slate-700 dark:text-slate-50"
+                >
+                  <td className="py-2 pr-2 font-mono text-xs text-slate-900 dark:text-slate-50">
+                    {key}
+                  </td>
+                  <td className="py-2 pr-2 text-slate-900 dark:text-slate-50">
                     <span className={`rounded px-1.5 py-0.5 text-xs ${typeBadgeClass(val.type)}`}>
                       {val.type}
                     </span>
                   </td>
-                  <td className="py-2">
+                  <td className="py-2 text-slate-900 dark:text-slate-50">
                     <Editor paramKey={key} value={val} containerPath={selectedPath} />
                   </td>
                 </tr>
               );
-            })}
-          </tbody>
-        </table>
-      )}
+            })
+          )}
+        </tbody>
+      </table>
     </section>
   );
 }

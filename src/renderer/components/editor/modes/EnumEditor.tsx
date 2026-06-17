@@ -12,6 +12,8 @@ import { lookupSchema } from '@core/validation';
 
 import { useArxmlStore } from '../../../store/useArxmlStore';
 
+import './EnumEditor.css';
+
 interface Props {
   readonly paramKey: string;
   readonly value: ParamValue;

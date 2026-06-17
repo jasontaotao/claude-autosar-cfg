@@ -1,0 +1,40 @@
+/* BooleanEditor — Sprint 13+ Q2-2.
+ *
+ * Native `<input type="checkbox">` is the most theme-fragile input —
+ * Chrome / Edge on Windows use the OS-native chrome regardless of
+ * `prefers-color-scheme`, and Firefox sometimes renders the box
+ * dark-on-dark in dark mode. We pin both states explicitly with
+ * `accent-color` (which colors the checkbox tick + box on every
+ * modern engine) and a transparent fill so the dark-mode section
+ * background (`bg-slate-800`) shows through.
+ *
+ * The rule uses CSS custom-property fallbacks (`transparent` and the
+ * `currentColor` for the check tick) so the visual integrates with
+ * whatever text colour the row inherits. */
+
+.boolean-editor {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  /* `accent-color` colors the tick in modern browsers (Chrome 93+,
+   * Firefox 92+, Safari 15.4+). Older engines fall through to
+   * browser-default chrome but the box itself stays visible because
+   * we set a contrasting border below. */
+  accent-color: #2563eb; /* blue-600 */
+  border: 1px solid #cbd5e1; /* slate-300 */
+  border-radius: 4px;
+  background-color: #ffffff;
+  color: #0f172a; /* slate-900 — drives the check tick via currentColor */
+}
+
+.dark .boolean-editor {
+  background-color: #1e293b; /* slate-800 */
+  border-color: #94a3b8; /* slate-400 — bumped from slate-600 so the
+                                box stays visible against slate-800. */
+  color: #f8fafc; /* slate-50 */
+}
+
+.boolean-editor:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

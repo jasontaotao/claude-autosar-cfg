@@ -21,7 +21,7 @@ export function FloatEditor({ paramKey, value, containerPath }: Props): JSX.Elem
       step="any"
       value={value.value}
       aria-label={`${paramKey} value`}
-      className="w-32 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800"
+      className="w-32 rounded border border-slate-300 px-2 py-1 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-50"
       onChange={(e) => {
         const raw = e.target.value;
         const parsed = raw === '' ? 0 : Number.parseFloat(raw);
