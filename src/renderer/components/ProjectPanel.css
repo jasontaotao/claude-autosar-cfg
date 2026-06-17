@@ -93,6 +93,28 @@
   background: rgba(185, 28, 28, 0.06);
 }
 
+/* Sprint 13+ Q5 — project meta block. Sits between the header and
+   the ARXML/BSWMD sections. Each line is small monospace text; the
+   block is intentionally compact so it doesn't crowd the file lists
+   in the same 240px max-height the panel already has. */
+.project-panel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 0 6px;
+  border-bottom: 1px dashed #cbd5e1;
+  margin-bottom: 4px;
+}
+
+.project-panel-meta-line {
+  font-size: 10px;
+  color: #475569;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .project-panel-section {
   margin-top: 6px;
 }

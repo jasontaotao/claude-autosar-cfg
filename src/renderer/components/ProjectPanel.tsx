@@ -119,7 +119,14 @@ export interface ProjectPanelInfoProps {
 /**
  * Sprint 13 refactor — renamed from the private `OpenView` and
  * exported. Mounted by `LeftPanel` as the body of the "project" tab
- * when a project is open. Pure render — no store reads, no hooks
+ * when a project is open.
+ *
+ * Sprint 13+ Q5 — picks up `dirtyPaths` from the store so the meta
+ * block can show a localized dirty count. The other store reads
+ * (documentPaths / bswmdPaths) are intentionally not used here —
+ * the ARXML and BSWMD list bodies mirror `manifest.valueArxmlPaths`
+ * / `manifest.bswmdPaths`, which are the source of truth when a
+ * project is open.
  * beyond i18n lookups inside the leaf `FileList`.
  */
 export function ProjectPanelInfo({
@@ -131,6 +138,12 @@ export function ProjectPanelInfo({
   onAddBswmd,
   onRemoveBswmd,
 }: ProjectPanelInfoProps): JSX.Element {
+  // Sprint 13+ Q5 — pull dirty count from the store. Subscribed via
+  // a selector so re-renders track dirty flips. The Set is the
+  // canonical dirty representation (per-file path); we only need the
+  // size for the meta block.
+  const dirtyCount = useArxmlStore((s) => s.dirtyPaths.size);
+
   return (
     <div className="project-panel project-panel-open" data-testid="project-panel-open">
       <header className="project-panel-header">
@@ -155,6 +168,27 @@ export function ProjectPanelInfo({
           ×
         </button>
       </header>
+      {/* Sprint 13+ Q5 — project meta block. Localized, with the
+          dirty count bound to the store so it tracks the live
+          save-state. The createdAt field is not part of the current
+          manifest shape (manifest has no timestamp) so we fall back
+          to an empty string — the path and stats lines are
+          load-bearing. */}
+      <div className="project-panel-meta" data-testid="project-meta">
+        <div className="project-panel-meta-line">
+          {t(locale, 'project.meta.path', { path: manifestPath })}
+        </div>
+        <div className="project-panel-meta-line">
+          {t(locale, 'project.meta.createdAt', { date: '—' })}
+        </div>
+        <div className="project-panel-meta-line">
+          {t(locale, 'project.meta.stats', {
+            arxmlCount: manifest.valueArxmlPaths.length,
+            bswmdCount: manifest.bswmdPaths.length,
+            dirtyCount,
+          })}
+        </div>
+      </div>
       <FileList
         title={t(locale, 'projectPanel.arxml.title')}
         paths={manifest.valueArxmlPaths}

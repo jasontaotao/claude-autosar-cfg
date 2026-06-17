@@ -11,14 +11,16 @@
 //   │  Tree                 │  ← always visible, fixed
 //   └───────────────────────┘
 //
-// Tab visibility:
-//   - Loose mode (no project): only "files" and "validate" tabs
-//   - Project mode: all three tabs
+// Tab visibility (Sprint 13+ Q5 — three tabs always visible):
+//   - Loose mode: project tab shows a localized empty placeholder;
+//     the "create / open" CTA lives inside the files tab
+//   - Project mode: project tab shows ProjectPanelInfo (project meta
+//     + ARXML list (read-only) + BSWMD list (with "+" add))
 //
 // The Tree is always rendered below the tab area, outside the tab
 // switching logic, so it remains visible regardless of active tab.
 
-import { useEffect, type JSX } from 'react';
+import type { JSX } from 'react';
 
 import { t } from '@shared/i18n';
 
@@ -37,12 +39,10 @@ type TabId = 'project' | 'files' | 'validate';
 interface TabDef {
   readonly id: TabId;
   readonly labelKey: Parameters<typeof t>[1];
-  /** Only visible when a project is open. */
-  readonly projectOnly?: boolean;
 }
 
 const TABS: readonly TabDef[] = [
-  { id: 'project', labelKey: 'leftPanel.tab.project', projectOnly: true },
+  { id: 'project', labelKey: 'leftPanel.tab.project' },
   { id: 'files', labelKey: 'leftPanel.tab.files' },
   { id: 'validate', labelKey: 'leftPanel.tab.validate' },
 ];
@@ -61,22 +61,12 @@ export function LeftPanel(): JSX.Element {
 
   const isProjectOpen = project !== null && projectPath !== null;
 
-  // Filter tabs based on mode
-  const visibleTabs = TABS.filter((tab) => !tab.projectOnly || isProjectOpen);
-
-  // Loose-mode guard: when no project is open and the persisted leftTab
-  // still says 'project' (e.g. the user just closed a project), fall
-  // back to 'files' so subsequent renders and persistence stay in sync
-  // with the visual fallback below. The effect runs after commit so
-  // we're not mutating state during render.
-  useEffect(() => {
-    if (leftTab === 'project' && !isProjectOpen) {
-      setLeftTab('files');
-    }
-  }, [leftTab, isProjectOpen, setLeftTab]);
-
-  // Ensure active tab is valid for current mode
-  const activeTab = leftTab === 'project' && !isProjectOpen ? 'files' : leftTab;
+  // Sprint 13+ Q5 — the project tab is always visible. The store-level
+  // `leftTab` value is the single source of truth for which tab is
+  // active; we no longer force a fallback to 'files' on first
+  // loose-mode render. If a persisted 'project' id is in the store,
+  // we just render the empty placeholder in that tab.
+  const activeTab = leftTab;
 
   const errorCount = lastValidatedAt !== null ? errors.length : 0;
 
@@ -84,7 +74,7 @@ export function LeftPanel(): JSX.Element {
     <div className="left-panel">
       {/* Tab bar */}
       <div className="left-panel-tabs" role="tablist">
-        {visibleTabs.map((tab) => {
+        {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const label = t(locale, tab.labelKey);
           const showBadge = tab.id === 'validate' && errorCount > 0;
@@ -109,7 +99,7 @@ export function LeftPanel(): JSX.Element {
 
       {/* Tab content */}
       <div className="left-panel-content">
-        {activeTab === 'project' && isProjectOpen && (
+        {activeTab === 'project' && (
           <div
             className="left-panel-pane"
             role="tabpanel"
@@ -117,15 +107,24 @@ export function LeftPanel(): JSX.Element {
             aria-labelledby="left-tab-project"
             data-testid="left-pane-project"
           >
-            <ProjectPanelInfo
-              locale={locale}
-              manifest={project}
-              manifestPath={projectPath}
-              onClose={closeProject}
-              onRemoveArxml={removeDocument}
-              onAddBswmd={() => void addBswmdFromDialog()}
-              onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
-            />
+            {isProjectOpen ? (
+              <ProjectPanelInfo
+                locale={locale}
+                manifest={project}
+                manifestPath={projectPath}
+                onClose={closeProject}
+                onRemoveArxml={removeDocument}
+                onAddBswmd={() => void addBswmdFromDialog()}
+                onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
+              />
+            ) : (
+              <div
+                className="left-panel-pane-empty"
+                data-testid="left-pane-project-empty"
+              >
+                {t(locale, 'leftPanel.project.empty')}
+              </div>
+            )}
           </div>
         )}
         {activeTab === 'files' && (

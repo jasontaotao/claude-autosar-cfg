@@ -43,19 +43,29 @@ describe('FileListTab', () => {
     });
   });
 
-  it('loose 模式显示 New/Open 按钮', () => {
+  // Sprint 13+ Q2-3 — New / Open Project buttons used to live in
+  // FileListTab's loose-mode header, but the same actions are also
+  // available from the AppHeader dropdown menu. The buttons were
+  // removed to avoid the duplication; the tab now only renders a
+  // short hint that points the user at the menu.
+  it('loose 模式只显示提示，不再有 New/Open 按钮（Q2-3）', () => {
     render(<FileListTab />);
-    expect(screen.getByTestId('file-list-tab-loose-new')).toBeTruthy();
-    expect(screen.getByTestId('file-list-tab-loose-open')).toBeTruthy();
+    expect(screen.getByTestId('file-list-tab-loose-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('file-list-tab-loose-new')).toBeNull();
+    expect(screen.queryByTestId('file-list-tab-loose-open')).toBeNull();
   });
 
-  it('project 模式显示 BSWMD 区域', () => {
+  // Q5: BSWMD section moved from FileListTab to ProjectPanelInfo. The
+  // "files" tab now only owns the loose-mode New/Open header and the
+  // ARXML list (incl. the [Combined] virtual entry). BSWMD management
+  // lives behind the "project" tab.
+  it('project 模式不再渲染 BSWMD 区域（Q5: 搬到 ProjectPanelInfo）', () => {
     useArxmlStore.setState({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       project: { valueArxmlPaths: [], bswmdPaths: [] } as any,
     });
     render(<FileListTab />);
-    expect(screen.getByTestId('file-list-tab-bswmd-add')).toBeTruthy();
+    expect(screen.queryByTestId('file-list-tab-bswmd-add')).toBeNull();
   });
 
   it('点击 ARXML 文件切换 active', () => {

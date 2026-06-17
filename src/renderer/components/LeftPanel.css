@@ -72,6 +72,18 @@
   padding: 0;
 }
 
+/* Sprint 13+ Q5 — empty placeholder rendered inside the "project"
+   tab when no project is open. Mirrors the loose-mode hint style
+   used by FileListTab (italic muted text, padded) so the two tabs
+   feel visually consistent. */
+.left-panel-pane-empty {
+  padding: 16px 12px;
+  color: #64748b;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
 /* ── Tree area ── */
 
 .left-panel-tree {

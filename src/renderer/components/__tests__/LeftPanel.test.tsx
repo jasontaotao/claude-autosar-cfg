@@ -46,11 +46,21 @@ describe('LeftPanel', () => {
     });
   });
 
-  it('loose 模式只渲染 files + validate 两个 tab', () => {
+  it('loose 模式仍渲染 project tab（Q5: 显示引导占位而非隐藏）', () => {
     render(<LeftPanel />);
-    expect(screen.queryByTestId('left-tab-project')).toBeNull();
+    // Q5: project tab stays visible in loose mode so the user can see
+    // the "no project open" hint and the "create one" CTA lives
+    // behind it. The tab is no longer hidden.
+    expect(screen.getByTestId('left-tab-project')).toBeTruthy();
     expect(screen.getByTestId('left-tab-files')).toBeTruthy();
     expect(screen.getByTestId('left-tab-validate')).toBeTruthy();
+  });
+
+  it('loose 模式 project tab 显示 empty 占位', () => {
+    useArxmlStore.setState({ leftTab: 'project' });
+    render(<LeftPanel />);
+    // The empty placeholder surfaces a localized "no project" hint.
+    expect(screen.getByTestId('left-pane-project-empty')).toBeTruthy();
   });
 
   it('project 模式渲染三个 tab', () => {
@@ -92,12 +102,12 @@ describe('LeftPanel', () => {
     expect(screen.getByTestId('left-tab-validate').textContent).toMatch(/1/);
   });
 
-  it('loose 模式下默认 leftTab=project 自动 fallback 到 files', () => {
+  it('loose 模式下默认 leftTab=project 保留（Q5: 不再 fallback 到 files）', () => {
     useArxmlStore.setState({ leftTab: 'project' });
     render(<LeftPanel />);
-    // The effect runs after commit; React flushes useEffect inside the
-    // act()-wrapped render, so the store reflects the fallback by the
-    // time we read it.
-    expect(useArxmlStore.getState().leftTab).toBe('files');
+    // Q5: the project tab is now always visible, so we no longer force-
+    // reset a stale 'project' id to 'files' on every loose-mode render.
+    // The tab content shows the empty placeholder instead.
+    expect(useArxmlStore.getState().leftTab).toBe('project');
   });
 });

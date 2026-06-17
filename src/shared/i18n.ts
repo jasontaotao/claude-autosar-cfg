@@ -195,6 +195,18 @@ export interface Messages {
   readonly 'editor.col.param': string; // Sprint 13+ Stage 4 M6 — table column header
   readonly 'editor.col.type': string; // Sprint 13+ Stage 4 M6 — table column header
   readonly 'editor.col.value': string; // Sprint 13+ Stage 4 M6 — table column header
+  // Sprint 13+ Q2 — EcuC-style category section headers. The right
+  // pane groups params by category (Value vs Reference) so users can
+  // tell at a glance which kind of setting they're looking at, and so
+  // reference targets (often dozens) are not interleaved with scalar
+  // values. The {count} placeholder shows a small numeric badge
+  // (e.g. "Value (3)") and `params.category.empty` is a localised
+  // message rendered when a category has no entries (so the heading
+  // still appears with a "0" badge rather than being hidden — keeps
+  // the layout stable as the user navigates between nodes).
+  readonly 'params.category.value': string; // {count}
+  readonly 'params.category.reference': string; // {count}
+  readonly 'params.category.empty': string;
 
   // --- OS dialog titles (Sprint 13+ Stage 4 M7) ---
   readonly 'dialog.pickDir.title': string;
@@ -217,6 +229,20 @@ export interface Messages {
   readonly 'leftPanel.tab.project': string;
   readonly 'leftPanel.tab.files': string;
   readonly 'leftPanel.tab.validate': string;
+  // Sprint 13+ Q5 — empty state shown inside the "project" tab when no
+  // project is open. The tab is now always visible (vs. hidden in loose
+  // mode pre-Q5) so the user sees a localized hint + the "files" tab
+  // CTA (New / Open) lives in the files tab itself.
+  readonly 'leftPanel.project.empty': string;
+
+  // Sprint 13+ Q5 — project meta block at the top of ProjectPanelInfo.
+  // Shows the manifest path, created-at timestamp (ISO-ish), and a
+  // count summary (ARXML / BSWMD / unsaved). The {dirtyCount} line is
+  // appended in ProjectPanel.tsx only when the count is non-zero so
+  // the meta block stays compact in the common no-dirty case.
+  readonly 'project.meta.path': string; // {path}
+  readonly 'project.meta.createdAt': string; // {date}
+  readonly 'project.meta.stats': string; // {arxmlCount} {bswmdCount} {dirtyCount}
 
   // --- templates (Sprint 13 #1) ---
   readonly 'template.empty.displayName': string;
@@ -375,6 +401,9 @@ export const MessagesZhCN: Messages = {
   'editor.col.param': '参数',
   'editor.col.type': '类型',
   'editor.col.value': '取值',
+  'params.category.value': '参数值 ({count})',
+  'params.category.reference': '引用 ({count})',
+  'params.category.empty': '（无）',
 
   // OS dialog titles
   'dialog.pickDir.title': '选择项目目录',
@@ -394,6 +423,10 @@ export const MessagesZhCN: Messages = {
   'leftPanel.tab.project': '项目',
   'leftPanel.tab.files': '文件',
   'leftPanel.tab.validate': '验证',
+  'leftPanel.project.empty': '未打开项目。请到"文件"标签新建或打开一个项目。',
+  'project.meta.path': '路径: {path}',
+  'project.meta.createdAt': '创建于 {date}',
+  'project.meta.stats': '{arxmlCount} 个 ARXML · {bswmdCount} 个 BSWMD · {dirtyCount} 个未保存',
 
   // templates (Sprint 13 #1)
   'template.empty.displayName': '空项目',
@@ -551,6 +584,9 @@ export const MessagesEn: Messages = {
   'editor.col.param': 'Param',
   'editor.col.type': 'Type',
   'editor.col.value': 'Value',
+  'params.category.value': 'Value ({count})',
+  'params.category.reference': 'Reference ({count})',
+  'params.category.empty': '(none)',
 
   // OS dialog titles
   'dialog.pickDir.title': 'Choose Project Directory',
@@ -570,6 +606,10 @@ export const MessagesEn: Messages = {
   'leftPanel.tab.project': 'Project',
   'leftPanel.tab.files': 'Files',
   'leftPanel.tab.validate': 'Validate',
+  'leftPanel.project.empty': 'No project open. Use the "Files" tab to create or open one.',
+  'project.meta.path': 'Path: {path}',
+  'project.meta.createdAt': 'Created {date}',
+  'project.meta.stats': '{arxmlCount} ARXML · {bswmdCount} BSWMD · {dirtyCount} unsaved',
 
   // templates (Sprint 13 #1)
   'template.empty.displayName': 'Empty Project',

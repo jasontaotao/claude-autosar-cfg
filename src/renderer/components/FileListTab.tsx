@@ -1,22 +1,29 @@
 // FileListTab — "files" tab content for LeftPanel.
 //
-// Shows loaded ARXML documents and BSWMD schemas as clickable lists.
-// In loose mode (no project), shows a compact header with New / Open
-// buttons above the file lists.
+// Shows loaded ARXML documents as clickable items, with the [Combined]
+// virtual entry at the top. In loose mode (no project), renders a
+// compact header with New / Open buttons above the file list.
 //
 // Clicking an ARXML file switches the active document via
 // `setActiveDocument` and (if currently in combined mode) flips back
 // to single mode. Clicking the [Combined] virtual entry at the top
 // of the list switches to combined mode, where the Tree renders one
 // branch per loaded file.
-// BSWMD files are read-only entries with remove buttons.
+//
+// Sprint 13+ Q5 — BSWMD section moved out of FileListTab. BSWMD
+// management (list + "+" add button) now lives inside
+// `ProjectPanelInfo` (the "project" tab). The "files" tab is now
+// ARXML-only: pick a doc to edit, switch to combined, or — in loose
+// mode — create/open a project.
 
 import type { JSX } from 'react';
 
 import { t } from '@shared/i18n';
 import { basename } from '@shared/path';
 
-import { useProjectActions } from '../hooks/useProjectActions';
+// useProjectActions used to be destructured here for the loose-mode
+// "New Project" / "Open Project" buttons. Those moved to the AppHeader
+// dropdown in Q2-3; if a future feature re-adds them, re-import.
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import './FileListTab.css';
@@ -29,10 +36,7 @@ export function FileListTab(): JSX.Element {
   const setActiveDocument = useArxmlStore((s) => s.setActiveDocument);
   const setViewMode = useArxmlStore((s) => s.setViewMode);
   const removeDocument = useArxmlStore((s) => s.removeDocument);
-  const bswmdPaths = useArxmlStore((s) => s.bswmdPaths);
-  const removeBswmd = useArxmlStore((s) => s.removeBswmd);
   const locale = useArxmlStore((s) => s.locale);
-  const { newProject, openProjectFromDialog, addBswmdFromDialog } = useProjectActions();
 
   const isProjectOpen = project !== null;
 
@@ -40,33 +44,16 @@ export function FileListTab(): JSX.Element {
   const arxmlPaths = isProjectOpen ? project.valueArxmlPaths : documentPaths;
   const isCombinedActive = viewMode === 'combined';
 
-  const handleAddBswmd = (): void => {
-    if (addBswmdFromDialog === undefined) return;
-    void addBswmdFromDialog();
-  };
-
   return (
     <div className="file-list-tab">
-      {/* Loose mode header */}
+      {/* Loose mode hint. Sprint 13+ Q2-3: the New Project / Open
+          Project buttons used to live here, but the AppHeader already
+          surfaces them through its dropdown menu. We keep only a
+          short hint pointing the user to the menu so the affordance
+          is discoverable without duplicating the action. */}
       {!isProjectOpen && (
-        <div className="file-list-tab-loose">
+        <div className="file-list-tab-loose" data-testid="file-list-tab-loose-hint">
           <span className="file-list-tab-loose-text">{t(locale, 'projectPanel.loose.text')}</span>
-          <button
-            type="button"
-            className="file-list-tab-loose-btn"
-            onClick={() => void newProject()}
-            data-testid="file-list-tab-loose-new"
-          >
-            {t(locale, 'projectPanel.loose.new')}
-          </button>
-          <button
-            type="button"
-            className="file-list-tab-loose-btn"
-            onClick={() => void openProjectFromDialog()}
-            data-testid="file-list-tab-loose-open"
-          >
-            {t(locale, 'projectPanel.loose.open')}
-          </button>
         </div>
       )}
 
@@ -156,49 +143,6 @@ export function FileListTab(): JSX.Element {
           </>
         )}
       </div>
-
-      {/* BSWMD schemas — only when a project is open */}
-      {isProjectOpen && (
-        <div className="file-list-tab-group">
-          <div className="file-list-tab-group-title">
-            {t(locale, 'projectPanel.bswmd.title')}
-            {bswmdPaths.length > 0 && (
-              <span className="file-list-tab-count">{bswmdPaths.length}</span>
-            )}
-          </div>
-          {bswmdPaths.length === 0 ? (
-            <div className="file-list-tab-empty">{t(locale, 'projectPanel.bswmd.empty')}</div>
-          ) : (
-            bswmdPaths.map((p) => (
-              <div key={p} className="file-list-tab-item" data-testid={`file-list-tab-bswmd-${p}`}>
-                <span className="file-list-tab-item-icon">📘</span>
-                <span className="file-list-tab-item-name" title={p}>
-                  {basename(p)}
-                </span>
-                <button
-                  type="button"
-                  className="file-list-tab-item-remove"
-                  aria-label={t(locale, 'projectPanel.bswmd.addAria', {
-                    name: basename(p),
-                  })}
-                  data-testid={`file-list-tab-bswmd-remove-${p}`}
-                  onClick={() => removeBswmd(p)}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
-          <button
-            type="button"
-            className="file-list-tab-add"
-            onClick={handleAddBswmd}
-            data-testid="file-list-tab-bswmd-add"
-          >
-            {t(locale, 'projectPanel.bswmd.add')}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
