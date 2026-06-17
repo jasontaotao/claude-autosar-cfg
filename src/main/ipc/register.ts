@@ -6,7 +6,7 @@ import { dialog, ipcMain } from 'electron';
 import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
-import { createEmptyManifest, loadManifest, saveManifest } from '../../core/project/manifest.js';
+import { loadManifest, saveManifest } from '../../core/project/manifest.js';
 import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
@@ -18,6 +18,8 @@ import type {
   ParseArxmlResponse,
   ParseBswmdRequest,
   ParseBswmdResponse,
+  PickDirRequest,
+  PickDirResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -30,6 +32,8 @@ import type {
 } from '../../shared/types.js';
 
 import { readBswmdHandler } from './bswmdReadHandler.js';
+import { pickDirHandler } from './pickDirHandler.js';
+import { projectNewHandler } from './projectNewHandler.js';
 
 /**
  * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
@@ -171,37 +175,23 @@ export function registerIpcHandlers(): void {
   // ============================================================
   // Sprint 11 Phase 1 — Project manifest IO
   // ============================================================
+  //
+  // Sprint 12 #3 Task 4 rewrote PROJECT_NEW to be directory-driven:
+  // the renderer (NewProjectDialog) supplies both name AND directory,
+  // and main joins them into `<sanitized_name>.autosarcfg.json` and
+  // writes directly — no more OS showSaveDialog. The handler is
+  // extracted to `projectNewHandler.ts` for parity with the
+  // `bswmdReadHandler` pattern and direct testability.
+  //
+  // New `ProjectNewResult` kinds: `overwrite-confirm` (file already
+  // exists, not overwritten), `invalid-name` (defensive reject for
+  // names containing path separators). The previous `canceled` kind
+  // is gone — there is no dialog for the user to cancel.
 
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_NEW,
     async (_evt, req: ProjectNewRequest): Promise<ProjectNewResult> => {
-      // Default filename: `<safe-name>.autosarcfg.json`. Strip path-unsafe
-      // chars so a project named "My/Project: Demo" still saves cleanly.
-      const safe = req.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 64) || 'untitled';
-      const defaultName = `${safe}.autosarcfg.json`;
-
-      const result = await dialog.showSaveDialog({
-        title: 'New Project',
-        defaultPath: defaultName,
-        filters: [
-          { name: 'AutosarCfg Project', extensions: ['json'] },
-          { name: 'All', extensions: ['*'] },
-        ],
-      });
-      if (result.canceled || result.filePath === undefined) {
-        return { kind: 'canceled' };
-      }
-      const manifestPath = result.filePath;
-      const manifest = createEmptyManifest(req.name);
-      try {
-        await fs.writeFile(manifestPath, saveManifest(manifest), 'utf8');
-        return { kind: 'created', path: manifestPath, manifest };
-      } catch (e) {
-        return {
-          kind: 'write-failed',
-          message: e instanceof Error ? e.message : String(e),
-        };
-      }
+      return projectNewHandler(req);
     },
   );
 
@@ -354,6 +344,21 @@ export function registerIpcHandlers(): void {
         return { kind: 'canceled' };
       }
       return { kind: 'ok', path: result.filePaths[0]! };
+    },
+  );
+
+  // Sprint 12 #3 — directory picker for the New Project flow. Pairs
+  // with `PROJECT_NEW` (Task 4), which expects the user-supplied
+  // directory in `req.directory`. The handler is extracted to
+  // `pickDirHandler.ts` for parity with the `bswmdReadHandler` pattern
+  // (direct testability without the full IPC round-trip) and to keep
+  // this file focused on registration. `defaultPath` is forwarded
+  // verbatim to `dialog.showOpenDialog` so the renderer can pre-fill
+  // a sensible starting location (e.g. the most-recent project dir).
+  ipcMain.handle(
+    IPC_CHANNELS.PICK_DIR,
+    async (_evt, req: PickDirRequest): Promise<PickDirResult> => {
+      return pickDirHandler(req);
     },
   );
 

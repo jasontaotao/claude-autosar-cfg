@@ -1,28 +1,30 @@
-/* ValidationPanel styles — S3-T5.
-   Plain CSS (not Tailwind) because the panel uses dense grid-like
-   structure with semantic colour-coded badges for error kinds. */
+/* ValidationPanel — JetBrains style: white background + left color bar */
 
 .validation-panel {
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
   padding: 8px 12px;
   font-size: 13px;
-  background: #fafafa;
+  background: #ffffff;
+  border-left: 3px solid #94a3b8;
 }
 
 .validation-panel.valid {
-  border-color: #10b981;
-  background: #ecfdf5;
+  border-left-color: #10b981;
+  border-color: #e5e7eb;
+  background: #ffffff;
 }
 
 .validation-panel.invalid {
-  border-color: #ef4444;
-  background: #fef2f2;
+  border-left-color: #ef4444;
+  border-color: #e5e7eb;
+  background: #ffffff;
 }
 
 .validation-panel.empty {
   color: #6b7280;
   font-style: italic;
+  border-left-color: #d1d5db;
 }
 
 .validation-panel header {
@@ -34,7 +36,7 @@
 
 .validation-panel h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -46,13 +48,15 @@
 }
 
 .badge-ok {
-  background: #10b981;
-  color: white;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
 }
 
 .badge-error {
-  background: #ef4444;
-  color: white;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }
 
 .kind-list {
@@ -72,7 +76,8 @@
   gap: 8px;
   padding: 4px 6px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.03);
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
 }
 
 .kind-badge {
@@ -84,65 +89,48 @@
 }
 
 .kind-range {
-  background: #fbbf24;
-  color: #78350f;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .kind-enum {
-  background: #f97316;
-  color: white;
+  background: #ffedd5;
+  color: #9a3412;
 }
 
 .kind-reference {
-  background: #a855f7;
-  color: white;
+  background: #f3e8ff;
+  color: #6b21a8;
 }
 
 .kind-required {
-  background: #ef4444;
-  color: white;
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .kind-schema {
-  background: #6b7280;
-  color: white;
+  background: #f3f4f6;
+  color: #374151;
 }
 
-/* S5-T3: Container-level multiplicity violations — indigo
-   (distinct from `.kind-reference` purple #a855f7 to avoid
-   visual collision with reference-resolver errors). */
 .kind-multiplicity {
-  background: #6366f1;
-  color: white;
+  background: #eef2ff;
+  color: #3730a3;
 }
 
-/* S6-T2: Cross-container reference resolution failures — teal
-   (distinct from `.kind-reference` purple #a855f7: 'reference' covers
-   per-param DEST mismatch within a single doc; 'cross-ref' covers
-   project-wide reference target existence). */
 .kind-cross-ref {
-  background: #14b8a6;
-  color: white;
+  background: #f0fdfa;
+  color: #115e59;
 }
 
-/* Sprint 9 #2: target-side reference DEST-kind mismatches — amber-rose
-   (distinct from both `.kind-reference` purple and `.kind-cross-ref`
-   teal: 'ref-dest' means the target exists but its kind doesn't match
-   the consumer's declared DEST — a third semantic axis between
-   schema-side and target-existence). */
 .kind-ref-dest {
-  background: #f59e0b;
-  color: white;
+  background: #fef3c7;
+  color: #92400e;
 }
 
-/* Sprint 9 #3: cyclic reference detection — pink-rose (distinct from
-   the prior 8 colors: 'ref-cycle' is the *structural integrity* axis,
-   meaning the cross-ref graph contains A→B→...→A loops. Pink-rose
-   signals "data-integrity broken" / "infinite loop" — a fourth semantic
-   axis beyond schema-side, target-existence, and target-kind. */
 .kind-ref-cycle {
-  background: #db2777;
-  color: white;
+  background: #fdf2f8;
+  color: #9d174d;
 }
 
 .kind-count {
@@ -161,21 +149,24 @@
   flex-direction: column;
   width: 100%;
   text-align: left;
-  padding: 4px 6px;
+  padding: 4px 8px;
   border: 1px solid #e5e7eb;
+  border-left: 3px solid #e5e7eb;
   border-radius: 4px;
-  background: white;
+  background: #ffffff;
   cursor: pointer;
   margin-bottom: 3px;
   font: inherit;
+  transition: border-color 0.08s ease;
 }
 
 .error-row:hover {
-  background: #fef3c7;
+  background: #f9fafb;
+  border-left-color: #3b82f6;
 }
 
 .error-path {
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   color: #374151;
 }

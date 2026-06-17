@@ -149,6 +149,121 @@ describe('i18n — t() helper', () => {
   });
 });
 
+describe('i18n — Sprint 12 #3 newProject / confirm / app.error keys (Phase 1 Task 8 part 1)', () => {
+  it('renders newProject.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.title')).toBe('新建项目');
+    expect(t('en', 'newProject.title')).toBe('New Project');
+  });
+
+  it('renders newProject.nameLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.nameLabel')).toBe('项目名称 *');
+    expect(t('en', 'newProject.nameLabel')).toBe('Project Name *');
+  });
+
+  it('renders newProject.nameHint (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.nameHint')).toBe('用于显示和文件名，最长 64 字符');
+    expect(t('en', 'newProject.nameHint')).toBe(
+      'For display and filename, max 64 characters',
+    );
+  });
+
+  it('renders newProject.dirLabel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.dirLabel')).toBe('保存位置 *');
+    expect(t('en', 'newProject.dirLabel')).toBe('Save Location *');
+  });
+
+  it('renders newProject.dirHint (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.dirHint')).toBe(
+      '选择项目目录（manifest 文件将保存在此目录下）',
+    );
+    expect(t('en', 'newProject.dirHint')).toBe(
+      'Select project directory (manifest file will be saved here)',
+    );
+  });
+
+  it('renders newProject.filenamePreview with {dir} and {name} placeholders (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'newProject.filenamePreview', {
+        dir: '/projects',
+        name: 'myECU',
+      }),
+    ).toBe('📁 /projects/myECU.autosarcfg.json');
+    expect(
+      t('en', 'newProject.filenamePreview', {
+        dir: '/projects',
+        name: 'myECU',
+      }),
+    ).toBe('📁 /projects/myECU.autosarcfg.json');
+  });
+
+  it('renders newProject.browse (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.browse')).toBe('浏览…');
+    expect(t('en', 'newProject.browse')).toBe('Browse...');
+  });
+
+  it('renders newProject.create (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.create')).toBe('创建');
+    expect(t('en', 'newProject.create')).toBe('Create');
+  });
+
+  it('renders newProject.cancel (zh-CN + en)', () => {
+    expect(t('zh-CN', 'newProject.cancel')).toBe('取消');
+    expect(t('en', 'newProject.cancel')).toBe('Cancel');
+  });
+
+  it('renders confirm.unsaved.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.title')).toBe('未保存的更改');
+    expect(t('en', 'confirm.unsaved.title')).toBe('Unsaved Changes');
+  });
+
+  it('renders confirm.unsaved.message with {name} placeholder and embedded \\n (zh-CN + en)', () => {
+    const zh = t('zh-CN', 'confirm.unsaved.message', { name: 'MyECU' });
+    expect(zh).toBe('当前项目 MyECU 有未保存的更改。\n新建项目将丢失这些更改。');
+    expect(zh).toContain('\n');
+    const en = t('en', 'confirm.unsaved.message', { name: 'MyECU' });
+    expect(en).toBe(
+      'Project "MyECU" has unsaved changes.\nCreating a new project will discard them.',
+    );
+    expect(en).toContain('\n');
+  });
+
+  it('renders confirm.unsaved.continue (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.continue')).toBe('继续编辑');
+    expect(t('en', 'confirm.unsaved.continue')).toBe('Keep Editing');
+  });
+
+  it('renders confirm.unsaved.discard (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.discard')).toBe('不保存，新建');
+    expect(t('en', 'confirm.unsaved.discard')).toBe('Discard & New');
+  });
+
+  it('renders confirm.unsaved.saveAndNew (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew')).toBe('保存并新建');
+    expect(t('en', 'confirm.unsaved.saveAndNew')).toBe('Save & New');
+  });
+
+  it('renders app.error.projectNameEmpty (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.error.projectNameEmpty')).toBe('项目名称不能为空');
+    expect(t('en', 'app.error.projectNameEmpty')).toBe('Project name cannot be empty');
+  });
+
+  it('renders app.error.projectNameInvalid (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.error.projectNameInvalid')).toBe(
+      '项目名称含非法字符：< > : " / \\ | ? *',
+    );
+    expect(t('en', 'app.error.projectNameInvalid')).toBe(
+      'Project name contains invalid characters: < > : " / \\ | ? *',
+    );
+  });
+
+  it('renders app.error.projectNameTooLong (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.error.projectNameTooLong')).toBe('项目名称不能超过 64 字符');
+    expect(t('en', 'app.error.projectNameTooLong')).toBe(
+      'Project name cannot exceed 64 characters',
+    );
+  });
+});
+
 describe('i18n — message bundle parity', () => {
   it('zh-CN bundle and en bundle cover the same set of keys', () => {
     // Order-insensitive: both bundles must declare every MessageKey.

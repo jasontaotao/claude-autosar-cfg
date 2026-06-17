@@ -150,21 +150,86 @@ export type OpenBswmdResult =
   | { readonly kind: 'canceled' }
   | { readonly kind: 'ok'; readonly path: string };
 
+// --- Sprint 12 #3 — `project:pickDir` IPC types ----------------------------
+
+/**
+ * Request payload for `PICK_DIR`. `defaultPath` is optional and is
+ * forwarded to `dialog.showOpenDialog` as-is — when omitted, the OS
+ * picks the default starting location.
+ */
+export interface PickDirRequest {
+  readonly defaultPath?: string;
+}
+
+/**
+ * Response payload for `PICK_DIR`. Discriminated union:
+ *   - `{ kind: 'picked', dirPath }` — user picked a directory;
+ *     `dirPath` is its absolute on-disk path. The renderer hands it
+ *     straight to the NewProjectDialog form (and eventually
+ *     `PROJECT_NEW.directory` in Phase 1 Task 4).
+ *   - `{ kind: 'canceled' }` — user dismissed the dialog (or selected
+ *     0 directories).
+ *
+ * We deliberately do NOT validate that `dirPath` is a directory here:
+ * the dialog was opened with `properties: ['openDirectory']`, so a
+ * real OS can never return a file. The renderer is the right place to
+ * double-check before committing a project to the path.
+ */
+export type PickDirResult =
+  | { readonly kind: 'picked'; readonly dirPath: string }
+  | { readonly kind: 'canceled' };
+
 // --- F1 Project manifest IO types (Sprint 11 Phase 1) ----------------------
 
 /**
- * Request payload for `PROJECT_NEW`. The user provides the project name;
- * the main process picks the save location via a dialog and writes an
- * empty manifest skeleton (empty valueArxmlPaths / bswmdPaths).
+ * Request payload for `PROJECT_NEW` (Sprint 12 #3).
+ *
+ * The renderer (`NewProjectDialog`) is responsible for collecting both
+ * the project name AND the target directory from the user, so the main
+ * process no longer pops an OS `showSaveDialog` — it joins
+ * `req.directory` with a sanitized filename (`<name>.autosarcfg.json`)
+ * and writes directly. This unifies the two-step "prompt name → pick path"
+ * flow into a single in-app dialog.
+ *
+ * - `name` — user-supplied project name. Pre-validated by
+ *   `NewProjectDialog` (rejecting empty / path-unsafe chars / >64 chars);
+ *   the main handler still applies a defensive sanitization and rejects
+ *   names containing `/` or `\` outright.
+ * - `directory` — absolute on-disk directory chosen by the user via the
+ *   renderer-driven `project:pickDir` IPC. Main will not create the
+ *   directory if it doesn't exist; it returns `write-failed` instead so
+ *   the renderer can prompt the user to pick another location.
  */
 export interface ProjectNewRequest {
   readonly name: string;
+  readonly directory: string;
 }
 
+/**
+ * Response payload for `PROJECT_NEW` (Sprint 12 #3).
+ *
+ * Discriminated union:
+ *   - `{ kind: 'created', path, manifest }` — file written successfully.
+ *   - `{ kind: 'overwrite-confirm', path }` — the target file already
+ *     exists. The main handler does NOT overwrite; the renderer must
+ *     confirm with the user (e.g. via `ConfirmDialog`) and re-invoke
+ *     with an explicit overwrite flag (Phase 2) — for now Phase 1
+ *     surfaces this as a renderer-side error so the user can pick a
+ *     different directory or rename the project.
+ *   - `{ kind: 'write-failed', message }` — write failed (directory
+ *     missing, permission denied, EISDIR for a non-directory path, etc.).
+ *   - `{ kind: 'invalid-name', message }` — defensive guard for names
+ *     containing path separators (`/` / `\`). Pre-validated by the
+ *     renderer; this is a safety net for a tampered preload bridge.
+ *
+ * The previous `'canceled'` kind is gone — there is no longer any
+ * dialog for the user to cancel.
+ */
 export type ProjectNewResult =
-  | { readonly kind: 'canceled' }
   | { readonly kind: 'created'; readonly path: string; readonly manifest: ProjectManifest }
-  | { readonly kind: 'write-failed'; readonly message: string };
+  | { readonly kind: 'overwrite-confirm'; readonly path: string }
+  | { readonly kind: 'write-failed'; readonly message: string }
+  | { readonly kind: 'invalid-name'; readonly message: string };
 
 /**
  * Request payload for `PROJECT_OPEN`. No input — main shows the open

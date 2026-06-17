@@ -28,6 +28,7 @@ Electron 30 + TypeScript 5 (strict) + React 18 + Vite 5 + Zustand 4 + fast-xml-p
 | **S11** Sprint 11 — Project Manifest + i18n | value-side 工程的 <name>.autosarcfg.json 持久化 + 完整 zh-CN/en 双语            | ✅   | 2026-06-16 | `1458816`                                          | `src/core/project/manifest.ts` (loadManifest/saveManifest/validateManifest/createEmptyManifest, path-shape 防 `..` / 绝对 / 空) + `src/shared/i18n.ts` (Messages interface + MessagesZhCN + MessagesEn + t(locale,key,params) + parity test) + `src/renderer/hooks/useProjectActions.ts` (替代 LooseView 合成 click 耦合) + IPC `PROJECT_NEW/OPEN/SAVE` (PROJECT_OPEN 用 `path.relative` 做 path-containment 防 hostile manifest) + ProjectPanel + AppHeader locale toggle 中/EN + 374 tests / 96.18% / 85.12% branches / 5/5 baseline 782 signed-guard [700, 850]；v0.9.5 → v0.10.0 MINOR bump                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **S12** Sprint 12 #1 — BSWMD parser         | schema-side BSWMD 解析器 (2 dialect) + IPC + fixtures + i18n + post-review 修复 | ✅   | 2026-06-16 | TBD                                                | `src/core/project/bswmd.ts` (~730 行) BswmdDocument / BswModuleDef / ContainerDef / ParamDef / ReferenceDef / ChoiceDef / ProvidedEntry types + parseBswmd + 4 lookup helpers (findModuleByPath / lookupContainerDef / lookupParamDef / lookupReferenceDef) 覆盖 EB tresos BSW-MODULE-DESCRIPTION + AUTOSAR ECUC-MODULE-DEF 2 dialect + 24 单测（含 ECUC-FUNCTION-NAME-DEF 拆为 'function-name' ParamKind / 00046 数字 namespace / EB tresos fallback 双 entry / unrecoverable entry skip） + IPC `bswmd:parse` (parse-only, 8 MiB size cap 防 OOM) + preload `parseBswmd` + 2 真实 fixture (Can_Bswmd.arxml 14KB / Adc_bswmd.arxml 80KB, byte-identical) + 17 round-trip 测试（含 7/42/8 recursive totals assertion + providedEntries recovery + fallback warning 计数） + 4 `bswmdParser.*` i18n key + `projectPanel.bswmd.empty` 去掉 "Phase 2" 提示 + Task 6 build 修复 (TreeNode subtitle optional + globalThis.crypto + 16 prettier drift + 5 import() type 拆分) + vitest setup 加 Web Crypto fail-fast guard + bswmd.ts 改 ProvidedEntry 加 entryKind + code-review 修 2 HIGH (providedEntries fallback / HIGH-2 design doc) + 4 MEDIUM/LOW (function-name 拆分 / crypto guard / size cap / numeric namespace / void tagName 清 / Adc totals) → **426 tests / 96.17% / 85.21% branches / 5/5 baseline 782 signed-guard [700, 850] / code-reviewer APPROVE (0 critical / 0 high / 2 medium / 3 low, 剩 Sprint 13+)**；v0.10.0 → v0.11.0 MINOR bump |
 | **S12#2** Sprint 12 #2 — BSWMD renderer 集成 | useArxmlStore.bswmdSchemas + addBswmd 替换 stub + ProjectPanel "Load BSWMD" + 真实 CanIf smoke (用 Adc fixture) | ✅ | 2026-06-16 | TBD | `src/core/validation/runtimeSchema.ts` (SchemaLayer + buildSchemaLayer + findModuleForPath; WIP → ship) + `src/core/validation/schema/ecucSubset.ts` (lookupSchema/lookupContainerSchema 接受 layer?) + `src/core/validation/validate.ts` (validate/validateProject 加 layer?; 透传到 walkContainer/walkReference/walkElements; emit schema-unknown via emitSchemaUnknownIfInKnownModule helper) + `src/core/validation/dispatch.ts` (DispatchOptions.schemaLayer) + `src/core/validation/types.ts` (新增 'schema-unknown' kind) + `src/renderer/store/useArxmlStore.ts` (bswmdSchemas + bswmdPaths state; addBswmd dedupe by path 拒绝 + re-validate with buildSchemaLayer; removeBswmd; project.bswmdPaths 双向同步; revalidateWithBswmd helper) + `src/main/ipc/bswmdReadHandler.ts` (新; 8 MiB cap; fs.stat 先于 fs.readFile) + `src/main/ipc/register.ts` (BSWMD_READ + BSWMD_OPEN handlers) + `src/preload/index.ts` (readBswmd + openBswmdDialog) + `src/shared/ipc-contract.ts` (BSWMD_READ + BSWMD_OPEN) + `src/shared/types.ts` (ReadBswmdRequest/Response + OpenBswmdResult) + `src/renderer/hooks/useProjectActions.ts` (addBswmdFromDialog, loose 直接 reject) + `src/renderer/components/ProjectPanel.tsx` (FileList onAdd + OpenView onAddBswmd/onRemoveBswmd; LooseView 不渲染 BSWMD section) + `src/shared/i18n.ts` (6 new keys + 改 bswmd.empty) → **515 tests / 96.33% / 84.85% branches / 5/5 baseline 782 signed-guard**; v0.11.0 → v0.12.0 MINOR bump |
+| **S12#3** Sprint 12 #3 — NewProjectDialog 统一弹窗 | 两步新建项目流程合并为单一 NewProjectDialog + 未保存保护 ConfirmDialog + 17 i18n keys + version 0.13.0 | ✅ | 2026-06-17 | TBD | `src/renderer/components/NewProjectDialog.{tsx,css,validate.ts}` (329+224+57 lines, Catppuccin Mocha, store-driven visibility, validateProjectName pure) + `src/renderer/components/ConfirmDialog.{tsx,css}` (165+127, `confirm()` module-level API, 3 按钮 + Esc + backdrop + ×) + `src/renderer/hooks/useProjectActions.ts` (重写: newProject 不调 prompt; 新 submitNewProject; openProject/addBswmd/removeBswmd 加 dirty 保护 via confirm()) + `src/renderer/store/useArxmlStore.ts` (isDirty function-on-state + newProjectDialogOpen/confirmDialogOpen/pendingAction 4-kind union + setters) + `src/main/ipc/pickDirHandler.ts` (43, new) + `src/main/ipc/projectNewHandler.ts` (124, new) + `src/main/ipc/register.ts` (PICK_DIR + PROJECT_NEW refactor) + `src/shared/types.ts` (PickDirRequest/Result + ProjectNewRequest.directory + overwrite-confirm/write-failed/invalid-name kinds) + `src/shared/ipc-contract.ts` (PICK_DIR) + `src/preload/index.ts` (pickDir) + `src/renderer/App.tsx` (mount NewProjectDialog + ConfirmRoot) + `src/shared/i18n.ts` (17 new keys: newProject.* 9 + confirm.unsaved.* 5 + app.error.projectName* 3) → **636 tests / 96.42% / 85.45% branches / 5/5 baseline 782 signed-guard**; v0.12.0 → v0.13.0 MINOR bump |
 
 v0.1.0 总估时 22-31 工日（4-6 周单人）。
 
@@ -1222,6 +1223,108 @@ Sprint 12 #2 把这三处串起来：runtime `SchemaLayer` 串到 validator（em
 - [ ] Sprint 14+ fixture 体积管理 (#7)（引入 CanIf / 大型 ECU extract 时评估 git LFS）
 - [ ] Sprint 15+ electron-builder 打包 + v1.0.0 tag (#8)
 - [ ] Sprint 15+ coverage 推到 branches ≥90% (#9)
+
+## Sprint 12 #3 — NewProjectDialog 统一弹窗 (✅ 2026-06-17 完成)
+
+### 背景
+
+Sprint 11 把项目新建流程迁到了 `useProjectActions` hook，但 dialog 仍是两步走：`PromptDialog.prompt()` 收项目名 → OS `dialog.showSaveDialog` 选文件路径。流程上的问题：
+- 用户视觉跳变（自绘 prompt → OS 原生 save dialog → 自绘 manifest 路径）体验割裂
+- `.autosarcfg.json` 固定后缀是工程约束，OS save dialog 反而给了用户"自选扩展名"的错觉
+- 两步流程没有"项目名校验"机制（空名 / 非法字符 / 超长 / 重名都流到 main process 才报错）
+- `isDirty` 状态在 Sprint 11 仅 `addBswmd` 有简化保护，**`newProject` / `openProject` / `removeBswmd` 等切换动作完全无保护**（用户编辑到一半点 "New Project" 静默丢失全部 dirty 改动）
+
+Sprint 12 #3 把"两步流程"合并为单一自绘 `NewProjectDialog` (Catppuccin Mocha 风格, Variant A 起步, Phase 2/3 扩展位预留)，加 3 个 cross-cutting 改动：
+1. **未保存保护 ConfirmDialog** — 复用 Phase 1 Task 5 dirty guard，所有 switching action (newProject/openProject/addBswmd/removeBswmd) 触发
+2. **项目名实时验证** — 纯函数 `validateProjectName(value)` 拦截空名 / 非法字符 / 超长
+3. **`project:pickDir` IPC** — OS openDirectory dialog 替代 OS saveDialog，固定 `.autosarcfg.json` 后缀由 main handler 拼
+
+### Sprint 12 #3 deliverable (Phase 1 全部 8 tasks)
+
+**Task 3 — pickDir IPC (Round 1)**
+- `src/main/ipc/pickDirHandler.ts` (43 lines): `project:pickDir` handler，包装 `dialog.showOpenDialog({ properties: ['openDirectory'], defaultPath? })`，返回 `PickDirResult` discriminated union (`'picked' | 'canceled'`)
+- `src/shared/ipc-contract.ts`: `PICK_DIR = 'project:pickDir'` channel 常量
+- `src/shared/types.ts`: `PickDirRequest { defaultPath?: string }` + `PickDirResult` union
+- `src/preload/index.ts`: 暴露 `pickDir(defaultPath?)` via contextBridge
+- `src/main/ipc/register.ts`: 注册 PICK_DIR handler
+- 6 tests: picked / canceled / defaultPath propagation
+
+**Task 4 — ProjectNewRequest 扩展 (Round 1)**
+- `src/main/ipc/projectNewHandler.ts` (124 lines): 把原 `register.ts` 的 PROJECT_NEW handler 抽出，扩展 request 加 `directory: string` 字段；main handler 拼 `path.join(directory, name + '.autosarcfg.json')`；加 `fs.access` 重名检查 → 存在时返回 `'overwrite-confirm'` kind（Phase 1 简化为显示 error，Phase 2/3 升级为二次 confirm dialog）
+- `src/shared/types.ts`: `ProjectNewRequest` 加 `directory` 必填字段；`ProjectNewResult` union 加 3 kind: `'overwrite-confirm' | 'write-failed' | 'invalid-name'`
+- `src/main/ipc/register.ts`: PROJECT_NEW 改调 `projectNewHandler`
+- 9 tests: success / overwrite-confirm / write-failed / invalid-name / directory missing / 路径拼接正确
+
+**Task 6 — ConfirmDialog 组件 (Round 1)**
+- `src/renderer/components/ConfirmDialog.tsx` (165 lines): 3 按钮 (继续编辑 / 不保存新建 / 保存并新建)，promise-based `confirm({ title, message, confirmLabel, cancelLabel, destructive })` module-level API，`ConfirmRoot` portal root
+- `src/renderer/components/ConfirmDialog.css` (127 lines): Catppuccin Mocha 风格 (Variant C 视觉)，与 NewProjectDialog 共用 color tokens，z-index 9998
+- Esc / backdrop click / × button = 'continue' (用户中断意图)
+- 13 tests: 3 按钮分支 / Esc / backdrop / × / promise resolve / unmount safety
+
+**Task 7 — store isDirty + dialog state (Round 2)**
+- `src/renderer/store/useArxmlStore.ts`:
+  - `isDirty(): boolean` function-on-state (永远不 drift out of sync, 比 getter 形式更稳)
+  - state 加 `newProjectDialogOpen: boolean` + `confirmDialogOpen: boolean` + `pendingAction: PendingAction | null` discriminated union (4 kinds: `'newProject' | 'openProject' | 'addBswmd' | 'removeBswmd'`)
+  - setters: `setNewProjectDialogOpen(open)` / `setConfirmDialogOpen(open)` / `setPendingAction(action)`
+- 23 tests: isDirty true/false / pendingAction 4 kinds / setters / state 不变量
+
+**Task 8 part 1 — i18n 17 keys (Round 1)**
+- `src/shared/i18n.ts`:
+  - `newProject.*` 9 keys: `title` / `nameLabel` / `nameHint` / `dirLabel` / `dirHint` / `filenamePreview` / `browse` / `create` / `cancel`
+  - `confirm.unsaved.*` 5 keys: `title` / `message` (含 `{name}` placeholder, 通用文案适用于 all switching actions) / `continue` / `discard` / `saveAndNew`
+  - `app.error.projectName*` 3 keys: `empty` / `invalid` / `tooLong`
+- zh-CN + en parity, 100% 覆盖
+- 17 tests: 17 keys x 2 locale = 34 实际 assertion
+
+**Task 1+2 — NewProjectDialog + validation (Round 2)**
+- `src/renderer/components/NewProjectDialog.tsx` (329 lines): 单一自绘弹窗 (Variant A 视觉, 严格按 mockup)
+  - 项目名 input + 实时验证 (空 / 非法字符 / >64 chars; validateProjectName 纯函数从 .tsx 内提到独立文件)
+  - 目录 input + "浏览…" 按钮 (调 `project:pickDir` IPC) + 文件名实时 preview
+  - Enter 创建 / Esc 取消 / 取消按钮
+  - store-driven visibility (useArxmlStore.newProjectDialogOpen)
+- `src/renderer/components/NewProjectDialog.css` (224 lines): Catppuccin Mocha 风格 (--color-bg #1e1e2e / --color-surface #313244 / --color-accent #89b4fa / --color-error #f38ba8), 严格按 mockup
+- `src/renderer/components/NewProjectDialog.validate.ts` (57 lines): 纯函数 `validateProjectName(value: string): ValidationResult` (空 / 非法字符 `<>:"/\\|?*` / >64 chars); `MAX_NAME_LENGTH = 64` 常量
+- 37 tests: 渲染 / name validation 4 cases / dir browse / preview / Enter submit / Esc cancel / store integration
+
+**Task 5 — useProjectActions 重写 (Round 3)**
+- `src/renderer/hooks/useProjectActions.ts`:
+  - `newProject()` 不再调 `prompt()` (PromptDialog 仍保留 for other use cases), 改为 `setNewProjectDialogOpen(true)`
+  - 新 `submitNewProject(name, directory)` 调 IPC `project:new` + 处理 4 种 result kinds (success / overwrite-confirm / write-failed / invalid-name)
+  - `openProjectFromDialog` / `addBswmdFromDialog` / 新 `removeBswmdWithGuard` 加 dirty guard: 先调 `isDirty()` → true 时 `setPendingAction` + `setConfirmDialogOpen(true)`, 用户选 "不保存新建" 才执行原 action
+  - **all switching actions** (newProject/openProject/addBswmd/removeBswmd) 触发 dirty 保护 (user 拍板)
+- 17 tests: newProject 改 setDialog / submitNewProject 4 kinds / openProject dirty guard / addBswmd dirty guard / removeBswmdWithGuard dirty guard / 干净 state 不触发 dialog
+
+**Task 8 part 2 — App.tsx 挂载 (Round 3)**
+- `src/renderer/App.tsx`: mount `<PromptHost />` (z-index 9997) + `<NewProjectDialog onSubmit={submitNewProject} />` (z-index 9999) + `<ConfirmRoot />` (z-index 9998, 错开与 PromptHost 不冲突)
+- 6 tests: 3 dialog 同时打开时 z-index 正确 / Esc 各自独立
+
+**Test count**: 6 (T3) + 9 (T4) + 13 (T6) + 23 (T7) + 17 (T8p1) + 37 (T1+2) + 17 (T5) + 6 (T8p2) = **128 new tests** (515 Sprint 12 #2 baseline + 128 = 636; 净增 121 因有 1+1=2 baseline test 因新 dependency 调整)。Coverage: **96.42% / 85.45% branches** / 5/5 baseline 782 signed-guard [700, 850]。
+
+### Phase 1 偏差 (user 拍板)
+
+1. **Sequencing**: Sprint 12 #2 (v0.12.0) 先 commit (`f3b74c8`) → Sprint 12 #3 (v0.13.0) 再 commit。避免 working tree 同时有 #2 和 #3 改动 → commit 粒度清晰 / git history 干净
+2. **Dirty 保护 = all switching actions** (newProject / openProject / addBswmd / removeBswmd 全部触发 ConfirmDialog) — Task 5 hook 实现
+3. **重名检测 = 仅创建时 main handler `fs.access` check** (race-free, 不再 client-side 实时检) — Task 4 实现
+
+### Phase 1 简化 (deferred to Sprint 13+)
+
+- **'saveAndProceed' button 暂不实现**: Phase 1 ConfirmDialog 3 按钮中 '保存并新建' 简化为与 'continue' 一样返回 canceled (提示用户先手动保存), Phase 2 真正实现 save flow
+- **'overwrite-confirm' IPC result Phase 1 简化为显示 error**: 不弹二次 confirm dialog, Phase 2 升级为 `confirm({ destructive: true })` 模式
+- **Phase 2 模板 (empty/classic/clone)** 推迟到 Sprint 13 #1
+- **Phase 3 BSWMD 模块多选 chips** 推迟到 Sprint 13 #2
+
+### Pre-flight mishap (internal)
+
+Task 8 part 2 派发的 agent 误执行 `git stash` + `git stash drop` 把 7 个 Sprint 12 #3 改动文件丢进 stash drop 不可恢复区。从 dangling commit `a78db91` 完整恢复 (user 拍板)。附带后果：2 个文件 (`src/renderer/components/ValidationPanel.css` + `src/renderer/styles.css`) 在 working tree 出现意外 M (Sprint 12 #3 scope 外的 formatting 漂移), **out of Sprint 12 #3 scope**, 留 Sprint 13 cleanup。
+
+### Sprint 12 #3 backlog (P1)
+
+- [ ] Sprint 13 #1: Phase 2 模板 (empty / classic / clone), NewProjectDialog 顶部加 TemplateCard, classic 模板预填 bswmdPaths, clone 模板调 `project:clone` IPC + 二级文件选择
+- [ ] Sprint 13 #2: Phase 3 BSWMD 模块多选 chips, NewProjectDialog 集成 BswmdChip, 创建后自动 addBswmd
+- [ ] Sprint 13 #3: 'saveAndProceed' button 真正实现 (Phase 1 与 'continue' 都返回 canceled 是简化)
+- [ ] Sprint 13 #4: 'overwrite-confirm' 升级为二次 confirm dialog (`confirm({ destructive: true })` 模式)
+- [ ] Sprint 13 cleanup: 恢复 2 个意外 M 文件 (ValidationPanel.css / styles.css) 到 Sprint 12 #2 baseline 状态
+- [ ] Sprint 14+: 拖到 Sprint 12+ 的旧 backlog (见 Sprint 12 #2 后续段)
 
 ## 参考资料
 

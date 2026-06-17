@@ -1,0 +1,127 @@
+/* ConfirmDialog — Catppuccin Mocha themed unsaved-changes confirm.
+   Sprint 12 #3 Task 6. z-index 9998 — sits BELOW NewProjectDialog (9999)
+   so a confirm prompt can appear on top of an open project dialog if
+   needed. */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.confirm-dialog {
+  background: #313244;          /* --color-surface */
+  border: 1px solid #45475a;    /* --color-border */
+  border-radius: 12px;
+  min-width: 360px;
+  max-width: 440px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #cdd6f4;               /* --color-text */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181825;          /* --color-bg (darker) */
+  padding: 14px 20px;
+  border-bottom: 1px solid #45475a;
+}
+
+.confirm-dialog-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.confirm-dialog-close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #a6adc8;               /* --color-text-dim */
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.confirm-dialog-close:hover {
+  background: #313244;
+  color: #cdd6f4;
+}
+
+.confirm-dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirm-message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cdd6f4;
+}
+
+.confirm-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #181825;
+  padding: 12px 20px;
+  border-top: 1px solid #45475a;
+}
+
+.confirm-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.confirm-btn-cancel {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.confirm-btn-cancel:hover {
+  background: #585b70;
+}
+
+.confirm-btn-danger {
+  background: #f38ba8;          /* --color-error */
+  color: #1e1e2e;               /* dark text on bright pink */
+  font-weight: 600;
+  border-color: #f38ba8;
+}
+
+.confirm-btn-danger:hover {
+  background: #eba0ac;
+  border-color: #eba0ac;
+}
+
+.confirm-btn-create {
+  background: #89b4fa;          /* --color-accent */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #89b4fa;
+}
+
+.confirm-btn-create:hover {
+  background: #74c7ec;
+  border-color: #74c7ec;
+}

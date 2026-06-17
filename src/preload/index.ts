@@ -9,6 +9,8 @@ import type {
   ParseArxmlResponse,
   ParseBswmdRequest,
   ParseBswmdResponse,
+  PickDirRequest,
+  PickDirResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -48,6 +50,12 @@ const api = {
   // then asks main to read its content (with the 8 MiB cap).
   openBswmdDialog: (): Promise<OpenBswmdResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.BSWMD_OPEN),
+  // Sprint 12 #3 — directory picker for the New Project flow. Pairs
+  // with `projectNew`: the renderer asks main to show a folder picker,
+  // gets back the chosen absolute path (or `canceled`), and supplies
+  // that as `ProjectNewRequest.directory` when creating the project.
+  pickDir: (req: PickDirRequest): Promise<PickDirResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PICK_DIR, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

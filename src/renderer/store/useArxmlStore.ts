@@ -49,11 +49,35 @@ import type { ProjectManifest } from '@shared/project';
  *     When non-null, `addDocument` / `removeDocument` also keep the
  *     manifest's `valueArxmlPaths` in sync so the next Save Project
  *     writes the current open set.
+ *   - `newProjectDialogOpen` / `confirmDialogOpen` / `pendingAction` —
+ *     Sprint 12 #3 Task 7: top-level UI state for NewProjectDialog and
+ *     ConfirmDialog. The store itself owns the visibility flags; the
+ *     hook layer (`useProjectActions`) is responsible for opening
+ *     ConfirmDialog on dirty switching actions and dispatching the
+ *     `pendingAction` once the user confirms.
  *
  * Actions mutate state immutably: `updateParam` produces a new doc
  * reference only when the value actually changes, preserving reference
  * equality for downstream `useStore(selector)` consumers.
  */
+
+/**
+ * Sprint 12 #3 Task 7 — discriminated union of the four "switching"
+ * actions that may require dirty-state confirmation. Recorded in
+ * `pendingAction` when a switching action is requested while the
+ * store has unsaved changes; consumed by the `useProjectActions` hook
+ * (Task 5) which switches on `kind` to dispatch the original action
+ * after the user picks "discard" or "save and proceed" in ConfirmDialog.
+ *
+ * The shape is intentionally narrow — only the data needed to replay
+ * the action lives here, no UI state.
+ */
+export type PendingAction =
+  | { readonly kind: 'newProject' }
+  | { readonly kind: 'openProject' }
+  | { readonly kind: 'addBswmd'; readonly path: string; readonly content: string }
+  | { readonly kind: 'removeBswmd'; readonly path: string };
+
 export interface ArxmlState {
   // Multi-doc state (canonical)
   readonly documents: readonly ArxmlDocument[];
@@ -110,6 +134,25 @@ export interface ArxmlState {
   // parallel to it so `addBswmd` / `removeBswmd` can pair them.
   readonly bswmdSchemas: readonly BswmdDocument[];
   readonly bswmdPaths: readonly string[];
+
+  // Sprint 12 #3 Task 7 — top-level dialog state. The store owns these
+  // flags (not local component state) so the `useProjectActions` hook
+  // (Task 5) can open/close dialogs from IPC error paths and so the
+  // NewProjectDialog / ConfirmDialog roots mounted in `App.tsx` (Task 8)
+  // react to the same flag the action mutator flipped.
+  //
+  // `isDirty` is exposed as a **function on the state** rather than a
+  // cached field: it computes `dirtyPaths.size > 0` lazily, so it
+  // cannot drift out of sync with the underlying Set. Callers either
+  // invoke it directly (`getState().isDirty()`) or via a selector
+  // (`useArxmlStore((s) => s.isDirty())`).
+  readonly isDirty: () => boolean;
+  readonly newProjectDialogOpen: boolean;
+  readonly confirmDialogOpen: boolean;
+  readonly pendingAction: PendingAction | null;
+  setNewProjectDialogOpen: (open: boolean) => void;
+  setConfirmDialogOpen: (open: boolean) => void;
+  setPendingAction: (action: PendingAction | null) => void;
 
   // Multi-doc actions (Sprint 10 #2)
   addDocument: (doc: ArxmlDocument, filePath: string) => void;
@@ -222,6 +265,14 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // for the project-level validation pass.
   bswmdSchemas: [],
   bswmdPaths: [],
+  // Sprint 12 #3 Task 7 — dialog state defaults. Both dialogs start
+  // closed; no pending action. The `isDirty` getter is a function on
+  // the state (zustand permits functions in state alongside data) so
+  // it always reflects the current `dirtyPaths` set.
+  isDirty: () => get().dirtyPaths.size > 0,
+  newProjectDialogOpen: false,
+  confirmDialogOpen: false,
+  pendingAction: null,
 
   addDocument: (doc, filePath) => {
     const state = get();
@@ -359,6 +410,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // paths so a fresh load doesn't see stale schema-side coverage.
       bswmdSchemas: [],
       bswmdPaths: [],
+      // Sprint 12 #3 Task 7 — dialog state. clear() also closes any
+      // open dialogs and drops the pending action so a fresh project
+      // doesn't re-open a stale ConfirmDialog.
+      newProjectDialogOpen: false,
+      confirmDialogOpen: false,
+      pendingAction: null,
       // Locale is a user preference — clear() resets docs but keeps
       // the language setting. Use setLocale() explicitly to change.
     }),
@@ -483,6 +540,16 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   },
 
   setLocale: (locale) => set({ locale }),
+
+  // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
+  // touch a single field and are intentionally side-effect-free: the
+  // store doesn't gate visibility on dirty state, the hook layer
+  // (useProjectActions.newProject etc.) does that before calling these
+  // setters. This keeps the store simple and makes the dirty-guard
+  // testable at the hook layer.
+  setNewProjectDialogOpen: (open) => set({ newProjectDialogOpen: open }),
+  setConfirmDialogOpen: (open) => set({ confirmDialogOpen: open }),
+  setPendingAction: (action) => set({ pendingAction: action }),
 }));
 
 // ---------------------------------------------------------------------------

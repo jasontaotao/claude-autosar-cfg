@@ -19,6 +19,12 @@ export const IPC_CHANNELS = {
   // absolute path (or `canceled`). Used by
   // `useProjectActions.addBswmdFromDialog` before it calls `BSWMD_READ`.
   BSWMD_OPEN: 'bswmd:open',
+  // Sprint 12 #3 — directory picker for the New Project flow. Returns
+  // either the chosen absolute directory path or `canceled`. Replaces
+  // the OS-native `showSaveDialog` path of `PROJECT_NEW` (Phase 1
+  // Task 4) so the renderer can pre-fill `<directory>/<name>.autosarcfg.json`
+  // before calling `PROJECT_NEW`.
+  PICK_DIR: 'project:pickDir',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

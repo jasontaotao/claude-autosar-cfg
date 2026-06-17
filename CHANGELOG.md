@@ -5,6 +5,59 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] - 2026-06-17
+
+### Added
+
+- NewProjectDialog 统一弹窗 (Sprint 12 #3):
+  - 替换两步流程 (PromptDialog + OS saveDialog) 为单一自绘 dialog
+  - Catppuccin Mocha 风格 (Variant A 视觉, 严格按 mockup)
+  - 项目名 input + 实时验证 (空 / 非法字符 / >64 chars; validateProjectName 纯函数)
+  - 目录 input + "浏览…" 按钮 (调 `project:pickDir` IPC) + 文件名实时 preview
+  - Enter 创建 / Esc 取消 / 取消按钮
+  - store-driven visibility (useArxmlStore.newProjectDialogOpen)
+- ConfirmDialog 未保存保护组件 (Sprint 12 #3):
+  - 3 按钮: 继续编辑 / 不保存新建 / 保存并新建
+  - promise-based `confirm({ title, message, ... })` module-level API
+  - Esc / backdrop click / × button = 'continue' (用户中断意图)
+  - 复用 Phase 1 Task 5 dirty guard
+- IPC channels (Sprint 12 #3):
+  - `project:pickDir` (dialog.showOpenDialog openDirectory, defaultPath 可选)
+  - `project:new` 扩展 (directory 字段, fs.access overwrite check, 'overwrite-confirm'/'write-failed'/'invalid-name' kinds)
+- Store (Sprint 12 #3):
+  - `isDirty(): boolean` function-on-state (永远不 drift out of sync)
+  - `newProjectDialogOpen` / `confirmDialogOpen` / `pendingAction` discriminated union (4 kinds: newProject/openProject/addBswmd/removeBswmd) + setters
+- useProjectActions 重写 (Sprint 12 #3):
+  - `newProject()` 不再调 `prompt()` (PromptDialog 仍保留 for other use cases), 改为打开 NewProjectDialog
+  - 新 `submitNewProject(name, dir)` 调 IPC + 处理所有 result kinds
+  - `openProjectFromDialog` / `addBswmdFromDialog` / 新 `removeBswmdWithGuard` 加 dirty guard (ConfirmDialog)
+  - **all switching actions** (newProject/openProject/addBswmd/removeBswmd) 触发 dirty 保护 (user 拍板)
+
+### Changed
+
+- `App.tsx` mount `<NewProjectDialog onSubmit={submitNewProject} />` + `<ConfirmRoot />` (z-index 9999/9998, 错开与 PromptHost 9997)
+- `useProjectActions` 全面 dirty-protected (vs Sprint 12 #2 仅有 `addBswmd` 简化版)
+- 重名检测 = 仅创建时 main handler `fs.access` check (race-free, 不再 client-side 实时检)
+
+### i18n
+
+- 17 new keys: `newProject.title` / `nameLabel` / `nameHint` / `dirLabel` / `dirHint` / `filenamePreview` / `browse` / `create` / `cancel` (9), `confirm.unsaved.title` / `message` / `continue` / `discard` / `saveAndNew` (5), `app.error.projectNameEmpty` / `projectNameInvalid` / `projectNameTooLong` (3)
+- `confirm.unsaved.message` 用 `{name}` placeholder, 通用文案适用于 all switching actions (newProject/openProject/addBswmd/removeBswmd)
+
+### Phase 1 Simplifications (deferred to Sprint 13)
+
+- 'saveAndProceed' button in ConfirmDialog 暂不实现 (Phase 1 与 'continue' 都返回 canceled, 提示用户先手动保存)
+- 'overwrite-confirm' IPC result Phase 1 简化为显示 error (不弹二次 confirm dialog)
+- Phase 2 模板 (empty/classic/clone) 推迟到 Sprint 13 #1
+- Phase 3 BSWMD 模块多选 chips 推迟到 Sprint 13 #2
+
+### Tests
+
+- 121 new tests (515 Sprint 12 #2 baseline + 121 = 636)
+- Coverage: 96.42% lines / 85.45% branches (守住 80% floor)
+- 5/5 baseline fixtures 0 violation (schemaLayer 行为不变)
+- code-reviewer: APPROVE (0 critical / 0 high) (per Part A agent report)
+
 ## [0.12.0] - 2026-06-16 (Sprint 12 #2 - BSWMD renderer 集成)
 
 ### Added

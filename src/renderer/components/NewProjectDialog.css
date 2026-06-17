@@ -1,0 +1,224 @@
+/* NewProjectDialog — Catppuccin Mocha themed modal for project
+   creation. Sprint 12 #3 Phase 1 Task 1.
+
+   Sits above ConfirmDialog (z-index 9998) — NewProjectDialog uses
+   9999. If both are ever open simultaneously (e.g. an overwrite-
+   confirm pops while the new-project dialog is still mounted), the
+   new-project dialog stays accessible. */
+
+.npd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.npd-dialog {
+  background: #313244;          /* --color-surface */
+  border: 1px solid #45475a;    /* --color-border */
+  border-radius: 12px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  color: #cdd6f4;               /* --color-text */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.npd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #181825;          /* --color-bg (darker) */
+  padding: 16px 20px;
+  border-bottom: 1px solid #45475a;
+}
+
+.npd-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.npd-close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #a6adc8;               /* --color-text-dim */
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.npd-close:hover {
+  background: #45475a;
+  color: #cdd6f4;
+}
+
+.npd-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.npd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.npd-field-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.npd-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a6adc8;
+}
+
+.npd-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  color: #cdd6f4;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 120ms ease;
+  font-family: inherit;
+}
+
+.npd-input:focus {
+  border-color: #89b4fa;
+}
+
+.npd-input--error,
+.npd-input.npd-input--error {
+  border-color: #f38ba8;
+}
+
+.npd-input--error:focus,
+.npd-input.npd-input--error:focus {
+  border-color: #f38ba8;
+}
+
+.npd-field-hint {
+  font-size: 12px;
+  color: #6c7086;
+}
+
+.npd-field-error {
+  font-size: 12px;
+  color: #f38ba8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.npd-filename-preview {
+  font-size: 12px;
+  color: #a6adc8;
+  background: #1e1e2e;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  word-break: break-all;
+}
+
+.npd-browse {
+  padding: 8px 14px;
+  background: #45475a;
+  border: 1px solid #585b70;
+  border-radius: 6px;
+  color: #cdd6f4;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+
+.npd-browse:hover {
+  background: #585b70;
+}
+
+.npd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #181825;
+  border-top: 1px solid #45475a;
+}
+
+.npd-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.npd-btn-cancel {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.npd-btn-cancel:hover {
+  background: #585b70;
+}
+
+.npd-btn-create {
+  background: #89b4fa;          /* --color-accent */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #89b4fa;
+}
+
+.npd-btn-create:hover:not(:disabled) {
+  background: #74c7ec;
+  border-color: #74c7ec;
+}
+
+.npd-btn-create:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.npd-kbd-hint {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px;
+  font-size: 11px;
+  color: #585b70;
+  background: #181825;
+  border-top: 1px solid #45475a;
+}
+
+.npd-kbd-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 3px;
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: 11px;
+  color: #6c7086;
+}

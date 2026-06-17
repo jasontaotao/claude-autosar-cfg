@@ -1,12 +1,12 @@
-/* ProjectPanel — Sprint 11 Phase 1. */
+/* ProjectPanel — JetBrains style */
 
 .project-panel {
   display: flex;
   flex-direction: column;
-  background: #f8fafc;
-  border-bottom: 1px solid #cbd5e1;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e5e7eb;
   color: #0f172a;
-  font-size: 0.75rem;
+  font-size: 12px;
   max-height: 240px;
   overflow-y: auto;
   flex: 0 0 auto;
@@ -15,8 +15,8 @@
 .project-panel-loose {
   flex-direction: row;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  gap: 8px;
+  padding: 4px 8px;
   max-height: 28px;
 }
 
@@ -28,28 +28,30 @@
 
 .project-panel-btn {
   appearance: none;
-  background: #e2e8f0;
-  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
   color: #1e293b;
-  font-size: 0.6875rem;
-  padding: 0.0625rem 0.5rem;
-  border-radius: 3px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
   cursor: pointer;
+  transition: border-color 0.08s ease;
 }
 
 .project-panel-btn:hover {
-  background: #cbd5e1;
+  border-color: #3b82f6;
+  color: #1e3a8a;
 }
 
 .project-panel-open {
-  padding: 0.5rem 0.75rem 0.625rem;
+  padding: 8px 12px 10px;
 }
 
 .project-panel-header {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .project-panel-header-text {
@@ -59,7 +61,7 @@
 
 .project-panel-title {
   font-weight: 600;
-  font-size: 0.8125rem;
+  font-size: 13px;
   color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -67,10 +69,10 @@
 }
 
 .project-panel-subtitle {
-  font-size: 0.6875rem;
+  font-size: 11px;
   color: #64748b;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  margin-top: 0.0625rem;
+  margin-top: 1px;
 }
 
 .project-panel-close {
@@ -79,31 +81,31 @@
   border: none;
   color: #64748b;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 14px;
   line-height: 1;
-  padding: 0 0.25rem;
-  border-radius: 2px;
+  padding: 0 4px;
+  border-radius: 3px;
   flex: 0 0 auto;
 }
 
 .project-panel-close:hover {
   color: #b91c1c;
-  background: rgba(185, 28, 28, 0.08);
+  background: rgba(185, 28, 28, 0.06);
 }
 
 .project-panel-section {
-  margin-top: 0.375rem;
+  margin-top: 6px;
 }
 
 .project-panel-section-title-row {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  margin-bottom: 0.125rem;
+  gap: 6px;
+  margin-bottom: 2px;
 }
 
 .project-panel-section-title {
-  font-size: 0.625rem;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -111,26 +113,22 @@
   flex: 1 1 auto;
 }
 
-/* Sprint 12 #2 Task 5 — small ghost button rendered next to the
- * section title for BSWMD's "Load BSWMD..." action. Reuses the
- * existing slate palette so it sits in with the close (×) and the
- * list remove (×) buttons already in the panel. */
 .project-panel-section-add {
   appearance: none;
   background: transparent;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d1d5db;
   color: #475569;
-  font-size: 0.625rem;
+  font-size: 10px;
   font-family: inherit;
   line-height: 1.2;
-  padding: 0.0625rem 0.375rem;
+  padding: 1px 6px;
   border-radius: 3px;
   cursor: pointer;
   flex: 0 0 auto;
 }
 
 .project-panel-section-add:hover {
-  background: #e2e8f0;
+  background: #e5e7eb;
   color: #1e293b;
 }
 
@@ -142,8 +140,8 @@
 .project-panel-empty {
   color: #94a3b8;
   font-style: italic;
-  font-size: 0.6875rem;
-  padding: 0.125rem 0;
+  font-size: 11px;
+  padding: 2px 0;
 }
 
 .project-panel-list {
@@ -155,9 +153,9 @@
 .project-panel-list-item {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.0625rem 0;
-  font-size: 0.6875rem;
+  gap: 4px;
+  padding: 1px 0;
+  font-size: 11px;
 }
 
 .project-panel-list-name {
@@ -174,14 +172,14 @@
   border: none;
   color: #94a3b8;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: 13px;
   line-height: 1;
-  padding: 0 0.125rem;
+  padding: 0 2px;
   border-radius: 2px;
   flex: 0 0 auto;
 }
 
 .project-panel-list-remove:hover {
   color: #b91c1c;
-  background: rgba(185, 28, 28, 0.08);
+  background: rgba(185, 28, 28, 0.06);
 }

@@ -72,6 +72,9 @@ export interface Messages {
   readonly 'app.error.parseBswmdFailed': string; // {message}
   readonly 'app.error.duplicateBswmd': string; // {path}
   readonly 'app.error.needProject': string;
+  readonly 'app.error.projectNameEmpty': string;
+  readonly 'app.error.projectNameInvalid': string;
+  readonly 'app.error.projectNameTooLong': string;
   readonly 'app.locale.toggleAria': string; // "Switch language" / "切换语言"
 
   // --- project panel ---
@@ -87,6 +90,24 @@ export interface Messages {
   readonly 'projectPanel.bswmd.addAria': string; // {name}
   readonly 'projectPanel.closeAria': string; // {name}
   readonly 'projectPanel.removeArxmlAria': string; // {name}
+
+  // --- new project dialog (Sprint 12 #3 Phase 1) ---
+  readonly 'newProject.title': string;
+  readonly 'newProject.nameLabel': string;
+  readonly 'newProject.nameHint': string;
+  readonly 'newProject.dirLabel': string;
+  readonly 'newProject.dirHint': string;
+  readonly 'newProject.filenamePreview': string; // {dir} {name}
+  readonly 'newProject.browse': string;
+  readonly 'newProject.create': string;
+  readonly 'newProject.cancel': string;
+
+  // --- confirm dialog (Sprint 12 #3 Phase 1) ---
+  readonly 'confirm.unsaved.title': string;
+  readonly 'confirm.unsaved.message': string; // {name}
+  readonly 'confirm.unsaved.continue': string;
+  readonly 'confirm.unsaved.discard': string;
+  readonly 'confirm.unsaved.saveAndNew': string;
 
   // --- bswmd parser errors (BswmdError → human message) ---
   readonly 'bswmdParser.xmlMalformed': string; // {message}
@@ -157,6 +178,9 @@ export const MessagesZhCN: Messages = {
   'app.error.parseBswmdFailed': 'BSWMD 解析失败: {message}',
   'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
   'app.error.needProject': '需要先打开或创建项目',
+  'app.error.projectNameEmpty': '项目名称不能为空',
+  'app.error.projectNameInvalid': '项目名称含非法字符：< > : " / \\ | ? *',
+  'app.error.projectNameTooLong': '项目名称不能超过 64 字符',
   'app.locale.toggleAria': '切换语言',
 
   // project panel
@@ -172,6 +196,24 @@ export const MessagesZhCN: Messages = {
   'projectPanel.bswmd.addAria': '加载 BSWMD 文件 {name}',
   'projectPanel.closeAria': '关闭项目 {name}',
   'projectPanel.removeArxmlAria': '从项目中移除 {name}',
+
+  // new project dialog
+  'newProject.title': '新建项目',
+  'newProject.nameLabel': '项目名称 *',
+  'newProject.nameHint': '用于显示和文件名，最长 64 字符',
+  'newProject.dirLabel': '保存位置 *',
+  'newProject.dirHint': '选择项目目录（manifest 文件将保存在此目录下）',
+  'newProject.filenamePreview': '📁 {dir}/{name}.autosarcfg.json',
+  'newProject.browse': '浏览…',
+  'newProject.create': '创建',
+  'newProject.cancel': '取消',
+
+  // confirm dialog
+  'confirm.unsaved.title': '未保存的更改',
+  'confirm.unsaved.message': '当前项目 {name} 有未保存的更改。\n新建项目将丢失这些更改。',
+  'confirm.unsaved.continue': '继续编辑',
+  'confirm.unsaved.discard': '不保存，新建',
+  'confirm.unsaved.saveAndNew': '保存并新建',
 
   // bswmd parser
   'bswmdParser.xmlMalformed': 'BSWMD XML 格式错误: {message}',
@@ -240,6 +282,9 @@ export const MessagesEn: Messages = {
   'app.error.parseBswmdFailed': 'BSWMD parse failed: {message}',
   'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
   'app.error.needProject': 'Please open or create a project first',
+  'app.error.projectNameEmpty': 'Project name cannot be empty',
+  'app.error.projectNameInvalid': 'Project name contains invalid characters: < > : " / \\ | ? *',
+  'app.error.projectNameTooLong': 'Project name cannot exceed 64 characters',
   'app.locale.toggleAria': 'Switch language',
 
   // project panel
@@ -256,6 +301,24 @@ export const MessagesEn: Messages = {
   'projectPanel.bswmd.addAria': 'Load BSWMD file {name}',
   'projectPanel.closeAria': 'Close project {name}',
   'projectPanel.removeArxmlAria': 'Remove {name} from project',
+
+  // new project dialog
+  'newProject.title': 'New Project',
+  'newProject.nameLabel': 'Project Name *',
+  'newProject.nameHint': 'For display and filename, max 64 characters',
+  'newProject.dirLabel': 'Save Location *',
+  'newProject.dirHint': 'Select project directory (manifest file will be saved here)',
+  'newProject.filenamePreview': '📁 {dir}/{name}.autosarcfg.json',
+  'newProject.browse': 'Browse...',
+  'newProject.create': 'Create',
+  'newProject.cancel': 'Cancel',
+
+  // confirm dialog
+  'confirm.unsaved.title': 'Unsaved Changes',
+  'confirm.unsaved.message': 'Project "{name}" has unsaved changes.\nCreating a new project will discard them.',
+  'confirm.unsaved.continue': 'Keep Editing',
+  'confirm.unsaved.discard': 'Discard & New',
+  'confirm.unsaved.saveAndNew': 'Save & New',
 
   // bswmd parser
   'bswmdParser.xmlMalformed': 'BSWMD XML malformed: {message}',
