@@ -96,12 +96,40 @@ export function serializeArxml(
 // Internal helpers (private)
 // -----------------------------------------------------------------------------
 
+/**
+ * Canonical schemaLocation descriptor for each supported AUTOSAR version.
+ * The 5-digit form (`00046`, `00048`, `00049`, `00050`) is the AUTOSAR
+ * standard for R4.4+; vendor tools (EB tresos) emit it alongside the
+ * legacy `r4.0` namespace. The dashed form (`AUTOSAR_4-2-2.xsd`) is the
+ * pre-R4.4 convention used by 4.2 / 4.4 / 4.6 / 4.7 / 5.0.
+ *
+ * Pairing:
+ *   ArxmlVersion → { xmlns, xsd }
+ *
+ * The xmlns follows the file's declared namespace; for 5-digit literals
+ * we mirror EB tresos's `r4.0` namespace convention.
+ */
+const SCHEMA_LOCATION: Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }> = {
+  '4.2': { xmlns: 'http://autosar.org/schema/r4.2', xsd: 'AUTOSAR_4-2-2.xsd' },
+  '4.4': { xmlns: 'http://autosar.org/schema/r4.4', xsd: 'AUTOSAR_4-4-0.xsd' },
+  '4.6': { xmlns: 'http://autosar.org/schema/r4.6', xsd: 'AUTOSAR_4-6-0.xsd' },
+  '4.7': { xmlns: 'http://autosar.org/schema/r4.7', xsd: 'AUTOSAR_4-7-0.xsd' },
+  '5.0': { xmlns: 'http://autosar.org/schema/r5.0', xsd: 'AUTOSAR_5-0-0.xsd' },
+  '00005': { xmlns: 'http://autosar.org/schema/r5.0', xsd: 'AUTOSAR_00005.xsd' },
+  '00006': { xmlns: 'http://autosar.org/schema/r6.0', xsd: 'AUTOSAR_00006.xsd' },
+  '00046': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00046.xsd' },
+  '00048': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00048.xsd' },
+  '00049': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00049.xsd' },
+  '00050': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00050.xsd' },
+};
+
 function buildXmlns(v: ArxmlVersion): string {
-  return `http://autosar.org/schema/r${v}`;
+  return SCHEMA_LOCATION[v].xmlns;
 }
 
 function buildSchemaLocation(v: ArxmlVersion): string {
-  return `http://autosar.org/schema/r${v} AUTOSAR_${v.replace('.', '-')}.xsd`;
+  const loc = SCHEMA_LOCATION[v];
+  return `${loc.xmlns} ${loc.xsd}`;
 }
 
 function renderPackage(pkg: ArxmlPackage): Record<string, unknown> {

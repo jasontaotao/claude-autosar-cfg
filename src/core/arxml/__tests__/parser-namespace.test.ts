@@ -1,6 +1,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { parseArxml } from '../parser.js';
+import { serializeArxml } from '../serializer.js';
+import type { ArxmlDocument } from '../types.js';
 
 describe('XSD_PATTERN namespace detection', () => {
   it('matches the legacy dashed form AUTOSAR_4-2-2.xsd', async () => {
@@ -160,5 +162,57 @@ describe('BSWMD-as-value strict reject', () => {
   it('parses value-only files successfully (regression)', () => {
     const r = parseArxml(VALUE_ONLY);
     expect(r.ok).toBe(true);
+  });
+});
+
+describe('serializer version fidelity', () => {
+  const mkDoc = (v: '4.2' | '4.6' | '00046' | '00049'): ArxmlDocument => ({
+    path: '/test.arxml',
+    version: v,
+    packages: [
+      {
+        shortName: 'P',
+        path: '/P',
+        elements: [
+          {
+            kind: 'module',
+            tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+            shortName: 'M',
+            params: {},
+            children: [],
+            references: [],
+          },
+        ],
+      },
+    ],
+  });
+
+  it.each(['4.2', '4.6', '00046', '00049'] as const)(
+    'serializes %s with the matching xsd file name',
+    (v) => {
+      const r = serializeArxml(mkDoc(v));
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      if (v === '4.2') {
+        expect(r.value).toMatch(/AUTOSAR_4-2-2\.xsd/);
+      } else if (v === '4.6') {
+        expect(r.value).toMatch(/AUTOSAR_4-6-0\.xsd/);
+      } else if (v === '00046') {
+        expect(r.value).toMatch(/AUTOSAR_00046\.xsd/);
+      } else if (v === '00049') {
+        expect(r.value).toMatch(/AUTOSAR_00049\.xsd/);
+      }
+    },
+  );
+
+  it('round-trips a 5-digit-versioned document', () => {
+    const doc = mkDoc('00049');
+    const ser = serializeArxml(doc);
+    expect(ser.ok).toBe(true);
+    if (!ser.ok) return;
+    const re = parseArxml(ser.value);
+    expect(re.ok).toBe(true);
+    if (!re.ok) return;
+    expect(re.value.version).toBe('00049');
   });
 });
