@@ -23,16 +23,13 @@ import type { JSX } from 'react';
 
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
+import { basename } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
 import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import './ProjectPanel.css';
-
-function basename(p: string): string {
-  return p.split(/[\\/]/).pop() ?? p;
-}
 
 interface FileListProps {
   readonly title: string;

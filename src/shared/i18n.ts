@@ -136,6 +136,11 @@ export interface Messages {
   readonly 'tree.empty': string;
   readonly 'tree.emptyHint': string;
   readonly 'tree.elementAria': string; // {kind} {name}
+
+  // --- left panel tabs (Sprint 13 #2 Task 1: tab-based left panel) ---
+  readonly 'leftPanel.tab.project': string;
+  readonly 'leftPanel.tab.files': string;
+  readonly 'leftPanel.tab.validate': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -242,6 +247,11 @@ export const MessagesZhCN: Messages = {
   'tree.empty': '（空）',
   'tree.emptyHint': '未加载文件。点击"打开"按钮开始。',
   'tree.elementAria': '{kind} {name}',
+
+  // left panel tabs
+  'leftPanel.tab.project': '项目',
+  'leftPanel.tab.files': '文件',
+  'leftPanel.tab.validate': '验证',
 };
 
 // ---------------------------------------------------------------------------
@@ -347,6 +357,11 @@ export const MessagesEn: Messages = {
   'tree.empty': '(empty)',
   'tree.emptyHint': 'No file loaded. Click "Open ARXML" to start.',
   'tree.elementAria': '{kind} {name}',
+
+  // left panel tabs
+  'leftPanel.tab.project': 'Project',
+  'leftPanel.tab.files': 'Files',
+  'leftPanel.tab.validate': 'Validate',
 };
 
 // ---------------------------------------------------------------------------

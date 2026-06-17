@@ -31,6 +31,7 @@
 import { useEffect, useState } from 'react';
 
 import { t } from '../../shared/i18n.js';
+import { basename } from '../../shared/path.js';
 import type { ParseArxmlResponse, ParseError } from '../../shared/types.js';
 import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
@@ -53,10 +54,6 @@ function formatParseError(e: ParseError): string {
     case 'invalid-structure':
       return `Invalid structure at ${e.path}: ${e.message}`;
   }
-}
-
-function basename(p: string): string {
-  return p.split(/[\\/]/).pop() ?? p;
 }
 
 export function AppHeader(): JSX.Element {
