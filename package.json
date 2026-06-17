@@ -24,7 +24,8 @@
     "test:e2e": "playwright test",
     "verify": "node scripts/verify.mjs",
     "package": "pnpm build && electron-builder --win",
-    "package:dir": "pnpm build && electron-builder --win --dir"
+    "package:dir": "pnpm build && electron-builder --win --dir",
+    "smoke:packaged": "node scripts/smoke-packaged.mjs"
   },
   "dependencies": {
     "fast-xml-parser": "^4.4.1",
