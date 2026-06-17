@@ -3,7 +3,6 @@ import * as path from 'node:path';
 
 import { dialog, ipcMain } from 'electron';
 
-import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
@@ -32,6 +31,7 @@ import type {
 } from '../../shared/types.js';
 
 import { readBswmdHandler } from './bswmdReadHandler.js';
+import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
@@ -91,10 +91,17 @@ export function registerIpcHandlers(): void {
     },
   );
 
+  // Sprint 13 Stage 5.D — `arxml:parse` size cap. Mirrors the
+  // BSWMD cap pattern (`bswmd:parse` / `bswmd:read` at 32 MiB).
+  // The handler is extracted to `parseArxmlHandler.ts` for parity
+  // with the `bswmdReadHandler` pattern (direct testability without
+  // the full IPC round-trip) and to keep this file focused on
+  // registration. Cap rationale: see `ARXML_MAX_BYTES` in
+  // `parseArxmlHandler.ts`.
   ipcMain.handle(
     IPC_CHANNELS.PARSE_ARXML,
     async (_evt, req: ParseArxmlRequest): Promise<ParseArxmlResponse> => {
-      return parseArxml(req.content);
+      return parseArxmlHandler(req);
     },
   );
 

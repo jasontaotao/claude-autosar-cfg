@@ -171,6 +171,14 @@ export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {
     removeNSPrefix: false,
     processEntities: true,
     trimValues: false,
+    // Sprint 13 Stage 5.D — bump the default `maxNestedTags` (100) so
+    // our 64-level defensive depth check can fire first on pathological
+    // input. The fast-xml-parser default trips at 100 nested tags; a
+    // 65-level ECUC-MODULE-DEF produces 65*2-1 = 129 nested tags
+    // (container + SUB-CONTAINERS per level). 200 leaves comfortable
+    // headroom for the legitimate 64-level cap (128 tags) plus the
+    // outer AUTOSAR/AR-PACKAGE/ECUC-MODULE-DEF wrapping.
+    maxNestedTags: 200,
   });
 
   let raw: unknown;
@@ -224,17 +232,85 @@ export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {
 
   const warnings: string[] = [];
   const modules: BswModuleDef[] = [];
+  // Sprint 13 Stage 5.D — depth guard for the recursive container builder.
+  // Created here, threaded through walkPackagesForModules → walkElementsForModules
+  // → buildEcucModule → buildContainerList → buildContainer. If a pathological
+  // BSWMD nests deeper than `MAX_CONTAINER_DEPTH`, the builder sets
+  // `guard.error` and the walk unwinds. The error is surfaced as a fatal
+  // `invalid-structure` BswmdError below.
+  const guard: DepthGuard = { depth: 0, error: null };
   const moduleError = walkPackagesForModules(
     arPackages as Record<string, unknown>,
     '',
     modules,
     warnings,
+    guard,
   );
   if (moduleError !== null) {
     return { ok: false, error: moduleError };
   }
+  if (guard.error !== null) {
+    return { ok: false, error: guard.error };
+  }
+
+  // Sprint 13 Stage 5.D — default-value cross-check against enumerationLiterals.
+  //
+  // AUTOSAR allows a `<DEFAULT-VALUE>` outside its declared `<LITERALS>` set
+  // (a vendor tool that does this produces a BSWMD the renderer can load but
+  // the user can't reliably set the default to). We surface this as a
+  // non-fatal warning — same surface as the `unknown container kind` warning
+  // above — so the project panel can show a degraded-state banner without
+  // rejecting the file.
+  //
+  // Runs AFTER `walkPackagesForModules` so all containers + sub-containers +
+  // choice branches are populated.
+  validateModuleDefaults(modules, warnings);
 
   return { ok: true, value: { version, modules, warnings } };
+}
+
+/**
+ * Walk every module and emit a warning when an enumeration param's
+ * `<DEFAULT-VALUE>` is not in its declared `<LITERALS>` set.
+ *
+ * Sprint 13 Stage 5.D — non-fatal cross-check. The vendor-tool failure
+ * mode this guards against is: BSWMD declares LITERALS=[A,B] but
+ * DEFAULT-VALUE=C. The renderer's default-value editor can't
+ * roundtrip this — the value "C" would not be valid for the dropdown.
+ * A warning lets the project panel surface a degraded-state banner.
+ *
+ * Scope: only enumeration params (other kinds are bounded by MIN/MAX
+ * and validated in the schema layer, not by literal set). Walks
+ * `subContainers` and `choices` recursively — same traversal pattern
+ * as `findContainerInTree`.
+ */
+function validateModuleDefaults(modules: readonly BswModuleDef[], warnings: string[]): void {
+  for (const mod of modules) {
+    for (const c of mod.containers) {
+      walkContainerDefaults(c, warnings);
+    }
+  }
+}
+
+function walkContainerDefaults(container: ContainerDef, warnings: string[]): void {
+  for (const p of container.parameters) {
+    // Only enumeration params carry a literal set. Other kinds are out
+    // of scope: integer/float are bounded by MIN/MAX, string/function-name
+    // by length constraints, boolean is two-valued.
+    if (p.kind !== 'enumeration') continue;
+    if (typeof p.defaultValue !== 'string') continue;
+    if (p.enumerationLiterals.length === 0) continue;
+    if (p.enumerationLiterals.includes(p.defaultValue)) continue;
+    warnings.push(
+      `DEFAULT-VALUE '${p.defaultValue}' for enumeration param '${p.path}' is not in declared literals [${p.enumerationLiterals.join(', ')}]`,
+    );
+  }
+  for (const sub of container.subContainers) {
+    walkContainerDefaults(sub, warnings);
+  }
+  for (const choice of container.choices) {
+    walkContainerDefaults(choice, warnings);
+  }
 }
 
 export function findModuleByPath(doc: BswmdDocument, modulePath: string): BswModuleDef | null {
@@ -353,8 +429,11 @@ function walkPackagesForModules(
   parentPath: string,
   out: BswModuleDef[],
   warnings: string[],
+  guard?: DepthGuard,
 ): BswmdError | null {
   for (const pkg of asArray<Record<string, unknown>>(node['AR-PACKAGE'])) {
+    // Stop walking more packages once the depth guard has tripped.
+    if (guard?.error !== null && guard?.error !== undefined) return guard.error;
     const shortName = readShortName(pkg);
     if (shortName === undefined) continue;
     const path = `${parentPath}/${shortName}`;
@@ -365,12 +444,19 @@ function walkPackagesForModules(
         path,
         out,
         warnings,
+        guard,
       );
       if (err !== null) return err;
     }
     const nestedRaw = pkg['AR-PACKAGES'];
     if (typeof nestedRaw === 'object' && nestedRaw !== null) {
-      const err = walkPackagesForModules(nestedRaw as Record<string, unknown>, path, out, warnings);
+      const err = walkPackagesForModules(
+        nestedRaw as Record<string, unknown>,
+        path,
+        out,
+        warnings,
+        guard,
+      );
       if (err !== null) return err;
     }
   }
@@ -382,7 +468,13 @@ function walkElementsForModules(
   parentPath: string,
   out: BswModuleDef[],
   warnings: string[],
+  guard?: DepthGuard,
 ): BswmdError | null {
+  // Short-circuit if the guard has already tripped (the depth check in
+  // buildContainer set the error). Returning the same error keeps the
+  // unwind symmetric — no more recursion happens, no more modules are
+  // emitted.
+  if (guard?.error !== null && guard?.error !== undefined) return guard.error;
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
@@ -404,7 +496,7 @@ function walkElementsForModules(
         continue;
       }
       if (tagName === 'ECUC-MODULE-DEF') {
-        const mod = buildEcucModule(item, parentPath, warnings);
+        const mod = buildEcucModule(item, parentPath, warnings, guard);
         if (mod !== null) {
           out.push(mod);
         } else {
@@ -414,6 +506,10 @@ function walkElementsForModules(
             message: `ECUC-MODULE-DEF at ${parentPath} is missing <SHORT-NAME>`,
           };
         }
+        // After each module build, check whether the depth guard tripped
+        // (the recursion has already unwound by this point). Returning
+        // the error from the walk stops further module processing.
+        if (guard?.error !== null && guard?.error !== undefined) return guard.error;
         continue;
       }
       // Unknown top-level module kind — record and skip without aborting.
@@ -555,6 +651,7 @@ function buildEcucModule(
   item: Record<string, unknown>,
   parentPath: string,
   warnings?: string[],
+  guard?: DepthGuard,
 ): BswModuleDef | null {
   const shortName = readShortName(item);
   if (shortName === undefined) return null;
@@ -563,7 +660,7 @@ function buildEcucModule(
   const containers: ContainerDef[] = [];
   if (typeof containersRaw === 'object' && containersRaw !== null) {
     containers.push(
-      ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings),
+      ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
     );
   }
   return {
@@ -582,17 +679,18 @@ function buildContainerList(
   node: Record<string, unknown>,
   parentPath: string,
   warnings?: string[],
+  guard?: DepthGuard,
 ): ContainerDef[] {
   const out: ContainerDef[] = [];
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
       if (tagName === 'ECUC-PARAM-CONF-CONTAINER-DEF') {
-        out.push(buildContainer(item, parentPath));
+        out.push(buildContainer(item, parentPath, guard));
         continue;
       }
       if (tagName === 'ECUC-CHOICE-ORIENTED-STRUCTURE-DEF') {
-        out.push(buildChoiceContainer(item, parentPath));
+        out.push(buildChoiceContainer(item, parentPath, guard));
         continue;
       }
       // Unknown inner container kind — surface as a non-fatal warning so
@@ -605,13 +703,70 @@ function buildContainerList(
   return out;
 }
 
-function buildContainer(item: Record<string, unknown>, parentPath: string): ContainerDef {
+/**
+ * Maximum allowed container-nesting depth. Generous enough to cover any
+ * real AUTOSAR schema (typically < 20 levels even for deeply-nested
+ * modules like EcuC) but small enough to short-circuit pathological
+ * BSWMDs that would otherwise blow the V8 call stack.
+ *
+ * Sprint 13 Stage 5.D — defensive limit. Tripping the limit produces
+ * an `invalid-structure` `BswmdError` so the renderer can show a clean
+ * message ("Container nesting depth exceeds 64") instead of crashing
+ * the main process.
+ */
+export const MAX_CONTAINER_DEPTH = 64;
+
+/**
+ * Recursion depth tracker for the container builder functions. Created
+ * once per `parseBswmd` call and threaded through the recursive
+ * `buildContainer` / `buildContainerList` / `buildChoiceContainer`
+ * chain. The `error` field is set when the depth limit is exceeded;
+ * callers up the stack check it on the way back up and abort.
+ */
+interface DepthGuard {
+  depth: number;
+  error: BswmdError | null;
+}
+
+function buildContainer(
+  item: Record<string, unknown>,
+  parentPath: string,
+  guard?: DepthGuard,
+): ContainerDef {
   const shortName = readShortName(item) ?? '<unnamed>';
   const path = `${parentPath}/${shortName}`;
+  // Increment depth at the start of each container build. If we've
+  // crossed the cap, set the guard's error and return a stub so the
+  // recursion can unwind without further work. The parseBswmd caller
+  // will see the error and surface it as a fatal Result.
+  if (guard !== undefined) {
+    guard.depth += 1;
+    if (guard.depth > MAX_CONTAINER_DEPTH) {
+      if (guard.error === null) {
+        guard.error = {
+          kind: 'invalid-structure',
+          path,
+          message: `Container nesting depth exceeds ${MAX_CONTAINER_DEPTH} (path: ${path})`,
+        };
+      }
+      return {
+        shortName,
+        path,
+        lowerMultiplicity: readLowerMultiplicity(item),
+        upperMultiplicity: readUpperMultiplicity(item),
+        subContainers: [],
+        parameters: [],
+        references: [],
+        choices: [],
+      };
+    }
+  }
   const subContainers: ContainerDef[] = [];
   const subRaw = item['SUB-CONTAINERS'];
   if (typeof subRaw === 'object' && subRaw !== null) {
-    subContainers.push(...buildContainerList(subRaw as Record<string, unknown>, path));
+    subContainers.push(
+      ...buildContainerList(subRaw as Record<string, unknown>, path, undefined, guard),
+    );
   }
   const parameters: ParamDef[] = [];
   const paramsRaw = item['PARAMETERS'];
@@ -623,7 +778,7 @@ function buildContainer(item: Record<string, unknown>, parentPath: string): Cont
   if (typeof refsRaw === 'object' && refsRaw !== null) {
     references.push(...buildRefList(refsRaw as Record<string, unknown>, path));
   }
-  return {
+  const result: ContainerDef = {
     shortName,
     path,
     lowerMultiplicity: readLowerMultiplicity(item),
@@ -633,9 +788,17 @@ function buildContainer(item: Record<string, unknown>, parentPath: string): Cont
     references,
     choices: [],
   };
+  if (guard !== undefined) {
+    guard.depth -= 1;
+  }
+  return result;
 }
 
-function buildChoiceContainer(item: Record<string, unknown>, parentPath: string): ContainerDef {
+function buildChoiceContainer(
+  item: Record<string, unknown>,
+  parentPath: string,
+  guard?: DepthGuard,
+): ContainerDef {
   // ECUC-CHOICE-ORIENTED-STRUCTURE-DEF is structurally a container with
   // a `<CHOICES>` block of nested ECUC-PARAM-CONF-CONTAINER-DEF. We surface
   // the choices as a separate `choices` field on the same ContainerDef so
@@ -643,12 +806,38 @@ function buildChoiceContainer(item: Record<string, unknown>, parentPath: string)
   // choice branches are not nested sub-containers in the ECUC sense.
   const shortName = readShortName(item) ?? '<unnamed>';
   const path = `${parentPath}/${shortName}`;
+  // Choice containers count toward the depth limit too: a deeply-nested
+  // CHOICES tree is the same SOF risk as a deeply-nested SUB-CONTAINERS.
+  if (guard !== undefined) {
+    guard.depth += 1;
+    if (guard.depth > MAX_CONTAINER_DEPTH) {
+      if (guard.error === null) {
+        guard.error = {
+          kind: 'invalid-structure',
+          path,
+          message: `Container nesting depth exceeds ${MAX_CONTAINER_DEPTH} (path: ${path})`,
+        };
+      }
+      return {
+        shortName,
+        path,
+        lowerMultiplicity: readLowerMultiplicity(item),
+        upperMultiplicity: readUpperMultiplicity(item),
+        subContainers: [],
+        parameters: [],
+        references: [],
+        choices: [],
+      };
+    }
+  }
   const choicesRaw = item['CHOICES'];
   const choices: ContainerDef[] = [];
   if (typeof choicesRaw === 'object' && choicesRaw !== null) {
-    choices.push(...buildContainerList(choicesRaw as Record<string, unknown>, path));
+    choices.push(
+      ...buildContainerList(choicesRaw as Record<string, unknown>, path, undefined, guard),
+    );
   }
-  return {
+  const result: ContainerDef = {
     shortName,
     path,
     lowerMultiplicity: readLowerMultiplicity(item),
@@ -658,6 +847,10 @@ function buildChoiceContainer(item: Record<string, unknown>, parentPath: string)
     references: [],
     choices,
   };
+  if (guard !== undefined) {
+    guard.depth -= 1;
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

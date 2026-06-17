@@ -574,6 +574,139 @@ describe('parseBswmd — happy path', () => {
     expect(r.value.warnings.length).toBeGreaterThan(0);
     expect(r.value.warnings.join(' ')).toMatch(/ECUC-UNKNOWN-WIDGET-DEF|Foo/);
   });
+
+  // Sprint 13 Stage 5.D — default-value cross-check against enumerationLiterals.
+  //
+  // AUTOSAR allows an ECUC-ENUMERATION-PARAM-DEF to carry a `<DEFAULT-VALUE>`
+  // outside its declared `<LITERALS>`. A vendor tool that does this produces
+  // a BSWMD that the renderer can load but the user can't reliably set the
+  // default to. We surface a warning (not a fatal error — same approach as
+  // the unknown-kind warning above) so the project panel can show a banner.
+  it('emits a default-value warning when DEFAULT-VALUE is not in enumerationLiterals', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>M</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>C</SHORT-NAME>
+              <SUB-CONTAINERS/>
+              <PARAMETERS>
+                <ECUC-ENUMERATION-PARAM-DEF>
+                  <SHORT-NAME>Mode</SHORT-NAME>
+                  <LITERALS>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>BAR</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>BAZ</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                  </LITERALS>
+                  <DEFAULT-VALUE>FOO</DEFAULT-VALUE>
+                </ECUC-ENUMERATION-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const r = parseBswmd(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const dvWarnings = r.value.warnings.filter((w) => /DEFAULT-VALUE/i.test(w));
+    expect(dvWarnings).toHaveLength(1);
+    expect(dvWarnings[0]).toMatch(/FOO/);
+    expect(dvWarnings[0]).toMatch(/\/EcucDefs\/M\/C\/Mode/);
+  });
+
+  it('does not warn when DEFAULT-VALUE matches a declared LITERAL', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>M</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>C</SHORT-NAME>
+              <SUB-CONTAINERS/>
+              <PARAMETERS>
+                <ECUC-ENUMERATION-PARAM-DEF>
+                  <SHORT-NAME>Mode</SHORT-NAME>
+                  <LITERALS>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>BAR</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                    <ECUC-ENUMERATION-LITERAL-DEF>
+                      <SHORT-NAME>BAZ</SHORT-NAME>
+                    </ECUC-ENUMERATION-LITERAL-DEF>
+                  </LITERALS>
+                  <DEFAULT-VALUE>BAR</DEFAULT-VALUE>
+                </ECUC-ENUMERATION-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const r = parseBswmd(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const dvWarnings = r.value.warnings.filter((w) => /DEFAULT-VALUE/i.test(w));
+    expect(dvWarnings).toEqual([]);
+  });
+
+  it('does not warn about default-value for non-enumeration params', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>M</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>C</SHORT-NAME>
+              <SUB-CONTAINERS/>
+              <PARAMETERS>
+                <ECUC-INTEGER-PARAM-DEF>
+                  <SHORT-NAME>Count</SHORT-NAME>
+                  <MIN>0</MIN>
+                  <MAX>10</MAX>
+                  <DEFAULT-VALUE>5</DEFAULT-VALUE>
+                </ECUC-INTEGER-PARAM-DEF>
+                <ECUC-STRING-PARAM-DEF>
+                  <SHORT-NAME>Name</SHORT-NAME>
+                  <DEFAULT-VALUE>Hello</DEFAULT-VALUE>
+                </ECUC-STRING-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const r = parseBswmd(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const dvWarnings = r.value.warnings.filter((w) => /DEFAULT-VALUE/i.test(w));
+    expect(dvWarnings).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -655,6 +788,67 @@ describe('parseBswmd — error path', () => {
     if (r.error.kind === 'invalid-structure') {
       expect(r.error.message).toMatch(/SHORT-NAME/);
     }
+  });
+
+  // Sprint 13 Stage 5.D — defensive container-nesting depth limit.
+  //
+  // Pathological / hostile BSWMDs with deeply-nested SUB-CONTAINERS would
+  // otherwise blow the V8 stack (`buildContainer` / `buildContainerList`
+  // recurse without a depth check). We cap at 64 levels — well above
+  // any real AUTOSAR schema (typically < 20) but well below the V8
+  // default stack limit (~10000 frames). When the limit trips the
+  // parser returns `invalid-structure` so the renderer can show a clean
+  // error rather than crashing main.
+  it('returns invalid-structure when container nesting depth exceeds the limit (64)', () => {
+    // Arrange — build a fixture with 65 levels of nested containers.
+    // The MODULE has a top-level CONTAINER (depth 1), each of which
+    // contains one SUB-CONTAINER (depth 2, 3, ... 65).
+    //
+    // Build the structure iteratively: each `L${i}` container wraps the
+    // next. The innermost (L64) has no SUB-CONTAINERS child; all others
+    // have exactly one. The cap is 64, so depth 65 must trip.
+    const NESTING = 65;
+    let inner =
+      '<SHORT-NAME>L64</SHORT-NAME><LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>';
+    for (let i = NESTING - 2; i >= 0; i--) {
+      inner =
+        `<SHORT-NAME>L${i}</SHORT-NAME>` +
+        `<LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>` +
+        `<UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>` +
+        `<SUB-CONTAINERS>` +
+        `<ECUC-PARAM-CONF-CONTAINER-DEF>${inner}</ECUC-PARAM-CONF-CONTAINER-DEF>` +
+        `</SUB-CONTAINERS>`;
+    }
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>M</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>${inner}</ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const r = parseBswmd(xml);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    if (r.error.kind !== 'invalid-structure') {
+      throw new Error(
+        `expected invalid-structure, got ${r.error.kind}: ${'message' in r.error ? r.error.message : ''}`,
+      );
+    }
+    expect(r.error.message).toMatch(/depth/i);
+    expect(r.error.message).toMatch(/64/);
   });
 });
 
