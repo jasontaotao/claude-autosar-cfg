@@ -36,6 +36,8 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
+import { Group, Panel, Separator } from 'react-resizable-panels';
+
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { ConfirmRoot } from './components/ConfirmDialog';
@@ -113,8 +115,26 @@ export function App(): JSX.Element {
           the "view 窗口" affordance when the banner itself overflows. */}
       <ErrorBanner />
       <main className="workspace">
-        <LeftPanel />
-        <ParamEditor />
+        {/* Sprint 13+ Stage 4 Q1 — resizable left/right column.
+            `react-resizable-panels` replaces the previous fixed
+            `minmax(280px, 30%) 1fr` grid in styles.css with a PanelGroup
+            whose column widths the user can drag. The `autoSaveId`
+            persists the divider position to localStorage across reloads.
+            The Separator element is the drag handle — it carries the
+            `data-testid="workspace-resize-h"` selector the workspace
+            tests target. */}
+        <Group orientation="horizontal" id="workspace" defaultLayout={{ 'workspace-left': 30 }}>
+          <Panel id="workspace-left" minSize="20%" defaultSize="30%">
+            <LeftPanel />
+          </Panel>
+          <Separator
+            className="workspace-resize-h"
+            data-testid="workspace-resize-h"
+          />
+          <Panel id="workspace-right">
+            <ParamEditor />
+          </Panel>
+        </Group>
       </main>
       <ArxmlPanel />
 

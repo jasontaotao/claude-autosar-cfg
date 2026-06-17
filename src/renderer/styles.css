@@ -459,13 +459,35 @@ body,
 /* Workspace                                                          */
 /* ------------------------------------------------------------------ */
 .workspace {
-  display: grid;
-  grid-template-columns: minmax(280px, 30%) 1fr;
-  gap: 1px;
+  /* Sprint 13+ Stage 4 Q1 — react-resizable-panels owns the column
+     layout. We keep the workspace as a single flex/grid container
+     that stretches to fill the remaining viewport height so the
+     PanelGroup inside can compute pixel sizes. The previous
+     `display: grid; grid-template-columns: minmax(280px, 30%) 1fr`
+     would have forced the PanelGroup into a 0-width track. */
+  display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   background: #e5e7eb;
+}
+
+.workspace-resize-h {
+  width: 4px;
+  background: #cbd5e1;
+  cursor: col-resize;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.workspace-resize-h:hover,
+.workspace-resize-h[data-resize-handle-active] {
+  background: #94a3b8;
+}
+
+.workspace-resize-h:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
 }
 
 /* .left-column — removed in Sprint 13 #2 Task 5.

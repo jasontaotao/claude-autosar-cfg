@@ -241,14 +241,18 @@ describe('App (Sprint 12 #3 Task 8 part 2 — dialog host mounting)', () => {
 // ---------------------------------------------------------------------------
 
 describe('App left column (Sprint 13 #2 Task 5 — LeftPanel wired in)', () => {
-  it('renders LeftPanel with the files + validate tabs visible in loose mode', () => {
+  it('renders LeftPanel with all three tabs visible in loose mode (Q5: project tab is always shown)', () => {
     render(<App />);
-    // Loose mode: no project tab.
-    expect(screen.queryByTestId('left-tab-project')).toBeNull();
+    // Sprint 13+ Q5: the project tab is no longer hidden in loose
+    // mode. It renders a localized empty placeholder pointing the
+    // user at the "files" tab for New / Open. The files tab itself
+    // is the default landing tab.
+    expect(screen.getByTestId('left-tab-project')).toBeInTheDocument();
     expect(screen.getByTestId('left-tab-files')).toBeInTheDocument();
     expect(screen.getByTestId('left-tab-validate')).toBeInTheDocument();
-    // The default tab in loose mode is 'files' (LeftPanel falls back
-    // from a persisted 'project' to 'files' via useEffect).
+    // The default tab in loose mode is 'files' (the persisted
+    // leftTab default; the project tab's content shows the empty
+    // placeholder only when explicitly selected).
     expect(screen.getByTestId('left-pane-files')).toBeInTheDocument();
   });
 

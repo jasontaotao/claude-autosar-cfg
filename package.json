@@ -31,6 +31,7 @@
     "fast-xml-parser": "^4.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-resizable-panels": "^4.11.2",
     "zustand": "^4.5.4"
   },
   "devDependencies": {
@@ -46,6 +47,7 @@
     "@vitest/coverage-v8": "^1.6.0",
     "autoprefixer": "^10.4.19",
     "electron": "^30.0.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^8.57.0",
     "eslint-import-resolver-typescript": "^3.6.1",
     "eslint-plugin-import": "^2.29.1",
@@ -57,8 +59,7 @@
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.2",
     "vite": "^5.3.1",
-    "vitest": "^1.6.0",
-    "electron-builder": "^25.1.8"
+    "vitest": "^1.6.0"
   },
   "build": {
     "appId": "com.claude.autosarcfg",
