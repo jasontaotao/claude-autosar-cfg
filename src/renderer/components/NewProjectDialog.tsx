@@ -185,7 +185,7 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     // stub depending on which scenario is being exercised.
     const api = (globalThis as { window?: { autosarApi?: AutosarApiLike } }).window?.autosarApi;
     if (api === undefined) return;
-    const result = await api.pickDir({ defaultPath: dir || undefined });
+    const result = await api.pickDir({ defaultPath: dir || undefined, locale });
     if (result.kind === 'picked') {
       setDir(result.dirPath);
     }

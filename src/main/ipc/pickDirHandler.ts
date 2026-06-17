@@ -17,9 +17,14 @@
 // file path. We don't add a defensive `statSync` check here — if a
 // future change widens the dialog properties (e.g. multi-select with
 // files), the renderer can validate before calling `PROJECT_NEW`.
+//
+// Sprint 13+ Stage 4 M7 — dialog title rendered through the shared
+// i18n helper using the renderer's current locale. Defaults to 'en'
+// for backward compatibility with older callers.
 
 import { dialog } from 'electron';
 
+import { t, type Locale } from '../../shared/i18n.js';
 import type { PickDirRequest, PickDirResult } from '../../shared/types.js';
 
 export async function pickDirHandler(req: PickDirRequest): Promise<PickDirResult> {
@@ -28,8 +33,9 @@ export async function pickDirHandler(req: PickDirRequest): Promise<PickDirResult
   // rejects an explicit `undefined` on a `string` typed property —
   // the OS default is "remember last directory" which is exactly the
   // behavior we want when the renderer omits `defaultPath`.
+  const locale: Locale = req.locale ?? 'en';
   const options: Electron.OpenDialogOptions = {
-    title: 'Choose Project Directory',
+    title: t(locale, 'dialog.pickDir.title'),
     properties: ['openDirectory'],
   };
   if (req.defaultPath !== undefined) {

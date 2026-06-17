@@ -208,7 +208,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     });
     fireEvent.click(screen.getByTestId('npd-browse'));
     await waitFor(() => expect(api.pickDir).toHaveBeenCalledTimes(1));
-    expect(api.pickDir).toHaveBeenCalledWith({ defaultPath: '/seed' });
+    expect(api.pickDir).toHaveBeenCalledWith({ defaultPath: '/seed', locale: 'en' });
     await waitFor(() => expect(screen.getByTestId('npd-dir-input')).toHaveValue('/picked/dir'));
   });
 

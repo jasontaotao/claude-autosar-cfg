@@ -128,6 +128,47 @@ describe('project:pickDir handler (Sprint 12 #3) — Result envelope shape', () 
     expect(opts.defaultPath).toBe(defaultPath);
   });
 
+  it('renders the dialog title in zh-CN when locale is "zh-CN" (Sprint 13+ Stage 4 M7)', async () => {
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+
+    await pickDirHandler({ locale: 'zh-CN' });
+
+    expect(showOpenDialog).toHaveBeenCalledTimes(1);
+    const opts = showOpenDialog.mock.calls[0]?.[0] as {
+      title: string;
+      properties: string[];
+    };
+    expect(opts.title).toBe('选择项目目录');
+    expect(opts.properties).toContain('openDirectory');
+  });
+
+  it('renders the dialog title in en when locale is "en" (Sprint 13+ Stage 4 M7)', async () => {
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+
+    await pickDirHandler({ locale: 'en' });
+
+    expect(showOpenDialog).toHaveBeenCalledTimes(1);
+    const opts = showOpenDialog.mock.calls[0]?.[0] as {
+      title: string;
+      properties: string[];
+    };
+    expect(opts.title).toBe('Choose Project Directory');
+    expect(opts.properties).toContain('openDirectory');
+  });
+
+  it('falls back to en title when locale is omitted (Sprint 13+ Stage 4 M7)', async () => {
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+
+    await pickDirHandler({});
+
+    expect(showOpenDialog).toHaveBeenCalledTimes(1);
+    const opts = showOpenDialog.mock.calls[0]?.[0] as { title: string };
+    // Backward-compatible default — the original hard-coded English
+    // title. Older callers that don't pass `locale` get the same UX
+    // they did before Stage 4 M7.
+    expect(opts.title).toBe('Choose Project Directory');
+  });
+
   it('still calls dialog.showOpenDialog when defaultPath is omitted (OS picks default)', async () => {
     showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
 

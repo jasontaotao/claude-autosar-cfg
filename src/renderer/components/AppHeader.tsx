@@ -35,7 +35,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { t } from '../../shared/i18n.js';
+import { t, type Locale } from '../../shared/i18n.js';
 import { basename } from '../../shared/path.js';
 import type { ParseArxmlResponse, ParseError } from '../../shared/types.js';
 import { useProjectActions } from '../hooks/useProjectActions';
@@ -47,16 +47,22 @@ interface AppHeaderState {
 
 const INITIAL: AppHeaderState = { busy: false };
 
-function formatParseError(e: ParseError): string {
+// Sprint 13+ Stage 4 M8 — route ParseError rendering through the shared
+// i18n helper. Caller passes the current `locale` so the user sees the
+// same language in the error toast they see in the rest of the header.
+function formatParseError(e: ParseError, locale: Locale): string {
   switch (e.kind) {
     case 'xml-malformed':
-      return `XML malformed: ${e.message}`;
+      return t(locale, 'parserError.xmlMalformed', { message: e.message });
     case 'missing-root':
-      return `Missing root element: ${e.message}`;
+      return t(locale, 'parserError.missingRoot', { message: e.message });
     case 'unsupported-version':
-      return `Unsupported AUTOSAR version: ${e.version}`;
+      return t(locale, 'parserError.unsupportedVersion', { version: e.version });
     case 'invalid-structure':
-      return `Invalid structure at ${e.path}: ${e.message}`;
+      return t(locale, 'parserError.invalidStructure', {
+        path: e.path,
+        message: e.message,
+      });
   }
 }
 
@@ -169,7 +175,7 @@ export function AppHeader(): JSX.Element {
             content: file.content,
           });
           if (!parsed.ok) {
-            lastError = `${basename(file.path)}: ${formatParseError(parsed.error)}`;
+            lastError = `${basename(file.path)}: ${formatParseError(parsed.error, locale)}`;
             continue;
           }
           addDocument(parsed.value, file.path);

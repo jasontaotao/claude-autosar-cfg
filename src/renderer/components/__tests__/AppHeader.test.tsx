@@ -205,3 +205,69 @@ describe('AppHeader doc-tab strip (Sprint 10 #2)', () => {
 // AppHeader (see ErrorBanner.test.tsx for the new tests). AppHeader
 // no longer renders an inline error — it just writes action failures
 // to the store via `setError`.
+
+// ---------------------------------------------------------------------------
+// Sprint 13+ Stage 4 M8 — formatParseError i18n
+// ---------------------------------------------------------------------------
+//
+// AppHeader.onOpen surfaces a per-file ParseError via the store; the
+// error message is built by `formatParseError(e, locale)`. We verify
+// the localized text by reading `useArxmlStore.error` after the open
+// flow runs through its async path.
+describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = makeWindowApi();
+  });
+
+  it('renders the parse-error in Chinese when locale is zh-CN', async () => {
+    useArxmlStore.getState().setLocale('zh-CN');
+    const api = (globalThis as { window: { autosarApi: MockWindowAutosarApi } }).window.autosarApi;
+    api.openArxmlMulti.mockResolvedValue({
+      kind: 'opened',
+      results: [{ path: '/p/Bad.arxml', content: '<bad/>' }],
+    });
+    api.parseArxml.mockResolvedValue({
+      ok: false,
+      error: { kind: 'xml-malformed', message: 'unclosed tag' },
+    });
+
+    render(<AppHeader />);
+    fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
+    fireEvent.click(screen.getByTestId('btn-open'));
+
+    await vi.waitFor(() => expect(api.parseArxml).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      const err = useArxmlStore.getState().error;
+      expect(err).not.toBeNull();
+      expect(err).toContain('XML 格式错误');
+      expect(err).toContain('unclosed tag');
+    });
+  });
+
+  it('renders the parse-error in English when locale is en', async () => {
+    useArxmlStore.getState().setLocale('en');
+    const api = (globalThis as { window: { autosarApi: MockWindowAutosarApi } }).window.autosarApi;
+    api.openArxmlMulti.mockResolvedValue({
+      kind: 'opened',
+      results: [{ path: '/p/Bad.arxml', content: '<bad/>' }],
+    });
+    api.parseArxml.mockResolvedValue({
+      ok: false,
+      error: { kind: 'missing-root', message: 'expected <AUTOSAR>' },
+    });
+
+    render(<AppHeader />);
+    fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
+    fireEvent.click(screen.getByTestId('btn-open'));
+
+    await vi.waitFor(() => expect(api.parseArxml).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      const err = useArxmlStore.getState().error;
+      expect(err).not.toBeNull();
+      expect(err).toContain('Missing root element');
+      expect(err).toContain('expected <AUTOSAR>');
+    });
+  });
+});

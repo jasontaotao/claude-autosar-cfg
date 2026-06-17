@@ -95,4 +95,31 @@ describe('ParamEditor', () => {
     expect(cont.params['Count']).toEqual({ type: 'integer', value: 7 });
     expect(useArxmlStore.getState().dirtyPaths.has('/EAS')).toBe(true);
   });
+
+  // Sprint 13+ Stage 4 M6 — column header i18n.
+  it('renders column headers in English when locale is en', () => {
+    const doc = makeDoc();
+    useArxmlStore.getState().setDoc(doc, '/EAS');
+    useArxmlStore.getState().select('/EAS/EcuCGeneral');
+    useArxmlStore.setState({ locale: 'en' });
+
+    render(<ParamEditor />);
+
+    expect(screen.getByRole('columnheader', { name: 'Param' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Value' })).toBeInTheDocument();
+  });
+
+  it('renders column headers in Chinese when locale is zh-CN', () => {
+    const doc = makeDoc();
+    useArxmlStore.getState().setDoc(doc, '/EAS');
+    useArxmlStore.getState().select('/EAS/EcuCGeneral');
+    useArxmlStore.setState({ locale: 'zh-CN' });
+
+    render(<ParamEditor />);
+
+    expect(screen.getByRole('columnheader', { name: '参数' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '类型' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: '取值' })).toBeInTheDocument();
+  });
 });

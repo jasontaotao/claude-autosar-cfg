@@ -115,9 +115,9 @@ export function ParamEditor(): JSX.Element {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
-              <th className="py-1 pr-2">Param</th>
-              <th className="py-1 pr-2">Type</th>
-              <th className="py-1">Value</th>
+              <th className="py-1 pr-2">{t(locale, 'editor.col.param')}</th>
+              <th className="py-1 pr-2">{t(locale, 'editor.col.type')}</th>
+              <th className="py-1">{t(locale, 'editor.col.value')}</th>
             </tr>
           </thead>
           <tbody>
