@@ -136,7 +136,7 @@ export function parseArxml(
 }
 
 // -----------------------------------------------------------------------------
-// Internal helpers (private)
+// Internal helpers
 // -----------------------------------------------------------------------------
 
 export function detectVersion(autosar: Record<string, unknown>): ArxmlVersion | null {
