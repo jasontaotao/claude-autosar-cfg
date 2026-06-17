@@ -47,23 +47,23 @@ describe('EB tresos real fixture compatibility', () => {
     ['R21-11', 'C:\\EB\\tresos\\autosar\\R21-11\\AUTOSAR_MOD_ECUConfigurationParameters.arxml'],
   ];
 
-  it.each(FIXTURES)('%s parses without unsupported-version', (_label, path) => {
-    if (!existsSync(path)) {
-      // Skip silently — vendor fixtures not installed in CI.
-      return;
-    }
-    const xml = readFileSync(path, 'utf8');
-    const r = parseArxml(xml);
-    // Pre-fix this returned { ok: false, error: { kind: 'unsupported-version', version: 'unknown' } }.
-    // Post-fix we expect either:
-    //   (a) ok=true with a version string, OR
-    //   (b) ok=false with kind='invalid-structure' (the strict reject from Task 4).
-    // We only assert NOT 'unsupported-version' here — the strict-reject contract
-    // is tested separately in Task 4.
-    if (!r.ok) {
-      expect(r.error.kind).not.toBe('unsupported-version');
-    } else {
-      expect(typeof r.value.version).toBe('string');
-    }
-  });
+  for (const [label, path] of FIXTURES) {
+    // Skipped via vitest runIf when vendor fixtures are not installed in CI —
+    // reported as `skipped` rather than a vacuous `passed`.
+    it.runIf(existsSync(path))(`${label} parses without unsupported-version`, () => {
+      const xml = readFileSync(path, 'utf8');
+      const r = parseArxml(xml);
+      // Pre-fix this returned { ok: false, error: { kind: 'unsupported-version', version: 'unknown' } }.
+      // Post-fix we expect either:
+      //   (a) ok=true with a version string, OR
+      //   (b) ok=false with kind='invalid-structure' (the strict reject from Task 4).
+      // We only assert NOT 'unsupported-version' here — the strict-reject contract
+      // is tested separately in Task 4.
+      if (!r.ok) {
+        expect(r.error.kind).not.toBe('unsupported-version');
+      } else {
+        expect(typeof r.value.version).toBe('string');
+      }
+    });
+  }
 });
