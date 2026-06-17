@@ -40,21 +40,21 @@ coverage has been pushed from 85.45% to **90.72%** (≥ 90% ship-gate met).
 
 ### Cumulative work since v0.1.0 (release notes summary)
 
-| Stage | Highlights |
-|-------|-----------|
-| Sprint 0-9 | Core parser, validator, BSWMD, 5-fixture cross-ref baseline (782 signed) |
-| Sprint 10-11 | Renderer store, NewProjectDialog, save/load, IPC handlers |
-| Sprint 12 #1 | Namespace-aware path normalize (Sprint 9 #12) |
-| Sprint 12 #2 | Runtime BSWMD schema layer + schema-unknown disambiguator |
-| Sprint 12 #3 | NewProjectDialog unification, dirty-switch confirm, ipc contract |
-| Sprint 13 #1 | Templates backend (`templates:list` / `templates:copy` IPC, 25 tests) |
-| Sprint 13 Stage 3 | Left-panel + FileListTab refactor |
-| Sprint 13 Stage 3.3 | TemplateCard picker (Empty/Classic/Clone) |
-| Sprint 13 Stage 3.4 | BSWMD chip multi-select (Classic template) |
-| Sprint 13 Stage 3.5 | Combined Tree View across multiple loaded documents |
-| Sprint 13 Stage 4 | i18n polish M6/M7/M8 (column header / OS dialog / parse error) |
-| Sprint 13 Stage 5.D | Validators: size cap + default-value + CHOICES depth |
-| Wave 4.B | Coverage ≥90% (this release) |
+| Stage               | Highlights                                                               |
+| ------------------- | ------------------------------------------------------------------------ |
+| Sprint 0-9          | Core parser, validator, BSWMD, 5-fixture cross-ref baseline (782 signed) |
+| Sprint 10-11        | Renderer store, NewProjectDialog, save/load, IPC handlers                |
+| Sprint 12 #1        | Namespace-aware path normalize (Sprint 9 #12)                            |
+| Sprint 12 #2        | Runtime BSWMD schema layer + schema-unknown disambiguator                |
+| Sprint 12 #3        | NewProjectDialog unification, dirty-switch confirm, ipc contract         |
+| Sprint 13 #1        | Templates backend (`templates:list` / `templates:copy` IPC, 25 tests)    |
+| Sprint 13 Stage 3   | Left-panel + FileListTab refactor                                        |
+| Sprint 13 Stage 3.3 | TemplateCard picker (Empty/Classic/Clone)                                |
+| Sprint 13 Stage 3.4 | BSWMD chip multi-select (Classic template)                               |
+| Sprint 13 Stage 3.5 | Combined Tree View across multiple loaded documents                      |
+| Sprint 13 Stage 4   | i18n polish M6/M7/M8 (column header / OS dialog / parse error)           |
+| Sprint 13 Stage 5.D | Validators: size cap + default-value + CHOICES depth                     |
+| Wave 4.B            | Coverage ≥90% (this release)                                             |
 
 ### Verification
 
