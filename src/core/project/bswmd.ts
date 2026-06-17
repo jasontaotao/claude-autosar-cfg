@@ -476,10 +476,10 @@ function walkElementsForModules(
   // emitted.
   if (guard?.error !== null && guard?.error !== undefined) return guard.error;
   // Sprint 13+ Q6 — duplicate module shortName detection. We keep both
-  // modules in `out` (existing behaviour) but emit a localized warning
-  // so the BswmdPanel can flag the file. The `seen` set is per-scope;
-  // nested AR-PACKAGE / ECUC-MODULE-DEF at the same depth can shadow
-  // each other and we want the user to know.
+  // modules in `out` (existing behaviour) but emit a warning so the
+  // BswmdPanel can flag the file. Per-scope: this set is fresh for each
+  // <ELEMENTS> block we walk, so it catches sibling <ECUC-MODULE-DEF> /
+  // <BSW-MODULE-DESCRIPTION> collisions inside the same parent AR-PACKAGE.
   const seenModuleShortNames = new Set<string>();
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
