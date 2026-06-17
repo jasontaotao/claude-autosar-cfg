@@ -475,12 +475,24 @@ function walkElementsForModules(
   // unwind symmetric — no more recursion happens, no more modules are
   // emitted.
   if (guard?.error !== null && guard?.error !== undefined) return guard.error;
+  // Sprint 13+ Q6 — duplicate module shortName detection. We keep both
+  // modules in `out` (existing behaviour) but emit a localized warning
+  // so the BswmdPanel can flag the file. The `seen` set is per-scope;
+  // nested AR-PACKAGE / ECUC-MODULE-DEF at the same depth can shadow
+  // each other and we want the user to know.
+  const seenModuleShortNames = new Set<string>();
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
       if (tagName === 'BSW-MODULE-DESCRIPTION') {
         const mod = buildEbModule(item, parentPath, warnings);
         if (mod !== null) {
+          if (seenModuleShortNames.has(mod.shortName)) {
+            warnings.push(
+              `Duplicate module definition "${mod.shortName}" at ${mod.path} — first-wins, later copy retained but shadowed by the first lookup`,
+            );
+          }
+          seenModuleShortNames.add(mod.shortName);
           out.push(mod);
         } else {
           // Missing SHORT-NAME at the module level is fatal: the module
@@ -498,6 +510,12 @@ function walkElementsForModules(
       if (tagName === 'ECUC-MODULE-DEF') {
         const mod = buildEcucModule(item, parentPath, warnings, guard);
         if (mod !== null) {
+          if (seenModuleShortNames.has(mod.shortName)) {
+            warnings.push(
+              `Duplicate module definition "${mod.shortName}" at ${mod.path} — first-wins, later copy retained but shadowed by the first lookup`,
+            );
+          }
+          seenModuleShortNames.add(mod.shortName);
           out.push(mod);
         } else {
           return {
@@ -682,15 +700,27 @@ function buildContainerList(
   guard?: DepthGuard,
 ): ContainerDef[] {
   const out: ContainerDef[] = [];
+  // Sprint 13+ Q6 — per-parent duplicate container detection. A
+  // module / container with two `<ECUC-PARAM-CONF-CONTAINER-DEF>`
+  // sharing the same `<SHORT-NAME>` is a schema conflict; the second
+  // copy gets retained (existing behaviour) but flagged.
+  const seenContainerShortNames = new Set<string>();
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
       if (tagName === 'ECUC-PARAM-CONF-CONTAINER-DEF') {
-        out.push(buildContainer(item, parentPath, guard));
+        const c = buildContainer(item, parentPath, warnings, guard);
+        if (seenContainerShortNames.has(c.shortName) && warnings !== undefined) {
+          warnings.push(
+            `Duplicate container definition "${c.shortName}" at ${c.path} — first-wins, later copy retained but shadowed by the first lookup`,
+          );
+        }
+        seenContainerShortNames.add(c.shortName);
+        out.push(c);
         continue;
       }
       if (tagName === 'ECUC-CHOICE-ORIENTED-STRUCTURE-DEF') {
-        out.push(buildChoiceContainer(item, parentPath, guard));
+        out.push(buildChoiceContainer(item, parentPath, warnings, guard));
         continue;
       }
       // Unknown inner container kind — surface as a non-fatal warning so
@@ -731,6 +761,7 @@ interface DepthGuard {
 function buildContainer(
   item: Record<string, unknown>,
   parentPath: string,
+  warnings?: string[],
   guard?: DepthGuard,
 ): ContainerDef {
   const shortName = readShortName(item) ?? '<unnamed>';
@@ -765,13 +796,13 @@ function buildContainer(
   const subRaw = item['SUB-CONTAINERS'];
   if (typeof subRaw === 'object' && subRaw !== null) {
     subContainers.push(
-      ...buildContainerList(subRaw as Record<string, unknown>, path, undefined, guard),
+      ...buildContainerList(subRaw as Record<string, unknown>, path, warnings, guard),
     );
   }
   const parameters: ParamDef[] = [];
   const paramsRaw = item['PARAMETERS'];
   if (typeof paramsRaw === 'object' && paramsRaw !== null) {
-    parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path));
+    parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path, warnings));
   }
   const references: ReferenceDef[] = [];
   const refsRaw = item['REFERENCES'];
@@ -797,6 +828,7 @@ function buildContainer(
 function buildChoiceContainer(
   item: Record<string, unknown>,
   parentPath: string,
+  warnings?: string[],
   guard?: DepthGuard,
 ): ContainerDef {
   // ECUC-CHOICE-ORIENTED-STRUCTURE-DEF is structurally a container with
@@ -834,7 +866,7 @@ function buildChoiceContainer(
   const choices: ContainerDef[] = [];
   if (typeof choicesRaw === 'object' && choicesRaw !== null) {
     choices.push(
-      ...buildContainerList(choicesRaw as Record<string, unknown>, path, undefined, guard),
+      ...buildContainerList(choicesRaw as Record<string, unknown>, path, warnings, guard),
     );
   }
   const result: ContainerDef = {
@@ -857,14 +889,27 @@ function buildChoiceContainer(
 // Parameters
 // ---------------------------------------------------------------------------
 
-function buildParamList(node: Record<string, unknown>, parentPath: string): ParamDef[] {
+function buildParamList(
+  node: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+): ParamDef[] {
   const out: ParamDef[] = [];
+  // Sprint 13+ Q6 — per-container duplicate parameter detection.
+  const seenParamShortNames = new Set<string>();
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     const kind = paramKindFromTag(tagName);
     if (kind === null) continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
-      out.push(buildParam(item, parentPath, kind));
+      const p = buildParam(item, parentPath, kind);
+      if (seenParamShortNames.has(p.shortName) && warnings !== undefined) {
+        warnings.push(
+          `Duplicate parameter "${p.shortName}" at ${parentPath}/${p.shortName} — first-wins, later copy retained but shadowed by the first lookup`,
+        );
+      }
+      seenParamShortNames.add(p.shortName);
+      out.push(p);
     }
   }
   return out;

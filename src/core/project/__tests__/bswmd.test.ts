@@ -1005,4 +1005,128 @@ describe('lookupReferenceDef', () => {
     // Assert
     expect(r).toBeNull();
   });
+
+  // ---------- Sprint 13+ Q6 (duplicate definition diagnostics) ----------
+  // Previously the parser silently kept every definition with a
+  // colliding path/shortName; callers couldn't tell the schema had a
+  // conflict. The fix routes collisions through `BswmdDocument.warnings`
+  // so the BswmdPanel / FileListTab can show a ⚠️ badge per loaded file.
+  // All three of these tests pin one warning per duplicate scope
+  // (module / container / parameter) and verify the original
+  // `parseBswmd` call still returns ok (the conflict is non-fatal).
+
+  it('Q6: warns when two ECUC-MODULE-DEF share the same shortName', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>Vendor</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+        </ECUC-MODULE-DEF>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>2</UPPER-MULTIPLICITY>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const result = parseBswmd(xml);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Both modules are still kept (existing behaviour — parser doesn't
+    // dedupe), but a warning flags the collision.
+    expect(result.value.modules).toHaveLength(2);
+    expect(
+      result.value.warnings.some(
+        (w) => /duplicate module/i.test(w) && /Can/.test(w),
+      ),
+    ).toBe(true);
+  });
+
+  it('Q6: warns when two ECUC-PARAM-CONF-CONTAINER-DEF share the same shortName in the same parent', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>Vendor</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>CanConfigSet</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>CanConfigSet</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const result = parseBswmd(xml);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const can = result.value.modules[0]!;
+    expect(can.containers).toHaveLength(2);
+    expect(
+      result.value.warnings.some(
+        (w) => /duplicate container/i.test(w) && /CanConfigSet/.test(w),
+      ),
+    ).toBe(true);
+  });
+
+  it('Q6: warns when two parameters share the same key in the same container', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>Vendor</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>CanGeneral</SHORT-NAME>
+              <PARAMETERS>
+                <ECUC-INTEGER-PARAM-DEF>
+                  <SHORT-NAME>BusOffProcessing</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-INTEGER-PARAM-DEF>
+                <ECUC-INTEGER-PARAM-DEF>
+                  <SHORT-NAME>BusOffProcessing</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-INTEGER-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+    const result = parseBswmd(xml);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const c = result.value.modules[0]!.containers[0]!;
+    expect(c.parameters).toHaveLength(2);
+    expect(
+      result.value.warnings.some(
+        (w) => /duplicate parameter/i.test(w) && /BusOffProcessing/.test(w),
+      ),
+    ).toBe(true);
+  });
 });
