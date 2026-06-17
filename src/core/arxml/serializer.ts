@@ -99,9 +99,13 @@ export function serializeArxml(
 /**
  * Canonical schemaLocation descriptor for each supported AUTOSAR version.
  * The 5-digit form (`00046`, `00048`, `00049`, `00050`) is the AUTOSAR
- * standard for R4.4+; vendor tools (EB tresos) emit it alongside the
- * legacy `r4.0` namespace. The dashed form (`AUTOSAR_4-2-2.xsd`) is the
- * pre-R4.4 convention used by 4.2 / 4.4 / 4.6 / 4.7 / 5.0.
+ * standard from R4.6 onward; vendor tools (EB tresos) emit it alongside
+ * the legacy `r4.0` namespace. The dashed form (`AUTOSAR_4-2-2.xsd`) is
+ * the pre-R4.6 convention used by 4.2 / 4.4 / 4.6 / 4.7 / 5.0.
+ *
+ * Note: '00005' / '00006' are reserved for future AUTOSAR R5.0+ / R6.0+
+ * releases. No vendor fixture yet validates the xsd naming for these
+ * literals; round-trip is sound but no real-world emission matches.
  *
  * Pairing:
  *   ArxmlVersion → { xmlns, xsd }
