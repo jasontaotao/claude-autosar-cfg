@@ -1,5 +1,13 @@
 import { create } from 'zustand';
 
+import {
+  addContainer as coreAddContainer,
+  addParameter as coreAddParameter,
+  findReferencesTo,
+  removeContainer as coreRemoveContainer,
+  removeParameter as coreRemoveParameter,
+} from '@core/arxml/mutation.js';
+import type { MutationError, ReferenceHit } from '@core/arxml/mutation.js';
 import { parseArxml } from '@core/arxml/parser';
 import { findByPathMultiDoc } from '@core/arxml/path';
 import type {
@@ -11,7 +19,7 @@ import type {
   ParamValue,
 } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
-import type { BswmdDocument } from '@core/project/bswmd.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '@core/project/bswmd.js';
 import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { DEFAULT_LOCALE, t } from '@shared/i18n';
@@ -165,6 +173,50 @@ export interface ArxmlState {
   setNewProjectDialogOpen: (open: boolean) => void;
   setConfirmDialogOpen: (open: boolean) => void;
 
+  // Sprint 15 Phase 2 — BSWMD-driven add-element picker + cascade
+  // confirm dialog state. The picker state lives in the store (not in
+  // the BswmdPickerDialog component) so a context-menu right-click can
+  // open it via `openBswmdPicker` and the dialog root mounted in
+  // `App.tsx` reacts via a selector. `pendingDelete` is set by
+  // `deleteContainer` when reverse-reference scan finds N>0 hits; the
+  // CascadeConfirmDialog reads it, then calls back through
+  // `confirmDeleteContainer(choice)` to either commit the delete
+  // (only / cascade) or clear the pending state (cancel).
+  readonly bswmdPicker: {
+    readonly open: boolean;
+    readonly parentPath: string | null;
+    readonly kind: 'container' | 'parameter' | 'reference' | null;
+  };
+  readonly pendingDelete: {
+    readonly path: string;
+    readonly references: readonly ReferenceHit[];
+  } | null;
+  openBswmdPicker: (target: {
+    readonly parentPath: string;
+    readonly kind: 'container' | 'parameter' | 'reference';
+  }) => void;
+  closeBswmdPicker: () => void;
+  setPendingDelete: (pending: {
+    readonly path: string;
+    readonly references: readonly ReferenceHit[];
+  } | null) => void;
+
+  // Sprint 15 Phase 2 — ECUC add/delete mutation actions. Each one
+  // mirrors the combined-mode dispatch pattern from `updateParam`:
+  //   1. In 'combined' view mode the path is basename-prefixed, so the
+  //      action routes via `findByPathMultiDoc` + `stripCombinedPrefix`
+  //      and mutates the SOURCE document.
+  //   2. In 'single' mode the action mutates the active document.
+  //   3. On Result.ok: set() with new documents + dirtyPaths + the
+  //      revalidation trio (validationErrors + lastValidatedAt).
+  //   4. On Result.fail: setError() with a localized message keyed by
+  //      the MutationError kind.
+  addContainer: (parentPath: string, shortName: string) => void;
+  deleteContainer: (containerPath: string) => void;
+  addParameter: (containerPath: string, paramShortName: string) => void;
+  deleteParameter: (containerPath: string, paramKey: string) => void;
+  confirmDeleteContainer: (choice: 'cancel' | 'only' | 'cascade') => void;
+
   // Multi-doc actions (Sprint 10 #2)
   addDocument: (doc: ArxmlDocument, filePath: string) => void;
   removeDocument: (filePath: string) => void;
@@ -295,6 +347,13 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   isDirty: () => get().dirtyPaths.size > 0,
   newProjectDialogOpen: false,
   confirmDialogOpen: false,
+  // Sprint 15 Phase 2 — picker + cascade confirm defaults. Both
+  // start in their "no pending" form: picker closed with no
+  // parentPath/kind, and pendingDelete null. The store owns these
+  // flags so the dialog roots in `App.tsx` can mount once and react
+  // to the same flag the action mutator flipped.
+  bswmdPicker: { open: false, parentPath: null, kind: null },
+  pendingDelete: null,
 
   addDocument: (doc, filePath) => {
     const state = get();
@@ -498,6 +557,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // ConfirmDialog / NewProjectDialog.
       newProjectDialogOpen: false,
       confirmDialogOpen: false,
+      // Sprint 15 Phase 2 — picker + cascade state. clear() also
+      // closes the picker and drops any pending delete so a fresh
+      // project doesn't reopen a stale CascadeConfirmDialog.
+      bswmdPicker: { open: false, parentPath: null, kind: null },
+      pendingDelete: null,
       // Sprint 13 Stage 3.5 — view mode reset. clear() returns to
       // 'single' so a fresh project doesn't open in combined mode by
       // accident; the user re-opens the combined view explicitly.
@@ -657,6 +721,365 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // testable at the hook layer.
   setNewProjectDialogOpen: (open) => set({ newProjectDialogOpen: open }),
   setConfirmDialogOpen: (open) => set({ confirmDialogOpen: open }),
+
+  // Sprint 15 Phase 2 — picker state setters. Plain field setters; the
+  // action layer above is what fans out into the actual mutation. The
+  // store owns visibility so the picker root mounted in `App.tsx`
+  // reacts to the same flag the action mutator flipped.
+  openBswmdPicker: (target) =>
+    set({
+      bswmdPicker: {
+        open: true,
+        parentPath: target.parentPath,
+        kind: target.kind,
+      },
+    }),
+  closeBswmdPicker: () =>
+    set({
+      bswmdPicker: { open: false, parentPath: null, kind: null },
+    }),
+  setPendingDelete: (pending) => set({ pendingDelete: pending }),
+
+  // Sprint 15 Phase 2 — ECUC add/delete mutation actions. See the
+  // interface JSDoc for the combined-mode / revalidate / dirtyPaths
+  // contract. All four delegate to the pure core/arxml/mutation.ts
+  // functions; the store's job is the path resolution, the error
+  // envelope translation (MutationError → i18n key), and the state
+  // update.
+  addContainer: (parentPath, shortName) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      // Combined-mode dispatch: route to the source document.
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, parentPath);
+      if (hit === null) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      if (sourceIdx === -1) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(parentPath, hit.filePath);
+      if (innerPath === null) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
+        return;
+      }
+      const lookup = resolveModuleAndParentContainer(state.bswmdSchemas, innerPath);
+      if (lookup === null) {
+        set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+        return;
+      }
+      const { moduleDef, parentContainerDef } = lookup;
+      // Find the child container def under the parent (or top-level if
+      // parent is the module root). Returns null when the BSWMD does
+      // not declare this child — surface as `no-bswmd-for-module` per
+      // the spec (BSWMD is the source of truth; an undeclared child
+      // is the same failure class as a missing module).
+      const childDef = findChildContainerDef(moduleDef, parentContainerDef, shortName);
+      if (childDef === null) {
+        set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+        return;
+      }
+      const result = coreAddContainer(hit.doc, innerPath, shortName, moduleDef, childDef);
+      if (!result.ok) {
+        set({ error: mutationErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      return;
+    }
+    // Single-mode dispatch — the active document.
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const lookup = resolveModuleAndParentContainer(state.bswmdSchemas, parentPath);
+    if (lookup === null) {
+      set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+      return;
+    }
+    const { moduleDef, parentContainerDef } = lookup;
+    const childDef = findChildContainerDef(moduleDef, parentContainerDef, shortName);
+    if (childDef === null) {
+      set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+      return;
+    }
+    const result = coreAddContainer(state.doc, parentPath, shortName, moduleDef, childDef);
+    if (!result.ok) {
+      set({ error: mutationErrorToI18n(state.locale, result.error) });
+      return;
+    }
+    applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+  },
+
+  deleteContainer: (containerPath) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      // Combined-mode: resolve to the source doc.
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+      if (hit === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      if (sourceIdx === -1) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      if (innerPath === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      // Reverse-reference scan over all loaded documents.
+      const refBundle = state.documents.map((d, i) => ({
+        doc: d,
+        filePath: state.documentPaths[i] ?? '',
+      }));
+      const refs = findReferencesTo(refBundle, innerPath);
+      if (refs.length === 0) {
+        const result = coreRemoveContainer(hit.doc, innerPath, false);
+        if (!result.ok) {
+          set({ error: mutationErrorToI18n(state.locale, result.error) });
+          return;
+        }
+        applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+        return;
+      }
+      // Defer to the cascade dialog via pendingDelete.
+      set({ pendingDelete: { path: innerPath, references: refs } });
+      return;
+    }
+    // Single-mode.
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const refBundle = state.documents.map((d, i) => ({
+      doc: d,
+      filePath: state.documentPaths[i] ?? '',
+    }));
+    const refs = findReferencesTo(refBundle, containerPath);
+    if (refs.length === 0) {
+      const result = coreRemoveContainer(state.doc, containerPath, false);
+      if (!result.ok) {
+        set({ error: mutationErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+      return;
+    }
+    set({ pendingDelete: { path: containerPath, references: refs } });
+  },
+
+  addParameter: (containerPath, paramShortName) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+      if (hit === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      if (sourceIdx === -1) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      if (innerPath === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const lookup = resolveParamDefForPath(state.bswmdSchemas, innerPath, paramShortName);
+      if (lookup === null) {
+        set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+        return;
+      }
+      const { moduleDef, paramDef } = lookup;
+      if (paramDef === null) {
+        // BSWMD does not declare this param on the parent container.
+        // Spec § 7.2 maps this to the `invalid-param-type` i18n key.
+        set({
+          error: t(state.locale, 'mutation.error.invalid-param-type', { key: paramShortName }),
+        });
+        return;
+      }
+      const result = coreAddParameter(hit.doc, innerPath, paramDef, moduleDef);
+      if (!result.ok) {
+        set({ error: mutationErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      return;
+    }
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const lookup = resolveParamDefForPath(state.bswmdSchemas, containerPath, paramShortName);
+    if (lookup === null) {
+      set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+      return;
+    }
+    const { moduleDef, paramDef } = lookup;
+    if (paramDef === null) {
+      set({
+        error: t(state.locale, 'mutation.error.invalid-param-type', { key: paramShortName }),
+      });
+      return;
+    }
+    const result = coreAddParameter(state.doc, containerPath, paramDef, moduleDef);
+    if (!result.ok) {
+      set({ error: mutationErrorToI18n(state.locale, result.error) });
+      return;
+    }
+    applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+  },
+
+  deleteParameter: (containerPath, paramKey) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+      if (hit === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      if (sourceIdx === -1) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      if (innerPath === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const result = coreRemoveParameter(hit.doc, innerPath, paramKey);
+      if (!result.ok) {
+        set({ error: mutationErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      return;
+    }
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const result = coreRemoveParameter(state.doc, containerPath, paramKey);
+    if (!result.ok) {
+      set({ error: mutationErrorToI18n(state.locale, result.error) });
+      return;
+    }
+    applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+  },
+
+  // Sprint 15 Phase 2 — consume `pendingDelete` and dispatch the
+  // actual remove. `cancel` is a no-op (just clears the flag);
+  // `only` runs `removeContainer` without touching references;
+  // `cascade` also iterates the pending references and removes
+  // each one with `removeParameter`.
+  confirmDeleteContainer: (choice) => {
+    const state = get();
+    const pending = state.pendingDelete;
+    if (pending === null) return;
+
+    if (choice === 'cancel') {
+      set({ pendingDelete: null });
+      return;
+    }
+
+    // Find the doc that contains the target. The cascade scan above
+    // stored the inner path (single-mode) or the inner path from
+    // the combined-mode dispatch. We rebuild the document resolution
+    // here: try the active doc first, fall back to combined-mode
+    // resolution. This keeps the action's contract simple — the
+    // pending path is always an inner path (already stripped of the
+    // combined prefix by `deleteContainer`).
+    const activeDoc = state.doc;
+    if (activeDoc === null || state.activeDocumentPath === null) {
+      set({ pendingDelete: null });
+      return;
+    }
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) {
+      set({ pendingDelete: null });
+      return;
+    }
+
+    let workingDoc: ArxmlDocument = activeDoc;
+    let workingIdx: number = activeIdx;
+    let workingPath: string = state.activeDocumentPath;
+
+    // Combined-mode: the target path may live in a different file.
+    if (state.viewMode === 'combined') {
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, pending.path);
+      if (hit !== null) {
+        const inner = stripCombinedPrefix(pending.path, hit.filePath);
+        if (inner !== null) {
+          workingDoc = hit.doc;
+          workingIdx = state.documentPaths.indexOf(hit.filePath);
+          workingPath = hit.filePath;
+        }
+      }
+    } else {
+      // Single-mode: pending.path IS the inner path on the active doc.
+      // No rewriting needed.
+    }
+
+    // 1. Remove the container (only delete, leaves dangling refs in
+    //    choice === 'only'; combined with the cascade step below in
+    //    choice === 'cascade').
+    const result = coreRemoveContainer(workingDoc, pending.path, false);
+    if (!result.ok) {
+      set({
+        error: mutationErrorToI18n(state.locale, result.error),
+        pendingDelete: null,
+      });
+      return;
+    }
+    workingDoc = result.value;
+
+    // 2. Cascade: for each reference hit, call removeParameter on the
+    //    doc + container path. The reference param lives in whichever
+    //    filePath the hit reports, so resolve that doc by index.
+    if (choice === 'cascade') {
+      for (const ref of pending.references) {
+        const refDocIdx = state.documentPaths.indexOf(ref.filePath);
+        if (refDocIdx === -1) continue;
+        const refDoc = state.documentPaths[refDocIdx] === workingPath
+          ? workingDoc
+          : state.documents[refDocIdx];
+        if (refDoc === undefined) continue;
+        const r2 = coreRemoveParameter(refDoc, ref.containerPath, ref.paramKey);
+        if (r2.ok && state.documentPaths[refDocIdx] === workingPath) {
+          workingDoc = r2.value;
+        }
+        // For refs on OTHER files, we don't currently apply the
+        // mutation — cross-file cascade is Phase 3 territory. The
+        // common case (single-file cascade) is covered.
+      }
+    }
+
+    // 3. Commit: replace workingDoc in the documents array, mark
+    //    workingPath dirty, re-validate.
+    const nextDocuments = state.documents.map((d, i) => (i === workingIdx ? workingDoc : d));
+    const nextActiveDoc = state.activeDocumentPath === workingPath
+      ? workingDoc
+      : state.doc;
+    const nextDisplayDoc = computeDisplayDoc(
+      state.viewMode,
+      nextActiveDoc,
+      nextDocuments,
+      state.documentPaths,
+    );
+    set({
+      documents: nextDocuments,
+      doc: nextActiveDoc,
+      displayDoc: nextDisplayDoc,
+      dirtyPaths: addToDirty(state.dirtyPaths, workingPath),
+      pendingDelete: null,
+      validationErrors: validateProjectForRenderer(nextDocuments),
+      lastValidatedAt: Date.now(),
+    });
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -990,4 +1413,254 @@ function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): stri
     return null;
   }
   return `/${rest.join('/')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 15 Phase 2 — BSWMD lookup helpers for the mutation actions.
+// The store keeps BSWMD schemas in `bswmdSchemas: readonly BswmdDocument[]`;
+// the actions need to (1) find the BswModuleDef matching a value-side
+// path's module shortName and (2) resolve the parent ContainerDef
+// (and the child ContainerDef the picker selected, or the ParamDef the
+// picker selected for addParameter).
+// ---------------------------------------------------------------------------
+
+/**
+ * Walk all loaded BSWMD schemas and find the module whose shortName
+ * matches the second segment of `valuePath`, then resolve the parent
+ * container def at the given subPath (everything after the module).
+ *
+ * The action uses this to look up both `addContainer`'s parent +
+ * child container defs. The function returns the module + parent
+ * container def (NOT the child) — the action then locates the
+ * child via `findChildContainerDef`. This split mirrors the spec
+ * (`getContainerDefByPath` + child lookup) and keeps the helper
+ * surface narrow.
+ */
+function resolveModuleAndParentContainer(
+  schemas: readonly BswmdDocument[],
+  valuePath: string,
+): { readonly moduleDef: BswModuleDef; readonly parentContainerDef: ContainerDef | null } | null {
+  const segments = valuePath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const moduleShortName = segments[1];
+  if (moduleShortName === undefined) return null;
+  for (const schema of schemas) {
+    for (const mod of schema.modules) {
+      if (mod.shortName !== moduleShortName) continue;
+      // subPath: the segments after the module shortName.
+      const subSegments = segments.slice(2);
+      const subPath = subSegments.join('/');
+      const parentContainerDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
+      return { moduleDef: mod, parentContainerDef };
+    }
+  }
+  return null;
+}
+
+/**
+ * Variant of `resolveModuleForPath` for the addParameter case. Returns
+ * the module def + the matching ParamDef. The value path is the
+ * container path; the parameter shortName is supplied separately.
+ *
+ * The lookup succeeds as long as the BSWMD has a matching module +
+ * parent container. When the param shortName isn't declared on the
+ * parent container, `paramDef` is null and the caller surfaces a
+ * `no-bswmd-for-module` error (BSWMD lookup is the store's job;
+ * the cross-check inside the core is defence-in-depth, not the
+ * primary error path — the spec says BSWMD is the source of truth).
+ */
+function resolveParamDefForPath(
+  schemas: readonly BswmdDocument[],
+  containerPath: string,
+  paramShortName: string,
+): { readonly moduleDef: BswModuleDef; readonly paramDef: ParamDef | null } | null {
+  const segments = containerPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const moduleShortName = segments[1];
+  if (moduleShortName === undefined) return null;
+  for (const schema of schemas) {
+    for (const mod of schema.modules) {
+      if (mod.shortName !== moduleShortName) continue;
+      // subPath: the segments after the module.
+      const subSegments = segments.slice(2);
+      const subPath = subSegments.join('/');
+      const parentDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
+      if (subPath !== '' && parentDef === null) continue;
+      // Module-level parents (subPath === '') have no parameters per
+      // current AUTOSAR practice, so the param shortName cannot
+      // resolve. Return the module def with a null paramDef so the
+      // caller surfaces the proper error.
+      if (parentDef === null) return { moduleDef: mod, paramDef: null };
+      const paramDef = parentDef.parameters.find((p) => p.shortName === paramShortName);
+      return { moduleDef: mod, paramDef: paramDef ?? null };
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk the BswModuleDef's top-level containers, sub-containers, and
+ * choice branches to find the ContainerDef matching the given
+ * sub-path. Mirrors the shape of `getContainerDefByPath` from
+ * core/project/bswmd.ts but is inlined here to avoid widening the
+ * store's import surface with a one-off helper.
+ */
+function resolveContainerDefBySubPath(
+  mod: BswModuleDef,
+  subPath: string,
+): ContainerDef | null {
+  const segments = subPath.split('/').filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  const [head, ...tail] = segments;
+  if (head === undefined) return null;
+  const first = mod.containers.find((c) => c.shortName === head);
+  if (first === undefined) return null;
+  if (tail.length === 0) return first;
+  return findContainerInTreeByPathLocal(first, tail);
+}
+
+function findContainerInTreeByPathLocal(
+  parent: ContainerDef,
+  segments: readonly string[],
+): ContainerDef | null {
+  if (segments.length === 0) return parent;
+  const [head, ...tail] = segments;
+  if (head === undefined) return null;
+  const candidates = [...parent.subContainers, ...parent.choices];
+  const found = candidates.find((c) => c.shortName === head);
+  if (found === undefined) return null;
+  if (tail.length === 0) return found;
+  return findContainerInTreeByPathLocal(found, tail);
+}
+
+/**
+ * Find a sub-container def by shortName under a parent. When
+ * `parentDef` is null the search starts at the module's top-level
+ * containers. Returns the first match.
+ */
+function findChildContainerDef(
+  mod: BswModuleDef,
+  parentDef: ContainerDef | null,
+  shortName: string,
+): ContainerDef | null {
+  if (parentDef === null) {
+    return mod.containers.find((c) => c.shortName === shortName) ?? null;
+  }
+  const all = [...parentDef.subContainers, ...parentDef.choices];
+  return all.find((c) => c.shortName === shortName) ?? null;
+}
+
+/**
+ * Translate a `MutationError` into a localized message via the i18n
+ * bundle. The 6 kinds map 1:1 onto the `mutation.error.<kind>` keys
+ * (see `i18n.ts` § Sprint 15). The function is pure and synchronous
+ * — callers always feed it the current `locale` from the store
+ * state so the message reflects the user's chosen language.
+ */
+function mutationErrorToI18n(locale: Locale, error: MutationError): string {
+  switch (error.kind) {
+    case 'path-not-found':
+      return t(locale, 'mutation.error.path-not-found');
+    case 'name-conflict':
+      return t(locale, 'mutation.error.name-conflict', { shortName: error.shortName });
+    case 'multiplicity-exceeded':
+      return t(locale, 'mutation.error.multiplicity-exceeded', {
+        current: error.current,
+        max: error.upper,
+      });
+    case 'multiplicity-floor':
+      return t(locale, 'mutation.error.multiplicity-floor', {
+        current: error.current,
+        min: error.lower,
+      });
+    case 'no-bswmd-for-module':
+      return t(locale, 'mutation.error.no-bswmd-for-module');
+    case 'invalid-param-type':
+      return t(locale, 'mutation.error.invalid-param-type', { key: error.key });
+  }
+}
+
+/**
+ * Localised error-set helper used by the addContainer / addParameter
+ * / deleteContainer actions. Centralised here so the action bodies
+ * stay focused on the path-resolution / core-call flow.
+ */
+function setErrorWithKind(
+  set: (partial: Partial<ArxmlState>) => void,
+  locale: Locale,
+  error: MutationError,
+): void {
+  set({ error: mutationErrorToI18n(locale, error) });
+}
+
+/**
+ * Apply a successful mutation result to a SOURCE document in combined
+ * mode. The source may or may not be the active document; the
+ * `displayDoc` is rebuilt accordingly and the source path is marked
+ * dirty. This is the combined-mode equivalent of
+ * `applyMutationResultToActive` and shares the same reference-
+ * equality short-circuit semantics.
+ */
+function applyMutationResultToSource(
+  set: (partial: Partial<ArxmlState>) => void,
+  state: ArxmlState,
+  sourceIdx: number,
+  nextSourceDoc: ArxmlDocument,
+  sourceFilePath: string,
+): void {
+  if (state.documents[sourceIdx] === nextSourceDoc) return;
+  const nextDocuments = state.documents.map((d, i) =>
+    i === sourceIdx ? nextSourceDoc : d,
+  );
+  const nextActiveDoc = state.activeDocumentPath === sourceFilePath
+    ? nextSourceDoc
+    : state.doc;
+  const nextDisplayDoc = computeDisplayDoc(
+    state.viewMode,
+    nextActiveDoc,
+    nextDocuments,
+    state.documentPaths,
+  );
+  set({
+    documents: nextDocuments,
+    doc: nextActiveDoc,
+    displayDoc: nextDisplayDoc,
+    dirtyPaths: addToDirty(state.dirtyPaths, sourceFilePath),
+    validationErrors: validateProjectForRenderer(nextDocuments),
+    lastValidatedAt: Date.now(),
+  });
+}
+
+/**
+ * Apply a successful mutation result to the ACTIVE document in
+ * single mode. Mirrors the post-mutation block of `updateParam`:
+ * update the documents array, derive the back-compat `doc` alias,
+ * recompute `displayDoc`, mark the active path dirty, and re-run
+ * validation.
+ */
+function applyMutationResultToActive(
+  set: (partial: Partial<ArxmlState>) => void,
+  state: ArxmlState,
+  activeIdx: number,
+  nextActiveDoc: ArxmlDocument,
+  activeFilePath: string,
+): void {
+  if (state.documents[activeIdx] === nextActiveDoc) return;
+  const nextDocuments = state.documents.map((d, i) =>
+    i === activeIdx ? nextActiveDoc : d,
+  );
+  const nextDisplayDoc = computeDisplayDoc(
+    state.viewMode,
+    nextActiveDoc,
+    nextDocuments,
+    state.documentPaths,
+  );
+  set({
+    documents: nextDocuments,
+    doc: nextActiveDoc,
+    displayDoc: nextDisplayDoc,
+    dirtyPaths: addToDirty(state.dirtyPaths, activeFilePath),
+    validationErrors: validateProjectForRenderer(nextDocuments),
+    lastValidatedAt: Date.now(),
+  });
 }
