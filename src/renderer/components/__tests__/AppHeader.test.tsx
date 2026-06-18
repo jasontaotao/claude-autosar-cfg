@@ -129,6 +129,33 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     expect(save2.textContent).toMatch(/Save/);
   });
 
+  it('Save click passes currentPath = filePath to autosarApi.saveArxml (Sprint 16 silent-save-back)', async () => {
+    // Sprint 16 — the renderer hands the IPC the on-disk path so the
+    // main process can silent-save without popping showSaveDialog.
+    // `setDoc(doc, filePath)` is the canonical way to load a doc
+    // with a known on-disk path; the Save button then forwards that
+    // path as `currentPath`.
+    const api = makeWindowApi();
+    api.saveArxml.mockResolvedValue({
+      ok: true,
+      value: { canceled: false, path: '/p/x.arxml' },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = api;
+    useArxmlStore.getState().setDoc(makeDoc(), '/p/x.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/x.arxml']) });
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-save'));
+    await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(1));
+    const call = api.saveArxml.mock.calls[0]?.[0] as {
+      doc: ArxmlDocument;
+      defaultName: string;
+      currentPath?: string;
+    };
+    expect(call.currentPath).toBe('/p/x.arxml');
+    expect(call.defaultName).toBe('x.arxml');
+  });
+
   it('Open click triggers autosarApi.openArxmlMulti (Sprint 10 #2: multi-file channel)', () => {
     const api = makeWindowApi();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

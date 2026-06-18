@@ -84,6 +84,14 @@ export type ParseArxmlResponse = Result<ArxmlDocument, ParseError>;
 export interface SaveArxmlRequest {
   readonly doc: ArxmlDocument;
   readonly defaultName?: string;
+  /**
+   * Sprint 16 — when present, the handler skips the OS save-as dialog
+   * and writes directly to this path. Used by the renderer's "Save"
+   * button after edit, where the document already has a known on-disk
+   * location (loaded from project or generated via BSWMD-to-ECUC).
+   * Empty string is treated as absent.
+   */
+  readonly currentPath?: string;
 }
 
 export type SaveArxmlResponse = Result<SaveArxmlResult, FileError>;

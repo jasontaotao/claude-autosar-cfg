@@ -218,7 +218,16 @@ export function AppHeader({
     setStoreError(null);
     const currentPath = filePath ?? '';
     const defaultName = basename(currentPath) || 'untitled.arxml';
-    const saved = await window.autosarApi.saveArxml({ doc, defaultName });
+    // Sprint 16 — pass `currentPath` so the main-process handler can
+    // silent-save back to the on-disk path. Skips the OS save-as
+    // dialog when the doc already has a known location. For a brand-
+    // new untitled doc (`filePath === null`), `currentPath` stays
+    // undefined and the handler falls back to the dialog.
+    const saved = await window.autosarApi.saveArxml({
+      doc,
+      defaultName,
+      currentPath: filePath ?? undefined,
+    });
     if (!saved.ok) {
       setState({ busy: false });
       setStoreError(t(locale, 'app.error.saveFailed', { message: saved.error.message }));

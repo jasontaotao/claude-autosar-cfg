@@ -3,13 +3,11 @@ import * as path from 'node:path';
 
 import { dialog, ipcMain } from 'electron';
 
-import { serializeArxml } from '../../core/arxml/serializer.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
 import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
-  FileError,
   OpenArxmlMultiResult,
   OpenArxmlResult,
   OpenBswmdResult,
@@ -40,6 +38,7 @@ import { pickDirHandler } from './pickDirHandler.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
 import { projectWriteArxmlBatchHandler } from './projectWriteArxmlBatchHandler.js';
+import { saveArxmlHandler } from './saveArxmlHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
@@ -160,34 +159,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.SAVE_ARXML,
     async (_evt, req: SaveArxmlRequest): Promise<SaveArxmlResponse> => {
-      const defaultName = req.defaultName ?? 'untitled.arxml';
-      const result = await dialog.showSaveDialog({
-        title: 'Save ARXML',
-        defaultPath: defaultName,
-        filters: [{ name: 'ARXML', extensions: ['arxml'] }],
-      });
-      if (result.canceled || result.filePath === undefined) {
-        return { ok: true, value: { canceled: true } };
-      }
-      const path = result.filePath;
-      const serialized = serializeArxml(req.doc);
-      if (!serialized.ok) {
-        const err: FileError = {
-          kind: 'write-failed',
-          message: serialized.error.message,
-        };
-        return { ok: false, error: err };
-      }
-      try {
-        await fs.writeFile(path, serialized.value, 'utf8');
-        return { ok: true, value: { canceled: false, path } };
-      } catch (e) {
-        const err: FileError = {
-          kind: 'write-failed',
-          message: e instanceof Error ? e.message : String(e),
-        };
-        return { ok: false, error: err };
-      }
+      return saveArxmlHandler(req);
     },
   );
 
