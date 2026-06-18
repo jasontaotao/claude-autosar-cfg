@@ -78,6 +78,13 @@ export function ParamEditor(): JSX.Element {
   const viewMode = useArxmlStore((s) => s.viewMode);
   const selectedPath = useArxmlStore((s) => s.selectedPath);
   const locale = useArxmlStore((s) => s.locale);
+  // Sprint 15 Phase 3.5 — mutation surface. The two `+ Add` buttons call
+  // `openBswmdPicker` (which the BswmdPickerDialog root mounted in
+  // `App.tsx` picks up via a selector). The `×` delete button on each
+  // row calls `deleteParameter` directly — single-action, no cascade
+  // confirm (references are not allowed to point at primitive params).
+  const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
+  const deleteParameter = useArxmlStore((s) => s.deleteParameter);
 
   if ((doc === null && viewMode === 'single') || selectedPath === null) {
     return (
@@ -136,6 +143,27 @@ export function ParamEditor(): JSX.Element {
   const valueEntries = entries.filter(([, v]) => v.type !== 'reference');
   const referenceEntries = entries.filter(([, v]) => v.type === 'reference');
 
+  // Sprint 15 Phase 3.5 — BSWMD gate for the two `+ Add` buttons. We
+  // walk the loaded BSWMD schema set and look for a module whose
+  // shortName matches the second path segment of `selectedPath`
+  // (the value path is `/<pkg>/<module>/<container...>` so the
+  // module shortName sits at index 1). When no schema is loaded for
+  // the module the buttons stay visible but disabled — the user still
+  // sees the affordance and a tooltip explains why it's gated.
+  // Derived during render rather than stored — `bswmdSchemas` is
+  // already in the dependency list via the store selector above.
+  const hasBswmdForModule = (() => {
+    const segments = selectedPath.split('/').filter((s) => s.length > 0);
+    const moduleShortName = segments[1];
+    if (moduleShortName === undefined) return false;
+    for (const schema of useArxmlStore.getState().bswmdSchemas) {
+      for (const mod of schema.modules) {
+        if (mod.shortName === moduleShortName) return true;
+      }
+    }
+    return false;
+  })();
+
   return (
     <section
       className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
@@ -172,6 +200,7 @@ export function ParamEditor(): JSX.Element {
               type: t(locale, 'editor.col.type'),
               value: t(locale, 'editor.col.value'),
             }}
+            onDeleteParameter={deleteParameter}
             testId="editor-category-value"
           />
           <ParamCategorySection
@@ -184,10 +213,45 @@ export function ParamEditor(): JSX.Element {
               type: t(locale, 'editor.col.type'),
               value: t(locale, 'editor.col.value'),
             }}
+            onDeleteParameter={deleteParameter}
             testId="editor-category-reference"
           />
         </div>
       )}
+
+      {/* Sprint 15 Phase 3.5 — mutation footer. Two `+ Add` buttons
+          that open the BSWMD-driven picker (handled by
+          BswmdPickerDialog root in App.tsx). The buttons are
+          disabled when no BSWMD is loaded for the current module —
+          the tooltip mirrors `mutation.error.no-bswmd-for-module`
+          so the user understands the gate. The footer is only
+          rendered when a module/container is selected (the early
+          return above handles the reference / no-selection cases). */}
+      <footer
+        className="mt-4 flex gap-2 border-t border-slate-200 pt-3 dark:border-slate-700"
+        data-testid="param-editor-footer"
+      >
+        <button
+          type="button"
+          onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'parameter' })}
+          data-testid="param-editor-add-parameter"
+          disabled={!hasBswmdForModule}
+          title={hasBswmdForModule ? undefined : '需要先加载 BSWMD'}
+          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          + Add parameter
+        </button>
+        <button
+          type="button"
+          onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'reference' })}
+          data-testid="param-editor-add-reference"
+          disabled={!hasBswmdForModule}
+          title={hasBswmdForModule ? undefined : '需要先加载 BSWMD'}
+          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          + Add reference
+        </button>
+      </footer>
     </section>
   );
 }
@@ -199,10 +263,15 @@ interface ParamCategorySectionProps {
   readonly selectedPath: string;
   readonly columnHeaders: { readonly param: string; readonly type: string; readonly value: string };
   readonly testId: string;
+  // Sprint 15 Phase 3.5 — per-row delete handler. The parent component
+  // closes over `deleteParameter` from the store and passes it down so
+  // each row's × button can fire `deleteParameter(containerPath, key)`
+  // without the section knowing about the store directly.
+  readonly onDeleteParameter: (containerPath: string, paramKey: string) => void;
 }
 
 /** Render one EcuC-style category section: a heading with a count
- *  badge, and a table of (param, type, value) rows. When the category
+ *  badge, and a table of (param, type, value, action) rows. When the category
  *  is empty the heading still appears and the table is replaced with a
  *  single "(none)" row so the surrounding layout does not shift. */
 function ParamCategorySection({
@@ -212,6 +281,7 @@ function ParamCategorySection({
   selectedPath,
   columnHeaders,
   testId,
+  onDeleteParameter,
 }: ParamCategorySectionProps): JSX.Element {
   return (
     <section data-testid={testId} aria-label={label}>
@@ -230,13 +300,18 @@ function ParamCategorySection({
             <th className="py-1 text-slate-700 dark:text-slate-300">
               {columnHeaders.value}
             </th>
+            {/* Sprint 15 Phase 3.5 — Action column. The header stays
+                empty (visually a thin column) so the per-row × buttons
+                align in a dedicated lane; the aria-label still calls
+                it the "Action" column for screen readers. */}
+            <th className="w-8 py-1 text-slate-700 dark:text-slate-300" aria-label="Action" />
           </tr>
         </thead>
         <tbody>
           {entries.length === 0 ? (
             <tr>
               <td
-                colSpan={3}
+                colSpan={4}
                 className="py-2 text-center text-xs italic text-slate-400 dark:text-slate-500"
               >
                 {emptyLabel}
@@ -261,6 +336,25 @@ function ParamCategorySection({
                   </td>
                   <td className="py-2 text-slate-900 dark:text-slate-50">
                     <Editor paramKey={key} value={val} containerPath={selectedPath} />
+                  </td>
+                  {/* Sprint 15 Phase 3.5 — per-row × delete button. No
+                      confirm dialog (deleteParameter is a low-risk
+                      single action — references are not allowed to
+                      point at primitive params per the spec, so there
+                      is no cascade to worry about). The testid is
+                      keyed by param name so tests can target a
+                      specific row. */}
+                  <td className="py-2 text-slate-900 dark:text-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => onDeleteParameter(selectedPath, key)}
+                      data-testid={`param-row-delete-${key}`}
+                      aria-label={t(useArxmlStore.getState().locale, 'mutation.action.deleteParameter', { name: key })}
+                      title="Delete parameter"
+                      className="rounded px-2 py-0.5 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
+                    >
+                      ×
+                    </button>
                   </td>
                 </tr>
               );
