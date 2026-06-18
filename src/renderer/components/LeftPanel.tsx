@@ -47,7 +47,17 @@ const TABS: readonly TabDef[] = [
   { id: 'validate', labelKey: 'leftPanel.tab.validate' },
 ];
 
-export function LeftPanel(): JSX.Element {
+export interface LeftPanelProps {
+  /**
+   * Sprint 14 / Task 11 — open the ECUC picker for a specific BSWMD
+   * (the per-row "+" / `📋 N/M` chip click). When omitted (AppHeader
+   * menu click), the picker opens with no pre-selection. App.tsx owns
+   * the picker state; LeftPanel just forwards the click.
+   */
+  readonly onAddEcucFromBswmd?: (bswmdPath: string) => void;
+}
+
+export function LeftPanel({ onAddEcucFromBswmd }: LeftPanelProps = {}): JSX.Element {
   const leftTab = useArxmlStore((s) => s.leftTab);
   const setLeftTab = useArxmlStore((s) => s.setLeftTab);
   const locale = useArxmlStore((s) => s.locale);
@@ -116,6 +126,14 @@ export function LeftPanel(): JSX.Element {
                 onRemoveArxml={removeDocument}
                 onAddBswmd={() => void addBswmdFromDialog()}
                 onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
+                // Sprint 14 / Task 11 — both the "+" button and the
+                // `📋 N/M` chip open the same picker but with different
+                // pre-selection semantics. App.tsx ignores the chip-vs-
+                // button distinction today (both open with the
+                // BSWMD pre-selected); future UX can branch the chip
+                // to a configure panel instead.
+                onAddEcuc={onAddEcucFromBswmd}
+                onConfigureModules={onAddEcucFromBswmd}
               />
             ) : (
               <div

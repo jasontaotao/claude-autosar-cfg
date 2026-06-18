@@ -18,8 +18,9 @@
 // t(locale, key) so the panel flips between zh-CN and en with the
 // AppHeader locale toggle.
 
-import type { JSX } from 'react';
+import type { JSX, ReactNode } from 'react';
 
+import { getActiveModules } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 import { basename } from '@shared/path';
@@ -38,6 +39,17 @@ interface FileListProps {
   readonly addLabel?: string;
   readonly addAriaLabel?: string;
   readonly onRemove?: (path: string) => void;
+  /**
+   * Sprint 14 / Task 11 — optional row-trailing render prop. When set,
+   * FileList renders the returned nodes after the row's remove button
+   * (so the trailing widgets sit to the right of `×`). Used by the
+   * BSWMD section to inject the `📋 N/M` chip + "+" add-ECUC button.
+   *
+   * Index is provided so the caller can look up parallel-array data
+   * (`bswmdSchemas` against `manifest.bswmdPaths`) without re-computing
+   * position itself.
+   */
+  readonly renderTrailing?: (path: string, index: number) => ReactNode;
 }
 
 function FileList({
@@ -49,6 +61,7 @@ function FileList({
   addLabel,
   addAriaLabel,
   onRemove,
+  renderTrailing,
 }: FileListProps): JSX.Element {
   // Read locale on demand so re-renders track the store-level flip
   // without subscribing here (FileList is a small leaf component).
@@ -73,7 +86,7 @@ function FileList({
         <div className="project-panel-empty">{emptyHint}</div>
       ) : (
         <ul className="project-panel-list" data-testid={`${testIdPrefix}-list`}>
-          {paths.map((p) => (
+          {paths.map((p, idx) => (
             <li key={p} className="project-panel-list-item">
               <span className="project-panel-list-name" title={p}>
                 {basename(p)}
@@ -91,6 +104,7 @@ function FileList({
                   ×
                 </button>
               )}
+              {renderTrailing !== undefined && renderTrailing(p, idx)}
             </li>
           ))}
         </ul>
@@ -114,6 +128,23 @@ export interface ProjectPanelInfoProps {
   readonly onRemoveArxml: (path: string) => void;
   readonly onAddBswmd: () => void;
   readonly onRemoveBswmd: (path: string) => void;
+  /**
+   * Sprint 14 / Task 11 — invoked when the user clicks the "+" button
+   * trailing a BSWMD row. The host (App.tsx) opens the picker with
+   * `preSelectedBswmdPath={path}` so the user lands inside the right
+   * BSWMD without having to scroll. Optional so the existing ProjectPanel
+   * tests (which don't pass it) stay green.
+   */
+  readonly onAddEcuc?: (bswmdPath: string) => void;
+  /**
+   * Sprint 14 / Task 11 — invoked when the user clicks the `📋 N/M` chip
+   * trailing a BSWMD row. The host opens the picker (no pre-selection)
+   * so the user can pick which modules to instantiate. Currently the
+   * chip-click opens the same picker as the "+" button but without a
+   * pre-selection — wired separately so future UX can diverge (e.g.
+   * open a module-configure side-panel instead).
+   */
+  readonly onConfigureModules?: (bswmdPath: string) => void;
 }
 
 /**
@@ -137,12 +168,23 @@ export function ProjectPanelInfo({
   onRemoveArxml,
   onAddBswmd,
   onRemoveBswmd,
+  onAddEcuc,
+  onConfigureModules,
 }: ProjectPanelInfoProps): JSX.Element {
   // Sprint 13+ Q5 — pull dirty count from the store. Subscribed via
   // a selector so re-renders track dirty flips. The Set is the
   // canonical dirty representation (per-file path); we only need the
   // size for the meta block.
   const dirtyCount = useArxmlStore((s) => s.dirtyPaths.size);
+  // Sprint 14 / Task 11 — read BSWMD schemas + paths so each BSWMD row
+  // can surface its active/total module count (`📋 N/M` chip). The two
+  // arrays are parallel (T7 contract); we pair by index. When a BSWMD
+  // path is in `manifest.bswmdPaths` but its schema hasn't been parsed
+  // yet (still loading), we fall back to `total=0 / active=0` rather
+  // than crashing — the chip will just read `0/0` until the schema
+  // lands.
+  const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
+  const bswmdPathsInStore = useArxmlStore((s) => s.bswmdPaths);
 
   return (
     <div className="project-panel project-panel-open" data-testid="project-panel-open">
@@ -205,6 +247,55 @@ export function ProjectPanelInfo({
         addLabel={t(locale, 'projectPanel.bswmd.add')}
         addAriaLabel={t(locale, 'projectPanel.bswmd.addAria', { name: '' })}
         onRemove={onRemoveBswmd}
+        // Sprint 14 / Task 11 — trailing widgets per BSWMD row. Each
+        // row gets:
+        //   - 📋 N/M chip — uses `getActiveModules` (T4) to surface
+        //     active vs total module count. Hover-title is the
+        //     localized `ecuc.fromBswmd.modulesActive` string. Click
+        //     opens the picker via `onConfigureModules`.
+        //   - "+" button — opens the picker with this BSWMD
+        //     pre-selected via `onAddEcuc`.
+        //
+        // We look up the schema by matching `manifest.bswmdPaths[idx]`
+        // against `bswmdPathsInStore` (parallel arrays). The match may
+        // fail transiently while a BSWMD is mid-parse; in that case we
+        // fall back to 0/0 and skip the buttons (no schema = no
+        // modules to instantiate).
+        renderTrailing={(bswmdPath, idx) => {
+          const storeIdx = bswmdPathsInStore.indexOf(bswmdPath);
+          const schema = storeIdx >= 0 ? bswmdSchemas[storeIdx] : undefined;
+          const totalCount = schema !== undefined ? schema.modules.length : 0;
+          const activeModules =
+            schema !== undefined ? getActiveModules(schema) : [];
+          const activeCount = activeModules.length;
+          return (
+            <>
+              <button
+                type="button"
+                className="project-panel-bswmd-chip"
+                onClick={() => onConfigureModules?.(bswmdPath)}
+                title={t(locale, 'ecuc.fromBswmd.modulesActive', {
+                  active: activeCount,
+                  total: totalCount,
+                })}
+                data-testid={`project-panel-bswmd-chip-${idx}`}
+              >
+                <span aria-hidden="true">📋</span> {activeCount}/{totalCount}
+              </button>
+              <button
+                type="button"
+                className="project-panel-bswmd-add-ecuc"
+                onClick={() => onAddEcuc?.(bswmdPath)}
+                title={t(locale, 'ecuc.fromBswmd.menu')}
+                data-testid={`project-panel-bswmd-add-ecuc-${idx}`}
+                aria-label={t(locale, 'ecuc.fromBswmd.menu')}
+                disabled={schema === undefined || activeCount === 0}
+              >
+                +
+              </button>
+            </>
+          );
+        }}
       />
     </div>
   );

@@ -24,6 +24,16 @@ import type { ArxmlDocument, ArxmlVersion } from '@core/arxml/types.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { AppHeader } from '../AppHeader.js';
 
+// Sprint 14 / Task 11 — AppHeader now requires the ECUC-picker props.
+// Most of the legacy suite doesn't care about the picker (they test
+// the file/project menu); we provide a no-op pair here so the existing
+// assertions stay green. The picker-specific behavior is covered by
+// the new T11 menu-entry tests in the third describe block below.
+const noopProps = {
+  onEcucModuleSelect: (): void => {},
+  canSelectEcucModule: false,
+};
+
 interface MockWindowAutosarApi {
   getAppVersion: ReturnType<typeof vi.fn>;
   openArxml: ReturnType<typeof vi.fn>;
@@ -69,7 +79,7 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
   });
 
   it('renders the slim top bar (40px class, h-10 token) and the app name', () => {
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     const header = screen.getByTestId('app-header');
     expect(header).toBeInTheDocument();
     expect(header.className).toContain('app-header');
@@ -77,14 +87,14 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
   });
 
   it('renders the app version on the right side, dim and monospace', async () => {
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     const ver = await screen.findByText(/^v0\.9\.5$/);
     expect(ver).toBeInTheDocument();
     expect(ver.className).toContain('app-version');
   });
 
   it('does not show a doc name when no doc is loaded', () => {
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     expect(screen.queryByTestId(/^app-doc-name|chevron-/)).toBeNull();
     expect(screen.queryByText(/^AUTOSAR 4\./)).toBeNull();
   });
@@ -99,20 +109,20 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     useArxmlStore
       .getState()
       .setDoc(makeDoc(), 'C:/some/path/AUTOSAR_MOD_ECUConfigurationParameters.arxml');
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     expect(screen.queryByTestId('app-doc-name')).toBeNull();
     expect(screen.queryByText(/^AUTOSAR 4\.2$/)).toBeNull();
   });
 
   it('Save button is disabled when doc is clean; enabled + has dirty class when dirty', () => {
     useArxmlStore.getState().setDoc(makeDoc(), '/p/x.arxml');
-    const { rerender } = render(<AppHeader />);
+    const { rerender } = render(<AppHeader {...noopProps} />);
     const save = screen.getByTestId('btn-save');
     expect(save).toBeDisabled();
     expect(save.className).not.toContain('is-dirty');
 
     useArxmlStore.setState({ dirtyPaths: new Set(['/p/x.arxml']) });
-    rerender(<AppHeader />);
+    rerender(<AppHeader {...noopProps} />);
     const save2 = screen.getByTestId('btn-save');
     expect(save2).not.toBeDisabled();
     expect(save2.className).toContain('is-dirty');
@@ -123,7 +133,7 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     const api = makeWindowApi();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = api;
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     // 打开下拉菜单，再点击"打开 ARXML"
     fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
@@ -143,7 +153,7 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     api.parseArxml.mockResolvedValue({ ok: true, value: makeDoc() });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).window.autosarApi = api;
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     // 打开下拉菜单，再点击"打开 ARXML"
     fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
@@ -179,7 +189,7 @@ describe('AppHeader doc-tab strip (Sprint 10 #2)', () => {
     useArxmlStore.getState().addDocument(makeDoc(), 'C:/path/PduR.arxml');
     useArxmlStore.getState().setActiveDocument('C:/path/Com.arxml');
 
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     expect(screen.queryByRole('tablist')).toBeNull();
     // Spot-check the old per-doc testids are gone too.
     expect(screen.queryByTestId('doc-tab-C:/path/Com.arxml')).toBeNull();
@@ -234,7 +244,7 @@ describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
       error: { kind: 'xml-malformed', message: 'unclosed tag' },
     });
 
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
 
@@ -260,7 +270,7 @@ describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
       error: { kind: 'missing-root', message: 'expected <AUTOSAR>' },
     });
 
-    render(<AppHeader />);
+    render(<AppHeader {...noopProps} />);
     fireEvent.click(screen.getByTestId('menu-project-trigger').querySelector('button')!);
     fireEvent.click(screen.getByTestId('btn-open'));
 

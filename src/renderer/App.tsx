@@ -36,7 +36,11 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
+import { useCallback, useState } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+
+import type { PickedModule } from '@core/arxml/skeleton.js';
+import { t as i18nT } from '@shared/i18n';
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
@@ -44,12 +48,15 @@ import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
+import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { PromptRoot } from './components/PromptDialog';
 import { ParamEditor } from './components/editor/ParamEditor';
+import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useProjectActions } from './hooks/useProjectActions';
+import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
   // Sprint 3: 300ms debounced revalidation safety net.
@@ -107,6 +114,91 @@ export function App(): JSX.Element {
     void submitNewProject(name, directory, opts);
   };
 
+  // Sprint 14 / Task 11 — ECUC picker lifecycle. App.tsx owns the
+  // open/close state because it's the single mount point for any
+  // entry point that wants to invoke the picker (the AppHeader menu
+  // and the ProjectPanel row chips are both descendants of <App />).
+  // `preSelectedBswmdPath` is `undefined` for the menu-driven flow
+  // (the user picks from scratch) and is the BSWMD path for the row
+  // flow (so the user lands directly inside the right BSWMD).
+  const [ecucPickerOpen, setEcucPickerOpen] = useState(false);
+  const [preSelectedBswmdPath, setPreSelectedBswmdPath] = useState<
+    string | undefined
+  >(undefined);
+  // T8 orchestration hook — writes ARXML via IPC, registers the new
+  // docs in the store on success, rolls back on partial failure.
+  const { create: createEcuc } = useCreateEcucFromBswmd();
+  // The picker is gated on BOTH a BSWMD being loaded (otherwise
+  // there's nothing to enumerate) AND a project being open (the
+  // picker writes into the project's directory).
+  const canSelectEcucModule = useArxmlStore(
+    (s) => s.bswmdSchemas.length > 0 && s.project !== null,
+  );
+  const locale = useArxmlStore((s) => s.locale);
+  const setStoreError = useArxmlStore((s) => s.setError);
+
+  const handleMenuSelectEcucModule = useCallback((): void => {
+    setPreSelectedBswmdPath(undefined);
+    setEcucPickerOpen(true);
+  }, []);
+
+  const handleAddEcucFromBswmd = useCallback((bswmdPath: string): void => {
+    setPreSelectedBswmdPath(bswmdPath);
+    setEcucPickerOpen(true);
+  }, []);
+
+  const handleCloseEcucPicker = useCallback((): void => {
+    setEcucPickerOpen(false);
+    setPreSelectedBswmdPath(undefined);
+  }, []);
+
+  // `useArxmlStore.getState().projectPath` is read inside the confirm
+  // handler (not subscribed via `useStore`) because it's only read
+  // once on submit and we don't need the component to re-render when
+  // the project path changes (it never changes while the picker is
+  // open — `closeProject` would close the dialog via store.error).
+  const handleConfirmEcucPicker = useCallback(
+    async (picks: readonly PickedModule[]): Promise<void> => {
+      setEcucPickerOpen(false);
+      const state = useArxmlStore.getState();
+      const project = state.project;
+      const projectPath = state.projectPath;
+      if (project === null || projectPath === null) {
+        setStoreError('No project open');
+        setPreSelectedBswmdPath(undefined);
+        return;
+      }
+      // Derive `projectDir` from `manifestPath` (strip the trailing
+      // file segment). `path.ts` doesn't export dirname, so we split
+      // inline — same approach other call sites use for "the
+      // directory the project lives in".
+      const projectDir = projectPath.replace(/[\\/][^\\/]+$/, '');
+      const result = await createEcuc({ picks, projectDir });
+      if (result.kind === 'ok') {
+        if (result.written.length > 0) {
+          // Localized toast — reuses the ECUC "created" i18n key so
+          // the user sees the same string regardless of which entry
+          // point invoked the picker.
+          setStoreError(
+            i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }),
+          );
+        }
+      } else {
+        // 'partial' or 'error'. For partial, the hook returns the
+        // failed[] entries; for error, `result.message` is set.
+        const msg =
+          result.message !== undefined
+            ? result.message
+            : result.failed.length > 0
+              ? result.failed.map((f) => `${f.filePath}: ${f.message}`).join('; ')
+              : 'unknown error';
+        setStoreError(msg);
+      }
+      setPreSelectedBswmdPath(undefined);
+    },
+    [createEcuc, locale, setStoreError],
+  );
+
   // Sprint 13 #2 Task 5 — the left column is now a single
   // <LeftPanel /> instance. LeftPanel owns the project / files /
   // validate tab bar, mounts ProjectPanelInfo inside the project tab
@@ -123,7 +215,10 @@ export function App(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppHeader />
+      <AppHeader
+        onEcucModuleSelect={handleMenuSelectEcucModule}
+        canSelectEcucModule={canSelectEcucModule}
+      />
       {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
           span. Clicking the message opens <ErrorViewerModal /> for
@@ -146,7 +241,7 @@ export function App(): JSX.Element {
           onLayoutChanged={onLayoutChanged}
         >
           <Panel id="workspace-left" minSize="20%" defaultSize="30%">
-            <LeftPanel />
+            <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} />
           </Panel>
           <Separator
             className="workspace-resize-h"
@@ -177,6 +272,22 @@ export function App(): JSX.Element {
           dialog; no cross-mount ordering requirement. */}
       <CascadeConfirmRoot />
       <NewProjectDialog onSubmit={handleNewProjectSubmit} />
+      {/* Sprint 14 / Task 11 — ECUC picker. Hosted at App.tsx so any
+          sibling entry point (AppHeader menu / ProjectPanel row chip)
+          can flip its `open` flag. Renders into document.body via
+          its own portal (z-index 9994) so it sits above the workspace
+          but below the confirm dialogs. The picker reads BSWMD state
+          from the store; we only own open/close + pre-selection. */}
+      <ModuleFromBswmdPicker
+        open={ecucPickerOpen}
+        projectDir={(() => {
+          const pp = useArxmlStore.getState().projectPath;
+          return pp !== null ? pp.replace(/[\\/][^\\/]+$/, '') : '';
+        })()}
+        preSelectedBswmdPath={preSelectedBswmdPath}
+        onConfirm={handleConfirmEcucPicker}
+        onClose={handleCloseEcucPicker}
+      />
     </div>
   );
 }
