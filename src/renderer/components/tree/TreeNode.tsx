@@ -32,6 +32,12 @@ interface TreeNodeProps {
   isSelected: boolean;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
+  // Sprint 15 / Phase 3.4 — right-click handler. The host (Tree, and
+  // eventually App.tsx) wires this to the global ContextMenu.open() so
+  // the user gets an Add/Delete menu on a node they right-click. The
+  // handler receives the node's path and kind so the menu can pick
+  // the right item set.
+  readonly onContextMenu?: (path: string, kind: TreeKind) => void;
   children?: ReactNode;
 }
 
@@ -46,6 +52,7 @@ export function TreeNode({
   isSelected,
   onToggle,
   onSelect,
+  onContextMenu,
   children,
 }: TreeNodeProps): JSX.Element {
   const handleToggle = useCallback((): void => {
@@ -145,6 +152,15 @@ export function TreeNode({
       data-path={path}
       data-testid={`treeitem-${path}`}
       onKeyDown={handleKeyDown}
+      onContextMenu={(e) => {
+        // Sprint 15 / Phase 3.4 — right-click on a tree row opens the
+        // mutation context menu. We always preventDefault so the
+        // browser's native context menu does not also appear; the
+        // host's onContextMenu decides whether to actually open a
+        // menu (it may no-op if the kind/path is not supported).
+        e.preventDefault();
+        onContextMenu?.(path, kind ?? 'container');
+      }}
       onClick={(e) => {
         // Stop the click from bubbling to ancestor treeitems — each
         // <div role="treeitem"> has its own handleClick, and without
@@ -155,6 +171,7 @@ export function TreeNode({
         handleClick();
       }}
       className="tree-item"
+      style={{ cursor: 'context-menu' }}
     >
       <div className="tree-item-row" style={{ paddingLeft: `${depth * 16}px` }} data-row-for={path}>
         {!isLeaf && (

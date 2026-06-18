@@ -17,6 +17,13 @@ import type { Locale } from '@shared/i18n';
 
 import { TreeNode } from './TreeNode.js';
 
+// Sprint 15 / Phase 3.4 — re-export the TreeNode kind so consumers
+// of the Tree component (App.tsx in Sprint 15 wiring) don't need a
+// separate TreeNode import just for the onContextMenu callback type.
+// `TreeKind` is declared inside TreeNode.tsx as a non-exported type
+// alias; mirror it here for the public type surface.
+type TreeKind = 'module' | 'container' | 'reference';
+
 export interface ArxmlStoreSlice {
   // Sprint 13 Stage 3.5 — Tree reads `displayDoc` (the synthesised
   // virtual ArxmlDocument in combined mode, or the active `doc` in
@@ -38,10 +45,14 @@ export interface ArxmlStoreApi {
 
 interface TreeProps {
   store: ArxmlStoreApi;
+  // Sprint 15 / Phase 3.4 — right-click handler. The host (App.tsx
+  // in Sprint 15 wiring) wires this to the global ContextMenu.open()
+  // so the user can right-click any tree node to add/delete.
+  readonly onContextMenu?: (path: string, kind: TreeKind) => void;
 }
 
 /** Public component — top-level container. */
-export function Tree({ store }: TreeProps): JSX.Element {
+export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
   // We do NOT use the store via a React hook to avoid coupling the
   // file to a specific store implementation (Zustand, custom, etc.).
   // Instead, subscribe via store.subscribe and store local mirror.
@@ -94,7 +105,7 @@ export function Tree({ store }: TreeProps): JSX.Element {
       data-testid="tree-root"
     >
       {doc.packages.map((pkg: ArxmlPackage) =>
-        renderPackage(pkg, 0, expanded, toggle, selectedPath, store),
+        renderPackage(pkg, 0, expanded, toggle, selectedPath, store, onContextMenu),
       )}
     </aside>
   );
@@ -120,6 +131,7 @@ function renderPackage(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
+  onContextMenu?: (path: string, kind: TreeKind) => void,
 ): JSX.Element {
   const hasElements = pkg.elements.length > 0;
   const hasSubPackages = pkg.packages !== undefined && pkg.packages.length > 0;
@@ -136,13 +148,23 @@ function renderPackage(
       isSelected={selectedPath === pkg.path}
       onToggle={toggle}
       onSelect={(p) => store.getState().select(p)}
+      onContextMenu={onContextMenu}
     >
       {hasSubPackages &&
         pkg.packages!.map((sp) =>
-          renderPackage(sp, depth + 1, expanded, toggle, selectedPath, store),
+          renderPackage(sp, depth + 1, expanded, toggle, selectedPath, store, onContextMenu),
         )}
       {hasElements &&
-        renderChildren(pkg.elements, pkg.path, depth + 1, expanded, toggle, selectedPath, store)}
+        renderChildren(
+          pkg.elements,
+          pkg.path,
+          depth + 1,
+          expanded,
+          toggle,
+          selectedPath,
+          store,
+          onContextMenu,
+        )}
     </TreeNode>
   );
 }
@@ -159,6 +181,7 @@ function renderChildren(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
+  onContextMenu?: (path: string, kind: TreeKind) => void,
 ): JSX.Element[] {
   return elements.map((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
@@ -175,9 +198,19 @@ function renderChildren(
         isSelected={selectedPath === childPath}
         onToggle={toggle}
         onSelect={(p) => store.getState().select(p)}
+        onContextMenu={onContextMenu}
       >
         {!isLeaf &&
-          renderChildren(el.children, childPath, depth + 1, expanded, toggle, selectedPath, store)}
+          renderChildren(
+            el.children,
+            childPath,
+            depth + 1,
+            expanded,
+            toggle,
+            selectedPath,
+            store,
+            onContextMenu,
+          )}
       </TreeNode>
     );
   });

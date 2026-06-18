@@ -1,0 +1,61 @@
+/* ContextMenu — Sprint 15 / Phase 3.1.
+   Portal-based right-click menu. Catppuccin Mocha theme to match the
+   rest of the renderer (ConfirmDialog / CascadeConfirmDialog). z-index
+   9995 — sits BELOW the cascade / confirm dialogs so a context menu
+   can be safely open while a modal flow is in progress (and a
+   backdrop click is impossible because the menu closes on outside
+   click first). */
+
+.context-menu {
+  position: fixed;
+  z-index: 9995;
+  min-width: 200px;
+  max-width: 320px;
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 4px 0;
+  color: #cdd6f4; /* --color-text */
+  font-size: 13px;
+  list-style: none;
+  margin: 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  user-select: none;
+  /* Default to no outline (focus is conveyed via background) so the
+     menu doesn't fight the row hover state. */
+  outline: none;
+}
+
+.context-menu-item:hover,
+.context-menu-item:focus {
+  background: #45475a; /* --color-border-hover */
+}
+
+.context-menu-item.context-menu-item-add {
+  /* No distinct visual cue by default — the + prefix in the label
+     is the visual hint. We still keep the modifier class so future
+     styling (e.g. green tint for adds, red tint for deletes) is
+     one CSS rule away. */
+}
+
+.context-menu-item.context-menu-item-delete {
+  /* Reserved for future red-tint. */
+}
+
+.context-menu-item[aria-disabled='true'] {
+  color: #6c7086; /* --color-text-disabled */
+  cursor: not-allowed;
+}
+
+.context-menu-item[aria-disabled='true']:hover,
+.context-menu-item[aria-disabled='true']:focus {
+  background: transparent;
+}
