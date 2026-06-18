@@ -30,6 +30,7 @@
 // T2 contract: `generateEcucSkeleton`. T3 contract: `resolveCollisionFilename`.
 
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
+
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from './types.js';
 
 /**
