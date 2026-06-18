@@ -41,12 +41,39 @@
 // Each function returns a `ProjectActionResult` discriminated union so
 // callers can branch on success / failure / canceled (e.g. show a
 // toast for the failure branch, no-op on canceled).
+//
+// Sprint 14 Task 12 — adds `removeBswmdWithCascade(path)`. When the
+// BSWMD has 0 dependents it goes straight to `store.removeBswmd`. When
+// it has 1+ dependents (i.e. value-side ARXMLs generated from it via
+// the BSWMD-to-ECUC skeleton flow), it pops the 3-option cascade
+// confirm dialog (reusing Sprint 15's `CascadeConfirmDialog` — already
+// mounted in App.tsx) and dispatches based on the user's choice:
+//   - 'cancel'  → no-op, leave BSWMD + dependents alone
+//   - 'only'    → remove BSWMD only, leave dependents (they'll lose
+//                 schema validation but the user explicitly chose this)
+//   - 'cascade' → delete each dependent on disk via
+//                 `window.autosarApi.deleteArxml`, drop them from the
+//                 store, then remove the BSWMD itself
+//
+// Why reuse `confirmCascade` instead of the brief's sketch (a custom
+// `confirm({options:[{id,label}]})`): the existing
+// `ConfirmDialog.confirm()` is locked to the dirty-guard choice set
+// (`'continue' | 'discard' | 'saveAndProceed'`). Building a parallel
+// dialog for BSWMD remove would duplicate the visual shell, the
+// escape/backdrop-resolve semantics, and the test surface. The
+// already-mounted `CascadeConfirmRoot` handles all of that and the
+// `'cancel' | 'only' | 'cascade'` choice set maps 1:1 onto this
+// action's intent. Spec §14.4 still adds the 4 `ecuc.removeBswmd.*`
+// i18n keys so a future dedicated dialog can adopt them without
+// re-touching i18n.ts.
 
 import { useCallback } from 'react';
 
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
+import { basename } from '@shared/path';
 
+import { confirmCascade } from '../components/CascadeConfirmDialog';
 import { confirm } from '../components/ConfirmDialog';
 import { useArxmlStore } from '../store/useArxmlStore';
 
@@ -210,6 +237,11 @@ async function guardedDirtySwitch(
  *      flow.
  *   - `removeBswmdWithGuard(path)` — guards on `dirtyPaths.size > 0`,
  *      then calls `store.removeBswmd(path)`.
+ *   - `removeBswmdWithCascade(path)` — Sprint 14 Task 12: cascade-
+ *     remove a BSWMD. When the BSWMD has 0 dependents, removes the
+ *     BSWMD only. When it has 1+ dependents, pops the cascade confirm
+ *     dialog and dispatches on the user's choice (cancel / only /
+ *     cascade).
  *
  * Dirty-guard semantics (Stage 3.2):
  *   - 'continue' → return `{ kind: 'canceled' }`, no IPC.
@@ -223,6 +255,7 @@ export function useProjectActions(): {
   readonly saveProject: () => Promise<ProjectActionResult>;
   readonly addBswmdFromDialog: () => Promise<ProjectActionResult>;
   readonly removeBswmdWithGuard: (path: string) => Promise<ProjectActionResult>;
+  readonly removeBswmdWithCascade: (path: string) => Promise<ProjectActionResult>;
   readonly submitNewProject: (
     name: string,
     directory: string,
@@ -493,12 +526,88 @@ export function useProjectActions(): {
     [saveProject],
   );
 
+  // -------------------------------------------------------------------------
+  // Sprint 14 Task 12 — `removeBswmdWithCascade`. Like
+  // `removeBswmdWithGuard`, but when the BSWMD has 1+ dependents
+  // (value-side ARXMLs that were generated from it via the
+  // BSWMD-to-ECUC skeleton flow), it pops the 3-option cascade
+  // confirm dialog and dispatches on the user's choice.
+  //
+  // The dirty guard is intentionally NOT applied here — cascade
+  // removal is an explicit user action (the user clicked "remove"
+  // knowing the BSWMD has dependents), and re-prompting for unsaved
+  // changes on top of the cascade dialog would be UX noise. If the
+  // product wants the dirty guard on cascade remove later, lift it
+  // from `removeBswmdWithGuard` and prepend it here.
+  // -------------------------------------------------------------------------
+  const removeBswmdWithCascade = useCallback(
+    async (path: string): Promise<ProjectActionResult> => {
+      // Bail up-front on unknown paths so we don't pop the dialog for
+      // a no-op click. Mirrors `removeBswmdWithGuard`'s first-line
+      // guard.
+      if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
+        return { kind: 'canceled' };
+      }
+      // Snapshot dependents via the T7 store action. `dependents` is
+      // a fresh array each call (the store filters + maps on demand),
+      // so it's safe to use directly without re-snapshotting.
+      const dependents = useArxmlStore.getState().findDependentsOfBswmd(path);
+      if (dependents.length > 0) {
+        // Reuse the existing `CascadeConfirmDialog.confirmCascade` —
+        // already mounted in App.tsx, already i18n'd via
+        // `confirm.cascade.*`. The dialog accepts
+        // `{ targetShortName, references: [{filePath, containerPath,
+        // paramKey}] }`; for BSWMD-remove the per-reference
+        // containerPath / paramKey are not meaningful (a whole ARXML
+        // is the dependent, not a single param), so we pass empty
+        // strings and let the filePath be the visible identifier.
+        const choice = await confirmCascade({
+          targetShortName: basename(path),
+          references: dependents.map((filePath) => ({
+            filePath,
+            containerPath: '',
+            paramKey: '',
+          })),
+        });
+        if (choice === 'cancel') {
+          return { kind: 'ok' };
+        }
+        if (choice === 'cascade') {
+          // For each dependent, delete from disk via IPC, then drop
+          // from the store. We read `removeDocument` on a fresh
+          // `getState()` per call so the loop sees the post-removal
+          // documentPaths each iteration (the store's `removeDocument`
+          // is index-by-path, so it tolerates stale snapshots — but
+          // this is the explicit, correct shape).
+          for (const filePath of dependents) {
+            // Best-effort disk delete. The IPC handler returns
+            // `{ kind: 'ok' | 'not-found' | 'write-failed' }`. A
+            // `not-found` (file already gone) is fine — we still drop
+            // the in-memory entry. A `write-failed` is also OK here:
+            // the in-memory doc is stale either way, and the user
+            // gets to see a store-level error via the next mutation
+            // if it matters.
+            await window.autosarApi.deleteArxml({ filePath });
+            useArxmlStore.getState().removeDocument(filePath);
+          }
+        }
+        // 'only' falls through to remove the BSWMD only — dependents
+        // stay in the store and lose schema validation, which is what
+        // the user explicitly chose.
+      }
+      useArxmlStore.getState().removeBswmd(path);
+      return { kind: 'ok' };
+    },
+    [],
+  );
+
   return {
     newProject,
     openProjectFromDialog,
     saveProject,
     addBswmdFromDialog,
     removeBswmdWithGuard,
+    removeBswmdWithCascade,
     submitNewProject,
   };
 }

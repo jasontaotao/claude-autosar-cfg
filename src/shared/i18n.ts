@@ -302,6 +302,20 @@ export interface Messages {
   readonly 'ecuc.fromBswmd.upperBoundReached': string; // {current} {max}
   readonly 'ecuc.fromBswmd.toast': string; // {count}
   readonly 'ecuc.fromBswmd.modulesActive': string; // {active} {total}
+
+  // Sprint 14 — BSWMD cascade-on-remove confirm (Task 12 + spec §14.4).
+  // Mirrors the existing `confirm.cascade.*` keys (Sprint 15) but
+  // scoped to BSWMD removal specifically. Reserved for a future
+  // dedicated BSWMD-confirm dialog; the current Task 12 implementation
+  // reuses `CascadeConfirmDialog.confirmCascade` (already mounted in
+  // App.tsx) which renders against `confirm.cascade.*`. Adding the keys
+  // here satisfies the spec's parity-test contract so a future
+  // refactor (separate dialog) can adopt them without re-touching
+  // i18n.ts.
+  readonly 'ecuc.removeBswmd.cascadeTitle': string; // {name}
+  readonly 'ecuc.removeBswmd.cascadeBody': string;
+  readonly 'ecuc.removeBswmd.onlyBswmd': string;
+  readonly 'ecuc.removeBswmd.cascade': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -520,6 +534,14 @@ export const MessagesZhCN: Messages = {
   'ecuc.fromBswmd.upperBoundReached': '已达实例上限 ({current}/{max})',
   'ecuc.fromBswmd.toast': '已新建 {count} 个 ECUC 文件',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
+
+  // Sprint 14 — BSWMD cascade-on-remove (spec §14.4). See the Messages
+  // interface JSDoc for why these are reserved alongside the active
+  // `confirm.cascade.*` keys.
+  'ecuc.removeBswmd.cascadeTitle': '移除 BSWMD {name}?',
+  'ecuc.removeBswmd.cascadeBody': '以下 ECUC 文件依赖此 BSWMD，移除后将失去 schema 校验：',
+  'ecuc.removeBswmd.onlyBswmd': '仅移除 BSWMD（保留 ECUC）',
+  'ecuc.removeBswmd.cascade': '移除 BSWMD + 删除依赖文件',
 };
 
 // ---------------------------------------------------------------------------
@@ -739,6 +761,14 @@ export const MessagesEn: Messages = {
   'ecuc.fromBswmd.upperBoundReached': 'Upper bound reached ({current}/{max})',
   'ecuc.fromBswmd.toast': 'Created {count} ECUC files',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
+
+  // Sprint 14 — BSWMD cascade-on-remove (spec §14.4). See the Messages
+  // interface JSDoc.
+  'ecuc.removeBswmd.cascadeTitle': 'Remove BSWMD {name}?',
+  'ecuc.removeBswmd.cascadeBody':
+    'These ECUC files depend on this BSWMD — removing it will break schema validation:',
+  'ecuc.removeBswmd.onlyBswmd': 'Remove BSWMD only (keep ECUC)',
+  'ecuc.removeBswmd.cascade': 'Remove BSWMD + delete dependents',
 };
 
 // ---------------------------------------------------------------------------
