@@ -121,11 +121,27 @@ function buildModule(mod: BswModuleDef): ArxmlModule {
 
 function buildTopContainer(c: ContainerDef): ArxmlContainer {
   // Top-layer fill: BSWMD `defaultValue` -> typed `ParamValue`. Null
-  // defaults are skipped (per `buildDefaultValue` contract).
+  // defaults are skipped per the `buildDefaultValue` contract EXCEPT for
+  // text-shaped params (enumeration / string / function-name), which the
+  // skeleton intentionally materializes as an empty-string placeholder so
+  // the user gets an editable cell in the ParamEditor. This fallback lives
+  // here, not in `buildDefaultValue`, because mutation.addParameter
+  // deliberately surfaces `invalid-param-type` for the same input — the
+  // two layers diverge intentionally (skeleton = "give the user a cell to
+  // fill"; mutation = "reject an unusable default").
   const params: Record<string, ParamValue> = {};
   for (const p of c.parameters) {
     const v = buildDefaultValue(p);
-    if (v !== null) params[p.shortName] = v;
+    if (v !== null) {
+      params[p.shortName] = v;
+      continue;
+    }
+    if (p.kind === 'enumeration') {
+      params[p.shortName] = { type: 'enum', value: '' };
+    } else if (p.kind === 'string' || p.kind === 'function-name') {
+      params[p.shortName] = { type: 'string', value: '' };
+    }
+    // integer / float / boolean / reference null defaults stay skipped.
   }
   return {
     kind: 'container',
