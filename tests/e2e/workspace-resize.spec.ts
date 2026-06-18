@@ -10,9 +10,11 @@
 //      restores it on page reload.
 //
 // Out of scope for v1 (deferred to a follow-up):
-//   - localStorage key pinning (we wait for the library to settle
-//     on a stable key in v4.x; for now we read whatever key it
-//     uses).
+//   - localStorage key pinning — `useDefaultLayout({ groupId: 'workspace' })`
+//     writes the layout to a library-managed key derived from `groupId`
+//     (`react-resizable-panels` v4 does not expose the raw key). If we
+//     ever need to migrate or read the layout from another tool, switch
+//     to manual `localStorage.setItem` + `Group.onLayoutChanged`.
 //   - Collapsed / minimised / snapped layout states.
 
 import { test, expect } from '@playwright/test';

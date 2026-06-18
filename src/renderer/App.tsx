@@ -36,7 +36,7 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
@@ -55,6 +55,20 @@ export function App(): JSX.Element {
   // Note: store.updateParam is already sync-revalidating; this hook
   // covers any future async paths (IPC mutations, undo/redo, etc.).
   useDebouncedValidation(300);
+
+  // Sprint 13+ Stage 4 Q1 — react-resizable-panels v4 has no
+  // `autoSaveId` prop (verified in node_modules/.../dist/.d.ts:60-142
+  // and confirmed by code-reviewer HIGH finding on the C4 commit).
+  // The library expects callers to wire `useDefaultLayout({ groupId })`
+  // for localStorage persistence: the hook returns a `defaultLayout`
+  // (read from storage on mount, falls back to `undefined` first time)
+  // and an `onLayoutChanged` callback that writes the new layout to
+  // storage. We thread both into the `<Group>` below so the splitter
+  // position survives page reloads.
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    groupId: 'workspace',
+  });
+  const fallbackLayout = { 'workspace-left': 30 } as const;
 
   // Sprint 12 #3 Phase 1 Task 5 — `submitNewProject` is the dirty-
   // guarded submitter for `<NewProjectDialog />`. When the user clicks
@@ -118,12 +132,18 @@ export function App(): JSX.Element {
         {/* Sprint 13+ Stage 4 Q1 — resizable left/right column.
             `react-resizable-panels` replaces the previous fixed
             `minmax(280px, 30%) 1fr` grid in styles.css with a PanelGroup
-            whose column widths the user can drag. The `autoSaveId`
-            persists the divider position to localStorage across reloads.
-            The Separator element is the drag handle — it carries the
+            whose column widths the user can drag. Persistence is
+            wired via `useDefaultLayout({ groupId: 'workspace' })`
+            above (v4 has no `autoSaveId` prop). The Separator element
+            is the drag handle — it carries the
             `data-testid="workspace-resize-h"` selector the workspace
             tests target. */}
-        <Group orientation="horizontal" id="workspace" defaultLayout={{ 'workspace-left': 30 }}>
+        <Group
+          orientation="horizontal"
+          id="workspace"
+          defaultLayout={defaultLayout ?? fallbackLayout}
+          onLayoutChanged={onLayoutChanged}
+        >
           <Panel id="workspace-left" minSize="20%" defaultSize="30%">
             <LeftPanel />
           </Panel>
