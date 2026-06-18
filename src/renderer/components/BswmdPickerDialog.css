@@ -1,0 +1,206 @@
+/* BswmdPickerDialog — Sprint 15 / Phase 3.2.
+   Visual shell mirrors CascadeConfirmDialog (Catppuccin Mocha) with a
+   search input + per-element list. z-index 9995 — sits BELOW
+   CascadeConfirmDialog (9996) and ConfirmDialog (9998) so a
+   dirty-guard / cascade dialog can override an open picker. */
+
+.bspd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9995;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.bspd-dialog {
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
+  border-radius: 12px;
+  min-width: 420px;
+  max-width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #cdd6f4; /* --color-text */
+  overflow: hidden;
+}
+
+.bspd-header {
+  background: #181825; /* --color-bg (darker) */
+  padding: 14px 20px;
+  border-bottom: 1px solid #45475a;
+}
+
+.bspd-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.bspd-parent {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #a6adc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.bspd-body {
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.bspd-search {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.bspd-search:focus {
+  border-color: #89b4fa;
+}
+
+.bspd-error {
+  font-size: 13px;
+  color: #f38ba8;
+  padding: 12px;
+  background: #1e1e2e;
+  border-radius: 6px;
+  border: 1px solid #45475a;
+}
+
+.bspd-empty {
+  font-size: 13px;
+  color: #a6adc8;
+  padding: 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+.bspd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.bspd-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
+  font-size: 13px;
+}
+
+.bspd-row:hover:not(.bspd-row-disabled) {
+  background: #313244;
+}
+
+.bspd-row-selected {
+  background: #89b4fa;
+  color: #1e1e2e;
+  font-weight: 600;
+}
+
+.bspd-row-selected:hover {
+  background: #74c7ec;
+}
+
+.bspd-row-disabled {
+  color: #585b70;
+  cursor: not-allowed;
+  font-style: italic;
+}
+
+.bspd-row-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.bspd-row-mult {
+  font-size: 11px;
+  color: #a6adc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.bspd-row-selected .bspd-row-mult {
+  color: #1e1e2e;
+}
+
+.bspd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #181825;
+  padding: 12px 20px;
+  border-top: 1px solid #45475a;
+}
+
+.bspd-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.bspd-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bspd-btn-cancel {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.bspd-btn-cancel:hover {
+  background: #585b70;
+}
+
+.bspd-btn-done {
+  background: #a6e3a1; /* --color-success */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #a6e3a1;
+}
+
+.bspd-btn-done:hover:not(:disabled) {
+  background: #94e2d5;
+  border-color: #94e2d5;
+}
