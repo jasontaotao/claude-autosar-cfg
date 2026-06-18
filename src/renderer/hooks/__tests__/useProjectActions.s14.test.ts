@@ -115,18 +115,18 @@ beforeEach(() => {
     bswmdPaths: ['D:/bswmd/Can.arxml'],
     documents: [
       {
-        path: 'D:/proj/A_Cfg.arxml',
+        path: 'D:/proj/A_EcucValues.arxml',
         version: '4.6',
         packages: [],
         sourceBswmdPath: 'D:/bswmd/Can.arxml',
       },
     ],
-    documentPaths: ['D:/proj/A_Cfg.arxml'],
+    documentPaths: ['D:/proj/A_EcucValues.arxml'],
     project: {
       schemaVersion: MANIFEST_SCHEMA_VERSION,
       id: '00000000-0000-0000-0000-000000000001',
       name: 'Test Project',
-      valueArxmlPaths: ['D:/proj/A_Cfg.arxml'],
+      valueArxmlPaths: ['D:/proj/A_EcucValues.arxml'],
       bswmdPaths: ['D:/bswmd/Can.arxml'],
     },
   });
@@ -175,12 +175,12 @@ describe('useProjectActions — removeBswmdWithCascade (Sprint 14 Task 12)', () 
       expect.objectContaining({
         targetShortName: 'Can.arxml',
         references: expect.arrayContaining([
-          expect.objectContaining({ filePath: 'D:/proj/A_Cfg.arxml' }),
+          expect.objectContaining({ filePath: 'D:/proj/A_EcucValues.arxml' }),
         ]),
       }),
     );
     expect(stub.deleteArxml).toHaveBeenCalledTimes(1);
-    expect(stub.deleteArxml).toHaveBeenCalledWith({ filePath: 'D:/proj/A_Cfg.arxml' });
+    expect(stub.deleteArxml).toHaveBeenCalledWith({ filePath: 'D:/proj/A_EcucValues.arxml' });
     expect(useArxmlStore.getState().bswmdPaths).toEqual([]);
     expect(useArxmlStore.getState().documentPaths).toEqual([]);
   });
@@ -204,7 +204,7 @@ describe('useProjectActions — removeBswmdWithCascade (Sprint 14 Task 12)', () 
     expect(confirmCascadeSpy).toHaveBeenCalledTimes(1);
     expect(stub.deleteArxml).not.toHaveBeenCalled();
     expect(useArxmlStore.getState().bswmdPaths).toEqual([]);
-    expect(useArxmlStore.getState().documentPaths).toEqual(['D:/proj/A_Cfg.arxml']);
+    expect(useArxmlStore.getState().documentPaths).toEqual(['D:/proj/A_EcucValues.arxml']);
   });
 
   it('does nothing when user cancels', async () => {
@@ -225,7 +225,7 @@ describe('useProjectActions — removeBswmdWithCascade (Sprint 14 Task 12)', () 
     expect(confirmCascadeSpy).toHaveBeenCalledTimes(1);
     expect(stub.deleteArxml).not.toHaveBeenCalled();
     expect(useArxmlStore.getState().bswmdPaths).toEqual(['D:/bswmd/Can.arxml']);
-    expect(useArxmlStore.getState().documentPaths).toEqual(['D:/proj/A_Cfg.arxml']);
+    expect(useArxmlStore.getState().documentPaths).toEqual(['D:/proj/A_EcucValues.arxml']);
   });
 
   it('skips confirm dialog entirely when BSWMD has no dependents', async () => {

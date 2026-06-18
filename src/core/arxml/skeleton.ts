@@ -15,7 +15,7 @@
 //     is the unique pick tuple and whose value is the on-disk path where
 //     the ECUC value-side file should be written. Applies collision
 //     resolution: when multiple picks share a `moduleShortName`, the
-//     first wins the un-suffixed `<moduleShortName>_Cfg.arxml`; later
+//     first wins the un-suffixed `<moduleShortName>_EcucValues.arxml`; later
 //     picks are suffixed with `__<vendorKey>` derived from the BSWMD
 //     basename; if basenames collide too, a numeric suffix (`_1`, `_2`)
 //     is appended.
@@ -184,13 +184,13 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer {
  * `fileName` is built as:
  *
  *   1. **Single pick per shortName** — the first (and only) pick wins
- *      `<moduleShortName>_Cfg.arxml` un-suffixed.
+ *      `<moduleShortName>_EcucValues.arxml` un-suffixed.
  *   2. **Multiple picks, distinct basenames** — the first in iteration
- *      order keeps `<moduleShortName>_Cfg.arxml`; later picks get
- *      `<moduleShortName>__<vendorKey>_Cfg.arxml` where `vendorKey` is
+ *      order keeps `<moduleShortName>_EcucValues.arxml`; later picks get
+ *      `<moduleShortName>__<vendorKey>_EcucValues.arxml` where `vendorKey` is
  *      the lowercased BSWMD basename (without `.arxml`).
  *   3. **Multiple picks, colliding basenames** — same as (2) but with a
- *      numeric suffix: `<moduleShortName>__<vendorKey>_<N>_Cfg.arxml`
+ *      numeric suffix: `<moduleShortName>__<vendorKey>_<N>_EcucValues.arxml`
  *      starting at `_1` for the second occurrence of a given
  *      `vendorKey`.
  *
@@ -231,11 +231,11 @@ export function resolveCollisionFilename(
   for (const group of groups.values()) {
     if (group.length === 1) {
       const p = group[0]!;
-      out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
+      out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_EcucValues.arxml`);
       continue;
     }
     // Multiple picks share this `moduleShortName`. The first pick in
-    // iteration order wins the un-suffixed `<moduleShortName>_Cfg.arxml`;
+    // iteration order wins the un-suffixed `<moduleShortName>_EcucValues.arxml`;
     // every later pick gets a `__<vendorKey>` suffix derived from the
     // BSWMD basename. If two later picks happen to share a basename
     // (e.g. two different BSWMDs both named `Can.arxml`), a numeric
@@ -249,7 +249,7 @@ export function resolveCollisionFilename(
       if (idx === 0) {
         // First pick in the group: canonical un-suffixed name.
         seen.set(baseKey, 1);
-        out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
+        out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_EcucValues.arxml`);
         return;
       }
       // Later picks: always suffixed; numeric suffix on top when
@@ -260,7 +260,7 @@ export function resolveCollisionFilename(
       const vendorPart = `${baseKey}${numericPart}`;
       out.set(
         keyOf(p),
-        `${dir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
+        `${dir}/ecuc/${p.moduleShortName}__${vendorPart}_EcucValues.arxml`,
       );
     });
   }

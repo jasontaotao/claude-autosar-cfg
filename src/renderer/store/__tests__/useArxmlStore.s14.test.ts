@@ -99,8 +99,8 @@ beforeEach(() => {
   useArxmlStore.setState({
     bswmdSchemas: [makeBswmd([makeBswModuleDef('A'), makeBswModuleDef('B')])],
     bswmdPaths: ['D:/bswmd/test.arxml'],
-    documents: [makeDocWithSource('D:/proj/A_Cfg.arxml', 'D:/bswmd/test.arxml')],
-    documentPaths: ['D:/proj/A_Cfg.arxml'],
+    documents: [makeDocWithSource('D:/proj/A_EcucValues.arxml', 'D:/bswmd/test.arxml')],
+    documentPaths: ['D:/proj/A_EcucValues.arxml'],
   });
 });
 
@@ -145,13 +145,13 @@ describe('setBswmdModuleEnabled', () => {
 describe('findDependentsOfBswmd', () => {
   it('returns paths of documents whose sourceBswmdPath matches', () => {
     const deps = useArxmlStore.getState().findDependentsOfBswmd('D:/bswmd/test.arxml');
-    expect(deps).toEqual(['D:/proj/A_Cfg.arxml']);
+    expect(deps).toEqual(['D:/proj/A_EcucValues.arxml']);
   });
 
   it('returns empty array when no document references the BSWMD', () => {
     useArxmlStore.setState({
-      documents: [makeDocWithSource('D:/proj/Other_Cfg.arxml', 'D:/bswmd/other.arxml')],
-      documentPaths: ['D:/proj/Other_Cfg.arxml'],
+      documents: [makeDocWithSource('D:/proj/Other_EcucValues.arxml', 'D:/bswmd/other.arxml')],
+      documentPaths: ['D:/proj/Other_EcucValues.arxml'],
     });
     const deps = useArxmlStore.getState().findDependentsOfBswmd('D:/bswmd/test.arxml');
     expect(deps).toEqual([]);
@@ -173,14 +173,14 @@ describe('addDocumentWithSource', () => {
     // Start clean so we can assert on the appended entry.
     useArxmlStore.setState({ documents: [], documentPaths: [] });
 
-    const newDoc = makeDocWithSource('D:/proj/B_Cfg.arxml');
+    const newDoc = makeDocWithSource('D:/proj/B_EcucValues.arxml');
     useArxmlStore.getState().addDocumentWithSource(newDoc, 'D:/bswmd/test.arxml');
 
     const state = useArxmlStore.getState();
     expect(state.documents[0]?.sourceBswmdPath).toBe('D:/bswmd/test.arxml');
-    expect(state.documentPaths).toContain('D:/proj/B_Cfg.arxml');
+    expect(state.documentPaths).toContain('D:/proj/B_EcucValues.arxml');
     // Back-compat `doc`/`filePath` synced via addDocument.
-    expect(state.doc?.path).toBe('D:/proj/B_Cfg.arxml');
-    expect(state.filePath).toBe('D:/proj/B_Cfg.arxml');
+    expect(state.doc?.path).toBe('D:/proj/B_EcucValues.arxml');
+    expect(state.filePath).toBe('D:/proj/B_EcucValues.arxml');
   });
 });

@@ -16,7 +16,7 @@ import type { ArxmlDocument } from '../types.js';
 describe('ArxmlDocument.sourceBswmdPath (Sprint 14 Task 1)', () => {
   it('accepts optional sourceBswmdPath field', () => {
     const doc: ArxmlDocument = {
-      path: '/proj/Can_Cfg.arxml',
+      path: '/proj/Can_EcucValues.arxml',
       version: '4.6',
       packages: [],
       sourceBswmdPath: '/proj/Can_bswmd.arxml',

@@ -224,8 +224,31 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(1);
     expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_EcucValues.arxml`,
     );
+  });
+
+  it('Sprint 16: emitted filename uses AUTOSAR _EcucValues.arxml suffix (no collision)', () => {
+    // Pin the new naming convention explicitly. The default-fill test
+    // above already exercises this via fixture strings, but this case
+    // exists to make the naming intent self-documenting.
+    const m = resolveCollisionFilename(
+      [{ bswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }],
+      '/proj',
+    );
+    expect(m.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_EcucValues.arxml');
+  });
+
+  it('Sprint 16: vendor collision suffix still uses _EcucValues.arxml', () => {
+    const m = resolveCollisionFilename(
+      [
+        { bswmdPath: '/BSWMD/Can_v1.arxml', moduleShortName: 'Can' },
+        { bswmdPath: '/BSWMD/Can_v2.arxml', moduleShortName: 'Can' },
+      ],
+      '/proj',
+    );
+    expect(m.get('/BSWMD/Can_v1.arxml::Can')).toBe('/proj/ecuc/Can_EcucValues.arxml');
+    expect(m.get('/BSWMD/Can_v2.arxml::Can')).toBe('/proj/ecuc/Can__can_v2_EcucValues.arxml');
   });
 
   it('returns multiple non-colliding Cfg.arxml files for multi-pick from one BSWMD', () => {
@@ -236,10 +259,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_EcucValues.arxml`,
     );
     expect(m.get(k('CanIf', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/CanIf_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/CanIf_EcucValues.arxml`,
     );
   });
 
@@ -251,10 +274,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/bswmd/Can_Bswmd.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_EcucValues.arxml`,
     );
     expect(m.get(k('Can', 'D:/bswmd/Intewell_Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can__intewell_can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can__intewell_can_EcucValues.arxml`,
     );
   });
 
@@ -266,10 +289,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/a/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_EcucValues.arxml`,
     );
     expect(m.get(k('Can', 'D:/b/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/ecuc/Can__can_1_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can__can_1_EcucValues.arxml`,
     );
   });
 
@@ -552,7 +575,7 @@ describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
       '/proj',
     );
     expect(map.size).toBe(1);
-    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
+    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_EcucValues.arxml');
   });
 
   it('cross-BSWMD name collision produces one canonical + one vendor-suffixed in subfolder', () => {
@@ -564,8 +587,8 @@ describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
       '/proj',
     );
     expect(map.size).toBe(2);
-    expect(map.get('/BSWMD/Can_v1.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
-    expect(map.get('/BSWMD/Can_v2.arxml::Can')).toBe('/proj/ecuc/Can__can_v2_Cfg.arxml');
+    expect(map.get('/BSWMD/Can_v1.arxml::Can')).toBe('/proj/ecuc/Can_EcucValues.arxml');
+    expect(map.get('/BSWMD/Can_v2.arxml::Can')).toBe('/proj/ecuc/Can__can_v2_EcucValues.arxml');
   });
 
   it('handles projectDir with trailing slash without doubling', () => {
@@ -576,7 +599,7 @@ describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
     // resolveCollisionFilename normalizes a trailing '/' on projectDir
     // via `.replace(/\/+$/, '')`, so '/proj/' and '/proj' produce the
     // same path shape ('/proj/ecuc/...') instead of '/proj//ecuc/...'.
-    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
+    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_EcucValues.arxml');
   });
 });
 

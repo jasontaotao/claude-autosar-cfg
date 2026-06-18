@@ -38,29 +38,29 @@ describe('hasBswmdForModule', () => {
     const state = {
       bswmdPaths: ['/BSWMD/Can.arxml'],
       bswmdSchemas: [mkBswmd(['Can'])],
-      documents: [mkDoc('/proj/ecuc/Can_Cfg.arxml', '/BSWMD/Can.arxml')],
+      documents: [mkDoc('/proj/ecuc/Can_EcucValues.arxml', '/BSWMD/Can.arxml')],
     };
-    expect(hasBswmdForModule(state, '/proj/ecuc/Can_Cfg.arxml')).toBe(true);
+    expect(hasBswmdForModule(state, '/proj/ecuc/Can_EcucValues.arxml')).toBe(true);
   });
 
   it('A. sourceBswmdPath set but BSWMD removed → false', () => {
     const state = {
       bswmdPaths: [],
       bswmdSchemas: [],
-      documents: [mkDoc('/proj/ecuc/Can_Cfg.arxml', '/BSWMD/Can.arxml')],
+      documents: [mkDoc('/proj/ecuc/Can_EcucValues.arxml', '/BSWMD/Can.arxml')],
     };
-    expect(hasBswmdForModule(state, '/proj/ecuc/Can_Cfg.arxml')).toBe(false);
+    expect(hasBswmdForModule(state, '/proj/ecuc/Can_EcucValues.arxml')).toBe(false);
   });
 
   it('B. fallback: no sourceBswmdPath; module shortName in path matches schema', () => {
     const state = {
       bswmdPaths: ['/BSWMD/SomeOther.arxml'],
       bswmdSchemas: [mkBswmd(['Can'])],
-      documents: [mkDoc('/proj/Can_Cfg.arxml')], // no sourceBswmdPath
+      documents: [mkDoc('/proj/Can_EcucValues.arxml')], // no sourceBswmdPath
     };
-    // Path is /proj/Can_Cfg.arxml; segments[1] = 'Can_Cfg.arxml' — does NOT match 'Can'.
+    // Path is /proj/Can_EcucValues.arxml; segments[1] = 'Can_EcucValues.arxml' — does NOT match 'Can'.
     // Expect false (preserves original behavior; fallback only matches bare module shortName).
-    expect(hasBswmdForModule(state, '/proj/Can_Cfg.arxml')).toBe(false);
+    expect(hasBswmdForModule(state, '/proj/Can_EcucValues.arxml')).toBe(false);
   });
 
   it('B. fallback matches when segments[1] equals module shortName', () => {

@@ -496,7 +496,7 @@ describe('ParamEditor', () => {
     // `sourceBswmdPath` points to it. selectedPath = the ECUC's own
     // path so `hasBswmdForModule`'s `find(d => d.path === selectedPath)`
     // resolves to this doc and the A-priority source match returns true.
-    const ecucPath = '/proj/ecuc/Can_Cfg.arxml';
+    const ecucPath = '/proj/ecuc/Can_EcucValues.arxml';
     const bswmdPath = '/BSWMD/Can.arxml';
     const doc = mkDocWithElementAtPath(ecucPath, bswmdPath);
     useArxmlStore.setState({
@@ -532,7 +532,7 @@ describe('ParamEditor', () => {
     // children). `sourceBswmdPath` on the ECUC still points at the
     // BSWMD path, but `bswmdPaths` no longer includes it, so priority A
     // returns false → the button is disabled and the picker cannot open.
-    const ecucPath = '/proj/ecuc/Can_Cfg.arxml';
+    const ecucPath = '/proj/ecuc/Can_EcucValues.arxml';
     const bswmdPath = '/BSWMD/Can.arxml';
     const doc = mkDocWithElementAtPath(ecucPath, bswmdPath);
     useArxmlStore.setState({
