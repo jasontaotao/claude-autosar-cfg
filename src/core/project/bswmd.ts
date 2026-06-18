@@ -33,6 +33,13 @@ export interface BswmdDocument {
   readonly version: string;
   readonly modules: readonly BswModuleDef[];
   readonly warnings: readonly string[];
+  /**
+   * Sprint 14 — module shortNames the user has disabled. Default empty
+   * (all modules active). The picker filters disabled modules out;
+   * `buildSchemaLayer` filters them out before producing the validation
+   * layer so disabled modules don't emit spurious `schema-unknown`.
+   */
+  readonly disabledModules?: ReadonlySet<string>;
 }
 
 /**
@@ -1107,4 +1114,13 @@ function buildRef(
     lowerMultiplicity: readLowerMultiplicity(item),
     upperMultiplicity: readUpperMultiplicity(item),
   };
+}
+
+/**
+ * Sprint 14 — return the subset of `doc.modules` whose shortName is NOT
+ * in `doc.disabledModules`. Treats missing `disabledModules` as empty.
+ */
+export function getActiveModules(doc: BswmdDocument): readonly BswModuleDef[] {
+  const disabled = doc.disabledModules ?? new Set<string>();
+  return doc.modules.filter((m) => !disabled.has(m.shortName));
 }
