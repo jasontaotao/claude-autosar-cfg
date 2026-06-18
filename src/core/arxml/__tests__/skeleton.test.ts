@@ -520,11 +520,10 @@ describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
       [{ bswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }],
       '/proj/',
     );
-    // Document current behavior: trailing slash doubles the segment.
-    // The downstream mkdir -p tolerates this on both Windows and POSIX.
-    // If we ever want strict normalization, change this test expectation
-    // and add a `.replace(/\/+$/, '')` step in the implementation.
-    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj//ecuc/Can_Cfg.arxml');
+    // resolveCollisionFilename normalizes a trailing '/' on projectDir
+    // via `.replace(/\/+$/, '')`, so '/proj/' and '/proj' produce the
+    // same path shape ('/proj/ecuc/...') instead of '/proj//ecuc/...'.
+    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
   });
 });
 

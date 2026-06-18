@@ -209,6 +209,11 @@ export function resolveCollisionFilename(
   picks: readonly PickedModule[],
   projectDir: string,
 ): Map<string, string> {
+  // Normalize trailing slash on projectDir so callers can pass either
+  // `/proj` or `/proj/` and get the same path shape. Without this the
+  // template literal would emit `/proj//ecuc/...` which downstream
+  // consumers (file list equality, log output) may not tolerate.
+  const dir = projectDir.replace(/\/+$/, '');
   const out = new Map<string, string>();
   // Group picks by moduleShortName; first pick in iteration order wins
   // the un-suffixed name, others get a vendor suffix.
@@ -221,7 +226,7 @@ export function resolveCollisionFilename(
   for (const group of groups.values()) {
     if (group.length === 1) {
       const p = group[0]!;
-      out.set(keyOf(p), `${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
+      out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
       continue;
     }
     // Multiple picks share this `moduleShortName`. The first pick in
@@ -239,7 +244,7 @@ export function resolveCollisionFilename(
       if (idx === 0) {
         // First pick in the group: canonical un-suffixed name.
         seen.set(baseKey, 1);
-        out.set(keyOf(p), `${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
+        out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
         return;
       }
       // Later picks: always suffixed; numeric suffix on top when
@@ -250,7 +255,7 @@ export function resolveCollisionFilename(
       const vendorPart = `${baseKey}${numericPart}`;
       out.set(
         keyOf(p),
-        `${projectDir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
+        `${dir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
       );
     });
   }
