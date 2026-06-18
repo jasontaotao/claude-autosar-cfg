@@ -23,6 +23,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 import { generateEcucSkeleton, resolveCollisionFilename } from '../skeleton.js';
+import type { PickedModule } from '../skeleton.js';
 import type { ArxmlContainer, ArxmlModule } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -199,18 +200,82 @@ describe('generateEcucSkeleton', () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveCollisionFilename (T3 signature + body, T3 tests land in T3)
+// resolveCollisionFilename (T3 — full collision-resolution contract)
 // ---------------------------------------------------------------------------
+//
+// Note: the original T3 brief specified the Map key as
+// `${moduleShortName}/${bswmdPath}`. T2's stub shipped
+// `${bswmdPath}::${moduleShortName}` and was accepted by the reviewer;
+// we keep the stub shape (less churn, no `/` vs path-separator
+// confusion in logs). The brief's 5 tests are ported verbatim below
+// with only the key shape adjusted to match the implemented contract.
 
-describe('resolveCollisionFilename (T3 stub surface)', () => {
-  // These assertions are intentionally minimal — T3 owns the full test
-  // contract. They exist here only to confirm T2 ships a callable function
-  // with the right signature, so T3 can build on top of it without having to
-  // re-touch the file.
+describe('resolveCollisionFilename', () => {
+  const PROJECT_DIR = 'D:/proj';
+  // Helper: build a key in the implemented `::` shape from the brief's
+  // (moduleShortName, bswmdPath) tuple.
+  const k = (moduleShortName: string, bswmdPath: string): string =>
+    `${bswmdPath}::${moduleShortName}`;
 
-  it('is exported and callable with an empty pick set', () => {
-    const result = resolveCollisionFilename([], 'C:/proj');
-    expect(result).toBeInstanceOf(Map);
-    expect(result.size).toBe(0);
+  it('returns single-Cfg.arxml for a single pick', () => {
+    const picks: PickedModule[] = [
+      { bswmdPath: 'D:/bswmd/Can.arxml', moduleShortName: 'Can' },
+    ];
+    const m = resolveCollisionFilename(picks, PROJECT_DIR);
+    expect(m.size).toBe(1);
+    expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
+      `${PROJECT_DIR}/Can_Cfg.arxml`,
+    );
+  });
+
+  it('returns multiple non-colliding Cfg.arxml files for multi-pick from one BSWMD', () => {
+    const picks: PickedModule[] = [
+      { bswmdPath: 'D:/bswmd/Can.arxml', moduleShortName: 'Can' },
+      { bswmdPath: 'D:/bswmd/Can.arxml', moduleShortName: 'CanIf' },
+    ];
+    const m = resolveCollisionFilename(picks, PROJECT_DIR);
+    expect(m.size).toBe(2);
+    expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
+      `${PROJECT_DIR}/Can_Cfg.arxml`,
+    );
+    expect(m.get(k('CanIf', 'D:/bswmd/Can.arxml'))).toBe(
+      `${PROJECT_DIR}/CanIf_Cfg.arxml`,
+    );
+  });
+
+  it('suffixes vendor key when same module shortName across two BSWMDs (different basenames)', () => {
+    const picks: PickedModule[] = [
+      { bswmdPath: 'D:/bswmd/Can_Bswmd.arxml', moduleShortName: 'Can' },
+      { bswmdPath: 'D:/bswmd/Intewell_Can.arxml', moduleShortName: 'Can' },
+    ];
+    const m = resolveCollisionFilename(picks, PROJECT_DIR);
+    expect(m.size).toBe(2);
+    expect(m.get(k('Can', 'D:/bswmd/Can_Bswmd.arxml'))).toBe(
+      `${PROJECT_DIR}/Can_Cfg.arxml`,
+    );
+    expect(m.get(k('Can', 'D:/bswmd/Intewell_Can.arxml'))).toBe(
+      `${PROJECT_DIR}/Can__intewell_can_Cfg.arxml`,
+    );
+  });
+
+  it('falls back to numeric suffix when basenames collide', () => {
+    const picks: PickedModule[] = [
+      { bswmdPath: 'D:/a/Can.arxml', moduleShortName: 'Can' },
+      { bswmdPath: 'D:/b/Can.arxml', moduleShortName: 'Can' },
+    ];
+    const m = resolveCollisionFilename(picks, PROJECT_DIR);
+    expect(m.size).toBe(2);
+    expect(m.get(k('Can', 'D:/a/Can.arxml'))).toBe(
+      `${PROJECT_DIR}/Can_Cfg.arxml`,
+    );
+    expect(m.get(k('Can', 'D:/b/Can.arxml'))).toBe(
+      `${PROJECT_DIR}/Can__can_1_Cfg.arxml`,
+    );
+  });
+
+  it('handles empty picks gracefully', () => {
+    const m = resolveCollisionFilename([], PROJECT_DIR);
+    expect(m).toBeInstanceOf(Map);
+    expect(m.size).toBe(0);
   });
 });

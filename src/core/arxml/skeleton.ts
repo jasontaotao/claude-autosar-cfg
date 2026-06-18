@@ -11,22 +11,23 @@
 //     ParamEditor; the skeleton itself is intentionally empty there.
 //
 //   * `resolveCollisionFilename(picks, projectDir)` — given the user's
-//     selected (bswmdPath, moduleShortName) picks, returns a Map keyed by
-//     `${bswmdPath}::${moduleShortName}` whose value is the on-disk path
-//     where the ECUC value-side file should be written. Handles three
-//     collision cases: missing dir (mkdir), existing same-content file
-//     (reuse), existing different-content file (rename with `-N` suffix).
+//     selected (bswmdPath, moduleShortName) picks, returns a Map whose key
+//     is the unique pick tuple and whose value is the on-disk path where
+//     the ECUC value-side file should be written. Applies collision
+//     resolution: when multiple picks share a `moduleShortName`, the
+//     first wins the un-suffixed `<moduleShortName>_Cfg.arxml`; later
+//     picks are suffixed with `__<vendorKey>` derived from the BSWMD
+//     basename; if basenames collide too, a numeric suffix (`_1`, `_2`)
+//     is appended.
 //
 // Both are pure of I/O: the only "filesystem-shaped" concern is path
-// construction (`path.join`). The caller is responsible for the actual
-// `mkdir` / `writeFile` / `stat`. Keeping this file I/O-free means the
-// whole skeleton flow is unit-testable without `fs` mocks.
+// construction. The caller is responsible for the actual `mkdir` /
+// `writeFile` / `stat`. Keeping this file I/O-free means the whole
+// skeleton flow is unit-testable without `fs` mocks.
 //
 // Pure: no I/O, no React, no Zustand, no electron.
 //
 // T2 contract: `generateEcucSkeleton`. T3 contract: `resolveCollisionFilename`.
-
-import path from 'node:path';
 
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from './types.js';
@@ -45,7 +46,13 @@ export interface PickedModule {
   /**
    * Optional explicit ECUC output path override. When supplied, this wins
    * over the auto-derived path. Used when the user manually types a path in
-   * the picker. Reserved for T3 — T2 ships the signature only.
+   * the picker.
+   *
+   * **T3 status:** not yet acted on. The current collision logic only
+   * resolves derived paths; a future task may wire `explicitPath` through
+   * the same `Map` (typically by short-circuiting before the vendor-key
+   * derivation). Reserving the field now keeps the picker UI's
+   * round-trip data model stable.
    */
   readonly explicitPath?: string;
 }
@@ -115,39 +122,103 @@ function buildContainer(c: ContainerDef): ArxmlContainer {
 }
 
 /**
- * Sprint 14 / T3 — resolve the on-disk write target for each user pick.
+ * Sprint 14 / T3 — resolve the on-disk write target for each user pick,
+ * applying collision resolution when multiple picks share a
+ * `moduleShortName`.
  *
- * Key shape: `${bswmdPath}::${moduleShortName}` — collision-safe even when
- * two BSWMDs share a module shortName.
+ * **Key shape.** The returned `Map` is keyed by
+ * `${bswmdPath}::${moduleShortName}` — collision-safe because
+ * `bswmdPath` is the absolute path of the source BSWMD file, which is
+ * guaranteed unique per pick by the picker UI.
  *
- * For each pick:
- *   - If `explicitPath` is set, use it verbatim.
- *   - Otherwise, derive `<projectDir>/<moduleShortName>.arxml` (the
- *     `<projectDir>/<moduleShortName>.ecuc.arxml` collision-suffixed case is
- *     handled by the caller's write loop — this fn just returns the *base*
- *     path; full collision logic lands in T3).
+ * **Value shape.** The value is `<projectDir>/<fileName>`. The
+ * `fileName` is built as:
  *
- * T2 ships the function with the right signature + key shape so T3 can
- * layer the actual `fs.stat`-based collision detection on top without
- * re-touching this file. The current implementation is intentionally
- * minimal: it returns the explicit-or-derived path for every pick and
- * never fails.
+ *   1. **Single pick per shortName** — the first (and only) pick wins
+ *      `<moduleShortName>_Cfg.arxml` un-suffixed.
+ *   2. **Multiple picks, distinct basenames** — the first in iteration
+ *      order keeps `<moduleShortName>_Cfg.arxml`; later picks get
+ *      `<moduleShortName>__<vendorKey>_Cfg.arxml` where `vendorKey` is
+ *      the lowercased BSWMD basename (without `.arxml`).
+ *   3. **Multiple picks, colliding basenames** — same as (2) but with a
+ *      numeric suffix: `<moduleShortName>__<vendorKey>_<N>_Cfg.arxml`
+ *      starting at `_1` for the second occurrence of a given
+ *      `vendorKey`.
+ *
+ * Iteration order is the `picks` array order (which the picker UI
+ * supplies stably). The first pick in iteration order is the canonical
+ * un-suffixed one.
+ *
+ * **Pure.** No I/O, no `fs.stat`, no `path.join`. Path concatenation is
+ * simple string interpolation with `/`; Windows is fine because the
+ * caller normalises `projectDir` to use `/` (the rest of the app does
+ * this at the IPC boundary — see `src/main/ipc/*.ts`).
  *
  * @param picks    User-selected picks from the BSWMD picker.
  * @param projectDir Absolute path of the user's project directory; the
- *                   default write target when `explicitPath` is unset.
+ *                   default write target.
+ * @returns A `Map` of `pickKey → writePath`. Empty when `picks` is
+ *          empty. Order-preserving: insertion order matches `picks`
+ *          order.
  */
 export function resolveCollisionFilename(
   picks: readonly PickedModule[],
   projectDir: string,
 ): Map<string, string> {
   const out = new Map<string, string>();
-  for (const pick of picks) {
-    const key = `${pick.bswmdPath}::${pick.moduleShortName}`;
-    const target = pick.explicitPath !== undefined && pick.explicitPath !== ''
-      ? pick.explicitPath
-      : path.join(projectDir, `${pick.moduleShortName}.arxml`);
-    out.set(key, target);
+  // Group picks by moduleShortName; first pick in iteration order wins
+  // the un-suffixed name, others get a vendor suffix.
+  const groups = new Map<string, PickedModule[]>();
+  for (const p of picks) {
+    const list = groups.get(p.moduleShortName) ?? [];
+    list.push(p);
+    groups.set(p.moduleShortName, list);
+  }
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      const p = group[0]!;
+      out.set(keyOf(p), `${projectDir}/${p.moduleShortName}_Cfg.arxml`);
+      continue;
+    }
+    // Multiple picks share this `moduleShortName`. The first pick in
+    // iteration order wins the un-suffixed `<moduleShortName>_Cfg.arxml`;
+    // every later pick gets a `__<vendorKey>` suffix derived from the
+    // BSWMD basename. If two later picks happen to share a basename
+    // (e.g. two different BSWMDs both named `Can.arxml`), a numeric
+    // suffix is appended to keep filenames unique.
+    const vendorKeys = group.map((p) => vendorKeyFromPath(p.bswmdPath));
+    // Tracks how many times each vendorKey has appeared so far; used to
+    // disambiguate duplicate basenames within the group.
+    const seen = new Map<string, number>();
+    group.forEach((p, idx) => {
+      const baseKey = vendorKeys[idx]!;
+      if (idx === 0) {
+        // First pick in the group: canonical un-suffixed name.
+        seen.set(baseKey, 1);
+        out.set(keyOf(p), `${projectDir}/${p.moduleShortName}_Cfg.arxml`);
+        return;
+      }
+      // Later picks: always suffixed; numeric suffix on top when
+      // basename collides with a previously-seen one in this group.
+      const seenCount = seen.get(baseKey) ?? 0;
+      seen.set(baseKey, seenCount + 1);
+      const numericPart = seenCount === 0 ? '' : `_${seenCount}`;
+      const vendorPart = `${baseKey}${numericPart}`;
+      out.set(
+        keyOf(p),
+        `${projectDir}/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
+      );
+    });
   }
   return out;
+}
+
+function keyOf(p: PickedModule): string {
+  return `${p.bswmdPath}::${p.moduleShortName}`;
+}
+
+function vendorKeyFromPath(p: string): string {
+  // Extract basename without ".arxml", lowercased.
+  const basename = p.split(/[\\/]/).pop() ?? p;
+  return basename.replace(/\.arxml$/i, '').toLowerCase();
 }
