@@ -96,7 +96,6 @@ export function generateEcucSkeleton(
         elements: [moduleEl],
       },
     ],
-    sourceBswmdPath: undefined,
   };
 }
 
