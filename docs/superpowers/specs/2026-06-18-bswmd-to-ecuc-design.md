@@ -1,11 +1,19 @@
 # Create ECUC Module from BSWMD — Design Spec
 
-**Status**: DRAFT (brainstorming)
+**Status**: APPROVED (user approved 2026-06-18; implementation complete 2026-06-18 in Sprint 14)
 **Date**: 2026-06-18
 **Author**: brainstorming skill (claude-AutosarCfg Sprint 14)
 **Supersedes**: —
 **Related**: [[2026-06-17-sprint-13-1-templates-backend-design]] (BSWMD loading),
 [[2026-06-18-sprint-13-master-roadmap]] (parent roadmap)
+
+## Implementation Outcome
+
+- **Commits**: 14 task commits + 3 side fixes (archive-move, tsc/lint cleanup, orphan i18n keys)
+- **Tests**: 1029 → 1076 (47 new tests across core/store/hook/component/IPC layers)
+- **Coverage**: 96.8% stmts / 87.77% branches / 100% funcs
+- **Plan drift**: §15 Q1-Q9 all resolved per user approval; minor adaptations documented in `.git/sdd/task-N-report.md`
+- **Real model**: plan sketch assumed pre-Sprint-12 root-based `ArxmlElement`; actual implementation uses post-Sprint-12 packages + discriminated union. All adaptations preserve semantic intent.
 
 ## 1. Problem
 
@@ -449,12 +457,20 @@ ecuc.removeBswmd.cascade        "移除 BSWMD + 删除依赖文件"     / "Remov
 
 ## 15. Open questions (待 user 拍板)
 
-- **Q1**: 接受 C 方案（菜单 + 内联 "+" 双入口）吗？还是只选 A 或 B？
-- **Q2**: 文件命名用 `${moduleShortName}_Cfg.arxml`（AUTOSAR spec 推荐）还是 `${moduleShortName}.arxml`（Vector 推测）？
-- **Q3**: Overwrite 时 ConfirmDialog 文案要不要明确"覆盖后旧内容丢失"？
-- **Q4**: 是否需要在 ProjectPanel BSWMD 行展示 module count（"Can — 3 modules"）做 affordance？
-- **Q5** (NEW): Remove BSWMD with dependents — 默认按钮 = "仅移除 BSWMD（保留 ECUC）" OK 吗？还是 "移除 + 删除依赖"？
-- **Q6** (NEW): Module disable UI 入口放哪？推荐方案 = picker 头部 chip "📋 5/12 active"，可点击弹 checkbox 列表。还是要进 ProjectPanel BSWMD 行展开？
-- **Q7** (NEW): Disabled module 已生成的 ECUC 文件保留（用户负责清理）还是 cascade 删？推荐 = 保留（与 BSWMD remove 默认行为一致）。
-- **Q8** (NEW): Picker 改为 multi-select（checkbox 一次勾 N 个 module 批量创建）。OK 吗？
-- **Q9** (NEW): 跨 BSWMD 同名 module 冲突时，自动加 `<vendorKey>` 后缀（如 `Can__intewell_Cfg.arxml`）。OK 吗？还是改为 数字后缀（`Can_2_Cfg.arxml`）或 阻止创建让用户手动处理？
+All questions resolved per user approval (2026-06-18):
+
+- **Q1**: ✅ Option C — menu + 内联 "+" 双入口 (implemented in T11)
+- **Q2**: ✅ `${moduleShortName}_Cfg.arxml` (AUTOSAR convention; implemented in T3)
+- **Q3**: ✅ Simple overwrite — ConfirmDialog文案保留简洁（"覆盖?"），不在文案里强调"内容丢失"
+- **Q4**: ✅ 否 — module count not in ProjectPanel row; use 📋 N/M chip showing active/total (T11)
+- **Q5**: ✅ 默认按钮 = "仅移除 BSWMD（保留 ECUC）" (safer default; T12 + Sprint 15 CascadeConfirmDialog reused)
+- **Q6**: ✅ Picker 头部 chip via `ecuc.fromBswmd.modulesActive` + `getActiveModules` 过滤 (T4 + T10)
+- **Q7**: ✅ Disabled module 已生成的 ECUC 文件保留 (与 BSWMD remove 默认一致)
+- **Q8**: ✅ Picker multi-select (checkbox 一次勾 N 个 module 批量创建; T10)
+- **Q9**: ✅ 跨 BSWMD 同名 module 自动加 `<vendorKey>` 后缀 (T3 with vendor key + numeric fallback)
+
+### Implementation Notes (post-mortem)
+
+- **Plan drift**: §6 architecture assumed pre-Sprint-12 root-based `ArxmlElement` shape. Actual model is post-Sprint-12 packages + discriminated union. All pure builders (T2/T3) adapted to actual shape while preserving semantic intent. Detailed adaptations in `.git/sdd/task-N-report.md`.
+- **IPC channel naming**: §8 spec said `project:writeArxml` (single). Implementation uses `project:writeArxmlBatch` (batch) for atomic N-file write — chosen in plan, accepted.
+- **i18n keys count**: §10 had 8 keys for the picker + §14.4 had 4 keys for cascade = 12 total. Plan T9 added 12 `ecuc.fromBswmd.*` keys per brief (note: T9 included `selectedCount`, `willCreate`, `targetDir`, `createN`, `collisionWarn`, `modulesActive` which spec §10 omitted; these were needed for the actual UI). T12 added 4 `ecuc.removeBswmd.*` keys per spec §14.4 — these are currently **orphan** (the active CascadeConfirmDialog uses `confirm.cascade.*` from Sprint 15). Future cleanup: either use the orphan keys or remove them.
