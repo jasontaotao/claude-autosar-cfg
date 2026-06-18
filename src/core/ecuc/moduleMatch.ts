@@ -32,11 +32,11 @@ export function hasBswmdForModule(
   state: HasBswmdInput,
   selectedPath: string,
 ): boolean {
-  const doc = state.documents.find((d) => d.path === selectedPath);
-  if (doc === undefined) return false;
-
   // A. Source-path priority (picker-created ECUC).
-  if (doc.sourceBswmdPath !== undefined) {
+  //    Only consult the documents[] array when looking for sourceBswmdPath;
+  //    a missing doc just means A-priority can't apply, so we fall through to B.
+  const doc = state.documents.find((d) => d.path === selectedPath);
+  if (doc !== undefined && doc.sourceBswmdPath !== undefined) {
     return state.bswmdPaths.includes(doc.sourceBswmdPath);
   }
 

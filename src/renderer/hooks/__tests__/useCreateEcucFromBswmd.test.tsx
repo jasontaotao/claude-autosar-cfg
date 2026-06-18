@@ -142,7 +142,7 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
         _req: { readonly files: readonly { readonly filePath: string; readonly content: string }[] },
       ): Promise<ProjectWriteArxmlBatchResult> => ({
         kind: 'ok' as const,
-        written: ['D:/proj/Can_Cfg.arxml'],
+        written: ['D:/proj/ecuc/Can_Cfg.arxml'],
       }),
     );
     installApiStub({ writeArxmlBatch: writeSpy });
@@ -161,7 +161,7 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
     expect(writeSpy).toHaveBeenCalledTimes(1);
     const writeArg = writeSpy.mock.calls[0]![0];
     expect(writeArg.files).toHaveLength(1);
-    expect(writeArg.files[0]!.filePath).toBe('D:/proj/Can_Cfg.arxml');
+    expect(writeArg.files[0]!.filePath).toBe('D:/proj/ecuc/Can_Cfg.arxml');
     // File content is valid XML (serializeArxml output).
     expect(writeArg.files[0]!.content).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?>/);
     expect(writeArg.files[0]!.content).toMatch(/<ECUC-MODULE-CONFIGURATION-VALUES>/);
@@ -169,11 +169,11 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
     // Result kind is ok and the doc is registered.
     expect(response).toEqual({
       kind: 'ok',
-      written: ['D:/proj/Can_Cfg.arxml'],
+      written: ['D:/proj/ecuc/Can_Cfg.arxml'],
       failed: [],
     });
     const after = useArxmlStore.getState();
-    expect(after.documentPaths).toContain('D:/proj/Can_Cfg.arxml');
+    expect(after.documentPaths).toContain('D:/proj/ecuc/Can_Cfg.arxml');
     expect(after.documents).toHaveLength(1);
     // The generated doc carries provenance back to the BSWMD path.
     expect(after.documents[0]!.sourceBswmdPath).toBe('D:/bswmd/Can.arxml');
@@ -186,8 +186,8 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
         _req: { readonly files: readonly { readonly filePath: string; readonly content: string }[] },
       ): Promise<ProjectWriteArxmlBatchResult> => ({
         kind: 'partial' as const,
-        written: ['D:/proj/Can_Cfg.arxml'],
-        failed: [{ filePath: 'D:/proj/CanIf_Cfg.arxml', message: 'EACCES' }],
+        written: ['D:/proj/ecuc/Can_Cfg.arxml'],
+        failed: [{ filePath: 'D:/proj/ecuc/CanIf_Cfg.arxml', message: 'EACCES' }],
       }),
     );
     const deleteSpy = vi.fn(
@@ -212,14 +212,14 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
 
     // Assert: rollback deleted the written file (and only the written one).
     expect(deleteSpy).toHaveBeenCalledTimes(1);
-    expect(deleteSpy).toHaveBeenCalledWith({ filePath: 'D:/proj/Can_Cfg.arxml' });
+    expect(deleteSpy).toHaveBeenCalledWith({ filePath: 'D:/proj/ecuc/Can_Cfg.arxml' });
     // No docs added (roll back means store remains empty).
     expect(useArxmlStore.getState().documents).toHaveLength(0);
     expect(useArxmlStore.getState().documentPaths).toEqual([]);
     // Result is 'partial' with the failed entry surfaced.
     expect(response?.kind).toBe('partial');
     expect(response?.failed).toEqual([
-      { filePath: 'D:/proj/CanIf_Cfg.arxml', message: 'EACCES' },
+      { filePath: 'D:/proj/ecuc/CanIf_Cfg.arxml', message: 'EACCES' },
     ]);
   });
 
@@ -228,7 +228,7 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
     installApiStub({
       writeArxmlBatch: async (_req) => ({
         kind: 'ok' as const,
-        written: ['D:/proj/Can_Cfg.arxml'],
+        written: ['D:/proj/ecuc/Can_Cfg.arxml'],
       }),
     });
 
@@ -244,13 +244,13 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
     // Assert — REPLACES the brief's wrong "marks dirty" assertion.
     // The newly added doc IS the active doc (addDocument sets activeDocumentPath).
     const after = useArxmlStore.getState();
-    expect(after.activeDocumentPath).toBe('D:/proj/Can_Cfg.arxml');
+    expect(after.activeDocumentPath).toBe('D:/proj/ecuc/Can_Cfg.arxml');
     // The newly added doc is NOT marked dirty — it was just written by us,
     // so the on-disk content matches what's in memory. addDocument
     // explicitly drops the path from `dirtyPaths` (see store comment in
     // `addDocument`). The brief's "dirtyPaths.has(filePath) === true"
     // assertion was semantically wrong.
-    expect(after.dirtyPaths.has('D:/proj/Can_Cfg.arxml')).toBe(false);
+    expect(after.dirtyPaths.has('D:/proj/ecuc/Can_Cfg.arxml')).toBe(false);
   });
 
   it('handles empty picks gracefully — no IPC, no docs added, returns ok', async () => {
