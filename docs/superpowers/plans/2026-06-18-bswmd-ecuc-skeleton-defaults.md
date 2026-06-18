@@ -588,20 +588,14 @@ import { buildDefaultValue } from './defaultValue.js';
 
 ```typescript
 function buildModule(mod: BswModuleDef): ArxmlModule {
-  // Module-level parameters are rare in BSWMD but the type allows for them
-  // in the future. Today `BswModuleDef` does not carry a `parameters` field,
-  // so `mod.parameters ?? []` keeps the call site future-proof without a
-  // type change.
-  const params: Record<string, ParamValue> = {};
-  for (const p of mod.parameters ?? []) {
-    const v = buildDefaultValue(p);
-    if (v !== null) params[p.shortName] = v;
-  }
+  // Module-level parameters are rare in BSWMD and `BswModuleDef` does not
+  // carry a `parameters` field today. Keep `params` as `{}` so the call
+  // site is forward-compatible if the field is added in the future.
   return {
     kind: 'module',
     tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
     shortName: mod.shortName,
-    params,
+    params: {},
     children: mod.containers.map(buildContainer),
     references: [],
   };
@@ -1143,13 +1137,13 @@ const hasBswmdForModuleValue = hasBswmdForModule(
 );
 ```
 
-**Change 6c — rename usage.** The button's `disabled={!hasBswmdForModule}` and the `title={hasBswmdForModule ? ...}` lines (lines 238, 239, 248, 249) must use the new name `hasBswmdForModuleValue`. Use `replace_all: true` on `Edit` to rename every occurrence of `hasBswmdForModule` to `hasBswmdForModuleValue` — but ONLY inside this file, NOT in the import statement. Verify after edit:
+**Change 6c — update usage.** The button's `disabled={!hasBswmdForModule}` and the `title={hasBswmdForModule ? ...}` lines (lines 238, 239, 248, 249) must use the new local name `hasBswmdForModuleValue`. Since the import statement still uses `hasBswmdForModule` (the imported binding) and the local uses `hasBswmdForModuleValue`, the rename only touches the usage sites — the import is unchanged. Do this with **four** individual `Edit` calls (one per `disabled`/`title` occurrence) or one `replace_all: true` on a string like `disabled={!hasBswmdForModule}` → `disabled={!hasBswmdForModuleValue}`. Verify after edit:
 
 ```bash
 grep -n "hasBswmdForModule" D:/claude_proj2/claude-AutosarCfg/src/renderer/components/editor/ParamEditor.tsx
 ```
 
-Expected: exactly 5 occurrences: 1 import + 1 const + 2 `disabled={!hasBswmdForModuleValue}` + 2 `title={hasBswmdForModuleValue ? ... : ...}`. (The `Edit` `replace_all` will also touch the import — undo that one occurrence with a separate Edit.)
+Expected: exactly 3 occurrences: 1 import line + 1 const declaration + 4 call sites in the JSX (`disabled` + `title` × 2 buttons). If the local variable is `hasBswmdForModuleValue`, the JSX call sites should match that name.
 
 - [ ] **Step 7: Run ParamEditor tests**
 
