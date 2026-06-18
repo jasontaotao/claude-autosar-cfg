@@ -77,7 +77,7 @@ interface ResolvedPickerSource {
  */
 function resolvePickerSource(
   parentPath: string,
-  kind: PickerKind,
+  _kind: PickerKind,
   state: ReturnType<typeof useArxmlStore.getState>,
 ): ResolvedPickerSource | null {
   if (state.documents.length === 0) return null;
@@ -205,15 +205,15 @@ function locateParentElement(
   for (const name of rest) {
     if ('kind' in cursor) {
       if (cursor.kind === 'reference') return null;
-      const child = (cursor as ArxmlContainer | ArxmlModule).children.find(
-        (c) => c.shortName === name,
+      const child: ArxmlElement | undefined = (cursor as ArxmlContainer | ArxmlModule).children.find(
+        (c: ArxmlElement) => c.shortName === name,
       );
       if (child === undefined || child.kind === 'reference') return null;
       cursor = child;
       continue;
     }
     // Package: look in elements.
-    const child = cursor.elements.find((e) => e.shortName === name);
+    const child: ArxmlElement | undefined = cursor.elements.find((e) => e.shortName === name);
     if (child === undefined || child.kind === 'reference') return null;
     cursor = child;
   }
