@@ -1,0 +1,336 @@
+/* ModuleFromBswmdPicker — Sprint 14 / Task 10.
+   Visual shell mirrors BswmdPickerDialog (Catppuccin Mocha palette) for
+   stack consistency. z-index 9994 — sits BELOW BswmdPickerDialog (9995),
+   CascadeConfirmDialog (9996), and ConfirmDialog (9998) so any of those
+   can override an open BSWMD picker. */
+
+.mfbp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9994;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.mfbp-dialog {
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
+  border-radius: 12px;
+  width: 880px;
+  max-width: calc(100vw - 64px);
+  max-height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #cdd6f4; /* --color-text */
+  overflow: hidden;
+}
+
+.mfbp-header {
+  background: #181825; /* --color-bg (darker) */
+  padding: 14px 20px;
+  border-bottom: 1px solid #45475a;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mfbp-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.mfbp-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #a6adc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.mfbp-close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #a6adc8;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.mfbp-close:hover {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.mfbp-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mfbp-left {
+  flex: 0 0 380px;
+  border-right: 1px solid #45475a;
+  background: #1e1e2e;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.mfbp-right {
+  flex: 1;
+  background: #313244;
+  padding: 14px 20px;
+  overflow-y: auto;
+}
+
+.mfbp-filter {
+  background: #181825;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.mfbp-filter:focus {
+  border-color: #89b4fa;
+}
+
+.mfbp-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mfbp-group {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mfbp-group-header {
+  padding: 8px 12px;
+  background: #45475a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #cdd6f4;
+  list-style: none;
+  user-select: none;
+}
+
+.mfbp-group-header::-webkit-details-marker {
+  display: none;
+}
+
+.mfbp-group-header::before {
+  content: '▶';
+  font-size: 10px;
+  color: #a6adc8;
+  transition: transform 150ms ease;
+  display: inline-block;
+}
+
+.mfbp-group[open] > .mfbp-group-header::before {
+  transform: rotate(90deg);
+}
+
+.mfbp-group-filename {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mfbp-group-count {
+  font-size: 10px;
+  color: #a6adc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mfbp-rows {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.mfbp-row {
+  padding: 0;
+}
+
+.mfbp-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 24px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.mfbp-row-label:hover {
+  background: #45475a;
+}
+
+.mfbp-row-label input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: #89b4fa;
+}
+
+.mfbp-row-name {
+  font-weight: 500;
+  color: #cdd6f4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mfbp-row-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: #a6adc8;
+  margin-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.mfbp-summary {
+  font-size: 13px;
+  color: #cdd6f4;
+  margin-bottom: 12px;
+}
+
+.mfbp-summary strong {
+  font-weight: 600;
+}
+
+.mfbp-collision {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #f9e2af;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mfbp-collision-icon {
+  font-size: 14px;
+}
+
+.mfbp-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #a6adc8;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.mfbp-files {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #89b4fa;
+}
+
+.mfbp-files code {
+  word-break: break-all;
+}
+
+.mfbp-target {
+  font-size: 11px;
+  color: #a6adc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mfbp-target code {
+  color: #cdd6f4;
+}
+
+.mfbp-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #181825;
+  padding: 12px 20px;
+  border-top: 1px solid #45475a;
+}
+
+.mfbp-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.mfbp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mfbp-btn-cancel {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.mfbp-btn-cancel:hover {
+  background: #585b70;
+}
+
+.mfbp-btn-confirm {
+  background: #89b4fa; /* --color-accent */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #89b4fa;
+}
+
+.mfbp-btn-confirm:hover:not(:disabled) {
+  background: #74c7ec;
+  border-color: #74c7ec;
+}
