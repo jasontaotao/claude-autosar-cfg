@@ -305,6 +305,34 @@ export interface ArxmlState {
    */
   removeBswmd: (path: string) => void;
 
+  /**
+   * Sprint 14 — toggle a BSW module's enabled state within a loaded BSWMD
+   * schema. `enabled=false` adds `moduleShortName` to the schema's
+   * `disabledModules` Set (the picker / `buildSchemaLayer` then treat
+   * the module as absent); `enabled=true` removes it. No-op when
+   * `bswmdPath` is not in `bswmdPaths` (a stale id from the renderer
+   * must not blow up the store). Re-runs validation so disabled
+   * modules immediately stop emitting `schema-unknown` errors.
+   */
+  setBswmdModuleEnabled: (bswmdPath: string, moduleShortName: string, enabled: boolean) => void;
+
+  /**
+   * Sprint 14 — return the file paths of every loaded ArxmlDocument
+   * whose `sourceBswmdPath` matches the given BSWMD path. Used by the
+   * cascade-on-remove flow (Task 12) to find dependents before
+   * unloading a BSWMD. Pure read — does not mutate state.
+   */
+  findDependentsOfBswmd: (bswmdPath: string) => readonly string[];
+
+  /**
+   * Sprint 14 — attach `sourceBswmdPath` to a doc, then register it
+   * through `addDocument` so the rest of the store pipeline (project
+   * sync, dirty reset, validation, displayDoc recompute) runs
+   * uniformly. Used by the BSWMD-to-ECUC skeleton flow (Task 8) to
+   * record the provenance of the generated ARXML.
+   */
+  addDocumentWithSource: (doc: ArxmlDocument, sourceBswmdPath: string) => void;
+
   // Sprint 11 Phase 1 (Option A) — switch UI language.
   setLocale: (locale: Locale) => void;
 }
@@ -692,6 +720,58 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       project: nextProject,
       ...revalidateWithBswmd(state.documents, nextSchemas),
     });
+  },
+
+  // Sprint 14 — toggle a module's enabled state. The two arrays
+  // (`bswmdPaths` / `bswmdSchemas`) are parallel by construction (see
+  // `addBswmd`), so a single index lookup resolves the target
+  // schema. We materialise `disabledModules` as a new Set so the
+  // existing schema reference stays immutable — downstream
+  // `useStore(selector)` consumers comparing by reference still
+  // detect the change. Re-validation keeps `validationErrors` in
+  // sync: disabling a module drops the `schema-unknown` errors it
+  // produced, enabling it restores them.
+  setBswmdModuleEnabled: (bswmdPath, moduleShortName, enabled) => {
+    const state = get();
+    const idx = state.bswmdPaths.indexOf(bswmdPath);
+    if (idx === -1) return;
+    const oldSchema = state.bswmdSchemas[idx];
+    if (oldSchema === undefined) return;
+
+    const disabled = new Set(oldSchema.disabledModules ?? new Set<string>());
+    if (enabled) {
+      disabled.delete(moduleShortName);
+    } else {
+      disabled.add(moduleShortName);
+    }
+    const newSchema = { ...oldSchema, disabledModules: disabled };
+    const nextSchemas = state.bswmdSchemas.map((s, i) => (i === idx ? newSchema : s));
+    set({
+      bswmdSchemas: nextSchemas,
+      ...revalidateWithBswmd(state.documents, nextSchemas),
+    });
+  },
+
+  // Sprint 14 — pure read for cascade-on-remove. Filters by
+  // `sourceBswmdPath` and projects to `.path` so the caller (Task 12
+  // hook) gets a ready-to-delete list. Documents without a
+  // `sourceBswmdPath` are filtered out — the field is optional in
+  // `ArxmlDocument`, and only BSWMD-generated docs carry it.
+  findDependentsOfBswmd: (bswmdPath) => {
+    return get()
+      .documents.filter((d) => d.sourceBswmdPath === bswmdPath)
+      .map((d) => d.path);
+  },
+
+  // Sprint 14 — attach provenance and delegate to `addDocument`. We
+  // do NOT reimplement the addDocument body: project sync, dirty
+  // reset, displayDoc recompute, validation, and back-compat
+  // `doc`/`filePath` updates all live there. Keeping the delegation
+  // means the cascade flow and the open-ARXML flow end up at exactly
+  // the same final state.
+  addDocumentWithSource: (doc, sourceBswmdPath) => {
+    const docWithSource: ArxmlDocument = { ...doc, sourceBswmdPath };
+    get().addDocument(docWithSource, doc.path);
   },
 
   setLocale: (locale) => set({ locale }),
