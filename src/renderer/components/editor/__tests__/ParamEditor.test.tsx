@@ -4,10 +4,84 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlPackage } from '@core/arxml/types';
+import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types';
+import type { BswmdDocument } from '@core/project/bswmd';
 
 import { useArxmlStore } from '../../../store/useArxmlStore';
 import { ParamEditor } from '../ParamEditor';
+
+// ---------- Sprint post-v1.0.0 — T6 component tests (helpers) ----------
+// Component tests need an ArxmlDocument whose element tree resolves the
+// store's `selectedPath` so ParamEditor renders the footer with the
+// `+ Add Parameter` button (the footer is gated on findByPath returning
+// a module/container element). The unit tests in
+// core/ecuc/__tests__/moduleMatch.test.ts use a stub doc with `packages: []`
+// because they only exercise the pure function. Define the richer helper
+// inline here per the plan — the brief instructs not to share fixtures
+// across the core/ → renderer/ package boundary.
+
+/** Build an ArxmlDocument whose element tree resolves `selectedPath` to a
+ *  module/container element, so ParamEditor's body renders the footer with
+ *  the `+ Add Parameter` button. The structure is:
+ *    doc.path = `<rootPath>` (matches selectedPath)
+ *    packages = [root pkg `proj`]
+ *      └─ elements[0] = module/container `ecuc`
+ *           └─ children[0] = module/container `<leafName>` (params: {})
+ *  `findByPath(doc, selectedPath)` walks `proj → ecuc → <leafName>` and
+ *  returns the leaf element. */
+function mkDocWithElementAtPath(rootPath: string, sourceBswmdPath?: string): ArxmlDocument {
+  const segments = rootPath.split('/').filter((s) => s.length > 0);
+  // selectedPath = rootPath; segments must have >= 2 for findByPath to walk
+  // past the package root. The leaf shortName is the last segment.
+  const leafName = segments[segments.length - 1] ?? '<leaf>';
+  const middleName = segments[segments.length - 2] ?? '<middle>';
+  const rootPkgName = segments[0] ?? '<root>';
+  const leafElement: ArxmlElement = {
+    kind: 'container',
+    tagName: 'ECUC-CONTAINER-VALUE',
+    shortName: leafName,
+    params: {},
+    children: [],
+  };
+  const middleElement: ArxmlElement = {
+    kind: 'module',
+    tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+    shortName: middleName,
+    params: {},
+    children: [leafElement],
+  };
+  const pkg: ArxmlPackage = {
+    shortName: rootPkgName,
+    path: `/${rootPkgName}`,
+    elements: [middleElement],
+  };
+  return {
+    path: rootPath,
+    version: '4.6',
+    packages: [pkg],
+    ...(sourceBswmdPath !== undefined ? { sourceBswmdPath } : {}),
+  };
+}
+
+/** Same shape as `mkBswmd` in core/ecuc/__tests__/moduleMatch.test.ts but
+ *  defined locally — the brief instructs not to import across package
+ *  boundaries (core/ vs renderer/). */
+function mkBswmd(shortNames: string[]): BswmdDocument {
+  return {
+    version: '4.6',
+    modules: shortNames.map((sn) => ({
+      shortName: sn,
+      path: `/${sn}`,
+      dialect: 'ecuc-module-def' as const,
+      moduleId: 1,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+    })),
+    warnings: [],
+  };
+}
 
 afterEach(cleanup);
 
@@ -391,5 +465,94 @@ describe('ParamEditor', () => {
       expect(td!.className).toMatch(/text-slate-900/);
       expect(td!.className).toMatch(/dark:text-slate-50/);
     }
+  });
+
+  // ---------- Sprint post-v1.0.0 — T6 (+ Add Parameter enabled state) ----------
+  // ParamEditor exposes two footer buttons (`+ Add Parameter`,
+  // `+ Add Reference`) that open the BSWMD-driven picker. Both buttons
+  // are gated on `hasBswmdForModule(state, selectedPath)` so that
+  // pickers open only when the selected ECUC can resolve a BSWMD
+  // schema (priority A: sourceBswmdPath match, fallback B: path-segment
+  // match). These two component tests pin the user-visible result of
+  // that gate — they pin behavior, not implementation detail, so a
+  // future refactor of `hasBswmdForModule` would not require
+  // touching them as long as the button keeps reflecting the function.
+  //
+  // Setup contract:
+  //   - `documents` carries one ECUC doc whose `sourceBswmdPath` points
+  //     to a BSWMD path that is in `bswmdPaths` (test #1) or that is
+  //     no longer in `bswmdPaths` after a cascade removal (test #2).
+  //   - The doc's `path` is exactly the same string as `selectedPath`.
+  //     `hasBswmdForModule` looks up the doc via
+  //     `documents.find(d => d.path === selectedPath)` (T5 contract),
+  //     so equality is required for the function to find the doc.
+  //   - The doc's element tree resolves `selectedPath` to a module or
+  //     container so ParamEditor's body renders the footer with the
+  //     `+ Add Parameter` button. We use `mkDocWithElementAtPath`
+  //     (defined above) for that.
+
+  it('enables + Add Parameter when ECUC has sourceBswmdPath matching a loaded BSWMD', () => {
+    // Arrange: 1 BSWMD loaded (`/BSWMD/Can.arxml`) + 1 ECUC doc whose
+    // `sourceBswmdPath` points to it. selectedPath = the ECUC's own
+    // path so `hasBswmdForModule`'s `find(d => d.path === selectedPath)`
+    // resolves to this doc and the A-priority source match returns true.
+    const ecucPath = '/proj/ecuc/Can_Cfg.arxml';
+    const bswmdPath = '/BSWMD/Can.arxml';
+    const doc = mkDocWithElementAtPath(ecucPath, bswmdPath);
+    useArxmlStore.setState({
+      documents: [doc],
+      documentPaths: [ecucPath],
+      activeDocumentPath: ecucPath,
+      doc,
+      filePath: ecucPath,
+      // selectedPath must equal the doc's path so hasBswmdForModule's
+      // documents.find(...) resolves the doc, AND so the element walk
+      // through findByPath lands on the leaf container that renders
+      // the footer.
+      selectedPath: ecucPath,
+      // BSWMD schema + path registered → A-priority match returns true.
+      bswmdPaths: [bswmdPath],
+      bswmdSchemas: [mkBswmd(['Can'])],
+      viewMode: 'single',
+      displayDoc: doc,
+      locale: 'en',
+    });
+
+    render(<ParamEditor />);
+
+    // The footer is only rendered when findByPath returns a module or
+    // container — sanity-check the layout, then assert the button.
+    expect(screen.getByTestId('param-editor-footer')).toBeInTheDocument();
+    expect(screen.getByTestId('param-editor-add-parameter')).toBeEnabled();
+  });
+
+  it('keeps + Add Parameter disabled when no BSWMD matches the ECUC', () => {
+    // Arrange: BSWMD was removed (e.g. cascade after a user-initiated
+    // Remove BSWMD that also dropped its dependent ECUC picker
+    // children). `sourceBswmdPath` on the ECUC still points at the
+    // BSWMD path, but `bswmdPaths` no longer includes it, so priority A
+    // returns false → the button is disabled and the picker cannot open.
+    const ecucPath = '/proj/ecuc/Can_Cfg.arxml';
+    const bswmdPath = '/BSWMD/Can.arxml';
+    const doc = mkDocWithElementAtPath(ecucPath, bswmdPath);
+    useArxmlStore.setState({
+      documents: [doc],
+      documentPaths: [ecucPath],
+      activeDocumentPath: ecucPath,
+      doc,
+      filePath: ecucPath,
+      selectedPath: ecucPath,
+      // BSWMD unloaded (cascade): bswmdPaths is empty.
+      bswmdPaths: [],
+      bswmdSchemas: [],
+      viewMode: 'single',
+      displayDoc: doc,
+      locale: 'en',
+    });
+
+    render(<ParamEditor />);
+
+    expect(screen.getByTestId('param-editor-footer')).toBeInTheDocument();
+    expect(screen.getByTestId('param-editor-add-parameter')).toBeDisabled();
   });
 });
