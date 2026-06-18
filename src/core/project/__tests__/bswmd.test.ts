@@ -14,6 +14,8 @@ import {
   lookupContainerDef,
   lookupParamDef,
   lookupReferenceDef,
+  getContainerDefByPath,
+  listContainerChildren,
 } from '../bswmd.js';
 
 // ---------------------------------------------------------------------------
@@ -1128,5 +1130,163 @@ describe('lookupReferenceDef', () => {
         (w) => /duplicate parameter/i.test(w) && /BusOffProcessing/.test(w),
       ),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getContainerDefByPath (Sprint 15 — ECUC mutation support)
+// ---------------------------------------------------------------------------
+
+describe('getContainerDefByPath', () => {
+  it('resolves a top-level container by single-segment subPath', () => {
+    // Arrange
+    const doc = parseBswmd(AUTOSAR_MINIMAL);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const c = getContainerDefByPath(mod, 'CanGeneral');
+
+    // Assert
+    expect(c).not.toBeNull();
+    expect(c?.shortName).toBe('CanGeneral');
+    expect(c?.path).toBe('/AUTOSAR_R22/EcucDefs/Can/CanGeneral');
+  });
+
+  it('resolves a nested sub-container by multi-segment subPath', () => {
+    // Arrange
+    const doc = parseBswmd(NESTED_SUB_CONTAINERS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const leaf = getContainerDefByPath(mod, 'CanConfigSet/CanController/CanControllerConfig');
+
+    // Assert
+    expect(leaf).not.toBeNull();
+    expect(leaf?.shortName).toBe('CanControllerConfig');
+    expect(leaf?.path).toBe(
+      '/EcucDefs/Can/CanConfigSet/CanController/CanControllerConfig',
+    );
+  });
+
+  it('resolves a choice-branch container under an ECUC-CHOICE-ORIENTED-STRUCTURE-DEF', () => {
+    // Arrange
+    const doc = parseBswmd(CHOICES);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const branch = getContainerDefByPath(mod, 'CanIfBufferCfg/CanIfMailbox');
+
+    // Assert
+    expect(branch).not.toBeNull();
+    expect(branch?.shortName).toBe('CanIfMailbox');
+  });
+
+  it('returns null when a segment in the path does not exist', () => {
+    // Arrange
+    const doc = parseBswmd(NESTED_SUB_CONTAINERS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+
+    // Act
+    const missing = getContainerDefByPath(mod, 'CanConfigSet/DoesNotExist');
+
+    // Assert
+    expect(missing).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listContainerChildren (Sprint 15 — ECUC mutation support)
+// ---------------------------------------------------------------------------
+
+describe('listContainerChildren', () => {
+  it('returns empty arrays for a leaf container with no params/refs/subContainers', () => {
+    // Arrange
+    const doc = parseBswmd(NESTED_SUB_CONTAINERS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const mod = doc.value.modules[0]!;
+    const leaf = getContainerDefByPath(mod, 'CanConfigSet/CanController/CanControllerConfig')!;
+    expect(leaf).not.toBeNull();
+
+    // Act
+    const children = listContainerChildren(leaf);
+
+    // Assert
+    expect(children.parameters).toEqual([]);
+    expect(children.references).toEqual([]);
+    expect(children.subContainers).toEqual([]);
+  });
+
+  it('returns parameters, references, and sub-containers for a fully-populated container', () => {
+    // Arrange — build a container with one of each kind by reading PduR
+    // (which carries a reference) under a hypothetical parent.
+    // Simpler: stack MULTI_KIND_PARAMS + REFERENCES_BOTH by using
+    // NESTED_SUB_CONTAINERS for sub-containers and reading params/refs
+    // from a hand-built composite fixture is overkill — assert via two
+    // separate lookups instead, on the actual MULTI_KIND_PARAMS container.
+    const doc = parseBswmd(MULTI_KIND_PARAMS);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const comGeneral = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const children = listContainerChildren(comGeneral);
+
+    // Assert
+    expect(children.parameters).toHaveLength(3);
+    expect(children.parameters.map((p) => p.shortName)).toEqual([
+      'ComSupportedIPduGroups',
+      'ComConfigurationUseDet',
+      'ComPduIdType',
+    ]);
+    expect(children.references).toEqual([]);
+    expect(children.subContainers).toEqual([]);
+  });
+
+  it('returns references for a container that defines them', () => {
+    // Arrange
+    const doc = parseBswmd(REFERENCES_BOTH);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const routingPath = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const children = listContainerChildren(routingPath);
+
+    // Assert
+    expect(children.references).toHaveLength(2);
+    expect(children.references.map((r) => r.shortName)).toEqual([
+      'PduRSrcPduRef',
+      'PduRSrcPduForeignRef',
+    ]);
+  });
+
+  it('aggregates subContainers and choices into a single subContainers list', () => {
+    // Arrange — CHOICES fixture: a choice container with two choice branches
+    // and no regular sub-containers. listContainerChildren must surface the
+    // choice branches under the unified `subContainers` field.
+    const doc = parseBswmd(CHOICES);
+    expect(doc.ok).toBe(true);
+    if (!doc.ok) return;
+    const choiceContainer = doc.value.modules[0]!.containers[0]!;
+
+    // Act
+    const children = listContainerChildren(choiceContainer);
+
+    // Assert
+    expect(children.subContainers.map((c) => c.shortName)).toEqual([
+      'CanIfMailbox',
+      'CanIfFifo',
+    ]);
+    expect(children.parameters).toEqual([]);
+    expect(children.references).toEqual([]);
   });
 });

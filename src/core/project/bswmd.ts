@@ -332,6 +332,77 @@ export function lookupReferenceDef(
   return container.references.find((r) => r.shortName === shortName) ?? null;
 }
 
+/**
+ * Sprint 15 — ECUC mutation support. Resolve a `ContainerDef` by relative
+ * sub-path (slash-separated short names) within a module. Walks the module's
+ * top-level containers, then descends into each match's `subContainers` and
+ * `choices` (treating them as one search space) until every segment has
+ * been consumed. Returns the matching `ContainerDef`, or `null` if any
+ * segment is missing.
+ *
+ * Examples:
+ *   `getContainerDefByPath(canMod, 'CanGeneral')` → top-level container.
+ *   `getContainerDefByPath(canMod, 'CanConfigSet/CanController/CanControllerConfig')`
+ *   `getContainerDefByPath(canIfMod, 'CanIfBufferCfg/CanIfMailbox')` → choice branch.
+ *
+ * The function is intentionally path-shaped (not shortName-shaped like
+ * `lookupContainerDef`) so callers can hand it the path the user sees in
+ * the tree without first splitting it themselves.
+ */
+export function getContainerDefByPath(
+  moduleDef: BswModuleDef,
+  subPath: string,
+): ContainerDef | null {
+  const segments = subPath.split('/').filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  const [head, ...tail] = segments;
+  if (head === undefined) return null;
+  const first = moduleDef.containers.find((c) => c.shortName === head);
+  if (first === undefined) return null;
+  if (tail.length === 0) return first;
+  return findContainerInTreeByPath(first, tail);
+}
+
+function findContainerInTreeByPath(
+  parent: ContainerDef,
+  segments: readonly string[],
+): ContainerDef | null {
+  if (segments.length === 0) return parent;
+  const [head, ...tail] = segments;
+  if (head === undefined) return null;
+  // Choices are surfaced as a separate `choices` field on the parent (see
+  // `buildChoiceContainer`) but logically a choice branch is a container
+  // you can descend into, so the search space at every level is
+  // `subContainers ∪ choices`.
+  const candidates = [...parent.subContainers, ...parent.choices];
+  const found = candidates.find((c) => c.shortName === head);
+  if (found === undefined) return null;
+  if (tail.length === 0) return found;
+  return findContainerInTreeByPath(found, tail);
+}
+
+/**
+ * Sprint 15 — ECUC mutation support. Aggregate a container's direct children
+ * (parameters, references, sub-containers) into a single bundle for the
+ * add-element picker. The `subContainers` field intentionally unions
+ * `subContainers` and `choices` because both are addable sub-containers
+ * from the user's perspective; the picker can disambiguate via the
+ * `ContainerDef.choices.length > 0` marker on the source definition.
+ */
+export interface ContainerChildren {
+  readonly parameters: readonly ParamDef[];
+  readonly references: readonly ReferenceDef[];
+  readonly subContainers: readonly ContainerDef[];
+}
+
+export function listContainerChildren(containerDef: ContainerDef): ContainerChildren {
+  return {
+    parameters: containerDef.parameters,
+    references: containerDef.references,
+    subContainers: [...containerDef.subContainers, ...containerDef.choices],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
