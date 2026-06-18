@@ -31,7 +31,8 @@
 
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from './types.js';
+import { buildDefaultValue } from './defaultValue.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from './types.js';
 
 /**
  * One user pick from the "create ECUC from BSWMD" picker. The shape is the
@@ -101,23 +102,50 @@ export function generateEcucSkeleton(
 }
 
 function buildModule(mod: BswModuleDef): ArxmlModule {
+  // Module-level parameters are rare in BSWMD and `BswModuleDef` does not
+  // carry a `parameters` field today. Keep `params` as `{}` so the call
+  // site is forward-compatible if the field is added in the future.
+  //
+  // Top-level container `params` are filled from BSWMD defaults via
+  // `buildDefaultValue`; sub-containers stay empty shells so the user
+  // chooses which sub-containers to instance via the editor.
   return {
     kind: 'module',
     tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
     shortName: mod.shortName,
     params: {},
-    children: mod.containers.map(buildContainer),
+    children: mod.containers.map(buildTopContainer),
     references: [],
   };
 }
 
-function buildContainer(c: ContainerDef): ArxmlContainer {
+function buildTopContainer(c: ContainerDef): ArxmlContainer {
+  // Top-layer fill: BSWMD `defaultValue` -> typed `ParamValue`. Null
+  // defaults are skipped (per `buildDefaultValue` contract).
+  const params: Record<string, ParamValue> = {};
+  for (const p of c.parameters) {
+    const v = buildDefaultValue(p);
+    if (v !== null) params[p.shortName] = v;
+  }
+  return {
+    kind: 'container',
+    tagName: 'ECUC-CONFIGURATION-CONTAINER',
+    shortName: c.shortName,
+    params,
+    children: c.subContainers.map(buildSubContainerShell),
+  };
+}
+
+function buildSubContainerShell(c: ContainerDef): ArxmlContainer {
+  // Sub-containers stay as empty shells — the user instanceiates them
+  // explicitly. Their params get filled later by the editor's
+  // `addSubContainer` flow which clones the BSWMD defaults.
   return {
     kind: 'container',
     tagName: 'ECUC-CONFIGURATION-CONTAINER',
     shortName: c.shortName,
     params: {},
-    children: c.subContainers.map(buildContainer),
+    children: c.subContainers.map(buildSubContainerShell),
   };
 }
 

@@ -21,7 +21,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
+import type { BswmdDocument, BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd.js';
 import { generateEcucSkeleton, resolveCollisionFilename } from '../skeleton.js';
 import type { PickedModule } from '../skeleton.js';
 import type { ArxmlContainer, ArxmlModule } from '../types.js';
@@ -279,3 +279,233 @@ describe('resolveCollisionFilename', () => {
     expect(m.size).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// generateEcucSkeleton — default param fill (post-v1.0.0)
+// ---------------------------------------------------------------------------
+//
+// Skeleton emits BSWMD `defaultValue` into top-level containers via the
+// shared `buildDefaultValue` (core/arxml/defaultValue.ts). Module-level
+// params stay empty because `BswModuleDef` has no `parameters` field today
+// (rare in practice). Sub-containers are NOT filled — they are empty
+// shells; the user instanceiates them on demand.
+//
+// Type-map behaviour:
+//   integer / float / boolean — default required; null default => SKIP
+//   enumeration / string / function-name — null default => empty string
+
+describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
+  function buildBswmdWithContainers(...containers: ContainerDef[]): BswmdDocument {
+    return {
+      version: '4.6',
+      modules: [
+        {
+          shortName: 'Can',
+          path: '/Can',
+          dialect: 'ecuc-module-def',
+          moduleId: 1,
+          containers,
+          providedEntries: [],
+          lowerMultiplicity: 1,
+          upperMultiplicity: 1,
+        },
+      ],
+      warnings: [],
+    };
+  }
+
+  it('emits integer param with default', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'CanBusOffProcessing', 0)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    expect(gen.kind).toBe('container');
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'integer', value: 0 });
+  });
+
+  it('emits float param with default', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('float', 'CanMainFunctionRWPeriod', 0.0)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanMainFunctionRWPeriod']).toEqual({ type: 'float', value: 0.0 });
+  });
+
+  it('emits boolean param with default true', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('boolean', 'CanDevErrorDetect', true)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanDevErrorDetect']).toEqual({ type: 'boolean', value: true });
+  });
+
+  it('emits enum param with default literal', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('enumeration', 'CanBusOffProcessing', 'POLLING')],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'enum', value: 'POLLING' });
+  });
+
+  it('emits string param with default', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('string', 'CanImplementation', 'FLEXC')],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: 'FLEXC' });
+  });
+
+  it('skips integer with null default', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'CanBusOffProcessing', null)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanBusOffProcessing']).toBeUndefined();
+  });
+
+  it('emits empty string for string with null default', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('string', 'CanImplementation', null)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: '' });
+  });
+
+  it('skips reference params (use addReference separately)', () => {
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [
+        {
+          shortName: 'CanIf',
+          path: '/Can/CanGeneral/CanIf',
+          destKind: 'ECUC-MODULE-CONFIGURATION-VALUES',
+          lowerMultiplicity: 0,
+          upperMultiplicity: 1,
+        },
+      ],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(Object.keys(gen.params)).toEqual([]);
+    // Note: ArxmlContainer has no `references` field in the
+    // discriminated-union model; reference wiring is handled by a
+    // separate editor flow, not by the skeleton factory.
+  });
+
+  it('does not fill sub-container params (top-layer only per spec)', () => {
+    const sub: ContainerDef = {
+      shortName: 'CanSub',
+      path: '/Can/CanGeneral/CanSub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'SubParam', 5)],
+      references: [],
+      choices: [],
+    };
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    const subInst = gen.children[0]!;
+    if (subInst.kind !== 'container') throw new Error('guard');
+    expect(subInst.params['SubParam']).toBeUndefined();
+  });
+});
+
+function mkParam(
+  kind: ParamDef['kind'],
+  shortName: string,
+  defaultValue: ParamDef['defaultValue'],
+): ParamDef {
+  return {
+    shortName,
+    path: `/${shortName}`,
+    kind,
+    defaultValue,
+    minValue: null,
+    maxValue: null,
+    minLength: null,
+    maxLength: null,
+    enumerationLiterals: [],
+  };
+}

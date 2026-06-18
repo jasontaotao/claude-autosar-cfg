@@ -56,12 +56,24 @@ export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
     }
     case 'enumeration': {
       if (typeof def === 'string') return { type: 'enum', value: def };
+      if (def === null) {
+        // Null literal default still emits an empty literal placeholder —
+        // matches the `mutation.addParameter` fallback so the skeleton
+        // and editor flows agree on text-shaped defaults.
+        return { type: 'enum', value: '' };
+      }
       return null;
     }
     case 'string':
     case 'function-name': {
       if (typeof def === 'string') return { type: 'string', value: def };
       if (typeof def === 'number' || typeof def === 'boolean') return { type: 'string', value: String(def) };
+      if (def === null) {
+        // Null default for text-shaped params emits an empty string —
+        // matches the `mutation.addParameter` fallback for skeleton
+        // parity.
+        return { type: 'string', value: '' };
+      }
       return null;
     }
   }
