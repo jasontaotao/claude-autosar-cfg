@@ -22,6 +22,7 @@
 import { getContainerDefByPath } from '../project/bswmd.js';
 import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
 
+import { buildDefaultValue } from './defaultValue.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -31,6 +32,7 @@ import type {
   ParamValue,
   Result,
 } from './types.js';
+
 
 /**
  * Error envelope for the mutation functions. The 6 kinds cover the failure
@@ -890,44 +892,6 @@ function removeInElements(
 // ParamValue default construction
 // ---------------------------------------------------------------------------
 
-/**
- * Map a `ParamDef` to a concrete `ParamValue` using `paramDef.defaultValue`.
- * Returns `null` when the default cannot be coerced to the right shape
- * (e.g. an enumeration declared without a literal that the default points
- * at); the caller is expected to surface this as `invalid-param-type`.
- */
-function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
-  const def = paramDef.defaultValue;
-  switch (paramDef.kind) {
-    case 'integer': {
-      if (typeof def === 'number') return { type: 'integer', value: Math.trunc(def) };
-      if (typeof def === 'string') {
-        const n = Number(def);
-        if (Number.isFinite(n)) return { type: 'integer', value: Math.trunc(n) };
-      }
-      return null;
-    }
-    case 'float': {
-      if (typeof def === 'number') return { type: 'float', value: def };
-      if (typeof def === 'string') {
-        const n = Number(def);
-        if (Number.isFinite(n)) return { type: 'float', value: n };
-      }
-      return null;
-    }
-    case 'boolean': {
-      if (typeof def === 'boolean') return { type: 'boolean', value: def };
-      return null;
-    }
-    case 'enumeration': {
-      if (typeof def === 'string') return { type: 'enum', value: def };
-      return null;
-    }
-    case 'string':
-    case 'function-name': {
-      if (typeof def === 'string') return { type: 'string', value: def };
-      if (typeof def === 'number' || typeof def === 'boolean') return { type: 'string', value: String(def) };
-      return null;
-    }
-  }
-}
+// `buildDefaultValue` was extracted post-v1.0.0 to `./defaultValue.ts`
+// so `skeleton.ts` can reuse the same ParamKind→ParamValue coercion
+// without duplicating the mapping logic.
