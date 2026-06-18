@@ -221,7 +221,7 @@ export function resolveCollisionFilename(
   for (const group of groups.values()) {
     if (group.length === 1) {
       const p = group[0]!;
-      out.set(keyOf(p), `${projectDir}/${p.moduleShortName}_Cfg.arxml`);
+      out.set(keyOf(p), `${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
       continue;
     }
     // Multiple picks share this `moduleShortName`. The first pick in
@@ -239,7 +239,7 @@ export function resolveCollisionFilename(
       if (idx === 0) {
         // First pick in the group: canonical un-suffixed name.
         seen.set(baseKey, 1);
-        out.set(keyOf(p), `${projectDir}/${p.moduleShortName}_Cfg.arxml`);
+        out.set(keyOf(p), `${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`);
         return;
       }
       // Later picks: always suffixed; numeric suffix on top when
@@ -250,7 +250,7 @@ export function resolveCollisionFilename(
       const vendorPart = `${baseKey}${numericPart}`;
       out.set(
         keyOf(p),
-        `${projectDir}/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
+        `${projectDir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`,
       );
     });
   }

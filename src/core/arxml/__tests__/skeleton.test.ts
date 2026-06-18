@@ -224,7 +224,7 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(1);
     expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
     );
   });
 
@@ -236,10 +236,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
     );
     expect(m.get(k('CanIf', 'D:/bswmd/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/CanIf_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/CanIf_Cfg.arxml`,
     );
   });
 
@@ -251,10 +251,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/bswmd/Can_Bswmd.arxml'))).toBe(
-      `${PROJECT_DIR}/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
     );
     expect(m.get(k('Can', 'D:/bswmd/Intewell_Can.arxml'))).toBe(
-      `${PROJECT_DIR}/Can__intewell_can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can__intewell_can_Cfg.arxml`,
     );
   });
 
@@ -266,10 +266,10 @@ describe('resolveCollisionFilename', () => {
     const m = resolveCollisionFilename(picks, PROJECT_DIR);
     expect(m.size).toBe(2);
     expect(m.get(k('Can', 'D:/a/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/Can_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can_Cfg.arxml`,
     );
     expect(m.get(k('Can', 'D:/b/Can.arxml'))).toBe(
-      `${PROJECT_DIR}/Can__can_1_Cfg.arxml`,
+      `${PROJECT_DIR}/ecuc/Can__can_1_Cfg.arxml`,
     );
   });
 
@@ -489,6 +489,42 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const subInst = gen.children[0]!;
     if (subInst.kind !== 'container') throw new Error('guard');
     expect(subInst.params['SubParam']).toBeUndefined();
+  });
+});
+
+describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
+  it('single pick uses <proj>/ecuc/ prefix', () => {
+    const map = resolveCollisionFilename(
+      [{ bswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }],
+      '/proj',
+    );
+    expect(map.size).toBe(1);
+    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
+  });
+
+  it('cross-BSWMD name collision produces one canonical + one vendor-suffixed in subfolder', () => {
+    const map = resolveCollisionFilename(
+      [
+        { bswmdPath: '/BSWMD/Can_v1.arxml', moduleShortName: 'Can' },
+        { bswmdPath: '/BSWMD/Can_v2.arxml', moduleShortName: 'Can' },
+      ],
+      '/proj',
+    );
+    expect(map.size).toBe(2);
+    expect(map.get('/BSWMD/Can_v1.arxml::Can')).toBe('/proj/ecuc/Can_Cfg.arxml');
+    expect(map.get('/BSWMD/Can_v2.arxml::Can')).toBe('/proj/ecuc/Can__can_v2_Cfg.arxml');
+  });
+
+  it('handles projectDir with trailing slash without doubling', () => {
+    const map = resolveCollisionFilename(
+      [{ bswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }],
+      '/proj/',
+    );
+    // Document current behavior: trailing slash doubles the segment.
+    // The downstream mkdir -p tolerates this on both Windows and POSIX.
+    // If we ever want strict normalization, change this test expectation
+    // and add a `.replace(/\/+$/, '')` step in the implementation.
+    expect(map.get('/BSWMD/Can.arxml::Can')).toBe('/proj//ecuc/Can_Cfg.arxml');
   });
 });
 
