@@ -20,6 +20,7 @@ import {
   addContainer,
   removeContainer,
   addParameter,
+  addReference,
   removeParameter,
   listAllowedSubElements,
   findReferencesTo,
@@ -657,5 +658,184 @@ describe('findReferencesTo', () => {
     // Assert
     expect(refs).toHaveLength(2);
     expect(refs.map((r) => r.filePath).sort()).toEqual(['/tmp/Can.arxml', '/tmp/PduR.arxml']);
+  });
+
+  // Regression for HIGH-1 (code review): suffix-equal paths must NOT match
+  // without a `/` boundary. The cascade-delete dialog previously surfaced
+  // `/EAS/Can/SomeOtherCanIfBufferCfg` as a dangling reference to the
+  // target `CanIfBufferCfg`, causing the cascade to delete the wrong
+  // container's refs.
+  it('does not match suffix-equal paths without a path-segment boundary', () => {
+    // Arrange
+    const doc = makeDoc('Can', [
+      makeContainer('CanConfigSet', [], {
+        WrongRef: { type: 'reference', value: '/EAS/Can/SomeOtherCanIfBufferCfg' },
+        RightRef: { type: 'reference', value: '/EAS/Can/CanIfBufferCfg' },
+      }),
+    ]);
+
+    // Act
+    const refs = findReferencesTo([{ doc, filePath: '/tmp/Can.arxml' }], '/EAS/Can/CanIfBufferCfg');
+
+    // Assert — only the path-bounded match counts.
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.paramKey).toBe('RightRef');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removeContainer — multiplicity-floor (HIGH-2 regression)
+// ---------------------------------------------------------------------------
+
+describe('removeContainer — multiplicity-floor enforcement', () => {
+  it('refuses to remove a container when doing so would drop below the BSWMD-declared lower bound', () => {
+    // Arrange — BSWMD declares the lone CanConfigSet as lowerMultiplicity=1
+    // (a "required" container). The doc carries one instance, so removing
+    // it would leave the parent at zero — below the floor.
+    const childDef = makeBswContainer('CanConfigSet', { lower: 1, upper: 1 });
+    const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
+    const moduleDef = makeBswModule('Can', [childDef]);
+
+    // Act
+    const r = removeContainer(doc, '/EAS/Can/CanConfigSet', false, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('multiplicity-floor');
+    if (r.error.kind === 'multiplicity-floor') {
+      expect(r.error.lower).toBe(1);
+      expect(r.error.current).toBe(1);
+    }
+  });
+
+  it('allows removal when the BSWMD lower bound is zero (the default)', () => {
+    // Arrange — childDef defaults to lower=0, so removal is always allowed.
+    const childDef = makeBswContainer('CanConfigSet'); // lower=0, upper='infinite'
+    const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
+    const moduleDef = makeBswModule('Can', [childDef]);
+
+    // Act
+    const r = removeContainer(doc, '/EAS/Can/CanConfigSet', false, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(true);
+  });
+
+  it('skips the floor check when moduleDef is null (back-compat with single-doc callers)', () => {
+    // Arrange — the doc carries one CanConfigSet; without BSWMD the
+    // floor check cannot run, so the removal succeeds even though the
+    // doc-side count is 1.
+    const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
+
+    // Act
+    const r = removeContainer(doc, '/EAS/Can/CanConfigSet', false, null);
+
+    // Assert
+    expect(r.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addReference (HIGH-4 regression)
+// ---------------------------------------------------------------------------
+
+describe('addReference', () => {
+  it('adds a reference-typed parameter with the reference destKind from BSWMD', () => {
+    // Arrange
+    const refDef: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '/Module/CanIfRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { references: [refDef] }),
+    ]);
+
+    // Act
+    const r = addReference(doc, '/EAS/Can/CanConfigSet', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const canConfigSet = rootModule.children[0]! as ArxmlContainer;
+    expect(canConfigSet.params['CanIfRef']).toEqual({
+      type: 'reference',
+      value: '',
+      dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+    });
+  });
+
+  it('returns name-conflict when the reference shortName is already in params', () => {
+    // Arrange
+    const refDef: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '/Module/CanIfRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('Can', [
+      makeContainer('CanConfigSet', [], {
+        CanIfRef: { type: 'reference', value: '/EAS/CanIf/Init' },
+      }),
+    ]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { references: [refDef] }),
+    ]);
+
+    // Act
+    const r = addReference(doc, '/EAS/Can/CanConfigSet', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('name-conflict');
+  });
+
+  it('returns invalid-param-type when the refDef is not declared on the container', () => {
+    // Arrange — refDef says "CanIfRef" but the BSWMD container declares no references.
+    const refDef: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '/Module/CanIfRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
+    const moduleDef = makeBswModule('Can', [makeBswContainer('CanConfigSet')]);
+
+    // Act
+    const r = addReference(doc, '/EAS/Can/CanConfigSet', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-param-type');
+  });
+
+  it('returns path-not-found when the container does not exist', () => {
+    // Arrange
+    const refDef: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '/Module/CanIfRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('Can', []);
+    const moduleDef = makeBswModule('Can', []);
+
+    // Act
+    const r = addReference(doc, '/EAS/Can/DoesNotExist', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('path-not-found');
   });
 });

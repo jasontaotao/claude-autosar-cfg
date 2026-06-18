@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import {
   addContainer as coreAddContainer,
   addParameter as coreAddParameter,
+  addReference as coreAddReference,
   findReferencesTo,
   removeContainer as coreRemoveContainer,
   removeParameter as coreRemoveParameter,
@@ -19,7 +20,7 @@ import type {
   ParamValue,
 } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
-import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '@core/project/bswmd.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef, ReferenceDef } from '@core/project/bswmd.js';
 import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { DEFAULT_LOCALE, t } from '@shared/i18n';
@@ -214,6 +215,7 @@ export interface ArxmlState {
   addContainer: (parentPath: string, shortName: string) => void;
   deleteContainer: (containerPath: string) => void;
   addParameter: (containerPath: string, paramShortName: string) => void;
+  addReference: (containerPath: string, refShortName: string) => void;
   deleteParameter: (containerPath: string, paramKey: string) => void;
   confirmDeleteContainer: (choice: 'cancel' | 'only' | 'cascade') => void;
 
@@ -838,7 +840,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       }));
       const refs = findReferencesTo(refBundle, innerPath);
       if (refs.length === 0) {
-        const result = coreRemoveContainer(hit.doc, innerPath, false);
+        // HIGH-2: pass moduleDef so the core can enforce multiplicity-floor.
+        const moduleDef = findModuleDefForPath(state.bswmdSchemas, hit.doc.path);
+        const result = coreRemoveContainer(hit.doc, innerPath, false, moduleDef);
         if (!result.ok) {
           set({ error: mutationErrorToI18n(state.locale, result.error) });
           return;
@@ -860,7 +864,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     }));
     const refs = findReferencesTo(refBundle, containerPath);
     if (refs.length === 0) {
-      const result = coreRemoveContainer(state.doc, containerPath, false);
+      // HIGH-2: pass moduleDef so the core can enforce multiplicity-floor.
+      const moduleDef = findModuleDefForPath(state.bswmdSchemas, state.doc.path);
+      const result = coreRemoveContainer(state.doc, containerPath, false, moduleDef);
       if (!result.ok) {
         set({ error: mutationErrorToI18n(state.locale, result.error) });
         return;
@@ -927,6 +933,72 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       return;
     }
     const result = coreAddParameter(state.doc, containerPath, paramDef, moduleDef);
+    if (!result.ok) {
+      set({ error: mutationErrorToI18n(state.locale, result.error) });
+      return;
+    }
+    applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+  },
+
+  // Sprint 15 — add a reference-typed parameter. Mirrors `addParameter` but
+  // looks up the BSWMD `ReferenceDef` (not `ParamDef`) and constructs a
+  // `{ type: 'reference', value: '', dest }` ParamValue. The dest comes
+  // from `refDef.destKind`; the user fills the value via `ReferenceEditor`
+  // after the pick.
+  addReference: (containerPath, refShortName) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+      if (hit === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      if (sourceIdx === -1) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      if (innerPath === null) {
+        set({ error: t(state.locale, 'mutation.error.path-not-found') });
+        return;
+      }
+      const lookup = resolveReferenceDefForPath(state.bswmdSchemas, innerPath, refShortName);
+      if (lookup === null) {
+        set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+        return;
+      }
+      const { moduleDef, refDef } = lookup;
+      if (refDef === null) {
+        set({
+          error: t(state.locale, 'mutation.error.invalid-param-type', { key: refShortName }),
+        });
+        return;
+      }
+      const result = coreAddReference(hit.doc, innerPath, refDef, moduleDef);
+      if (!result.ok) {
+        set({ error: mutationErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      return;
+    }
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const lookup = resolveReferenceDefForPath(state.bswmdSchemas, containerPath, refShortName);
+    if (lookup === null) {
+      set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
+      return;
+    }
+    const { moduleDef, refDef } = lookup;
+    if (refDef === null) {
+      set({
+        error: t(state.locale, 'mutation.error.invalid-param-type', { key: refShortName }),
+      });
+      return;
+    }
+    const result = coreAddReference(state.doc, containerPath, refDef, moduleDef);
     if (!result.ok) {
       set({ error: mutationErrorToI18n(state.locale, result.error) });
       return;
@@ -1024,10 +1096,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // No rewriting needed.
     }
 
-    // 1. Remove the container (only delete, leaves dangling refs in
-    //    choice === 'only'; combined with the cascade step below in
-    //    choice === 'cascade').
-    const result = coreRemoveContainer(workingDoc, pending.path, false);
+    // 1. Remove the container. Pass `moduleDef` so the core can
+    //    enforce the BSWMD multiplicity-floor (HIGH-2).
+    const moduleDef = findModuleDefForPath(state.bswmdSchemas, workingPath);
+    const result = coreRemoveContainer(workingDoc, pending.path, false, moduleDef);
     if (!result.ok) {
       set({
         error: mutationErrorToI18n(state.locale, result.error),
@@ -1037,32 +1109,46 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     }
     workingDoc = result.value;
 
-    // 2. Cascade: for each reference hit, call removeParameter on the
-    //    doc + container path. The reference param lives in whichever
-    //    filePath the hit reports, so resolve that doc by index.
+    // 2. Cascade: for each reference hit, apply removeParameter on the
+    //    doc that owns the reference. We track per-file doc mutations
+    //    in `docEdits` so the final commit covers all modified files
+    //    (HIGH-3 — the previous version silently dropped refs on other
+    //    files, leaving dangling references the user was promised
+    //    would be cleaned up).
+    const docEdits = new Map<number, ArxmlDocument>();
+    docEdits.set(workingIdx, workingDoc);
     if (choice === 'cascade') {
       for (const ref of pending.references) {
         const refDocIdx = state.documentPaths.indexOf(ref.filePath);
         if (refDocIdx === -1) continue;
-        const refDoc = state.documentPaths[refDocIdx] === workingPath
-          ? workingDoc
-          : state.documents[refDocIdx];
+        // Use the latest in-progress edit if we have already touched
+        // this doc, otherwise pull the current document.
+        const refDoc = docEdits.get(refDocIdx) ?? state.documents[refDocIdx];
         if (refDoc === undefined) continue;
         const r2 = coreRemoveParameter(refDoc, ref.containerPath, ref.paramKey);
-        if (r2.ok && state.documentPaths[refDocIdx] === workingPath) {
-          workingDoc = r2.value;
+        if (r2.ok) {
+          docEdits.set(refDocIdx, r2.value);
         }
-        // For refs on OTHER files, we don't currently apply the
-        // mutation — cross-file cascade is Phase 3 territory. The
-        // common case (single-file cascade) is covered.
+        // If `r2` failed (e.g. the ref was already gone) we silently
+        // skip — the user's intent is satisfied either way.
       }
     }
 
-    // 3. Commit: replace workingDoc in the documents array, mark
-    //    workingPath dirty, re-validate.
-    const nextDocuments = state.documents.map((d, i) => (i === workingIdx ? workingDoc : d));
+    // 3. Commit: rebuild `documents` from the per-file edits, mark
+    //    every modified file as dirty, re-validate.
+    let nextDirty = state.dirtyPaths;
+    for (const [idx, edited] of docEdits.entries()) {
+      if (idx < 0 || idx >= state.documents.length) continue;
+      if (state.documents[idx] !== edited) {
+        const filePath = state.documentPaths[idx];
+        if (filePath !== undefined) {
+          nextDirty = addToDirty(nextDirty, filePath);
+        }
+      }
+    }
+    const nextDocuments = state.documents.map((d, i) => docEdits.get(i) ?? d);
     const nextActiveDoc = state.activeDocumentPath === workingPath
-      ? workingDoc
+      ? (docEdits.get(workingIdx) ?? workingDoc)
       : state.doc;
     const nextDisplayDoc = computeDisplayDoc(
       state.viewMode,
@@ -1074,7 +1160,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       documents: nextDocuments,
       doc: nextActiveDoc,
       displayDoc: nextDisplayDoc,
-      dirtyPaths: addToDirty(state.dirtyPaths, workingPath),
+      dirtyPaths: nextDirty,
       pendingDelete: null,
       validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
@@ -1425,6 +1511,34 @@ function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): stri
 // ---------------------------------------------------------------------------
 
 /**
+ * Sprint 15 HIGH-2 — find the BswModuleDef whose shortName appears in
+ * the value-side document path. Returns `null` when no BSWMD is loaded
+ * or the path is unparseable. Used by `deleteContainer` to pass the
+ * BSWMD context to `coreRemoveContainer` so the multiplicity-floor
+ * check can run.
+ */
+function findModuleDefForPath(
+  schemas: readonly BswmdDocument[],
+  docPath: string,
+): BswModuleDef | null {
+  const segments = docPath.split('/').filter(Boolean);
+  if (segments.length < 1) return null;
+  // The module shortName is the last path segment of a value-side path
+  // shaped like `/<AR-PACKAGE>/<MODULE>`. Walk the segments from the
+  // back and return the first BSWMD match.
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const candidate = segments[i];
+    if (candidate === undefined) continue;
+    for (const schema of schemas) {
+      for (const mod of schema.modules) {
+        if (mod.shortName === candidate) return mod;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Walk all loaded BSWMD schemas and find the module whose shortName
  * matches the second segment of `valuePath`, then resolve the parent
  * container def at the given subPath (everything after the module).
@@ -1493,6 +1607,37 @@ function resolveParamDefForPath(
       if (parentDef === null) return { moduleDef: mod, paramDef: null };
       const paramDef = parentDef.parameters.find((p) => p.shortName === paramShortName);
       return { moduleDef: mod, paramDef: paramDef ?? null };
+    }
+  }
+  return null;
+}
+
+/**
+ * Sprint 15 — variant of `resolveParamDefForPath` for the addReference
+ * case. Looks up the BSWMD `ReferenceDef` for the given container
+ * path + ref shortName. Mirrors the same null-handling contract:
+ * `moduleDef` is set when the module is found, `refDef` is null when the
+ * parent container exists but doesn't declare this ref.
+ */
+function resolveReferenceDefForPath(
+  schemas: readonly BswmdDocument[],
+  containerPath: string,
+  refShortName: string,
+): { readonly moduleDef: BswModuleDef; readonly refDef: ReferenceDef | null } | null {
+  const segments = containerPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const moduleShortName = segments[1];
+  if (moduleShortName === undefined) return null;
+  for (const schema of schemas) {
+    for (const mod of schema.modules) {
+      if (mod.shortName !== moduleShortName) continue;
+      const subSegments = segments.slice(2);
+      const subPath = subSegments.join('/');
+      const parentDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
+      if (subPath !== '' && parentDef === null) continue;
+      if (parentDef === null) return { moduleDef: mod, refDef: null };
+      const refDef = parentDef.references.find((r) => r.shortName === refShortName);
+      return { moduleDef: mod, refDef: refDef ?? null };
     }
   }
   return null;

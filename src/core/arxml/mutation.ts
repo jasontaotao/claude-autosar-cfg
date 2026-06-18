@@ -20,7 +20,7 @@
 // `useArxmlStore.applyParamUpdate`.
 
 import { getContainerDefByPath } from '../project/bswmd.js';
-import type { BswModuleDef, ContainerDef, ParamDef } from '../project/bswmd.js';
+import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
 
 import type {
   ArxmlContainer,
@@ -162,11 +162,19 @@ export function addContainer(
  * accepted for API symmetry with the store action but the core layer
  * cannot reach across documents — cascade over multiple loaded docs is
  * orchestrated by the store.
+ *
+ * When `moduleDef` is provided, the function enforces the
+ * `multiplicity-floor` rule: if removing the container would drop the
+ * parent below its BSWMD-declared `lowerMultiplicity`, the call returns
+ * a `multiplicity-floor` error and the doc is not mutated. Pass `null`
+ * to skip the floor check (e.g. for tests, or when the BSWMD is not
+ * loaded).
  */
 export function removeContainer(
   doc: ArxmlDocument,
   containerPath: string,
   _cascade: boolean,
+  moduleDef: BswModuleDef | null = null,
 ): Result<ArxmlDocument, MutationError> {
   const segments = containerPath.split('/').filter(Boolean);
   if (segments.length < 3) {
@@ -176,11 +184,122 @@ export function removeContainer(
   if (pkgName === undefined) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
+  // Multiplicity-floor check: when BSWMD is available, the target's
+  // container definition constrains the minimum number of instances the
+  // parent can carry. Refuse to remove if the parent would drop below
+  // the floor (Sprint 15 spec § 4.3 — hard block, no "are you sure"
+  // dialog). We check BEFORE mutating so a failed call preserves the
+  // same doc reference.
+  if (moduleDef !== null) {
+    const floor = checkMultiplicityFloor(doc, containerPath, moduleDef);
+    if (floor !== null) {
+      return { ok: false, error: floor };
+    }
+  }
   const removed = removeElement(doc, pkgName, rest);
   if (removed === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
   return { ok: true, value: removed };
+}
+
+/**
+ * Return a `multiplicity-floor` error when removing `containerPath` would
+ * drop the parent below the target container's BSWMD `lowerMultiplicity`.
+ * Returns `null` when the floor is satisfied (or the target has no BSWMD
+ * definition and the check cannot be made). Pure read-only — does not
+ * mutate the doc.
+ */
+function checkMultiplicityFloor(
+  doc: ArxmlDocument,
+  containerPath: string,
+  moduleDef: BswModuleDef,
+): MutationError | null {
+  const segments = containerPath.split('/').filter(Boolean);
+  const targetShortName = segments[segments.length - 1];
+  const parentSegments = segments.slice(0, -1);
+  if (targetShortName === undefined || parentSegments.length === 0) return null;
+  // Walk the doc to find the parent element and count same-typed
+  // siblings (other children of the parent with the same shortName).
+  const parent = findElementByPath(doc, parentSegments);
+  if (parent === null || (parent.kind !== 'module' && parent.kind !== 'container')) {
+    return null;
+  }
+  const current = countChildrenWithShortName(parent, targetShortName);
+  if (current <= 1) {
+    // After removal, the parent would carry zero instances. Look up the
+    // BSWMD def for this child to check its `lowerMultiplicity`. The
+    // def lives in either `moduleDef.containers` (parent is a module)
+    // or `parentDef.subContainers ∪ choices` (parent is a container).
+    let def: ContainerDef | undefined;
+    if (parent.kind === 'module') {
+      def = moduleDef.containers.find((c) => c.shortName === targetShortName);
+    } else {
+      const parentSubPath = containerPathToSubPath(
+        parentSegments.join('/'),
+        moduleDef,
+      );
+      if (parentSubPath === null) return null;
+      const parentDef = getContainerDefByPath(moduleDef, parentSubPath);
+      if (parentDef === null) return null;
+      def = parentDef.subContainers.find((c) => c.shortName === targetShortName)
+        ?? parentDef.choices.find((c) => c.shortName === targetShortName);
+    }
+    if (def === undefined) return null;
+    if (def.lowerMultiplicity > 0) {
+      return {
+        kind: 'multiplicity-floor',
+        path: containerPath,
+        lower: def.lowerMultiplicity,
+        current,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk `doc.packages` recursively to find the element at `segments`
+ * (relative to root package). Returns the element (module / container /
+ * reference) or `null` if any segment misses.
+ */
+function findElementByPath(
+  doc: ArxmlDocument,
+  segments: readonly string[],
+): ArxmlElement | null {
+  if (segments.length === 0) return null;
+  const [pkgName, ...rest] = segments;
+  if (pkgName === undefined) return null;
+  const rootPkg = doc.packages.find((p) => p.shortName === pkgName);
+  if (rootPkg === undefined) return null;
+  return findInPackage(rootPkg, rest);
+}
+
+function findInPackage(
+  pkg: ArxmlPackage,
+  segments: readonly string[],
+): ArxmlElement | null {
+  let cursor: ArxmlElement | ArxmlPackage = pkg;
+  for (const name of segments) {
+    if (isPackage(cursor)) {
+      const child: ArxmlElement | undefined = cursor.elements.find(
+        (e) => shortNameOf(e) === name,
+      );
+      if (child === undefined) return null;
+      cursor = child;
+      continue;
+    }
+    if (cursor.kind === 'module' || cursor.kind === 'container') {
+      const next: ArxmlElement | undefined = cursor.children.find(
+        (c) => shortNameOf(c) === name,
+      );
+      if (next === undefined) return null;
+      cursor = next;
+      continue;
+    }
+    return null;
+  }
+  return isPackage(cursor) ? null : cursor;
 }
 
 /**
@@ -207,19 +326,25 @@ export function addParameter(
   // parameters. The picker guarantees this match in the happy path; the
   // check here is a defence-in-depth so a stale `paramDef` (e.g. cached
   // from before a BSWMD reload) cannot inject an undeclared key.
+  //
+  // Module-level parents have no `ContainerDef` to cross-reference against
+  // (modules rarely carry parameters in the BSWMD), so the BSWMD check is
+  // skipped when the sub-path is empty.
   const subPath = containerPathToSubPath(containerPath, moduleDef);
   if (subPath === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
-  const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
-  if (
-    parentContainerDef === null ||
-    !parentContainerDef.parameters.some((p) => p.shortName === paramDef.shortName)
-  ) {
-    return {
-      ok: false,
-      error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
-    };
+  if (subPath !== '') {
+    const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
+    if (
+      parentContainerDef === null ||
+      !parentContainerDef.parameters.some((p) => p.shortName === paramDef.shortName)
+    ) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
+      };
+    }
   }
   if (Object.prototype.hasOwnProperty.call(parent.params, paramDef.shortName)) {
     return { ok: false, error: { kind: 'name-conflict', shortName: paramDef.shortName } };
@@ -259,6 +384,66 @@ function containerPathToSubPath(containerPath: string, moduleDef: BswModuleDef):
   const moduleIdx = segments.lastIndexOf(moduleDef.shortName);
   if (moduleIdx === -1) return null;
   return segments.slice(moduleIdx + 1).join('/');
+}
+
+/**
+ * Add a new reference-typed parameter to the container at `containerPath`.
+ * Mirrors `addParameter` but looks up the `ReferenceDef` in the parent
+ * container's `references[]` (not `parameters[]`) and constructs a
+ * `ParamValue` with `{ type: 'reference', value: '', dest }`. The
+ * reference value is left empty (placeholder) — the user fills it in
+ * via `ReferenceEditor` after the pick.
+ */
+export function addReference(
+  doc: ArxmlDocument,
+  containerPath: string,
+  refDef: ReferenceDef,
+  moduleDef: BswModuleDef,
+): Result<ArxmlDocument, MutationError> {
+  const located = locateParent(doc, containerPath);
+  if (located === null) {
+    return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
+  }
+  const { parent, pkg } = located;
+  if (parent.kind !== 'container' && parent.kind !== 'module') {
+    return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
+  }
+  // Cross-reference the `refDef` against the BSWMD container's
+  // declared references (the picker is the happy-path source; this is
+  // defence-in-depth against a stale refDef).
+  const subPath = containerPathToSubPath(containerPath, moduleDef);
+  if (subPath === null) {
+    return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
+  }
+  if (subPath !== '') {
+    const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
+    if (
+      parentContainerDef === null ||
+      !parentContainerDef.references.some((r) => r.shortName === refDef.shortName)
+    ) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: refDef.shortName, expected: 'string' },
+      };
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(parent.params, refDef.shortName)) {
+    return { ok: false, error: { kind: 'name-conflict', shortName: refDef.shortName } };
+  }
+  const value: ParamValue = {
+    type: 'reference',
+    value: '',
+    dest: refDef.destKind,
+  };
+  const nextParams: Readonly<Record<string, ParamValue>> = {
+    ...parent.params,
+    [refDef.shortName]: value,
+  };
+  const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
+    ? { ...parent, params: nextParams }
+    : { ...parent, params: nextParams };
+  const next = replaceElement(doc, pkg, parent, nextParent);
+  return { ok: true, value: next };
 }
 
 /**
@@ -451,7 +636,16 @@ function scanElement(
 
 function endsWithPath(value: string, targetPath: string): boolean {
   if (value === targetPath) return true;
-  return value.endsWith(targetPath);
+  if (!value.endsWith(targetPath)) return false;
+  // Verify a path-segment boundary at the join. Without this, a value of
+  // "/EAS/SomeOtherCanIfBufferCfg" would match a target of
+  // "/EAS/CanIfBufferCfg" via suffix alone (the trailing 13 characters
+  // match), causing the cascade-delete dialog to surface the wrong
+  // dangling references. The boundary char must be `/` for a true
+  // sub-path match.
+  const beforeIdx = value.length - targetPath.length - 1;
+  if (beforeIdx < 0) return true; // length-equal but not === case is unreachable
+  return value.charCodeAt(beforeIdx) === 47; // 47 === '/'
 }
 
 // ---------------------------------------------------------------------------

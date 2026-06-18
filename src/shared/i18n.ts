@@ -279,6 +279,15 @@ export interface Messages {
   readonly 'confirm.cascade.cancel': string;
   readonly 'confirm.cascade.only': string;
   readonly 'confirm.cascade.cascade': string;
+
+  // --- Sprint 15 — picker / editor chrome ---
+  // BswmdPickerDialog + ParamEditor placeholders. Splitting them off
+  // from the action labels keeps the user's mental model clean: actions
+  // describe *what you can do*, chrome strings describe *what the
+  // affordance looks like*.
+  readonly 'picker.search.placeholder': string;
+  readonly 'picker.tooltip.atMax': string; // {current} / {max}
+  readonly 'editor.params.empty': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -479,6 +488,10 @@ export const MessagesZhCN: Messages = {
   'confirm.cascade.cancel': '取消',
   'confirm.cascade.only': '仅删容器',
   'confirm.cascade.cascade': '一并删引用',
+
+  'picker.search.placeholder': '搜索…',
+  'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
+  'editor.params.empty': '此节点没有参数',
 };
 
 // ---------------------------------------------------------------------------
@@ -680,6 +693,10 @@ export const MessagesEn: Messages = {
   'confirm.cascade.cancel': 'Cancel',
   'confirm.cascade.only': 'Only delete',
   'confirm.cascade.cascade': 'Cascade delete',
+
+  'picker.search.placeholder': 'Search…',
+  'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',
+  'editor.params.empty': 'No parameters on this node',
 };
 
 // ---------------------------------------------------------------------------

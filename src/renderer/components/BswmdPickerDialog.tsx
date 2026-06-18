@@ -250,6 +250,7 @@ export function BswmdPickerRoot(): JSX.Element | null {
   const closePicker = useArxmlStore((s) => s.closeBswmdPicker);
   const addContainer = useArxmlStore((s) => s.addContainer);
   const addParameter = useArxmlStore((s) => s.addParameter);
+  const addReference = useArxmlStore((s) => s.addReference);
   // Local form state. Reset implicitly when the picker closes (the
   // host flips `bswmdPicker.open` to false and we re-render at the
   // top of the next open).
@@ -318,8 +319,10 @@ export function BswmdPickerRoot(): JSX.Element | null {
     const errorBefore = useArxmlStore.getState().error;
     if (picker.kind === 'container') {
       addContainer(parentPath, selectedShortName);
-    } else if (picker.kind === 'parameter' || picker.kind === 'reference') {
+    } else if (picker.kind === 'parameter') {
       addParameter(parentPath, selectedShortName);
+    } else if (picker.kind === 'reference') {
+      addReference(parentPath, selectedShortName);
     }
     const errorAfter = useArxmlStore.getState().error;
     if (errorAfter === null || errorAfter === errorBefore) {
@@ -371,7 +374,7 @@ export function BswmdPickerRoot(): JSX.Element | null {
                 data-testid="bspd-search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search..."
+                placeholder={t(locale, 'picker.search.placeholder')}
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -413,7 +416,11 @@ export function BswmdPickerRoot(): JSX.Element | null {
                       data-shortname={a.shortName}
                       className="bspd-row bspd-row-disabled"
                       aria-disabled="true"
-                      title={a.disabledReason === 'at-max' ? 'max reached' : 'disabled'}
+                      title={
+                        a.disabledReason === 'at-max'
+                          ? t(locale, 'picker.tooltip.atMax', { current: a.multiplicity.current, max: String(a.multiplicity.upper) })
+                          : 'disabled'
+                      }
                     >
                       <span className="bspd-row-label">
                         {a.shortName}

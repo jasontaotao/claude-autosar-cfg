@@ -183,12 +183,12 @@ describe('ParamEditor — mutation footer + per-row × (Sprint 15 Phase 3.5)', (
     const addRef = screen.getByTestId('param-editor-add-reference');
     expect(addParam).toBeDisabled();
     expect(addRef).toBeDisabled();
-    // Tooltip mirrors the i18n key the spec called out. The editor
-    // hard-codes the Chinese label here because i18n polish is a
-    // Phase 4 concern; the spec § 5.3 just requires the gate to be
-    // visible.
-    expect(addParam).toHaveAttribute('title', '需要先加载 BSWMD');
-    expect(addRef).toHaveAttribute('title', '需要先加载 BSWMD');
+    // Tooltip uses the i18n key `mutation.error.no-bswmd-for-module`
+    // (rendered through `t()`). The store's default locale is en
+    // in this test (per `makeContainerDoc` setup), so the tooltip
+    // is the English label.
+    expect(addParam).toHaveAttribute('title', 'Load BSWMD first');
+    expect(addRef).toHaveAttribute('title', 'Load BSWMD first');
   });
 
   // Sanity: when the BSWMD IS loaded for the module, the buttons

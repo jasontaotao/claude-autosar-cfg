@@ -187,7 +187,7 @@ export function ParamEditor(): JSX.Element {
       </header>
 
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">No parameters on this node.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t(locale, 'editor.params.empty')}</p>
       ) : (
         <div className="space-y-5">
           <ParamCategorySection
@@ -236,20 +236,20 @@ export function ParamEditor(): JSX.Element {
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'parameter' })}
           data-testid="param-editor-add-parameter"
           disabled={!hasBswmdForModule}
-          title={hasBswmdForModule ? undefined : '需要先加载 BSWMD'}
+          title={hasBswmdForModule ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
-          + Add parameter
+          {t(locale, 'mutation.action.addParameter')}
         </button>
         <button
           type="button"
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'reference' })}
           data-testid="param-editor-add-reference"
           disabled={!hasBswmdForModule}
-          title={hasBswmdForModule ? undefined : '需要先加载 BSWMD'}
+          title={hasBswmdForModule ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
-          + Add reference
+          {t(locale, 'mutation.action.addReference')}
         </button>
       </footer>
     </section>
@@ -350,7 +350,7 @@ function ParamCategorySection({
                       onClick={() => onDeleteParameter(selectedPath, key)}
                       data-testid={`param-row-delete-${key}`}
                       aria-label={t(useArxmlStore.getState().locale, 'mutation.action.deleteParameter', { name: key })}
-                      title="Delete parameter"
+                      title={t(useArxmlStore.getState().locale, 'mutation.action.deleteParameter')}
                       className="rounded px-2 py-0.5 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
                     >
                       ×
