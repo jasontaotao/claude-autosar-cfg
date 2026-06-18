@@ -310,4 +310,32 @@ describe('path helpers', () => {
     expect(found).not.toBeNull();
     expect(found?.filePath).toBe('C:\\tmp\\Can.arxml');
   });
+
+  // ---------- Sprint 16 — flat-mode fallback (no basename wrapper) ----------
+  // When the combined view detects no module-shortName / basename
+  // collision, buildCombinedDocument renders docs without a per-file
+  // wrapper. selectedPath then has no basename prefix; findByPathMultiDoc
+  // must locate the source doc by trying each doc in sequence.
+
+  it('findByPathMultiDoc falls back to per-doc lookup when no basename prefix (flat mode)', () => {
+    const docs = [buildAdcDoc(), buildCanDoc()];
+    const paths = ['/tmp/Adc.arxml', '/tmp/Can.arxml'];
+    const found = findByPathMultiDoc(docs, paths, '/EAS/Can/CanConfigSet');
+    expect(found).not.toBeNull();
+    expect(found?.filePath).toBe('/tmp/Can.arxml');
+    expect(found?.element.shortName).toBe('CanConfigSet');
+  });
+
+  it('findByPathMultiDoc flat-mode returns null when no doc contains the path', () => {
+    const docs = [buildCanDoc()];
+    const paths = ['/tmp/Can.arxml'];
+    expect(findByPathMultiDoc(docs, paths, '/EAS/Adc/AdcConfigSet')).toBeNull();
+  });
+
+  it('findByPathMultiDoc flat-mode returns the first matching doc when paths are unique', () => {
+    const docs = [buildAdcDoc(), buildCanDoc()];
+    const paths = ['/tmp/Adc.arxml', '/tmp/Can.arxml'];
+    const found = findByPathMultiDoc(docs, paths, '/EAS/Adc/AdcConfigSet');
+    expect(found?.filePath).toBe('/tmp/Adc.arxml');
+  });
 });

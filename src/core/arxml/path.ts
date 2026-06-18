@@ -150,7 +150,24 @@ export function findByPathMultiDoc(
   } else {
     docIdx = filePaths.findIndex((p) => lastSegment(p) === head);
   }
-  if (docIdx === -1) return null;
+  if (docIdx === -1) {
+    // Sprint 16 — flat-mode fallback. The combined view detected no
+    // collision and skipped the per-file basename wrapper, so
+    // selectedPath carries no prefix. Try each doc in sequence with
+    // the raw path; first hit wins. Uniqueness is guaranteed by the
+    // collision detector in buildCombinedDocument (module shortNames
+    // are disjoint across docs).
+    for (let i = 0; i < docs.length; i += 1) {
+      const doc = docs[i];
+      const filePath = filePaths[i];
+      if (doc === undefined || filePath === undefined) continue;
+      const found = findByPath(doc, combinedPath);
+      if (found !== null) {
+        return { doc, filePath, pkg: found.pkg, element: found.element };
+      }
+    }
+    return null;
+  }
   const doc = docs[docIdx];
   const filePath = filePaths[docIdx];
   if (doc === undefined || filePath === undefined) return null;

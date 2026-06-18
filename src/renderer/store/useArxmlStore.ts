@@ -1494,11 +1494,28 @@ function buildCombinedDocument(
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
 ): ArxmlDocument {
-  // Disambiguate basenames that collide across files. The first file
-  // keeps its literal basename; subsequent collisions fall back to
-  // `[doc:N]`. This is the inverse of `findByPathMultiDoc`'s index
-  // parsing, so a round-trip `select(path)` then `updateParam(path)`
-  // resolves back to the same source.
+  // Sprint 16 — smart basename wrapper skip. When no collision exists
+  // (basenames all unique AND module shortNames don't overlap across
+  // docs), synthesise a flat displayDoc by concatenating the docs'
+  // root packages directly. The Tree then renders the docs' own
+  // module hierarchy at the top level — no '<filename> package'
+  // wrapper. findByPathMultiDoc falls back to per-doc lookup for
+  // unprefixed paths (see core/arxml/path.ts).
+  if (!detectCombinedCollision(documents, filePaths)) {
+    return {
+      path: '[Combined]',
+      version: '4.6',
+      packages: documents.flatMap((d) => d.packages),
+    };
+  }
+
+  // Collision path — wrap each file's packages under its basename
+  // (or [doc:N] for disambiguation). Disambiguate basenames that
+  // collide across files. The first file keeps its literal basename;
+  // subsequent collisions fall back to `[doc:N]`. This is the inverse
+  // of `findByPathMultiDoc`'s index parsing, so a round-trip
+  // `select(path)` then `updateParam(path)` resolves back to the
+  // same source.
   const basenameSeen = new Map<string, number>();
   const combinedPackages: ArxmlPackage[] = [];
   for (let i = 0; i < documents.length; i += 1) {
@@ -1523,6 +1540,53 @@ function buildCombinedDocument(
     version: '4.6',
     packages: combinedPackages,
   };
+}
+
+/**
+ * Sprint 16 — collision detection for the combined Tree View.
+ *
+ * Returns true when the per-file basename wrapper is required to
+ * disambiguate paths in the combined view. Two collision sources:
+ *
+ *   1. **Basename collision** — two files share the same basename
+ *      (e.g. `/a/Can.arxml` and `/b/Can.arxml`). The wrapper uses
+ *      `[doc:N]` for later occurrences, so prefix → source mapping
+ *      is unambiguous. Without the wrapper, two source docs would
+ *      both contribute identical unprefixed paths.
+ *
+ *   2. **Module shortName collision** — two files declare a module
+ *      with the same `<SHORT-NAME>` (e.g. `Can` from two BSWMDs).
+ *      Without the wrapper, both files contribute `…/Can/…` paths
+ *      that can't be told apart.
+ *
+ * When neither collision exists the wrapper is pure noise and
+ * `buildCombinedDocument` returns a flat displayDoc.
+ */
+function detectCombinedCollision(
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): boolean {
+  // Module shortName collision: track which filePath owns each module.
+  const moduleOwners = new Map<string, string>();
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    for (const pkg of documents[i]?.packages ?? []) {
+      for (const el of pkg.elements) {
+        if (el.kind !== 'module') continue;
+        const owner = moduleOwners.get(el.shortName);
+        if (owner !== undefined && owner !== filePath) return true;
+        moduleOwners.set(el.shortName, filePath);
+      }
+    }
+  }
+  // Basename collision.
+  const basenameSeen = new Set<string>();
+  for (const fp of filePaths) {
+    const base = lastSegment(fp);
+    if (basenameSeen.has(base)) return true;
+    basenameSeen.add(base);
+  }
+  return false;
 }
 
 /**
@@ -1566,8 +1630,14 @@ function wrapElement(el: ArxmlElement, parentPath: string): ArxmlElement {
  * Strip the basename / `[doc:N]` prefix from a combined-mode path so
  * the inner path can be passed to `applyParamUpdate` (which expects a
  * regular path inside the source document). Mirrors
- * `findByPathMultiDoc`'s prefix-parsing logic. Returns null when the
- * prefix doesn't match the source file's basename or index.
+ * `findByPathMultiDoc`'s prefix-parsing logic.
+ *
+ * Sprint 16 — flat-mode passthrough: when the head segment doesn't
+ * match the source file's basename and isn't a `[doc:N]` index, the
+ * combined view is using the flat (no-wrapper) shape. Return the
+ * path verbatim so `applyParamUpdate` receives the inner path it
+ * expects. Returns null only when the path is too short to be a
+ * valid inner path (< 2 segments).
  */
 function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): string | null {
   const segments = combinedPath.split('/').filter(Boolean);
@@ -1575,10 +1645,12 @@ function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): stri
   const [head, ...rest] = segments;
   if (head === undefined) return null;
   // Accept either the literal basename or the [doc:N] index form.
-  if (head !== lastSegment(sourceFilePath) && !/^\[doc:\d+\]$/.test(head)) {
-    return null;
+  if (head === lastSegment(sourceFilePath) || /^\[doc:\d+\]$/.test(head)) {
+    return `/${rest.join('/')}`;
   }
-  return `/${rest.join('/')}`;
+  // Flat mode: no wrapper in the combined view — the path is already
+  // an inner path. Return verbatim.
+  return combinedPath;
 }
 
 // ---------------------------------------------------------------------------

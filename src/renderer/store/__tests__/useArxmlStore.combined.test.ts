@@ -70,7 +70,17 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     expect(state.displayDoc).toBe(state.doc);
   });
 
-  it('setViewMode("combined") synthesises a virtual displayDoc with one package per file', () => {
+  it('setViewMode("combined") synthesises a virtual displayDoc; no collision → flat (no wrapper)', () => {
+    // Sprint 16 — smart basename-wrapper skip: when no basename AND no
+    // module-shortName collision exists, the combined view renders the
+    // documents' own root packages directly (no per-file '<filename>'
+    // wrapper). Adc and Can have unique module shortNames, so the
+    // displayDoc packages should be the doc root 'EAS' (deduped to one
+    // because the docs share a root package shortName but not a module
+    // shortName — collision detection only flags module / basename dups,
+    // and the docs' root package 'EAS' is NOT a collision per the
+    // current heuristic. Two entries are kept, one per doc, because we
+    // never merge packages across docs).
     const store = useArxmlStore.getState();
     store.setDoc(makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig'), '/tmp/Adc.arxml');
     store.addDocument(makeDoc('/tmp/Can.arxml', 'Can', 'CanConfig'), '/tmp/Can.arxml');
@@ -81,11 +91,48 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     expect(next.displayDoc).not.toBeNull();
     if (next.displayDoc === null) return;
     expect(next.displayDoc.path).toBe('[Combined]');
-    // Two top-level packages, one per file basename.
-    expect(next.displayDoc.packages.map((p) => p.shortName).sort()).toEqual([
-      'Adc.arxml',
-      'Can.arxml',
-    ]);
+    // No collision → no basename wrapper. Both docs contribute their
+    // root package 'EAS' directly; the displayDoc keeps both entries
+    // (immutable — never merge across docs).
+    expect(next.displayDoc.packages.map((p) => p.shortName)).toEqual(['EAS', 'EAS']);
+  });
+
+  it('combined mode: single file skips basename wrapper', () => {
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/tmp/Can.arxml', 'Can', 'CanConfig'), '/tmp/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    const next = useArxmlStore.getState();
+    if (next.displayDoc === null) throw new Error('expected displayDoc');
+    // Single file → no ambiguity → no basename wrapper.
+    expect(next.displayDoc.packages.map((p) => p.shortName)).toEqual(['EAS']);
+  });
+
+  it('combined mode: module shortName collision keeps basename wrapper', () => {
+    // Two docs both declare module `Can` from different BSWMDs.
+    // Module-shortName collision → basename wrapper required for
+    // path disambiguation. First keeps literal basename; second uses
+    // [doc:1] (existing fallback).
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/a/Can.arxml', 'Can', 'A'), '/a/Can.arxml');
+    store.addDocument(makeDoc('/b/Can.arxml', 'Can', 'B'), '/b/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    const next = useArxmlStore.getState();
+    if (next.displayDoc === null) throw new Error('expected displayDoc');
+    expect(next.displayDoc.packages.map((p) => p.shortName).sort())
+      .toEqual(['Can.arxml', '[doc:1]']);
+  });
+
+  it('combined mode: basename collision keeps basename wrapper (no module dup)', () => {
+    // Two docs have the same basename `/x/Can.arxml` but different
+    // module shortNames. basename collision → wrapper required.
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/x/Can.arxml', 'Adc', 'AdcConfig'), '/x/Can.arxml');
+    store.addDocument(makeDoc('/y/Can.arxml', 'Can', 'CanConfig'), '/y/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    const next = useArxmlStore.getState();
+    if (next.displayDoc === null) throw new Error('expected displayDoc');
+    expect(next.displayDoc.packages.map((p) => p.shortName).sort())
+      .toEqual(['Can.arxml', '[doc:1]']);
   });
 
   it('setViewMode resets selectedPath so stale paths do not leak across modes', () => {
@@ -112,16 +159,17 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     expect(next.displayDoc).toBe(next.doc);
   });
 
-  it('combined mode: selecting a node inside the virtual tree produces a prefixed selectedPath', () => {
-    // The Tree component calls `select(combinedPath)` where combinedPath
-    // starts with the basename. The store does NOT need to reformat —
-    // it just stores the path verbatim. findByPathMultiDoc (in core) is
-    // responsible for resolving it back to a source document.
+  it('combined mode: selecting a node inside the virtual tree stores the path verbatim', () => {
+    // Sprint 16 — flat mode (no collision): paths carry no prefix.
+    // The Tree component calls `select(combinedPath)` and the store
+    // stores it verbatim. findByPathMultiDoc (in core) is responsible
+    // for resolving it back to a source document via the per-doc
+    // fallback when no prefix matches.
     const store = useArxmlStore.getState();
     store.setDoc(makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig'), '/tmp/Adc.arxml');
     useArxmlStore.getState().setViewMode('combined');
-    useArxmlStore.getState().select('/Adc.arxml/EAS/Adc/AdcConfig');
-    expect(useArxmlStore.getState().selectedPath).toBe('/Adc.arxml/EAS/Adc/AdcConfig');
+    useArxmlStore.getState().select('/EAS/Adc/AdcConfig');
+    expect(useArxmlStore.getState().selectedPath).toBe('/EAS/Adc/AdcConfig');
   });
 
   it('combined mode: same-basename files fall back to [doc:N] naming', () => {
@@ -137,25 +185,23 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     expect(names).toEqual(['Can.arxml', '[doc:1]']);
   });
 
-  it('combined mode: updateParam routes the mutation to the correct source document via basename', () => {
-    // Mimics ParamEditor's updateParam flow: combined selectedPath
-    // '/Can.arxml/EAS/Can/CanConfig' must mutate the Can.arxml doc,
-    // not the Adc.arxml one.
+  it('combined mode (flat, no collision): updateParam routes mutation via unprefixed path', () => {
+    // Sprint 16 — flat mode: paths carry no basename prefix. updateParam
+    // must still resolve to the correct source doc via the per-doc
+    // fallback in findByPathMultiDoc + the no-op path in
+    // stripCombinedPrefix.
     const store = useArxmlStore.getState();
     store.setDoc(makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig'), '/tmp/Adc.arxml');
     store.addDocument(makeDoc('/tmp/Can.arxml', 'Can', 'CanConfig'), '/tmp/Can.arxml');
     useArxmlStore.getState().setViewMode('combined');
-    // Simulate the basename-prefixed selection.
-    useArxmlStore.getState().select('/Can.arxml/EAS/Can/CanConfig');
-    // ParamEditor would call updateParam with the combined path; the
-    // store resolves the prefix and routes to Can.arxml.
-    useArxmlStore.getState().updateParam('/Can.arxml/EAS/Can/CanConfig', 'TestParam', {
+    // No collision → paths are unprefixed. ParamEditor passes the
+    // selectedPath verbatim; the store routes via the flat fallback.
+    useArxmlStore.getState().select('/EAS/Can/CanConfig');
+    useArxmlStore.getState().updateParam('/EAS/Can/CanConfig', 'TestParam', {
       type: 'integer',
       value: 7,
     });
     const next = useArxmlStore.getState();
-    // Active doc is still Adc (set last via setDoc on the add chain),
-    // but the SOURCE doc — Can.arxml — must have been mutated.
     const canDoc = next.documents.find((d) => d.path === '/tmp/Can.arxml');
     expect(canDoc).toBeDefined();
     const canMod = canDoc?.packages[0]?.elements[0];
@@ -163,15 +209,43 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     const canContainer = canMod.children[0];
     if (canContainer?.kind !== 'container') throw new Error('expected container');
     expect(canContainer.params.TestParam).toEqual({ type: 'integer', value: 7 });
-    // The OTHER doc must remain untouched.
     const adcDoc = next.documents.find((d) => d.path === '/tmp/Adc.arxml');
     const adcMod = adcDoc?.packages[0]?.elements[0];
     if (adcMod?.kind !== 'module') throw new Error('expected module');
     const adcContainer = adcMod.children[0];
     if (adcContainer?.kind !== 'container') throw new Error('expected container');
     expect(adcContainer.params.TestParam).toEqual({ type: 'integer', value: 0 });
-    // And the dirty set must include the source path, not the active path.
     expect(next.dirtyPaths.has('/tmp/Can.arxml')).toBe(true);
+  });
+
+  it('combined mode (wrapped, module collision): updateParam routes mutation via basename prefix', () => {
+    // Collision case — module shortName 'Can' appears in 2 docs.
+    // Combined view wraps under basenames; selectedPath carries the
+    // '/Can.arxml/...' prefix and the store strips it before mutation.
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/a/Can.arxml', 'Can', 'A'), '/a/Can.arxml');
+    store.addDocument(makeDoc('/b/Can.arxml', 'Can', 'B'), '/b/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+    useArxmlStore.getState().select('/Can.arxml/EAS/Can/A');
+    useArxmlStore.getState().updateParam('/Can.arxml/EAS/Can/A', 'TestParam', {
+      type: 'integer',
+      value: 9,
+    });
+    const next = useArxmlStore.getState();
+    const firstDoc = next.documents.find((d) => d.path === '/a/Can.arxml');
+    const firstMod = firstDoc?.packages[0]?.elements[0];
+    if (firstMod?.kind !== 'module') throw new Error('expected module');
+    const firstContainer = firstMod.children[0];
+    if (firstContainer?.kind !== 'container') throw new Error('expected container');
+    expect(firstContainer.params.TestParam).toEqual({ type: 'integer', value: 9 });
+    const secondDoc = next.documents.find((d) => d.path === '/b/Can.arxml');
+    const secondMod = secondDoc?.packages[0]?.elements[0];
+    if (secondMod?.kind !== 'module') throw new Error('expected module');
+    const secondContainer = secondMod.children[0];
+    if (secondContainer?.kind !== 'container') throw new Error('expected container');
+    expect(secondContainer.params.TestParam).toEqual({ type: 'integer', value: 0 });
+    expect(next.dirtyPaths.has('/a/Can.arxml')).toBe(true);
+    expect(next.dirtyPaths.has('/b/Can.arxml')).toBe(false);
   });
 
   it('clear() resets viewMode back to single', () => {
