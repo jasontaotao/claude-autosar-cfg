@@ -329,7 +329,60 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     expect(gen.kind).toBe('container');
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'integer', value: 0 });
+    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'integer', value: 0, definitionRef: '/CanBusOffProcessing' });
+  });
+
+  it('Sprint 16: attaches definitionRef from BSWMD path on integer param with default', () => {
+    // The skeleton must carry the BSWMD-side definition path so the
+    // serializer can write a real DEFINITION-REF instead of the
+    // '/__synthesized__/<shortName>' placeholder.
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [{
+        ...mkParam('integer', 'CanBusOffProcessing', 0),
+        path: '/AUTOSAR/EcucDefs/Can/CanGeneral/CanBusOffProcessing',
+      }],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanBusOffProcessing']).toEqual({
+      type: 'integer',
+      value: 0,
+      definitionRef: '/AUTOSAR/EcucDefs/Can/CanGeneral/CanBusOffProcessing',
+    });
+  });
+
+  it('Sprint 16: attaches definitionRef on text-shaped fallback (empty string placeholder)', () => {
+    // String / enum params with null default still get a definitionRef so
+    // the empty placeholder row renders with the real BSWMD path.
+    const cont: ContainerDef = {
+      shortName: 'CanIfInitCfg',
+      path: '/CanIf/CanIfInitCfg',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [{
+        ...mkParam('string', 'CanIfInitCfgSet', null),
+        path: '/AUTOSAR/EcucDefs/CanIf/CanIfInitCfg/CanIfInitCfgSet',
+      }],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (gen.kind !== 'container') throw new Error('guard');
+    expect(gen.params['CanIfInitCfgSet']).toEqual({
+      type: 'string',
+      value: '',
+      definitionRef: '/AUTOSAR/EcucDefs/CanIf/CanIfInitCfg/CanIfInitCfgSet',
+    });
   });
 
   it('emits float param with default', () => {
@@ -346,7 +399,7 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanMainFunctionRWPeriod']).toEqual({ type: 'float', value: 0.0 });
+    expect(gen.params['CanMainFunctionRWPeriod']).toEqual({ type: 'float', value: 0.0, definitionRef: '/CanMainFunctionRWPeriod' });
   });
 
   it('emits boolean param with default true', () => {
@@ -363,7 +416,7 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanDevErrorDetect']).toEqual({ type: 'boolean', value: true });
+    expect(gen.params['CanDevErrorDetect']).toEqual({ type: 'boolean', value: true, definitionRef: '/CanDevErrorDetect' });
   });
 
   it('emits enum param with default literal', () => {
@@ -380,7 +433,7 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'enum', value: 'POLLING' });
+    expect(gen.params['CanBusOffProcessing']).toEqual({ type: 'enum', value: 'POLLING', definitionRef: '/CanBusOffProcessing' });
   });
 
   it('emits string param with default', () => {
@@ -397,7 +450,7 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: 'FLEXC' });
+    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: 'FLEXC', definitionRef: '/CanImplementation' });
   });
 
   it('skips integer with null default', () => {
@@ -431,7 +484,7 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
     const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
     if (gen.kind !== 'container') throw new Error('guard');
-    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: '' });
+    expect(gen.params['CanImplementation']).toEqual({ type: 'string', value: '', definitionRef: '/CanImplementation' });
   });
 
   it('skips reference params (use addReference separately)', () => {

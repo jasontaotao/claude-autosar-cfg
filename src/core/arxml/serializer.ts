@@ -286,11 +286,15 @@ function renderRegularParam(defName: string, value: ParamValue): Record<string, 
           : value.type === 'enum'
             ? 'ECUC-ENUMERATION-PARAM-DEF'
             : 'ECUC-STRING-PARAM-DEF';
+  // Sprint 16 — prefer the BSWMD-side definition path carried on the
+  // value. Falls back to the legacy '/__synthesized__/<shortName>'
+  // placeholder for manually-imported ARXML where no BSWMD is in scope.
+  const refPath = value.definitionRef ?? `/__synthesized__/${defName}`;
   return {
     [wrapperTag]: {
       'DEFINITION-REF': {
         '@_DEST': paramDefType,
-        '#text': `/__synthesized__/${defName}`,
+        '#text': refPath,
       },
       VALUE: value.value,
     },
@@ -306,11 +310,13 @@ function renderReferenceParam(defName: string, value: ParamValue): Record<string
   // `dest` is optional — vendors sometimes omit it; parser preserves undefined.
   const valueRef: Record<string, unknown> = { '#text': value.value };
   if (value.dest !== undefined) valueRef['@_DEST'] = value.dest;
+  // Sprint 16 — same definitionRef passthrough as renderRegularParam.
+  const refPath = value.definitionRef ?? `/__synthesized__/${defName}`;
   return {
     'ECUC-REFERENCE-VALUE': {
       'DEFINITION-REF': {
         '@_DEST': 'ECUC-REFERENCE-DEF',
-        '#text': `/__synthesized__/${defName}`,
+        '#text': refPath,
       },
       'VALUE-REF': valueRef,
     },

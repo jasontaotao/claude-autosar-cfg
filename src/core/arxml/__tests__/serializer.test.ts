@@ -390,6 +390,96 @@ describe('serializeArxml', () => {
       expect(r.value).toContain('<DEFINITION-REF DEST="ECUC-REFERENCE-DEF">');
       expect(r.value).toContain('/__synthesized__/ComPduIdRef');
     });
+
+    it('Sprint 16: regular param DEFINITION-REF prefers value.definitionRef over synthesized path', () => {
+      // Skeleton-generated ECUC carries the BSWMD-side path on each
+      // default-filled param. The serializer must use that path so
+      // vendor tools (EB tresos / Vector / ETAS) can resolve it.
+      const doc: ArxmlDocument = {
+        path: '',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Can',
+                params: {},
+                references: [],
+                children: [
+                  {
+                    kind: 'container',
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'CanGeneral',
+                    params: {
+                      CanIfSupport: {
+                        type: 'integer',
+                        value: 0,
+                        definitionRef: '/AUTOSAR/EcucDefs/Can/CanConfigSet/CanIfSupport',
+                      },
+                    },
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const r = serializeArxml(doc);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value).toContain(
+        '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Can/CanConfigSet/CanIfSupport</DEFINITION-REF>',
+      );
+      expect(r.value).not.toContain('/__synthesized__/');
+    });
+
+    it('Sprint 16: reference param DEFINITION-REF prefers value.definitionRef over synthesized path', () => {
+      const doc: ArxmlDocument = {
+        path: '',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Com',
+                params: {},
+                references: [],
+                children: [
+                  {
+                    kind: 'container',
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'ComConfig',
+                    params: {
+                      ComPduIdRef: {
+                        type: 'reference',
+                        value: '/EAS/Com/ComConfig/Pdu',
+                        definitionRef: '/AUTOSAR/EcucDefs/Com/ComConfig/ComPduIdRef',
+                      },
+                    },
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const r = serializeArxml(doc);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value).toContain(
+        '<DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Com/ComConfig/ComPduIdRef</DEFINITION-REF>',
+      );
+    });
   });
 });
 

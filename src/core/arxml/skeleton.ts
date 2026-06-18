@@ -129,17 +129,22 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
   // deliberately surfaces `invalid-param-type` for the same input — the
   // two layers diverge intentionally (skeleton = "give the user a cell to
   // fill"; mutation = "reject an unusable default").
+  //
+  // Sprint 16 — every default-filled (or text-shape fallback) param
+  // carries the BSWMD-side definition path on `definitionRef`. The
+  // serializer prefers this over the legacy `/__synthesized__/<shortName>`
+  // placeholder so vendor tools can resolve the DEFINITION-REF.
   const params: Record<string, ParamValue> = {};
   for (const p of c.parameters) {
     const v = buildDefaultValue(p);
     if (v !== null) {
-      params[p.shortName] = v;
+      params[p.shortName] = { ...v, definitionRef: p.path };
       continue;
     }
     if (p.kind === 'enumeration') {
-      params[p.shortName] = { type: 'enum', value: '' };
+      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
     } else if (p.kind === 'string' || p.kind === 'function-name') {
-      params[p.shortName] = { type: 'string', value: '' };
+      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
     }
     // integer / float / boolean / reference null defaults stay skipped.
   }

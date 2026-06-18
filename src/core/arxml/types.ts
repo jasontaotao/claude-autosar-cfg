@@ -75,12 +75,17 @@ export interface ArxmlReference {
 }
 
 export type ParamValue =
-  | { readonly type: 'string'; readonly value: string }
-  | { readonly type: 'integer'; readonly value: number }
-  | { readonly type: 'float'; readonly value: number }
-  | { readonly type: 'boolean'; readonly value: boolean }
-  | { readonly type: 'enum'; readonly value: string }
-  | { readonly type: 'reference'; readonly value: string; readonly dest?: string };
+  | { readonly type: 'string'; readonly value: string; readonly definitionRef?: string }
+  | { readonly type: 'integer'; readonly value: number; readonly definitionRef?: string }
+  | { readonly type: 'float'; readonly value: number; readonly definitionRef?: string }
+  | { readonly type: 'boolean'; readonly value: boolean; readonly definitionRef?: string }
+  | { readonly type: 'enum'; readonly value: string; readonly definitionRef?: string }
+  | {
+      readonly type: 'reference';
+      readonly value: string;
+      readonly dest?: string;
+      readonly definitionRef?: string;
+    };
 
 /** Editor mode identifier (7 modes per F2). */
 export type ParamEditMode =

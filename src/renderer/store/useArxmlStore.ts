@@ -1357,6 +1357,31 @@ function dropFromDirty(set: ReadonlySet<string>, path: string): ReadonlySet<stri
 // actually differs from the current one (preserves reference equality).
 // ---------------------------------------------------------------------------
 
+/**
+ * Sprint 16 — return `incoming` merged with `current.definitionRef` when
+ * `incoming.definitionRef` is absent. The renderer mutates params via
+ * `applyParamUpdate` (called by `updateParam`, `addParameter`, etc.),
+ * and the serializer needs the BSWMD-side path to write a real
+ * DEFINITION-REF. Without this helper the path would be silently lost
+ * on the first user edit, regressing to the
+ * `/__synthesized__/<shortName>` placeholder.
+ *
+ * Pure helper; no closure / no store access.
+ */
+function withDefinitionRefPreserved(
+  incoming: ParamValue,
+  current: ParamValue | undefined,
+): ParamValue {
+  if (current === undefined) return incoming;
+  if (incoming.definitionRef !== undefined) return incoming;
+  if (current.definitionRef === undefined) return incoming;
+  // Narrow: only spread when both sides are the same ParamValue
+  // variant (the union's tagged `type` carries type-safety — a
+  // mismatched type would be a logic bug elsewhere).
+  if (current.type !== incoming.type) return incoming;
+  return { ...incoming, definitionRef: current.definitionRef } as ParamValue;
+}
+
 function applyParamUpdate(
   doc: ArxmlDocument,
   containerPath: string,
@@ -1399,16 +1424,22 @@ function updateElements(
       const current = el.params[paramKey];
       if (current !== undefined && paramValueEquals(current, value)) return el;
       changed = true;
+      // Sprint 16 — preserve the existing param's `definitionRef` when
+      // the incoming value doesn't carry one. The serializer needs the
+      // BSWMD-side path to write a real DEFINITION-REF; losing it on
+      // edit would silently regress to the `/__synthesized__/...`
+      // placeholder.
+      const incoming = withDefinitionRefPreserved(value, current);
       if (el.kind === 'module') {
         const updated: ArxmlModule = {
           ...el,
-          params: { ...el.params, [paramKey]: value },
+          params: { ...el.params, [paramKey]: incoming },
         };
         return updated;
       }
       const updated: ArxmlContainer = {
         ...el,
-        params: { ...el.params, [paramKey]: value },
+        params: { ...el.params, [paramKey]: incoming },
       };
       return updated;
     }
