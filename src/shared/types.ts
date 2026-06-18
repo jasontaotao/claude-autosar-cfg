@@ -363,3 +363,26 @@ export type ProjectSaveResult =
   | { readonly kind: 'write-failed'; readonly message: string };
 
 export type { ArxmlVersion, ArxmlDocument, ArxmlElement, ParseError, SerializeError };
+
+// --- Sprint 14: BSWMD-to-ECUC skeleton IPC ---
+
+export interface ProjectWriteArxmlBatchRequest {
+  readonly files: readonly {
+    readonly filePath: string;
+    readonly content: string;
+  }[];
+}
+
+export type ProjectWriteArxmlBatchResult =
+  | { readonly kind: 'ok'; readonly written: readonly string[] }
+  | { readonly kind: 'partial'; readonly written: readonly string[]; readonly failed: readonly { readonly filePath: string; readonly message: string }[] }
+  | { readonly kind: 'write-failed'; readonly message: string };
+
+export interface ProjectDeleteArxmlRequest {
+  readonly filePath: string;
+}
+
+export type ProjectDeleteArxmlResult =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'write-failed'; readonly message: string };

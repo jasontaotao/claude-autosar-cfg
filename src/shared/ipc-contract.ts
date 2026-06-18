@@ -39,4 +39,8 @@ export const IPC_CHANNELS = {
   TEMPLATES_COPY: 'templates:copy',
 } as const;
 
+// Sprint 14 — BSWMD-to-ECUC skeleton creation.
+export const PROJECT_WRITE_ARXML_BATCH = 'project:writeArxmlBatch';
+export const PROJECT_DELETE_ARXML = 'project:deleteArxml';
+
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
