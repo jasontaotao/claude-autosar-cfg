@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>claude-AutosarCfg 脚本引擎 — 设计预览</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #161a22;
+      --surface-2: #1d2230;
+      --border: #2a3041;
+      --text: #e6e9f2;
+      --muted: #8a93a6;
+      --accent: #6ea8ff;
+      --accent-2: #a78bfa;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --renderer: #4f46e5;
+      --preload: #0891b2;
+      --main: #16a34a;
+      --code-bg: #0b0d12;
+      --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.6; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+    h1 .sub { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+    h2 { font-size: 20px; margin: 56px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 15px; margin: 24px 0 8px; color: var(--accent); }
+    p { margin: 8px 0; color: #c8cdd9; }
+    .lede { color: var(--muted); font-size: 14px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); margin-left: 8px; vertical-align: middle; }
+    .tag.renderer { background: rgba(79,70,229,0.18); color: #a5b4fc; border-color: rgba(79,70,229,0.4); }
+    .tag.main { background: rgba(22,163,74,0.18); color: #86efac; border-color: rgba(22,163,74,0.4); }
+    .tag.preload { background: rgba(8,145,178,0.18); color: #67e8f9; border-color: rgba(8,145,178,0.4); }
+    .tag.ok { background: rgba(52,211,153,0.18); color: #6ee7b7; border-color: rgba(52,211,153,0.4); }
+    .tag.warn { background: rgba(251,191,36,0.18); color: #fcd34d; border-color: rgba(251,191,36,0.4); }
+    .tag.err { background: rgba(248,113,113,0.18); color: #fca5a5; border-color: rgba(248,113,113,0.4); }
+
+    /* === 1. 架构图 === */
+    .arch { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-top: 16px; }
+    .arch-row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .arch-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .arch-box .title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .arch-box .title .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .arch-box.renderer { border-left: 3px solid var(--renderer); }
+    .arch-box.renderer .dot { background: var(--renderer); }
+    .arch-box.preload { border-left: 3px solid var(--preload); }
+    .arch-box.preload .dot { background: var(--preload); }
+    .arch-box.main { border-left: 3px solid var(--main); }
+    .arch-box.main .dot { background: var(--main); }
+    .arch-grid { display: grid; gap: 8px; }
+    .arch-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+    .arch-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .arch-tile { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+    .arch-tile .name { font-weight: 600; color: var(--text); }
+    .arch-tile .desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .arch-tile.highlight { border-color: var(--accent); background: rgba(110,168,255,0.06); }
+    .arch-tile.highlight .name { color: var(--accent); }
+    .arch-arrow { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 4px 0; }
+    .arch-arrow strong { color: var(--accent); }
+
+    /* === 2. UI mockup === */
+    .ui-frame { background: #0a0c10; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 16px; }
+    .ui-titlebar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #14171f; border-bottom: 1px solid var(--border); }
+    .ui-titlebar .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .ui-titlebar .dot.r { background: #ff5f57; }
+    .ui-titlebar .dot.y { background: #febc2e; }
+    .ui-titlebar .dot.g { background: #28c840; }
+    .ui-titlebar .title { color: var(--muted); font-size: 12px; margin-left: 12px; font-family: var(--mono); }
+    .ui-body { display: grid; grid-template-columns: 220px 1fr 1fr; height: 480px; }
+    .ui-left { background: #14171f; border-right: 1px solid var(--border); padding: 8px; overflow: auto; }
+    .ui-mid { background: #0e1117; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .ui-right { background: #0e1117; display: flex; flex-direction: column; }
+    .ui-panel-h { padding: 6px 10px; background: #181c26; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+    .ui-btn { background: #252b3a; color: var(--text); border: 1px solid #3a4258; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: var(--sans); }
+    .ui-btn.primary { background: #2d5fa3; border-color: #4a7fc4; }
+    .ui-btn.run { background: #16a34a; border-color: #22c55e; color: white; font-weight: 600; }
+    .ui-btn.stop { background: #991b1b; border-color: #b91c1c; color: white; }
+    .ui-list { font-size: 13px; }
+    .ui-list .item { padding: 6px 10px; border-radius: 4px; cursor: pointer; color: #c8cdd9; }
+    .ui-list .item:hover { background: #1d2230; }
+    .ui-list .item.active { background: #2d5fa3; color: white; }
+    .ui-list .item .kind { font-size: 10px; color: var(--muted); margin-left: 6px; }
+    .ui-list .item.active .kind { color: #c7d2fe; }
+    .ui-list .item .badge { float: right; font-size: 10px; padding: 1px 6px; border-radius: 3px; background: #2a3041; color: var(--muted); }
+    .ui-list .item .badge.v { background: #166534; color: #bbf7d0; }
+    .ui-list .item .badge.t { background: #6b21a8; color: #e9d5ff; }
+    .ui-list .item .badge.r { background: #92400e; color: #fde68a; }
+    .ui-editor { flex: 1; padding: 0; font-family: var(--mono); font-size: 12px; color: #e6e9f2; overflow: auto; background: #0b0d12; }
+    .ui-editor .ln { display: inline-block; width: 36px; color: #4a5168; text-align: right; padding-right: 8px; user-select: none; }
+    .ui-editor .line { display: block; white-space: pre; padding: 0 8px; }
+    .ui-editor .line:hover { background: #14171f; }
+    .ui-editor .kw { color: #c084fc; }
+    .ui-editor .fn { color: #60a5fa; }
+    .ui-editor .str { color: #86efac; }
+    .ui-editor .com { color: #5a6378; font-style: italic; }
+    .ui-editor .num { color: #fbbf24; }
+    .ui-editor .sel { background: #1d2230; border-left: 2px solid var(--accent); }
+    .ui-output { flex: 1; padding: 10px 12px; font-family: var(--mono); font-size: 12px; overflow: auto; background: #0a0c10; }
+    .ui-output .ts { color: #5a6378; }
+    .ui-output .lvl-info { color: #93c5fd; }
+    .ui-output .lvl-warn { color: #fcd34d; }
+    .ui-output .lvl-err { color: #fca5a5; }
+    .ui-output .lvl-mut { color: #6ee7b7; }
+    .ui-output .lvl-ok { color: #86efac; }
+    .ui-output .summary { margin-top: 12px; padding: 10px; background: #14171f; border: 1px solid var(--border); border-radius: 6px; }
+    .ui-output .summary .row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .ui-output .summary .row .k { color: var(--muted); }
+    .ui-output .summary .row .v { font-weight: 600; }
+    .ui-statusbar { padding: 4px 12px; background: #14171f; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; gap: 16px; }
+    .ui-statusbar .ok { color: var(--ok); }
+    .ui-statusbar .err { color: var(--err); }
+
+    /* === 3. Sequence === */
+    .seq { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-top: 16px; }
+    .seq-row { display: grid; grid-template-columns: 100px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+    .seq-row:last-child { border-bottom: none; }
+    .seq-num { background: var(--accent); color: var(--bg); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+    .seq-content .who { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+    .seq-content .who .arrow { color: var(--muted); margin: 0 6px; }
+    .seq-content .what { font-size: 13px; color: #c8cdd9; }
+    .seq-content .what code { background: var(--code-bg); padding: 1px 6px; border-radius: 3px; font-size: 12px; color: var(--accent-2); }
+
+    /* === 4. ctx API === */
+    .ctx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+    .ctx-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .ctx-card .api-name { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+    .ctx-card .api-type { font-size: 11px; color: var(--muted); margin-left: 6px; }
+    .ctx-card .api-desc { font-size: 13px; color: #c8cdd9; margin-top: 6px; }
+    .ctx-card .api-methods { font-family: var(--mono); font-size: 12px; color: var(--accent-2); margin-top: 8px; }
+    .ctx-card .api-methods .m { display: block; padding: 1px 0; }
+
+    /* === 5. 决策表 === */
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--surface); font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { color: #c8cdd9; }
+    td code { background: var(--code-bg); padding: 1px 6px; border-radius: 3px; font-size: 12px; color: var(--accent-2); }
+
+    /* === open questions === */
+    .q { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--warn); border-radius: 6px; padding: 12px 16px; margin: 8px 0; }
+    .q .label { color: var(--warn); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .q .body { color: #c8cdd9; font-size: 14px; }
+
+    /* === header === */
+    .header { padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    .meta { display: flex; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>claude-AutosarCfg 脚本引擎 <span class="sub">设计预览 · v0.1 · 2026-06-18</span></h1>
+      <div class="meta">
+        <span>状态：头脑风暴阶段</span>
+        <span>范围：GUI 内嵌 JS/TS 脚本引擎</span>
+        <span>沙箱：主进程 node:vm</span>
+        <span>持久化：项目级（manifest 扩展）</span>
+      </div>
+    </div>
+
+    <h2>1. 整体架构</h2>
+    <p class="lede">三个进程边界不变；脚本能力全部放在新增的 <code>scriptHandler</code> 模块里；core 层零修改直接复用。</p>
+
+    <div class="arch">
+      <div class="arch-row">
+        <!-- Renderer -->
+        <div class="arch-box renderer">
+          <div class="title"><span class="dot"></span>Renderer <span class="tag renderer">React + Zustand</span></div>
+          <div class="arch-grid cols-3">
+            <div class="arch-tile highlight">
+              <div class="name">Scripts 面板 🆕</div>
+              <div class="desc">新增：脚本库侧栏 + 编辑器 + 输出</div>
+            </div>
+            <div class="arch-tile">
+              <div class="name">Tree / Editor / Validation</div>
+              <div class="desc">原有，不动</div>
+            </div>
+            <div class="arch-tile">
+              <div class="name">useArxmlStore</div>
+              <div class="desc">原有；新增 mutations 合并逻辑</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-arrow">↕ IPC <strong>(4 个新通道)</strong>：script:list / script:save / script:delete / script:run</div>
+
+        <!-- Preload -->
+        <div class="arch-box preload">
+          <div class="title"><span class="dot"></span>Preload <span class="tag preload">contextBridge</span></div>
+          <div class="arch-tile">
+            <div class="name">preload/index.ts</div>
+            <div class="desc">新增 4 个 window.api.script* 方法的白名单</div>
+          </div>
+        </div>
+
+        <div class="arch-arrow">↕ 直接调用</div>
+
+        <!-- Main -->
+        <div class="arch-box main">
+          <div class="title"><span class="dot"></span>Main <span class="tag main">Node + Electron</span></div>
+          <div class="arch-grid cols-2">
+            <div class="arch-tile highlight">
+              <div class="name">ipc/scriptHandler 🆕</div>
+              <div class="desc">注册 4 个 IPC 通道；管理执行</div>
+            </div>
+            <div class="arch-tile highlight">
+              <div class="name">script/vmRunner 🆕</div>
+              <div class="desc">node:vm sandbox + timeout 看门狗</div>
+            </div>
+            <div class="arch-tile highlight">
+              <div class="name">script/importResolver 🆕</div>
+              <div class="desc">预处理 import → ctx._import</div>
+            </div>
+            <div class="arch-tile highlight">
+              <div class="name">script/ctx 🆕</div>
+              <div class="desc">白名单 API：project/doc/container/param</div>
+            </div>
+            <div class="arch-tile">
+              <div class="name">core/（零修改）</div>
+              <div class="desc">parser/serializer/validation/bswmd/manifest</div>
+            </div>
+            <div class="arch-tile">
+              <div class="name">ipc/templatesHandler（参考）</div>
+              <div class="desc">已有实现可作为新 handler 模板</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>2. Scripts 面板 UI 草图</h2>
+    <p class="lede">三栏布局：左脚本库（库列表）/ 中编辑器（CodeMirror）/ 右输出（log + 校验项 + 摘要）。</p>
+
+    <div class="ui-frame">
+      <div class="ui-titlebar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="title">AutosarCfg — S32K148_EAS_EB_3399A.autosarcfg.json · Scripts</span>
+      </div>
+      <div class="ui-body">
+        <!-- Left: 脚本库 -->
+        <div class="ui-left">
+          <div class="ui-panel-h">
+            <span>脚本库 (3)</span>
+            <button class="ui-btn">+ 新建</button>
+          </div>
+          <div class="ui-list">
+            <div class="item active">
+              PduId 唯一性校验
+              <span class="kind">validator</span>
+              <span class="badge v">V</span>
+            </div>
+            <div class="item">
+              WdgIf 默认值恢复
+              <span class="kind">transformer</span>
+              <span class="badge t">T</span>
+            </div>
+            <div class="item">
+              IPdu → CSV 报告
+              <span class="kind">report</span>
+              <span class="badge r">R</span>
+            </div>
+          </div>
+        </div>
+        <!-- Middle: 编辑器 -->
+        <div class="ui-mid">
+          <div class="ui-panel-h">
+            <span>📝 PduId 唯一性校验 · validator</span>
+            <div style="display:flex; gap:6px;">
+              <button class="ui-btn">保存</button>
+              <button class="ui-btn run">▶ Run</button>
+              <button class="ui-btn stop">■ Stop</button>
+            </div>
+          </div>
+          <div class="ui-editor">
+<span class="line"><span class="ln">1</span><span class="com">// 自定义校验：所有 ComIPdu 的 PduId 不得重复</span></span>
+<span class="line sel"><span class="ln">2</span><span class="kw">import</span> { findByPath } <span class="kw">from</span> <span class="str">'./utils/path'</span><span class="com">  ⟵ 项目内脚本 import</span></span>
+<span class="line"><span class="ln">3</span></span>
+<span class="line"><span class="ln">4</span><span class="kw">const</span> seen = <span class="kw">new</span> <span class="fn">Map</span>()</span>
+<span class="line"><span class="ln">5</span><span class="kw">const</span> pduIds = <span class="fn">ctx.project</span>.<span class="fn">findContainers</span>({ type: <span class="str">'ECUC-CONTAINER-VALUE'</span>, def: <span class="str">'/Com/ComConfig/ComIPdu'</span> })</span>
+<span class="line"><span class="ln">6</span></span>
+<span class="line"><span class="ln">7</span><span class="kw">for</span> (<span class="kw">const</span> ipdu <span class="kw">of</span> pduIds) {</span>
+<span class="line"><span class="ln">8</span>  <span class="kw">const</span> id = ipdu.<span class="fn">getParam</span>(<span class="str">'ComPduId'</span>).<span class="fn">asInteger</span>()</span>
+<span class="line"><span class="ln">9</span>  <span class="kw">if</span> (seen.<span class="fn">has</span>(id)) {</span>
+<span class="line"><span class="ln">10</span>    <span class="fn">ctx.validator</span>.<span class="fn">addViolation</span>({</span>
+<span class="line"><span class="ln">11</span>      kind: <span class="str">'script:pduid-duplicate'</span>,</span>
+<span class="line"><span class="ln">12</span>      severity: <span class="str">'error'</span>,</span>
+<span class="line"><span class="ln">13</span>      containerPath: ipdu.path,</span>
+<span class="line"><span class="ln">14</span>      message: <span class="str">`PduId ${id} 与 ${seen.get(id)} 冲突`</span></span>
+<span class="line"><span class="ln">15</span>    })</span>
+<span class="line"><span class="ln">16</span>  } <span class="kw">else</span> {</span>
+<span class="line"><span class="ln">17</span>    seen.<span class="fn">set</span>(id, ipdu.path)</span>
+<span class="line"><span class="ln">18</span>  }</span>
+<span class="line"><span class="ln">19</span>}</span>
+<span class="line"><span class="ln">20</span><span class="fn">ctx.log</span>.<span class="fn">info</span>(<span class="str">`扫描完成: ${pduIds.length} 个 ComIPdu, ${seen.size} 个独立 PduId`</span>)</span>
+          </div>
+        </div>
+        <!-- Right: 输出 -->
+        <div class="ui-right">
+          <div class="ui-panel-h">
+            <span>📤 输出 (上次运行 132ms)</span>
+            <button class="ui-btn">清空</button>
+          </div>
+          <div class="ui-output">
+<div><span class="ts">[14:23:18.412]</span> <span class="lvl-info">INFO</span>  开始执行: PduId 唯一性校验</div>
+<div><span class="ts">[14:23:18.413]</span> <span class="lvl-info">INFO</span>  找到 67 个 ComIPdu</div>
+<div><span class="ts">[14:23:18.487]</span> <span class="lvl-warn">WARN</span>  跨文档引用 [0] /PduR/...ComIPdu 路径不在当前项目</div>
+<div><span class="ts">[14:23:18.488]</span> <span class="lvl-err">ERROR</span> validator.addViolation: 3 条</div>
+<div><span class="ts">[14:23:18.512]</span> <span class="lvl-info">INFO</span>  扫描完成: 67 个 ComIPdu, 64 个独立 PduId</div>
+<div><span class="ts">[14:23:18.544]</span> <span class="lvl-ok">OK</span>    执行成功 (132ms)</div>
+
+<div class="summary">
+  <div class="row"><span class="k">扫描对象</span><span class="v">67 ComIPdu</span></div>
+  <div class="row"><span class="k">新增校验项</span><span class="v">3 error / 0 warning</span></div>
+  <div class="row"><span class="k">项目变更</span><span class="v">无（仅校验）</span></div>
+  <div class="row"><span class="k">耗时</span><span class="v">132ms</span></div>
+  <div class="row"><span class="k">状态</span><span class="v" style="color:var(--ok);">成功</span></div>
+</div>
+          </div>
+          <div class="ui-statusbar">
+            <span class="ok">● Ready</span>
+            <span>Timeout: 5000ms</span>
+            <span>Sandbox: vm</span>
+            <span>Manifest scripts: 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>3. 运行一次脚本的时序</h2>
+
+    <div class="seq">
+      <div class="seq-row">
+        <div class="seq-num">1</div>
+        <div class="seq-content">
+          <div class="who">用户 <span class="arrow">→</span> Renderer</div>
+          <div class="what">在 Scripts 面板点 <code>▶ Run</code>（或在编辑器里按 <code>Ctrl+Enter</code>）</div>
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">2</div>
+        <div class="seq-content">
+          <div class="who">Renderer <span class="arrow">→</span> Main (IPC <code>script:run</code>)</div>
+          <div class="what">发送 <code>{ projectId, id, timeoutMs?: 5000 }</code>。如果当前已有运行，UI 显示 <code>正在执行…</code> 状态并 disable 按钮</div>
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">3</div>
+        <div class="seq-content">
+          <div class="who">Main: <code>scriptHandler</code></div>
+          <div class="what">从 manifest 读出脚本源 + 依赖项列表；拍快照（structural clone）项目状态到 <code>WorkingCopy</code></div>
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">4</div>
+        <div class="seq-content">
+          <div class="who">Main: <code>importResolver</code></div>
+          <div class="what">扫描脚本里的 <code>import</code>，按项目 manifest 解析依赖；DAG 拓扑排序；循环依赖直接报错退出</div>
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">5</div>
+        <div class="who">Main: <code>vmRunner</code></div>
+        <div class="what">
+          创建 <code>vm.createContext(ctx)</code>（白名单 API）→ <code>vm.Script(rewritten).runInContext()</code> → 启动 timeout watchdog
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">6</div>
+        <div class="who">Sandbox 内部（用户脚本）</div>
+        <div class="what">脚本调 <code>ctx.project.findContainers(...)</code>、<code>ctx.container.getParam(...).setValue(...)</code>、<code>ctx.log.info(...)</code>、<code>ctx.validator.addViolation(...)</code></div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">7</div>
+        <div class="who">Main → Renderer (IPC <code>script:progress</code> 事件流)</div>
+        <div class="what">每条 <code>ctx.log</code> 实时推回；校验项累积；UI 输出面板追加</div>
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">8</div>
+        <div class="who">Main: 完成 / 失败 / 超时</div>
+        <div class="what">
+          <strong>成功</strong>：把 WorkingCopy 的 mutations 跟原项目做 diff，回传 <code>{ mutations, violations, logs }</code>；renderer 让用户选择 <code>commit</code> / <code>discard</code><br>
+          <strong>失败</strong>：完整 stack trace（去混淆回原始源码行号）+ 丢弃 mutations + 错误高亮到编辑器对应行<br>
+          <strong>超时</strong>：sandbox 不可中断，标记 <code>timedOut</code>，等自然结束（V0.1）
+        </div>
+      </div>
+      <div class="seq-row">
+        <div class="seq-num">9</div>
+        <div class="who">Renderer</div>
+        <div class="what">
+          校验项 <code>kind: 'script:*'</code> 进入主 Validation 面板（与 7 种原生错误并列、独立色块）<br>
+          commit 后的 mutations 应用到 zustand store，触发既有 6 种原生校验
+        </div>
+      </div>
+    </div>
+
+    <h2>4. ctx API 形状</h2>
+    <p class="lede">所有 API 只读 core 层类型；mutation 走 <code>WorkingCopy</code> 缓冲，永不直接改原项目。Zod schema 校验外部输入。</p>
+
+    <div class="ctx-grid">
+      <div class="ctx-card">
+        <div class="api-name">ctx.project <span class="api-type">Project</span></div>
+        <div class="api-desc">项目根对象。所有遍历从这里开始。</div>
+        <div class="api-methods">
+          <span class="m">.documents : Document[]</span>
+          <span class="m">.findContainers({type, def, predicate})</span>
+          <span class="m">.getContainer(path)</span>
+          <span class="m">.buildPathIndex() =&gt; Map</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.document <span class="api-type">Document</span></div>
+        <div class="api-desc">单个 .arxml 文档（可读写 WorkingCopy）</div>
+        <div class="api-methods">
+          <span class="m">.path : string</span>
+          <span class="m">.findContainers(...)</span>
+          <span class="m">.containers : Container[]</span>
+          <span class="m">.save() : 标记待 commit</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.container <span class="api-type">Container</span></div>
+        <div class="api-desc">包装层，方便链式调用。也可由 <code>findContainers()</code> 返回值直接调。</div>
+        <div class="api-methods">
+          <span class="m">.path : string</span>
+          <span class="m">.def : string</span>
+          <span class="m">.params : Param[]</span>
+          <span class="m">.children : Container[]</span>
+          <span class="m">.addChild(name)</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.param <span class="api-type">Param</span></div>
+        <div class="api-desc">单参数读写入口。返回值自带类型方法。</div>
+        <div class="api-methods">
+          <span class="m">.name, .type, .value</span>
+          <span class="m">.asInteger() / asString() / asBoolean()</span>
+          <span class="m">.setValue(v) → 走 Zod 校验</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.validator <span class="api-type">ValidatorSink</span></div>
+        <div class="api-desc">脚本专属校验项出口，会进入主 Validation 面板。</div>
+        <div class="api-methods">
+          <span class="m">.addViolation({</span>
+          <span class="m">&nbsp;&nbsp;kind: 'script:*',</span>
+          <span class="m">&nbsp;&nbsp;severity,</span>
+          <span class="m">&nbsp;&nbsp;containerPath,</span>
+          <span class="m">&nbsp;&nbsp;message,</span>
+          <span class="m">&nbsp;&nbsp;data?</span>
+          <span class="m">})</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.schema <span class="api-type">BswmdSchema</span></div>
+        <div class="api-desc">读 BSWMD 定义（已加载到项目的所有 schema 文件）。</div>
+        <div class="api-methods">
+          <span class="m">.getDef(path) : ParamDef | ContainerDef</span>
+          <span class="m">.getAllParamDefs(modulePath)</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.log <span class="api-type">Logger</span></div>
+        <div class="api-desc">推回 renderer 输出面板的实时日志。</div>
+        <div class="api-methods">
+          <span class="m">.info(msg) / .warn(msg) / .error(msg)</span>
+          <span class="m">.debug(msg) — V0.1 默认隐藏</span>
+        </div>
+      </div>
+      <div class="ctx-card">
+        <div class="api-name">ctx.utils <span class="api-type">Utils</span></div>
+        <div class="api-desc">与项目模型解耦的小工具。</div>
+        <div class="api-methods">
+          <span class="m">.path : 与 core/arxml/path 同构</span>
+          <span class="m">.now() : ISO string</span>
+          <span class="m">.assert(cond, msg)</span>
+        </div>
+      </div>
+    </div>
+
+    <h2>5. 持久化 — manifest 扩展</h2>
+    <p class="lede">在 <code>core/project/manifest.ts</code> 现有 schema 上加字段，向后兼容（旧项目无 scripts 字段时按空数组处理）。</p>
+
+    <div style="background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 12px; font-family: var(--mono); font-size: 13px; color: #c8cdd9; overflow: auto;">
+<span style="color: #5a6378;">// S32K148_EAS_EB_3399A.autosarcfg.json</span>
+{
+  <span style="color: #93c5fd;">"version"</span>: <span style="color: #86efac;">"1.0.0"</span>,
+  <span style="color: #93c5fd;">"documents"</span>: [ ... ],
+  <span style="color: #93c5fd;">"bswmds"</span>: [ ... ],
+  <span style="color: #fbbf24;">"scripts"</span>: [                              <span style="color: #5a6378;">// 🆕 新增字段</span>
+    {
+      <span style="color: #93c5fd;">"id"</span>: <span style="color: #86efac;">"uuid-1"</span>,
+      <span style="color: #93c5fd;">"name"</span>: <span style="color: #86efac;">"PduId 唯一性校验"</span>,
+      <span style="color: #93c5fd;">"kind"</span>: <span style="color: #86efac;">"validator"</span>,             <span style="color: #5a6378;">// validator | transformer | report | free</span>
+      <span style="color: #93c5fd;">"source"</span>: <span style="color: #86efac;">"import { findByPath } from './utils/path' ..."</span>,
+      <span style="color: #93c5fd;">"imports"</span>: [                              <span style="color: #5a6378;">// 声明式依赖，便于编辑器跳转</span>
+        { <span style="color: #93c5fd;">"from"</span>: <span style="color: #86efac;">"utils/path"</span>, <span style="color: #93c5fd;">"names"</span>: [<span style="color: #86efac;">"findByPath"</span>] }
+      ],
+      <span style="color: #93c5fd;">"updatedAt"</span>: <span style="color: #86efac;">"2026-06-18T14:23:18.000Z"</span>
+    },
+    { <span style="color: #93c5fd;">"id"</span>: <span style="color: #86efac;">"uuid-2"</span>, <span style="color: #93c5fd;">"name"</span>: <span style="color: #86efac;">"WdgIf 默认值恢复"</span>, <span style="color: #93c5fd;">"kind"</span>: <span style="color: #86efac;">"transformer"</span>, <span style="color: #93c5dc;">...</span> },
+    { <span style="color: #93c5fd;">"id"</span>: <span style="color: #86efac;">"uuid-3"</span>, <span style="color: #93c5fd;">"name"</span>: <span style="color: #86efac;">"IPdu → CSV 报告"</span>, <span style="color: #93c5fd;">"kind"</span>: <span style="color: #86efac;">"report"</span>, <span style="color: #93c5fd;">"source"</span>: <span style="color: #86efac;">"ctx.log.info(...)"</span> }
+  ]
+}
+    </div>
+
+    <h2>6. 关键决策（结合其他家）</h2>
+    <table>
+      <thead>
+        <tr><th>决策</th><th>我们的选择</th><th>EB tresos</th><th>Vector DaVinci</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>语言</td>
+          <td><code>JavaScript</code>（CodeMirror 6 编辑）</td>
+          <td>Rhino ES5</td>
+          <td>VBScript / .NET</td>
+          <td>现代生态、零依赖、对齐前端栈</td>
+        </tr>
+        <tr>
+          <td>沙箱</td>
+          <td><code>node:vm createContext</code></td>
+          <td>JVM Rhino</td>
+          <td>Win32 / .NET AppDomain</td>
+          <td>白名单 ctx、够用、零依赖</td>
+        </tr>
+        <tr>
+          <td>持久化</td>
+          <td>项目级 manifest</td>
+          <td>Workspace 全局</td>
+          <td>Workspace 全局</td>
+          <td>脚本随项目走、git 可跟踪</td>
+        </tr>
+        <tr>
+          <td>import</td>
+          <td>✅ 同项目内</td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>支持"utils 库 + 多脚本"模式</td>
+        </tr>
+        <tr>
+          <td>事务语义</td>
+          <td>✅ 跑完 commit/discard</td>
+          <td>❌ 直接改</td>
+          <td>❌ 直接改</td>
+          <td>失败不污染；V0.1 必须</td>
+        </tr>
+        <tr>
+          <td>异步</td>
+          <td>❌ V0.1 同步</td>
+          <td>❌</td>
+          <td>⚠️ 部分</td>
+          <td>简化 sandbox；V0.2 再开</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>7. 待你拍板的开放问题</h2>
+
+    <div class="q">
+      <div class="label">Q1 · 事务语义（必答）</div>
+      <div class="body">脚本对项目的修改走"快照 + commit/discard"还是"直接改原项目"？前者安全（失败可回滚）但 UI 多一步；后者简单但失败可能半改半留。<strong>我推荐前者</strong>。</div>
+    </div>
+    <div class="q">
+      <div class="label">Q2 · Output 面板要不要嵌主窗口</div>
+      <div class="body">是把 Scripts 面板做成主窗口的可隐藏侧栏（贴近 ASCET 体验），还是做一个独立 BrowserWindow / Modal？前者更紧凑，后者能做得更"IDE 风"。</div>
+    </div>
+    <div class="q">
+      <div class="label">Q3 · 脚本 kind 分类（validator/transformer/report）</div>
+      <div class="body">要不要在 UI 上做这种分类（决定侧栏小图标和默认按钮文案）？还是统一 "Script" 一种 kind？</div>
+    </div>
+    <div class="q">
+      <div class="label">Q4 · 范围外但相关</div>
+      <div class="body">要不要同时把 "headless CLI 模式" 作为下个 sprint 路线图列出来？本设计只做 GUI 内嵌引擎；CLI 是另一次设计。</div>
+    </div>
+
+    <div style="margin-top: 40px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px;">
+      <strong style="color: var(--text);">下一步</strong>：你看完这份预览后，对上述 7 节内容给反馈 / 拍板 Q1-Q4，然后我落到正式 spec 并 commit。
+    </div>
+  </div>
+</body>
+</html>
