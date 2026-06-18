@@ -11,11 +11,15 @@ import type {
   ParseBswmdResponse,
   PickDirRequest,
   PickDirResult,
+  ProjectDeleteArxmlRequest,
+  ProjectDeleteArxmlResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
   ProjectSaveRequest,
   ProjectSaveResult,
+  ProjectWriteArxmlBatchRequest,
+  ProjectWriteArxmlBatchResult,
   ReadBswmdRequest,
   ReadBswmdResponse,
   SaveArxmlRequest,
@@ -67,6 +71,23 @@ const api = {
   // by the renderer in Sprint 13 #1.
   copyTemplate: (req: TemplateCopyRequest): Promise<TemplateCopyResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_COPY, req),
+  // Sprint 14 — BSWMD-to-ECUC skeleton creation. Renderer computes
+  // destination paths + serialized content for one or more ECUC
+  // value-side documents and hands them to main, which writes them
+  // with `mkdir -p`. See `projectWriteArxmlBatchHandler.ts` for the
+  // ok / partial / write-failed response shape; the partial case
+  // carries `written` + `failed` lists so the renderer's store
+  // action can decide whether to surface individual failures.
+  writeArxmlBatch: (req: ProjectWriteArxmlBatchRequest): Promise<ProjectWriteArxmlBatchResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_WRITE_ARXML_BATCH, req),
+  // Sprint 14 — delete a single ARXML file. Used by the cascade-delete
+  // flow (T12 — removeBswmdWithCascade) when removing a BSWMD also
+  // requires removing the value-side ARXML(s) generated from it.
+  // ENOENT collapses to `kind: 'not-found'` rather than
+  // `write-failed` so the cascade flow is idempotent against a
+  // user-deleted value-side file.
+  deleteArxml: (req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_ARXML, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

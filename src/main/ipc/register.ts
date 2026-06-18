@@ -19,11 +19,15 @@ import type {
   ParseBswmdResponse,
   PickDirRequest,
   PickDirResult,
+  ProjectDeleteArxmlRequest,
+  ProjectDeleteArxmlResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
   ProjectSaveRequest,
   ProjectSaveResult,
+  ProjectWriteArxmlBatchRequest,
+  ProjectWriteArxmlBatchResult,
   ReadBswmdRequest,
   ReadBswmdResponse,
   SaveArxmlRequest,
@@ -33,7 +37,9 @@ import type {
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
+import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
+import { projectWriteArxmlBatchHandler } from './projectWriteArxmlBatchHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
@@ -375,6 +381,26 @@ export function registerIpcHandlers(): void {
   // Sprint 13 #1 — built-in template IPC.
   ipcMain.handle(IPC_CHANNELS.TEMPLATES_LIST, async (_e, req) => templatesListHandler(req));
   ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => templatesCopyHandler(req));
+
+  // Sprint 14 — BSWMD-to-ECUC skeleton creation. Both handlers are
+  // extracted to their own modules for parity with `bswmdReadHandler`
+  // / `templatesHandler` (direct testability without an IPC round-trip).
+  // See `projectWriteArxmlBatchHandler.ts` for the response-shape
+  // rationale (ok / partial / write-failed discriminated union) and
+  // `projectDeleteArxmlHandler.ts` for the ok / not-found / write-failed
+  // shape.
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_WRITE_ARXML_BATCH,
+    async (_evt, req: ProjectWriteArxmlBatchRequest): Promise<ProjectWriteArxmlBatchResult> => {
+      return projectWriteArxmlBatchHandler(req);
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_DELETE_ARXML,
+    async (_evt, req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> => {
+      return projectDeleteArxmlHandler(req);
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_SAVE,
