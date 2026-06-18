@@ -254,6 +254,31 @@ export interface Messages {
   // Sprint 13+ Stage 3.3 — "coming soon" badge label shown on
   // disabled TemplateCard variants (Classic / Clone).
   readonly 'template.comingSoon': string;
+
+  // --- Sprint 15 — ECUC mutation support ---
+  // Error messages surfaced via the AppHeader error banner when a
+  // mutation fails. The picker / delete flow is the primary user.
+  readonly 'mutation.error.path-not-found': string;
+  readonly 'mutation.error.name-conflict': string; // {shortName}
+  readonly 'mutation.error.multiplicity-exceeded': string; // {current} {max}
+  readonly 'mutation.error.multiplicity-floor': string; // {current} {min}
+  readonly 'mutation.error.no-bswmd-for-module': string;
+  readonly 'mutation.error.invalid-param-type': string; // {key}
+  // Context-menu and ParamEditor action labels. These are the
+  // user-facing strings on the buttons themselves.
+  readonly 'mutation.action.addContainer': string;
+  readonly 'mutation.action.addParameter': string;
+  readonly 'mutation.action.addReference': string;
+  readonly 'mutation.action.delete': string; // {name}
+  readonly 'mutation.action.deleteParameter': string; // aria-label
+  // Sprint 15 — CascadeConfirmDialog (3-option). Distinct from the
+  // existing dirty-guard confirm.cascade.* which is reserved for
+  // unsaved-changes flows.
+  readonly 'confirm.cascade.title': string; // {name}
+  readonly 'confirm.cascade.message': string; // {count}
+  readonly 'confirm.cascade.cancel': string;
+  readonly 'confirm.cascade.only': string;
+  readonly 'confirm.cascade.cascade': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -436,6 +461,24 @@ export const MessagesZhCN: Messages = {
   'template.clone.displayName': '克隆（即将上线）',
   'template.clone.description': '基于现有项目创建副本',
   'template.comingSoon': '即将推出',
+
+  // --- Sprint 15 — ECUC mutation support ---
+  'mutation.error.path-not-found': '操作失败：路径不存在',
+  'mutation.error.name-conflict': "名称冲突：'{shortName}' 已存在",
+  'mutation.error.multiplicity-exceeded': '已达最大实例数 ({current}/{max})',
+  'mutation.error.multiplicity-floor': '不能低于最小实例数 ({current}/{min})',
+  'mutation.error.no-bswmd-for-module': '需要先加载 BSWMD',
+  'mutation.error.invalid-param-type': "参数 '{key}' 未在 BSWMD 中定义",
+  'mutation.action.addContainer': '添加子容器',
+  'mutation.action.addParameter': '添加参数',
+  'mutation.action.addReference': '添加引用',
+  'mutation.action.delete': "删除 '{name}'",
+  'mutation.action.deleteParameter': '删除参数',
+  'confirm.cascade.title': "删除 '{name}'?",
+  'confirm.cascade.message': "'{name}' 被 {count} 处引用指向：",
+  'confirm.cascade.cancel': '取消',
+  'confirm.cascade.only': '仅删容器',
+  'confirm.cascade.cascade': '一并删引用',
 };
 
 // ---------------------------------------------------------------------------
@@ -619,6 +662,24 @@ export const MessagesEn: Messages = {
   'template.clone.displayName': 'Clone (coming soon)',
   'template.clone.description': 'Create a copy of an existing project',
   'template.comingSoon': 'Coming Soon',
+
+  // --- Sprint 15 — ECUC mutation support ---
+  'mutation.error.path-not-found': 'Operation failed: path not found',
+  'mutation.error.name-conflict': "Name conflict: '{shortName}' already exists",
+  'mutation.error.multiplicity-exceeded': 'Maximum reached ({current}/{max})',
+  'mutation.error.multiplicity-floor': 'Cannot go below minimum ({current}/{min})',
+  'mutation.error.no-bswmd-for-module': 'Load BSWMD first',
+  'mutation.error.invalid-param-type': "Parameter '{key}' is not defined in the BSWMD",
+  'mutation.action.addContainer': 'Add sub-container',
+  'mutation.action.addParameter': 'Add parameter',
+  'mutation.action.addReference': 'Add reference',
+  'mutation.action.delete': "Delete '{name}'",
+  'mutation.action.deleteParameter': 'Delete parameter',
+  'confirm.cascade.title': "Delete '{name}'?",
+  'confirm.cascade.message': "'{name}' is referenced by {count} places:",
+  'confirm.cascade.cancel': 'Cancel',
+  'confirm.cascade.only': 'Only delete',
+  'confirm.cascade.cascade': 'Cascade delete',
 };
 
 // ---------------------------------------------------------------------------
