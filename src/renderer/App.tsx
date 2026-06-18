@@ -40,6 +40,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
+import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
@@ -167,6 +168,14 @@ export function App(): JSX.Element {
           submitNewProject (Task 5) calls `confirm()` from inside
           NewProjectDialog.onSubmit, so ConfirmRoot must mount first. */}
       <ConfirmRoot />
+      {/* Sprint 15 / Phase 3.3 — CascadeConfirmRoot hosts the 3-option
+          cascade confirm dialog shown when the user requests a
+          delete-container on a node with 1+ incoming references. It
+          installs its own module-level `externalSetState` handle used
+          by `confirmCascade()` (called from useArxmlStore.deleteContainer
+          — see Phase 2). Mounted last because it depends on no other
+          dialog; no cross-mount ordering requirement. */}
+      <CascadeConfirmRoot />
       <NewProjectDialog onSubmit={handleNewProjectSubmit} />
     </div>
   );
