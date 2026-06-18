@@ -234,4 +234,29 @@ describe('ModuleFromBswmdPicker', () => {
     expect(screen.queryByLabelText('CanTp')).not.toBeInTheDocument();
     expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   });
+
+  it('shows ecuc/ subfolder hint above Will create list when something is selected', () => {
+    useArxmlStore.setState({
+      bswmdSchemas: [
+        makeBswmd([makeModule('Can', '/AUTOSAR/EcucDefs/Can')]),
+      ],
+      bswmdPaths: ['D:/bswmd/Can.arxml'],
+    });
+
+    render(
+      <ModuleFromBswmdPicker
+        open
+        projectDir="D:/proj"
+        onConfirm={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    // Select 1 module so the right pane renders the Will-create list,
+    // which is where the hint lives.
+    fireEvent.click(screen.getByLabelText('Can'));
+
+    const hint = screen.getByTestId('ecuc-output-dir-hint');
+    expect(hint).toHaveTextContent(/ecuc/);
+  });
 });

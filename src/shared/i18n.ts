@@ -302,6 +302,7 @@ export interface Messages {
   readonly 'ecuc.fromBswmd.upperBoundReached': string; // {current} {max}
   readonly 'ecuc.fromBswmd.toast': string; // {count}
   readonly 'ecuc.fromBswmd.modulesActive': string; // {active} {total}
+  readonly 'ecuc.fromBswmd.outputDir': string; // {dir}
 }
 
 export type MessageKey = keyof Messages;
@@ -520,6 +521,7 @@ export const MessagesZhCN: Messages = {
   'ecuc.fromBswmd.upperBoundReached': '已达实例上限 ({current}/{max})',
   'ecuc.fromBswmd.toast': '已新建 {count} 个 ECUC 文件',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
+  'ecuc.fromBswmd.outputDir': '输出到 {dir}/ 子目录',
 };
 
 // ---------------------------------------------------------------------------
@@ -739,6 +741,7 @@ export const MessagesEn: Messages = {
   'ecuc.fromBswmd.upperBoundReached': 'Upper bound reached ({current}/{max})',
   'ecuc.fromBswmd.toast': 'Created {count} ECUC files',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
+  'ecuc.fromBswmd.outputDir': 'Output to {dir}/ subfolder',
 };
 
 // ---------------------------------------------------------------------------

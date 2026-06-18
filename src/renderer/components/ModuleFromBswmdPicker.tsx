@@ -294,6 +294,12 @@ export function ModuleFromBswmdPicker({
             )}
             {selectedPicks.length > 0 && (
               <>
+                <p
+                  className="mfbp-output-hint"
+                  data-testid="ecuc-output-dir-hint"
+                >
+                  {t(locale, 'ecuc.fromBswmd.outputDir', { dir: 'ecuc' })}
+                </p>
                 <h3 className="mfbp-section-title">{t(locale, 'ecuc.fromBswmd.willCreate')}</h3>
                 <ul className="mfbp-files" data-testid="mfbp-files">
                   {selectedPicks.map((p) => (
