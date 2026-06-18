@@ -288,6 +288,20 @@ export interface Messages {
   readonly 'picker.search.placeholder': string;
   readonly 'picker.tooltip.atMax': string; // {current} / {max}
   readonly 'editor.params.empty': string;
+
+  // Sprint 14 — BSWMD-to-ECUC module selection
+  readonly 'ecuc.fromBswmd.menu': string;
+  readonly 'ecuc.fromBswmd.disabledNoBswmd': string;
+  readonly 'ecuc.fromBswmd.disabledNoProject': string;
+  readonly 'ecuc.fromBswmd.filter': string;
+  readonly 'ecuc.fromBswmd.selectedCount': string; // {count}
+  readonly 'ecuc.fromBswmd.willCreate': string;
+  readonly 'ecuc.fromBswmd.targetDir': string;
+  readonly 'ecuc.fromBswmd.createN': string; // {count}
+  readonly 'ecuc.fromBswmd.collisionWarn': string;
+  readonly 'ecuc.fromBswmd.upperBoundReached': string; // {current} {max}
+  readonly 'ecuc.fromBswmd.toast': string; // {count}
+  readonly 'ecuc.fromBswmd.modulesActive': string; // {active} {total}
 }
 
 export type MessageKey = keyof Messages;
@@ -492,6 +506,20 @@ export const MessagesZhCN: Messages = {
   'picker.search.placeholder': '搜索…',
   'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
   'editor.params.empty': '此节点没有参数',
+
+  // Sprint 14 — BSWMD-to-ECUC module selection
+  'ecuc.fromBswmd.menu': 'ECUC模块选择…',
+  'ecuc.fromBswmd.disabledNoBswmd': '请先加载 BSWMD',
+  'ecuc.fromBswmd.disabledNoProject': '请先新建/打开项目',
+  'ecuc.fromBswmd.filter': '过滤 (模块名 / vendor 路径)',
+  'ecuc.fromBswmd.selectedCount': '已选: {count} 个模块',
+  'ecuc.fromBswmd.willCreate': '将创建',
+  'ecuc.fromBswmd.targetDir': '目标目录',
+  'ecuc.fromBswmd.createN': '创建 {count} 个 ECUC',
+  'ecuc.fromBswmd.collisionWarn': '多个 BSWMD 声明了同名 module — 已自动加后缀',
+  'ecuc.fromBswmd.upperBoundReached': '已达实例上限 ({current}/{max})',
+  'ecuc.fromBswmd.toast': '已新建 {count} 个 ECUC 文件',
+  'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
 };
 
 // ---------------------------------------------------------------------------
@@ -697,6 +725,20 @@ export const MessagesEn: Messages = {
   'picker.search.placeholder': 'Search…',
   'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',
   'editor.params.empty': 'No parameters on this node',
+
+  // Sprint 14 — BSWMD-to-ECUC module selection
+  'ecuc.fromBswmd.menu': 'ECUC Module Selection…',
+  'ecuc.fromBswmd.disabledNoBswmd': 'Load a BSWMD first',
+  'ecuc.fromBswmd.disabledNoProject': 'Create or open a project first',
+  'ecuc.fromBswmd.filter': 'Filter (module name / vendor path)',
+  'ecuc.fromBswmd.selectedCount': 'Selected: {count} modules',
+  'ecuc.fromBswmd.willCreate': 'Will create',
+  'ecuc.fromBswmd.targetDir': 'Target directory',
+  'ecuc.fromBswmd.createN': 'Create {count} ECUC',
+  'ecuc.fromBswmd.collisionWarn': 'Multiple BSWMDs declare the same module — auto-suffix applied',
+  'ecuc.fromBswmd.upperBoundReached': 'Upper bound reached ({current}/{max})',
+  'ecuc.fromBswmd.toast': 'Created {count} ECUC files',
+  'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
 };
 
 // ---------------------------------------------------------------------------
