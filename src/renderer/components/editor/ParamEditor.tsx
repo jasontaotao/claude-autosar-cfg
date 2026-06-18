@@ -17,6 +17,7 @@
 
 import { findByPath, findByPathMultiDoc } from '@core/arxml/path';
 import type { ArxmlElement, ParamValue } from '@core/arxml/types';
+import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
 import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
@@ -143,26 +144,15 @@ export function ParamEditor(): JSX.Element {
   const valueEntries = entries.filter(([, v]) => v.type !== 'reference');
   const referenceEntries = entries.filter(([, v]) => v.type === 'reference');
 
-  // Sprint 15 Phase 3.5 — BSWMD gate for the two `+ Add` buttons. We
-  // walk the loaded BSWMD schema set and look for a module whose
-  // shortName matches the second path segment of `selectedPath`
-  // (the value path is `/<pkg>/<module>/<container...>` so the
-  // module shortName sits at index 1). When no schema is loaded for
-  // the module the buttons stay visible but disabled — the user still
-  // sees the affordance and a tooltip explains why it's gated.
-  // Derived during render rather than stored — `bswmdSchemas` is
-  // already in the dependency list via the store selector above.
-  const hasBswmdForModule = (() => {
-    const segments = selectedPath.split('/').filter((s) => s.length > 0);
-    const moduleShortName = segments[1];
-    if (moduleShortName === undefined) return false;
-    for (const schema of useArxmlStore.getState().bswmdSchemas) {
-      for (const mod of schema.modules) {
-        if (mod.shortName === moduleShortName) return true;
-      }
-    }
-    return false;
-  })();
+  // Sprint post-v1.0.0 — extracted to core/ecuc/moduleMatch so the
+  // `sourceBswmdPath` priority (A) can override the path-segment fallback
+  // (B) for ECUC files created via the BSWMD picker. The button stays
+  // disabled when neither source nor path-segment match any loaded BSWMD
+  // schema; the tooltip mirrors `mutation.error.no-bswmd-for-module`.
+  const hasBswmdForModuleValue = hasBswmdForModule(
+    useArxmlStore.getState(),
+    selectedPath,
+  );
 
   return (
     <section
@@ -235,8 +225,8 @@ export function ParamEditor(): JSX.Element {
           type="button"
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'parameter' })}
           data-testid="param-editor-add-parameter"
-          disabled={!hasBswmdForModule}
-          title={hasBswmdForModule ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
+          disabled={!hasBswmdForModuleValue}
+          title={hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           {t(locale, 'mutation.action.addParameter')}
@@ -245,8 +235,8 @@ export function ParamEditor(): JSX.Element {
           type="button"
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'reference' })}
           data-testid="param-editor-add-reference"
-          disabled={!hasBswmdForModule}
-          title={hasBswmdForModule ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
+          disabled={!hasBswmdForModuleValue}
+          title={hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           {t(locale, 'mutation.action.addReference')}
