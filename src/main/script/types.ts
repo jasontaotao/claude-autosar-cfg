@@ -79,9 +79,9 @@ export interface ScriptRunResult {
   readonly violations: ReadonlyArray<ScriptViolation>;
   readonly mutations: ReadonlyArray<ScriptMutation>;
   readonly durationMs: number;
-  readonly errorMessage?: string;
-  readonly errorLine?: number;
-  readonly errorColumn?: number;
+  readonly errorMessage?: string | undefined;
+  readonly errorLine?: number | undefined;
+  readonly errorColumn?: number | undefined;
 }
 
 /**

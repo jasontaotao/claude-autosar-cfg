@@ -11,6 +11,8 @@
 
 import { runInContext, createContext, Script as VmScript } from 'node:vm';
 
+import type { ArxmlDocument } from '../../core/arxml/types.js';
+
 import { buildScriptCtx } from './ctx.js';
 import type {
   ScriptEntry,
@@ -19,7 +21,6 @@ import type {
   ScriptRunResult,
   ScriptViolation,
 } from './types.js';
-import type { ArxmlDocument } from '../../core/arxml/types.js';
 
 export interface RunOptions {
   /** Wall-clock timeout in ms. Post-hoc only (spec § 8.2). */
@@ -100,7 +101,8 @@ export function runInSandbox(
   try {
     script = new VmScript(wrapped, { filename: `${entry.shortName}.js` });
   } catch (e) {
-    const { line, column } = parseStackLocation(e instanceof Error ? e.stack : '');
+    const stack = e instanceof Error ? e.stack : undefined;
+    const { line, column } = parseStackLocation(stack ?? '');
     return {
       runId,
       status: 'syntax-error',
@@ -120,9 +122,10 @@ export function runInSandbox(
   try {
     script.runInContext(context, { timeout: options.timeoutMs ?? 5000 });
   } catch (e) {
-    const stack = e instanceof Error ? e.stack : '';
-    let line = parseStackLocation(stack).line;
-    let column = parseStackLocation(stack).column;
+    const stack = e instanceof Error ? e.stack : undefined;
+    const parsed = parseStackLocation(stack ?? '');
+    let line: number | undefined = parsed.line;
+    let column: number | undefined = parsed.column;
     // V8 strips the stack from errors thrown inside `vm.runInContext`.
     // Our wrapper catches the error INSIDE the sandbox, records
     // user-line, and re-throws a fresh Error carrying it. Read it
@@ -236,4 +239,3 @@ export function mapErrorLine(stack: string): number | undefined {
 // Re-export to silence unused-import warnings for RunSinks / runInContext
 // which the public API exposes but the implementation imports directly.
 export { runInContext };
-export type { RunSinks };

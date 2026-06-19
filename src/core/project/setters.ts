@@ -174,14 +174,16 @@ function spliceContainer(
   for (const pkg of doc.packages) {
     const nextElements = rebuild(pkg.elements, `/${pkg.shortName}`);
     if (nextElements !== null) {
-      pkg.elements.splice(0, pkg.elements.length, ...nextElements);
+      // pkg.elements is typed readonly; cast through the package's
+      // mutable array (the parser populates it as a plain array).
+      (pkg.elements as ArxmlElement[]).splice(0, pkg.elements.length, ...nextElements);
       return;
     }
     if (pkg.packages) {
       for (const sub of pkg.packages) {
         const inner = rebuild(sub.elements, `/${pkg.shortName}/${sub.shortName}`);
         if (inner !== null) {
-          sub.elements.splice(0, sub.elements.length, ...inner);
+          (sub.elements as ArxmlElement[]).splice(0, sub.elements.length, ...inner);
           return;
         }
       }

@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { describe, it, expect, beforeAll } from 'vitest';
+
 import { parseArxml } from '../../../core/arxml/parser.js';
 import { serializeArxml } from '../../../core/arxml/serializer.js';
+import type { ArxmlDocument } from '../../../core/arxml/types.js';
 import { createTransaction, commitTransaction, discardTransaction } from '../transaction.js';
 import type { ScriptMutation, ScriptViolation } from '../types.js';
-import type { ArxmlDocument } from '../../../core/arxml/types.js';
 
 const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/arxml/Com_Com.arxml');
 
@@ -58,7 +59,9 @@ beforeAll(() => {
             firstTxParam = 'ComTxIPduUnusedAreasDefault';
             const p = el.params[firstTxParam]!;
             const synthPath = computeSyntheticPath(elements, el, pkgPath);
-            firstTxPath = synthPath;
+            if (synthPath !== null) {
+              firstTxPath = synthPath;
+            }
             if (p.type === 'integer' || p.type === 'float') {
               originalValue = p.value as number;
               return;

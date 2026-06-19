@@ -22,7 +22,7 @@ export type ScriptErrorKind =
 export interface ScriptErrorPayload {
   readonly kind: ScriptErrorKind;
   readonly message: string;
-  readonly meta?: Readonly<Record<string, unknown>>;
+  readonly meta?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export class ScriptError extends Error {

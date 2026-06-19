@@ -272,7 +272,7 @@ function parseManifestShape(
     // Sprint 14 #1 — backward compat: legacy manifests (v1.1.x and earlier)
     // have no `scripts` field. Normalise to `[]` so downstream code can
     // safely use `manifest.scripts ?? []` without per-call checks.
-    scripts: Array.isArray(obj.scripts) ? (obj.scripts as readonly never[]) : [],
+    scripts: Array.isArray(obj.scripts) ? (obj.scripts as unknown as readonly never[]) : [],
   };
 
   if (options.lenientPaths === true) {

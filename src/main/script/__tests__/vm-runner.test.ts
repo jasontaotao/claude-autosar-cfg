@@ -1,11 +1,13 @@
-import { describe, it, expect } from 'vitest';
 
-import { runInSandbox, mapErrorLine } from '../vm-runner.js';
-import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptViolation } from '../types.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { describe, it, expect } from 'vitest';
+
 import { parseArxml } from '../../../core/arxml/parser.js';
 import type { ArxmlDocument } from '../../../core/arxml/types.js';
+import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptViolation } from '../types.js';
+import { runInSandbox, mapErrorLine } from '../vm-runner.js';
 
 function entry(source: string, shortName = 'main'): ScriptEntry {
   return {
@@ -19,7 +21,7 @@ function entry(source: string, shortName = 'main'): ScriptEntry {
   };
 }
 
-function newCtx(project?: ArxmlDocument) {
+function newCtx(project: ArxmlDocument) {
   const logs: ScriptLog[] = [];
   const violations: ScriptViolation[] = [];
   const mutations: ScriptMutation[] = [];
@@ -27,7 +29,7 @@ function newCtx(project?: ArxmlDocument) {
     logs,
     violations,
     mutations,
-    options: project !== undefined ? { timeoutMs: 200, project } : { timeoutMs: 200 },
+    options: { timeoutMs: 200, project },
   };
 }
 

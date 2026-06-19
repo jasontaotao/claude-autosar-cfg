@@ -7,12 +7,13 @@
 // `runtime-error` ScriptRunResult so the renderer auto-discards.
 
 import type { ArxmlDocument } from '../../core/arxml/types.js';
-import type { ScriptMutation, ScriptViolation } from './types.js';
 import {
   setParamInDocument,
   addChildInDocument,
   removeChildInDocument,
 } from '../../core/project/setters.js';
+
+import type { ScriptMutation, ScriptViolation } from './types.js';
 
 export interface Transaction {
   readonly project: ArxmlDocument;

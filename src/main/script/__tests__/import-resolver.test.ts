@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
+import { classScriptError, ScriptError } from '../errors.js';
 import { resolveImports, parseImports, detectCycles, hasExport } from '../import-resolver.js';
 import type { ScriptEntry } from '../types.js';
-import { classScriptError, ScriptError } from '../errors.js';
 
 function entry(
   shortName: string,

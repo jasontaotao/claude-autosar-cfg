@@ -5,8 +5,8 @@
 // ordered list. The wrapper form (IIFE per module) is built separately
 // by vm-runner, not here.
 
-import type { ScriptEntry } from './types.js';
 import { classScriptError } from './errors.js';
+import type { ScriptEntry } from './types.js';
 
 /** Strip line comments and block comments before regex matching. */
 function stripComments(src: string): string {

@@ -11,6 +11,7 @@
 // via the module/container's `params` record.
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule } from '../../core/arxml/types.js';
+
 import type { ParamValue, ParamSnapshot, ScriptLog, ScriptMutation, ScriptViolation } from './types.js';
 
 export interface ScriptCtxOptions {
@@ -109,8 +110,10 @@ function flattenElement(el: ArxmlElement, parentPath: string): RawContainer[] {
   if (el.kind === 'reference') return [];
   // Both module and container share the same shape: { path, shortName, params, children }
   const path = `${parentPath}/${el.shortName}`;
-  // Use el.path if set (parser usually pre-computes); fall back to computed
-  const elemPath = el.path || path;
+  // The parser does NOT expose `path` on ArxmlModule/ArxmlContainer
+  // types — it's a parser-internal local. Always use the synthesised
+  // shortName chain.
+  const elemPath = path;
   const rawParams: RawParam[] = [];
   for (const [pname, pval] of Object.entries(el.params)) {
     rawParams.push({
@@ -365,21 +368,22 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
 // Helper to expose a module/container element lookup for callers
 // (used by vm-runner when wiring `_import`).
 export function findElementByPath(doc: ArxmlDocument, path: string): ArxmlElement | null {
-  function walk(elements: readonly ArxmlElement[]): ArxmlElement | null {
+  function walk(elements: readonly ArxmlElement[], parentPath: string): ArxmlElement | null {
     for (const el of elements) {
       if (el.kind === 'reference') continue;
-      if (el.path === path) return el;
-      const inner = walk(el.children);
+      const myPath = `${parentPath}/${el.shortName}`;
+      if (myPath === path) return el;
+      const inner = walk(el.children, myPath);
       if (inner) return inner;
     }
     return null;
   }
   for (const pkg of doc.packages) {
-    const found = walk(pkg.elements);
+    const found = walk(pkg.elements, `/${pkg.shortName}`);
     if (found) return found;
     if (pkg.packages) {
       for (const sub of pkg.packages) {
-        const inner = walk(sub.elements);
+        const inner = walk(sub.elements, `/${pkg.shortName}/${sub.shortName}`);
         if (inner) return inner;
       }
     }

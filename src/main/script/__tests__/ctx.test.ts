@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { describe, it, expect, beforeAll } from 'vitest';
+
 import { parseArxml } from '../../../core/arxml/parser.js';
+import type { ArxmlDocument } from '../../../core/arxml/types.js';
 import { buildScriptCtx } from '../ctx.js';
 import type { ScriptLog, ScriptViolation, ScriptMutation } from '../types.js';
-import type { ArxmlDocument } from '../../../core/arxml/types.js';
 
 const COM_PATH = resolve(__dirname, '../../../../tests/fixtures/arxml/Com_Com.arxml');
 
