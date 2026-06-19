@@ -119,6 +119,43 @@ export interface ToastState {
   readonly autoDismissMs?: number;
 }
 
+/**
+ * Sprint 17c T10 — typed warnings emitted by
+ * `buildCombinedDocument` when deduplicating root packages across
+ * loaded documents. The combined view collapses root packages
+ * with the same `<SHORT-NAME>` (the typical case is two
+ * `EAS` roots when two BSWMD-derived ARXML files are loaded).
+ *
+ * - `duplicate-root-conflict`: a root with the same shortName was
+ *   found in 2+ documents AND the contents differ. The first
+ *   occurrence is kept; subsequent occurrences are dropped silently
+ *   in the rendered tree but the warning is surfaced via the
+ *   store's `warnings` slice so the user sees the metric.
+ *
+ * The shape is a discriminated union so future dedup warnings
+ * (e.g. `duplicate-module-collapsed`) can be added without
+ * widening the existing consumers.
+ */
+export type CombinedDocumentWarning = {
+  readonly kind: 'duplicate-root-conflict';
+  readonly shortName: string;
+  /** File path of the document whose root was kept. */
+  readonly keptFrom: string;
+};
+
+/**
+ * Result of `buildCombinedDocument` — the synthesised virtual
+ * ArxmlDocument plus any warnings emitted during dedup. Callers
+ * thread the warnings into `state.warnings` for status-bar display.
+ * `doc` is null when no source documents are available (e.g.
+ * single mode with no active doc); callers should treat that as
+ * "no display content".
+ */
+export interface CombinedDocumentResult {
+  readonly doc: ArxmlDocument | null;
+  readonly warnings: readonly CombinedDocumentWarning[];
+}
+
 export interface ArxmlState {
   // Multi-doc state (canonical)
   readonly documents: readonly ArxmlDocument[];
@@ -202,6 +239,18 @@ export interface ArxmlState {
   readonly viewMode: 'single' | 'combined';
   readonly displayDoc: ArxmlDocument | null;
   setViewMode: (mode: 'single' | 'combined') => void;
+
+  // Sprint 17c T10 — build warnings surfaced from the combined
+  // document synthesis. `buildCombinedDocument` now deduplicates root
+  // packages across documents and emits a warning per duplicate-root
+  // conflict (see `CombinedDocumentWarning` below). The store
+  // owns the slice so a status-bar component (UI hook in a
+  // follow-up) can subscribe to it without re-deriving from the
+  // displayDoc shape. `clearWarnings` resets the slice — called by
+  // `clear()` and any mutator that rebuilds the combined doc from
+  // a fresh document set.
+  readonly warnings: readonly CombinedDocumentWarning[];
+  clearWarnings: () => void;
 
   // Sprint 12 #3 Task 7 — top-level dialog state. The store owns these
   // flags (not local component state) so the `useProjectActions` hook
@@ -465,6 +514,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // `toast` readers see the same UI state.
   toast: null,
   validationErrors: [],
+  // Sprint 17c T10 — combined-doc build warnings. Populated by
+  // `buildCombinedDocument` and refreshed on every combined-mode
+  // store mutation. Empty in single mode and at initial mount.
+  warnings: [],
   lastValidatedAt: null,
   // Sprint 11 Phase 1 — project state.
   project: null,
@@ -529,14 +582,25 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const nextPaths = state.documentPaths.includes(filePath)
       ? state.documentPaths
       : [...state.documentPaths, filePath];
-    const nextDisplayDoc = computeDisplayDoc(state.viewMode, doc, nextDocuments, nextPaths);
+    const nextDisplayResult = computeDisplayDoc(state.viewMode, doc, nextDocuments, nextPaths);
     set({
       documents: nextDocuments,
       documentPaths: nextPaths,
       activeDocumentPath: filePath,
       doc,
       filePath,
-      displayDoc: nextDisplayDoc,
+      // Sprint 17c T10 — displayDoc may be null when the build
+      // can't run (no source documents); the rest of the state
+      // changes still commit so the action's side effects
+      // (validation, dirty reset) take effect.
+      displayDoc: nextDisplayResult?.doc ?? null,
+      // Sprint 17c T10 — thread dedup warnings into the store
+      // (single-mode changes leave warnings untouched, combined-
+      // mode updates replace the slice with the fresh build).
+      warnings:
+        state.viewMode === 'combined' && nextDisplayResult !== null
+          ? nextDisplayResult.warnings
+          : state.warnings,
       selectedPath: null,
       // Newly loaded doc is fresh; other docs' dirty state is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
@@ -573,7 +637,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       filePath,
       state.projectPath !== null ? sharedDirname(state.projectPath) : null,
     );
-    const nextDisplayDoc = computeDisplayDoc(
+    const nextDisplayResult = computeDisplayDoc(
       state.viewMode,
       nextActiveDoc,
       nextDocuments,
@@ -585,7 +649,14 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       activeDocumentPath: nextActive,
       doc: nextActiveDoc,
       filePath: nextActive,
-      displayDoc: nextDisplayDoc,
+      // Sprint 17c T10 — displayDoc may be null when the build
+      // can't run; the rest of the state changes still commit.
+      displayDoc: nextDisplayResult?.doc ?? null,
+      // Sprint 17c T10 — refresh warnings in combined mode.
+      warnings:
+        state.viewMode === 'combined' && nextDisplayResult !== null
+          ? nextDisplayResult.warnings
+          : state.warnings,
       // The removed doc's dirty bit is dropped; other docs' dirty state
       // is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
@@ -598,22 +669,45 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   setActiveDocument: (filePath) => {
     const state = get();
     if (filePath === null) {
+      const nextDisplayResult = computeDisplayDoc(
+        state.viewMode,
+        null,
+        state.documents,
+        state.documentPaths,
+      );
+      if (nextDisplayResult === null) return;
       set({
         activeDocumentPath: null,
         doc: null,
         filePath: null,
-        displayDoc: computeDisplayDoc(state.viewMode, null, state.documents, state.documentPaths),
+        displayDoc: nextDisplayResult?.doc ?? null,
+        // Sprint 17c T10 — refresh warnings in combined mode.
+        warnings:
+          state.viewMode === 'combined' && nextDisplayResult !== null
+            ? nextDisplayResult.warnings
+            : state.warnings,
       });
       return;
     }
     const idx = state.documentPaths.indexOf(filePath);
     if (idx === -1) return; // unknown path → no-op
     const nextDoc = state.documents[idx] ?? null;
+    const nextDisplayResult = computeDisplayDoc(
+      state.viewMode,
+      nextDoc,
+      state.documents,
+      state.documentPaths,
+    );
     set({
       activeDocumentPath: filePath,
       doc: nextDoc,
       filePath,
-      displayDoc: computeDisplayDoc(state.viewMode, nextDoc, state.documents, state.documentPaths),
+      displayDoc: nextDisplayResult?.doc ?? null,
+      // Sprint 17c T10 — refresh warnings in combined mode.
+      warnings:
+        state.viewMode === 'combined' && nextDisplayResult !== null
+          ? nextDisplayResult.warnings
+          : state.warnings,
     });
   },
 
@@ -647,19 +741,26 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       if (nextSourceDoc === sourceDoc) return;
       const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
       const nextActiveDoc = state.activeDocumentPath === sourcePath ? nextSourceDoc : state.doc;
-      const nextDisplayDoc = computeDisplayDoc(
+      const nextDisplayResult = computeDisplayDoc(
         state.viewMode,
         nextActiveDoc,
         nextDocuments,
         state.documentPaths,
       );
+      if (nextDisplayResult === null) return;
       set({
         documents: nextDocuments,
         doc: nextActiveDoc,
-        displayDoc: nextDisplayDoc,
+        displayDoc: nextDisplayResult?.doc ?? null,
         dirtyPaths: addToDirty(state.dirtyPaths, sourcePath),
         validationErrors: validateProjectForRenderer(nextDocuments),
         lastValidatedAt: Date.now(),
+        // Sprint 17c T10 — refresh warnings in combined mode (the
+        // source-doc content changed; the dedup result may differ).
+        warnings:
+          state.viewMode === 'combined' && nextDisplayResult !== null
+            ? nextDisplayResult.warnings
+            : state.warnings,
       });
       return;
     }
@@ -671,20 +772,23 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const nextActiveDoc = applyParamUpdate(activeDoc, containerPath, paramKey, value);
     if (nextActiveDoc === activeDoc) return;
     const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
+    const nextDisplayResult = computeDisplayDoc(
+      state.viewMode,
+      nextActiveDoc,
+      nextDocuments,
+      state.documentPaths,
+    );
     set({
       documents: nextDocuments,
       doc: nextActiveDoc,
-      displayDoc: computeDisplayDoc(
-        state.viewMode,
-        nextActiveDoc,
-        nextDocuments,
-        state.documentPaths,
-      ),
-      // Mark only the active doc as dirty; other docs' dirty state is
-      // preserved (per-path Set, not project-wide boolean).
+      displayDoc: nextDisplayResult?.doc ?? null,
       dirtyPaths: addToDirty(state.dirtyPaths, state.activeDocumentPath),
       validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
+      // Sprint 17c T10 — single-mode path. The combined-mode
+      // branch above already exited with its own warnings slice;
+      // this branch is reached only when viewMode is 'single',
+      // so the warnings slice is preserved as-is.
     });
   },
 
@@ -726,6 +830,13 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     set({ error: message, toast: { kind: 'warning', message, autoDismissMs } }),
   dismissToast: () => set({ error: null, toast: null }),
 
+  // Sprint 17c T10 — clear the combined-doc warnings slice. Used
+  // by the status-bar UI hook (added in a follow-up) when the
+  // user dismisses a warning, and by tests that need a clean
+  // baseline. The slice is also cleared automatically on
+  // `clear()` and when leaving combined mode via `setViewMode`.
+  clearWarnings: () => set({ warnings: [] }),
+
   validate: () => {
     const state = get();
     set({
@@ -750,6 +861,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // banner.
       toast: null,
       validationErrors: [],
+      // Sprint 17c T10 — combined-doc warnings; cleared alongside
+      // the document set so a fresh load doesn't see stale
+      // dedup warnings.
+      warnings: [],
       lastValidatedAt: null,
       project: null,
       projectPath: null,
@@ -802,13 +917,24 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // manifest is the source of truth for what's "in" the project.
     const activeDoc = orderedDocuments[0] ?? null;
     const activePath = orderedPaths[0] ?? null;
+    const nextDisplayResult = computeDisplayDoc(
+      get().viewMode,
+      activeDoc,
+      orderedDocuments,
+      orderedPaths,
+    );
     set({
       documents: orderedDocuments,
       documentPaths: orderedPaths,
       activeDocumentPath: activePath,
       doc: activeDoc,
       filePath: activePath,
-      displayDoc: computeDisplayDoc(get().viewMode, activeDoc, orderedDocuments, orderedPaths),
+      displayDoc: nextDisplayResult?.doc ?? null,
+      // Sprint 17c T10 — refresh warnings in combined mode.
+      warnings:
+        get().viewMode === 'combined' && nextDisplayResult !== null
+          ? nextDisplayResult.warnings
+          : [],
       selectedPath: null,
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
@@ -989,8 +1115,22 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // whose top-level packages are file basenames, not root packages).
   setViewMode: (mode) => {
     const state = get();
-    const displayDoc = computeDisplayDoc(mode, state.doc, state.documents, state.documentPaths);
-    set({ viewMode: mode, displayDoc, selectedPath: null });
+    const displayResult = computeDisplayDoc(mode, state.doc, state.documents, state.documentPaths);
+    // Sprint 17c T10 — when entering combined mode, populate the
+    // warnings slice from the fresh build. When leaving combined
+    // mode, clear warnings (they only apply to the combined view).
+    // The `displayDoc` is null when there are no documents to
+    // render (displayResult === null), but the viewMode flip
+    // itself is still meaningful (e.g. tests covering the flip
+    // without a loaded doc).
+    const nextWarnings: readonly CombinedDocumentWarning[] =
+      mode === 'combined' ? (displayResult?.warnings ?? []) : [];
+    set({
+      viewMode: mode,
+      displayDoc: displayResult?.doc ?? null,
+      warnings: nextWarnings,
+      selectedPath: null,
+    });
   },
 
   // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
@@ -1434,7 +1574,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       state.activeDocumentPath === workingPath
         ? (docEdits.get(workingIdx) ?? workingDoc)
         : state.doc;
-    const nextDisplayDoc = computeDisplayDoc(
+    const nextDisplayResult = computeDisplayDoc(
       state.viewMode,
       nextActiveDoc,
       nextDocuments,
@@ -1443,11 +1583,16 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     set({
       documents: nextDocuments,
       doc: nextActiveDoc,
-      displayDoc: nextDisplayDoc,
+      displayDoc: nextDisplayResult?.doc ?? null,
       dirtyPaths: nextDirty,
       pendingDelete: null,
       validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
+      // Sprint 17c T10 — refresh warnings in combined mode.
+      warnings:
+        state.viewMode === 'combined' && nextDisplayResult !== null
+          ? nextDisplayResult.warnings
+          : state.warnings,
     });
   },
 }));
@@ -1740,9 +1885,15 @@ function computeDisplayDoc(
   activeDoc: ArxmlDocument | null,
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
-): ArxmlDocument | null {
+): CombinedDocumentResult | null {
   if (mode === 'single') {
-    return activeDoc;
+    // Single mode passes through the active doc unchanged; no
+    // dedup applies (only one source). The result is still
+    // wrapped in a `CombinedDocumentResult` for type uniformity
+    // with the combined-mode branch — the empty warnings array
+    // is intentional. `doc` may be null when no source documents
+    // are loaded; callers treat that as "no display content".
+    return { doc: activeDoc, warnings: [] };
   }
   if (documents.length === 0) return null;
   return buildCombinedDocument(documents, filePaths);
@@ -1776,7 +1927,7 @@ function lastSegment(p: string): string {
 function buildCombinedDocument(
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
-): ArxmlDocument {
+): CombinedDocumentResult {
   // Sprint 16 — smart basename wrapper skip. When no collision exists
   // (basenames all unique AND module shortNames don't overlap across
   // docs), synthesise a flat displayDoc by concatenating the docs'
@@ -1784,11 +1935,35 @@ function buildCombinedDocument(
   // module hierarchy at the top level — no '<filename> package'
   // wrapper. findByPathMultiDoc falls back to per-doc lookup for
   // unprefixed paths (see core/arxml/path.ts).
+  //
+  // Sprint 17c T10 — root-package dedup runs BEFORE the
+  // flat/collision branch, so the result is consistent: a root
+  // package with the same `<SHORT-NAME>` is deduped to 1 entry
+  // (silent if content matches, kept-first + warning if not).
+  // In flat mode this prevents the "two EAS" UX regression
+  // (the original bug). In collision mode the wrap step
+  // disambiguates the source doc via the basename prefix; the
+  // dedup removes the second copy (the one that would have
+  // been wrapped under `[doc:1]`), and the warning tells the
+  // user why the second file's content didn't make it into the
+  // tree.
+  const allPackages: { readonly pkg: ArxmlPackage; readonly filePath: string }[] = [];
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    for (const pkg of documents[i]?.packages ?? []) {
+      allPackages.push({ pkg, filePath });
+    }
+  }
+  const { dedupedPackages, warnings: dedupWarnings } = dedupRootPackages(allPackages);
+
   if (!detectCombinedCollision(documents, filePaths)) {
     return {
-      path: '[Combined]',
-      version: '4.6',
-      packages: documents.flatMap((d) => d.packages),
+      doc: {
+        path: '[Combined]',
+        version: '4.6',
+        packages: dedupedPackages,
+      },
+      warnings: dedupWarnings,
     };
   }
 
@@ -1799,6 +1974,12 @@ function buildCombinedDocument(
   // of `findByPathMultiDoc`'s index parsing, so a round-trip
   // `select(path)` then `updateParam(path)` resolves back to the
   // same source.
+  //
+  // Sprint 17c T10 — the dedup pass already ran on the raw
+  // packages. Iterate the deduped list and pick the packages
+  // whose source file is the current iteration's. Reference
+  // equality is the contract: dedup keeps the FIRST occurrence's
+  // reference, and the source docs own those references.
   const basenameSeen = new Map<string, number>();
   const combinedPackages: ArxmlPackage[] = [];
   for (let i = 0; i < documents.length; i += 1) {
@@ -1807,22 +1988,187 @@ function buildCombinedDocument(
     const seen = basenameSeen.get(base) ?? 0;
     basenameSeen.set(base, seen + 1);
     const segmentName = seen === 0 ? base : `[doc:${i}]`;
-    // Each source doc may have multiple root packages (e.g.
-    // `AUTOSAR_R22 > EcucDefs` + `LifeCycleInfoSets`). Wrap each
-    // one so it sits under the basename branch.
-    for (const pkg of documents[i]?.packages ?? []) {
+    for (const pkg of dedupedPackages) {
+      let isFromThisFile = false;
+      for (const p of documents[i]?.packages ?? []) {
+        if (p === pkg) {
+          isFromThisFile = true;
+          break;
+        }
+      }
+      if (!isFromThisFile) continue;
       combinedPackages.push(wrapPackageUnderSegment(pkg, segmentName));
     }
   }
   return {
-    path: '[Combined]',
-    // Combined docs share the version of the most-recently-added
-    // source — Tree doesn't render the version so this only matters
-    // for `app.docVersion` in ArxmlPanel. The footer uses the last
-    // loaded doc; carrying a placeholder here is acceptable.
-    version: '4.6',
-    packages: combinedPackages,
+    doc: {
+      path: '[Combined]',
+      // Combined docs share the version of the most-recently-added
+      // source — Tree doesn't render the version so this only matters
+      // for `app.docVersion` in ArxmlPanel. The footer uses the last
+      // loaded doc; carrying a placeholder here is acceptable.
+      version: '4.6',
+      packages: combinedPackages,
+    },
+    // Sprint 17c T10 — the dedup pass emitted `dedupWarnings` on
+    // the raw packages; surface them in the result so the store's
+    // `warnings` slice reflects the dedup outcome even in collision
+    // mode.
+    warnings: dedupWarnings,
   };
+}
+
+/**
+ * Sprint 17c T10 — deduplicate root packages across the loaded
+ * document set. The combined view used to render BOTH packages
+ * when two docs shared a root `<SHORT-NAME>` (e.g. two `EAS`
+ * roots from two BSWMD-derived ARXML files) — a "two EAS" UX
+ * regression documented in `sprint-16-shipped.md`.
+ *
+ * Algorithm:
+ *   1. Group packages by `shortName` (preserves insertion order).
+ *   2. For each group with 2+ entries:
+ *      - Compare pairwise against the FIRST entry using
+ *        `packagesDeepEqual` (recursive: same shortName, same
+ *        elements + nested packages, same param values).
+ *      - If all entries equal the first → keep first only
+ *        (silent dedup, no warning).
+ *      - If any entry differs from the first → keep first only +
+ *        emit ONE `duplicate-root-conflict` warning with the
+ *        first entry's source filePath as `keptFrom`.
+ *   3. For singletons, keep as-is.
+ *
+ * Pure: produces a new `dedupedPackages` array. The dedup
+ * preserves the first occurrence's object reference; only the
+ * surrounding list shape is rebuilt.
+ */
+function dedupRootPackages(
+  entries: readonly { readonly pkg: ArxmlPackage; readonly filePath: string }[],
+): {
+  readonly dedupedPackages: readonly ArxmlPackage[];
+  readonly warnings: readonly CombinedDocumentWarning[];
+} {
+  const deduped: ArxmlPackage[] = [];
+  const warnings: CombinedDocumentWarning[] = [];
+  // Track first-occurrence (package + filePath) keyed by shortName
+  // so subsequent occurrences can be compared against the keeper.
+  const firstByShortName = new Map<string, { pkg: ArxmlPackage; filePath: string }>();
+  for (const entry of entries) {
+    const existing = firstByShortName.get(entry.pkg.shortName);
+    if (existing === undefined) {
+      firstByShortName.set(entry.pkg.shortName, entry);
+      deduped.push(entry.pkg);
+      continue;
+    }
+    // Subsequent occurrence of a shortName we've already seen.
+    // If the content matches the first, silent dedup; otherwise
+    // emit a conflict warning (only once per shortName).
+    if (packagesDeepEqual(existing.pkg, entry.pkg)) {
+      // Silent dedup — keep the first (already in `deduped`),
+      // drop the duplicate. No warning.
+      continue;
+    }
+    // Content differs — emit a conflict warning. The warning
+    // shape is keyed by shortName; suppress duplicates so 3+ docs
+    // with the same conflict shortName produce ONE warning, not
+    // N-1.
+    if (
+      !warnings.some(
+        (w) => w.kind === 'duplicate-root-conflict' && w.shortName === entry.pkg.shortName,
+      )
+    ) {
+      warnings.push({
+        kind: 'duplicate-root-conflict',
+        shortName: entry.pkg.shortName,
+        keptFrom: existing.filePath,
+      });
+    }
+  }
+  return { dedupedPackages: deduped, warnings };
+}
+
+/**
+ * Sprint 17c T10 — recursive deep-equality on two
+ * ArxmlPackage trees. Two packages are "equal" if:
+ *   - same `shortName` and `path`
+ *   - same `elements` (each element compared via `elementsEqual`)
+ *   - same nested `packages` (each compared via recursion)
+ *
+ * Element comparison: same `kind`, same `shortName`, same
+ * `params` (via JSON key-by-key), same `children`, same
+ * `references` (modules only), same `value` (references).
+ *
+ * Pure / allocation-free on the happy path. JSON.stringify on
+ * the params dict is acceptable for the dedup use case (small
+ * counts — typically 1-2 root packages per doc).
+ */
+function packagesDeepEqual(a: ArxmlPackage, b: ArxmlPackage): boolean {
+  if (a.shortName !== b.shortName) return false;
+  if (a.path !== b.path) return false;
+  if (a.longName !== b.longName) return false;
+  if (a.elements.length !== b.elements.length) return false;
+  for (let i = 0; i < a.elements.length; i += 1) {
+    const ea = a.elements[i];
+    const eb = b.elements[i];
+    if (ea === undefined || eb === undefined) return false;
+    if (!elementsEqual(ea, eb)) return false;
+  }
+  const aNested = a.packages ?? [];
+  const bNested = b.packages ?? [];
+  if (aNested.length !== bNested.length) return false;
+  for (let i = 0; i < aNested.length; i += 1) {
+    const na = aNested[i];
+    const nb = bNested[i];
+    if (na === undefined || nb === undefined) return false;
+    if (!packagesDeepEqual(na, nb)) return false;
+  }
+  return true;
+}
+
+function elementsEqual(a: ArxmlElement, b: ArxmlElement): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.shortName !== b.shortName) return false;
+  if (a.kind === 'reference' && b.kind === 'reference') {
+    if (a.value !== b.value) return false;
+    if (a.dest !== b.dest) return false;
+    return true;
+  }
+  if (
+    (a.kind === 'module' || a.kind === 'container') &&
+    (b.kind === 'module' || b.kind === 'container')
+  ) {
+    if (a.tagName !== b.tagName) return false;
+    if (!paramsDeepEqual(a.params, b.params)) return false;
+    if (a.children.length !== b.children.length) return false;
+    for (let i = 0; i < a.children.length; i += 1) {
+      const ca = a.children[i];
+      const cb = b.children[i];
+      if (ca === undefined || cb === undefined) return false;
+      if (!elementsEqual(ca, cb)) return false;
+    }
+    if (a.kind === 'module' && b.kind === 'module') {
+      if (a.references.length !== b.references.length) return false;
+      for (let i = 0; i < a.references.length; i += 1) {
+        if (a.references[i] !== b.references[i]) return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function paramsDeepEqual(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  }
+  return true;
 }
 
 /**
@@ -2188,19 +2534,25 @@ function applyMutationResultToSource(
   if (state.documents[sourceIdx] === nextSourceDoc) return;
   const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
   const nextActiveDoc = state.activeDocumentPath === sourceFilePath ? nextSourceDoc : state.doc;
-  const nextDisplayDoc = computeDisplayDoc(
+  const nextDisplayResult = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,
     nextDocuments,
     state.documentPaths,
   );
+  if (nextDisplayResult === null) return;
   set({
     documents: nextDocuments,
     doc: nextActiveDoc,
-    displayDoc: nextDisplayDoc,
+    displayDoc: nextDisplayResult?.doc ?? null,
     dirtyPaths: addToDirty(state.dirtyPaths, sourceFilePath),
     validationErrors: validateProjectForRenderer(nextDocuments),
     lastValidatedAt: Date.now(),
+    // Sprint 17c T10 — refresh warnings in combined mode.
+    warnings:
+      state.viewMode === 'combined' && nextDisplayResult !== null
+        ? nextDisplayResult.warnings
+        : state.warnings,
   });
 }
 
@@ -2220,18 +2572,24 @@ function applyMutationResultToActive(
 ): void {
   if (state.documents[activeIdx] === nextActiveDoc) return;
   const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
-  const nextDisplayDoc = computeDisplayDoc(
+  const nextDisplayResult = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,
     nextDocuments,
     state.documentPaths,
   );
+  if (nextDisplayResult === null) return;
   set({
     documents: nextDocuments,
     doc: nextActiveDoc,
-    displayDoc: nextDisplayDoc,
+    displayDoc: nextDisplayResult?.doc ?? null,
     dirtyPaths: addToDirty(state.dirtyPaths, activeFilePath),
     validationErrors: validateProjectForRenderer(nextDocuments),
     lastValidatedAt: Date.now(),
+    // Sprint 17c T10 — refresh warnings in combined mode.
+    warnings:
+      state.viewMode === 'combined' && nextDisplayResult !== null
+        ? nextDisplayResult.warnings
+        : state.warnings,
   });
 }
