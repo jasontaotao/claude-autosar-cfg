@@ -14,6 +14,8 @@
 // - `schemaVersion` starts at "1". Unknown fields are tolerated on read
 //   to keep older clients from breaking on newer manifests.
 
+import type { ScriptEntry } from '../main/script/types.js';
+
 /** Current manifest schema version. Bump when shape changes incompatibly. */
 export const MANIFEST_SCHEMA_VERSION = '1' as const;
 export type ManifestSchemaVersion = typeof MANIFEST_SCHEMA_VERSION;
@@ -33,6 +35,17 @@ export interface ProjectManifest {
   readonly name: string;
   readonly valueArxmlPaths: readonly string[];
   readonly bswmdPaths: readonly string[];
+
+  /**
+   * Sprint 14 #1 — embedded scripts library. Optional for backward
+   * compatibility with v1.0.0/v1.1.x manifests that predate the script
+   * engine. When absent on disk, `loadManifest` normalises to `[]`.
+   *
+   * Each entry is the full source + metadata for a single user-authored
+   * script (validator / transformer / report / free). The script
+   * engine's `import-resolver` walks `imports[]` to build a DAG.
+   */
+  readonly scripts?: ReadonlyArray<ScriptEntry>;
 }
 
 /**

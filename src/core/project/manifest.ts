@@ -148,6 +148,10 @@ export function migrateManifestPaths(m: ProjectManifest, manifestDir: string): P
     name: m.name,
     valueArxmlPaths: relativise(m.valueArxmlPaths),
     bswmdPaths: relativise(m.bswmdPaths),
+    // Sprint 14 #1 — scripts[] does not contain on-disk paths that need
+    // migration; pass through unchanged. The candidate may already
+    // carry an empty array (legacy) or a real entry list.
+    scripts: m.scripts ?? [],
   };
 }
 
@@ -207,6 +211,8 @@ export function createEmptyManifest(name: string): ProjectManifest {
     name,
     valueArxmlPaths: [],
     bswmdPaths: [],
+    // Sprint 14 #1 — fresh project starts with an empty script library.
+    scripts: [],
   };
 }
 
@@ -263,6 +269,10 @@ function parseManifestShape(
     name: obj.name as string,
     valueArxmlPaths: obj.valueArxmlPaths as readonly string[],
     bswmdPaths: obj.bswmdPaths as readonly string[],
+    // Sprint 14 #1 — backward compat: legacy manifests (v1.1.x and earlier)
+    // have no `scripts` field. Normalise to `[]` so downstream code can
+    // safely use `manifest.scripts ?? []` without per-call checks.
+    scripts: Array.isArray(obj.scripts) ? (obj.scripts as readonly never[]) : [],
   };
 
   if (options.lenientPaths === true) {

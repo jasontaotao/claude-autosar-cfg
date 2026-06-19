@@ -14,6 +14,9 @@ const SAMPLE: ProjectManifest = {
   name: 'CanIf Test',
   valueArxmlPaths: ['./EcuC_EcuC.arxml', './Com_Com.arxml'],
   bswmdPaths: ['./CanIf_bswmd.arxml'],
+  // Sprint 14 #1 — empty script library; round-trips through load/save
+  // as the canonical "fresh project" shape.
+  scripts: [],
 };
 
 // ---------------------------------------------------------------------------
