@@ -5,6 +5,14 @@
 //
 // Sprint 11 Phase 1 (Option A) i18n: title / subtitle / counts go
 // through t(locale, key).
+//
+// Sprint 14 #1 Phase C (T15): appends a "Script 校验" collapsible
+// group at the bottom of the panel that lists scripts of kind
+// 'validator' and their latest run violations. The group is hidden
+// when no validator script has been run, or when the latest run has
+// no violations. Phase D will wire a click-to-open-ScriptPanel
+// affordance; for now the rows render the violation message as
+// read-only text.
 
 import type { JSX } from 'react';
 
@@ -12,6 +20,7 @@ import type { ValidationError } from '@core/validation';
 import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../store/useArxmlStore';
+import { useScriptStore } from '../store/useScriptStore';
 
 import './ValidationPanel.css';
 
@@ -58,10 +67,52 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
   const lastValidatedAt = useArxmlStore((s) => s.lastValidatedAt);
   const select = useArxmlStore((s) => s.select);
   const locale = useArxmlStore((s) => s.locale);
+  // Sprint 14 / T15 — Script 校验 group. Read validator scripts + their
+  // latest run from the script store. The group only renders when at
+  // least one validator exists AND has produced at least one
+  // violation. We compute it before the early-return paths so the
+  // group can attach to every state (empty / valid / invalid).
+  const validatorScripts = useScriptStore((s) => s.scripts.filter((x) => x.kind === 'validator'));
+  const scriptRunResult = useScriptStore((s) => s.runResult);
+  const hasScriptGroup = validatorScripts.length > 0 && scriptRunResult !== null && scriptRunResult.violations.length > 0;
+  const scriptGroupBlock = hasScriptGroup ? (
+    <details
+      className="validation-script-group"
+      data-testid="validation-script-group"
+      open
+    >
+      <summary className="validation-script-group-summary">
+        <span className="kind-badge kind-script-violation">script:*</span>
+        <span className="kind-count">{scriptRunResult?.violations.length ?? 0}</span>
+        <span className="validation-script-group-label">
+          {t(locale, 'script.violation.group')}
+        </span>
+      </summary>
+      <ul className="error-list">
+        {scriptRunResult?.violations.map((v, i) => (
+          <li key={`sv-${i}`}>
+            <span
+              className="error-row validation-script-violation-row"
+              title={v.message}
+              data-testid={`script-violation-row-${i}`}
+            >
+              <code className="error-path">{v.kind}</code>
+              <span className="error-msg">{v.message}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  ) : null;
 
   // No doc loaded
   if (lastValidatedAt === null) {
-    const inner = <p className="muted">{t(locale, 'arxmlPanel.empty')}</p>;
+    const inner = (
+      <>
+        <p className="muted">{t(locale, 'arxmlPanel.empty')}</p>
+        {scriptGroupBlock}
+      </>
+    );
     if (embedded) {
       return (
         <div className="validation-panel-embedded" data-testid="validation-embedded-empty">
@@ -82,6 +133,7 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
       return (
         <div className="validation-panel-embedded" data-testid="validation-embedded-valid">
           <p className="muted">{t(locale, 'validation.subtitle')}</p>
+          {scriptGroupBlock}
         </div>
       );
     }
@@ -96,6 +148,7 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
           <span className="badge badge-ok">{t(locale, 'validation.allPassed')}</span>
         </header>
         <p className="muted">{t(locale, 'validation.subtitle')}</p>
+        {scriptGroupBlock}
       </aside>
     );
   }
@@ -193,6 +246,7 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
           </li>
         ))}
       </ul>
+      {scriptGroupBlock}
     </aside>
   );
 }
