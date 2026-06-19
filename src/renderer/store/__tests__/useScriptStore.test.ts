@@ -38,15 +38,16 @@ const summaries: ScriptSummary[] = [
   },
 ];
 
-interface MockApi {
-  listScripts: ReturnType<typeof vi.fn>;
-  saveScript: ReturnType<typeof vi.fn>;
-  deleteScript: ReturnType<typeof vi.fn>;
-  runScript: ReturnType<typeof vi.fn>;
-}
+// Loose mock-api shape — the store only invokes each method through
+// `window.autosarApi[name]`, which is `unknown` at the type level.
+// We keep the override shape untyped (Record<string, ...>) so individual
+// tests can substitute any vi.fn() overload without TS complaining.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type MockFn = ReturnType<typeof vi.fn<any>>;
+type MockApiOverride = Record<string, MockFn>;
 
-function makeApi(overrides: Partial<MockApi> = {}): MockApi {
-  return {
+function makeApi(overrides: MockApiOverride = {}): MockApiOverride {
+  const api: MockApiOverride = {
     listScripts: vi.fn(async () => ({ scripts: summaries })),
     saveScript: vi.fn(async () => ({ id: 'new-id', updatedAt: 'now' })),
     deleteScript: vi.fn(async () => ({ ok: true as const })),
@@ -58,11 +59,13 @@ function makeApi(overrides: Partial<MockApi> = {}): MockApi {
       mutations: [],
       durationMs: 10,
     })),
-    ...overrides,
   };
+  // Spread overrides on top; TS struggles with the union of vi.fn()
+  // overloads, so we cast at the merge boundary.
+  return { ...api, ...overrides };
 }
 
-function installApi(api: MockApi): void {
+function installApi(api: MockApiOverride): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).window.autosarApi = api;
 }
@@ -75,6 +78,7 @@ beforeEach(() => {
       name: 'Test',
       valueArxmlPaths: [],
       bswmdPaths: [],
+      schemaVersion: '1',
     },
     projectPath: '/tmp/proj.autosarcfg.json',
   });
@@ -212,7 +216,7 @@ describe('useScriptStore — saveScript', () => {
 
   it('returns ok:false with the error message on IPC rejection', async () => {
     const api = makeApi({
-      saveScript: vi.fn(async () => {
+      saveScript: vi.fn(async (): Promise<never> => {
         throw new Error('duplicate shortName');
       }),
     });
@@ -238,7 +242,7 @@ describe('useScriptStore — saveScript', () => {
       kind: 'validator',
       source: '// v2',
     });
-    const call = api.saveScript.mock.calls[0]?.[0] as Record<string, unknown>;
+    const call = (api.saveScript as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] as Record<string, unknown>;
     expect(call.id).toBe('a');
   });
 });
@@ -263,7 +267,7 @@ describe('useScriptStore — deleteScript', () => {
 
   it('returns ok:false on IPC error', async () => {
     const api = makeApi({
-      deleteScript: vi.fn(async () => {
+      deleteScript: vi.fn(async (): Promise<never> => {
         throw new Error('unknown-script');
       }),
     });
@@ -280,9 +284,9 @@ describe('useScriptStore — runScript', () => {
       runScript: vi.fn(async () => ({
         runId: 'r1',
         status: 'ok' as const,
-        logs: [{ level: 'info', message: 'ok', ts: 1 }],
+        logs: [{ level: 'info' as const, message: 'ok', ts: 1 }],
         violations: [],
-        mutations: [{ kind: 'set-param', containerPath: '/p', paramName: 'q', newValue: 1 }],
+        mutations: [{ kind: 'set-param' as const, containerPath: '/p', paramName: 'q', newValue: 1 }],
         durationMs: 12,
       })),
     });
@@ -297,7 +301,7 @@ describe('useScriptStore — runScript', () => {
 
   it('IPC rejection yields runtime-error result, not a thrown exception', async () => {
     const api = makeApi({
-      runScript: vi.fn(async () => {
+      runScript: vi.fn(async (): Promise<never> => {
         throw new Error('manifest-read');
       }),
     });

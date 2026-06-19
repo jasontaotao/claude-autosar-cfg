@@ -349,5 +349,11 @@ function starterForKind(kind: ScriptKind): string {
         'ctx.log.info("script started");',
         '',
       ].join('\n');
+    default: {
+      // Exhaustiveness guard for the ScriptKind union.
+      const _exhaustive: never = kind;
+      void _exhaustive;
+      return '';
+    }
   }
 }
