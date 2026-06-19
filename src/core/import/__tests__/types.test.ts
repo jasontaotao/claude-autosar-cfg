@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 
+import type { ArxmlModule, ArxmlContainer } from '../../arxml/types.js';
 import {
   isImportResolution,
   isImportPatchOp,
@@ -26,7 +27,6 @@ import type {
   MergedView,
   MergedModule,
 } from '../types.js';
-import type { ArxmlModule, ArxmlContainer } from '../../arxml/types.js';
 
 describe('Sprint 14 — types: union constants', () => {
   it('IMPORT_RESOLUTIONS lists exactly 4 kinds', () => {

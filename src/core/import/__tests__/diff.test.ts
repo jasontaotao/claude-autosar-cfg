@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { buildModuleDiff } from '../diff.js';
 import type { ArxmlModule, ArxmlContainer } from '../../arxml/types.js';
+import { buildModuleDiff } from '../diff.js';
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -26,7 +26,7 @@ function makeModule(shortName: string, children: ArxmlContainer[] = []): ArxmlMo
 
 function makeContainer(
   shortName: string,
-  path: string,
+  _path: string,
   params: Record<string, { type: 'string'; value: string }> = {},
   subContainers: ArxmlContainer[] = [],
 ): ArxmlContainer {

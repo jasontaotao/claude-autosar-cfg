@@ -3,12 +3,11 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { compileResolutionToPatches, applyPatchesToDocument } from '../patch.js';
-import type { ArxmlDocument, ArxmlModule } from '../../arxml/types.js';
 import { parseArxml } from '../../arxml/parser.js';
 import { serializeArxml } from '../../arxml/serializer.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '../../arxml/types.js';
+import { compileResolutionToPatches, applyPatchesToDocument } from '../patch.js';
 import type {
-  ImportPatch,
   ImportResolution,
   ImportSession,
   ModuleResolution,
@@ -36,7 +35,7 @@ function makeModule(shortName: string, children: ArxmlModule['children'] = []): 
 function makeContainer(
   shortName: string,
   params: Record<string, { type: 'string'; value: string }> = {},
-): { kind: 'container'; tagName: string; shortName: string; params: typeof params; children: never[] } {
+): ArxmlContainer {
   return {
     kind: 'container',
     tagName: CONT_TAG,
@@ -378,14 +377,14 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     // Arrange
     const doc = makeDoc('/x.arxml', []);
     const leaf = makeContainer('Leaf', { V: { type: 'string', value: 'x' } });
-    const inner: ReturnType<typeof makeContainer> = {
+    const inner: ArxmlContainer = {
       kind: 'container',
       tagName: CONT_TAG,
       shortName: 'B',
       params: {},
       children: [leaf],
     };
-    const outer: ReturnType<typeof makeContainer> = {
+    const outer: ArxmlContainer = {
       kind: 'container',
       tagName: CONT_TAG,
       shortName: 'A',

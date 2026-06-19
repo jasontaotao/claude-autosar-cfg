@@ -17,13 +17,14 @@
 //   - The function NEVER mutates its inputs. The result containers
 //     array is sorted by path so equality checks in tests are stable.
 
-import type { Result } from '../arxml/types.js';
 import type {
   ArxmlContainer,
   ArxmlElement,
   ArxmlModule,
   ParamValue,
+  Result,
 } from '../arxml/types.js';
+
 import type {
   ContainerDiff,
   ImportError,

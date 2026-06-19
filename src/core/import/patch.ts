@@ -34,6 +34,7 @@ import type {
   ArxmlModule,
   ArxmlPackage,
 } from '../arxml/types.js';
+
 import type {
   ImportPatch,
   ImportPatchOp,

@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { buildMergedView } from '../merge.js';
 import type { ArxmlDocument, ArxmlModule } from '../../arxml/types.js';
+import { buildMergedView } from '../merge.js';
 import type {
   ImportResolution,
   ImportSession,

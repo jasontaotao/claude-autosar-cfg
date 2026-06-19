@@ -15,6 +15,7 @@
 // DiffTable) and by the validator (cross-ref / ref-dest etc.).
 
 import type { ArxmlDocument, ArxmlElement, ArxmlModule } from '../arxml/types.js';
+
 import type {
   ImportResolution,
   ImportSession,
