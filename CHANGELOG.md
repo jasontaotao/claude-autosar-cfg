@@ -5,6 +5,117 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-06-19 — Sprint 16 Fixes Batch
+
+Sprint 16 (16a + 16b + 16c) 集中修复 v1.1.0 ship 后发现 / 回归的 5 个关键
+issue，重点在 DEFINITION-REF 链路 end-to-end 一致 + manifest 路径迁移 +
+save/delete race。
+
+### Added (Sprint 16)
+
+- **Save All 按钮** (`5534cce`)：multi-ECUC dirty session 一键 save，每个
+  文件独立的 partial-failure UI。
+- **PICKER exclude + dirty-guard** (`a227220`)：picker 选择新文件时排除
+  当前 dirty 文件；save failure 提示用户。
+- **Sprint 16c #4 回归捕获** (`f7b69a3`)：controller 用 dedicated
+  reload-then-save 测试抓到 parser 剥 `definitionRef` 的 silent regression。
+
+### Changed (Sprint 16)
+
+- **DEFINITION-REF 链路 end-to-end 一致**：parser (`f7b69a3`) /
+  addParameter (`4453d46`) / addReference (`4453d46`) / serializer /
+  skeleton 五层都 stamp `definitionRef`，reload 后再 save 不丢失。
+- **v1.1.0 → v1.1.1 manifest 路径迁移透明** (`8fe1d28`)：`loadManifest(json, manifestDir?)`
+  + `migrateManifestPaths` 接受老 v1.1.0 absolute-path manifest，不需要用户
+  手动迁移。
+- **Save-then-delete race 修复** (`dc92982`)：`removeEcucFiles` 在第一个
+  save 失败时 `BREAK`，失败的 target 不再被 delete 掉（**数据丢失修复**）。
+- **Combined Tree View smart basename wrapper skip** (`ad57e6a`)：避免
+  重复嵌套同名 wrapper。
+- **Silent save-back when currentPath known** (`8ac5243`)：save dialog
+  在 currentPath 已知时静默回写，不再弹窗。
+- **DEFINITION-REF 真路径写入** (`b767ea6`)：arxml 写出时把真实 BSWMD
+  路径写到 `<DEFINITION-REF>` 而非占位符。
+- **`<Module>_EcucValues.arxml` 命名规范** (`8858c9f`)：取代
+  `<Module>_Cfg.arxml`，与 AUTOSAR 工具链约定一致。
+- **manifest 路径持久化前 relativize** (`edaff98`)：确保 manifest 跨机器
+  可移植。
+
+### Tests (Sprint 16)
+
+- **1178 tests** passing across 93 test files (1 skipped)
+- **0 type errors** / **0 lint errors**
+- **+149 tests** since v1.1.0 (1029 → 1178)
+- 14 commits / 40 files / +3797 / -245
+
+### Files (Sprint 16)
+
+- `package.json` version: `1.1.0` → **`1.1.1`** (PATCH)
+- New IPC contract additions (all additive, backward compatible):
+  - `removeEcucFiles` accepts `phase: 'save' | 'delete'` discriminator
+  - `loadManifest(json, manifestDir?)` adds optional `manifestDir`
+  - `ParamValue` / `ReferenceValue` gain optional `definitionRef?` field
+
+### Follow-ups (tracked for v1.1.2)
+
+- `toManifestRelative` already-relative 透传不 reject `..`
+- `saveArxmlHandler` collapse 所有 write error 成单一 kind
+- T5 confirm dialog dead `'continue'` branch
+- T5 picker stale-seed when documents change externally
+- T7 CSS `.app-btn-save-all.is-dirty` visual cue
+- T7 zh-CN coverage for `app.saveAllPartial`
+- `info` / `notice` channel for success toasts (currently red ErrorBanner)
+- Cross-task: consolidate "find doc by filePath" into single store selector
+- `buildCombinedDocument` flat-mode duplicate root packages
+
+---
+
+## [1.1.0] - 2026-06-18 — Sprint 14 BSWMD-to-ECUC
+
+Sprint 14 落地 BSWMD schema-side → ECUC value-side 模块选择的完整 workflow。
+Spec approved (commit `a29d4f2`)，14 task + 4 side commits ship 到 main。
+
+### Added (Sprint 14)
+
+- **Multi-pick BSWMD-to-ECUC** (`sprint-14-ecuc-from-bswmd`)：从已加载
+  BSWMD 文件选择 1+ ECUC 模块定义生成对应 value-side ECUC 容器。
+- **Reverse op support**：从已存在 ECUC 容器反向 trace 回 BSWMD 定义
+  路径（multi-pick scenario）。
+- **CascadeConfirmDialog 复用**：和 Sprint 15 共享 cascade 确认组件。
+
+### Changed (Sprint 14)
+
+- **Q6 duplicate definition diagnostics** (`5b86510` on
+  `feature/post-v1.0.0-wip`)：BSWMD 重复定义时给精准诊断信息。
+- **Q1 resizable left/right columns** (`a8f78ee`)：workspace 列宽可拖拽。
+- **Q2 two-segment grouping + dark-mode color fixes** (`45a225a`)：
+  editor 双段分组。
+- **Q5 project tab split + Q2-3 loose mode hint** (`09db4b9`)：project
+  tab 拆分。
+
+### Tests (Sprint 14)
+
+- **1076 tests** passing across 89 test files
+- **96.8% statements / 89.7% branches / 100% functions** (post-Sprint 14)
+- **89 files changed**
+
+### Files (Sprint 14)
+
+- `package.json` version: `1.0.0` → **`1.1.0`** (MINOR — feature add)
+- Spec: `docs/superpowers/specs/2026-06-18-bswmd-to-ecuc-design.md`
+- Plan: `docs/superpowers/plans/2026-06-18-ecuc-from-bswmd.md`
+- HTML mockup: `docs/bswmd-to-ecuc-mockup.html`
+
+### Known issues at v1.1.0 (resolved in v1.1.1)
+
+- Manifest 持久化路径在 cross-machine 不可移植（v1.1.1 `8fe1d28` 修复）
+- addParameter 不 stamp `definitionRef` 导致 reload 后丢失（T3 合约缺口；
+  v1.1.1 `4453d46` 修复）
+- removeEcuc save 失败后仍继续 delete（数据丢失；v1.1.1 `dc92982` 修复）
+- Parser reload 时剥 `definitionRef`（v1.1.1 `f7b69a3` 修复）
+
+---
+
 ## [1.0.0] - 2026-06-17 — Release Ready (Wave 4: coverage ≥90% + version bump)
 
 The first **release-ready major** for claude-AutosarCfg. All Wave 1–3 work
