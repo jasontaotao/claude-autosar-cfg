@@ -26,6 +26,8 @@ import { basename } from '@shared/path';
 // dropdown in Q2-3; if a future feature re-adds them, re-import.
 import { useArxmlStore } from '../store/useArxmlStore';
 
+import { ImportEntry } from './ImportEntry';
+
 import './FileListTab.css';
 
 export function FileListTab(): JSX.Element {
@@ -64,6 +66,12 @@ export function FileListTab(): JSX.Element {
           {arxmlPaths.length > 0 && (
             <span className="file-list-tab-count">{arxmlPaths.length}</span>
           )}
+        </div>
+        {/* Sprint 14 / T10 — ECUC ARXML Import entry point. Sits at
+            the top of the ARXML list so it's discoverable alongside
+            the existing "add / remove document" controls. */}
+        <div className="file-list-tab-import-row">
+          <ImportEntry />
         </div>
         {arxmlPaths.length === 0 ? (
           <div className="file-list-tab-empty">{t(locale, 'projectPanel.arxml.empty')}</div>

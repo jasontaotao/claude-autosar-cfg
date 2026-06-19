@@ -87,6 +87,7 @@ function makeSession(parts: Partial<ImportSession>): ImportSession {
     resolutions: [],
     activeModuleForDiff: null,
     createdAt: 0,
+    undoStack: [],
     ...parts,
   };
 }

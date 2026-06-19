@@ -113,7 +113,9 @@ describe('useArxmlStore — ImportSession (Sprint 14 / Phase 3)', () => {
       const incoming = makeDoc('/in/Can.arxml', [makeModule('Can', 'IncomingCanConfig')]);
       store.startImport([incoming], ['/in/Can.arxml']);
       const next = useArxmlStore.getState();
-      const sel = next.importSession?.selections[0]!;
+      const session = next.importSession;
+      if (session === null) throw new Error('expected importSession');
+      const sel = session.selections[0]!;
       expect(sel.collidesWithTarget).toBe(true);
       expect(sel.targetModulePath).toBe('/EAS/Can');
     });

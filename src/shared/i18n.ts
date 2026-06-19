@@ -184,6 +184,8 @@ export interface Messages {
   readonly 'confirm.unsaved.message.open': string; // {name}
   readonly 'confirm.unsaved.message.addBswmd': string; // {name}
   readonly 'confirm.unsaved.message.removeBswmd': string; // {name} {target}
+  // Sprint 14 / T10 — ECUC ARXML Import entry-point dirty-guard.
+  readonly 'confirm.unsaved.message.import': string; // {name}
   readonly 'confirm.unsaved.discard.new': string;
   readonly 'confirm.unsaved.discard.open': string;
   readonly 'confirm.unsaved.discard.addBswmd': string;
@@ -495,6 +497,8 @@ export const MessagesZhCN: Messages = {
     '当前项目 {name} 有未保存的更改。\n添加 BSWMD 将丢失这些更改。',
   'confirm.unsaved.message.removeBswmd':
     '当前项目 {name} 有未保存的更改。\n移除 BSWMD {target} 将丢失这些更改。',
+  'confirm.unsaved.message.import':
+    '当前项目 {name} 有未保存的更改。\n导入 ARXML 将丢失这些更改。',
   'confirm.unsaved.discard.new': '不保存，新建',
   'confirm.unsaved.discard.open': '不保存，打开',
   'confirm.unsaved.discard.addBswmd': '不保存，添加',
@@ -763,6 +767,8 @@ export const MessagesEn: Messages = {
     'Project "{name}" has unsaved changes.\nAdding a BSWMD will discard them.',
   'confirm.unsaved.message.removeBswmd':
     'Project "{name}" has unsaved changes.\nRemoving BSWMD {target} will discard them.',
+  'confirm.unsaved.message.import':
+    'Project "{name}" has unsaved changes.\nImporting ARXML will discard them.',
   'confirm.unsaved.discard.new': 'Discard & New',
   'confirm.unsaved.discard.open': 'Discard & Open',
   'confirm.unsaved.discard.addBswmd': 'Discard & Add',

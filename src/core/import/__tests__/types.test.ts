@@ -206,6 +206,7 @@ describe('Sprint 14 — types: readonly invariants', () => {
       resolutions: [],
       activeModuleForDiff: null,
       createdAt: 1234,
+      undoStack: [],
     };
     expect(session.id).toBe('sess-1');
     expect(session.incomingDocs).toHaveLength(1);

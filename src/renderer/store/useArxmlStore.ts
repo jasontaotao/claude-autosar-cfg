@@ -20,6 +20,15 @@ import type {
   ParamValue,
   Result,
 } from '@core/arxml/types';
+import { applyPatchesToDocument, compileResolutionToPatches } from '@core/import/patch.js';
+import type {
+  ImportError,
+  ImportPatchOp,
+  ImportResolution,
+  ImportSession,
+  ModuleResolution,
+  ModuleSelection,
+} from '@core/import/types.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type {
   BswModuleDef,
@@ -34,16 +43,6 @@ import { DEFAULT_LOCALE, t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
-// Sprint 14 — ECUC ARXML Import slice.
-import { applyPatchesToDocument, compileResolutionToPatches } from '@core/import/patch.js';
-import type {
-  ImportError,
-  ImportPatchOp,
-  ImportResolution,
-  ImportSession,
-  ModuleResolution,
-  ModuleSelection,
-} from '@core/import/types.js';
 
 /**
  * Renderer-side state for the open ARXML document set.
@@ -1523,11 +1522,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     set({
       importSession: null,
       viewMode: 'single',
-      // activeModuleForDiff is nested inside importSession — once
+      // activeModuleForDiff is nested inside importSession; once
       // the session is null there is no diff to display. The
       // setter would be a no-op anyway; we just make the intent
       // explicit.
-      activeModuleForDiff: null,
     });
   },
 
@@ -2402,18 +2400,21 @@ function shortName(e: ArxmlElement): string {
  * document (or null when no docs are loaded).
  */
 function computeDisplayDoc(
-  mode: 'single' | 'combined',
+  mode: 'single' | 'combined' | 'import-merged',
   activeDoc: ArxmlDocument | null,
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
 ): CombinedDocumentResult | null {
-  if (mode === 'single') {
-    // Single mode passes through the active doc unchanged; no
-    // dedup applies (only one source). The result is still
-    // wrapped in a `CombinedDocumentResult` for type uniformity
-    // with the combined-mode branch — the empty warnings array
-    // is intentional. `doc` may be null when no source documents
-    // are loaded; callers treat that as "no display content".
+  if (mode === 'single' || mode === 'import-merged') {
+    // Single / import-merged mode passes through the active doc
+    // unchanged; the import-merged view synthesises its own tree
+    // in the ModuleSelectionPanel / DiffTable components, so the
+    // legacy Tree continues to show the active doc behind the
+    // import slice. The result is wrapped in a
+    // `CombinedDocumentResult` for type uniformity with the
+    // combined-mode branch — the empty warnings array is
+    // intentional. `doc` may be null when no source documents are
+    // loaded; callers treat that as "no display content".
     return { doc: activeDoc, warnings: [] };
   }
   if (documents.length === 0) return null;
