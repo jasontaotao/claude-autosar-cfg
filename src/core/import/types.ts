@@ -154,6 +154,10 @@ export interface ModuleResolution {
  * core/import/* modules consume snapshots of this shape and return
  * patches / diffs. `incomingDocs` is never mutated — patches compile
  * into new ArxmlDocument values (spec §7.3 all-or-nothing).
+ *
+ * `undoStack` is a ≤20-step history of the `resolutions` array,
+ * one snapshot per `resolveModule` call. Popped by `undoInternal`
+ * (pre-commit only). Cleared on `cancelImport` / `commitImport`.
  */
 export interface ImportSession {
   readonly id: string;
@@ -163,6 +167,7 @@ export interface ImportSession {
   readonly resolutions: readonly ModuleResolution[];
   readonly activeModuleForDiff: string | null;
   readonly createdAt: number;
+  readonly undoStack: readonly (readonly ModuleResolution[])[];
 }
 
 // ---------------------------------------------------------------------------

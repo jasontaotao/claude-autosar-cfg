@@ -33,6 +33,11 @@ import { DEFAULT_LOCALE, t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
+// Sprint 14 — ECUC ARXML Import slice.
+import type {
+  ImportSession,
+  ModuleSelection,
+} from '@core/import/types.js';
 
 /**
  * Renderer-side state for the open ARXML document set.
@@ -236,9 +241,36 @@ export interface ArxmlState {
   // paths are prefixed with the source file's basename. `setViewMode`
   // resets `selectedPath` so a stale single-mode path doesn't leak
   // into the combined view (and vice versa).
-  readonly viewMode: 'single' | 'combined';
+  // Sprint 14 widens `viewMode` to a 3-state machine so the Import
+  // Merged View can sit alongside the Combined View. The setter
+  // signature widens too; the Phase 1+2 commit imports still
+  // satisfy the original 'single' | 'combined' shape via the
+  // broader union.
+  readonly viewMode: 'single' | 'combined' | 'import-merged';
   readonly displayDoc: ArxmlDocument | null;
-  setViewMode: (mode: 'single' | 'combined') => void;
+  setViewMode: (mode: 'single' | 'combined' | 'import-merged') => void;
+
+  // Sprint 14 ECUC ARXML Import — ImportSession slice (Phase 3).
+  // viewMode widens to a 3-state machine: 'single' | 'combined' |
+  // 'import-merged'. The 'import-merged' state is set by startImport
+  // and cleared by cancelImport / commitImport; while active, the
+  // Combined View entry is hidden and Save is blocked (the user must
+  // commit or cancel before persisting).
+  //
+  // - importSession: the running session (incoming docs + selections +
+  //   resolutions + undo stack). `null` when no import is in progress.
+  // - lastCommitSnapshot: Map<filePath, ArxmlDocument> capturing the
+  //   pre-commit state of every sourceFilesTouched file, so
+  //   undoLastCommit can restore the documents array. Cleared on the
+  //   next commit or save.
+  // - isDirty() widens to also return true when importSession !== null
+  //   so the app-close path treats an in-flight import as unsaved.
+  readonly importSession: ImportSession | null;
+  readonly lastCommitSnapshot: ReadonlyMap<string, ArxmlDocument> | null;
+  startImport: (
+    incomingDocs: readonly ArxmlDocument[],
+    originalPaths: readonly string[],
+  ) => void;
 
   // Sprint 17c T10 — build warnings surfaced from the combined
   // document synthesis. `buildCombinedDocument` now deduplicates root
@@ -538,9 +570,15 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // Sprint 13 Stage 3.5 — combined view defaults. `viewMode` starts
   // 'single' so the existing 746-test baseline sees no change; the
   // 'combined' mode is opt-in via the [Combined] virtual entry in
-  // FileListTab.
+  // FileListTab. Sprint 14 widens the union to a 3-state machine
+  // ('single' | 'combined' | 'import-merged') so the Import slice
+  // can sit alongside Combined View.
   viewMode: 'single',
   displayDoc: null,
+  // Sprint 14 — ImportSession slice defaults. No import in flight,
+  // no last-commit snapshot.
+  importSession: null,
+  lastCommitSnapshot: null,
   // Sprint 12 #3 Task 7 — dialog state defaults. Both dialogs start
   // closed; no pending action. The `isDirty` getter is a function on
   // the state (zustand permits functions in state alongside data) so
@@ -1115,7 +1153,33 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // whose top-level packages are file basenames, not root packages).
   setViewMode: (mode) => {
     const state = get();
-    const displayResult = computeDisplayDoc(mode, state.doc, state.documents, state.documentPaths);
+    // Sprint 14 — three-state guard. Switching to 'combined' while
+    // an import session is in flight is rejected with a viewMode-
+    // locked error: the user must commit or cancel the import
+    // first. Switching to 'single' / 'import-merged' is always
+    // allowed (the import flow owns its own view state).
+    if (state.viewMode === 'import-merged' && mode === 'combined') {
+      set({
+        error: t(state.locale, 'app.import.error.viewModeLocked'),
+      });
+      return;
+    }
+    // 'import-merged' is only entered via startImport (never via
+    // setViewMode directly) — guard against external misuse.
+    if (mode === 'import-merged' && state.importSession === null) {
+      return;
+    }
+    // Sprint 14 — when transitioning OUT of import-merged the
+    // displayDoc should be rebuilt from the single-mode set (the
+    // import-merged view synthesises its own tree; switching back
+    // means re-rendering the active doc).
+    const effectiveMode = state.viewMode === 'import-merged' ? 'single' : mode;
+    const displayResult = computeDisplayDoc(
+      effectiveMode,
+      state.doc,
+      state.documents,
+      state.documentPaths,
+    );
     // Sprint 17c T10 — when entering combined mode, populate the
     // warnings slice from the fresh build. When leaving combined
     // mode, clear warnings (they only apply to the combined view).
@@ -1124,12 +1188,71 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // itself is still meaningful (e.g. tests covering the flip
     // without a loaded doc).
     const nextWarnings: readonly CombinedDocumentWarning[] =
-      mode === 'combined' ? (displayResult?.warnings ?? []) : [];
+      effectiveMode === 'combined' ? (displayResult?.warnings ?? []) : [];
     set({
       viewMode: mode,
       displayDoc: displayResult?.doc ?? null,
       warnings: nextWarnings,
       selectedPath: null,
+    });
+  },
+
+  // -------------------------------------------------------------------
+  // Sprint 14 ECUC ARXML Import — actions
+  //
+  // The import slice sits on top of the existing multi-doc state
+  // without mutating `documents` until `commitImport` succeeds.
+  // startImport snapshots incoming docs into `importSession`; the
+  // subsequent T7/T8/T9 actions (selectModule / resolveModule /
+  // commitImport / cancelImport / undoLastCommit) build on top of
+  // this state. T6 ships just `startImport` so the foundation
+  // (state shape + viewMode 3-state) is in place.
+  // -------------------------------------------------------------------
+
+  startImport: (incomingDocs, originalPaths) => {
+    // Build a flat list of selections — one row per module across
+    // every incoming document. The merged path uses the
+    // `[import:N]` segment naming (see core/import/merge.ts).
+    const selections: ModuleSelection[] = [];
+    for (let docIdx = 0; docIdx < incomingDocs.length; docIdx += 1) {
+      const doc = incomingDocs[docIdx]!;
+      for (const pkg of doc.packages) {
+        for (const el of pkg.elements) {
+          collectModules(el, (m) => {
+            const mergedPath = `/[import:${docIdx}]${pkg.path}/${m.shortName}`;
+            const targetHit = findTargetModuleForShortName(
+              get().documents,
+              m.shortName,
+            );
+            selections.push({
+              mergedModulePath: mergedPath,
+              sourceDocIndex: docIdx,
+              moduleShortName: m.shortName,
+              selected: true,
+              collidesWithTarget: targetHit !== null,
+              targetModulePath: targetHit,
+            });
+            return undefined;
+          });
+        }
+      }
+    }
+    const session: ImportSession = {
+      id: `import-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      incomingDocs,
+      originalPaths,
+      selections,
+      resolutions: [],
+      activeModuleForDiff: null,
+      createdAt: Date.now(),
+      undoStack: [],
+    };
+    set({
+      importSession: session,
+      viewMode: 'import-merged',
+      // Clear lastCommitSnapshot — a previous commit is no longer
+      // "the last commit" once a new session starts.
+      lastCommitSnapshot: null,
     });
   },
 
@@ -1600,6 +1723,52 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
 // ---------------------------------------------------------------------------
 // Project-sync helpers (Sprint 11 Phase 1)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Sprint 14 — ImportSession helpers.
+//
+// `collectModules` walks an ArxmlElement subtree and yields every
+// module (used by `startImport` to enumerate incoming modules for the
+// ModuleSelectionPanel list).
+//
+// `findTargetModuleForShortName` searches the loaded target documents
+// for a module with the given shortName and returns its path inside
+// the first matching document (or null when no collision exists).
+// ---------------------------------------------------------------------------
+
+function collectModules(
+  el: ArxmlElement,
+  visit: (m: ArxmlModule) => void,
+): void {
+  if (el.kind === 'module') {
+    visit(el);
+    return;
+  }
+  if (el.kind === 'container') {
+    for (const c of el.children) collectModules(c, visit);
+  }
+}
+
+function findTargetModuleForShortName(
+  documents: readonly ArxmlDocument[],
+  shortName: string,
+): string | null {
+  for (const doc of documents) {
+    for (const pkg of doc.packages) {
+      for (const el of pkg.elements) {
+        let foundPath: string | null = null;
+        collectModules(el, (m) => {
+          if (m.shortName === shortName && foundPath === null) {
+            foundPath = `${pkg.path}/${m.shortName}`;
+          }
+          return undefined;
+        });
+        if (foundPath !== null) return foundPath;
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Return a new manifest with `path` appended to valueArxmlPaths, or the
