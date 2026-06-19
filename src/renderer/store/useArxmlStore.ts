@@ -18,6 +18,7 @@ import type {
   ArxmlModule,
   ArxmlPackage,
   ParamValue,
+  Result,
 } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type {
@@ -34,7 +35,10 @@ import type { Locale } from '@shared/i18n';
 import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 // Sprint 14 — ECUC ARXML Import slice.
+import { applyPatchesToDocument, compileResolutionToPatches } from '@core/import/patch.js';
 import type {
+  ImportError,
+  ImportPatchOp,
   ImportResolution,
   ImportSession,
   ModuleResolution,
@@ -282,6 +286,7 @@ export interface ArxmlState {
   openDiff: (mergedPath: string) => void;
   closeDiff: () => void;
   undoInternal: () => void;
+  commitImport: () => Result<{ readonly sourceFilesTouched: readonly string[] }, ImportError>;
 
   // Sprint 17c T10 — build warnings surfaced from the combined
   // document synthesis. `buildCombinedDocument` now deduplicates root
@@ -1356,6 +1361,139 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     });
   },
 
+  // -------------------------------------------------------------------
+  // Sprint 14 ECUC ARXML Import — T8 commitImport.
+  //
+  // All-or-nothing commit (spec §7.3):
+  //   1. Compile the session into per-source-file ImportPatch[] via
+  //      `compileResolutionToPatches`. Filter out 'skip' /
+  //      'keep-existing' resolutions — they produce no ops.
+  //   2. Snapshot only the TARGET files that will be modified
+  //      (`sourceFilesTouched` is the set of target filePaths, not
+  //      incoming paths). The patch compiler keys by incoming
+  //      sourceFile, so we re-key per selection here.
+  //   3. Apply patches one target file at a time, immutable. If
+  //      any `applyPatchesToDocument` throws, return the failure
+  //      WITHOUT calling set() — the snapshot is the implicit
+  //      rollback (we never wrote it back).
+  //   4. After all patches succeed, set() the full update: new
+  //      documents, dirtyPaths += sourceFilesTouched, importSession
+  //      cleared, viewMode='single', lastCommitSnapshot saved,
+  //      revalidation trio (validationErrors + lastValidatedAt).
+  // -------------------------------------------------------------------
+
+  commitImport: () => {
+    const state = get();
+    if (state.importSession === null) {
+      return {
+        ok: false,
+        error: { kind: 'no-modules-selected' },
+      } satisfies Result<{ readonly sourceFilesTouched: readonly string[] }, ImportError>;
+    }
+    const selectedCount = state.importSession.selections.filter((s) => s.selected).length;
+    if (selectedCount === 0) {
+      return {
+        ok: false,
+        error: { kind: 'no-modules-selected' },
+      } satisfies Result<{ readonly sourceFilesTouched: readonly string[] }, ImportError>;
+    }
+    const patches = compileResolutionToPatches(state.importSession, state.documents);
+    // The compiled patches are keyed by INCOMING sourceFile. Spec
+    // §6.1 step 8 groups by TARGET file (the doc being modified), so
+    // we re-key here: for every selected row we determine which
+    // target document it should land in and filter the patch ops
+    // down to those that target the selection's module shortName.
+    const activeTargetPath = state.filePath ?? state.documentPaths[0] ?? null;
+    const patchesByTarget = new Map<string, ImportPatchOp[]>();
+    for (const sel of state.importSession.selections) {
+      if (!sel.selected) continue;
+      // Default resolution: 'overwrite' for un-opened diffs
+      // (spec §6.1 step 7). The patch compiler uses the same
+      // default so we mirror it here when computing the per-
+      // target patch list.
+      const resolution =
+        state.importSession.resolutions.find(
+          (r) => r.mergedModulePath === sel.mergedModulePath,
+        )?.resolution ?? 'overwrite';
+      if (resolution === 'keep-existing' || resolution === 'skip') {
+        continue;
+      }
+      const targetPath =
+        sel.targetModulePath !== null
+          ? findOwningTargetPath(state.documents, state.documentPaths, sel.targetModulePath) ??
+            activeTargetPath
+          : activeTargetPath;
+      if (targetPath === null) continue;
+      const list = patchesByTarget.get(targetPath) ?? [];
+      for (const p of patches) {
+        if (p.sourceFile !== state.importSession.originalPaths[sel.sourceDocIndex]) continue;
+        for (const op of p.ops) {
+          if (opTargetsModule(op, sel.moduleShortName)) {
+            list.push(op);
+          }
+        }
+      }
+      patchesByTarget.set(targetPath, list);
+    }
+    const sourceFilesTouched = new Set(patchesByTarget.keys());
+    // Step 1: snapshot only the sourceFilesTouched documents.
+    const snapshots = new Map<string, ArxmlDocument>();
+    for (const filePath of sourceFilesTouched) {
+      const idx = state.documentPaths.indexOf(filePath);
+      if (idx !== -1) {
+        snapshots.set(filePath, state.documents[idx]!);
+      }
+    }
+    // Step 2: apply patches. On any throw → return error WITHOUT
+    // mutating state (the snapshot is the implicit rollback —
+    // we simply don't set()).
+    let nextDocuments: readonly ArxmlDocument[] = state.documents;
+    try {
+      for (const [filePath, ops] of patchesByTarget) {
+        if (ops.length === 0) continue;
+        const idx = state.documentPaths.indexOf(filePath);
+        if (idx === -1) continue;
+        const newDoc = applyPatchesToDocument(state.documents[idx]!, ops);
+        nextDocuments = nextDocuments.map((d, i) => (i === idx ? newDoc : d));
+      }
+    } catch (err) {
+      // patch-apply-failed — importSession preserved, documents
+      // unchanged. We don't set() so the store remains at its
+      // pre-attempt state.
+      const message = err instanceof Error ? err.message : String(err);
+      const firstSource = [...sourceFilesTouched][0] ?? '';
+      return {
+        ok: false,
+        error: {
+          kind: 'patch-apply-failed',
+          sourceFile: firstSource,
+          moduleShortName: '',
+          message,
+        },
+      };
+    }
+    // Step 3: commit. documents / dirtyPaths / importSession /
+    // viewMode / lastCommitSnapshot / validationErrors /
+    // lastValidatedAt all move together.
+    const nextDirty = new Set(state.dirtyPaths);
+    for (const filePath of sourceFilesTouched) {
+      nextDirty.add(filePath);
+    }
+    set({
+      documents: nextDocuments,
+      dirtyPaths: nextDirty,
+      importSession: null,
+      viewMode: 'single',
+      lastCommitSnapshot: snapshots,
+      validationErrors: validateProjectForRenderer(nextDocuments),
+      lastValidatedAt: Date.now(),
+    });
+    return {
+      ok: true,
+      value: { sourceFilesTouched: [...sourceFilesTouched] },
+    };
+  },
+
   // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
   // touch a single field and are intentionally side-effect-free: the
   // store doesn't gate visibility on dirty state, the hook layer
@@ -1868,6 +2006,56 @@ function findTargetModuleForShortName(
     }
   }
   return null;
+}
+
+/**
+ * Given a `targetModulePath` like `/EAS/Can` and the parallel
+ * documents/documentPaths arrays, return the filePath of the
+ * document that owns that module. Returns null when the path can't
+ * be located. Used by `commitImport` to route merge/overwrite
+ * ops to the right target file when a module collides across
+ * loaded documents.
+ */
+function findOwningTargetPath(
+  documents: readonly ArxmlDocument[],
+  documentPaths: readonly string[],
+  targetModulePath: string,
+): string | null {
+  const segments = targetModulePath.split('/').filter(Boolean);
+  for (let i = 0; i < documents.length; i += 1) {
+    const doc = documents[i]!;
+    for (const pkg of doc.packages) {
+      if (pkg.shortName !== segments[0]) continue;
+      if (segments.length === 2) {
+        for (const el of pkg.elements) {
+          if (el.kind === 'module' && el.shortName === segments[1]) {
+            return documentPaths[i] ?? null;
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * True when the given patch op targets a module with `shortName`.
+ * Used by `commitImport` to split the compiled patch list per
+ * selection. rename-incoming is matched on its `originalShortName`
+ * — the rename is paired with the next add-module that carries
+ * the new name, so capturing the originalShortName pulls both
+ * ops together.
+ */
+function opTargetsModule(op: ImportPatchOp, shortName: string): boolean {
+  switch (op.kind) {
+    case 'add-module':
+      return op.module.shortName === shortName;
+    case 'merge-into-module':
+    case 'overwrite-module':
+      return op.moduleShortName === shortName;
+    case 'rename-incoming':
+      return op.originalShortName === shortName;
+  }
 }
 
 /**
