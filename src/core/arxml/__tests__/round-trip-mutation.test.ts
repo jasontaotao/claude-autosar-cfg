@@ -164,6 +164,89 @@ describe('round-trip: addParameter survives serialize / re-parse', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprint 16c #2 — addParameter stamps BSWMD path on DEFINITION-REF
+// ---------------------------------------------------------------------------
+
+/**
+ * Sprint 16c #2 — `addParameter` must stamp `definitionRef: paramDef.path`
+ * on the new `ParamValue` so the serializer (Sprint 16 T3) writes the
+ * real BSWMD path instead of falling back to
+ * `/__synthesized__/<shortName>`. The permissive BSWMD used here does NOT
+ * place the param in a real `ContainerDef.parameters[]` — the add path
+ * tolerates that by skipping the cross-reference check (see mutation.ts
+ * `addParameter` body, sub-path branch). The BSWMD path we pass on the
+ * `paramDef` is the only thing the new code reads.
+ *
+ * We verify the contract end-to-end: addParameter → serialize → re-parse
+ * → assert the round-tripped `ParamValue` carries `definitionRef`.
+ */
+describe('round-trip: addParameter stamps BSWMD path as definitionRef (Sprint 16c #2)', () => {
+  it.each(SAMPLES)('%s', async (name) => {
+    // Arrange
+    const { doc, moduleShortName } = await loadParsed(name);
+    const modulePath = modulePathOf(doc);
+    const moduleDef = makePermissiveModuleDef(moduleShortName);
+    const realBswmdPath = '/Some/Real/Bswmd/Path/TestParam';
+    const paramDef: ParamDef = {
+      ...makePermissiveParamDef('TestParam'),
+      path: realBswmdPath,
+    };
+
+    // Act
+    const m1 = addParameter(doc, modulePath, paramDef, moduleDef);
+    expect(m1.ok).toBe(true);
+    if (!m1.ok) return;
+    // Confirm the in-memory shape carries the definitionRef.
+    const newMod = m1.value.packages[0]!.elements.find(
+      (e) => e.kind === 'module',
+    ) as ArxmlModule;
+    expect(newMod.params['TestParam']?.definitionRef).toBe(realBswmdPath);
+
+    // Serialize — the serialized XML is the user-visible "save" output.
+    // The DEFINITION-REF text for the *new* param must be the real BSWMD
+    // path, NOT the /__synthesized__/<shortName> placeholder. (Other
+    // pre-existing params in the fixture may still carry /__synthesized__/
+    // — those are out of scope here; we only care about the one we just
+    // added.)
+    const s1 = serializeArxml(m1.value);
+    expect(s1.ok).toBe(true);
+    if (!s1.ok) return;
+    expect(s1.value).toContain(`>${realBswmdPath}</DEFINITION-REF>`);
+    expect(s1.value).not.toContain(`/__synthesized__/TestParam`);
+  });
+});
+
+/**
+ * Edge case — `paramDef.path` is empty (degenerate BSWMD). The new code
+ * must skip stamping the field so the serializer falls back to the
+ * existing `/__synthesized__/<shortName>` placeholder rather than emit
+ * an empty DEFINITION-REF.
+ */
+describe('round-trip: addParameter with empty paramDef.path skips definitionRef (Sprint 16c #2)', () => {
+  it('empty path: no definitionRef on the new value (existing fallback applies)', async () => {
+    // Arrange
+    const { doc, moduleShortName } = await loadParsed('Com_Com');
+    const modulePath = modulePathOf(doc);
+    const moduleDef = makePermissiveModuleDef(moduleShortName);
+    const paramDef: ParamDef = {
+      ...makePermissiveParamDef('EmptyPathParam'),
+      path: '',
+    };
+
+    // Act
+    const m1 = addParameter(doc, modulePath, paramDef, moduleDef);
+    expect(m1.ok).toBe(true);
+    if (!m1.ok) return;
+
+    // Assert — no definitionRef on the in-memory value.
+    const newMod = m1.value.packages[0]!.elements.find(
+      (e) => e.kind === 'module',
+    ) as ArxmlModule;
+    expect(newMod.params['EmptyPathParam']?.definitionRef).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // removeContainer → serialize → re-parse
 // ---------------------------------------------------------------------------
 

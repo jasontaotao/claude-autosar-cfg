@@ -358,9 +358,19 @@ export function addParameter(
       error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
     };
   }
+  // Sprint 16c #2 — stamp the BSWMD-side path as `definitionRef` so the
+  // serializer (commit `b767ea6`) writes the real DEFINITION-REF instead
+  // of falling back to `/__synthesized__/<shortName>`. Mirrors the
+  // pattern in `skeleton.ts:141` (`{ ...v, definitionRef: p.path }`).
+  // Empty `paramDef.path` falls through to the existing synthesized-path
+  // fallback (degenerate BSWMD — don't emit an empty DEFINITION-REF).
+  const nextValue: ParamValue =
+    paramDef.path !== ''
+      ? ({ ...value, definitionRef: paramDef.path } as ParamValue)
+      : value;
   const nextParams: Readonly<Record<string, ParamValue>> = {
     ...parent.params,
-    [paramDef.shortName]: value,
+    [paramDef.shortName]: nextValue,
   };
   const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
     ? { ...parent, params: nextParams }
@@ -437,9 +447,17 @@ export function addReference(
     value: '',
     dest: refDef.destKind,
   };
+  // Sprint 16c #2 — same `definitionRef` stamping as `addParameter`. The
+  // serializer's reference-param path also writes DEFINITION-REF from
+  // `value.definitionRef`; falling back to the synthesized placeholder
+  // here would defeat the T3 fix for user-added references too.
+  const nextValue: ParamValue =
+    refDef.path !== ''
+      ? ({ ...value, definitionRef: refDef.path } as ParamValue)
+      : value;
   const nextParams: Readonly<Record<string, ParamValue>> = {
     ...parent.params,
-    [refDef.shortName]: value,
+    [refDef.shortName]: nextValue,
   };
   const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
     ? { ...parent, params: nextParams }

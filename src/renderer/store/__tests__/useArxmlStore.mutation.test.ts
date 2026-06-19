@@ -355,7 +355,11 @@ describe('useArxmlStore — addParameter (Sprint 15)', () => {
     const adCfg = mod.children[0]!;
     if (adCfg.kind !== 'container') throw new Error('expected container');
     expect(adCfg.params.TestParam).toBeDefined();
-    expect(adCfg.params.TestParam).toEqual({ type: 'integer', value: 0 });
+    expect(adCfg.params.TestParam).toEqual({
+      type: 'integer',
+      value: 0,
+      definitionRef: '/EAS/Adc/AdcConfig/TestParam',
+    });
     expect(after.dirtyPaths.has('/tmp/Adc.arxml')).toBe(true);
   });
 
@@ -703,7 +707,11 @@ describe('useArxmlStore — combined-mode mutation (Sprint 15)', () => {
     if (canMod.kind !== 'module') throw new Error('expected module');
     const canContainer = canMod.children[0]!;
     if (canContainer.kind !== 'container') throw new Error('expected container');
-    expect(canContainer.params.TestParam).toEqual({ type: 'integer', value: 0 });
+    expect(canContainer.params.TestParam).toEqual({
+      type: 'integer',
+      value: 0,
+      definitionRef: '/EAS/Can/CanConfig/TestParam',
+    });
     const adcMod = after.documents.find((d) => d.path === '/tmp/Adc.arxml')!
       .packages[0]!.elements[0]!;
     if (adcMod.kind !== 'module') throw new Error('expected module');

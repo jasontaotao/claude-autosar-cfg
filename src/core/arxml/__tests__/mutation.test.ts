@@ -367,7 +367,11 @@ describe('addParameter', () => {
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const canConfigSet = rootModule.children[0]! as ArxmlContainer;
-    expect(canConfigSet.params['BaudRate']).toEqual({ type: 'integer', value: 500000 });
+    expect(canConfigSet.params['BaudRate']).toEqual({
+      type: 'integer',
+      value: 500000,
+      definitionRef: paramDef.path,
+    });
   });
 
   it('adds an enumeration parameter with the enum type tag', () => {
@@ -386,7 +390,11 @@ describe('addParameter', () => {
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const canGeneral = rootModule.children[0]! as ArxmlContainer;
-    expect(canGeneral.params['CanPduIdType']).toEqual({ type: 'enum', value: 'FULL' });
+    expect(canGeneral.params['CanPduIdType']).toEqual({
+      type: 'enum',
+      value: 'FULL',
+      definitionRef: paramDef.path,
+    });
   });
 
   it('adds a boolean parameter (default true)', () => {
@@ -405,7 +413,11 @@ describe('addParameter', () => {
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const canGeneral = rootModule.children[0]! as ArxmlContainer;
-    expect(canGeneral.params['CanDevErrorDetect']).toEqual({ type: 'boolean', value: true });
+    expect(canGeneral.params['CanDevErrorDetect']).toEqual({
+      type: 'boolean',
+      value: true,
+      definitionRef: paramDef.path,
+    });
   });
 
   it('returns name-conflict when a parameter with the same key already exists', () => {
@@ -767,6 +779,7 @@ describe('addReference', () => {
       type: 'reference',
       value: '',
       dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      definitionRef: refDef.path,
     });
   });
 
