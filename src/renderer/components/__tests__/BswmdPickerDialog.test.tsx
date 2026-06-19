@@ -432,4 +432,66 @@ describe('BswmdPickerDialog (Sprint 15 / Phase 3.2)', () => {
     const titleEn = screen.getByTestId('bspd-title');
     expect(titleEn.textContent).toMatch(/Add/);
   });
+
+  // -----------------------------------------------------------------------
+  // 11. Sprint 17c T9 — stale-seed invalidation
+  //
+  // The picker memoizes its `resolution` (source doc + allowed
+  // elements) via `useMemo`. The memo's deps were
+  // `[picker.open, picker.parentPath, picker.kind]` — they did NOT
+  // include `documents` / `documentPaths`. The component itself
+  // subscribes only to `bswmdPicker`, `locale`, and the four
+  // action callbacks. So a store update that changes ONLY
+  // `documents` (e.g. `addDocument`) did not trigger a re-render
+  // and the memo's cached resolution stayed stale.
+  //
+  // The bug surfaces when a 2nd doc is loaded while the picker is
+  // open. `addDocument` also makes the new doc the ACTIVE doc, so
+  // the resolution's source shifts from the original doc to the
+  // new doc. With the bug the resolution still uses the old
+  // (cached) source — meaning the body keeps showing the old
+  // allowed list. With the fix the body re-resolves against the
+  // new active doc and the body updates.
+  //
+  // We assert the fix by loading a 2nd doc with a DIFFERENT module
+  // shortName. The new active doc's path tree doesn't contain
+  // the picker parent path → `locateParentElement` returns null
+  // → the body shows a `path-not-found` error. With the bug the
+  // body still shows the original row (cached resolution).
+  // -----------------------------------------------------------------------
+  it('re-resolves when a 2nd document is loaded while the picker is open (stale-seed fix)', () => {
+    // Seed 1: doc with 1 module + 1 sub-container.
+    const parentPath = seedStore({
+      moduleShortName: 'CanIf',
+      parentContainerShortName: 'CanIfInitCfg',
+      subContainerShortNames: ['CanIfBufferCfg'],
+    });
+    useArxmlStore.getState().openBswmdPicker({ parentPath, kind: 'container' });
+
+    render(<BswmdPickerRoot />);
+    // Sanity: the initial resolution succeeded.
+    expect(screen.getByTestId('bspd-row-CanIfBufferCfg')).toBeInTheDocument();
+
+    // Load a 2nd doc with a DIFFERENT module. addDocument makes
+    // it the active doc, so the resolution's source shifts. The
+    // new active doc has no `CanIf` module → `locateParentElement`
+    // returns null → the body shows the `path-not-found` error.
+    act(() => {
+      const doc2 = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+      useArxmlStore.getState().addDocument(doc2, '/tmp/Adc.arxml');
+    });
+
+    const state = useArxmlStore.getState();
+    expect(state.bswmdPicker.open).toBe(true);
+    expect(state.documents.length).toBe(2);
+    expect(state.activeDocumentPath).toBe('/tmp/Adc.arxml');
+
+    // With the fix: the body re-resolved against the new active
+    // doc, the resolution returned a `path-not-found` error, and
+    // the body shows the error message.
+    expect(screen.getByTestId('bspd-error')).toBeInTheDocument();
+    // The original row is gone (the new resolution did not find
+    // the CanIf parent in the Adc doc).
+    expect(screen.queryByTestId('bspd-row-CanIfBufferCfg')).toBeNull();
+  });
 });

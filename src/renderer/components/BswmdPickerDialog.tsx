@@ -256,6 +256,18 @@ export function BswmdPickerRoot(): JSX.Element | null {
   const addContainer = useArxmlStore((s) => s.addContainer);
   const addParameter = useArxmlStore((s) => s.addParameter);
   const addReference = useArxmlStore((s) => s.addReference);
+  // Sprint 17c T9 — subscribe to the document set so the picker
+  // re-resolves when a document is loaded or removed while the
+  // picker is open. Previously the memo's deps were
+  // `[picker.open, picker.parentPath, picker.kind]` and the
+  // component only subscribed to `bswmdPicker` / `locale` / the
+  // four action callbacks — so an `addDocument` or `removeDocument`
+  // did NOT re-render the picker, leaving the memoised resolution
+  // pointing at a stale document set. Fine-grained selectors
+  // (not the whole `state` object) keep the rules-of-hooks happy
+  // and avoid spurious re-renders for unrelated state changes.
+  const documents = useArxmlStore((s) => s.documents);
+  const documentPaths = useArxmlStore((s) => s.documentPaths);
   // Local form state. Reset implicitly when the picker closes (the
   // host flips `bswmdPicker.open` to false and we re-render at the
   // top of the next open).
@@ -268,7 +280,10 @@ export function BswmdPickerRoot(): JSX.Element | null {
     // document / bswmd updates between opens.
     const state = useArxmlStore.getState();
     return resolvePickerSource(picker.parentPath, picker.kind, state);
-  }, [picker.open, picker.parentPath, picker.kind]);
+    // documents / documentPaths in the deps list ensure the memo
+    // re-runs when the document set changes (T9 stale-seed fix).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picker.open, picker.parentPath, picker.kind, documents, documentPaths]);
 
   if (!picker.open || picker.parentPath === null || picker.kind === null) {
     return null;
