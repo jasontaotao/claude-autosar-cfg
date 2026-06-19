@@ -10,18 +10,12 @@
 // The Commit / Discard buttons appear only when the run finished with
 // mutations (status === 'ok' AND mutations.length > 0).
 
-import type { ScriptRunResult } from '@main/script/types';
-
+import type { ScriptLog, ScriptRunResult } from '@main/script/types';
 import { t } from '@shared/i18n';
 
 export interface ScriptOutputProps {
   readonly result: ScriptRunResult | null;
-  readonly logs: ReadonlyArray<{
-    readonly runId: string;
-    readonly level: 'info' | 'warn' | 'error' | 'debug';
-    readonly message: string;
-    readonly ts: number;
-  }>;
+  readonly logs: ReadonlyArray<ScriptLog>;
   readonly locale: 'zh-CN' | 'en';
   readonly onCommit: () => void;
   readonly onDiscard: () => void;
@@ -83,7 +77,7 @@ export function ScriptOutput({
           <ul className="script-log-list">
             {logs.map((line, i) => (
               <li
-                key={`${line.runId}-${line.ts}-${i}`}
+                key={`${line.ts}-${i}`}
                 className={`script-log-line script-log-${line.level}`}
                 data-testid={`script-log-${i}`}
               >

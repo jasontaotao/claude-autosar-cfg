@@ -54,6 +54,7 @@ import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { PromptRoot } from './components/PromptDialog';
+import { ScriptPanel } from './components/ScriptPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
@@ -271,25 +272,24 @@ export function App(): JSX.Element {
     [createEcuc, removeEcuc, locale, setStoreError],
   );
 
-  // Sprint 13 #2 Task 5 — the left column is now a single
-  // <LeftPanel /> instance. LeftPanel owns the project / files /
-  // validate tab bar, mounts ProjectPanelInfo inside the project tab
-  // when a project is open, mounts FileListTab in the files tab,
-  // mounts the embedded ValidationPanel in the validate tab, and
-  // renders the Tree below the tab content (always visible).
-  //
-  // The previous stacked layout
-  // (ProjectPanelInfo-or-loose-banner / Tree / ValidationPanel) and
-  // the `.left-column` CSS grid are no longer mounted here — they
-  // were the source of the cramped "ecuc 内容层级" surface and the
-  // loose-mode empty-top-of-column bug. The replacement surfaces
-  // the same controls in a tabbed layout with a stable Tree footer.
+  // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns
+  // the open/close flag and passes it down via AppHeader. Mounting
+  // the panel conditionally keeps the bundle lazy: only when the
+  // user opens the panel do we render the CodeMirror editor and its
+  // (heavy) language pack. The `panelOpen` flag also gates which
+  // toolbar icon shows.
+  const [scriptPanelOpen, setScriptPanelOpen] = useState(false);
+  const toggleScriptPanel = useCallback((): void => {
+    setScriptPanelOpen((v) => !v);
+  }, []);
 
   return (
     <div className="app-shell">
       <AppHeader
         onEcucModuleSelect={handleMenuSelectEcucModule}
         canSelectEcucModule={canSelectEcucModule}
+        scriptPanelOpen={scriptPanelOpen}
+        onToggleScriptPanel={toggleScriptPanel}
       />
       {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -331,6 +331,15 @@ export function App(): JSX.Element {
           </Panel>
         </Group>
       </main>
+      {scriptPanelOpen && (
+        // Sprint 14 / Phase C (T14) — ScriptPanel sits below the
+        // resizable workspace as a fixed-height strip; lazy-rendered
+        // so CodeMirror is only loaded when the user explicitly opens
+        // the panel (the panel toggle is in AppHeader).
+        <div className="app-script-panel-host" data-testid="app-script-panel-host">
+          <ScriptPanel />
+        </div>
+      )}
       <ArxmlPanel />
 
       {/* Dialog hosts (Sprint 12 #2 + Sprint 12 #3). Mounted at the

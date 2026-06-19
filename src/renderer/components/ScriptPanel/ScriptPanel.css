@@ -1,0 +1,325 @@
+/* ScriptPanel — Sprint 14 #1 Phase C (T14) — 3-column layout host. */
+
+.script-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-surface, #1e1e1e);
+  color: var(--color-text, #d4d4d4);
+  border-left: 1px solid var(--color-border, #3c3c3c);
+  overflow: hidden;
+}
+
+.script-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border, #3c3c3c);
+  background: var(--color-panel-header, #252526);
+}
+
+.script-panel-header h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.script-panel-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.script-panel-header-actions button {
+  padding: 3px 10px;
+  font-size: 12px;
+  background: var(--color-button-bg, #0e639c);
+  color: var(--color-button-fg, #ffffff);
+  border: 1px solid var(--color-button-border, transparent);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.script-panel-header-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.script-panel-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(180px, 22%) 1fr minmax(220px, 28%);
+  overflow: hidden;
+}
+
+.script-library,
+.script-editor-host,
+.script-output {
+  border-right: 1px solid var(--color-border, #3c3c3c);
+  overflow: auto;
+  min-width: 0;
+}
+
+.script-output {
+  border-right: none;
+}
+
+/* Library */
+.script-library-header,
+.script-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border, #3c3c3c);
+}
+
+.script-library-header h3,
+.script-output-header h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.script-btn-new {
+  padding: 2px 8px;
+  font-size: 12px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--color-border, #3c3c3c);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.script-library-filter {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border, #3c3c3c);
+}
+
+.script-filter-chip {
+  padding: 2px 8px;
+  font-size: 11px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--color-border, #3c3c3c);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.script-filter-chip.is-active {
+  background: var(--color-button-bg, #0e639c);
+  color: var(--color-button-fg, #ffffff);
+  border-color: transparent;
+}
+
+.script-library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.script-library-row {
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.script-library-row.is-selected {
+  background: var(--color-row-selected, #094771);
+}
+
+.script-library-row-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.script-library-name {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.script-library-row-delete {
+  padding: 0 8px;
+  font-size: 16px;
+  background: transparent;
+  color: inherit;
+  border: none;
+  cursor: pointer;
+}
+
+.script-library-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--color-muted, #888);
+}
+
+/* Kind badge */
+.script-kind-badge {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 3px;
+  color: #ffffff;
+}
+
+.script-kind-validator {
+  background: #1e88e5;
+}
+
+.script-kind-transformer {
+  background: #f57c00;
+}
+
+.script-kind-report {
+  background: #43a047;
+}
+
+.script-kind-free {
+  background: #757575;
+}
+
+/* Editor */
+.script-editor-host {
+  display: flex;
+  flex-direction: column;
+}
+
+.script-editor-mount {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Output */
+.script-output-status {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--color-border, #3c3c3c);
+}
+
+.script-output-status-ok {
+  background: rgba(67, 160, 71, 0.15);
+  color: #81c784;
+}
+
+.script-output-status-runtime-error,
+.script-output-status-syntax-error,
+.script-output-status-timeout {
+  background: rgba(244, 67, 54, 0.15);
+  color: #e57373;
+}
+
+.script-output-section {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border, #3c3c3c);
+}
+
+.script-output-section summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.script-log-list,
+.script-violation-list,
+.script-mutation-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.script-log-line,
+.script-violation,
+.script-mutation {
+  padding: 4px 6px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--color-border-soft, #2d2d2d);
+}
+
+.script-log-level {
+  display: inline-block;
+  min-width: 50px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.script-log-info {
+  color: #82aaff;
+}
+
+.script-log-warn {
+  color: #ffcb6b;
+}
+
+.script-log-error {
+  color: #ff5370;
+}
+
+.script-violation-warning {
+  color: #ffcb6b;
+}
+
+.script-violation-error {
+  color: #ff5370;
+}
+
+.script-output-footer {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--color-border, #3c3c3c);
+}
+
+.script-output-commit,
+.script-output-discard {
+  padding: 3px 10px;
+  font-size: 12px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--color-border, #3c3c3c);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.script-output-commit:not(:disabled) {
+  background: var(--color-button-bg, #0e639c);
+  color: var(--color-button-fg, #ffffff);
+  border-color: transparent;
+}
+
+.script-output-commit:disabled,
+.script-output-discard:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.script-output-clear {
+  padding: 2px 6px;
+  font-size: 11px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--color-border, #3c3c3c);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.muted {
+  color: var(--color-muted, #888);
+}

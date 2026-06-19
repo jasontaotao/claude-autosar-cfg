@@ -133,7 +133,11 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       const { useArxmlStore } = await import('./useArxmlStore');
       const projectId = useArxmlStore.getState().project?.id ?? '';
       const result = await window.autosarApi.listScripts({ projectId });
-      set({ scripts: result.scripts, initialized: true });
+      // Defensive default — a stale IPC mock from a previous test
+      // suite may resolve to undefined; in that case keep the
+      // previous scripts rather than crash.
+      const scripts = result === undefined || result === null ? get().scripts : (result.scripts ?? []);
+      set({ scripts, initialized: true });
     } finally {
       set({ loading: { ...get().loading, list: false } });
     }

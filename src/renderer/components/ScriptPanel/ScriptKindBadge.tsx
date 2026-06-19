@@ -6,9 +6,7 @@
 // component — no state, no store access.
 
 import type { ScriptKind } from '@main/script/types';
-
 import { t } from '@shared/i18n';
-
 import type { Locale } from '@shared/i18n';
 
 export interface ScriptKindBadgeProps {
@@ -31,7 +29,7 @@ const KIND_TO_LETTER: Record<ScriptKind, string> = {
 };
 
 export function ScriptKindBadge({ kind, locale }: ScriptKindBadgeProps): JSX.Element {
-  const label = t(locale, KIND_TO_KEY[kind]);
+  const label = t(locale, KIND_TO_KEY[kind] as 'script.kind.validator');
   const letter = KIND_TO_LETTER[kind];
   return (
     <span

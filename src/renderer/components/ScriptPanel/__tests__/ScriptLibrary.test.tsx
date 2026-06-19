@@ -22,28 +22,28 @@ const SCRIPTS: readonly ScriptSummary[] = [
     name: 'alpha',
     shortName: 'alpha',
     kind: 'validator',
-    source: '// alpha',
+    updatedAt: '2026-06-18T00:00:00Z',
   },
   {
     id: 's2',
     name: 'beta',
     shortName: 'beta',
     kind: 'transformer',
-    source: '// beta',
+    updatedAt: '2026-06-18T00:00:00Z',
   },
   {
     id: 's3',
     name: 'gamma',
     shortName: 'gamma',
     kind: 'report',
-    source: '// gamma',
+    updatedAt: '2026-06-18T00:00:00Z',
   },
   {
     id: 's4',
     name: 'delta',
     shortName: 'delta',
     kind: 'free',
-    source: '// delta',
+    updatedAt: '2026-06-18T00:00:00Z',
   },
 ];
 

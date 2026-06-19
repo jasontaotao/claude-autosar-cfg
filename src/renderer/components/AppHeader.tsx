@@ -64,6 +64,13 @@ const INITIAL: AppHeaderState = { busy: false };
 export interface AppHeaderProps {
   readonly onEcucModuleSelect: () => void;
   readonly canSelectEcucModule: boolean;
+  /**
+   * Sprint 14 / Phase C (T14) — ScriptPanel toggle. The parent owns
+   * the open flag so it can keep `ScriptPanel` mount conditional
+   * (lazy CodeMirror bundle). The button below flips it.
+   */
+  readonly scriptPanelOpen: boolean;
+  readonly onToggleScriptPanel: () => void;
 }
 
 // Sprint 13+ Stage 4 M8 — route ParseError rendering through the shared
@@ -88,6 +95,8 @@ function formatParseError(e: ParseError, locale: Locale): string {
 export function AppHeader({
   onEcucModuleSelect,
   canSelectEcucModule,
+  scriptPanelOpen,
+  onToggleScriptPanel,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -568,6 +577,17 @@ export function AppHeader({
             </button>
           </span>
         )}
+        <button
+          type="button"
+          className={`app-btn app-btn-scripts ${scriptPanelOpen ? 'is-active' : ''}`}
+          onClick={onToggleScriptPanel}
+          aria-pressed={scriptPanelOpen}
+          aria-label={t(locale, 'script.panel.toggle')}
+          title={t(locale, 'script.panel.toggle')}
+          data-testid="btn-scripts-toggle"
+        >
+          {t(locale, 'script.panel.title')}
+        </button>
         <button
           type="button"
           className="app-btn app-btn-locale"

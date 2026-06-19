@@ -29,9 +29,16 @@ import { AppHeader } from '../AppHeader.js';
 // the file/project menu); we provide a no-op pair here so the existing
 // assertions stay green. The picker-specific behavior is covered by
 // the new T11 menu-entry tests in the third describe block below.
+//
+// Sprint 14 / Phase C (T14) — script panel toggle. Same idea: the
+// legacy tests don't care which way the toggle reads, so a default
+// closed state with a no-op toggler keeps them green. The new
+// toggle-specific behavior is pinned by the T14 tests.
 const noopProps = {
   onEcucModuleSelect: (): void => {},
   canSelectEcucModule: false,
+  scriptPanelOpen: false,
+  onToggleScriptPanel: (): void => {},
 };
 
 interface MockWindowAutosarApi {
