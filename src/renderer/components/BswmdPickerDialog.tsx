@@ -29,10 +29,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
-import type {
-  AllowedSubElement,
-  MutationError,
-} from '@core/arxml/mutation.js';
+import type { AllowedSubElement, MutationError } from '@core/arxml/mutation.js';
 import { findByPathMultiDoc } from '@core/arxml/path.js';
 import type {
   ArxmlContainer,
@@ -56,7 +53,12 @@ export type PickerKind = 'container' | 'parameter' | 'reference';
  * Mapping from the picker's row kind → the i18n key that drives the dialog
  * title (and the store action that Done dispatches).
  */
-const KIND_TO_TITLE_KEY: Readonly<Record<PickerKind, 'mutation.action.addContainer' | 'mutation.action.addParameter' | 'mutation.action.addReference'>> = {
+const KIND_TO_TITLE_KEY: Readonly<
+  Record<
+    PickerKind,
+    'mutation.action.addContainer' | 'mutation.action.addParameter' | 'mutation.action.addReference'
+  >
+> = {
   container: 'mutation.action.addContainer',
   parameter: 'mutation.action.addParameter',
   reference: 'mutation.action.addReference',
@@ -170,7 +172,10 @@ function resolvePickerSource(
 function resolveModuleAndParentContainerLocal(
   schemas: readonly { readonly modules: readonly BswModuleDef[] }[],
   valuePath: string,
-): { readonly moduleDef: BswModuleDef; readonly parentContainerDef: ReturnType<typeof getContainerDefByPath> } | null {
+): {
+  readonly moduleDef: BswModuleDef;
+  readonly parentContainerDef: ReturnType<typeof getContainerDefByPath>;
+} | null {
   const segments = valuePath.split('/').filter(Boolean);
   if (segments.length < 2) return null;
   const moduleShortName = segments[1];
@@ -204,10 +209,13 @@ function locateParentElement(
   let cursor: ArxmlElement | ArxmlPackage = rootPkg;
   for (const name of rest) {
     if ('kind' in cursor) {
-      if (cursor.kind === 'reference') return null;
-      const child: ArxmlElement | undefined = (cursor as ArxmlContainer | ArxmlModule).children.find(
-        (c: ArxmlElement) => c.shortName === name,
-      );
+      // ArxmlElement is {module|container|reference}; TS narrows away
+      // 'reference' due to the children-access below. Cast preserves
+      // the type-narrowing intent.
+      if ((cursor as ArxmlElement).kind === 'reference') return null;
+      const child: ArxmlElement | undefined = (
+        cursor as ArxmlContainer | ArxmlModule
+      ).children.find((c: ArxmlElement) => c.shortName === name);
       if (child === undefined || child.kind === 'reference') return null;
       cursor = child;
       continue;
@@ -274,9 +282,10 @@ export function BswmdPickerRoot(): JSX.Element | null {
   const isError = resolution !== null && resolution.errorKind !== null;
   const allowed = (resolution?.allowed ?? []).filter((a) => a.kind === picker.kind);
   const lowerSearch = search.toLowerCase();
-  const filtered = lowerSearch === ''
-    ? allowed
-    : allowed.filter((a) => a.shortName.toLowerCase().includes(lowerSearch));
+  const filtered =
+    lowerSearch === ''
+      ? allowed
+      : allowed.filter((a) => a.shortName.toLowerCase().includes(lowerSearch));
   const enabledRows = filtered.filter((a) => !a.disabled);
   const disabledRows = filtered.filter((a) => a.disabled);
   const allAtMax = filtered.length > 0 && enabledRows.length === 0;
@@ -403,9 +412,7 @@ export function BswmdPickerRoot(): JSX.Element | null {
                       role="option"
                       aria-selected={selectedShortName === a.shortName}
                     >
-                      <span className="bspd-row-label">
-                        {a.shortName}
-                      </span>
+                      <span className="bspd-row-label">{a.shortName}</span>
                       <span className="bspd-row-mult">{formatMultiplicity(a)}</span>
                     </li>
                   ))}
@@ -418,13 +425,14 @@ export function BswmdPickerRoot(): JSX.Element | null {
                       aria-disabled="true"
                       title={
                         a.disabledReason === 'at-max'
-                          ? t(locale, 'picker.tooltip.atMax', { current: a.multiplicity.current, max: String(a.multiplicity.upper) })
+                          ? t(locale, 'picker.tooltip.atMax', {
+                              current: a.multiplicity.current,
+                              max: String(a.multiplicity.upper),
+                            })
                           : 'disabled'
                       }
                     >
-                      <span className="bspd-row-label">
-                        {a.shortName}
-                      </span>
+                      <span className="bspd-row-label">{a.shortName}</span>
                       <span className="bspd-row-mult">{formatMultiplicity(a)}</span>
                     </li>
                   ))}

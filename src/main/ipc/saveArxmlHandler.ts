@@ -21,12 +21,9 @@ import { promises as fs } from 'node:fs';
 import { dialog } from 'electron';
 
 import { serializeArxml } from '../../core/arxml/serializer.js';
-import type { FileError } from '../../shared/types.js';
-import type { SaveArxmlRequest, SaveArxmlResponse } from '../../shared/types.js';
+import type { FileError, SaveArxmlRequest, SaveArxmlResponse } from '../../shared/types.js';
 
-export async function saveArxmlHandler(
-  req: SaveArxmlRequest,
-): Promise<SaveArxmlResponse> {
+export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxmlResponse> {
   const defaultName = req.defaultName ?? 'untitled.arxml';
   let targetPath: string | null = null;
 

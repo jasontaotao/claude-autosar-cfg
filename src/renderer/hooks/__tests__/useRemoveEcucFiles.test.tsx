@@ -13,7 +13,7 @@
 //   7. all-delete failure → returns { kind: 'error' }
 //   8. no matching docs → returns { kind: 'ok', removed: [] }
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { ArxmlDocument } from '@core/arxml/types';
 import type { ProjectDeleteArxmlResult } from '@shared/types';
@@ -32,10 +32,17 @@ vi.mock('../../components/ConfirmDialog', () => ({
 }));
 
 // Mock the autosarApi bridge — we only need deleteArxml + saveArxml
-// for these tests.
+// for these tests. Use loose Mock<any, any> typing so per-test
+// override mocks can return specific Promise shapes without tripping
+// TS2322 (Sprint 16 typed FileError / ProjectDeleteArxmlResult narrowed
+// the API surface — test mocks need to be free to return different
+// shapes per scenario).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface MockAutosarApi {
-  deleteArxml: ReturnType<typeof vi.fn>;
-  saveArxml: ReturnType<typeof vi.fn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteArxml: Mock<any, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  saveArxml: Mock<any, any>;
 }
 function installApi(overrides: Partial<MockAutosarApi> = {}): MockAutosarApi {
   const api: MockAutosarApi = {
@@ -48,7 +55,11 @@ function installApi(overrides: Partial<MockAutosarApi> = {}): MockAutosarApi {
   return api;
 }
 
-function makeDoc(opts: { path: string; sourceBswmdPath?: string; moduleShortName?: string }): ArxmlDocument {
+function makeDoc(opts: {
+  path: string;
+  sourceBswmdPath?: string;
+  moduleShortName?: string;
+}): ArxmlDocument {
   return {
     path: opts.path,
     version: '4.6',
@@ -98,7 +109,11 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     const api = installApi();
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     // No dirtyPaths entry → not dirty.
@@ -118,7 +133,11 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     const api = installApi();
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     // Mark dirty
@@ -136,7 +155,11 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     installApi();
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     useArxmlStore.setState({ dirtyPaths: new Set(['/proj/ecuc/Can_EcucValues.arxml']) });
@@ -152,7 +175,11 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     const api = installApi();
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     useArxmlStore.setState({ dirtyPaths: new Set(['/proj/ecuc/Can_EcucValues.arxml']) });
@@ -184,11 +211,19 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     });
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/CanIf_EcucValues.arxml', sourceBswmdPath: '/BSWMD/CanIf.arxml', moduleShortName: 'CanIf' }),
+      makeDoc({
+        path: '/proj/ecuc/CanIf_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/CanIf.arxml',
+        moduleShortName: 'CanIf',
+      }),
       '/BSWMD/CanIf.arxml',
     );
 
@@ -205,14 +240,20 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
 
   it('returns error when all deletes fail', async () => {
     installApi({
-      deleteArxml: vi.fn(async (): Promise<ProjectDeleteArxmlResult> => ({
-        kind: 'write-failed',
-        message: 'EACCES',
-      })),
+      deleteArxml: vi.fn(
+        async (): Promise<ProjectDeleteArxmlResult> => ({
+          kind: 'write-failed',
+          message: 'EACCES',
+        }),
+      ),
     });
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
 
@@ -250,18 +291,23 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     });
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/CanIf_EcucValues.arxml', sourceBswmdPath: '/BSWMD/CanIf.arxml', moduleShortName: 'CanIf' }),
+      makeDoc({
+        path: '/proj/ecuc/CanIf_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/CanIf.arxml',
+        moduleShortName: 'CanIf',
+      }),
       '/BSWMD/CanIf.arxml',
     );
     useArxmlStore.setState({
-      dirtyPaths: new Set([
-        '/proj/ecuc/Can_EcucValues.arxml',
-        '/proj/ecuc/CanIf_EcucValues.arxml',
-      ]),
+      dirtyPaths: new Set(['/proj/ecuc/Can_EcucValues.arxml', '/proj/ecuc/CanIf_EcucValues.arxml']),
     });
     confirmMock.mockResolvedValueOnce('saveAndProceed');
 
@@ -318,7 +364,11 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     });
     const state = useArxmlStore.getState();
     state.addDocumentWithSource(
-      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      makeDoc({
+        path: '/proj/ecuc/Can_EcucValues.arxml',
+        sourceBswmdPath: '/BSWMD/Can.arxml',
+        moduleShortName: 'Can',
+      }),
       '/BSWMD/Can.arxml',
     );
     useArxmlStore.setState({

@@ -49,6 +49,7 @@ function mkDocWithElementAtPath(rootPath: string, sourceBswmdPath?: string): Arx
     shortName: middleName,
     params: {},
     children: [leafElement],
+    references: [],
   };
   const pkg: ArxmlPackage = {
     shortName: rootPkgName,
