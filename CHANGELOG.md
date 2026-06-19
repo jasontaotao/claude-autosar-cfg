@@ -5,6 +5,57 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.1.2] - 2026-06-19 — Sprint 17 Polish Batch
+
+10 follow-up polish items from Sprint 16 ship. Zero breaking change.
+
+### Changed
+
+- **T1 path** (`3c6d0b6`)：`toManifestRelative` 现在拒绝含 `..` 段的相对
+  输入，防止 manifest 持久化时被注入 parent-traversal 路径。
+- **T3 ui** (`6bfff66`)：Save All 按钮在任意 doc dirty 时加 amber
+  `.is-dirty` 视觉提示（`--accent-amber` CSS 变量）。
+- **T6 ui** (`c2b2628`)：ErrorBanner 支持 4 种 kind（error / warning /
+  info / success），各带独立色 + auto-dismiss timer（error 不自动消失）。
+- **T7 save** (`50adda4`)：`SaveArxmlError` 引入 typed kind discriminator，
+  把 NodeJS errno code（EACCES / ENOSPC / ENOENT 等）映射到 6 种
+  kind；renderer dispatch 本地化 toast。
+- **T8 store** (`912cc7f`)：`resolveContainerTarget(state, containerPath)`
+  helper 取代 7 处重复 `findByPathMultiDoc` inline block，零行为变化。
+- **T9 picker** (`82ca016`)：BSWMD picker 在 doc set 变化时 re-resolve，
+  修复 stale-seed bug（picker 开着时其他路径加载/移除文档）。
+- **T10 tree** (`32c621b`)：`buildCombinedDocument` 对 identical root
+  package（典型 EAS）静默去重；对 shortName 同但内容不同的 root 保留
+  第一个 + emit `duplicate-root-conflict` warning。
+
+### Added
+
+- **T4 i18n** (`a314c35` 的一部分)：zh-CN 补 `app.saveAllPartial` 翻译。
+- **T6 ui**：`setInfo` / `setSuccess` / `setWarning` / `dismissToast` store
+  actions；3 个新 aria-label（warningAria / infoAria / successAria）。
+- **T7 save**：`app.save.error.*` 6 个 kind 键（en-US + zh-CN 双语）。
+
+### Internal
+
+- **T2 audit**：确认 `ConfirmDialog` / `CascadeConfirmDialog` 的
+  `'continue'` 分支是合法 cancel 路径（return `{ kind: 'canceled' }`），
+  无 dead code，无需 commit。
+- **T5 lint** (`bbcb693`)：清理 saveArxmlHandler 历史 ESLint warning +
+  4 个 pre-existing TypeScript error。
+
+### Tests
+
+- **1206 tests passing**（v1.1.1 → v1.1.2 净增 +28，覆盖 10 个 polish task）
+- Coverage: ≥ v1.1.1 baseline (90.72% branches / 96.8% stmts)
+- 5/5 baseline: format / lint (0 warnings) / type-check / test / build
+- 76 files changed, +7352 / -1895 lines
+
+### Notes
+
+- **首次 package.json 实际 bump**：v1.1.0 / v1.1.1 tag 创建时未同步 bump
+  `package.json`（停留在 `1.0.0`）；v1.1.2 是首次让 `package.json` 与 tag
+  对齐的 release。
+
 ## [1.1.1] - 2026-06-19 — Sprint 16 Fixes Batch
 
 Sprint 16 (16a + 16b + 16c) 集中修复 v1.1.0 ship 后发现 / 回归的 5 个关键
