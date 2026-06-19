@@ -156,10 +156,12 @@ export interface Messages {
   readonly 'confirm.unsaved.discard.open': string;
   readonly 'confirm.unsaved.discard.addBswmd': string;
   readonly 'confirm.unsaved.discard.removeBswmd': string;
+  readonly 'confirm.unsaved.discard.excludeEcuc': string;
   readonly 'confirm.unsaved.saveAndNew.new': string;
   readonly 'confirm.unsaved.saveAndNew.open': string;
   readonly 'confirm.unsaved.saveAndNew.addBswmd': string;
   readonly 'confirm.unsaved.saveAndNew.removeBswmd': string;
+  readonly 'confirm.unsaved.saveAndNew.excludeEcuc': string;
 
   // --- overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5) ---
   // When `project:new` IPC returns `{ kind: 'overwrite-confirm', path }`
@@ -302,6 +304,14 @@ export interface Messages {
   readonly 'ecuc.fromBswmd.upperBoundReached': string; // {current} {max}
   readonly 'ecuc.fromBswmd.toast': string; // {count}
   readonly 'ecuc.fromBswmd.modulesActive': string; // {active} {total}
+  readonly 'ecuc.fromBswmd.willRemove': string;
+  readonly 'ecuc.fromBswmd.removeN': string; // {count}
+  readonly 'ecuc.fromBswmd.dirtyHint': string;
+  readonly 'ecuc.fromBswmd.noChange': string;
+  readonly 'ecuc.fromBswmd.removed': string; // {count}
+  readonly 'ecuc.fromBswmd.removeFailed': string;
+  readonly 'ecuc.fromBswmd.excludeTitle': string;
+  readonly 'ecuc.fromBswmd.excludeMessage': string; // {names}
   readonly 'ecuc.fromBswmd.outputDir': string; // {dir}
 }
 
@@ -414,10 +424,12 @@ export const MessagesZhCN: Messages = {
   'confirm.unsaved.discard.open': '不保存，打开',
   'confirm.unsaved.discard.addBswmd': '不保存，添加',
   'confirm.unsaved.discard.removeBswmd': '不保存，移除',
+  'confirm.unsaved.discard.excludeEcuc': '不保存，排除',
   'confirm.unsaved.saveAndNew.new': '保存并新建',
   'confirm.unsaved.saveAndNew.open': '保存并打开',
   'confirm.unsaved.saveAndNew.addBswmd': '保存并添加',
   'confirm.unsaved.saveAndNew.removeBswmd': '保存并移除',
+  'confirm.unsaved.saveAndNew.excludeEcuc': '保存并排除',
 
   // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
   'confirm.overwrite.title': '文件已存在',
@@ -522,6 +534,15 @@ export const MessagesZhCN: Messages = {
   'ecuc.fromBswmd.toast': '已新建 {count} 个 ECUC 文件',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
   'ecuc.fromBswmd.outputDir': '输出到 {dir}/ 子目录',
+  'ecuc.fromBswmd.willRemove': '将排除',
+  'ecuc.fromBswmd.removeN': '排除 {count} 个 ECUC',
+  'ecuc.fromBswmd.dirtyHint': '被排除的 ECUC 中有未保存改动',
+  'ecuc.fromBswmd.noChange': '无变化',
+  'ecuc.fromBswmd.removed': '已排除 {count} 个 ECUC',
+  'ecuc.fromBswmd.removeFailed': '排除失败',
+  'ecuc.fromBswmd.excludeTitle': '排除 ECUC 模块',
+  'ecuc.fromBswmd.excludeMessage':
+    '以下 ECUC 模块存在未保存改动：{names}\n选择"不保存"将丢失这些改动，选择"保存并排除"会先静默保存到磁盘再删除。',
 };
 
 // ---------------------------------------------------------------------------
@@ -634,10 +655,12 @@ export const MessagesEn: Messages = {
   'confirm.unsaved.discard.open': 'Discard & Open',
   'confirm.unsaved.discard.addBswmd': 'Discard & Add',
   'confirm.unsaved.discard.removeBswmd': 'Discard & Remove',
+  'confirm.unsaved.discard.excludeEcuc': 'Discard & Exclude',
   'confirm.unsaved.saveAndNew.new': 'Save & New',
   'confirm.unsaved.saveAndNew.open': 'Save & Open',
   'confirm.unsaved.saveAndNew.addBswmd': 'Save & Add',
   'confirm.unsaved.saveAndNew.removeBswmd': 'Save & Remove',
+  'confirm.unsaved.saveAndNew.excludeEcuc': 'Save & Exclude',
 
   // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
   'confirm.overwrite.title': 'File Exists',
@@ -742,6 +765,15 @@ export const MessagesEn: Messages = {
   'ecuc.fromBswmd.toast': 'Created {count} ECUC files',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',
   'ecuc.fromBswmd.outputDir': 'Output to {dir}/ subfolder',
+  'ecuc.fromBswmd.willRemove': 'Will exclude',
+  'ecuc.fromBswmd.removeN': 'Exclude {count} ECUC',
+  'ecuc.fromBswmd.dirtyHint': 'Some excluded ECUCs have unsaved changes',
+  'ecuc.fromBswmd.noChange': 'No changes',
+  'ecuc.fromBswmd.removed': 'Excluded {count} ECUCs',
+  'ecuc.fromBswmd.removeFailed': 'Exclude failed',
+  'ecuc.fromBswmd.excludeTitle': 'Exclude ECUC modules',
+  'ecuc.fromBswmd.excludeMessage':
+    'The following ECUC modules have unsaved changes: {names}\n"Discard" loses the changes, "Save & Exclude" silently saves to disk before deletion.',
 };
 
 // ---------------------------------------------------------------------------

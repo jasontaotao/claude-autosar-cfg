@@ -56,6 +56,7 @@ import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useProjectActions } from './hooks/useProjectActions';
+import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
 import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
@@ -128,6 +129,7 @@ export function App(): JSX.Element {
   // T8 orchestration hook — writes ARXML via IPC, registers the new
   // docs in the store on success, rolls back on partial failure.
   const { create: createEcuc } = useCreateEcucFromBswmd();
+  const { remove: removeEcuc } = useRemoveEcucFiles();
   // The picker is gated on BOTH a BSWMD being loaded (otherwise
   // there's nothing to enumerate) AND a project being open (the
   // picker writes into the project's directory).
@@ -173,30 +175,84 @@ export function App(): JSX.Element {
       // inline — same approach other call sites use for "the
       // directory the project lives in".
       const projectDir = projectPath.replace(/[\\/][^\\/]+$/, '');
-      const result = await createEcuc({ picks, projectDir });
-      if (result.kind === 'ok') {
-        if (result.written.length > 0) {
-          // Localized toast — reuses the ECUC "created" i18n key so
-          // the user sees the same string regardless of which entry
-          // point invoked the picker.
-          setStoreError(
-            i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }),
-          );
-        }
-      } else {
-        // 'partial' or 'error'. For partial, the hook returns the
-        // failed[] entries; for error, `result.message` is set.
-        const msg =
-          result.message !== undefined
-            ? result.message
-            : result.failed.length > 0
-              ? result.failed.map((f) => `${f.filePath}: ${f.message}`).join('; ')
-              : 'unknown error';
-        setStoreError(msg);
+
+      // Sprint 16 — set-semantic confirm. The picker hands us the
+      // post-toggle `picks` (newly-checked modules). Diff against the
+      // project's currently-loaded ECUC instances to compute
+      // (toAdd, toRemove) and dispatch both flows in sequence.
+      const existingPicks: PickedModule[] = [];
+      for (const doc of state.documents) {
+        if (doc.sourceBswmdPath === undefined) continue;
+        const moduleEl = doc.packages[0]?.elements[0];
+        if (moduleEl?.kind !== 'module') continue;
+        existingPicks.push({
+          bswmdPath: doc.sourceBswmdPath,
+          moduleShortName: moduleEl.shortName,
+        });
       }
+      const pickKey = (p: PickedModule): string =>
+        `${p.bswmdPath}::${p.moduleShortName}`;
+      const incomingKeys = new Set(picks.map(pickKey));
+      const existingKeys = new Set(existingPicks.map(pickKey));
+      const toAdd = picks.filter((p) => !existingKeys.has(pickKey(p)));
+      const toRemove = existingPicks.filter((p) => !incomingKeys.has(pickKey(p)));
+
+      // -- Add path (unchanged from prior behavior) ---------------
+      if (toAdd.length > 0) {
+        const result = await createEcuc({ picks: toAdd, projectDir });
+        if (result.kind === 'ok') {
+          if (result.written.length > 0) {
+            setStoreError(
+              i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }),
+            );
+          }
+        } else {
+          const msg =
+            result.message !== undefined
+              ? result.message
+              : result.failed.length > 0
+                ? result.failed.map((f) => `${f.filePath}: ${f.message}`).join('; ')
+                : 'unknown error';
+          setStoreError(msg);
+        }
+      }
+
+      // -- Remove path (Sprint 16 / T5) ---------------------------
+      if (toRemove.length > 0) {
+        const removeResult = await removeEcuc(toRemove);
+        switch (removeResult.kind) {
+          case 'canceled':
+            // User backed out at the dirty-guard dialog. The add path
+            // already ran (it was uncontested), so we surface no
+            // error — the user already knows what they did.
+            break;
+          case 'ok':
+            if (removeResult.removed.length > 0) {
+              setStoreError(
+                i18nT(locale, 'ecuc.fromBswmd.removed', {
+                  count: removeResult.removed.length,
+                }),
+              );
+            }
+            break;
+          case 'partial':
+            setStoreError(
+              i18nT(locale, 'ecuc.fromBswmd.removeFailed') +
+                ': ' +
+                removeResult.failed.map((f) => `${f.filePath}: ${f.message}`).join('; '),
+            );
+            break;
+          case 'error':
+            setStoreError(
+              i18nT(locale, 'ecuc.fromBswmd.removeFailed') + ': ' + removeResult.message,
+            );
+            break;
+        }
+      }
+
       setPreSelectedBswmdPath(undefined);
     },
-    [createEcuc, locale, setStoreError],
+    [createEcuc, removeEcuc, locale, setStoreError],
   );
 
   // Sprint 13 #2 Task 5 — the left column is now a single

@@ -69,23 +69,34 @@ export function ModuleFromBswmdPicker({
 }: Props): JSX.Element | null {
   const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
   const bswmdPaths = useArxmlStore((s) => s.bswmdPaths);
+  const documents = useArxmlStore((s) => s.documents);
   const locale = useArxmlStore((s) => s.locale);
 
-  // The `Set` keys are `${bswmdPath}::${moduleShortName}` (see
-  // `pickKey`). The Set is re-seeded when `preSelectedBswmdPath` is
-  // supplied, so a parent opening the dialog with a target BSWMD can
-  // land directly inside it.
+  // Sprint 16 — set-semantic pre-seed. Walk every loaded document and
+  // pre-check the (bswmdPath, moduleShortName) tuples that already have
+  // an ECUC instance in the project. Unchecking such a row will mark
+  // it for exclusion on Confirm; checking a previously-absent row
+  // marks it for generation. `preSelectedBswmdPath` (when supplied by
+  // the host) further seeds every active module from that BSWMD so a
+  // user opening the picker from a ProjectPanel "+" lands inside it.
   const [selected, setSelected] = useState<Set<string>>(() => {
-    if (preSelectedBswmdPath === undefined) return new Set();
-    const seeds: string[] = [];
-    const idx = bswmdPaths.indexOf(preSelectedBswmdPath);
-    const schema = idx >= 0 ? bswmdSchemas[idx] : undefined;
-    if (schema !== undefined) {
-      for (const m of getActiveModules(schema)) {
-        seeds.push(pickKey({ bswmdPath: preSelectedBswmdPath, moduleShortName: m.shortName }));
+    const seeds = new Set<string>();
+    for (const doc of documents) {
+      if (doc.sourceBswmdPath === undefined) continue;
+      const moduleEl = doc.packages[0]?.elements[0];
+      if (moduleEl?.kind !== 'module') continue;
+      seeds.add(pickKey({ bswmdPath: doc.sourceBswmdPath, moduleShortName: moduleEl.shortName }));
+    }
+    if (preSelectedBswmdPath !== undefined) {
+      const idx = bswmdPaths.indexOf(preSelectedBswmdPath);
+      const schema = idx >= 0 ? bswmdSchemas[idx] : undefined;
+      if (schema !== undefined) {
+        for (const m of getActiveModules(schema)) {
+          seeds.add(pickKey({ bswmdPath: preSelectedBswmdPath, moduleShortName: m.shortName }));
+        }
       }
     }
-    return new Set(seeds);
+    return seeds;
   });
   const [filter, setFilter] = useState('');
 
