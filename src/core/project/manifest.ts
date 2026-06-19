@@ -1,10 +1,13 @@
 // Project manifest — pure helpers (no fs I/O, no Electron deps).
 //
 // Three responsibilities:
-//   1. loadManifest(json)   — parse + validate a JSON string from disk
-//   2. saveManifest(m)      — emit a pretty-printed JSON string
-//   3. validateManifest(m)  — re-check shape of an in-memory manifest
-//   4. createEmptyManifest  — fresh project skeleton
+//   1. loadManifest(json, manifestDir?) — parse + validate a JSON string
+//      from disk. When `manifestDir` is provided, Sprint 16c #1's compat
+//      migration runs: absolute paths under the manifest's directory are
+//      relativised so legacy v1.1.0 manifests open cleanly.
+//   2. saveManifest(m)                  — emit a pretty-printed JSON string
+//   3. validateManifest(m)              — re-check shape of an in-memory manifest
+//   4. createEmptyManifest              — fresh project skeleton
 //
 // Design choices captured in `shared/project.ts`. Path-shape validation
 // here is intentionally strict (no `..`, no leading `/`, no drive letters)
@@ -22,6 +25,7 @@
 
 import { MANIFEST_SCHEMA_VERSION } from '../../shared/project.js';
 import type { ManifestSchemaVersion, ProjectManifest } from '../../shared/project.js';
+import { toManifestRelative } from '../../shared/path.js';
 
 /**
  * All errors that can surface from loadManifest / validateManifest.
@@ -62,8 +66,22 @@ export type ManifestResult<T> =
  * On failure, returns the specific `ManifestError` kind so callers can
  * surface actionable messages ("Manifest uses schema 999, expected 1")
  * instead of a generic parse failure.
+ *
+ * Optional `manifestDir` enables Sprint 16c #1's v1.1.0 compatibility
+ * migration: when provided, every absolute entry in `valueArxmlPaths`
+ * and `bswmdPaths` that shares a prefix with `manifestDir` is converted
+ * to relative form BEFORE validation runs. Paths that cannot be
+ * relativised (cross-drive, out-of-prefix) are left untouched so the
+ * existing `invalid-path: absolute` check still surfaces them — no
+ * silent masking of broken paths.
+ *
+ * Without `manifestDir`, behaviour is identical to the pre-migration
+ * strict validator (legacy absolute paths are rejected).
  */
-export function loadManifest(json: string): ManifestResult<ProjectManifest> {
+export function loadManifest(
+  json: string,
+  manifestDir?: string,
+): ManifestResult<ProjectManifest> {
   let raw: unknown;
   try {
     raw = JSON.parse(json);
@@ -77,7 +95,69 @@ export function loadManifest(json: string): ManifestResult<ProjectManifest> {
     };
   }
 
-  return parseManifestShape(raw);
+  // Sprint 16c #1 — when `manifestDir` is provided, parse leniently
+  // (skip path validation), migrate, then run full validation. Without
+  // `manifestDir`, fall back to the pre-migration strict path check
+  // (legacy absolute paths are still rejected loudly — no silent
+  // masking of broken paths).
+  const parsed = parseManifestShape(
+    raw,
+    manifestDir !== undefined ? { lenientPaths: true } : {},
+  );
+  if (!parsed.ok) return parsed;
+  if (manifestDir === undefined) return parsed;
+
+  // Migration runs AFTER shape validation so a fundamentally-broken
+  // manifest (wrong schema, missing fields) still surfaces its real
+  // error rather than being partially-migrated. By this point we have
+  // a syntactically valid `ProjectManifest` — only the path arrays
+  // may need relativisation.
+  const migrated = migrateManifestPaths(parsed.value, manifestDir);
+  return validateManifest(migrated);
+}
+
+/**
+ * Sprint 16c #1 — one-shot compat shim for v1.1.0 manifests.
+ *
+ * Sprint 16b T6 changed `valueArxmlPaths` / `bswmdPaths` to relative
+ * form (against the manifest's directory), but existing v1.1.0 users
+ * have manifests with absolute paths like `D:/proj/ecuc/EcuC.arxml`.
+ * On reopen, the strict validator would reject those with
+ * `invalid-path: absolute`. This helper converts in-prefix absolute
+ * entries to relative form and returns a fresh `ProjectManifest`
+ * (immutable — the input is not mutated).
+ *
+ * Behaviour:
+ *   - Already-relative entries: pass through unchanged (so a
+ *     round-trip load → save → load produces the same manifest).
+ *   - Absolute entries under `manifestDir`: relativised via the
+ *     shared `toManifestRelative` helper (POSIX + Windows drive
+ *     letters, cross-drive rejected → returned `null`).
+ *   - Absolute entries outside `manifestDir` (or cross-drive):
+ *     `toManifestRelative` returns `null`; we leave the entry
+ *     absolute so the subsequent `validateManifest` call surfaces
+ *     `invalid-path: absolute` to the user.
+ *
+ * Pure: no I/O, no mutation of the input manifest. Exported for
+ * testability and in case the renderer ever needs a standalone
+ * relativiser.
+ */
+export function migrateManifestPaths(
+  m: ProjectManifest,
+  manifestDir: string,
+): ProjectManifest {
+  const relativise = (paths: readonly string[]): readonly string[] =>
+    paths.map((p) => {
+      const r = toManifestRelative(manifestDir, p);
+      return r ?? p;
+    });
+  return {
+    schemaVersion: m.schemaVersion,
+    id: m.id,
+    name: m.name,
+    valueArxmlPaths: relativise(m.valueArxmlPaths),
+    bswmdPaths: relativise(m.bswmdPaths),
+  };
 }
 
 /**
@@ -143,7 +223,16 @@ export function createEmptyManifest(name: string): ProjectManifest {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function parseManifestShape(raw: unknown): ManifestResult<ProjectManifest> {
+/**
+ * Sprint 16c #1 — `lenientPaths` skips the path-shape check so the
+ * caller can run a migration (e.g. abs→rel) BEFORE path validation.
+ * Without this option, `parseManifestShape` would reject legacy
+ * v1.1.0 absolute-path manifests before the migration could run.
+ */
+function parseManifestShape(
+  raw: unknown,
+  options: { readonly lenientPaths?: boolean } = {},
+): ManifestResult<ProjectManifest> {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return {
       ok: false,
@@ -185,6 +274,13 @@ function parseManifestShape(raw: unknown): ManifestResult<ProjectManifest> {
     bswmdPaths: obj.bswmdPaths as readonly string[],
   };
 
+  if (options.lenientPaths === true) {
+    // Skip path validation. Caller MUST run `validateManifest` (or
+    // path checks) after migrating/transforming the paths. This is
+    // the migration hook used by `loadManifest` for v1.1.0
+    // backward-compat.
+    return { ok: true, value: candidate };
+  }
   return validateManifest(candidate);
 }
 

@@ -211,7 +211,7 @@ export function registerIpcHandlers(): void {
         message: `Failed to read manifest: ${e instanceof Error ? e.message : String(e)}`,
       };
     }
-    const loaded = loadManifest(manifestJson);
+    const loaded = loadManifest(manifestJson, manifestDir);
     if (!loaded.ok) {
       return {
         kind: 'read-failed',
