@@ -5,6 +5,101 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-06-19 — Sprint 14 ECUC ARXML Import
+
+MINOR bump: **EB tresos 风格 "Resolve Conflicts" wizard** — 多份 ECUC
+ARXML 按 module 维度聚合导入，支持撞名 diff 表 + atomic commit + 单步撤销。
+17 commits + 1 review-fix, +103 tests (1309 total).
+
+### Added
+
+- **`core/import/` 新模块** (`506aad0` + `31cb402` + `505fc8a` + `e266cb3`)：
+  4 个纯 TS 模块 — `types.ts` (4/8/4 kinds unions + 18 类型) / `diff.ts`
+  (`buildModuleDiff`) / `merge.ts` (`buildMergedView`) / `patch.ts`
+  (`compileResolutionToPatches` + `applyPatchesToDocument`)。**零
+  react/electron/zustand/fs 依赖**。
+- **8 个 store actions** (`546b5ab` + `e9740f8` + `e3417a5` + `098ebbd`)：
+  `startImport` / `selectModule` / `resolveModule` / `openDiff` / `closeDiff`
+  / `commitImport` / `cancelImport` / `undoLastCommit`。
+- **viewMode 三态扩展** (`546b5ab` + `8afe110`)：`'single' | 'combined'
+  | 'import-merged'`，互斥 guard 防止误切到 combined / 误触发 save。
+- **`ImportSession` state slice** (`546b5ab`)：`importSession` /
+  `lastCommitSnapshot` 字段；`isDirty()` 扩为
+  `dirtyPaths.size > 0 || importSession !== null`。
+- **`commitImport` 原子性** (`e3417a5`)：snapshot sourceFilesTouched →
+  immutable apply → 任一失败 catch + rollback (importSession 保留) → 全部
+  成功才 `set()`。`undoLastCommit` 用 snapshot 还原。
+- **3 个 React UI 组件** (`31c7c78` + `e31ae68` + `d42821b`)：
+  - `ImportEntry` (FileListTab `[Import…]` 入口 + multi-select dialog)
+  - `ModuleSelectionPanel` (按 module 列出 + 撞名 badge + Commit 按钮)
+  - `DiffTable` (三栏 existing/incoming/决策 radio + lazy diff + 嵌套展开
+    + param 高亮)
+- **18 个 i18n keys** (`7d49e5a`)：zh-CN + en 双语，从 `app.import.button`
+  到 `app.import.undoLastCommit`。Parity 测试保证双语 key 集合完全一致。
+- **8 kind `ImportError` union** (`506aad0`)：`read-failed` / `parse-failed`
+  / `diff-failed` / `patch-apply-failed` / `multiplicity-exceeded` /
+  `no-modules-selected` / `view-mode-locked` / `mixed-versions` + 类型守卫。
+- **4 kind `ImportPatchOp` union** (`506aad0`)：`add-module` /
+  `merge-into-module` / `overwrite-module` / `rename-incoming`。
+- **Playwright E2E** (`41941f0`)：`tests/e2e/import-flow.spec.ts` —
+  happy path (FileListTab → ImportEntry → ModuleSelection → DiffTable →
+  commit → ConfirmDialog → 验证 dirtyPaths + viewMode 复位) + abort path
+  (中途 cancel 不污染 store)。
+- **verify stage 7 import regression** (`ae7d72b`)：
+  `tests/regression/import-round-trip.test.ts` — 加载 2 fixtures → 模拟
+  startImport → compile patches → apply → serialize → parse → 验证
+  byte-identical。
+- **internal undoStack** (`e9740f8`)：`ImportSession` 内嵌 ≤20 步
+  `ImportSessionSnapshot[]`，仅 commit 前有效；cancel 清空。
+
+### Changed
+
+- **`useArxmlStore.ts`** (`546b5ab` ~ `8afe110`)：扩 3 state 字段 + 8
+  actions；`computeDisplayDoc` 增加 `'import-merged'` 分支（复用
+  `wrapPackageUnderSegment` 思路，segment 名 `[import:N]`）。
+- **`App.tsx`** (`8afe110`)：viewMode 三态路由 — `import-merged` 时挂载
+  ModuleSelectionPanel / DiffTable，隐藏 Save / Combined 入口；param editor
+  仍可用但仅在内存态。
+- **`FileListTab.tsx`** (`31c7c78`)：加 `[Import…]` 按钮（与 Combined
+  入口互斥，dirty 时走现有 unsaved 保护）。
+- **`scripts/verify.mjs`** (`ae7d72b`)：加 stage 7 import regression
+  guard。
+
+### Internal
+
+- **Phase 1+2 cleanup** (`f9c5ce8`)：lint + type-check post-pass — drop
+  unused imports / 替换 fixture / 重命名 unused arg。
+- **Review MEDIUM-1 fix** (`0291817`)：删除 `patch.ts:143-152` 的 dead
+  `'overwrite-module'` 分支（`ImportResolution` 不含此字面量，if-block
+  永远 false）。
+
+### Verified
+
+- 5/5 baseline gate green：format / lint 0 warnings / type-check / test
+  (1309 passing / 1 skipped) / build (renderer 391KB / main 126KB /
+  preload 1.6KB)
+- verify.mjs stage 7 import regression：byte-identical round-trip
+- Final code review: 0 CRITICAL / 0 HIGH / 1 MEDIUM (fixed) / 2 LOW
+  (deferred)
+- 8/8 design invariants PASS: 0 new IPC channel / 0 modification of
+  `core/arxml/*` / `shared/project.ts` / 0 forbidden imports in
+  `core/import/` / exact 8/4 kind unions / `commitImport` atomicity /
+  `isDirty` covers `importSession`
+- 12/12 acceptance gates PASS（spec §11）
+
+### Out of Scope (deferred to Sprint 15+)
+
+- 删除 target 中 existing module（破坏性操作）
+- 修改 / 重写 reference dest
+- 跨项目导入
+- 流式大文件 diff
+- BSWMD 自动加载
+- 删除 / rename target module
+- 实时多人协作
+- Review 2 LOWs：add-module silent no-op edge case / SelectionRow
+  cosmetic locale read
+- GH release 自动创建（gh CLI 未安装）
+
 ## [1.1.2] - 2026-06-19 — Sprint 17 Polish Batch
 
 10 follow-up polish items from Sprint 16 ship. Zero breaking change.
