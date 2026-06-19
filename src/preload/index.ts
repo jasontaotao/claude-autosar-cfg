@@ -24,6 +24,15 @@ import type {
   ReadBswmdResponse,
   SaveArxmlRequest,
   SaveArxmlResponse,
+  ScriptDeleteRequest,
+  ScriptDeleteResponse,
+  ScriptListRequest,
+  ScriptListResponse,
+  ScriptProgressEvent,
+  ScriptRunRequest,
+  ScriptRunResponse,
+  ScriptSaveRequest,
+  ScriptSaveResponse,
   TemplateCopyRequest,
   TemplateCopyResponse,
   TemplateListResponse,
@@ -88,6 +97,25 @@ const api = {
   // user-deleted value-side file.
   deleteArxml: (req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_ARXML, req),
+  // Sprint 14 #1 — script engine IPC bridge. Four invoke wrappers
+  // (`listScripts` / `saveScript` / `deleteScript` / `runScript`) and
+  // one push subscription (`onScriptProgress`) that returns an
+  // unsubscribe fn (matches the existing `deleteArxml` style). The
+  // push channel is wired in main via `webContents.send`; the
+  // preload only subscribes.
+  listScripts: (req: ScriptListRequest): Promise<ScriptListResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SCRIPT_LIST, req),
+  saveScript: (req: ScriptSaveRequest): Promise<ScriptSaveResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SCRIPT_SAVE, req),
+  deleteScript: (req: ScriptDeleteRequest): Promise<ScriptDeleteResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SCRIPT_DELETE, req),
+  runScript: (req: ScriptRunRequest): Promise<ScriptRunResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SCRIPT_RUN, req),
+  onScriptProgress: (cb: (e: ScriptProgressEvent) => void): (() => void) => {
+    const handler = (_evt: unknown, e: ScriptProgressEvent): void => cb(e);
+    ipcRenderer.on(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
+    return () => ipcRenderer.off(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);
