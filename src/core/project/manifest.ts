@@ -23,9 +23,9 @@
 // renderer rollup build to fail because `__vite-browser-external` has
 // no `randomUUID` export.
 
+import { toManifestRelative } from '../../shared/path.js';
 import { MANIFEST_SCHEMA_VERSION } from '../../shared/project.js';
 import type { ManifestSchemaVersion, ProjectManifest } from '../../shared/project.js';
-import { toManifestRelative } from '../../shared/path.js';
 
 /**
  * All errors that can surface from loadManifest / validateManifest.
