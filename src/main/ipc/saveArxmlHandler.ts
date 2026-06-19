@@ -14,14 +14,23 @@
 // Return shape (discriminated union via Result):
 //   - `{ ok: true, value: { canceled: false, path } }` — file written
 //   - `{ ok: true, value: { canceled: true } }` — user backed out
-//   - `{ ok: false, error: { kind: 'write-failed', message } }` — IO / serialization error
+//   - `{ ok: false, error: SaveArxmlError }` — IO / serialization error
+//     (Sprint 17b T7 — the `kind` field is now one of 6 typed values
+//      so the renderer can dispatch a localized toast per failure
+//      class. `code` carries the raw NodeJS errno string when set.)
 
 import { promises as fs } from 'node:fs';
 
 import { dialog } from 'electron';
 
 import { serializeArxml } from '../../core/arxml/serializer.js';
-import type { FileError, SaveArxmlRequest, SaveArxmlResponse } from '../../shared/types.js';
+import type {
+  FileError,
+  SaveArxmlError,
+  SaveArxmlErrorKind,
+  SaveArxmlRequest,
+  SaveArxmlResponse,
+} from '../../shared/types.js';
 
 export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxmlResponse> {
   const defaultName = req.defaultName ?? 'untitled.arxml';
@@ -47,8 +56,11 @@ export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxml
 
   const serialized = serializeArxml(req.doc);
   if (!serialized.ok) {
-    const err: FileError = {
-      kind: 'write-failed',
+    // Serialize failure is in-memory — no errno applies. Surface a
+    // dedicated `serialize-failed` kind so the renderer can offer a
+    // "Report a bug" hint (vs. a permission toast for IO failures).
+    const err: SaveArxmlError = {
+      kind: 'serialize-failed',
       message: serialized.error.message,
     };
     return { ok: false, error: err };
@@ -58,10 +70,46 @@ export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxml
     await fs.writeFile(targetPath, serialized.value, 'utf8');
     return { ok: true, value: { canceled: false, path: targetPath } };
   } catch (e) {
-    const err: FileError = {
-      kind: 'write-failed',
+    // Sprint 17b T7 — translate the NodeJS.ErrnoException `.code`
+    // field into a typed SaveArxmlErrorKind. The three mapped
+    // clusters cover the failure modes a renderer user can act on
+    // (fix permissions / free disk / pick a different path); any
+    // unmapped errno falls back to `'unknown'` and preserves the
+    // original code so the renderer can show it in the toast's
+    // `{message}` placeholder.
+    const errno = (e as NodeJS.ErrnoException | undefined)?.code;
+    const kind: SaveArxmlErrorKind = mapErrnoToKind(errno);
+    const err: SaveArxmlError = {
+      kind,
+      // Only surface the errno code for the kinds the renderer is
+      // likely to log. The serialize-failed arm never reaches here
+      // (it returned above), so the spread is safe.
+      ...(errno !== undefined ? { code: errno } : {}),
       message: e instanceof Error ? e.message : String(e),
     };
     return { ok: false, error: err };
   }
 }
+
+/**
+ * Sprint 17b T7 — translate a NodeJS errno code into the typed
+ * `SaveArxmlErrorKind` union. The mapping is intentionally narrow:
+ * the three clusters (permission / disk-full / path-not-found) cover
+ * the failure modes a user can act on, and `unknown` is the safe
+ * fallback for anything else (EIO, EROFS, EMFILE, ...). Kept as a
+ * pure helper so the renderer-side test for the errno branch can
+ * mock `fs.writeFile` without reaching into the handler body.
+ */
+function mapErrnoToKind(code: string | undefined): SaveArxmlErrorKind {
+  if (code === 'EACCES' || code === 'EPERM') return 'permission-denied';
+  if (code === 'ENOSPC' || code === 'EDQUOT') return 'disk-full';
+  if (code === 'ENOENT' || code === 'ENOTDIR') return 'path-not-found';
+  return 'unknown';
+}
+
+/**
+ * Re-export so consumers that import `FileError` from the handler
+ * still get the same type surface after the Sprint 17b T7 refactor.
+ * (Pure type-only; no runtime impact.)
+ */
+export type { FileError };

@@ -61,6 +61,18 @@ export interface Messages {
   readonly 'app.saveAllDirtyTitle': string; // {count}
   readonly 'app.saveAllDone': string; // {count}
   readonly 'app.saveAllPartial': string; // {saved}, {failed}, {firstError}
+  // Sprint 17b T7 — typed save-error messages. The renderer's
+  // `onSave` handler dispatches the toast via `setError` (and
+  // surfaces a `kind: 'error' / 'warning'` red/amber banner based
+  // on the i18n lookup). Each kind maps 1:1 to a SaveArxmlErrorKind
+  // member; `write-failed` is the legacy v1.1.0/v1.1.1 alias and
+  // falls back to a generic "Save failed: {message}" line.
+  readonly 'app.save.error.permission-denied': string;
+  readonly 'app.save.error.disk-full': string;
+  readonly 'app.save.error.path-not-found': string;
+  readonly 'app.save.error.serialize-failed': string;
+  readonly 'app.save.error.write-failed': string; // {message}
+  readonly 'app.save.error.unknown': string; // {message}
   readonly 'app.project.new': string;
   readonly 'app.project.open': string;
   readonly 'app.project.save': string;
@@ -363,6 +375,12 @@ export const MessagesZhCN: Messages = {
   'app.saveAllDirtyTitle': '{count} 个 ECUC 待保存',
   'app.saveAllDone': '已保存 {count} 个文件',
   'app.saveAllPartial': '已保存 {saved} 个，{failed} 个失败：{firstError}',
+  'app.save.error.permission-denied': '权限被拒绝。请检查文件/文件夹权限。',
+  'app.save.error.disk-full': '磁盘空间已满。请清理后重试。',
+  'app.save.error.path-not-found': '目标路径不存在。请确认目录是否正确。',
+  'app.save.error.serialize-failed': '序列化 ARXML 失败。如反复出现请报告 bug。',
+  'app.save.error.write-failed': '保存失败：{message}',
+  'app.save.error.unknown': '保存失败：{message}',
   'app.project.new': '新建项目',
   'app.project.open': '打开项目',
   'app.project.save': '保存项目',
@@ -602,6 +620,12 @@ export const MessagesEn: Messages = {
   'app.saveAllDirtyTitle': '{count} ECUCs pending',
   'app.saveAllDone': 'Saved {count} files',
   'app.saveAllPartial': 'Saved {saved}, {failed} failed: {firstError}',
+  'app.save.error.permission-denied': 'Permission denied. Check file/folder permissions.',
+  'app.save.error.disk-full': 'Disk full. Free up space and try again.',
+  'app.save.error.path-not-found': 'Target path not found. Verify directory exists.',
+  'app.save.error.serialize-failed': 'Failed to serialize ARXML. Report a bug if this persists.',
+  'app.save.error.write-failed': 'Save failed: {message}',
+  'app.save.error.unknown': 'Save failed: {message}',
   'app.project.new': 'New Project',
   'app.project.open': 'Open Project',
   'app.project.save': 'Save Project',

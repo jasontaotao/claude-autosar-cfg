@@ -25,10 +25,45 @@ export type { Result };
 
 // --- F1 ARXML IO types -----------------------------------------------------
 
+/**
+ * Sprint 17b T7 — typed save-failure discriminator. Each value maps to
+ * a specific NodeJS errno pattern (or a non-IO failure path) so the
+ * renderer can dispatch a localized toast with the right copy. The
+ * `write-failed` member is kept as a v1.1.0/v1.1.1 legacy alias: older
+ * callers that predate the typed union still get a parseable
+ * `kind` field; the renderer falls back to a generic "Save failed"
+ * toast for it.
+ */
+export type SaveArxmlErrorKind =
+  | 'permission-denied' // EACCES, EPERM
+  | 'disk-full' // ENOSPC, EDQUOT
+  | 'path-not-found' // ENOENT, ENOTDIR
+  | 'serialize-failed' // serializeArxml returned ok:false (in-memory)
+  | 'write-failed' // legacy alias — any unspecialised IO failure
+  | 'unknown'; // unmapped errno (preserves the original code)
+
+/**
+ * Sprint 17b T7 — typed save-failure envelope. `code` carries the raw
+ * NodeJS errno string (e.g. `'EACCES'`) when the kind is `unknown`,
+ * the legacy `write-failed` alias, or a future errno we're not yet
+ * mapping. For `serialize-failed` the field is omitted (no errno
+ * applies). `message` is the human-readable cause — the renderer's
+ * i18n template can interpolate it as `{message}`.
+ */
+export interface SaveArxmlError {
+  readonly kind: SaveArxmlErrorKind;
+  readonly code?: string;
+  readonly message: string;
+}
+
 export type FileError =
   | { readonly kind: 'read-failed'; readonly message: string }
   | { readonly kind: 'write-failed'; readonly message: string }
-  | { readonly kind: 'dialog-failed'; readonly message: string };
+  | { readonly kind: 'dialog-failed'; readonly message: string }
+  // Sprint 17b T7 — typed save-failure variant. Replaces the previous
+  // `write-failed` arm of the save flow; `read-failed` / `dialog-failed`
+  // are unchanged because they don't have errno mapping paths.
+  | SaveArxmlError;
 
 export interface OpenArxmlResult {
   readonly canceled: boolean;

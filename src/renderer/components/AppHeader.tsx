@@ -237,7 +237,25 @@ export function AppHeader({
     });
     if (!saved.ok) {
       setState({ busy: false });
-      setStoreError(t(locale, 'app.error.saveFailed', { message: saved.error.message }));
+      // Sprint 17b T7 — dispatch a localized toast per typed kind.
+      // `setError` routes through the new `toast: { kind: 'error',
+      // message }` slice so the banner shows the correct color and
+      // stays manual-dismiss (errors always demand explicit ack).
+      // The legacy `app.error.saveFailed` key is retained for
+      // callers that predate the typed FileError union.
+      const kind = saved.error.kind;
+      // Narrow to the six save-error kinds. The other two FileError
+      // members (`read-failed` / `dialog-failed`) cannot reach this
+      // branch from `saveArxml`, but the union type still includes
+      // them; fall through to a generic Save-failed line for those
+      // rare paths so we never index the lookup table with an
+      // unknown key.
+      const message = (
+        kind === 'read-failed' || kind === 'dialog-failed'
+          ? t(locale, 'app.save.error.unknown', { message: saved.error.message })
+          : t(locale, `app.save.error.${kind}` as const, { message: saved.error.message })
+      ) as string;
+      setStoreError(message);
       return;
     }
     if (saved.value.canceled) {
