@@ -14,14 +14,44 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  background: #7f1d1d;
-  color: #fee2e2;
+  /* Sprint 17b T6 — base layout. Background and border are now
+   * supplied by the per-kind modifier class (`--error` / `--warning`
+   * / `--info` / `--success`) so the four kinds get distinct colors
+   * while sharing the same flex/typography. */
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  border-bottom: 1px solid #991b1b;
+  border-bottom: 1px solid transparent;
   flex: 0 0 auto;
   max-height: 200px;
   min-height: 32px;
+}
+
+/* Per-kind color modifiers (Sprint 17b T6). Each one carries a
+ * background + foreground color tuned for ≥4.5:1 contrast (WCAG AA
+ * large-text / AAA body) plus a darker bottom-border that reads as
+ * a "subtle drop shadow" against the workspace below. */
+.error-banner--error {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border-bottom-color: #991b1b;
+}
+
+.error-banner--warning {
+  background: #92400e;
+  color: #fef3c7;
+  border-bottom-color: #b45309;
+}
+
+.error-banner--info {
+  background: #1e40af;
+  color: #dbeafe;
+  border-bottom-color: #2563eb;
+}
+
+.error-banner--success {
+  background: #166534;
+  color: #dcfce7;
+  border-bottom-color: #15803d;
 }
 
 .error-banner-message {

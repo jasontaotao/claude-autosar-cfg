@@ -15,7 +15,7 @@
 //   6. message click also opens the modal (any clickable surface)
 //   7. modal closes via × / Escape / backdrop; dismissAll clears store
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
@@ -160,5 +160,92 @@ describe('ErrorBanner (Sprint 13+)', () => {
     });
     fireEvent.click(screen.getByTestId('error-viewer-copy'));
     expect(writeTextSpy).toHaveBeenCalledWith('modal copy me');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint 17b T6 — kind discriminator + auto-dismiss
+//
+// The banner now reads the typed `toast` field on the store. The four
+// kinds map 1:1 to modifier CSS classes (red/amber/blue/green) and
+// drive auto-dismiss timing. `error` keeps manual-dismiss only; the
+// other three auto-clear after their timer (3s info/success, 5s
+// warning).
+// ---------------------------------------------------------------------------
+
+describe('ErrorBanner kind rendering (Sprint 17b T6)', () => {
+  it.each([
+    ['error', 'error-banner--error'],
+    ['warning', 'error-banner--warning'],
+    ['info', 'error-banner--info'],
+    ['success', 'error-banner--success'],
+  ] as const)('renders kind=%s with modifier class %s', (kind, modClass) => {
+    useArxmlStore.setState({
+      toast: { kind, message: `test-${kind}` },
+      error: `test-${kind}`,
+    });
+    render(<ErrorBanner />);
+    const banner = screen.getByTestId('error-banner');
+    expect(banner.className).toContain(modClass);
+    expect(banner.className).toContain('error-banner');
+  });
+
+  it('error kind renders with assertive aria-live (manual dismiss)', () => {
+    useArxmlStore.setState({ toast: { kind: 'error', message: 'fatal' }, error: 'fatal' });
+    render(<ErrorBanner />);
+    const banner = screen.getByTestId('error-banner');
+    expect(banner.getAttribute('aria-live')).toBe('assertive');
+    expect(banner.getAttribute('role')).toBe('alert');
+  });
+
+  it('non-error kinds render with polite aria-live', () => {
+    useArxmlStore.setState({
+      toast: { kind: 'success', message: 'saved' },
+      error: 'saved',
+    });
+    render(<ErrorBanner />);
+    const banner = screen.getByTestId('error-banner');
+    expect(banner.getAttribute('aria-live')).toBe('polite');
+  });
+});
+
+describe('ErrorBanner auto-dismiss (Sprint 17b T6)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('auto-dismisses success after 3s', () => {
+    useArxmlStore.setState({
+      toast: { kind: 'success', message: 'saved', autoDismissMs: 3000 },
+      error: 'saved',
+    });
+    render(<ErrorBanner />);
+    expect(screen.getByTestId('error-banner')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(useArxmlStore.getState().toast).toBeNull();
+    expect(useArxmlStore.getState().error).toBeNull();
+  });
+
+  it('does NOT auto-dismiss error kind', () => {
+    useArxmlStore.setState({ toast: { kind: 'error', message: 'failed' }, error: 'failed' });
+    render(<ErrorBanner />);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    expect(useArxmlStore.getState().toast).not.toBeNull();
+    expect(useArxmlStore.getState().error).not.toBeNull();
+  });
+
+  it('dismiss button clears both toast and error', () => {
+    useArxmlStore.setState({ toast: { kind: 'info', message: 'transient' }, error: 'transient' });
+    render(<ErrorBanner />);
+    fireEvent.click(screen.getByTestId('error-banner-dismiss'));
+    expect(useArxmlStore.getState().toast).toBeNull();
+    expect(useArxmlStore.getState().error).toBeNull();
   });
 });

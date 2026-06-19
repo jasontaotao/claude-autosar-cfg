@@ -85,6 +85,14 @@ export interface Messages {
   readonly 'app.error.duplicateBswmd': string; // {path}
   readonly 'app.error.needProject': string;
   readonly 'app.error.dismissAria': string;
+  // Sprint 17b T6 — per-kind ARIA labels. The non-error kinds (warning /
+  // info / success) get an explicit `aria-label` so screen readers
+  // announce the kind ("Warning notification" / "Information
+  // notification" / "Success notification"). Errors rely on the
+  // implicit `role="alert"` semantics and skip the label.
+  readonly 'app.error.warningAria': string;
+  readonly 'app.error.infoAria': string;
+  readonly 'app.error.successAria': string;
   readonly 'app.error.copyAria': string;
   readonly 'app.error.copy': string;
   readonly 'app.error.viewAria': string;
@@ -379,6 +387,9 @@ export const MessagesZhCN: Messages = {
   'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
   'app.error.needProject': '需要先打开或创建项目',
   'app.error.dismissAria': '关闭提醒',
+  'app.error.warningAria': '警告通知',
+  'app.error.infoAria': '信息通知',
+  'app.error.successAria': '成功通知',
   'app.error.copyAria': '复制错误内容',
   'app.error.copy': '复制',
   'app.error.viewAria': '查看完整错误',
@@ -615,6 +626,9 @@ export const MessagesEn: Messages = {
   'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
   'app.error.needProject': 'Please open or create a project first',
   'app.error.dismissAria': 'Dismiss notification',
+  'app.error.warningAria': 'Warning notification',
+  'app.error.infoAria': 'Information notification',
+  'app.error.successAria': 'Success notification',
   'app.error.copyAria': 'Copy error to clipboard',
   'app.error.copy': 'Copy',
   'app.error.viewAria': 'View full error',

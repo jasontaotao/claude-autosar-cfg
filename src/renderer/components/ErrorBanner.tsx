@@ -21,7 +21,7 @@
 // user explicitly asked for in the Sprint 13+ follow-up.
 
 import type { JSX } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { t } from '@shared/i18n';
 
@@ -43,11 +43,55 @@ interface ErrorBannerProps {
 
 export function ErrorBanner(_props: ErrorBannerProps = {}): JSX.Element | null {
   const locale = useArxmlStore((s) => s.locale);
-  const error = useArxmlStore((s) => s.error);
-  const setError = useArxmlStore((s) => s.setError);
+  // Sprint 17b T6 — read the typed `toast` field. The four kinds
+  // (error/warning/info/success) map 1:1 to CSS modifier classes
+  // (red/amber/blue/green) and drive the auto-dismiss timer. The
+  // legacy `error: string | null` field is kept in sync by every
+  // setter, but the banner only needs the typed view.
+  const toast = useArxmlStore((s) => s.toast);
+  const dismissToast = useArxmlStore((s) => s.dismissToast);
   const [viewerOpen, setViewerOpen] = useState(false);
 
-  if (error === null) return null;
+  // Sprint 17b T6 — auto-dismiss. `error` is manual only (no
+  // autoDismissMs); the other three kinds stamp a default timeout
+  // (3s info/success, 5s warning) on the setter side. We re-schedule
+  // whenever the toast changes (deps: `toast`) so a user-triggered
+  // update to the same kind re-arms the timer from scratch.
+  useEffect(() => {
+    if (toast === null) return;
+    const ms = toast.autoDismissMs;
+    if (ms === undefined || ms <= 0) return;
+    const id = setTimeout(dismissToast, ms);
+    return () => clearTimeout(id);
+  }, [toast, dismissToast]);
+
+  if (toast === null) return null;
+
+  const { kind, message, autoDismissMs } = toast;
+  // Local rename keeps the existing JSX readable; `message` and
+  // `error` are semantically the same string.
+  const error = message;
+  // ARIA: errors are assertive (interrupt the user) because they
+  // demand acknowledgment; the other three kinds are polite (wait
+  // for an idle moment) so a flurry of success toasts doesn't
+  // derail the user's typing.
+  const ariaLive = kind === 'error' ? 'assertive' : 'polite';
+  // ARIA label: kind-specific notification announcement. The button
+  // title stays generic ("click to view full message") so the
+  // affordance text doesn't duplicate the kind hint.
+  const kindAriaKey =
+    kind === 'warning'
+      ? 'app.error.warningAria'
+      : kind === 'info'
+        ? 'app.error.infoAria'
+        : kind === 'success'
+          ? 'app.error.successAria'
+          : null;
+  // `aria-label` is only set for the non-error kinds (errors already
+  // carry the implicit "alert" semantics via `role="alert"`).
+  // `data-auto-dismiss-ms` exposes the timer to E2E / debug tooling
+  // without leaking it into the visible UI.
+  const autoDismissAttr = autoDismissMs !== undefined && autoDismissMs > 0 ? autoDismissMs : null;
 
   // Line-count heuristic for "show 'view' affordance": once the message
   // exceeds the banner's visible cap, the "view" button lets the user
@@ -71,7 +115,14 @@ export function ErrorBanner(_props: ErrorBannerProps = {}): JSX.Element | null {
 
   return (
     <>
-      <div className="error-banner" role="alert" aria-live="assertive" data-testid="error-banner">
+      <div
+        className={`error-banner error-banner--${kind}`}
+        role="alert"
+        aria-live={ariaLive}
+        data-testid="error-banner"
+        data-auto-dismiss-ms={autoDismissAttr}
+        aria-label={kindAriaKey === null ? undefined : t(locale, kindAriaKey)}
+      >
         <button
           type="button"
           className="error-banner-message"
@@ -105,7 +156,7 @@ export function ErrorBanner(_props: ErrorBannerProps = {}): JSX.Element | null {
           <button
             type="button"
             className="error-banner-btn error-banner-dismiss"
-            onClick={() => setError(null)}
+            onClick={() => dismissToast()}
             data-testid="error-banner-dismiss"
             aria-label={t(locale, 'app.error.dismissAria')}
           >

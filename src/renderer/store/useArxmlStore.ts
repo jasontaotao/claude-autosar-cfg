@@ -89,6 +89,36 @@ import type { ProjectManifest } from '@shared/project';
  */
 export type LeftTabId = 'project' | 'files' | 'validate';
 
+/**
+ * Sprint 17b T6 — toast discriminator. The banner reads the typed
+ * `toast` field on the store and renders a different color + dismiss
+ * policy per kind. `error` is the only manual-dismiss kind; the other
+ * three auto-clear after a per-kind default (3s info/success, 5s
+ * warning). The store's `setError` / `setInfo` / `setSuccess` /
+ * `setWarning` actions stamp the kind and a sensible default timer.
+ */
+export type ToastKind = 'error' | 'warning' | 'info' | 'success';
+
+/**
+ * Sprint 17b T6 — typed toast envelope. `autoDismissMs === 0` (or
+ * undefined for `'error'`) means manual dismiss only. The
+ * ErrorBanner's `useEffect` reads this field to schedule the
+ * auto-clear; the rest of the renderer treats `toast` as the source
+ * of truth (the legacy `error: string | null` field is kept in sync
+ * for back-compat with existing selectors and tests).
+ */
+export interface ToastState {
+  readonly kind: ToastKind;
+  readonly message: string;
+  /**
+   * Auto-dismiss timeout in ms. Omit (or 0) for manual dismiss only.
+   * The store's `setInfo` / `setSuccess` / `setWarning` defaults are
+   * 3000 / 3000 / 5000 respectively; `setError` leaves it undefined
+   * because errors demand explicit acknowledgment.
+   */
+  readonly autoDismissMs?: number;
+}
+
 export interface ArxmlState {
   // Multi-doc state (canonical)
   readonly documents: readonly ArxmlDocument[];
@@ -118,6 +148,15 @@ export interface ArxmlState {
    */
   readonly dirtyPaths: ReadonlySet<string>;
   readonly error: string | null;
+  /**
+   * Sprint 17b T6 — typed toast envelope. The ErrorBanner reads this
+   * field directly and renders one of four color variants. Kept in
+   * sync with the legacy `error: string | null` field so existing
+   * selectors and tests still work — `setError` / `setInfo` /
+   * `setSuccess` / `setWarning` write BOTH, and `dismissToast` /
+   * `setError(null)` clear BOTH.
+   */
+  readonly toast: ToastState | null;
   readonly validationErrors: readonly ValidationError[];
   readonly lastValidatedAt: number | null;
 
@@ -245,7 +284,19 @@ export interface ArxmlState {
   select: (path: string | null) => void;
   updateParam: (containerPath: string, paramKey: string, value: ParamValue) => void;
   markSaved: (filePath: string) => void;
+  /**
+   * Sprint 17b T6 — typed toast setters. `setError` is the only one
+   * that takes `null` (it's a long-standing public surface that means
+   * "clear the error banner"); the three new kinds only ever replace
+   * the current toast. Use `dismissToast` to clear without picking a
+   * kind — both `setError(null)` and `dismissToast()` reset toast
+   * AND the legacy `error` field in one go.
+   */
   setError: (msg: string | null) => void;
+  setInfo: (message: string, autoDismissMs?: number) => void;
+  setSuccess: (message: string, autoDismissMs?: number) => void;
+  setWarning: (message: string, autoDismissMs?: number) => void;
+  dismissToast: () => void;
   validate: () => void;
   clear: () => void;
 
@@ -355,6 +406,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   selectedPath: null,
   dirtyPaths: new Set<string>(),
   error: null,
+  // Sprint 17b T6 — typed toast envelope. Both fields default to
+  // null; every setter keeps them in sync so the legacy `error`
+  // selectors (AppHeader, ErrorBanner, etc.) and the new typed
+  // `toast` readers see the same UI state.
+  toast: null,
   validationErrors: [],
   lastValidatedAt: null,
   // Sprint 11 Phase 1 — project state.
@@ -431,7 +487,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       selectedPath: null,
       // Newly loaded doc is fresh; other docs' dirty state is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
+      // Sprint 17b T6 — successful doc load clears both the legacy
+      // `error` field and the typed `toast` so a stale banner from a
+      // previous open-failure doesn't linger.
       error: null,
+      toast: null,
       project: nextProject,
       validationErrors: validateProjectForRenderer(nextDocuments),
       lastValidatedAt: Date.now(),
@@ -581,7 +641,36 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       dirtyPaths: dropFromDirty(get().dirtyPaths, filePath),
     }),
 
-  setError: (msg) => set({ error: msg }),
+  setError: (msg) => {
+    // Sprint 17b T6 — `setError` is the long-standing public surface
+    // (AppHeader, useProjectActions, useRemoveEcucFiles, etc.). It
+    // now writes BOTH the legacy `error: string | null` field AND
+    // the new typed `toast: ToastState | null` field. Existing
+    // selectors (`s.error`) and the new `s.toast` readers see the
+    // same UI state in one render. `null` clears both (this is the
+    // "dismiss banner" path); a non-null message becomes a manual-
+    // dismiss error toast (no autoDismissMs, role="alert", aria-live
+    // "assertive").
+    if (msg === null) {
+      set({ error: null, toast: null });
+      return;
+    }
+    set({ error: msg, toast: { kind: 'error', message: msg } });
+  },
+
+  // Sprint 17b T6 — typed toast setters. Each replaces the current
+  // toast (no null overload — use `dismissToast` to clear). The
+  // `autoDismissMs` arg is optional; omitting it falls back to the
+  // per-kind default (3s info/success, 5s warning). Errors are
+  // always manual, so there is no `setError(msg, ms)` overload —
+  // the long-standing public surface only ever needs a string.
+  setInfo: (message, autoDismissMs = 3000) =>
+    set({ error: message, toast: { kind: 'info', message, autoDismissMs } }),
+  setSuccess: (message, autoDismissMs = 3000) =>
+    set({ error: message, toast: { kind: 'success', message, autoDismissMs } }),
+  setWarning: (message, autoDismissMs = 5000) =>
+    set({ error: message, toast: { kind: 'warning', message, autoDismissMs } }),
+  dismissToast: () => set({ error: null, toast: null }),
 
   validate: () => {
     const state = get();
@@ -602,6 +691,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       selectedPath: null,
       dirtyPaths: new Set<string>(),
       error: null,
+      // Sprint 17b T6 — toast slice; cleared alongside the legacy
+      // `error` field so a fresh project doesn't reopen a stale
+      // banner.
+      toast: null,
       validationErrors: [],
       lastValidatedAt: null,
       project: null,
@@ -666,7 +759,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
       dirtyPaths: new Set<string>(),
+      // Sprint 17b T6 — clear the typed toast alongside `error` so a
+      // stale open-failure banner doesn't survive a successful open.
       error: null,
+      toast: null,
       project: manifest,
       projectPath: manifestPath,
       validationErrors: validateProjectForRenderer(orderedDocuments),
@@ -732,7 +828,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       bswmdSchemas: nextSchemas,
       bswmdPaths: nextPaths,
       project: nextProject,
+      // Sprint 17b T6 — successful BSWMD add clears the typed toast
+      // alongside `error` so a stale parse-failure banner doesn't
+      // linger once a new schema loads cleanly.
       error: null,
+      toast: null,
       ...revalidateWithBswmd(state.documents, nextSchemas),
     });
   },
