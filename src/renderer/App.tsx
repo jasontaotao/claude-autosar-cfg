@@ -235,13 +235,27 @@ export function App(): JSX.Element {
               );
             }
             break;
-          case 'partial':
-            setStoreError(
-              i18nT(locale, 'ecuc.fromBswmd.removeFailed') +
-                ': ' +
-                removeResult.failed.map((f) => `${f.filePath}: ${f.message}`).join('; '),
-            );
+          case 'partial': {
+            // Sprint 16c #3 — when every failed entry is a save-phase
+            // failure, the hook already surfaced a localised abort
+            // toast (ecuc.fromBswmd.saveFailedAbort) at the moment
+            // the save loop broke. Re-toasting here would clobber
+            // that with a less-informative generic summary, so we
+            // skip in that case. Mixed (save + delete) or pure-delete
+            // partials still get the generic summary.
+            const hasDeleteFailure = removeResult.failed.some((f) => f.phase === 'delete');
+            if (hasDeleteFailure) {
+              setStoreError(
+                i18nT(locale, 'ecuc.fromBswmd.removeFailed') +
+                  ': ' +
+                  removeResult.failed
+                    .filter((f) => f.phase === 'delete')
+                    .map((f) => `${f.filePath}: ${f.message}`)
+                    .join('; '),
+              );
+            }
             break;
+          }
           case 'error':
             setStoreError(
               i18nT(locale, 'ecuc.fromBswmd.removeFailed') + ': ' + removeResult.message,

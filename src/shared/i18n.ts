@@ -325,6 +325,11 @@ export interface Messages {
   readonly 'ecuc.fromBswmd.excludeTitle': string;
   readonly 'ecuc.fromBswmd.excludeMessage': string; // {names}
   readonly 'ecuc.fromBswmd.outputDir': string; // {dir}
+  // Sprint 16c — surface a partial-save failure inside the dirty-guard's
+  // "saveAndProceed" path. When the first save fails the hook aborts the
+  // save loop and shows this toast; the failed target is held back from
+  // the delete loop so its dirty edits are preserved (not silently lost).
+  readonly 'ecuc.fromBswmd.saveFailedAbort': string; // {name}, {message}
 }
 
 export type MessageKey = keyof Messages;
@@ -561,6 +566,8 @@ export const MessagesZhCN: Messages = {
   'ecuc.fromBswmd.excludeTitle': '排除 ECUC 模块',
   'ecuc.fromBswmd.excludeMessage':
     '以下 ECUC 模块存在未保存改动：{names}\n选择"不保存"将丢失这些改动，选择"保存并排除"会先静默保存到磁盘再删除。',
+  'ecuc.fromBswmd.saveFailedAbort':
+    '保存 {name} 失败：{message}。已中止排除流程，该模块的改动已保留（未删除）。',
 };
 
 // ---------------------------------------------------------------------------
@@ -798,6 +805,8 @@ export const MessagesEn: Messages = {
   'ecuc.fromBswmd.excludeTitle': 'Exclude ECUC modules',
   'ecuc.fromBswmd.excludeMessage':
     'The following ECUC modules have unsaved changes: {names}\n"Discard" loses the changes, "Save & Exclude" silently saves to disk before deletion.',
+  'ecuc.fromBswmd.saveFailedAbort':
+    'Saving {name} failed: {message}. Exclude aborted — that module was NOT deleted and its unsaved edits are preserved.',
 };
 
 // ---------------------------------------------------------------------------

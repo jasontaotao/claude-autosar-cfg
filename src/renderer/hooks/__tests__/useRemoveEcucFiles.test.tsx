@@ -230,4 +230,116 @@ describe('useRemoveEcucFiles (Sprint 16 / T5)', () => {
     expect(r.removed).toEqual([]);
     expect(api.deleteArxml).not.toHaveBeenCalled();
   });
+
+  // Sprint 16c #3 — save-then-delete race fix. When the user picks
+  // saveAndProceed and the FIRST save fails, the save loop must
+  // break; the failed target must NOT be deleted (its dirty edits
+  // are still in memory and would otherwise be silently lost).
+  // Targets whose saves DID succeed are still deleted because their
+  // state is already committed to disk.
+  it('saveAndProceed aborts on first save failure and holds back the failed target', async () => {
+    const api = installApi({
+      saveArxml: vi.fn(async (req: { currentPath?: string }) => {
+        // Can saves successfully; CanIf fails. The mock must inspect
+        // `currentPath` to know which target it is handling.
+        if (req.currentPath?.endsWith('CanIf_EcucValues.arxml')) {
+          return { ok: false, error: { kind: 'write-failed', message: 'EACCES' } };
+        }
+        return { ok: true, value: { canceled: false, path: req.currentPath ?? '' } };
+      }),
+    });
+    const state = useArxmlStore.getState();
+    state.addDocumentWithSource(
+      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      '/BSWMD/Can.arxml',
+    );
+    state.addDocumentWithSource(
+      makeDoc({ path: '/proj/ecuc/CanIf_EcucValues.arxml', sourceBswmdPath: '/BSWMD/CanIf.arxml', moduleShortName: 'CanIf' }),
+      '/BSWMD/CanIf.arxml',
+    );
+    useArxmlStore.setState({
+      dirtyPaths: new Set([
+        '/proj/ecuc/Can_EcucValues.arxml',
+        '/proj/ecuc/CanIf_EcucValues.arxml',
+      ]),
+    });
+    confirmMock.mockResolvedValueOnce('saveAndProceed');
+
+    const r = await callRemove([
+      pickModule('/BSWMD/Can.arxml', 'Can'),
+      pickModule('/BSWMD/CanIf.arxml', 'CanIf'),
+    ]);
+
+    expect(r.kind).toBe('partial');
+    if (r.kind !== 'partial') return;
+
+    // Can saved successfully → deleted.
+    // CanIf save failed → held back, NOT deleted.
+    expect(r.removed).toEqual(['/proj/ecuc/Can_EcucValues.arxml']);
+    expect(r.failed).toHaveLength(1);
+    const entry = r.failed[0];
+    expect(entry?.filePath).toBe('/proj/ecuc/CanIf_EcucValues.arxml');
+    expect(entry?.moduleShortName).toBe('CanIf');
+    expect(entry?.phase).toBe('save');
+    expect(entry?.message).toBe('EACCES');
+
+    // Can was markSaved-ed (dirty flag cleared); CanIf stays dirty
+    // because its save failed.
+    const dirtyAfter = useArxmlStore.getState().dirtyPaths;
+    expect(dirtyAfter.has('/proj/ecuc/Can_EcucValues.arxml')).toBe(false);
+    expect(dirtyAfter.has('/proj/ecuc/CanIf_EcucValues.arxml')).toBe(true);
+
+    // CanIf's in-memory document is still present (NOT removed).
+    const docs = useArxmlStore.getState().documents;
+    expect(docs.map((d) => d.path)).toEqual(['/proj/ecuc/CanIf_EcucValues.arxml']);
+
+    // Localised toast was surfaced via setError.
+    expect(useArxmlStore.getState().error).toContain('CanIf');
+    expect(useArxmlStore.getState().error).toContain('EACCES');
+
+    // Save loop must NOT have attempted CanIf's save twice; break
+    // happens immediately after the first failure.
+    expect(api.saveArxml).toHaveBeenCalledTimes(2);
+    expect(api.deleteArxml).toHaveBeenCalledTimes(1);
+    expect(api.deleteArxml).toHaveBeenCalledWith({
+      filePath: '/proj/ecuc/Can_EcucValues.arxml',
+    });
+  });
+
+  // Sprint 16c #3 — edge case: only one dirty target, its save
+  // fails. No targets are deleted; result is 'partial' with empty
+  // `removed` and a single save-phase failure.
+  it('saveAndProceed with a single dirty target that fails to save returns partial with no deletions', async () => {
+    const api = installApi({
+      saveArxml: vi.fn(async () => ({
+        ok: false,
+        error: { kind: 'write-failed', message: 'ENOSPC' },
+      })),
+    });
+    const state = useArxmlStore.getState();
+    state.addDocumentWithSource(
+      makeDoc({ path: '/proj/ecuc/Can_EcucValues.arxml', sourceBswmdPath: '/BSWMD/Can.arxml', moduleShortName: 'Can' }),
+      '/BSWMD/Can.arxml',
+    );
+    useArxmlStore.setState({
+      dirtyPaths: new Set(['/proj/ecuc/Can_EcucValues.arxml']),
+    });
+    confirmMock.mockResolvedValueOnce('saveAndProceed');
+
+    const r = await callRemove([pickModule('/BSWMD/Can.arxml', 'Can')]);
+
+    expect(r.kind).toBe('partial');
+    if (r.kind !== 'partial') return;
+    expect(r.removed).toEqual([]);
+    expect(r.failed).toHaveLength(1);
+    expect(r.failed[0]?.phase).toBe('save');
+    expect(r.failed[0]?.message).toBe('ENOSPC');
+
+    // Doc must still be in the store (NOT removed).
+    expect(useArxmlStore.getState().documents.length).toBe(1);
+    // Dirty flag preserved (save failed, markSaved not called).
+    expect(useArxmlStore.getState().dirtyPaths.size).toBe(1);
+    // No delete was attempted.
+    expect(api.deleteArxml).not.toHaveBeenCalled();
+  });
 });

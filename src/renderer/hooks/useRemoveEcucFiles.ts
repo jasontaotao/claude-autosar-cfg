@@ -21,6 +21,16 @@
 // removed via `store.removeDocument`. Partial failures are
 // surfaced in the result so the host can show a toast.
 //
+// Sprint 16c #3 — save-then-delete race fix. When the user picks
+// `saveAndProceed` and the FIRST save in the loop fails (e.g.
+// EACCES, disk full), the loop BREAKS instead of silently
+// continuing. The failed target is held back from the delete
+// loop so its dirty edits are preserved (not silently lost). The
+// caller surfaces the abort via `setError` with a localised
+// toast. The result's `failed[]` carries `phase: 'save'` entries
+// so the caller can distinguish save failures from delete
+// failures.
+//
 // Pure orchestration hook; no React state of its own beyond a
 // memoised `remove` callback.
 
@@ -48,7 +58,12 @@ export type RemoveEcucResult =
   | {
       readonly kind: 'partial';
       readonly removed: readonly string[];
-      readonly failed: readonly { readonly filePath: string; readonly message: string }[];
+      readonly failed: readonly {
+        readonly filePath: string;
+        readonly moduleShortName: string;
+        readonly message: string;
+        readonly phase: 'save' | 'delete';
+      }[];
     }
   | { readonly kind: 'canceled' }
   | { readonly kind: 'error'; readonly message: string };
@@ -72,7 +87,7 @@ export function useRemoveEcucFiles(): {
       // `moduleShortName`. Skeleton-generated ECUCs are 1-module docs
       // (see buildModule in skeleton.ts), so packages[0].elements[0]
       // is the module.
-      const targets: RemoveEcucTarget[] = [];
+      let targets: RemoveEcucTarget[] = [];
       for (const pick of picks) {
         const doc = state.documents.find((d) => {
           if (d.sourceBswmdPath !== pick.bswmdPath) return false;
@@ -97,6 +112,19 @@ export function useRemoveEcucFiles(): {
       // ECUCs the user wants to remove are surfaced, not every dirty
       // doc in the project. This matches the user's mental model —
       // they are excluding specific modules, not closing the project.
+      //
+      // `failedAll` aggregates every failure across BOTH phases:
+      // `phase: 'save'` from the silent-save-back loop and
+      // `phase: 'delete'` from the delete loop. The save phase
+      // aborts on the first failure and filters the failed target
+      // out of the delete loop.
+      type FailedEntry = {
+        readonly filePath: string;
+        readonly moduleShortName: string;
+        readonly message: string;
+        readonly phase: 'save' | 'delete';
+      };
+      const failedAll: FailedEntry[] = [];
       const dirtyTargets = targets.filter((t) => t.isDirty);
       if (dirtyTargets.length > 0) {
         const names = dirtyTargets.map((t) => t.moduleShortName).join(', ');
@@ -113,6 +141,14 @@ export function useRemoveEcucFiles(): {
           // Sprint 16 T2 — silent-save-back via the same handler the
           // Save button uses. We feed each dirty target's on-disk
           // path as `currentPath` so the IPC skips the dialog.
+          //
+          // Sprint 16c #3 — race fix: if the FIRST save fails we
+          // BREAK the loop instead of silently continuing. The
+          // failed target's dirty edits are still in memory; if we
+          // proceeded to delete it, those edits would be lost
+          // (deleteArxml's `not-found` branch + removeDocument
+          // would drop the in-memory copy too). The failed entry
+          // is also filtered out of the delete loop below.
           for (const target of dirtyTargets) {
             const doc = state.documents.find((d) => d.path === target.filePath);
             if (doc === undefined) continue;
@@ -124,20 +160,46 @@ export function useRemoveEcucFiles(): {
               useArxmlStore
                 .getState()
                 .markSaved(saveResult.value.path ?? target.filePath);
+              continue;
             }
-            // Save failures here are non-fatal: the user picked
-            // "save & exclude" but a save may have failed silently
-            // (e.g. EACCES). We still proceed to remove the in-memory
-            // document and delete the on-disk file; partial failures
-            // surface in the result so the caller can toast.
+            // Failure path — first save that fails aborts the loop.
+            const message = saveResult.ok
+              ? 'save canceled by user'
+              : saveResult.error.message;
+            failedAll.push({
+              filePath: target.filePath,
+              moduleShortName: target.moduleShortName,
+              message,
+              phase: 'save',
+            });
+            // Surface a localised partial-failure toast. We toast
+            // here (before the delete loop) because the abort is
+            // the dominant user-facing signal: a save failed and
+            // the deletion was skipped for that module.
+            useArxmlStore.getState().setError(
+              t(locale, 'ecuc.fromBswmd.saveFailedAbort', {
+                name: target.moduleShortName,
+                message,
+              }),
+            );
+            // Filter the failed target out of the delete loop. Any
+            // targets BEFORE this one in the save loop already
+            // committed their state and are safe to remove.
+            const failedPath = target.filePath;
+            targets = targets.filter((t) => t.filePath !== failedPath);
+            break;
           }
         }
         // 'discard' falls through: proceed without saving.
       }
 
       // -- 3. Delete + remove --------------------------------------
+      //
+      // Each target's on-disk file is deleted via the IPC bridge and
+      // the in-memory document is removed from the store. Save-phase
+      // failures (above) already filtered out the affected targets;
+      // any remaining failure here is a delete-phase failure.
       const removed: string[] = [];
-      const failed: { filePath: string; message: string }[] = [];
       for (const target of targets) {
         const del: ProjectDeleteArxmlResult = await window.autosarApi.deleteArxml({
           filePath: target.filePath,
@@ -146,14 +208,29 @@ export function useRemoveEcucFiles(): {
           useArxmlStore.getState().removeDocument(target.filePath);
           removed.push(target.filePath);
         } else {
-          failed.push({ filePath: target.filePath, message: del.message });
+          failedAll.push({
+            filePath: target.filePath,
+            moduleShortName: target.moduleShortName,
+            message: del.message,
+            phase: 'delete',
+          });
         }
       }
+      const failed: readonly FailedEntry[] = failedAll;
       if (failed.length === 0) {
         return { kind: 'ok', removed };
       }
-      if (removed.length === 0) {
-        const first = failed[0];
+      // Sprint 16c #3 — distinguish save-phase failures from
+      // delete-phase failures. An 'error' result is only meaningful
+      // when the deletion layer (the user's primary intent —
+      // "remove these modules from disk") failed completely with
+      // zero removals. Save-phase failures are operational / I/O
+      // hiccups surfaced via the abort toast; they pair with an
+      // empty `removed` array and should still return 'partial' so
+      // the caller can decide whether to surface additional UI.
+      const hasDeleteFailure = failed.some((f) => f.phase === 'delete');
+      if (removed.length === 0 && hasDeleteFailure) {
+        const first = failed.find((f) => f.phase === 'delete');
         return {
           kind: 'error',
           message: first !== undefined ? first.message : 'unknown delete failure',
