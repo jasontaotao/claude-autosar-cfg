@@ -9,6 +9,12 @@ const STAGES = [
   { name: 'coverage', cmd: 'pnpm', args: ['test:coverage'] },
   // E2E skipped by default (requires display); user can run `pnpm test:e2e` manually.
   { name: 'build', cmd: 'pnpm', args: ['build'] },
+  // Sprint 14 T15 — import round-trip regression guard (spec §8.6).
+  // Opt-in: lives under tests/regression/ which is excluded from
+  // vitest.config.ts so `pnpm test` does not pick it up. Uses a
+  // dedicated vitest.regression.config.ts that whitelists
+  // `tests/regression/**`.
+  { name: 'import-regression', cmd: 'pnpm', args: ['vitest', 'run', '--config', 'vitest.regression.config.ts'] },
 ];
 
 let failed = false;
