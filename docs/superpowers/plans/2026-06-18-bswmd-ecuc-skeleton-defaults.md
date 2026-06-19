@@ -32,23 +32,23 @@
 
 ### Existing files (no restructure)
 
-| File | Current responsibility | This plan |
-|---|---|---|
-| `src/core/arxml/mutation.ts` | Pure mutation ops (add/delete param, etc.); private `buildDefaultValue` | MODIFY: remove private `buildDefaultValue`, import from new shared |
-| `src/core/arxml/skeleton.ts` | `generateEcucSkeleton`, `resolveCollisionFilename` | MODIFY: emit defaults + subfolder prefix |
-| `src/core/arxml/__tests__/skeleton.test.ts` | Unit tests for skeleton | MODIFY: +15 cases |
-| `src/renderer/components/editor/ParamEditor.tsx` | ParamEditor UI with inline `hasBswmdForModule` | MODIFY: replace inline with imported function |
-| `src/shared/i18n.ts` | i18n string table | MODIFY: +1 key |
-| `src/renderer/components/ModuleFromBswmdPicker.tsx` | Picker UI | MODIFY: 1 new label |
+| File                                                | Current responsibility                                                  | This plan                                                          |
+| --------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/core/arxml/mutation.ts`                        | Pure mutation ops (add/delete param, etc.); private `buildDefaultValue` | MODIFY: remove private `buildDefaultValue`, import from new shared |
+| `src/core/arxml/skeleton.ts`                        | `generateEcucSkeleton`, `resolveCollisionFilename`                      | MODIFY: emit defaults + subfolder prefix                           |
+| `src/core/arxml/__tests__/skeleton.test.ts`         | Unit tests for skeleton                                                 | MODIFY: +15 cases                                                  |
+| `src/renderer/components/editor/ParamEditor.tsx`    | ParamEditor UI with inline `hasBswmdForModule`                          | MODIFY: replace inline with imported function                      |
+| `src/shared/i18n.ts`                                | i18n string table                                                       | MODIFY: +1 key                                                     |
+| `src/renderer/components/ModuleFromBswmdPicker.tsx` | Picker UI                                                               | MODIFY: 1 new label                                                |
 
 ### New files
 
-| File | Responsibility | Reason new file |
-|---|---|---|
-| `src/core/arxml/defaultValue.ts` | Pure `buildDefaultValue(ParamDef): ParamValue \| null` | Shared between `mutation.ts` and `skeleton.ts`; previously private to `mutation.ts` |
-| `src/core/arxml/__tests__/defaultValue.test.ts` | Unit tests for the extracted function | Pin shared behavior |
-| `src/core/ecuc/moduleMatch.ts` | Pure `hasBswmdForModule(state, selectedPath): boolean` | Pure function extracted from inline in `ParamEditor.tsx` |
-| `src/core/ecuc/__tests__/moduleMatch.test.ts` | Unit tests for `hasBswmdForModule` | Pin A→B fallback behavior |
+| File                                            | Responsibility                                         | Reason new file                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `src/core/arxml/defaultValue.ts`                | Pure `buildDefaultValue(ParamDef): ParamValue \| null` | Shared between `mutation.ts` and `skeleton.ts`; previously private to `mutation.ts` |
+| `src/core/arxml/__tests__/defaultValue.test.ts` | Unit tests for the extracted function                  | Pin shared behavior                                                                 |
+| `src/core/ecuc/moduleMatch.ts`                  | Pure `hasBswmdForModule(state, selectedPath): boolean` | Pure function extracted from inline in `ParamEditor.tsx`                            |
+| `src/core/ecuc/__tests__/moduleMatch.test.ts`   | Unit tests for `hasBswmdForModule`                     | Pin A→B fallback behavior                                                           |
 
 **Decision rationale:** "Pure" extractions get their own file (testability + reuse). Component bodies stay in their existing files (no restructuring risk on shipped code).
 
@@ -56,15 +56,15 @@
 
 ## Task Index
 
-| Task | Commit | Files | Time est. |
-|---|---|---|---|
-| **T1** | commit 1 (prelude) | NEW `defaultValue.ts` + modify `mutation.ts` | 20 min |
-| **T2** | commit 1 | MODIFY `skeleton.ts` + tests | 35 min |
-| **T3** | commit 2 | MODIFY `skeleton.ts:resolveCollisionFilename` + tests | 15 min |
-| **T4** | commit 2 | i18n key + MODIFY `ModuleFromBswmdPicker.tsx` + test | 15 min |
-| **T5** | commit 3 | NEW `moduleMatch.ts` + tests + modify `ParamEditor.tsx` | 30 min |
-| **T6** | commit 3 | Component test for ParamEditor +Add button state | 15 min |
-| **T7** | commit 3 | E2E test for full flow | 20 min |
+| Task   | Commit             | Files                                                   | Time est. |
+| ------ | ------------------ | ------------------------------------------------------- | --------- |
+| **T1** | commit 1 (prelude) | NEW `defaultValue.ts` + modify `mutation.ts`            | 20 min    |
+| **T2** | commit 1           | MODIFY `skeleton.ts` + tests                            | 35 min    |
+| **T3** | commit 2           | MODIFY `skeleton.ts:resolveCollisionFilename` + tests   | 15 min    |
+| **T4** | commit 2           | i18n key + MODIFY `ModuleFromBswmdPicker.tsx` + test    | 15 min    |
+| **T5** | commit 3           | NEW `moduleMatch.ts` + tests + modify `ParamEditor.tsx` | 30 min    |
+| **T6** | commit 3           | Component test for ParamEditor +Add button state        | 15 min    |
+| **T7** | commit 3           | E2E test for full flow                                  | 20 min    |
 
 **Total:** ~7 tasks / ~2.5h.
 
@@ -75,6 +75,7 @@
 ### Task 1: Extract `buildDefaultValue` to shared module
 
 **Files:**
+
 - Create: `src/core/arxml/defaultValue.ts`
 - Create: `src/core/arxml/__tests__/defaultValue.test.ts`
 - Modify: `src/core/arxml/mutation.ts:899-933` (remove local function)
@@ -82,11 +83,13 @@
 **Why first:** Both `mutation.ts` and (after T2) `skeleton.ts` need the same default-value logic. Extracting avoids drift. The existing `mutation.ts` implementation is the source of truth.
 
 **Interfaces:**
+
 - Produces: `buildDefaultValue(paramDef: ParamDef): ParamValue | null` exported from `@core/arxml/defaultValue`
 
 - [ ] **Step 1: Read `mutation.ts` lines 880-933 to confirm the function body**
 
 Run in bash:
+
 ```bash
 sed -n '880,933p' D:/claude_proj2/claude-AutosarCfg/src/core/arxml/mutation.ts
 ```
@@ -160,7 +163,8 @@ export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
     case 'string':
     case 'function-name': {
       if (typeof def === 'string') return { type: 'string', value: def };
-      if (typeof def === 'number' || typeof def === 'boolean') return { type: 'string', value: String(def) };
+      if (typeof def === 'number' || typeof def === 'boolean')
+        return { type: 'string', value: String(def) };
       return null;
     }
   }
@@ -226,7 +230,10 @@ describe('buildDefaultValue', () => {
   });
 
   it('enumeration with string default', () => {
-    expect(buildDefaultValue(pd('enumeration', 'POLLING'))).toEqual({ type: 'enum', value: 'POLLING' });
+    expect(buildDefaultValue(pd('enumeration', 'POLLING'))).toEqual({
+      type: 'enum',
+      value: 'POLLING',
+    });
   });
 
   it('enumeration rejects numeric default', () => {
@@ -242,7 +249,10 @@ describe('buildDefaultValue', () => {
   });
 
   it('function-name with string default', () => {
-    expect(buildDefaultValue(pd('function-name', 'MyFn'))).toEqual({ type: 'string', value: 'MyFn' });
+    expect(buildDefaultValue(pd('function-name', 'MyFn'))).toEqual({
+      type: 'string',
+      value: 'MyFn',
+    });
   });
 });
 ```
@@ -250,6 +260,7 @@ describe('buildDefaultValue', () => {
 - [ ] **Step 4: Run new tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/defaultValue.test.ts
 ```
@@ -272,6 +283,7 @@ Do **not** change any call site of `buildDefaultValue` in `mutation.ts` — the 
 - [ ] **Step 6: Verify mutation tests still pass**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/mutation.test.ts
 ```
@@ -281,6 +293,7 @@ Expected: all `mutation.test.ts` tests PASS (semantics unchanged).
 - [ ] **Step 7: Lint + typecheck**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm lint && pnpm tsc --noEmit
 ```
@@ -312,12 +325,14 @@ docs/superpowers/specs/2026-06-18-bswmd-ecuc-skeleton-defaults-design.md"
 ### Task 2: Skeleton emits default param values (top-level)
 
 **Files:**
+
 - Modify: `src/core/arxml/skeleton.ts:103-122` (`buildModule`, `buildContainer`)
 - Modify: `src/core/arxml/__tests__/skeleton.test.ts`
 
 **Why after T1:** `skeleton.ts` now imports the shared `buildDefaultValue` (T1's extraction).
 
 **Interfaces:**
+
 - Consumes: `buildDefaultValue(ParamDef): ParamValue | null` from `@core/arxml/defaultValue`
 - Reads: `ContainerDef.parameters[]` and `BswModuleDef.parameters[]` (if present — see note)
 - Produces: `ArxmlModule.params` and `ArxmlContainer.params` populated from BSWMD defaults
@@ -327,6 +342,7 @@ docs/superpowers/specs/2026-06-18-bswmd-ecuc-skeleton-defaults-design.md"
 - [ ] **Step 1: Read existing `skeleton.test.ts` for fixture conventions**
 
 Run:
+
 ```bash
 sed -n '1,80p' D:/claude_proj2/claude-AutosarCfg/src/core/arxml/__tests__/skeleton.test.ts
 ```
@@ -568,6 +584,7 @@ import type { BswmdDocument, ContainerDef, ParamDef } from '../../project/bswmd.
 - [ ] **Step 4: Run new tests — expect FAIL**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts -t "default param fill"
 ```
@@ -634,6 +651,7 @@ import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from './t
 - [ ] **Step 6: Run new tests — expect PASS**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts -t "default param fill"
 ```
@@ -643,6 +661,7 @@ Expected: 9 tests PASS.
 - [ ] **Step 7: Run all skeleton tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts
 ```
@@ -652,6 +671,7 @@ Expected: all tests PASS (old + new).
 - [ ] **Step 8: Lint + typecheck**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm lint && pnpm tsc --noEmit
 ```
@@ -686,16 +706,19 @@ Part 2/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 ### Task 3: Subfolder path in `resolveCollisionFilename`
 
 **Files:**
+
 - Modify: `src/core/arxml/skeleton.ts:178-211` (path-building lines in `resolveCollisionFilename`)
 - Modify: `src/core/arxml/__tests__/skeleton.test.ts`
 
 **Interfaces:**
+
 - Input unchanged: `(picks: readonly PickedModule[], projectDir: string): Map<string, string>`
 - Output change: values now contain `/ecuc/` segment between `projectDir` and filename
 
 - [ ] **Step 1: Read `resolveCollisionFilename` body**
 
 Run:
+
 ```bash
 sed -n '164,214p' D:/claude_proj2/claude-AutosarCfg/src/core/arxml/skeleton.ts
 ```
@@ -747,6 +770,7 @@ describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {
 - [ ] **Step 3: Run new tests — expect FAIL**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts -t "ecuc/ subfolder"
 ```
@@ -758,25 +782,25 @@ Expected: 3 tests FAIL (current paths are `<proj>/Can_Cfg.arxml`, not `<proj>/ec
 In `src/core/arxml/skeleton.ts`, find and replace the three template-literal `out.set(...)` calls. Concretely, **replace** each occurrence of:
 
 ```typescript
-`${projectDir}/${p.moduleShortName}_Cfg.arxml`
+`${projectDir}/${p.moduleShortName}_Cfg.arxml`;
 ```
 
 with:
 
 ```typescript
-`${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`
+`${projectDir}/ecuc/${p.moduleShortName}_Cfg.arxml`;
 ```
 
 and **replace** the third occurrence (vendor-suffixed):
 
 ```typescript
-`${projectDir}/${p.moduleShortName}__${vendorPart}_Cfg.arxml`
+`${projectDir}/${p.moduleShortName}__${vendorPart}_Cfg.arxml`;
 ```
 
 with:
 
 ```typescript
-`${projectDir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`
+`${projectDir}/ecuc/${p.moduleShortName}__${vendorPart}_Cfg.arxml`;
 ```
 
 (Use Edit with `replace_all: false` for each — the three occurrences are in different contexts and the Edit tool requires unique strings. If the two single-pick lines are identical, do them one at a time, copying enough surrounding context to disambiguate.)
@@ -784,6 +808,7 @@ with:
 - [ ] **Step 5: Run new tests — expect PASS**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts -t "ecuc/ subfolder"
 ```
@@ -793,6 +818,7 @@ Expected: 3 tests PASS.
 - [ ] **Step 6: Run all skeleton tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/arxml/__tests__/skeleton.test.ts
 ```
@@ -823,6 +849,7 @@ Part 3a/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 ### Task 4: i18n key + picker wire-up
 
 **Files:**
+
 - Modify: `src/shared/i18n.ts` (add 1 key)
 - Modify: `src/renderer/components/ModuleFromBswmdPicker.tsx` (add 1 label)
 - Modify: `src/renderer/components/__tests__/ModuleFromBswmdPicker.test.tsx` (1 test)
@@ -830,6 +857,7 @@ Part 3a/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 - [ ] **Step 1: Find existing `ecuc.fromBswmd.*` keys in i18n.ts**
 
 Run:
+
 ```bash
 grep -n "ecuc.fromBswmd" D:/claude_proj2/claude-AutosarCfg/src/shared/i18n.ts | head -20
 ```
@@ -853,6 +881,7 @@ ecuc.fromBswmd.outputDir: 'Output to {dir}/ subfolder',
 - [ ] **Step 3: Read `ModuleFromBswmdPicker.tsx` to find "Will create" section**
 
 Run:
+
 ```bash
 grep -n "Will create\|will.create\|willCreate" D:/claude_proj2/claude-AutosarCfg/src/renderer/components/ModuleFromBswmdPicker.tsx
 ```
@@ -892,6 +921,7 @@ it('shows ecuc/ subfolder hint above Will create list', () => {
 - [ ] **Step 6: Run picker tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/renderer/components/__tests__/ModuleFromBswmdPicker.test.tsx
 ```
@@ -901,6 +931,7 @@ Expected: all tests PASS (existing + new).
 - [ ] **Step 7: Lint + typecheck**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm lint && pnpm tsc --noEmit
 ```
@@ -926,6 +957,7 @@ Part 3b/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 ### Task 5: Extract `hasBswmdForModule` to pure function
 
 **Files:**
+
 - Create: `src/core/ecuc/moduleMatch.ts`
 - Create: `src/core/ecuc/__tests__/moduleMatch.test.ts`
 - Modify: `src/renderer/components/editor/ParamEditor.tsx:155-165` (replace inline with import)
@@ -933,11 +965,13 @@ Part 3b/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 **Why:** The inline IIFE in `ParamEditor.tsx` is hard to test and doesn't honor `doc.sourceBswmdPath`. Extract to a pure function with explicit A→B priority.
 
 **Interfaces:**
+
 - New: `hasBswmdForModule(state: { bswmdPaths: readonly string[]; bswmdSchemas: readonly BswmdDocument[]; documents: readonly ArxmlDocument[] }, selectedPath: string): boolean`
 
 - [ ] **Step 1: Read the inline function**
 
 Run:
+
 ```bash
 sed -n '155,165p' D:/claude_proj2/claude-AutosarCfg/src/renderer/components/editor/ParamEditor.tsx
 ```
@@ -1038,6 +1072,7 @@ describe('hasBswmdForModule', () => {
 - [ ] **Step 3: Run new tests — expect FAIL (function not defined)**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/ecuc/__tests__/moduleMatch.test.ts
 ```
@@ -1079,10 +1114,7 @@ export interface HasBswmdInput {
   readonly documents: readonly ArxmlDocument[];
 }
 
-export function hasBswmdForModule(
-  state: HasBswmdInput,
-  selectedPath: string,
-): boolean {
+export function hasBswmdForModule(state: HasBswmdInput, selectedPath: string): boolean {
   const doc = state.documents.find((d) => d.path === selectedPath);
   if (doc === undefined) return false;
 
@@ -1107,6 +1139,7 @@ export function hasBswmdForModule(
 - [ ] **Step 5: Run new tests — expect PASS**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/core/ecuc/__tests__/moduleMatch.test.ts
 ```
@@ -1131,10 +1164,7 @@ import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
 // (B) for ECUC files created via the BSWMD picker. The button stays
 // disabled when neither source nor path-segment match any loaded BSWMD
 // schema; the tooltip mirrors `mutation.error.no-bswmd-for-module`.
-const hasBswmdForModuleValue = hasBswmdForModule(
-  useArxmlStore.getState(),
-  selectedPath,
-);
+const hasBswmdForModuleValue = hasBswmdForModule(useArxmlStore.getState(), selectedPath);
 ```
 
 **Change 6c — update usage.** The button's `disabled={!hasBswmdForModule}` and the `title={hasBswmdForModule ? ...}` lines (lines 238, 239, 248, 249) must use the new local name `hasBswmdForModuleValue`. Since the import statement still uses `hasBswmdForModule` (the imported binding) and the local uses `hasBswmdForModuleValue`, the rename only touches the usage sites — the import is unchanged. Do this with **four** individual `Edit` calls (one per `disabled`/`title` occurrence) or one `replace_all: true` on a string like `disabled={!hasBswmdForModule}` → `disabled={!hasBswmdForModuleValue}`. Verify after edit:
@@ -1148,6 +1178,7 @@ Expected: exactly 3 occurrences: 1 import line + 1 const declaration + 4 call si
 - [ ] **Step 7: Run ParamEditor tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/renderer/components/editor/__tests__/ParamEditor.test.tsx
 ```
@@ -1157,6 +1188,7 @@ Expected: all tests PASS.
 - [ ] **Step 8: Lint + typecheck**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm lint && pnpm tsc --noEmit
 ```
@@ -1192,6 +1224,7 @@ Part 3/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 ### Task 6: Component test for ParamEditor +Add button state
 
 **Files:**
+
 - Modify: `src/renderer/components/editor/__tests__/ParamEditor.test.tsx`
 
 **Why:** The previous task's unit tests pin the pure function. This task adds an integration-level check that ParamEditor correctly reads the value and updates the `disabled` attribute.
@@ -1199,6 +1232,7 @@ Part 3/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 - [ ] **Step 1: Read existing ParamEditor test patterns**
 
 Run:
+
 ```bash
 sed -n '1,80p' D:/claude_proj2/claude-AutosarCfg/src/renderer/components/editor/__tests__/ParamEditor.test.tsx
 ```
@@ -1239,6 +1273,7 @@ it('keeps + Add Parameter disabled when no BSWMD matches the ECUC', () => {
 - [ ] **Step 3: Run ParamEditor tests**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm vitest run src/renderer/components/editor/__tests__/ParamEditor.test.tsx
 ```
@@ -1262,6 +1297,7 @@ Part 3c/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 ### Task 7: E2E test for the full BSWMD→ECUC→edit flow
 
 **Files:**
+
 - Modify: `tests/e2e/sprint-14-picker-flow.spec.ts` (or the current Sprint 14 E2E file)
 
 **Why:** Unit + component tests cover the code paths. E2E confirms the full user journey works in Electron.
@@ -1269,6 +1305,7 @@ Part 3c/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 - [ ] **Step 1: Locate the existing Sprint 14 E2E file**
 
 Run:
+
 ```bash
 ls D:/claude_proj2/claude-AutosarCfg/tests/e2e/
 ```
@@ -1278,11 +1315,13 @@ If `sprint-14-picker-flow.spec.ts` exists, edit it. If the file is named differe
 - [ ] **Step 2: Read the file to understand fixtures**
 
 Run:
+
 ```bash
 sed -n '1,60p' D:/claude_proj2/claude-AutosarCfg/tests/e2e/sprint-14-picker-flow.spec.ts
 ```
 
 Note how the existing test:
+
 - Launches Electron
 - Loads a project + a BSWMD
 - Triggers the picker
@@ -1295,7 +1334,9 @@ The new test follows the same pattern but asserts the additional outcomes.
 Append to the file:
 
 ```typescript
-test('full flow: BSWMD picker → ECUC file with defaults → + Add Parameter works', async ({ page }) => {
+test('full flow: BSWMD picker → ECUC file with defaults → + Add Parameter works', async ({
+  page,
+}) => {
   // 1. Launch app, open a project, load a BSWMD (mirrors existing tests)
   await launchAppWithProject(page, 'e2e-fixtures/sample-project');
   await loadBswmd(page, 'e2e-fixtures/can-bswmd.arxml');
@@ -1322,7 +1363,10 @@ test('full flow: BSWMD picker → ECUC file with defaults → + Add Parameter wo
 
   // 7. Click + Add Parameter, pick a new param, verify it appears
   await addBtn.click();
-  await page.getByRole('dialog').getByRole('checkbox', { name: /CanBusOffProcessing/ }).check();
+  await page
+    .getByRole('dialog')
+    .getByRole('checkbox', { name: /CanBusOffProcessing/ })
+    .check();
   await page.getByRole('button', { name: /确认|Confirm/i }).click();
   await expect(page.getByText('CanBusOffProcessing')).toBeVisible();
 });
@@ -1333,6 +1377,7 @@ The exact fixture / helper names (`launchAppWithProject`, `loadBswmd`, `projectD
 - [ ] **Step 4: Run the new E2E test**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm playwright test tests/e2e/sprint-14-picker-flow.spec.ts -g "full flow"
 ```
@@ -1342,6 +1387,7 @@ Expected: PASS within ~30s. If fixtures don't exist yet, the test author is resp
 - [ ] **Step 5: Run the full E2E suite to confirm no regression**
 
 Run:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && pnpm playwright test
 ```
@@ -1368,40 +1414,40 @@ Part 3d/3 of the BSWMD-ECUC skeleton defaults + ecuc/ subfolder spec."
 
 ### Spec coverage
 
-| Spec section | Task that implements it |
-|---|---|
-| §1 Problem (3 issues) | T2 (issue 1) + T5/T6/T7 (issue 2) + T3 (issue 3) |
-| §2 Goal G1 (default fill) | T1 + T2 |
-| §2 Goal G2 (add-param enabled) | T5 + T6 + T7 |
-| §2 Goal G3 (`ecuc/` subfolder) | T3 + T4 + T7 |
-| §6 Algorithm + type-map | T1 (extraction) + T2 (wire into skeleton) |
-| §7 Path rule | T3 |
-| §8 Gate A→B priority | T5 |
-| §9 i18n (1 key) | T4 |
-| §10 Files changed | All 7 tasks touch the listed files |
-| §11 Testing strategy (15 skeleton + 4 store + 2 component + 1 E2E) | T1 (12 in defaultValue) + T2 (9 in skeleton) + T3 (3 in skeleton) + T5 (5 in moduleMatch) + T6 (2 in ParamEditor) + T7 (1 E2E) = 32 total |
-| §12 Commit plan (3 commits) | T1+T2 share commit 1, T3+T4 share commit 2, T5+T6+T7 share commit 3 — but commit 1 has a prelude refactor (T1) followed by feature (T2) committed separately |
-| §13 Risk register mitigations | T1 (semantic alignment via shared module) + T5 (extraction as pure function for testability) |
+| Spec section                                                       | Task that implements it                                                                                                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| §1 Problem (3 issues)                                              | T2 (issue 1) + T5/T6/T7 (issue 2) + T3 (issue 3)                                                                                                             |
+| §2 Goal G1 (default fill)                                          | T1 + T2                                                                                                                                                      |
+| §2 Goal G2 (add-param enabled)                                     | T5 + T6 + T7                                                                                                                                                 |
+| §2 Goal G3 (`ecuc/` subfolder)                                     | T3 + T4 + T7                                                                                                                                                 |
+| §6 Algorithm + type-map                                            | T1 (extraction) + T2 (wire into skeleton)                                                                                                                    |
+| §7 Path rule                                                       | T3                                                                                                                                                           |
+| §8 Gate A→B priority                                               | T5                                                                                                                                                           |
+| §9 i18n (1 key)                                                    | T4                                                                                                                                                           |
+| §10 Files changed                                                  | All 7 tasks touch the listed files                                                                                                                           |
+| §11 Testing strategy (15 skeleton + 4 store + 2 component + 1 E2E) | T1 (12 in defaultValue) + T2 (9 in skeleton) + T3 (3 in skeleton) + T5 (5 in moduleMatch) + T6 (2 in ParamEditor) + T7 (1 E2E) = 32 total                    |
+| §12 Commit plan (3 commits)                                        | T1+T2 share commit 1, T3+T4 share commit 2, T5+T6+T7 share commit 3 — but commit 1 has a prelude refactor (T1) followed by feature (T2) committed separately |
+| §13 Risk register mitigations                                      | T1 (semantic alignment via shared module) + T5 (extraction as pure function for testability)                                                                 |
 
 ### Placeholder scan
 
-| Pattern | Found? |
-|---|---|
-| "TBD" / "TODO" | None |
-| "implement later" / "fill in details" | None |
-| "Add appropriate error handling" | None — all error paths explicit |
-| "Write tests for the above" without code | None — every step has code blocks |
-| "Similar to Task N" | None — each step is self-contained |
+| Pattern                                  | Found?                             |
+| ---------------------------------------- | ---------------------------------- |
+| "TBD" / "TODO"                           | None                               |
+| "implement later" / "fill in details"    | None                               |
+| "Add appropriate error handling"         | None — all error paths explicit    |
+| "Write tests for the above" without code | None — every step has code blocks  |
+| "Similar to Task N"                      | None — each step is self-contained |
 
 ### Type / name consistency
 
-| Defined in task | Used in task |
-|---|---|
-| `buildDefaultValue` in `core/arxml/defaultValue.ts` (T1) | T2 (skeleton.ts) |
-| `hasBswmdForModule` in `core/ecuc/moduleMatch.ts` (T5) | T5 (ParamEditor.tsx), T6 (component test), T7 (E2E indirectly) |
-| `resolveCollisionFilename` path format `<proj>/ecuc/<file>` (T3) | T7 (E2E asserts the path) |
-| `mkParam` helper (T2) | Used only in T2 |
-| `mkDoc` / `mkBswmd` helpers (T5) | T6 (redefined inline per plan note) |
+| Defined in task                                                  | Used in task                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| `buildDefaultValue` in `core/arxml/defaultValue.ts` (T1)         | T2 (skeleton.ts)                                               |
+| `hasBswmdForModule` in `core/ecuc/moduleMatch.ts` (T5)           | T5 (ParamEditor.tsx), T6 (component test), T7 (E2E indirectly) |
+| `resolveCollisionFilename` path format `<proj>/ecuc/<file>` (T3) | T7 (E2E asserts the path)                                      |
+| `mkParam` helper (T2)                                            | Used only in T2                                                |
+| `mkDoc` / `mkBswmd` helpers (T5)                                 | T6 (redefined inline per plan note)                            |
 
 **No drift detected.**
 

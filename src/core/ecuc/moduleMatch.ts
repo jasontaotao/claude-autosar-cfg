@@ -28,10 +28,7 @@ export interface HasBswmdInput {
   readonly documents: readonly ArxmlDocument[];
 }
 
-export function hasBswmdForModule(
-  state: HasBswmdInput,
-  selectedPath: string,
-): boolean {
+export function hasBswmdForModule(state: HasBswmdInput, selectedPath: string): boolean {
   // A. Source-path priority (picker-created ECUC).
   //    Only consult the documents[] array when looking for sourceBswmdPath;
   //    a missing doc just means A-priority can't apply, so we fall through to B.

@@ -26,8 +26,8 @@ save/delete race。
   addParameter (`4453d46`) / addReference (`4453d46`) / serializer /
   skeleton 五层都 stamp `definitionRef`，reload 后再 save 不丢失。
 - **v1.1.0 → v1.1.1 manifest 路径迁移透明** (`8fe1d28`)：`loadManifest(json, manifestDir?)`
-  + `migrateManifestPaths` 接受老 v1.1.0 absolute-path manifest，不需要用户
-  手动迁移。
+  - `migrateManifestPaths` 接受老 v1.1.0 absolute-path manifest，不需要用户
+    手动迁移。
 - **Save-then-delete race 修复** (`dc92982`)：`removeEcucFiles` 在第一个
   save 失败时 `BREAK`，失败的 target 不再被 delete 掉（**数据丢失修复**）。
 - **Combined Tree View smart basename wrapper skip** (`ad57e6a`)：避免

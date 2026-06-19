@@ -507,7 +507,9 @@ export function AppHeader({
             UX rule. */}
         <button
           type="button"
-          onClick={() => { void onSaveAll(); }}
+          onClick={() => {
+            void onSaveAll();
+          }}
           disabled={!canSaveAll}
           className={`app-btn app-btn-save-all ${dirtyPaths.size > 0 ? 'is-dirty' : ''}`}
           data-testid="btn-save-all"

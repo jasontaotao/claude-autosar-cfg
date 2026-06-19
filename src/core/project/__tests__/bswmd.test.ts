@@ -1044,11 +1044,9 @@ describe('lookupReferenceDef', () => {
     // Both modules are still kept (existing behaviour — parser doesn't
     // dedupe), but a warning flags the collision.
     expect(result.value.modules).toHaveLength(2);
-    expect(
-      result.value.warnings.some(
-        (w) => /duplicate module/i.test(w) && /Can/.test(w),
-      ),
-    ).toBe(true);
+    expect(result.value.warnings.some((w) => /duplicate module/i.test(w) && /Can/.test(w))).toBe(
+      true,
+    );
   });
 
   it('Q6: warns when two ECUC-PARAM-CONF-CONTAINER-DEF share the same shortName in the same parent', () => {
@@ -1083,9 +1081,7 @@ describe('lookupReferenceDef', () => {
     const can = result.value.modules[0]!;
     expect(can.containers).toHaveLength(2);
     expect(
-      result.value.warnings.some(
-        (w) => /duplicate container/i.test(w) && /CanConfigSet/.test(w),
-      ),
+      result.value.warnings.some((w) => /duplicate container/i.test(w) && /CanConfigSet/.test(w)),
     ).toBe(true);
   });
 
@@ -1167,9 +1163,7 @@ describe('getContainerDefByPath', () => {
     // Assert
     expect(leaf).not.toBeNull();
     expect(leaf?.shortName).toBe('CanControllerConfig');
-    expect(leaf?.path).toBe(
-      '/EcucDefs/Can/CanConfigSet/CanController/CanControllerConfig',
-    );
+    expect(leaf?.path).toBe('/EcucDefs/Can/CanConfigSet/CanController/CanControllerConfig');
   });
 
   it('resolves a choice-branch container under an ECUC-CHOICE-ORIENTED-STRUCTURE-DEF', () => {
@@ -1282,10 +1276,7 @@ describe('listContainerChildren', () => {
     const children = listContainerChildren(choiceContainer);
 
     // Assert
-    expect(children.subContainers.map((c) => c.shortName)).toEqual([
-      'CanIfMailbox',
-      'CanIfFifo',
-    ]);
+    expect(children.subContainers.map((c) => c.shortName)).toEqual(['CanIfMailbox', 'CanIfFifo']);
     expect(children.parameters).toEqual([]);
     expect(children.references).toEqual([]);
   });

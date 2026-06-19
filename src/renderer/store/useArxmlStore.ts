@@ -20,7 +20,13 @@ import type {
   ParamValue,
 } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
-import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef, ReferenceDef } from '@core/project/bswmd.js';
+import type {
+  BswModuleDef,
+  BswmdDocument,
+  ContainerDef,
+  ParamDef,
+  ReferenceDef,
+} from '@core/project/bswmd.js';
 import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { DEFAULT_LOCALE, t } from '@shared/i18n';
@@ -198,10 +204,12 @@ export interface ArxmlState {
     readonly kind: 'container' | 'parameter' | 'reference';
   }) => void;
   closeBswmdPicker: () => void;
-  setPendingDelete: (pending: {
-    readonly path: string;
-    readonly references: readonly ReferenceHit[];
-  } | null) => void;
+  setPendingDelete: (
+    pending: {
+      readonly path: string;
+      readonly references: readonly ReferenceHit[];
+    } | null,
+  ) => void;
 
   // Sprint 15 Phase 2 — ECUC add/delete mutation actions. Each one
   // mirrors the combined-mode dispatch pattern from `updateParam`:
@@ -1263,9 +1271,10 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       }
     }
     const nextDocuments = state.documents.map((d, i) => docEdits.get(i) ?? d);
-    const nextActiveDoc = state.activeDocumentPath === workingPath
-      ? (docEdits.get(workingIdx) ?? workingDoc)
-      : state.doc;
+    const nextActiveDoc =
+      state.activeDocumentPath === workingPath
+        ? (docEdits.get(workingIdx) ?? workingDoc)
+        : state.doc;
     const nextDisplayDoc = computeDisplayDoc(
       state.viewMode,
       nextActiveDoc,
@@ -1308,9 +1317,7 @@ function projectSyncAddPath(
   manifestDir: string | null,
 ): ProjectManifest | null {
   if (m === null) return m;
-  const rel = manifestDir !== null
-    ? (toManifestRelative(manifestDir, path) ?? path)
-    : path;
+  const rel = manifestDir !== null ? (toManifestRelative(manifestDir, path) ?? path) : path;
   if (m.valueArxmlPaths.includes(rel)) return m;
   return { ...m, valueArxmlPaths: [...m.valueArxmlPaths, rel] };
 }
@@ -1329,17 +1336,13 @@ function projectSyncRemovePath(
   manifestDir: string | null,
 ): ProjectManifest | null {
   if (m === null) return m;
-  const rel = manifestDir !== null
-    ? (toManifestRelative(manifestDir, path) ?? path)
-    : path;
+  const rel = manifestDir !== null ? (toManifestRelative(manifestDir, path) ?? path) : path;
   if (!m.valueArxmlPaths.includes(rel) && !m.valueArxmlPaths.includes(path)) {
     return m;
   }
   return {
     ...m,
-    valueArxmlPaths: m.valueArxmlPaths.filter(
-      (p) => p !== rel && p !== path,
-    ),
+    valueArxmlPaths: m.valueArxmlPaths.filter((p) => p !== rel && p !== path),
   };
 }
 
@@ -1359,9 +1362,7 @@ function projectSyncAddBswmdPath(
   manifestDir: string | null,
 ): ProjectManifest | null {
   if (m === null) return m;
-  const rel = manifestDir !== null
-    ? (toManifestRelative(manifestDir, path) ?? path)
-    : path;
+  const rel = manifestDir !== null ? (toManifestRelative(manifestDir, path) ?? path) : path;
   if (m.bswmdPaths.includes(rel)) return m;
   return { ...m, bswmdPaths: [...m.bswmdPaths, rel] };
 }
@@ -1382,9 +1383,7 @@ function projectSyncRemoveBswmdPath(
   manifestDir: string | null,
 ): ProjectManifest | null {
   if (m === null) return m;
-  const rel = manifestDir !== null
-    ? (toManifestRelative(manifestDir, path) ?? path)
-    : path;
+  const rel = manifestDir !== null ? (toManifestRelative(manifestDir, path) ?? path) : path;
   if (!m.bswmdPaths.includes(rel) && !m.bswmdPaths.includes(path)) {
     return m;
   }
@@ -1927,10 +1926,7 @@ function resolveReferenceDefForPath(
  * core/project/bswmd.ts but is inlined here to avoid widening the
  * store's import surface with a one-off helper.
  */
-function resolveContainerDefBySubPath(
-  mod: BswModuleDef,
-  subPath: string,
-): ContainerDef | null {
+function resolveContainerDefBySubPath(mod: BswModuleDef, subPath: string): ContainerDef | null {
   const segments = subPath.split('/').filter((s) => s.length > 0);
   if (segments.length === 0) return null;
   const [head, ...tail] = segments;
@@ -2031,12 +2027,8 @@ function applyMutationResultToSource(
   sourceFilePath: string,
 ): void {
   if (state.documents[sourceIdx] === nextSourceDoc) return;
-  const nextDocuments = state.documents.map((d, i) =>
-    i === sourceIdx ? nextSourceDoc : d,
-  );
-  const nextActiveDoc = state.activeDocumentPath === sourceFilePath
-    ? nextSourceDoc
-    : state.doc;
+  const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
+  const nextActiveDoc = state.activeDocumentPath === sourceFilePath ? nextSourceDoc : state.doc;
   const nextDisplayDoc = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,
@@ -2068,9 +2060,7 @@ function applyMutationResultToActive(
   activeFilePath: string,
 ): void {
   if (state.documents[activeIdx] === nextActiveDoc) return;
-  const nextDocuments = state.documents.map((d, i) =>
-    i === activeIdx ? nextActiveDoc : d,
-  );
+  const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
   const nextDisplayDoc = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,

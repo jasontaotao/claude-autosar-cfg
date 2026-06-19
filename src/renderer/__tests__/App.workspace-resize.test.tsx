@@ -48,10 +48,18 @@
 
 class ResizeObserverPolyfill {
   private readonly callbacks = new Set<ResizeObserverCallback>();
-  constructor(cb: ResizeObserverCallback) { this.callbacks.add(cb); }
-  observe(): void { /* no-op: jsdom does not produce layout */ }
-  unobserve(): void { /* no-op */ }
-  disconnect(): void { this.callbacks.clear(); }
+  constructor(cb: ResizeObserverCallback) {
+    this.callbacks.add(cb);
+  }
+  observe(): void {
+    /* no-op: jsdom does not produce layout */
+  }
+  unobserve(): void {
+    /* no-op */
+  }
+  disconnect(): void {
+    this.callbacks.clear();
+  }
 }
 
 class PointerEventPolyfill extends MouseEvent {
@@ -232,28 +240,37 @@ describe('App workspace resizer (Q1: drag-to-resize left column)', () => {
     const startY = 100;
 
     expect(() => {
-      fireEvent(handle, new PointerEvent('pointerdown', {
-        clientX: startX,
-        clientY: startY,
-        button: 0,
-        pointerType: 'mouse',
-        bubbles: true,
-        cancelable: true,
-      }));
-      fireEvent(document, new PointerEvent('pointermove', {
-        clientX: startX + 50,
-        clientY: startY,
-        button: 0,
-        pointerType: 'mouse',
-        bubbles: true,
-      }));
-      fireEvent(document, new PointerEvent('pointerup', {
-        clientX: startX + 50,
-        clientY: startY,
-        button: 0,
-        pointerType: 'mouse',
-        bubbles: true,
-      }));
+      fireEvent(
+        handle,
+        new PointerEvent('pointerdown', {
+          clientX: startX,
+          clientY: startY,
+          button: 0,
+          pointerType: 'mouse',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      fireEvent(
+        document,
+        new PointerEvent('pointermove', {
+          clientX: startX + 50,
+          clientY: startY,
+          button: 0,
+          pointerType: 'mouse',
+          bubbles: true,
+        }),
+      );
+      fireEvent(
+        document,
+        new PointerEvent('pointerup', {
+          clientX: startX + 50,
+          clientY: startY,
+          button: 0,
+          pointerType: 'mouse',
+          bubbles: true,
+        }),
+      );
     }).not.toThrow();
 
     // After the pointer events, the library commits a new layout

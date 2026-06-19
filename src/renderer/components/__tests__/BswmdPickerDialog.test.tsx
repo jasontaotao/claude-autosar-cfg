@@ -27,12 +27,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
-import type {
-  BswModuleDef,
-  BswmdDocument,
-  ContainerDef,
-  ParamDef,
-} from '@core/project/bswmd.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '@core/project/bswmd.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { BswmdPickerRoot } from '../BswmdPickerDialog.js';

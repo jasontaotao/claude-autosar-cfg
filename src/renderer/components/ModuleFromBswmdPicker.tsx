@@ -259,9 +259,7 @@ export function ModuleFromBswmdPicker({
                 return (
                   <details key={bp} className="mfbp-group" open>
                     <summary className="mfbp-group-header">
-                      <span className="mfbp-group-filename">
-                        {bp.split(/[\\/]/).pop() ?? bp}
-                      </span>
+                      <span className="mfbp-group-filename">{bp.split(/[\\/]/).pop() ?? bp}</span>
                       <span className="mfbp-group-count">
                         {visible.length}/{activeModules.length}
                       </span>
@@ -295,7 +293,9 @@ export function ModuleFromBswmdPicker({
           </div>
           <div className="mfbp-right">
             <div className="mfbp-summary">
-              <strong>{t(locale, 'ecuc.fromBswmd.selectedCount', { count: selectedPicks.length })}</strong>
+              <strong>
+                {t(locale, 'ecuc.fromBswmd.selectedCount', { count: selectedPicks.length })}
+              </strong>
             </div>
             {hasCollision && (
               <div className="mfbp-collision" data-testid="mfbp-collision">
@@ -305,10 +305,7 @@ export function ModuleFromBswmdPicker({
             )}
             {selectedPicks.length > 0 && (
               <>
-                <p
-                  className="mfbp-output-hint"
-                  data-testid="ecuc-output-dir-hint"
-                >
+                <p className="mfbp-output-hint" data-testid="ecuc-output-dir-hint">
                   {t(locale, 'ecuc.fromBswmd.outputDir', { dir: 'ecuc' })}
                 </p>
                 <h3 className="mfbp-section-title">{t(locale, 'ecuc.fromBswmd.willCreate')}</h3>

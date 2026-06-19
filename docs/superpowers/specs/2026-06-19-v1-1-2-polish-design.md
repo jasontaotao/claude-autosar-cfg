@@ -12,12 +12,12 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 
 10 项 follow-up 来自 `sprint-16-shipped.md` 的 "关键 follow-up" 段，已按风险和复杂度归入 3 个 sub-sprint：
 
-| Sub-sprint | Items | 风险 | 估计 commits |
-|---|---|---|---|
-| **17a polish** | #1 / #3 / #5 / #6 / #10 | 低 | 5-6 |
-| **17b UX** | #2 / #7 | 低-中 | 2-3 |
-| **17c correctness** | #4 / #8 / #9 | 中 | 3-5 |
-| **Total** | 10 | — | **10-14** |
+| Sub-sprint          | Items                   | 风险  | 估计 commits |
+| ------------------- | ----------------------- | ----- | ------------ |
+| **17a polish**      | #1 / #3 / #5 / #6 / #10 | 低    | 5-6          |
+| **17b UX**          | #2 / #7                 | 低-中 | 2-3          |
+| **17c correctness** | #4 / #8 / #9            | 中    | 3-5          |
+| **Total**           | 10                      | —     | **10-14**    |
 
 ## 2. Sub-sprint 17a — Trivial polish (5-6 commits)
 
@@ -26,11 +26,13 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/shared/path.ts` + `src/shared/__tests__/path.test.ts`
 
 **改动**:
+
 - `toManifestRelative(manifestDir, filePath)` 当前对 already-relative 输入透传不 reject `..` segments。
 - 当 caller 已知 filePath 是相对 manifestDir 计算的（已 relative），但仍可能含有 `..`（例如 `../../../etc/passwd`），需 caller 自行 validate。
 - **修复**: 在 `toManifestRelative` 末尾增加 final 检查：若返回的 relative path 包含 `..` segment（不拆分 normalize），返回 `null`（与 invalid input 同语义）。caller 已知处理 `null` 返回值。
 
 **测试**:
+
 - `src/shared/__tests__/path.test.ts` 新增 2-3 cases：
   - relative input `../foo` → `null`
   - relative input `foo/../bar` → `null`（含 ..）
@@ -42,6 +44,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/renderer/components/` 下 ConfirmDialog + CascadeConfirmDialog 的所有 consumer
 
 **改动**:
+
 - 验证所有 `switch (choice)` / `if (choice === ...)` 处是否有 dead `'continue'` branch。
 - 已知 `ConfirmDialog.tsx` 自身使用 `'continue'` 作为 Esc/backdrop/× 的安全 fallback（**非 dead**）。
 - `CascadeConfirmDialog.tsx` 用 `'cancel'`（不是 `'continue'`），同样**非 dead**。
@@ -49,6 +52,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 - 若 caller 写了 `case 'continue': throw new Error(...)` 之类 unreachable 代码，**移除 + inline fallback**。
 
 **测试**:
+
 - 不加新测试（仅 audit + comment）。如有移除 dead branch，加 regression test 验证 fallback 行为。
 
 ### T3 — `#5` `.app-btn-save-all.is-dirty` visual cue (#8: low)
@@ -56,6 +60,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/renderer/components/AppHeader.tsx` + `src/renderer/components/AppHeader.css` + `src/renderer/components/__tests__/AppHeader.test.tsx`
 
 **改动**:
+
 - 当前 `.app-btn-save-all` 没有 `.is-dirty` 状态视觉反馈。
 - CSS: 加 `.app-btn-save-all.is-dirty { background: var(--accent-amber); color: var(--text-inverse); }` 或类似。
 - AppHeader.tsx: 当任意 doc dirty 时，给 Save All 按钮加 `is-dirty` class（已通过 `hasDirty` selector 判断）。
@@ -66,6 +71,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/shared/i18n.ts` (zh-CN section)
 
 **改动**:
+
 - 现有 `app.saveAllPartial` 仅在 en-US / 英文 locale 有翻译。
 - 加 zh-CN 翻译（基于 Sprint 16 T7 设计 — 部分 save 失败的 toast 消息）。
 - 测试: 加 locale-parity 测试（确保 en-US / zh-CN 都有 `app.saveAllPartial` key）。
@@ -75,6 +81,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/main/ipc/saveArxmlHandler.ts`
 
 **改动**:
+
 - 当前文件有 pre-existing lint warnings（具体行号需 implementer 通过 `pnpm lint` 确认）。
 - 修复所有 warning（unused var / no-explicit-any / import-order 等）。
 - 预期改动小，可能 1-2 处清理。
@@ -85,6 +92,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 ### T6 — `#7` ErrorBanner `kind` discriminator (#8: low-mid)
 
 **文件**:
+
 - `src/renderer/components/ErrorBanner.tsx`
 - `src/renderer/components/ErrorBanner.css`
 - `src/renderer/store/useArxmlStore.ts`（新增 `info` / `success` action）
@@ -92,6 +100,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 - `src/renderer/components/__tests__/ErrorBanner.test.tsx`
 
 **改动**:
+
 - **核心**: 扩展 `ErrorBanner` 接受 `kind: 'error' | 'warning' | 'info' | 'success'`（默认 `'error'` 保持现有行为）。
 - **颜色**:
   - `error` → 红色（现状 `#7f1d1d`）
@@ -107,23 +116,26 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
   interface ToastState {
     readonly kind: ToastKind;
     readonly message: string;
-    readonly autoDismissMs?: number;  // 默认 0 = manual only
+    readonly autoDismissMs?: number; // 默认 0 = manual only
   }
   ```
 
 **测试**:
+
 - ErrorBanner.test.tsx 新增 4 cases：每个 kind 渲染对应 className / auto-dismiss 计时。
 - store test: `setInfo` / `setSuccess` / `setWarning` 各自走 store 状态正确。
 
 ### T7 — `#2` `SaveArxmlError` typed error + toast dispatch (#8: low-mid)
 
 **文件**:
+
 - `src/shared/types.ts`（扩 `FileError` union）
 - `src/main/ipc/saveArxmlHandler.ts`（thread `error.code`）
 - `src/renderer/store/useArxmlStore.ts`（接 toast dispatch）
 - `src/shared/i18n.ts`（新 error kind 翻译 keys）
 
 **改动**:
+
 - **类型扩展**:
   ```ts
   type SaveArxmlErrorKind =
@@ -131,11 +143,11 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
     | 'disk-full'
     | 'path-not-found'
     | 'serialize-failed'
-    | 'write-failed'   // v1.1.0/v1.1.1 legacy alias kept for backward compat
+    | 'write-failed' // v1.1.0/v1.1.1 legacy alias kept for backward compat
     | 'unknown';
   interface FileError {
     kind: SaveArxmlErrorKind;
-    code?: string;  // e.g. 'EACCES', 'ENOSPC', 'ENOENT'
+    code?: string; // e.g. 'EACCES', 'ENOSPC', 'ENOENT'
     message: string;
   }
   ```
@@ -156,6 +168,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
   - `'unknown'` → red error toast with `error.message` fallback
 
 **测试**:
+
 - saveArxmlHandler 新增 unit tests（mock fs.writeFile 抛各 errno code 验证 kind 分发）。
 - i18n locale-parity tests for new keys。
 
@@ -166,22 +179,26 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 **文件**: `src/renderer/components/BswmdPickerDialog.tsx`
 
 **改动**:
+
 - 当前 picker 用 `useMemo` 计算 seed，仅依赖 `[parentPath, kind, state]`。如果 `state.documents` 在 picker open 期间变化（load / remove / mutate），`useMemo` 不会重跑（因为 `state` reference 没变 — Zustand 部分订阅）。
 - **修复**: 用 selector 单独订阅 `state.documents` + `state.documentPaths`，加入 `useMemo` deps。或者改用 `useArxmlStore((s) => ({ docs: s.documents, paths: s.documentPaths }))` 拿到 fine-grained subscription。
 - 也可以加 `useEffect` 监听 `state.documents` 变化触发 `resolvePickerSource` re-run。
 
 **测试**:
+
 - 新增 test: render picker → dispatch `loadDocument` action → assert picker 重渲染并显示新 doc 的元素。
 - 现有 picker 测试不变（passthrough case 验证）。
 
 ### T9 — `#8` consolidate `findByPathMultiDoc` call sites (#8: mid)
 
 **文件**:
+
 - `src/renderer/store/useArxmlStore.ts`（抽出 helper）
 - `src/renderer/store/__tests__/useArxmlStore.combined.test.ts`（新增 helper test）
 - `src/renderer/components/BswmdPickerDialog.tsx`（改用 helper）
 
 **改动**:
+
 - 当前 `useArxmlStore.ts` 7 处 `if (state.viewMode === 'combined') { const hit = findByPathMultiDoc(...); ... }` 重复模式。
 - 抽出 helper:
   ```ts
@@ -203,17 +220,20 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 - 保留 `findByPathMultiDoc` 本身（core 层 utility，helper 只是 store 层包装）。
 
 **测试**:
+
 - `useArxmlStore.combined.test.ts` 新增 helper unit tests（combined/single/empty cases）。
 - 现有 7 处 call sites 的 integration tests 应继续 pass（行为不变）。
 
 ### T10 — `#9` `buildCombinedDocument` dedup duplicate root (#8: mid-high)
 
 **文件**:
+
 - `src/core/arxml/path.ts`（`buildCombinedDocument` 函数）
 - `src/core/arxml/__tests__/path.test.ts`（新增 dedup tests）
 - `src/renderer/store/useArxmlStore.ts`（如需要 metric 上报）
 
 **改动**:
+
 - 当前 flat-mode 下若多文档有相同 SHORT-NAME 的根包（最常见场景：两个 `EAS` 模块定义），会全部展示，造成重复。
 - **修复方案**: 在 `buildCombinedDocument` 内做 dedup:
   1. 遍历所有 docs 的根包，按 `(parentPath, shortName)` 分组。
@@ -225,6 +245,7 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 - **metric**: 加 `store.warnings` 数组（push `{kind: 'duplicate-root-collapsed', shortName, count}，`）renderer 可选地在 status bar 显示。
 
 **测试**:
+
 - path.test.ts 新增 4-5 cases:
   - 2 docs with identical `EAS` → dedup to 1
   - 2 docs with different `EAS` → keep first, emit warning
@@ -236,18 +257,18 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 
 每个 task 至少 1 个新单元测试：
 
-| Task | 新增测试 | 覆盖范围 |
-|---|---|---|
-| T1 | 2-3 cases in path.test.ts | reject `..` |
-| T2 | 0 (audit + comment) — 除非发现真 dead code | — |
-| T3 | 2 cases in AppHeader.test.tsx | `.is-dirty` class on/off |
-| T4 | 1 case in i18n.test.ts | locale parity `app.saveAllPartial` |
-| T5 | 0 (lint clean via `pnpm lint`) | — |
-| T6 | 4-5 cases in ErrorBanner.test.tsx | 4 kind rendering + auto-dismiss |
-| T7 | 4-5 cases in saveArxmlHandler.test.ts | errno → kind dispatch |
-| T8 | 1 case in BswmdPickerDialog.test.tsx | store change triggers re-resolve |
-| T9 | 3-4 cases in useArxmlStore.combined.test.ts | helper combined/single/empty |
-| T10 | 4-5 cases in path.test.ts | dedup scenarios |
+| Task | 新增测试                                    | 覆盖范围                           |
+| ---- | ------------------------------------------- | ---------------------------------- |
+| T1   | 2-3 cases in path.test.ts                   | reject `..`                        |
+| T2   | 0 (audit + comment) — 除非发现真 dead code  | —                                  |
+| T3   | 2 cases in AppHeader.test.tsx               | `.is-dirty` class on/off           |
+| T4   | 1 case in i18n.test.ts                      | locale parity `app.saveAllPartial` |
+| T5   | 0 (lint clean via `pnpm lint`)              | —                                  |
+| T6   | 4-5 cases in ErrorBanner.test.tsx           | 4 kind rendering + auto-dismiss    |
+| T7   | 4-5 cases in saveArxmlHandler.test.ts       | errno → kind dispatch              |
+| T8   | 1 case in BswmdPickerDialog.test.tsx        | store change triggers re-resolve   |
+| T9   | 3-4 cases in useArxmlStore.combined.test.ts | helper combined/single/empty       |
+| T10  | 4-5 cases in path.test.ts                   | dedup scenarios                    |
 
 **预计新增测试**: 18-28 cases / 1178 → ~1200 tests。
 
@@ -275,23 +296,23 @@ v1.1.2 是 Sprint 16 ship 后沉淀的 **10 项 polish** 的集中 release。所
 
 ## 8. 风险 + 缓解
 
-| 风险 | 概率 | 影响 | 缓解 |
-|---|---|---|---|
-| T7 errno kind 分发遗漏 (rare errno) | 低 | 低 | fallback 到 `'unknown'` |
-| T6 auto-dismiss 与手动 dismiss 冲突 | 中 | 低 | manual dismiss cancel timer |
-| T10 dedup 算法 perf (大工程) | 低 | 中 | 单元测试覆盖 10+ docs case |
-| T9 helper 抽出回归 | 中 | 中 | 现有 integration test 应捕获 |
+| 风险                                | 概率 | 影响 | 缓解                         |
+| ----------------------------------- | ---- | ---- | ---------------------------- |
+| T7 errno kind 分发遗漏 (rare errno) | 低   | 低   | fallback 到 `'unknown'`      |
+| T6 auto-dismiss 与手动 dismiss 冲突 | 中   | 低   | manual dismiss cancel timer  |
+| T10 dedup 算法 perf (大工程)        | 低   | 中   | 单元测试覆盖 10+ docs case   |
+| T9 helper 抽出回归                  | 中   | 中   | 现有 integration test 应捕获 |
 
 ## 9. 决策记录（已锁定）
 
-| # | 决策 | 理由 |
-|---|---|---|
-| D1 | 10 项全入 v1.1.2 (Option A) | 用户 "you choose" — 单 release 比拆 v1.1.2/v1.1.3 节省 release overhead；Sprint 16 已证 14 commits 单 sprint 可行 |
-| D2 | T6 kind = 4 值 (error/warning/info/success) | 覆盖所有 toast 场景；不引入 enum，type alias 更轻 |
-| D3 | T7 FileError 新增 `kind` union + 保留 `'unknown'` 作为 catch-all | backward compat（renderer 现有 `'write-failed'` handler 可 fallback 到 `'unknown'`） |
-| D4 | T10 dedup 同 content 静默 / 不同 content warn | 同 content 不打扰；不同 content 提示用户避免信息丢失 |
-| D5 | T9 helper 放 `useArxmlStore.ts`（不新文件） | 7 处调用都在 store，co-location 减少 import churn |
-| D6 | T5 lint warnings fix 不改 behavior | 仅 lint clean，不动 save flow |
+| #   | 决策                                                             | 理由                                                                                                              |
+| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| D1  | 10 项全入 v1.1.2 (Option A)                                      | 用户 "you choose" — 单 release 比拆 v1.1.2/v1.1.3 节省 release overhead；Sprint 16 已证 14 commits 单 sprint 可行 |
+| D2  | T6 kind = 4 值 (error/warning/info/success)                      | 覆盖所有 toast 场景；不引入 enum，type alias 更轻                                                                 |
+| D3  | T7 FileError 新增 `kind` union + 保留 `'unknown'` 作为 catch-all | backward compat（renderer 现有 `'write-failed'` handler 可 fallback 到 `'unknown'`）                              |
+| D4  | T10 dedup 同 content 静默 / 不同 content warn                    | 同 content 不打扰；不同 content 提示用户避免信息丢失                                                              |
+| D5  | T9 helper 放 `useArxmlStore.ts`（不新文件）                      | 7 处调用都在 store，co-location 减少 import churn                                                                 |
+| D6  | T5 lint warnings fix 不改 behavior                               | 仅 lint clean，不动 save flow                                                                                     |
 
 ## 10. Out of Scope
 

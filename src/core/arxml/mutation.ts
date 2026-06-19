@@ -33,7 +33,6 @@ import type {
   Result,
 } from './types.js';
 
-
 /**
  * Error envelope for the mutation functions. The 6 kinds cover the failure
  * modes the picker / delete flow can hit; the store action maps each to
@@ -55,7 +54,11 @@ export type MutationError =
       readonly current: number;
     }
   | { readonly kind: 'no-bswmd-for-module'; readonly modulePath: string }
-  | { readonly kind: 'invalid-param-type'; readonly key: string; readonly expected: ParamDef['kind'] };
+  | {
+      readonly kind: 'invalid-param-type';
+      readonly key: string;
+      readonly expected: ParamDef['kind'];
+    };
 
 /**
  * A single entry in the add-element picker. Combines the kind (container /
@@ -237,15 +240,13 @@ function checkMultiplicityFloor(
     if (parent.kind === 'module') {
       def = moduleDef.containers.find((c) => c.shortName === targetShortName);
     } else {
-      const parentSubPath = containerPathToSubPath(
-        parentSegments.join('/'),
-        moduleDef,
-      );
+      const parentSubPath = containerPathToSubPath(parentSegments.join('/'), moduleDef);
       if (parentSubPath === null) return null;
       const parentDef = getContainerDefByPath(moduleDef, parentSubPath);
       if (parentDef === null) return null;
-      def = parentDef.subContainers.find((c) => c.shortName === targetShortName)
-        ?? parentDef.choices.find((c) => c.shortName === targetShortName);
+      def =
+        parentDef.subContainers.find((c) => c.shortName === targetShortName) ??
+        parentDef.choices.find((c) => c.shortName === targetShortName);
     }
     if (def === undefined) return null;
     if (def.lowerMultiplicity > 0) {
@@ -265,10 +266,7 @@ function checkMultiplicityFloor(
  * (relative to root package). Returns the element (module / container /
  * reference) or `null` if any segment misses.
  */
-function findElementByPath(
-  doc: ArxmlDocument,
-  segments: readonly string[],
-): ArxmlElement | null {
+function findElementByPath(doc: ArxmlDocument, segments: readonly string[]): ArxmlElement | null {
   if (segments.length === 0) return null;
   const [pkgName, ...rest] = segments;
   if (pkgName === undefined) return null;
@@ -277,24 +275,17 @@ function findElementByPath(
   return findInPackage(rootPkg, rest);
 }
 
-function findInPackage(
-  pkg: ArxmlPackage,
-  segments: readonly string[],
-): ArxmlElement | null {
+function findInPackage(pkg: ArxmlPackage, segments: readonly string[]): ArxmlElement | null {
   let cursor: ArxmlElement | ArxmlPackage = pkg;
   for (const name of segments) {
     if (isPackage(cursor)) {
-      const child: ArxmlElement | undefined = cursor.elements.find(
-        (e) => shortNameOf(e) === name,
-      );
+      const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
       if (child === undefined) return null;
       cursor = child;
       continue;
     }
     if (cursor.kind === 'module' || cursor.kind === 'container') {
-      const next: ArxmlElement | undefined = cursor.children.find(
-        (c) => shortNameOf(c) === name,
-      );
+      const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
       if (next === undefined) return null;
       cursor = next;
       continue;
@@ -365,16 +356,15 @@ export function addParameter(
   // Empty `paramDef.path` falls through to the existing synthesized-path
   // fallback (degenerate BSWMD — don't emit an empty DEFINITION-REF).
   const nextValue: ParamValue =
-    paramDef.path !== ''
-      ? ({ ...value, definitionRef: paramDef.path } as ParamValue)
-      : value;
+    paramDef.path !== '' ? ({ ...value, definitionRef: paramDef.path } as ParamValue) : value;
   const nextParams: Readonly<Record<string, ParamValue>> = {
     ...parent.params,
     [paramDef.shortName]: nextValue,
   };
-  const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
-    ? { ...parent, params: nextParams }
-    : { ...parent, params: nextParams };
+  const nextParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, params: nextParams }
+      : { ...parent, params: nextParams };
   const next = replaceElement(doc, pkg, parent, nextParent);
   return { ok: true, value: next };
 }
@@ -452,16 +442,15 @@ export function addReference(
   // `value.definitionRef`; falling back to the synthesized placeholder
   // here would defeat the T3 fix for user-added references too.
   const nextValue: ParamValue =
-    refDef.path !== ''
-      ? ({ ...value, definitionRef: refDef.path } as ParamValue)
-      : value;
+    refDef.path !== '' ? ({ ...value, definitionRef: refDef.path } as ParamValue) : value;
   const nextParams: Readonly<Record<string, ParamValue>> = {
     ...parent.params,
     [refDef.shortName]: nextValue,
   };
-  const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
-    ? { ...parent, params: nextParams }
-    : { ...parent, params: nextParams };
+  const nextParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, params: nextParams }
+      : { ...parent, params: nextParams };
   const next = replaceElement(doc, pkg, parent, nextParent);
   return { ok: true, value: next };
 }
@@ -485,9 +474,10 @@ export function removeParameter(
     return { ok: true, value: doc };
   }
   const nextParams: Readonly<Record<string, ParamValue>> = omitKey(parent.params, paramKey);
-  const nextParent: ArxmlModule | ArxmlContainer = parent.kind === 'module'
-    ? { ...parent, params: nextParams }
-    : { ...parent, params: nextParams };
+  const nextParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, params: nextParams }
+      : { ...parent, params: nextParams };
   const next = replaceElement(doc, pkg, parent, nextParent);
   return { ok: true, value: next };
 }
@@ -497,10 +487,7 @@ export function removeParameter(
  * the type narrowed and produces a new object only when the key is
  * actually present.
  */
-function omitKey<V>(
-  record: Readonly<Record<string, V>>,
-  key: string,
-): Readonly<Record<string, V>> {
+function omitKey<V>(record: Readonly<Record<string, V>>, key: string): Readonly<Record<string, V>> {
   if (!Object.prototype.hasOwnProperty.call(record, key)) return record;
   const out: Record<string, V> = {};
   for (const [k, v] of Object.entries(record)) {
@@ -570,8 +557,7 @@ function buildContainerAllowed(
   currentContainer: ArxmlContainer | ArxmlModule,
 ): AllowedSubElement {
   const current = countChildrenWithShortName(currentContainer, sub.shortName);
-  const atMax =
-    sub.upperMultiplicity !== 'infinite' && current >= sub.upperMultiplicity;
+  const atMax = sub.upperMultiplicity !== 'infinite' && current >= sub.upperMultiplicity;
   // `exactOptionalPropertyTypes` forbids assigning `undefined` to an
   // optional field; conditionally spread the property so the shape is
   // precise.
@@ -700,17 +686,13 @@ function locateInPackage(
   let cursor: ArxmlElement | ArxmlPackage = pkg;
   for (const name of segments) {
     if (isPackage(cursor)) {
-      const child: ArxmlElement | undefined = cursor.elements.find(
-        (e) => shortNameOf(e) === name,
-      );
+      const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
       if (child === undefined) return null;
       cursor = child;
       continue;
     }
     if (cursor.kind === 'module' || cursor.kind === 'container') {
-      const next: ArxmlElement | undefined = cursor.children.find(
-        (c) => shortNameOf(c) === name,
-      );
+      const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
       if (next === undefined) return null;
       cursor = next;
       continue;
@@ -739,10 +721,7 @@ function shortNameOf(e: ArxmlElement): string {
   return e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName;
 }
 
-function hasChildWithShortName(
-  parent: ArxmlModule | ArxmlContainer,
-  shortName: string,
-): boolean {
+function hasChildWithShortName(parent: ArxmlModule | ArxmlContainer, shortName: string): boolean {
   return parent.children.some((c) => shortNameOf(c) === shortName);
 }
 
@@ -831,10 +810,7 @@ function replaceInElements(
   return next;
 }
 
-function sameIdentity(
-  a: ArxmlElement,
-  b: ArxmlModule | ArxmlContainer,
-): boolean {
+function sameIdentity(a: ArxmlElement, b: ArxmlModule | ArxmlContainer): boolean {
   // After the kind-inequality short-circuit, `a` is narrowed to the same
   // kind as `b` — which is always non-reference — so the remaining
   // shortName comparison is safe.

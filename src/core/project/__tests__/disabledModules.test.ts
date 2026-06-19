@@ -22,9 +22,27 @@ import { getActiveModules } from '../bswmd.js';
 // Fixtures — minimal shape, cast to `BswModuleDef` (see header comment).
 // ---------------------------------------------------------------------------
 
-const a = { shortName: 'A', path: '/A', containers: [], parameters: [], references: [] } as unknown as BswModuleDef;
-const b = { shortName: 'B', path: '/B', containers: [], parameters: [], references: [] } as unknown as BswModuleDef;
-const c = { shortName: 'C', path: '/C', containers: [], parameters: [], references: [] } as unknown as BswModuleDef;
+const a = {
+  shortName: 'A',
+  path: '/A',
+  containers: [],
+  parameters: [],
+  references: [],
+} as unknown as BswModuleDef;
+const b = {
+  shortName: 'B',
+  path: '/B',
+  containers: [],
+  parameters: [],
+  references: [],
+} as unknown as BswModuleDef;
+const c = {
+  shortName: 'C',
+  path: '/C',
+  containers: [],
+  parameters: [],
+  references: [],
+} as unknown as BswModuleDef;
 
 describe('BswmdDocument.disabledModules', () => {
   it('defaults to empty set when omitted', () => {

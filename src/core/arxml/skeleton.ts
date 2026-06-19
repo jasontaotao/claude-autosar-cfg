@@ -76,15 +76,10 @@ export interface PickedModule {
  *
  * @throws if `moduleShortName` is not found in `doc.modules`.
  */
-export function generateEcucSkeleton(
-  doc: BswmdDocument,
-  moduleShortName: string,
-): ArxmlDocument {
+export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string): ArxmlDocument {
   const mod = doc.modules.find((m) => m.shortName === moduleShortName);
   if (mod === undefined) {
-    throw new Error(
-      `BSWMD module "${moduleShortName}" not found in document`,
-    );
+    throw new Error(`BSWMD module "${moduleShortName}" not found in document`);
   }
   const packagePath = `/${mod.shortName}`;
   const moduleEl: ArxmlModule = buildModule(mod);
@@ -258,10 +253,7 @@ export function resolveCollisionFilename(
       seen.set(baseKey, seenCount + 1);
       const numericPart = seenCount === 0 ? '' : `_${seenCount}`;
       const vendorPart = `${baseKey}${numericPart}`;
-      out.set(
-        keyOf(p),
-        `${dir}/ecuc/${p.moduleShortName}__${vendorPart}_EcucValues.arxml`,
-      );
+      out.set(keyOf(p), `${dir}/ecuc/${p.moduleShortName}__${vendorPart}_EcucValues.arxml`);
     });
   }
   return out;

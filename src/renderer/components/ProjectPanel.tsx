@@ -265,8 +265,7 @@ export function ProjectPanelInfo({
           const storeIdx = bswmdPathsInStore.indexOf(bswmdPath);
           const schema = storeIdx >= 0 ? bswmdSchemas[storeIdx] : undefined;
           const totalCount = schema !== undefined ? schema.modules.length : 0;
-          const activeModules =
-            schema !== undefined ? getActiveModules(schema) : [];
+          const activeModules = schema !== undefined ? getActiveModules(schema) : [];
           const activeCount = activeModules.length;
           return (
             <>

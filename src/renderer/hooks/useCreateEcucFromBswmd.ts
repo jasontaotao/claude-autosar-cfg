@@ -59,10 +59,7 @@
 import { useCallback } from 'react';
 
 import { serializeArxml } from '@core/arxml/serializer.js';
-import {
-  generateEcucSkeleton,
-  resolveCollisionFilename,
-} from '@core/arxml/skeleton.js';
+import { generateEcucSkeleton, resolveCollisionFilename } from '@core/arxml/skeleton.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';

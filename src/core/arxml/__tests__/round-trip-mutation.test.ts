@@ -197,9 +197,7 @@ describe('round-trip: addParameter stamps BSWMD path as definitionRef (Sprint 16
     expect(m1.ok).toBe(true);
     if (!m1.ok) return;
     // Confirm the in-memory shape carries the definitionRef.
-    const newMod = m1.value.packages[0]!.elements.find(
-      (e) => e.kind === 'module',
-    ) as ArxmlModule;
+    const newMod = m1.value.packages[0]!.elements.find((e) => e.kind === 'module') as ArxmlModule;
     expect(newMod.params['TestParam']?.definitionRef).toBe(realBswmdPath);
 
     // Serialize — the serialized XML is the user-visible "save" output.
@@ -239,9 +237,7 @@ describe('round-trip: addParameter with empty paramDef.path skips definitionRef 
     if (!m1.ok) return;
 
     // Assert — no definitionRef on the in-memory value.
-    const newMod = m1.value.packages[0]!.elements.find(
-      (e) => e.kind === 'module',
-    ) as ArxmlModule;
+    const newMod = m1.value.packages[0]!.elements.find((e) => e.kind === 'module') as ArxmlModule;
     expect(newMod.params['EmptyPathParam']?.definitionRef).toBeUndefined();
   });
 });

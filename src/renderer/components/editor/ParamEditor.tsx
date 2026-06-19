@@ -149,10 +149,7 @@ export function ParamEditor(): JSX.Element {
   // (B) for ECUC files created via the BSWMD picker. The button stays
   // disabled when neither source nor path-segment match any loaded BSWMD
   // schema; the tooltip mirrors `mutation.error.no-bswmd-for-module`.
-  const hasBswmdForModuleValue = hasBswmdForModule(
-    useArxmlStore.getState(),
-    selectedPath,
-  );
+  const hasBswmdForModuleValue = hasBswmdForModule(useArxmlStore.getState(), selectedPath);
 
   return (
     <section
@@ -177,7 +174,9 @@ export function ParamEditor(): JSX.Element {
       </header>
 
       {entries.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">{t(locale, 'editor.params.empty')}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t(locale, 'editor.params.empty')}
+        </p>
       ) : (
         <div className="space-y-5">
           <ParamCategorySection
@@ -226,7 +225,9 @@ export function ParamEditor(): JSX.Element {
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'parameter' })}
           data-testid="param-editor-add-parameter"
           disabled={!hasBswmdForModuleValue}
-          title={hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
+          title={
+            hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')
+          }
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           {t(locale, 'mutation.action.addParameter')}
@@ -236,7 +237,9 @@ export function ParamEditor(): JSX.Element {
           onClick={() => openBswmdPicker({ parentPath: selectedPath, kind: 'reference' })}
           data-testid="param-editor-add-reference"
           disabled={!hasBswmdForModuleValue}
-          title={hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')}
+          title={
+            hasBswmdForModuleValue ? undefined : t(locale, 'mutation.error.no-bswmd-for-module')
+          }
           className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           {t(locale, 'mutation.action.addReference')}
@@ -281,15 +284,9 @@ function ParamCategorySection({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700">
-            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">
-              {columnHeaders.param}
-            </th>
-            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">
-              {columnHeaders.type}
-            </th>
-            <th className="py-1 text-slate-700 dark:text-slate-300">
-              {columnHeaders.value}
-            </th>
+            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">{columnHeaders.param}</th>
+            <th className="py-1 pr-2 text-slate-700 dark:text-slate-300">{columnHeaders.type}</th>
+            <th className="py-1 text-slate-700 dark:text-slate-300">{columnHeaders.value}</th>
             {/* Sprint 15 Phase 3.5 — Action column. The header stays
                 empty (visually a thin column) so the per-row × buttons
                 align in a dedicated lane; the aria-label still calls
@@ -339,7 +336,11 @@ function ParamCategorySection({
                       type="button"
                       onClick={() => onDeleteParameter(selectedPath, key)}
                       data-testid={`param-row-delete-${key}`}
-                      aria-label={t(useArxmlStore.getState().locale, 'mutation.action.deleteParameter', { name: key })}
+                      aria-label={t(
+                        useArxmlStore.getState().locale,
+                        'mutation.action.deleteParameter',
+                        { name: key },
+                      )}
                       title={t(useArxmlStore.getState().locale, 'mutation.action.deleteParameter')}
                       className="rounded px-2 py-0.5 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30"
                     >

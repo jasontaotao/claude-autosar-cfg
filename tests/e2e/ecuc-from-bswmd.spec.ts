@@ -115,10 +115,7 @@ async function resetStore(page: Page): Promise<void> {
  * one container, no params — enough for the picker to render a
  * checkbox and the cascade flow to resolve a dependent.
  */
-async function seedProjectWithBswmds(
-  page: Page,
-  opts: SeedOptions,
-): Promise<void> {
+async function seedProjectWithBswmds(page: Page, opts: SeedOptions): Promise<void> {
   await page.evaluate(
     async ({
       path,
@@ -232,25 +229,19 @@ async function waitForHeader(page: Page): Promise<void> {
 }
 
 test.describe('S14 — ECUC module selection (E2E)', () => {
-  test('menu entry opens picker, pick + confirm creates Can_Cfg.arxml', async ({
-    page,
-  }) => {
+  test('menu entry opens picker, pick + confirm creates Can_Cfg.arxml', async ({ page }) => {
     await page.goto('/');
     await waitForHeader(page);
     await resetStore(page);
 
     // Seed: one BSWMD declaring `Can`, project open, no dependents yet.
     await seedProjectWithBswmds(page, {
-      bswmds: [
-        { moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' },
-      ],
+      bswmds: [{ moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' }],
       dependents: [],
     });
 
     // Sanity: project panel renders the BSWMD chip with count 1/1.
-    await expect(page.getByTestId('project-panel-bswmd-chip-0')).toContainText(
-      '1/1',
-    );
+    await expect(page.getByTestId('project-panel-bswmd-chip-0')).toContainText('1/1');
 
     // Open the project menu via the inner button (the wrapper has only
     // mouseEnter handlers — the inner `<button>` toggles on click,
@@ -312,10 +303,7 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
           state.project !== null
             ? {
                 ...state.project,
-                valueArxmlPaths: [
-                  ...state.project.valueArxmlPaths,
-                  newDocPath,
-                ],
+                valueArxmlPaths: [...state.project.valueArxmlPaths, newDocPath],
               }
             : null,
       });
@@ -336,9 +324,7 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('collision: 2 BSWMDs with Can → picker surfaces collision warning', async ({
-    page,
-  }) => {
+  test('collision: 2 BSWMDs with Can → picker surfaces collision warning', async ({ page }) => {
     await page.goto('/');
     await waitForHeader(page);
     await resetStore(page);
@@ -375,17 +361,13 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
     // Collision warning surfaces — locale-agnostic regex matches both
     // zh-CN and en strings.
     await expect(page.getByTestId('mfbp-collision')).toBeVisible();
-    await expect(page.getByTestId('mfbp-collision')).toContainText(
-      /collision|冲突|同名/iu,
-    );
+    await expect(page.getByTestId('mfbp-collision')).toContainText(/collision|冲突|同名/iu);
 
     // The right pane lists both vendor-suffixed target filenames.
     await expect(page.getByTestId('mfbp-files')).toContainText('Can');
   });
 
-  test('BSWMD remove with dependents prompts cascade confirm', async ({
-    page,
-  }) => {
+  test('BSWMD remove with dependents prompts cascade confirm', async ({ page }) => {
     await page.goto('/');
     await waitForHeader(page);
     await resetStore(page);
@@ -394,9 +376,7 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
     // points at it. The cascade-on-remove flow (Task 12) opens the
     // CascadeConfirmDialog when at least one dependent exists.
     await seedProjectWithBswmds(page, {
-      bswmds: [
-        { moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' },
-      ],
+      bswmds: [{ moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' }],
       dependents: [
         {
           docPath: '/tmp/e2e-project/Can_Cfg.arxml',
@@ -454,9 +434,7 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
     // fill (T1+T2) and the + Add Parameter flow (T5+T6) need a
     // concrete param to bind against.
     await seedProjectWithBswmds(page, {
-      bswmds: [
-        { moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' },
-      ],
+      bswmds: [{ moduleName: 'Can', bswmdPath: '/tmp/e2e-project/Can_Bswmd.arxml' }],
       dependents: [],
     });
 
@@ -581,9 +559,9 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
 
     // (1) The new ECUC file row surfaces in FileListTab with the
     //     `ecuc/` subfolder prefix — T3 contract.
-    await expect(
-      page.getByTestId(`file-list-tab-arxml-${ecucPath}`),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId(`file-list-tab-arxml-${ecucPath}`)).toBeVisible({
+      timeout: 5_000,
+    });
 
     // (2) The skeleton emits default values into the ARXML. We can't
     //     `fs.readFile` from the renderer (no fs binding); instead we
@@ -591,24 +569,27 @@ test.describe('S14 — ECUC module selection (E2E)', () => {
     //     param value for `CanBusOffProcessing` — which is exactly
     //     what the skeleton's default-fill pass produces.
     await expect
-      .poll(async () => {
-        return await page.evaluate(async (path: string) => {
-          const mod = await import(/* @vite-ignore */ path);
-          const state = mod.useArxmlStore.getState();
-          const doc = state.documents.find(
-            (d: { filePath: string }) => d.filePath === '/tmp/e2e-project/ecuc/Can_Cfg.arxml',
-          );
-          if (!doc) return null;
-          const pkg = doc.packages[0];
-          const can = pkg.elements[0];
-          const general = can.subContainers[0];
-          if (!general) return null;
-          const param = general.parameters.find(
-            (p: { shortName: string }) => p.shortName === 'CanBusOffProcessing',
-          );
-          return param ? param.value.text : null;
-        }, STORE_MODULE_PATH);
-      }, { timeout: 5_000 })
+      .poll(
+        async () => {
+          return await page.evaluate(async (path: string) => {
+            const mod = await import(/* @vite-ignore */ path);
+            const state = mod.useArxmlStore.getState();
+            const doc = state.documents.find(
+              (d: { filePath: string }) => d.filePath === '/tmp/e2e-project/ecuc/Can_Cfg.arxml',
+            );
+            if (!doc) return null;
+            const pkg = doc.packages[0];
+            const can = pkg.elements[0];
+            const general = can.subContainers[0];
+            if (!general) return null;
+            const param = general.parameters.find(
+              (p: { shortName: string }) => p.shortName === 'CanBusOffProcessing',
+            );
+            return param ? param.value.text : null;
+          }, STORE_MODULE_PATH);
+        },
+        { timeout: 5_000 },
+      )
       .toBe('INTERRUPT');
 
     // (3) ParamEditor renders the seeded container's params and the

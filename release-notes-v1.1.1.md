@@ -9,8 +9,8 @@ DEFINITION-REF 链路 end-to-end 一致 + manifest 路径迁移 + save/delete ra
   addReference / serializer / skeleton 五层都 stamp `definitionRef`，reload
   后再 save 不丢失
 - **v1.1.0 → v1.1.1 manifest 路径迁移透明**：`loadManifest(json, manifestDir?)`
-  + `migrateManifestPaths` 接受老 v1.1.0 absolute-path manifest，不需要用户
-  手动迁移
+  - `migrateManifestPaths` 接受老 v1.1.0 absolute-path manifest，不需要用户
+    手动迁移
 - **Save-then-delete race 修复（数据丢失）**：`removeEcucFiles` 在第一个 save
   失败时 `BREAK`，失败的 target 不再被 delete 掉
 - **Save All 按钮**：multi-ECUC dirty session 一键 save，每个文件独立的

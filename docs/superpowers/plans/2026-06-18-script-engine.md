@@ -30,6 +30,7 @@
 **New files (28):**
 
 Main process (`src/main/script/`):
+
 - `src/main/script/types.ts` — `ScriptEntry`, `ScriptKind`, `ScriptSummary`, `ScriptRunResult`, `ScriptLog`, `ScriptViolation`
 - `src/main/script/errors.ts` — `ScriptErrorKind` union + `classScriptError()` factory
 - `src/main/script/import-resolver.ts` — `resolveImports()`, `wrapModules()`, `detectCycles()`
@@ -41,11 +42,13 @@ Main process (`src/main/script/`):
 - `src/main/ipc/__tests__/script-handler.test.ts` — handler integration tests
 
 Shared:
+
 - (modify) `src/shared/ipc-contract.ts` — add 5 channels
 - (modify) `src/shared/types.ts` — add 5 request/response interfaces
 - (modify) `src/core/project/manifest.ts` — add `scripts?: ScriptEntry[]` to `ProjectManifest`
 
 Renderer:
+
 - `src/renderer/store/useScriptStore.ts` — Zustand slice
 - `src/renderer/hooks/useScriptActions.ts` — IPC client wrappers
 - `src/renderer/components/ScriptPanel/index.ts` — barrel
@@ -60,11 +63,13 @@ Renderer:
 - `src/renderer/hooks/__tests__/useScriptActions.test.ts` (mocked IPC)
 
 Test fixtures:
+
 - `tests/fixtures/scripts/pduid-uniqueness.js` — sample validator
 - `tests/fixtures/scripts/wdgif-defaults.js` — sample transformer
 - `tests/fixtures/scripts/utils/path.js` — shared helper
 
 E2E:
+
 - `tests/e2e/script-panel.spec.ts` — Playwright happy path
 
 **Modified files (5):**
@@ -83,6 +88,7 @@ E2E:
 ## Task 1: Types + Errors + Manifest Schema
 
 **Files:**
+
 - Create: `src/main/script/types.ts`
 - Create: `src/main/script/errors.ts`
 - Modify: `src/core/project/manifest.ts` (add `scripts?: ScriptEntry[]`)
@@ -157,7 +163,16 @@ export interface ScriptViolation {
 
 /** Mutation applied to the project during a script run. */
 export type ScriptMutation =
-  | { readonly kind: 'set-param'; readonly containerPath: string; readonly paramName: string; readonly newValue: number | string | boolean | { readonly value: string; readonly dest?: string } }
+  | {
+      readonly kind: 'set-param';
+      readonly containerPath: string;
+      readonly paramName: string;
+      readonly newValue:
+        | number
+        | string
+        | boolean
+        | { readonly value: string; readonly dest?: string };
+    }
   | { readonly kind: 'add-child'; readonly containerPath: string; readonly newShortName: string }
   | { readonly kind: 'remove-child'; readonly containerPath: string; readonly shortName: string };
 
@@ -224,10 +239,25 @@ export function classScriptError(
 
 /** shortName blacklist (spec § 5.4). Protects ctx API and prototype chain. */
 export const RESERVED_SHORTNAMES: ReadonlySet<string> = new Set([
-  'ctx', 'project', 'document', 'documents', 'container', 'param',
-  'validator', 'schema', 'log', 'utils',
-  'core', 'script', 'scripts', 'manifest', 'arxml',
-  '__proto__', 'constructor', 'prototype', 'hasOwnProperty',
+  'ctx',
+  'project',
+  'document',
+  'documents',
+  'container',
+  'param',
+  'validator',
+  'schema',
+  'log',
+  'utils',
+  'core',
+  'script',
+  'scripts',
+  'manifest',
+  'arxml',
+  '__proto__',
+  'constructor',
+  'prototype',
+  'hasOwnProperty',
 ]);
 
 export const SHORTNAME_RE = /^[a-z][a-z0-9-]*$/;
@@ -236,19 +266,25 @@ export const SHORTNAME_MAX = 40;
 
 export function validateShortName(shortName: string): ScriptError | null {
   if (shortName.length < SHORTNAME_MIN || shortName.length > SHORTNAME_MAX) {
-    return classScriptError('shortname-length',
+    return classScriptError(
+      'shortname-length',
       `shortName length must be ${SHORTNAME_MIN}-${SHORTNAME_MAX}, got ${shortName.length}`,
-      { shortName });
+      { shortName },
+    );
   }
   if (!SHORTNAME_RE.test(shortName)) {
-    return classScriptError('shortname-format',
+    return classScriptError(
+      'shortname-format',
       `shortName must match ${SHORTNAME_RE.source}, got "${shortName}"`,
-      { shortName });
+      { shortName },
+    );
   }
   if (RESERVED_SHORTNAMES.has(shortName)) {
-    return classScriptError('reserved-shortname',
+    return classScriptError(
+      'reserved-shortname',
       `shortName "${shortName}" is reserved (collides with ctx API or JS prototype)`,
-      { shortName });
+      { shortName },
+    );
   }
   return null;
 }
@@ -298,6 +334,7 @@ git commit -m "feat(scripts): add ScriptEntry types + error factory + manifest.s
 ## Task 2: Import Resolver
 
 **Files:**
+
 - Create: `src/main/script/import-resolver.ts`
 - Create: `src/main/script/__tests__/import-resolver.test.ts`
 
@@ -314,7 +351,11 @@ import { describe, it, expect } from 'vitest';
 import { resolveImports, parseImports, detectCycles } from '../import-resolver.js';
 import type { ScriptEntry } from '../types.js';
 
-function entry(shortName: string, source: string, imports: ScriptEntry['imports'] = []): ScriptEntry {
+function entry(
+  shortName: string,
+  source: string,
+  imports: ScriptEntry['imports'] = [],
+): ScriptEntry {
   return {
     id: `id-${shortName}`,
     name: shortName,
@@ -328,12 +369,12 @@ function entry(shortName: string, source: string, imports: ScriptEntry['imports'
 
 describe('parseImports', () => {
   it('extracts single named import', () => {
-    expect(parseImports(`import { foo } from './a'`))
-      .toEqual([{ from: 'a', names: ['foo'] }]);
+    expect(parseImports(`import { foo } from './a'`)).toEqual([{ from: 'a', names: ['foo'] }]);
   });
   it('extracts multiple named imports with aliases', () => {
-    expect(parseImports(`import { a, b as c } from './lib'`))
-      .toEqual([{ from: 'lib', names: ['a', 'b'] }]);
+    expect(parseImports(`import { a, b as c } from './lib'`)).toEqual([
+      { from: 'lib', names: ['a', 'b'] },
+    ]);
   });
   it('returns empty for source with no imports', () => {
     expect(parseImports('const x = 1;')).toEqual([]);
@@ -348,9 +389,7 @@ describe('parseImports', () => {
 
 describe('resolveImports', () => {
   const lib = entry('lib', 'export const foo = 1;', []);
-  const main = entry('main', `import { foo } from './lib'`, [
-    { from: 'lib', names: ['foo'] },
-  ]);
+  const main = entry('main', `import { foo } from './lib'`, [{ from: 'lib', names: ['foo'] }]);
 
   it('orders dependency before dependent', () => {
     const order = resolveImports(main, [main, lib]);
@@ -377,10 +416,22 @@ describe('resolveImports', () => {
 
 describe('detectCycles', () => {
   it('returns empty when DAG is acyclic', () => {
-    expect(detectCycles(new Map([['a', new Set(['b'])], ['b', new Set()]]))).toEqual([]);
+    expect(
+      detectCycles(
+        new Map([
+          ['a', new Set(['b'])],
+          ['b', new Set()],
+        ]),
+      ),
+    ).toEqual([]);
   });
   it('returns cycle path on cycle', () => {
-    const cycles = detectCycles(new Map([['a', new Set(['b'])], ['b', new Set(['a'])]]));
+    const cycles = detectCycles(
+      new Map([
+        ['a', new Set(['b'])],
+        ['b', new Set(['a'])],
+      ]),
+    );
     expect(cycles.length).toBeGreaterThan(0);
   });
 });
@@ -408,9 +459,7 @@ import { classScriptError } from './errors.js';
 
 /** Strip line comments and block comments before regex matching. */
 function stripComments(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/[^\n]*/g, '');
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 }
 
 /** Parse all `import { ... } from './specifier'` lines. */
@@ -423,14 +472,21 @@ export function parseImports(source: string): Array<{ from: string; names: strin
     const namesPart = m[1]!.trim();
     const spec = m[2]!;
     if (!spec.startsWith('./') && !spec.startsWith('../')) {
-      throw classScriptError('unsupported-import',
+      throw classScriptError(
+        'unsupported-import',
         `import: bare module specifier "${spec}" not supported (only './<shortName>' is allowed)`,
-        { spec });
+        { spec },
+      );
     }
     const from = spec.replace(/^\.\//, '').replace(/\.\.\//g, '');
     const names = namesPart
       .split(',')
-      .map((s) => s.trim().split(/\s+as\s+/)[0]!.trim())
+      .map((s) =>
+        s
+          .trim()
+          .split(/\s+as\s+/)[0]!
+          .trim(),
+      )
       .filter((s) => s.length > 0);
     if (names.length === 0) {
       throw classScriptError('unsupported-import', 'import: empty named-import list');
@@ -439,8 +495,10 @@ export function parseImports(source: string): Array<{ from: string; names: strin
   }
   // Catch unsupported forms early.
   if (/import\s+\w+\s+from\s+['"]/.test(cleaned)) {
-    throw classScriptError('unsupported-import',
-      'import: default imports (import x from) are not supported; use `import { x } from`');
+    throw classScriptError(
+      'unsupported-import',
+      'import: default imports (import x from) are not supported; use `import { x } from`',
+    );
   }
   if (/import\s*\*/.test(cleaned)) {
     throw classScriptError('unsupported-import', 'import: namespace imports not supported');
@@ -482,25 +540,31 @@ export function resolveImports(entry: ScriptEntry, all: ReadonlyArray<ScriptEntr
     for (const dep of found) {
       const target = byShortName.get(dep.from);
       if (!target) {
-        throw classScriptError('unknown-module',
+        throw classScriptError(
+          'unknown-module',
           `import: module './${dep.from}' not found in manifest`,
-          { from: dep.from });
+          { from: dep.from },
+        );
       }
       // Check exports by scanning target.source for matching const/let/function/var.
       for (const name of dep.names) {
         if (!hasExport(target.source, name)) {
-          throw classScriptError('unknown-export',
+          throw classScriptError(
+            'unknown-export',
             `import: name '${name}' not exported by './${dep.from}'`,
-            { from: dep.from, name });
+            { from: dep.from, name },
+          );
         }
       }
       visit(target, depth + 1);
     }
     // Sanity: declared imports should match found imports (or throw).
     if (declared.length !== found.length) {
-      throw classScriptError('invalid-source',
+      throw classScriptError(
+        'invalid-source',
         `import: declared imports (${declared.length}) do not match source (${found.length})`,
-        { shortName: e.shortName });
+        { shortName: e.shortName },
+      );
     }
     visited.add(e.shortName);
     stack.pop();
@@ -524,7 +588,9 @@ export function hasExport(source: string, name: string): boolean {
 /** Exposed for testing. Returns all detected cycles (each as array of shortNames). */
 export function detectCycles(graph: Map<string, Set<string>>): string[][] {
   const cycles: string[][] = [];
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    GRAY = 1,
+    BLACK = 2;
   const color = new Map<string, number>();
   for (const k of graph.keys()) color.set(k, WHITE);
   const path: string[] = [];
@@ -569,6 +635,7 @@ git commit -m "feat(scripts): add import-resolver with DAG + cycle detection (S1
 ## Task 3: ctx.ts — Whitelisted API Surface
 
 **Files:**
+
 - Create: `src/main/script/ctx.ts`
 - Create: `src/main/script/__tests__/ctx.test.ts`
 
@@ -590,7 +657,11 @@ import type { ScriptLog, ScriptViolation, ScriptMutation } from '../types.js';
 
 const COM_PATH = resolve(__dirname, '../../../../tests/fixtures/arxml/Com_Com.arxml');
 
-let project: ReturnType<typeof parseArxml> extends infer R ? R extends { value: infer V } ? V : never : never;
+let project: ReturnType<typeof parseArxml> extends infer R
+  ? R extends { value: infer V }
+    ? V
+    : never
+  : never;
 
 beforeAll(() => {
   const xml = readFileSync(COM_PATH, 'utf8');
@@ -664,18 +735,22 @@ describe('ctx.validator.addViolation', () => {
   });
   it('rejects kind without script: prefix', () => {
     const { ctx } = newRun();
-    expect(() => ctx.validator.addViolation({
-      kind: 'range' as never,
-      severity: 'error',
-      message: 'oops',
-    })).toThrow(/script:/);
+    expect(() =>
+      ctx.validator.addViolation({
+        kind: 'range' as never,
+        severity: 'error',
+        message: 'oops',
+      }),
+    ).toThrow(/script:/);
   });
 });
 
 describe('ctx.log', () => {
   it('info/warn/error emit to onLog', () => {
     const { ctx, logs } = newRun();
-    ctx.log.info('a'); ctx.log.warn('b'); ctx.log.error('c');
+    ctx.log.info('a');
+    ctx.log.warn('b');
+    ctx.log.error('c');
     expect(logs.map((l) => l.level)).toEqual(['info', 'warn', 'error']);
   });
 });
@@ -714,7 +789,11 @@ Create `src/main/script/ctx.ts`:
 
 import type { Project } from '../../core/arxml/types.js'; // adjust import if path differs
 import type {
-  ScriptLog, ScriptMutation, ScriptViolation, ParamValue, ParamSnapshot,
+  ScriptLog,
+  ScriptMutation,
+  ScriptViolation,
+  ParamValue,
+  ParamSnapshot,
 } from './types.js';
 
 export interface ScriptCtxOptions {
@@ -749,18 +828,29 @@ export interface ScriptParam {
 
 export interface ScriptProject {
   readonly projectId: string;
-  findContainers(filter: { def?: string; predicate?: (c: ScriptContainer) => boolean }): ScriptContainer[];
+  findContainers(filter: {
+    def?: string;
+    predicate?: (c: ScriptContainer) => boolean;
+  }): ScriptContainer[];
   getContainer(path: string): ScriptContainer | null;
   buildPathIndex(): ReadonlyMap<string, ScriptContainer>;
 }
 
 export interface ScriptCtx {
   readonly project: ScriptProject;
-  readonly validator: { addViolation(input: Omit<ScriptViolation, 'severity' | 'message'> & {
-    severity: 'error' | 'warning'; message: string;
-  }): void };
+  readonly validator: {
+    addViolation(
+      input: Omit<ScriptViolation, 'severity' | 'message'> & {
+        severity: 'error' | 'warning';
+        message: string;
+      },
+    ): void;
+  };
   readonly log: {
-    info(m: string): void; warn(m: string): void; error(m: string): void; debug(m: string): void;
+    info(m: string): void;
+    warn(m: string): void;
+    error(m: string): void;
+    debug(m: string): void;
   };
   readonly utils: {
     path: { join(...s: string[]): string; split(p: string): string[]; basename(p: string): string };
@@ -773,13 +863,21 @@ export interface ScriptCtx {
 
 export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
   const { project, onLog, onViolation, onMutation } = opts;
-  const log = (level: ScriptLog['level']) => (msg: string): void => {
-    if (typeof msg !== 'string') throw new Error('ctx.log.*: message must be a string');
-    onLog({ level, message: msg, ts: Date.now() });
-  };
+  const log =
+    (level: ScriptLog['level']) =>
+    (msg: string): void => {
+      if (typeof msg !== 'string') throw new Error('ctx.log.*: message must be a string');
+      onLog({ level, message: msg, ts: Date.now() });
+    };
 
   function wrapContainer(node: unknown): ScriptContainer {
-    const c = node as { path: string; def: string; shortName: string; params: unknown[]; children: unknown[] };
+    const c = node as {
+      path: string;
+      def: string;
+      shortName: string;
+      params: unknown[];
+      children: unknown[];
+    };
     return {
       path: c.path,
       def: c.def,
@@ -793,7 +891,13 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
       addChild: (shortName) => {
         onMutation({ kind: 'add-child', containerPath: c.path, newShortName: shortName });
         // Return a synthetic wrapper; the actual node is created on commit.
-        return wrapContainer({ path: `${c.path}/${shortName}`, def: '', shortName, params: [], children: [] });
+        return wrapContainer({
+          path: `${c.path}/${shortName}`,
+          def: '',
+          shortName,
+          params: [],
+          children: [],
+        });
       },
       removeChild: (shortName) => {
         onMutation({ kind: 'remove-child', containerPath: c.path, shortName });
@@ -803,12 +907,18 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
   }
 
   function wrapParam(node: unknown): ScriptParam {
-    const p = node as { name: string; type: ParamSnapshot['type']; value: ParamValue; definition: string };
+    const p = node as {
+      name: string;
+      type: ParamSnapshot['type'];
+      value: ParamValue;
+      definition: string;
+    };
     const setValue = (v: ParamValue): void => {
       // Simple type guard; range/enum validation deferred to commit phase.
       switch (p.type) {
         case 'integer':
-          if (typeof v !== 'number' || !Number.isInteger(v)) throw new Error(`setValue: expected integer for ${p.name}`);
+          if (typeof v !== 'number' || !Number.isInteger(v))
+            throw new Error(`setValue: expected integer for ${p.name}`);
           break;
         case 'float':
           if (typeof v !== 'number') throw new Error(`setValue: expected number for ${p.name}`);
@@ -821,24 +931,42 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
           if (typeof v !== 'string') throw new Error(`setValue: expected string for ${p.name}`);
           break;
         case 'enum':
-          if (typeof v !== 'string') throw new Error(`setValue: expected string for enum ${p.name}`);
+          if (typeof v !== 'string')
+            throw new Error(`setValue: expected string for enum ${p.name}`);
           break;
         case 'reference':
-          if (typeof v !== 'object' || v === null || typeof (v as { value: unknown }).value !== 'string') {
-            throw new Error(`setValue: expected { value: string, dest?: string } for reference ${p.name}`);
+          if (
+            typeof v !== 'object' ||
+            v === null ||
+            typeof (v as { value: unknown }).value !== 'string'
+          ) {
+            throw new Error(
+              `setValue: expected { value: string, dest?: string } for reference ${p.name}`,
+            );
           }
           break;
       }
-      onMutation({ kind: 'set-param', containerPath: (node as { containerPath: string }).containerPath, paramName: p.name, newValue: v });
+      onMutation({
+        kind: 'set-param',
+        containerPath: (node as { containerPath: string }).containerPath,
+        paramName: p.name,
+        newValue: v,
+      });
     };
     return {
       name: p.name,
       type: p.type,
       definition: p.definition,
-      asInteger: () => { if (typeof p.value !== 'number') throw new Error('not an integer'); return p.value; },
-      asString: () => typeof p.value === 'string' ? p.value : String(p.value),
-      asBoolean: () => { if (typeof p.value !== 'boolean') throw new Error('not a boolean'); return p.value; },
-      asEnum: () => typeof p.value === 'string' ? p.value : String(p.value),
+      asInteger: () => {
+        if (typeof p.value !== 'number') throw new Error('not an integer');
+        return p.value;
+      },
+      asString: () => (typeof p.value === 'string' ? p.value : String(p.value)),
+      asBoolean: () => {
+        if (typeof p.value !== 'boolean') throw new Error('not a boolean');
+        return p.value;
+      },
+      asEnum: () => (typeof p.value === 'string' ? p.value : String(p.value)),
       asReference: () => {
         if (typeof p.value === 'object' && p.value !== null && 'value' in p.value) {
           return p.value as { value: string; dest?: string };
@@ -888,7 +1016,9 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
     validator: {
       addViolation: (input) => {
         if (!input.kind.startsWith('script:')) {
-          throw new Error(`ctx.validator.addViolation: kind must start with "script:", got "${input.kind}"`);
+          throw new Error(
+            `ctx.validator.addViolation: kind must start with "script:", got "${input.kind}"`,
+          );
         }
         onViolation(input);
       },
@@ -901,7 +1031,9 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
         basename: (p) => p.split('/').pop() ?? p,
       },
       now: () => new Date().toISOString(),
-      assert: (cond, msg) => { if (!cond) throw new Error(msg); },
+      assert: (cond, msg) => {
+        if (!cond) throw new Error(msg);
+      },
     },
     _import: (_from) => {
       // Populated by vm-runner before user code runs.
@@ -938,6 +1070,7 @@ git commit -m "feat(scripts): add whitelisted ctx API (project/validator/log/uti
 ## Task 4: Transaction (WorkingCopy + commit/discard)
 
 **Files:**
+
 - Create: `src/main/script/transaction.ts`
 - Create: `src/main/script/__tests__/transaction.test.ts`
 
@@ -976,7 +1109,12 @@ describe('createTransaction', () => {
 
   it('records mutations via addMutation', () => {
     const tx = createTransaction(project as never);
-    tx.addMutation({ kind: 'set-param', containerPath: '/a', paramName: 'x', newValue: 1 } as ScriptMutation);
+    tx.addMutation({
+      kind: 'set-param',
+      containerPath: '/a',
+      paramName: 'x',
+      newValue: 1,
+    } as ScriptMutation);
     expect(tx.mutations).toHaveLength(1);
   });
 
@@ -990,13 +1128,27 @@ describe('createTransaction', () => {
 describe('commitTransaction', () => {
   it('applies set-param to project', () => {
     const tx = createTransaction(project as never);
-    const targetPath = (project as { documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[] })
-      .documents[0]!.containers[0]!.path;
-    const paramName = (project as { documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[] })
-      .documents[0]!.containers[0]!.params[0]!.name;
-    const original = (project as { documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[] })
-      .documents[0]!.containers[0]!.params[0]!.value;
-    tx.addMutation({ kind: 'set-param', containerPath: targetPath, paramName, newValue: original + 100 } as ScriptMutation);
+    const targetPath = (
+      project as {
+        documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[];
+      }
+    ).documents[0]!.containers[0]!.path;
+    const paramName = (
+      project as {
+        documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[];
+      }
+    ).documents[0]!.containers[0]!.params[0]!.name;
+    const original = (
+      project as {
+        documents: { containers: { path: string; params: { name: string; value: number }[] }[] }[];
+      }
+    ).documents[0]!.containers[0]!.params[0]!.value;
+    tx.addMutation({
+      kind: 'set-param',
+      containerPath: targetPath,
+      paramName,
+      newValue: original + 100,
+    } as ScriptMutation);
     const applied = commitTransaction(tx);
     expect(applied.mutations).toHaveLength(1);
     expect(applied.applied).toBe(true);
@@ -1004,7 +1156,12 @@ describe('commitTransaction', () => {
 
   it('discard is a no-op on the project', () => {
     const tx = createTransaction(project as never);
-    tx.addMutation({ kind: 'set-param', containerPath: '/a', paramName: 'x', newValue: 1 } as ScriptMutation);
+    tx.addMutation({
+      kind: 'set-param',
+      containerPath: '/a',
+      paramName: 'x',
+      newValue: 1,
+    } as ScriptMutation);
     expect(() => discardTransaction(tx)).not.toThrow();
   });
 });
@@ -1013,7 +1170,12 @@ describe('rollback on commit error', () => {
   it('rollback fires when commit applies a mutation that throws', () => {
     const tx = createTransaction(project as never);
     // Path that does not exist triggers a set error in commit.
-    tx.addMutation({ kind: 'set-param', containerPath: '/__nonexistent__', paramName: 'x', newValue: 1 } as ScriptMutation);
+    tx.addMutation({
+      kind: 'set-param',
+      containerPath: '/__nonexistent__',
+      paramName: 'x',
+      newValue: 1,
+    } as ScriptMutation);
     expect(() => commitTransaction(tx)).toThrow();
   });
 });
@@ -1037,7 +1199,11 @@ Create `src/main/script/transaction.ts`:
 // the same commit (best-effort).
 
 import type { ScriptMutation, ScriptViolation } from './types.js';
-import { setParamInProject, addChildInProject, removeChildInProject } from '../../core/project/setters.js';
+import {
+  setParamInProject,
+  addChildInProject,
+  removeChildInProject,
+} from '../../core/project/setters.js';
 
 export interface Transaction {
   readonly project: unknown;
@@ -1054,8 +1220,12 @@ export function createTransaction(project: unknown): Transaction {
     project,
     mutations,
     violations,
-    addMutation: (m) => { mutations.push(m); },
-    addViolation: (v) => { violations.push(v); },
+    addMutation: (m) => {
+      mutations.push(m);
+    },
+    addViolation: (v) => {
+      violations.push(v);
+    },
   };
 }
 
@@ -1085,7 +1255,11 @@ export function commitTransaction(tx: Transaction): CommitResult {
       // Roll back previously applied mutations in reverse order.
       for (let i = applied.length - 1; i >= 0; i--) {
         const prev = applied[i]!;
-        try { rollbackOne(tx.project as never, prev); } catch { /* best effort */ }
+        try {
+          rollbackOne(tx.project as never, prev);
+        } catch {
+          /* best effort */
+        }
       }
       throw e instanceof Error ? e : new Error(String(e));
     }
@@ -1104,7 +1278,11 @@ function rollbackOne(project: unknown, m: ScriptMutation): void {
   // removing what addChild added. Stale data is acceptable since the
   // whole commit throws and the renderer will discard.
   if (m.kind === 'add-child') {
-    try { removeChildInProject(project as never, m.containerPath, m.newShortName); } catch { /* ignore */ }
+    try {
+      removeChildInProject(project as never, m.containerPath, m.newShortName);
+    } catch {
+      /* ignore */
+    }
   }
 }
 ```
@@ -1116,8 +1294,20 @@ Then create `src/core/project/setters.ts` (new file, ~40 lines) that wraps the e
 // Wraps the existing core setters (which exist for ParamEditor) with
 // shape adapters for mutation records.
 
-export function setParamInProject(project: unknown, containerPath: string, paramName: string, newValue: unknown): void {
-  const p = project as { documents: Array<{ containers: Array<{ path: string; params: Array<{ name: string; value: unknown; setValue?: (v: unknown) => void }> }> }> };
+export function setParamInProject(
+  project: unknown,
+  containerPath: string,
+  paramName: string,
+  newValue: unknown,
+): void {
+  const p = project as {
+    documents: Array<{
+      containers: Array<{
+        path: string;
+        params: Array<{ name: string; value: unknown; setValue?: (v: unknown) => void }>;
+      }>;
+    }>;
+  };
   for (const doc of p.documents) {
     const found = findContainer(doc, containerPath);
     if (!found) continue;
@@ -1133,7 +1323,11 @@ export function setParamInProject(project: unknown, containerPath: string, param
   throw new Error(`setParam: container ${containerPath} not found`);
 }
 
-export function addChildInProject(project: unknown, containerPath: string, newShortName: string): void {
+export function addChildInProject(
+  project: unknown,
+  containerPath: string,
+  newShortName: string,
+): void {
   const p = project as { documents: Array<{ containers: any[] }> };
   for (const doc of p.documents) {
     const found = findContainer(doc, containerPath);
@@ -1154,7 +1348,11 @@ export function addChildInProject(project: unknown, containerPath: string, newSh
   throw new Error(`addChild: container ${containerPath} not found`);
 }
 
-export function removeChildInProject(project: unknown, containerPath: string, shortName: string): void {
+export function removeChildInProject(
+  project: unknown,
+  containerPath: string,
+  shortName: string,
+): void {
   const p = project as { documents: Array<{ containers: any[] }> };
   for (const doc of p.documents) {
     const found = findContainer(doc, containerPath);
@@ -1201,12 +1399,13 @@ git commit -m "feat(scripts): add WorkingCopy transaction + setters (S14#1 T4)"
 ## Task 5: VM Runner (node:vm + post-hoc timeout + error mapping)
 
 **Files:**
+
 - Create: `src/main/script/vm-runner.ts`
 - Create: `src/main/script/__tests__/vm-runner.test.ts`
 
 **Spec ref:** § 4.3 wrapper, § 8.2 timeout truth, § 8.3 errors.
 
-TDD: 9 test cases covering the full lifecycle (sync run, throws, timeout marker, error line mapping, imports wrapped, _import returns module exports).
+TDD: 9 test cases covering the full lifecycle (sync run, throws, timeout marker, error line mapping, imports wrapped, \_import returns module exports).
 
 ### Step 1: Write failing tests
 
@@ -1226,7 +1425,13 @@ function newCtx() {
 
 function entry(source: string, shortName = 'main'): ScriptEntry {
   return {
-    id: 'id', name: shortName, shortName, kind: 'free', source, imports: [], updatedAt: '2026-06-18T00:00:00.000Z',
+    id: 'id',
+    name: shortName,
+    shortName,
+    kind: 'free',
+    source,
+    imports: [],
+    updatedAt: '2026-06-18T00:00:00.000Z',
   };
 }
 
@@ -1324,7 +1529,13 @@ import { runInNewContext, createContext } from 'node:vm';
 
 import { buildScriptCtx, type ScriptCtx } from './ctx.js';
 import { classScriptError } from './errors.js';
-import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptRunResult, ScriptViolation } from './types.js';
+import type {
+  ScriptEntry,
+  ScriptLog,
+  ScriptMutation,
+  ScriptRunResult,
+  ScriptViolation,
+} from './types.js';
 
 export interface RunOptions {
   readonly timeoutMs?: number;
@@ -1378,11 +1589,15 @@ export function runInSandbox(
   } catch (e) {
     const { line, column } = parseStackLocation(e instanceof Error ? e.stack : '');
     return {
-      runId, status: 'syntax-error',
-      logs: [...sinks.logs], violations: [...sinks.violations], mutations: [...sinks.mutations],
+      runId,
+      status: 'syntax-error',
+      logs: [...sinks.logs],
+      violations: [...sinks.violations],
+      mutations: [...sinks.mutations],
       durationMs: Date.now() - start,
       errorMessage: e instanceof Error ? e.message : String(e),
-      errorLine: line, errorColumn: column,
+      errorLine: line,
+      errorColumn: column,
     };
   }
 
@@ -1396,9 +1611,13 @@ export function runInSandbox(
     return {
       runId,
       status: isTimeout ? 'timeout' : 'runtime-error',
-      logs: [...sinks.logs], violations: [...sinks.violations], mutations: [...sinks.mutations],
+      logs: [...sinks.logs],
+      violations: [...sinks.violations],
+      mutations: [...sinks.mutations],
       durationMs: Date.now() - start,
-      errorMessage: message, errorLine: line, errorColumn: column,
+      errorMessage: message,
+      errorLine: line,
+      errorColumn: column,
     };
   }
 
@@ -1407,7 +1626,9 @@ export function runInSandbox(
   return {
     runId,
     status: timedOut ? 'timeout' : 'ok',
-    logs: [...sinks.logs], violations: [...sinks.violations], mutations: [...sinks.mutations],
+    logs: [...sinks.logs],
+    violations: [...sinks.violations],
+    mutations: [...sinks.mutations],
     durationMs,
   };
 }
@@ -1428,7 +1649,10 @@ function safeIdent(s: string): string {
   return s.replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
-function parseStackLocation(stack: string): { line: number | undefined; column: number | undefined } {
+function parseStackLocation(stack: string): {
+  line: number | undefined;
+  column: number | undefined;
+} {
   if (!stack) return { line: undefined, column: undefined };
   const m = stack.match(/<anonymous>:(\d+):(\d+)/);
   if (m) return { line: Number(m[1]), column: Number(m[2]) };
@@ -1455,6 +1679,7 @@ git commit -m "feat(scripts): add node:vm runner with post-hoc timeout (S14#1 T5
 ## Task 6: IPC Contract + Types
 
 **Files:**
+
 - Modify: `src/shared/ipc-contract.ts` (add 5 channels)
 - Modify: `src/shared/types.ts` (add 5 request/response interfaces)
 
@@ -1481,7 +1706,15 @@ At the end of the file, append:
 ```typescript
 // --- Sprint 14 #1 — script engine IPC types ---------------------------------
 
-import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptRunResult, ScriptSummary, ScriptViolation, ScriptKind } from '../main/script/types.js';
+import type {
+  ScriptEntry,
+  ScriptLog,
+  ScriptMutation,
+  ScriptRunResult,
+  ScriptSummary,
+  ScriptViolation,
+  ScriptKind,
+} from '../main/script/types.js';
 
 export interface ScriptListRequest {
   readonly projectId: string;
@@ -1545,6 +1778,7 @@ git commit -m "feat(scripts): add 5 IPC channels + request/response types (S14#1
 ## Task 7: scriptHandler (5 IPC handlers + register)
 
 **Files:**
+
 - Create: `src/main/ipc/script-handler.ts`
 - Create: `src/main/ipc/__tests__/script-handler.test.ts`
 - Modify: `src/main/ipc/register.ts` (register all 5 handlers)
@@ -1562,10 +1796,18 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  scriptListHandler, scriptSaveHandler, scriptDeleteHandler, scriptRunHandler,
+  scriptListHandler,
+  scriptSaveHandler,
+  scriptDeleteHandler,
+  scriptRunHandler,
   __resetForTest,
 } from '../script-handler.js';
-import type { ScriptListRequest, ScriptRunRequest, ScriptSaveRequest, ScriptDeleteRequest } from '../../../shared/types.js';
+import type {
+  ScriptListRequest,
+  ScriptRunRequest,
+  ScriptSaveRequest,
+  ScriptDeleteRequest,
+} from '../../../shared/types.js';
 
 let projectDir: string;
 let manifestPath: string;
@@ -1573,15 +1815,22 @@ let manifestPath: string;
 beforeEach(() => {
   projectDir = mkdtempSync(join(tmpdir(), 'script-handler-'));
   manifestPath = join(projectDir, 'demo.autosarcfg.json');
-  writeFileSync(manifestPath, JSON.stringify({
-    schemaVersion: '1.0.0',
-    id: 'demo',
-    name: 'Demo',
-    directory: projectDir,
-    documents: [{ path: 'Com.arxml' }],
-    bswmdPaths: [],
-    scripts: [],
-  }, null, 2));
+  writeFileSync(
+    manifestPath,
+    JSON.stringify(
+      {
+        schemaVersion: '1.0.0',
+        id: 'demo',
+        name: 'Demo',
+        directory: projectDir,
+        documents: [{ path: 'Com.arxml' }],
+        bswmdPaths: [],
+        scripts: [],
+      },
+      null,
+      2,
+    ),
+  );
   __resetForTest(manifestPath);
 });
 
@@ -1595,21 +1844,35 @@ describe('script:list', () => {
 describe('script:save', () => {
   it('creates a new entry and assigns an id', async () => {
     const r = await scriptSaveHandler({
-      projectId: 'demo', name: 'Test', shortName: 'test-script', kind: 'free', source: '// hi',
+      projectId: 'demo',
+      name: 'Test',
+      shortName: 'test-script',
+      kind: 'free',
+      source: '// hi',
     } as ScriptSaveRequest);
     expect(r.id).toMatch(/^[0-9a-f-]{36}$/);
   });
   it('rejects reserved shortName', async () => {
-    await expect(scriptSaveHandler({
-      projectId: 'demo', name: 'X', shortName: 'ctx', kind: 'free', source: '',
-    } as ScriptSaveRequest)).rejects.toThrow(/reserved/);
+    await expect(
+      scriptSaveHandler({
+        projectId: 'demo',
+        name: 'X',
+        shortName: 'ctx',
+        kind: 'free',
+        source: '',
+      } as ScriptSaveRequest),
+    ).rejects.toThrow(/reserved/);
   });
 });
 
 describe('script:delete', () => {
   it('removes an existing entry', async () => {
     const saved = await scriptSaveHandler({
-      projectId: 'demo', name: 'X', shortName: 't', kind: 'free', source: '',
+      projectId: 'demo',
+      name: 'X',
+      shortName: 't',
+      kind: 'free',
+      source: '',
     } as ScriptSaveRequest);
     const r = await scriptDeleteHandler({ projectId: 'demo', id: saved.id } as ScriptDeleteRequest);
     expect(r.ok).toBe(true);
@@ -1619,7 +1882,11 @@ describe('script:delete', () => {
 describe('script:run', () => {
   it('runs a simple script and returns ok', async () => {
     const saved = await scriptSaveHandler({
-      projectId: 'demo', name: 'Log', shortName: 'log', kind: 'free', source: 'ctx.log.info("hi")',
+      projectId: 'demo',
+      name: 'Log',
+      shortName: 'log',
+      kind: 'free',
+      source: 'ctx.log.info("hi")',
     } as ScriptSaveRequest);
     const r = await scriptRunHandler({ projectId: 'demo', id: saved.id } as ScriptRunRequest);
     expect(r.status).toBe('ok');
@@ -1627,7 +1894,11 @@ describe('script:run', () => {
   });
   it('returns import-error for unknown module', async () => {
     const saved = await scriptSaveHandler({
-      projectId: 'demo', name: 'Bad', shortName: 'bad', kind: 'free', source: `import { x } from './nope'`,
+      projectId: 'demo',
+      name: 'Bad',
+      shortName: 'bad',
+      kind: 'free',
+      source: `import { x } from './nope'`,
     } as ScriptSaveRequest);
     const r = await scriptRunHandler({ projectId: 'demo', id: saved.id } as ScriptRunRequest);
     expect(['import-error', 'syntax-error', 'runtime-error']).toContain(r.status);
@@ -1660,21 +1931,36 @@ import { parseArxml } from '../../core/arxml/parser.js';
 import { classScriptError, validateShortName } from '../script/errors.js';
 import { runInSandbox } from '../script/vm-runner.js';
 import { resolveImports } from '../script/import-resolver.js';
-import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptRunResult, ScriptViolation } from '../script/types.js';
 import type {
-  ScriptDeleteRequest, ScriptDeleteResponse, ScriptListRequest, ScriptListResponse,
-  ScriptRunRequest, ScriptRunResponse, ScriptSaveRequest, ScriptSaveResponse,
+  ScriptEntry,
+  ScriptLog,
+  ScriptMutation,
+  ScriptRunResult,
+  ScriptViolation,
+} from '../script/types.js';
+import type {
+  ScriptDeleteRequest,
+  ScriptDeleteResponse,
+  ScriptListRequest,
+  ScriptListResponse,
+  ScriptRunRequest,
+  ScriptRunResponse,
+  ScriptSaveRequest,
+  ScriptSaveResponse,
 } from '../../shared/types.js';
 
 let _manifestPath: string | null = null;
-export function __resetForTest(p: string | null): void { _manifestPath = p; }
+export function __resetForTest(p: string | null): void {
+  _manifestPath = p;
+}
 
 function loadProjectManifest() {
   if (!_manifestPath || !existsSync(_manifestPath)) {
     throw classScriptError('manifest-read', `manifest path not set or missing: ${_manifestPath}`);
   }
   const r = loadManifest(readFileSync(_manifestPath, 'utf8'));
-  if (!r.ok) throw classScriptError('manifest-read', `manifest invalid: ${JSON.stringify(r.error)}`);
+  if (!r.ok)
+    throw classScriptError('manifest-read', `manifest invalid: ${JSON.stringify(r.error)}`);
   return r.value;
 }
 
@@ -1688,7 +1974,11 @@ export async function scriptListHandler(req: ScriptListRequest): Promise<ScriptL
   const scripts = m.scripts ?? [];
   return {
     scripts: scripts.map((s) => ({
-      id: s.id, name: s.name, shortName: s.shortName, kind: s.kind, updatedAt: s.updatedAt,
+      id: s.id,
+      name: s.name,
+      shortName: s.shortName,
+      kind: s.kind,
+      updatedAt: s.updatedAt,
     })),
   };
 }
@@ -1704,14 +1994,30 @@ export async function scriptSaveHandler(req: ScriptSaveRequest): Promise<ScriptS
   if (req.id) {
     const idx = existing.findIndex((s) => s.id === req.id);
     if (idx < 0) throw classScriptError('unknown-script', `script id not found: ${req.id}`);
-    existing[idx] = { ...existing[idx]!, name: req.name, shortName: req.shortName, kind: req.kind, source: req.source, imports: declared, updatedAt: now };
+    existing[idx] = {
+      ...existing[idx]!,
+      name: req.name,
+      shortName: req.shortName,
+      kind: req.kind,
+      source: req.source,
+      imports: declared,
+      updatedAt: now,
+    };
   } else {
     // duplicate shortName check
     if (existing.some((s) => s.shortName === req.shortName)) {
       throw classScriptError('duplicate-shortname', `shortName "${req.shortName}" already exists`);
     }
     const id = randomUUID();
-    const entry: ScriptEntry = { id, name: req.name, shortName: req.shortName, kind: req.kind, source: req.source, imports: declared, updatedAt: now };
+    const entry: ScriptEntry = {
+      id,
+      name: req.name,
+      shortName: req.shortName,
+      kind: req.kind,
+      source: req.source,
+      imports: declared,
+      updatedAt: now,
+    };
     existing.push(entry);
     writeProjectManifest({ ...m, scripts: existing });
     return { id, updatedAt: now };
@@ -1742,7 +2048,8 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   const xmlPath = require('node:path').resolve(m.directory, doc.path);
   const xml = readFileSync(xmlPath, 'utf8');
   const parsed = parseArxml(xml);
-  if (!parsed.ok) throw classScriptError('manifest-read', `first document parse failed: ${parsed.error.kind}`);
+  if (!parsed.ok)
+    throw classScriptError('manifest-read', `first document parse failed: ${parsed.error.kind}`);
 
   // 3. Wire sinks.
   const logs: ScriptLog[] = [];
@@ -1754,10 +2061,14 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   for (const e of ordered) {
     if (e.id === entry.id) {
       // Final entry: the user's entry, run with the real project.
-      lastResult = runInSandbox(e, { logs, violations, mutations }, {
-        timeoutMs: req.timeoutMs,
-        project: parsed.value,
-      });
+      lastResult = runInSandbox(
+        e,
+        { logs, violations, mutations },
+        {
+          timeoutMs: req.timeoutMs,
+          project: parsed.value,
+        },
+      );
     } else {
       // Dependency: run for its side effects (none, V0.1), exports are
       // tracked by inspecting top-level declarations. For V0.1 we
@@ -1776,7 +2087,12 @@ function extractDeclaredImports(source: string): ScriptEntry['imports'] {
   const out: ScriptEntry['imports'] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
-    const names = m[1]!.split(',').map((s) => s.trim().split(/\s+as\s+/)[0]!.trim());
+    const names = m[1]!.split(',').map((s) =>
+      s
+        .trim()
+        .split(/\s+as\s+/)[0]!
+        .trim(),
+    );
     out.push({ from: m[2]!, names });
   }
   return out;
@@ -1788,16 +2104,29 @@ function extractDeclaredImports(source: string): ScriptEntry['imports'] {
 Add imports at the top:
 
 ```typescript
-import { scriptListHandler, scriptSaveHandler, scriptDeleteHandler, scriptRunHandler } from './script-handler.js';
+import {
+  scriptListHandler,
+  scriptSaveHandler,
+  scriptDeleteHandler,
+  scriptRunHandler,
+} from './script-handler.js';
 ```
 
 Add 4 `ipcMain.handle` calls (and 1 `on` for progress events — the progress channel is push-only, no handler in this task; that's wired in Task 12 / Renderer):
 
 ```typescript
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_LIST, async (_evt, req: ScriptListRequest) => scriptListHandler(req));
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_SAVE, async (_evt, req: ScriptSaveRequest) => scriptSaveHandler(req));
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) => scriptDeleteHandler(req));
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_RUN, async (_evt, req: ScriptRunRequest) => scriptRunHandler(req));
+ipcMain.handle(IPC_CHANNELS.SCRIPT_LIST, async (_evt, req: ScriptListRequest) =>
+  scriptListHandler(req),
+);
+ipcMain.handle(IPC_CHANNELS.SCRIPT_SAVE, async (_evt, req: ScriptSaveRequest) =>
+  scriptSaveHandler(req),
+);
+ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) =>
+  scriptDeleteHandler(req),
+);
+ipcMain.handle(IPC_CHANNELS.SCRIPT_RUN, async (_evt, req: ScriptRunRequest) =>
+  scriptRunHandler(req),
+);
 ```
 
 (Also add the 4 type imports at the top of `register.ts`.)
@@ -1824,6 +2153,7 @@ git commit -m "feat(scripts): add IPC handler with manifest persistence (S14#1 T
 ## Task 8: Preload Bridge
 
 **Files:**
+
 - Modify: `src/preload/index.ts`
 
 **Spec ref:** § 2.2.
@@ -1869,6 +2199,7 @@ git commit -m "feat(scripts): expose 4 script IPC + progress subscription in pre
 ## Task 9: i18n — 19 Keys (en + zh-CN)
 
 **Files:**
+
 - Modify: `src/shared/i18n.ts`
 
 **Spec ref:** § 6.5.
@@ -1983,6 +2314,7 @@ git commit -m "feat(scripts): add 25 i18n keys (script panel scope, en + zh-CN) 
 ## Task 10: Sample Script Fixtures
 
 **Files:**
+
 - Create: `tests/fixtures/scripts/pduid-uniqueness.js`
 - Create: `tests/fixtures/scripts/wdgif-defaults.js`
 - Create: `tests/fixtures/scripts/utils/path.js`
@@ -2072,6 +2404,7 @@ git commit -m "test(scripts): add sample script fixtures (pduid / wdgif / utils)
 ## Task 11: Zustand Store + useScriptActions Hook
 
 **Files:**
+
 - Create: `src/renderer/store/useScriptStore.ts`
 - Create: `src/renderer/hooks/useScriptActions.ts`
 - Create: `src/renderer/hooks/__tests__/useScriptActions.test.ts`
@@ -2085,7 +2418,13 @@ git commit -m "test(scripts): add sample script fixtures (pduid / wdgif / utils)
 
 import { create } from 'zustand';
 
-import type { ScriptKind, ScriptLog, ScriptRunResult, ScriptSummary, ScriptViolation } from '../../main/script/types.js';
+import type {
+  ScriptKind,
+  ScriptLog,
+  ScriptRunResult,
+  ScriptSummary,
+  ScriptViolation,
+} from '../../main/script/types.js';
 
 export type RunState = 'idle' | 'running' | 'committing' | 'done' | 'error' | 'timeout';
 
@@ -2129,11 +2468,21 @@ export const useScriptStore = create<ScriptPanelState>((set) => ({
   errorLine: null,
   setPanelOpen: (panelOpen) => set({ panelOpen }),
   setScripts: (scripts) => set({ scripts }),
-  setActive: (entry, source) => set(entry ? {
-    activeId: entry.id, activeSource: source,
-    activeKind: entry.kind, activeName: entry.name, activeShortName: entry.shortName,
-    lastResult: null, liveLogs: [], errorLine: null,
-  } : { activeId: null, activeSource: '', lastResult: null, liveLogs: [], errorLine: null }),
+  setActive: (entry, source) =>
+    set(
+      entry
+        ? {
+            activeId: entry.id,
+            activeSource: source,
+            activeKind: entry.kind,
+            activeName: entry.name,
+            activeShortName: entry.shortName,
+            lastResult: null,
+            liveLogs: [],
+            errorLine: null,
+          }
+        : { activeId: null, activeSource: '', lastResult: null, liveLogs: [], errorLine: null },
+    ),
   patchActiveSource: (activeSource) => set({ activeSource }),
   setActiveKind: (activeKind) => set({ activeKind }),
   setActiveName: (activeName) => set({ activeName }),
@@ -2157,7 +2506,9 @@ import { useScriptStore } from '../store/useScriptStore.js';
 import type { AutosarApi } from '../../preload/index.js';
 
 declare global {
-  interface Window { autosarApi: AutosarApi }
+  interface Window {
+    autosarApi: AutosarApi;
+  }
 }
 
 export function useScriptActions(projectId: string | null) {
@@ -2185,44 +2536,61 @@ export function useScriptActions(projectId: string | null) {
     setScripts(r.scripts);
   }, [api, projectId, setScripts]);
 
-  const saveCurrent = useCallback(async (input: {
-    id?: string; name: string; shortName: string; kind: import('../../main/script/types.js').ScriptKind; source: string;
-  }) => {
-    if (!projectId || !api) return null;
-    return api.saveScript({ projectId, ...input });
-  }, [api, projectId]);
+  const saveCurrent = useCallback(
+    async (input: {
+      id?: string;
+      name: string;
+      shortName: string;
+      kind: import('../../main/script/types.js').ScriptKind;
+      source: string;
+    }) => {
+      if (!projectId || !api) return null;
+      return api.saveScript({ projectId, ...input });
+    },
+    [api, projectId],
+  );
 
-  const removeScript = useCallback(async (id: string) => {
-    if (!projectId || !api) return;
-    await api.deleteScript({ projectId, id });
-    await refreshList();
-  }, [api, projectId, refreshList]);
+  const removeScript = useCallback(
+    async (id: string) => {
+      if (!projectId || !api) return;
+      await api.deleteScript({ projectId, id });
+      await refreshList();
+    },
+    [api, projectId, refreshList],
+  );
 
-  const runCurrent = useCallback(async (id: string, timeoutMs?: number) => {
-    if (!projectId || !api) return null;
-    setRunState('running');
-    clearLogs();
-    setErrorLine(null);
-    try {
-      const r = await api.runScript({ projectId, id, timeoutMs });
-      setLastResult(r);
-      if (r.status === 'ok' || r.status === 'timeout') {
-        setRunState(r.status === 'timeout' ? 'timeout' : 'done');
-      } else {
+  const runCurrent = useCallback(
+    async (id: string, timeoutMs?: number) => {
+      if (!projectId || !api) return null;
+      setRunState('running');
+      clearLogs();
+      setErrorLine(null);
+      try {
+        const r = await api.runScript({ projectId, id, timeoutMs });
+        setLastResult(r);
+        if (r.status === 'ok' || r.status === 'timeout') {
+          setRunState(r.status === 'timeout' ? 'timeout' : 'done');
+        } else {
+          setRunState('error');
+        }
+        if (r.errorLine !== undefined) setErrorLine(r.errorLine);
+        return r;
+      } catch (e) {
         setRunState('error');
+        setLastResult({
+          runId: 'error',
+          status: 'runtime-error',
+          logs: [],
+          violations: [],
+          mutations: [],
+          durationMs: 0,
+          errorMessage: e instanceof Error ? e.message : String(e),
+        });
+        return null;
       }
-      if (r.errorLine !== undefined) setErrorLine(r.errorLine);
-      return r;
-    } catch (e) {
-      setRunState('error');
-      setLastResult({
-        runId: 'error', status: 'runtime-error',
-        logs: [], violations: [], mutations: [], durationMs: 0,
-        errorMessage: e instanceof Error ? e.message : String(e),
-      });
-      return null;
-    }
-  }, [api, projectId, setRunState, setLastResult, setErrorLine, clearLogs]);
+    },
+    [api, projectId, setRunState, setLastResult, setErrorLine, clearLogs],
+  );
 
   return { refreshList, saveCurrent, removeScript, runCurrent, setActive };
 }
@@ -2253,16 +2621,27 @@ describe('useScriptActions', () => {
   it('refreshList calls listScripts with projectId', async () => {
     mockApi.listScripts.mockResolvedValue({ scripts: [] });
     const { result } = renderHook(() => useScriptActions('p1'));
-    await act(async () => { await result.current.refreshList(); });
+    await act(async () => {
+      await result.current.refreshList();
+    });
     expect(mockApi.listScripts).toHaveBeenCalledWith({ projectId: 'p1' });
   });
   it('runCurrent sets errorLine on syntax-error', async () => {
     mockApi.runScript.mockResolvedValue({
-      runId: 'r', status: 'syntax-error', logs: [], violations: [], mutations: [],
-      durationMs: 5, errorMessage: 'x', errorLine: 3, errorColumn: 1,
+      runId: 'r',
+      status: 'syntax-error',
+      logs: [],
+      violations: [],
+      mutations: [],
+      durationMs: 5,
+      errorMessage: 'x',
+      errorLine: 3,
+      errorColumn: 1,
     });
     const { result } = renderHook(() => useScriptActions('p1'));
-    await act(async () => { await result.current.runCurrent('s1'); });
+    await act(async () => {
+      await result.current.runCurrent('s1');
+    });
     expect(useScriptStore.getState().errorLine).toBe(3);
     expect(useScriptStore.getState().runState).toBe('error');
   });
@@ -2286,6 +2665,7 @@ git commit -m "feat(scripts): add useScriptStore + useScriptActions (S14#1 T11)"
 ## Task 12: CodeMirror 6 Setup + ScriptEditor Component
 
 **Files:**
+
 - Modify: `package.json` (add 4 CodeMirror 6 deps)
 - Create: `src/renderer/components/ScriptPanel/ScriptEditor.tsx`
 - Create: `src/renderer/components/ScriptPanel/scriptPanel.css`
@@ -2332,19 +2712,25 @@ export function ScriptEditor(): JSX.Element {
         lineNumbers(),
         highlightActiveLine(),
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap, {
-          key: 'Mod-Enter',
-          run: () => {
-            const active = useScriptStore.getState();
-            if (active.activeId && active.runState === 'idle') {
-              // runCurrent is exposed via useScriptActions elsewhere;
-              // for editor-level trigger we emit a custom event the
-              // ScriptPanel host can subscribe to.
-              hostRef.current?.dispatchEvent(new CustomEvent('script:run', { detail: { id: active.activeId } }));
-            }
-            return true;
+        keymap.of([
+          ...defaultKeymap,
+          ...historyKeymap,
+          {
+            key: 'Mod-Enter',
+            run: () => {
+              const active = useScriptStore.getState();
+              if (active.activeId && active.runState === 'idle') {
+                // runCurrent is exposed via useScriptActions elsewhere;
+                // for editor-level trigger we emit a custom event the
+                // ScriptPanel host can subscribe to.
+                hostRef.current?.dispatchEvent(
+                  new CustomEvent('script:run', { detail: { id: active.activeId } }),
+                );
+              }
+              return true;
+            },
           },
-        }]),
+        ]),
         javascript(),
         oneDark,
         EditorView.lineWrapping,
@@ -2355,9 +2741,12 @@ export function ScriptEditor(): JSX.Element {
     });
     const view = new EditorView({ state, parent: hostRef.current });
     viewRef.current = view;
-    return () => { view.destroy(); viewRef.current = null; };
-  // Mount once; subsequent activeSource changes are applied below.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+    // Mount once; subsequent activeSource changes are applied below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync activeSource → editor (switching scripts).
@@ -2389,9 +2778,20 @@ export function ScriptEditor(): JSX.Element {
 ### Step 3: Add `scriptPanel.css` (skeleton)
 
 ```css
-.script-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.script-editor-cm { flex: 1; min-height: 0; overflow: auto; }
-.script-editor[data-running='true'] .cm-content { opacity: 0.6; }
+.script-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.script-editor-cm {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.script-editor[data-running='true'] .cm-content {
+  opacity: 0.6;
+}
 ```
 
 ### Step 4: Verify build
@@ -2411,6 +2811,7 @@ git commit -m "feat(scripts): add CodeMirror 6 editor component (S14#1 T12)"
 ## Task 13: ScriptLibrary + ScriptOutput + ScriptKindBadge
 
 **Files:**
+
 - Create: `src/renderer/components/ScriptPanel/ScriptLibrary.tsx`
 - Create: `src/renderer/components/ScriptPanel/ScriptOutput.tsx`
 - Create: `src/renderer/components/ScriptPanel/ScriptKindBadge.tsx`
@@ -2459,7 +2860,13 @@ import type { ScriptKind } from '../../../main/script/types.js';
 
 const FILTERS: Array<'all' | ScriptKind> = ['all', 'validator', 'transformer', 'report', 'free'];
 
-export function ScriptLibrary({ projectId, locale }: { projectId: string | null; locale: Locale }): JSX.Element {
+export function ScriptLibrary({
+  projectId,
+  locale,
+}: {
+  projectId: string | null;
+  locale: Locale;
+}): JSX.Element {
   const scripts = useScriptStore((s) => s.scripts);
   const activeId = useScriptStore((s) => s.activeId);
   const setActive = useScriptStore((s) => s.setActive);
@@ -2470,8 +2877,12 @@ export function ScriptLibrary({ projectId, locale }: { projectId: string | null;
   return (
     <aside className="script-library" aria-label={t(locale, 'script.lib.title')}>
       <header className="script-library-h">
-        <span>{t(locale, 'script.lib.title')} ({scripts.length})</span>
-        <button type="button" onClick={refreshList}>↻</button>
+        <span>
+          {t(locale, 'script.lib.title')} ({scripts.length})
+        </span>
+        <button type="button" onClick={refreshList}>
+          ↻
+        </button>
       </header>
       <div className="script-library-filters">
         {FILTERS.map((f) => (
@@ -2480,7 +2891,9 @@ export function ScriptLibrary({ projectId, locale }: { projectId: string | null;
             type="button"
             className={filter === f ? 'active' : ''}
             onClick={() => setFilter(f)}
-          >{f}</button>
+          >
+            {f}
+          </button>
         ))}
       </div>
       <ul className="script-library-list">
@@ -2498,8 +2911,13 @@ export function ScriptLibrary({ projectId, locale }: { projectId: string | null;
             <button
               type="button"
               aria-label={t(locale, 'script.lib.delete')}
-              onClick={(e) => { e.stopPropagation(); void removeScript(s.id); }}
-            >×</button>
+              onClick={(e) => {
+                e.stopPropagation();
+                void removeScript(s.id);
+              }}
+            >
+              ×
+            </button>
           </li>
         ))}
       </ul>
@@ -2515,8 +2933,14 @@ import { useScriptStore } from '../../store/useScriptStore.js';
 import { t } from '../../../shared/i18n.js';
 import type { Locale } from '../../../shared/i18n.js';
 
-export function ScriptOutput({ locale, onCommit, onDiscard }: {
-  locale: Locale; onCommit: () => void; onDiscard: () => void;
+export function ScriptOutput({
+  locale,
+  onCommit,
+  onDiscard,
+}: {
+  locale: Locale;
+  onCommit: () => void;
+  onDiscard: () => void;
 }): JSX.Element {
   const logs = useScriptStore((s) => s.liveLogs);
   const lastResult = useScriptStore((s) => s.lastResult);
@@ -2529,33 +2953,48 @@ export function ScriptOutput({ locale, onCommit, onDiscard }: {
     <section className="script-output" data-status={status}>
       <header className="script-output-h">
         <span>{t(locale, 'script.output.title')}</span>
-        <button type="button" onClick={clearLogs}>{t(locale, 'script.output.clear')}</button>
+        <button type="button" onClick={clearLogs}>
+          {t(locale, 'script.output.clear')}
+        </button>
       </header>
       <pre className="script-output-log">
         {logs.map((l, i) => (
           <div key={i} className={`lvl-${l.level}`}>
-            <span className="ts">{new Date(l.ts).toISOString().slice(11, 23)}</span>
-            {' '}<span className="lvl">{l.level.toUpperCase()}</span>
-            {' '}{l.message}
+            <span className="ts">{new Date(l.ts).toISOString().slice(11, 23)}</span>{' '}
+            <span className="lvl">{l.level.toUpperCase()}</span> {l.message}
           </div>
         ))}
       </pre>
       {lastResult && status === 'done' && (
         <div className="script-output-summary">
-          <div><span className="k">{t(locale, 'script.output.summary.mutations')}</span><span className="v">{lastResult.mutations.length}</span></div>
-          <div><span className="k">{t(locale, 'script.output.summary.violations')}</span><span className="v">{lastResult.violations.length}</span></div>
-          <div><span className="k">耗时</span><span className="v">{lastResult.durationMs}ms</span></div>
+          <div>
+            <span className="k">{t(locale, 'script.output.summary.mutations')}</span>
+            <span className="v">{lastResult.mutations.length}</span>
+          </div>
+          <div>
+            <span className="k">{t(locale, 'script.output.summary.violations')}</span>
+            <span className="v">{lastResult.violations.length}</span>
+          </div>
+          <div>
+            <span className="k">耗时</span>
+            <span className="v">{lastResult.durationMs}ms</span>
+          </div>
           {hasMutations && (
             <div className="script-output-actions">
-              <button type="button" className="primary" onClick={onCommit}>{t(locale, 'script.output.commit')}</button>
-              <button type="button" onClick={onDiscard}>{t(locale, 'script.output.discard')}</button>
+              <button type="button" className="primary" onClick={onCommit}>
+                {t(locale, 'script.output.commit')}
+              </button>
+              <button type="button" onClick={onDiscard}>
+                {t(locale, 'script.output.discard')}
+              </button>
             </div>
           )}
         </div>
       )}
       {(status === 'error' || status === 'timeout') && lastResult?.errorMessage && (
         <div className="script-output-error" role="alert">
-          {t(locale, status === 'timeout' ? 'script.error.timeout' : 'script.error.runtime')}: {lastResult.errorMessage}
+          {t(locale, status === 'timeout' ? 'script.error.timeout' : 'script.error.runtime')}:{' '}
+          {lastResult.errorMessage}
           {lastResult.errorLine !== undefined && <span> (line {lastResult.errorLine})</span>}
         </div>
       )}
@@ -2610,7 +3049,10 @@ describe('ScriptOutput', () => {
     useScriptStore.setState({
       runState: 'done',
       lastResult: {
-        runId: 'r', status: 'ok', logs: [], violations: [],
+        runId: 'r',
+        status: 'ok',
+        logs: [],
+        violations: [],
         mutations: [{ kind: 'set-param', containerPath: '/a', paramName: 'x', newValue: 1 }],
         durationMs: 10,
       },
@@ -2621,7 +3063,15 @@ describe('ScriptOutput', () => {
   it('shows error banner on error state', () => {
     useScriptStore.setState({
       runState: 'error',
-      lastResult: { runId: 'r', status: 'runtime-error', logs: [], violations: [], mutations: [], durationMs: 0, errorMessage: 'boom' },
+      lastResult: {
+        runId: 'r',
+        status: 'runtime-error',
+        logs: [],
+        violations: [],
+        mutations: [],
+        durationMs: 0,
+        errorMessage: 'boom',
+      },
     });
     render(<ScriptOutput locale={DEFAULT_LOCALE} onCommit={() => {}} onDiscard={() => {}} />);
     expect(screen.getByText(/boom/)).toBeTruthy();
@@ -2646,6 +3096,7 @@ git commit -m "feat(scripts): add Library/Output/KindBadge components + tests (S
 ## Task 14: ScriptPanel + App.tsx + AppHeader Integration
 
 **Files:**
+
 - Create: `src/renderer/components/ScriptPanel/ScriptPanel.tsx`
 - Create: `src/renderer/components/ScriptPanel/index.ts`
 - Modify: `src/renderer/components/AppHeader/index.tsx` (add toggle)
@@ -2671,13 +3122,21 @@ import { ScriptOutput } from './ScriptOutput.js';
 import { t } from '../../../shared/i18n.js';
 import type { Locale } from '../../../shared/i18n.js';
 
-export function ScriptPanel({ projectId, locale }: { projectId: string | null; locale: Locale }): JSX.Element | null {
+export function ScriptPanel({
+  projectId,
+  locale,
+}: {
+  projectId: string | null;
+  locale: Locale;
+}): JSX.Element | null {
   const panelOpen = useScriptStore((s) => s.panelOpen);
   const refreshList = useScriptActions(projectId).refreshList;
   const runCurrent = useScriptActions(projectId).runCurrent;
   const saveCurrent = useScriptActions(projectId).saveCurrent;
 
-  useEffect(() => { void refreshList(); }, [refreshList]);
+  useEffect(() => {
+    void refreshList();
+  }, [refreshList]);
 
   if (!panelOpen) return null;
 
@@ -2685,7 +3144,9 @@ export function ScriptPanel({ projectId, locale }: { projectId: string | null; l
     <div
       className="script-panel"
       aria-label={t(locale, 'script.panel.title')}
-      onKeyDown={(e) => { if (e.key === 'Escape') useScriptStore.getState().setPanelOpen(false); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') useScriptStore.getState().setPanelOpen(false);
+      }}
     >
       <ScriptLibrary projectId={projectId} locale={locale} />
       <ScriptEditor />
@@ -2696,7 +3157,9 @@ export function ScriptPanel({ projectId, locale }: { projectId: string | null; l
           // mutation-application happens in the renderer's existing
           // zustand store via direct calls (Task 15).
         }}
-        onDiscard={() => { useScriptStore.getState().clearLogs(); }}
+        onDiscard={() => {
+          useScriptStore.getState().clearLogs();
+        }}
       />
     </div>
   );
@@ -2728,7 +3191,7 @@ const setPanelOpen = useScriptStore((s) => s.setPanelOpen);
   onClick={() => setPanelOpen(!panelOpen)}
 >
   {panelOpen ? '◀ ' : '▶ '} {t(locale, 'script.panel.title')}
-</button>
+</button>;
 ```
 
 ### Step 4: Modify `App.tsx` to mount the panel
@@ -2742,7 +3205,9 @@ import { ScriptPanel } from './components/ScriptPanel';
 Add to JSX, after the existing `<Group>` (so the panel renders below the main row, not inside the splitter):
 
 ```tsx
-{projectId && <ScriptPanel projectId={projectId} locale={locale} />}
+{
+  projectId && <ScriptPanel projectId={projectId} locale={locale} />;
+}
 ```
 
 (Use the existing `projectId` / `locale` state — fetch them from `useArxmlStore` / `useProjectActions` as the existing AppHeader does.)
@@ -2764,6 +3229,7 @@ git commit -m "feat(scripts): mount ScriptPanel in App + AppHeader toggle (S14#1
 ## Task 15: ValidationPanel — Script 校验 Group
 
 **Files:**
+
 - Modify: `src/renderer/components/ValidationPanel/index.tsx`
 
 **Spec ref:** § 6.4.
@@ -2781,27 +3247,31 @@ const otherKinds = [...allKinds].filter((k) => !k.startsWith('script:'));
 
 // Render otherKinds as before.
 // Then append:
-{scriptKinds.length > 0 && (
-  <div className="validation-group" data-kind="script">
-    <h4 style={{ color: '#a78bfa' }}>{t(locale, 'script.violation.group')}</h4>
-    {scriptKinds.map((k) => {
-      const items = errors.filter((e) => e.kind === k);
-      return (
-        <details key={k} open>
-          <summary>{k} ({items.length})</summary>
-          <ul>
-            {items.map((e, i) => (
-              <li key={i} onClick={() => onJump(e.path)}>
-                <span className="path">{e.path}</span>{' '}
-                <span className="message">{e.message}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      );
-    })}
-  </div>
-)}
+{
+  scriptKinds.length > 0 && (
+    <div className="validation-group" data-kind="script">
+      <h4 style={{ color: '#a78bfa' }}>{t(locale, 'script.violation.group')}</h4>
+      {scriptKinds.map((k) => {
+        const items = errors.filter((e) => e.kind === k);
+        return (
+          <details key={k} open>
+            <summary>
+              {k} ({items.length})
+            </summary>
+            <ul>
+              {items.map((e, i) => (
+                <li key={i} onClick={() => onJump(e.path)}>
+                  <span className="path">{e.path}</span>{' '}
+                  <span className="message">{e.message}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
+    </div>
+  );
+}
 ```
 
 ### Step 2: Verify build
@@ -2821,6 +3291,7 @@ git commit -m "feat(scripts): add Script 校验 group to ValidationPanel (S14#1 
 ## Task 16: PduId Validation End-to-End (5 Fixtures)
 
 **Files:**
+
 - Create: `src/main/__tests__/script-engine.e2e.test.ts`
 
 **Spec ref:** § 1.1 (use case 1: 自定义校验).
@@ -2838,9 +3309,7 @@ import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
-import {
-  scriptSaveHandler, scriptRunHandler,
-} from '../ipc/script-handler.js';
+import { scriptSaveHandler, scriptRunHandler } from '../ipc/script-handler.js';
 import { __resetForTest } from '../ipc/script-handler.js';
 import type { ScriptSaveRequest, ScriptRunRequest } from '../../shared/types.js';
 
@@ -2858,11 +3327,17 @@ beforeAll(() => {
   const dstArxml = join(projectDir, files[0]!);
   require('node:fs').writeFileSync(dstArxml, arxml);
   manifestPath = join(projectDir, 'demo.autosarcfg.json');
-  const m = loadManifest(JSON.stringify({
-    schemaVersion: '1.0.0', id: 'demo', name: 'Demo',
-    directory: projectDir, documents: [{ path: files[0]! }], bswmdPaths: [],
-    scripts: [],
-  })) as { ok: true; value: any };
+  const m = loadManifest(
+    JSON.stringify({
+      schemaVersion: '1.0.0',
+      id: 'demo',
+      name: 'Demo',
+      directory: projectDir,
+      documents: [{ path: files[0]! }],
+      bswmdPaths: [],
+      scripts: [],
+    }),
+  ) as { ok: true; value: any };
   require('node:fs').writeFileSync(manifestPath, saveManifest(m.value));
   __resetForTest(manifestPath);
 });
@@ -2871,7 +3346,11 @@ describe('script engine e2e — PduId uniqueness on 5 fixtures', () => {
   it('runs the pduid-uniqueness script and returns ok', async () => {
     const source = readFileSync(SCRIPT_FIXTURE, 'utf8');
     const saveReq: ScriptSaveRequest = {
-      projectId: 'demo', name: 'PduId', shortName: 'pduid', kind: 'validator', source,
+      projectId: 'demo',
+      name: 'PduId',
+      shortName: 'pduid',
+      kind: 'validator',
+      source,
     };
     const saved = await scriptSaveHandler(saveReq);
     const runReq: ScriptRunRequest = { projectId: 'demo', id: saved.id, timeoutMs: 5000 };
@@ -2900,6 +3379,7 @@ git commit -m "test(scripts): add e2e test running pduid-uniqueness on 5-fixture
 ## Task 17: Playwright E2E Test
 
 **Files:**
+
 - Create: `tests/e2e/script-panel.spec.ts`
 
 **Spec ref:** § 9.2.
@@ -2930,7 +3410,9 @@ test.describe('Scripts panel — happy path', () => {
     // Click Run.
     await page.getByRole('button', { name: /运行|Run/ }).click();
     // Wait for the output panel to show a log line.
-    await expect(page.locator('.script-output-log')).toContainText(/ComIPdu|PduId/i, { timeout: 10000 });
+    await expect(page.locator('.script-output-log')).toContainText(/ComIPdu|PduId/i, {
+      timeout: 10000,
+    });
   });
 });
 ```
@@ -2952,6 +3434,7 @@ git commit -m "test(scripts): add Playwright e2e for Scripts panel happy path (S
 ## Task 18: CHANGELOG + PROGRESS + Version Bump
 
 **Files:**
+
 - Modify: `package.json` (version 1.0.0 → 1.1.0)
 - Modify: `CHANGELOG.md` (add v1.1.0 entry)
 - Modify: `PROGRESS.md` (add Sprint 14 #1 line)
@@ -2968,6 +3451,7 @@ Prepend to `CHANGELOG.md` (above v1.0.0):
 ## [1.1.0] — 2026-06-XX
 
 ### Added
+
 - **Embedded JavaScript script engine** (Sprint 14 #1, scripts live in `manifest.scripts[]`)
 - **Scripts panel** in main window: resizable right-side panel with library, CodeMirror 6 editor, and output panel
 - **4 script kinds**: validator / transformer / report / free (color-coded in UI)
@@ -2979,12 +3463,14 @@ Prepend to `CHANGELOG.md` (above v1.0.0):
 - **25 new i18n keys** in `script.*` scope (en + zh-CN)
 
 ### Dependencies
+
 - `@codemirror/state` ^6 (new)
 - `@codemirror/view` ^6 (new)
 - `@codemirror/lang-javascript` ^6 (new)
 - `@codemirror/theme-one-dark` ^6 (new)
 
 ### Out of scope (deferred)
+
 - Headless CLI mode (Sprint 14 #2)
 - Async / `await` (Sprint 14 #3)
 - True sandbox cancellation (Sprint 14 #4, requires worker_threads)

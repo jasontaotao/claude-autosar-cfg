@@ -540,66 +540,63 @@ export function useProjectActions(): {
   // product wants the dirty guard on cascade remove later, lift it
   // from `removeBswmdWithGuard` and prepend it here.
   // -------------------------------------------------------------------------
-  const removeBswmdWithCascade = useCallback(
-    async (path: string): Promise<ProjectActionResult> => {
-      // Bail up-front on unknown paths so we don't pop the dialog for
-      // a no-op click. Mirrors `removeBswmdWithGuard`'s first-line
-      // guard.
-      if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
-        return { kind: 'canceled' };
+  const removeBswmdWithCascade = useCallback(async (path: string): Promise<ProjectActionResult> => {
+    // Bail up-front on unknown paths so we don't pop the dialog for
+    // a no-op click. Mirrors `removeBswmdWithGuard`'s first-line
+    // guard.
+    if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
+      return { kind: 'canceled' };
+    }
+    // Snapshot dependents via the T7 store action. `dependents` is
+    // a fresh array each call (the store filters + maps on demand),
+    // so it's safe to use directly without re-snapshotting.
+    const dependents = useArxmlStore.getState().findDependentsOfBswmd(path);
+    if (dependents.length > 0) {
+      // Reuse the existing `CascadeConfirmDialog.confirmCascade` —
+      // already mounted in App.tsx, already i18n'd via
+      // `confirm.cascade.*`. The dialog accepts
+      // `{ targetShortName, references: [{filePath, containerPath,
+      // paramKey}] }`; for BSWMD-remove the per-reference
+      // containerPath / paramKey are not meaningful (a whole ARXML
+      // is the dependent, not a single param), so we pass empty
+      // strings and let the filePath be the visible identifier.
+      const choice = await confirmCascade({
+        targetShortName: basename(path),
+        references: dependents.map((filePath) => ({
+          filePath,
+          containerPath: '',
+          paramKey: '',
+        })),
+      });
+      if (choice === 'cancel') {
+        return { kind: 'ok' };
       }
-      // Snapshot dependents via the T7 store action. `dependents` is
-      // a fresh array each call (the store filters + maps on demand),
-      // so it's safe to use directly without re-snapshotting.
-      const dependents = useArxmlStore.getState().findDependentsOfBswmd(path);
-      if (dependents.length > 0) {
-        // Reuse the existing `CascadeConfirmDialog.confirmCascade` —
-        // already mounted in App.tsx, already i18n'd via
-        // `confirm.cascade.*`. The dialog accepts
-        // `{ targetShortName, references: [{filePath, containerPath,
-        // paramKey}] }`; for BSWMD-remove the per-reference
-        // containerPath / paramKey are not meaningful (a whole ARXML
-        // is the dependent, not a single param), so we pass empty
-        // strings and let the filePath be the visible identifier.
-        const choice = await confirmCascade({
-          targetShortName: basename(path),
-          references: dependents.map((filePath) => ({
-            filePath,
-            containerPath: '',
-            paramKey: '',
-          })),
-        });
-        if (choice === 'cancel') {
-          return { kind: 'ok' };
+      if (choice === 'cascade') {
+        // For each dependent, delete from disk via IPC, then drop
+        // from the store. We read `removeDocument` on a fresh
+        // `getState()` per call so the loop sees the post-removal
+        // documentPaths each iteration (the store's `removeDocument`
+        // is index-by-path, so it tolerates stale snapshots — but
+        // this is the explicit, correct shape).
+        for (const filePath of dependents) {
+          // Best-effort disk delete. The IPC handler returns
+          // `{ kind: 'ok' | 'not-found' | 'write-failed' }`. A
+          // `not-found` (file already gone) is fine — we still drop
+          // the in-memory entry. A `write-failed` is also OK here:
+          // the in-memory doc is stale either way, and the user
+          // gets to see a store-level error via the next mutation
+          // if it matters.
+          await window.autosarApi.deleteArxml({ filePath });
+          useArxmlStore.getState().removeDocument(filePath);
         }
-        if (choice === 'cascade') {
-          // For each dependent, delete from disk via IPC, then drop
-          // from the store. We read `removeDocument` on a fresh
-          // `getState()` per call so the loop sees the post-removal
-          // documentPaths each iteration (the store's `removeDocument`
-          // is index-by-path, so it tolerates stale snapshots — but
-          // this is the explicit, correct shape).
-          for (const filePath of dependents) {
-            // Best-effort disk delete. The IPC handler returns
-            // `{ kind: 'ok' | 'not-found' | 'write-failed' }`. A
-            // `not-found` (file already gone) is fine — we still drop
-            // the in-memory entry. A `write-failed` is also OK here:
-            // the in-memory doc is stale either way, and the user
-            // gets to see a store-level error via the next mutation
-            // if it matters.
-            await window.autosarApi.deleteArxml({ filePath });
-            useArxmlStore.getState().removeDocument(filePath);
-          }
-        }
-        // 'only' falls through to remove the BSWMD only — dependents
-        // stay in the store and lose schema validation, which is what
-        // the user explicitly chose.
       }
-      useArxmlStore.getState().removeBswmd(path);
-      return { kind: 'ok' };
-    },
-    [],
-  );
+      // 'only' falls through to remove the BSWMD only — dependents
+      // stay in the store and lose schema validation, which is what
+      // the user explicitly chose.
+    }
+    useArxmlStore.getState().removeBswmd(path);
+    return { kind: 'ok' };
+  }, []);
 
   return {
     newProject,

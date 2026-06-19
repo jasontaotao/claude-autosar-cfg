@@ -118,8 +118,10 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     useArxmlStore.getState().setViewMode('combined');
     const next = useArxmlStore.getState();
     if (next.displayDoc === null) throw new Error('expected displayDoc');
-    expect(next.displayDoc.packages.map((p) => p.shortName).sort())
-      .toEqual(['Can.arxml', '[doc:1]']);
+    expect(next.displayDoc.packages.map((p) => p.shortName).sort()).toEqual([
+      'Can.arxml',
+      '[doc:1]',
+    ]);
   });
 
   it('combined mode: basename collision keeps basename wrapper (no module dup)', () => {
@@ -131,8 +133,10 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     useArxmlStore.getState().setViewMode('combined');
     const next = useArxmlStore.getState();
     if (next.displayDoc === null) throw new Error('expected displayDoc');
-    expect(next.displayDoc.packages.map((p) => p.shortName).sort())
-      .toEqual(['Can.arxml', '[doc:1]']);
+    expect(next.displayDoc.packages.map((p) => p.shortName).sort()).toEqual([
+      'Can.arxml',
+      '[doc:1]',
+    ]);
   });
 
   it('setViewMode resets selectedPath so stale paths do not leak across modes', () => {

@@ -123,9 +123,7 @@ export function App(): JSX.Element {
   // (the user picks from scratch) and is the BSWMD path for the row
   // flow (so the user lands directly inside the right BSWMD).
   const [ecucPickerOpen, setEcucPickerOpen] = useState(false);
-  const [preSelectedBswmdPath, setPreSelectedBswmdPath] = useState<
-    string | undefined
-  >(undefined);
+  const [preSelectedBswmdPath, setPreSelectedBswmdPath] = useState<string | undefined>(undefined);
   // T8 orchestration hook — writes ARXML via IPC, registers the new
   // docs in the store on success, rolls back on partial failure.
   const { create: createEcuc } = useCreateEcucFromBswmd();
@@ -133,9 +131,7 @@ export function App(): JSX.Element {
   // The picker is gated on BOTH a BSWMD being loaded (otherwise
   // there's nothing to enumerate) AND a project being open (the
   // picker writes into the project's directory).
-  const canSelectEcucModule = useArxmlStore(
-    (s) => s.bswmdSchemas.length > 0 && s.project !== null,
-  );
+  const canSelectEcucModule = useArxmlStore((s) => s.bswmdSchemas.length > 0 && s.project !== null);
   const locale = useArxmlStore((s) => s.locale);
   const setStoreError = useArxmlStore((s) => s.setError);
 
@@ -190,8 +186,7 @@ export function App(): JSX.Element {
           moduleShortName: moduleEl.shortName,
         });
       }
-      const pickKey = (p: PickedModule): string =>
-        `${p.bswmdPath}::${p.moduleShortName}`;
+      const pickKey = (p: PickedModule): string => `${p.bswmdPath}::${p.moduleShortName}`;
       const incomingKeys = new Set(picks.map(pickKey));
       const existingKeys = new Set(existingPicks.map(pickKey));
       const toAdd = picks.filter((p) => !existingKeys.has(pickKey(p)));
@@ -202,9 +197,7 @@ export function App(): JSX.Element {
         const result = await createEcuc({ picks: toAdd, projectDir });
         if (result.kind === 'ok') {
           if (result.written.length > 0) {
-            setStoreError(
-              i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }),
-            );
+            setStoreError(i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }));
           }
         } else {
           const msg =
@@ -313,10 +306,7 @@ export function App(): JSX.Element {
           <Panel id="workspace-left" minSize="20%" defaultSize="30%">
             <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} />
           </Panel>
-          <Separator
-            className="workspace-resize-h"
-            data-testid="workspace-resize-h"
-          />
+          <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
           <Panel id="workspace-right">
             <ParamEditor />
           </Panel>

@@ -263,9 +263,7 @@ describe('useProjectActions — removeBswmdWithCascade (Sprint 14 Task 12)', () 
     // expected localized strings. This pins the i18n contract that
     // CascadeConfirmDialog relies on.
     const { t, MessagesZhCN } = await import('../../../shared/i18n.js');
-    expect(t('zh-CN', 'confirm.cascade.title', { name: 'Can.arxml' })).toBe(
-      "删除 'Can.arxml'?",
-    );
+    expect(t('zh-CN', 'confirm.cascade.title', { name: 'Can.arxml' })).toBe("删除 'Can.arxml'?");
     expect(MessagesZhCN['confirm.cascade.only']).toBe('仅删容器');
     expect(MessagesZhCN['confirm.cascade.cascade']).toBe('一并删引用');
   });

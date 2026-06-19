@@ -62,9 +62,9 @@ import { useCreateEcucFromBswmd } from '../useCreateEcucFromBswmd.js';
 // ---------------------------------------------------------------------------
 
 interface AutosarApiStub {
-  writeArxmlBatch: (
-    req: { readonly files: readonly { readonly filePath: string; readonly content: string }[] },
-  ) => Promise<ProjectWriteArxmlBatchResult>;
+  writeArxmlBatch: (req: {
+    readonly files: readonly { readonly filePath: string; readonly content: string }[];
+  }) => Promise<ProjectWriteArxmlBatchResult>;
   deleteArxml: (req: { readonly filePath: string }) => Promise<ProjectDeleteArxmlResult>;
 }
 
@@ -123,8 +123,7 @@ function installApiStub(overrides: Partial<AutosarApiStub> = {}): AutosarApiStub
     writeArxmlBatch:
       overrides.writeArxmlBatch ??
       (async () => ({ kind: 'write-failed' as const, message: 'unconfigured stub' })),
-    deleteArxml:
-      overrides.deleteArxml ?? (async () => ({ kind: 'ok' as const })),
+    deleteArxml: overrides.deleteArxml ?? (async () => ({ kind: 'ok' as const })),
   };
   (window as { autosarApi?: unknown }).autosarApi = stub;
   return stub;
@@ -138,9 +137,9 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
   it('generates, writes, and adds documents for picked modules (happy path)', async () => {
     // Arrange
     const writeSpy = vi.fn(
-      async (
-        _req: { readonly files: readonly { readonly filePath: string; readonly content: string }[] },
-      ): Promise<ProjectWriteArxmlBatchResult> => ({
+      async (_req: {
+        readonly files: readonly { readonly filePath: string; readonly content: string }[];
+      }): Promise<ProjectWriteArxmlBatchResult> => ({
         kind: 'ok' as const,
         written: ['D:/proj/ecuc/Can_EcucValues.arxml'],
       }),
@@ -182,9 +181,9 @@ describe('useCreateEcucFromBswmd — Sprint 14 Task 8 hook', () => {
   it('rolls back partial writes on batch failure', async () => {
     // Arrange
     const writeSpy = vi.fn(
-      async (
-        _req: { readonly files: readonly { readonly filePath: string; readonly content: string }[] },
-      ): Promise<ProjectWriteArxmlBatchResult> => ({
+      async (_req: {
+        readonly files: readonly { readonly filePath: string; readonly content: string }[];
+      }): Promise<ProjectWriteArxmlBatchResult> => ({
         kind: 'partial' as const,
         written: ['D:/proj/ecuc/Can_EcucValues.arxml'],
         failed: [{ filePath: 'D:/proj/ecuc/CanIf_EcucValues.arxml', message: 'EACCES' }],

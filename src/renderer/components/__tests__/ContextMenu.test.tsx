@@ -60,7 +60,10 @@ function Host({ onAction, locale = 'zh-CN' }: HostProps): JSX.Element {
   return <ContextMenuRoot onAction={onAction} locale={locale} />;
 }
 
-async function mountHost(onAction: (action: ContextMenuAction) => void, locale: Locale = 'zh-CN'): Promise<void> {
+async function mountHost(
+  onAction: (action: ContextMenuAction) => void,
+  locale: Locale = 'zh-CN',
+): Promise<void> {
   render(<Host onAction={onAction} locale={locale} />);
   // Flush the post-mount effect that wires the module-level handle.
   await act(async () => {
@@ -73,7 +76,11 @@ const originalInnerHeight = window.innerHeight;
 
 function setViewport(width: number, height: number): void {
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true, writable: true });
-  Object.defineProperty(window, 'innerHeight', { value: height, configurable: true, writable: true });
+  Object.defineProperty(window, 'innerHeight', {
+    value: height,
+    configurable: true,
+    writable: true,
+  });
 }
 
 afterEach(() => {
@@ -283,7 +290,7 @@ describe('ContextMenu (item activation)', () => {
 // Test 7: disabled state when no BSWMD covers the module
 // ---------------------------------------------------------------------------
 describe('ContextMenu (BSWMD-disabled items)', () => {
-  it('disables the 3 add items (with tooltip) when no BSWMD covers the path\'s module', async () => {
+  it("disables the 3 add items (with tooltip) when no BSWMD covers the path's module", async () => {
     // BSWMD list is empty (cleared in afterEach) — no module is covered.
     useArxmlStore.setState({ bswmdSchemas: [], bswmdPaths: [] });
 
@@ -374,11 +381,7 @@ describe('ContextMenu (keyboard navigation)', () => {
 
     await mountHost(() => undefined);
     act(() => {
-      openContextMenu(
-        { path: '/EcuM', kind: 'container', shortName: 'EcuM' },
-        100,
-        100,
-      );
+      openContextMenu({ path: '/EcuM', kind: 'container', shortName: 'EcuM' }, 100, 100);
     });
     const items = screen.getAllByRole('menuitem');
     expect(items).toHaveLength(4);
@@ -417,11 +420,7 @@ describe('ContextMenu (keyboard navigation)', () => {
     useArxmlStore.setState({ bswmdSchemas: [bswmd], bswmdPaths: ['/fake/EcuM.arxml'] });
     await mountHost(onAction);
     act(() => {
-      openContextMenu(
-        { path: '/EcuM', kind: 'container', shortName: 'EcuM' },
-        100,
-        100,
-      );
+      openContextMenu({ path: '/EcuM', kind: 'container', shortName: 'EcuM' }, 100, 100);
     });
     const items = screen.getAllByRole('menuitem');
     expect(items[0]).toHaveFocus();

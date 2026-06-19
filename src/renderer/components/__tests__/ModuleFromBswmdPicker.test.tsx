@@ -51,7 +51,10 @@ function makeModule(shortName: string, path: string): BswModuleDef {
   } as unknown as BswModuleDef;
 }
 
-function makeBswmd(modules: readonly BswModuleDef[], disabled?: ReadonlySet<string>): BswmdDocument {
+function makeBswmd(
+  modules: readonly BswModuleDef[],
+  disabled?: ReadonlySet<string>,
+): BswmdDocument {
   return {
     version: '4.6',
     modules,
@@ -97,12 +100,7 @@ describe('ModuleFromBswmdPicker', () => {
     const onConfirm = vi.fn();
     const onClose = vi.fn();
     render(
-      <ModuleFromBswmdPicker
-        open
-        projectDir="D:/proj"
-        onConfirm={onConfirm}
-        onClose={onClose}
-      />,
+      <ModuleFromBswmdPicker open projectDir="D:/proj" onConfirm={onConfirm} onClose={onClose} />,
     );
 
     expect(screen.getAllByRole('checkbox')).toHaveLength(2);
@@ -121,12 +119,7 @@ describe('ModuleFromBswmdPicker', () => {
 
     const onConfirm = vi.fn();
     render(
-      <ModuleFromBswmdPicker
-        open
-        projectDir="D:/proj"
-        onConfirm={onConfirm}
-        onClose={() => {}}
-      />,
+      <ModuleFromBswmdPicker open projectDir="D:/proj" onConfirm={onConfirm} onClose={() => {}} />,
     );
 
     fireEvent.click(screen.getByLabelText('Can'));
@@ -148,12 +141,7 @@ describe('ModuleFromBswmdPicker', () => {
     });
 
     render(
-      <ModuleFromBswmdPicker
-        open
-        projectDir="D:/proj"
-        onConfirm={() => {}}
-        onClose={() => {}}
-      />,
+      <ModuleFromBswmdPicker open projectDir="D:/proj" onConfirm={() => {}} onClose={() => {}} />,
     );
 
     const canCheckboxes = screen.getAllByLabelText('Can');
@@ -220,12 +208,7 @@ describe('ModuleFromBswmdPicker', () => {
     });
 
     render(
-      <ModuleFromBswmdPicker
-        open
-        projectDir="D:/proj"
-        onConfirm={() => {}}
-        onClose={() => {}}
-      />,
+      <ModuleFromBswmdPicker open projectDir="D:/proj" onConfirm={() => {}} onClose={() => {}} />,
     );
 
     // Can + CanIf should be visible, CanTp should be hidden.
@@ -237,19 +220,12 @@ describe('ModuleFromBswmdPicker', () => {
 
   it('shows ecuc/ subfolder hint above Will create list when something is selected', () => {
     useArxmlStore.setState({
-      bswmdSchemas: [
-        makeBswmd([makeModule('Can', '/AUTOSAR/EcucDefs/Can')]),
-      ],
+      bswmdSchemas: [makeBswmd([makeModule('Can', '/AUTOSAR/EcucDefs/Can')])],
       bswmdPaths: ['D:/bswmd/Can.arxml'],
     });
 
     render(
-      <ModuleFromBswmdPicker
-        open
-        projectDir="D:/proj"
-        onConfirm={() => {}}
-        onClose={() => {}}
-      />,
+      <ModuleFromBswmdPicker open projectDir="D:/proj" onConfirm={() => {}} onClose={() => {}} />,
     );
 
     // Select 1 module so the right pane renders the Will-create list,

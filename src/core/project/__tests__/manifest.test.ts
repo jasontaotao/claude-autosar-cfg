@@ -2,12 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
-import {
-  loadManifest,
-  saveManifest,
-  validateManifest,
-  createEmptyManifest,
-} from '../manifest.js';
+import { loadManifest, saveManifest, validateManifest, createEmptyManifest } from '../manifest.js';
 
 // ---------------------------------------------------------------------------
 // Test fixtures

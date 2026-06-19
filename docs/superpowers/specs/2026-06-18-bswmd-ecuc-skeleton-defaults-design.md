@@ -119,16 +119,16 @@ preview:
 
 ### Component / Module boundaries
 
-| Layer | File | Change kind |
-|---|---|---|
-| core | `src/core/arxml/skeleton.ts` | **MODIFY** `buildContainer`, `buildModule` |
-| core | `src/core/arxml/skeleton.ts` | **MODIFY** `resolveCollisionFilename` path prefix |
-| renderer | `src/renderer/store/useArxmlStore.ts` | **MODIFY** `hasBswmdForModule` selector |
-| shared | `src/shared/i18n.ts` | **MODIFY** add 1 key |
-| tests | `src/core/arxml/__tests__/skeleton.test.ts` | **MODIFY** +15 cases |
-| tests | `src/renderer/store/__tests__/useArxmlStore.s14.test.ts` | **MODIFY** +4 cases |
-| tests | `src/renderer/components/editor/__tests__/ParamEditor.test.tsx` | **MODIFY** +2 cases |
-| tests | `tests/e2e/sprint-14-picker-flow.spec.ts` | **MODIFY** +1 E2E |
+| Layer    | File                                                            | Change kind                                       |
+| -------- | --------------------------------------------------------------- | ------------------------------------------------- |
+| core     | `src/core/arxml/skeleton.ts`                                    | **MODIFY** `buildContainer`, `buildModule`        |
+| core     | `src/core/arxml/skeleton.ts`                                    | **MODIFY** `resolveCollisionFilename` path prefix |
+| renderer | `src/renderer/store/useArxmlStore.ts`                           | **MODIFY** `hasBswmdForModule` selector           |
+| shared   | `src/shared/i18n.ts`                                            | **MODIFY** add 1 key                              |
+| tests    | `src/core/arxml/__tests__/skeleton.test.ts`                     | **MODIFY** +15 cases                              |
+| tests    | `src/renderer/store/__tests__/useArxmlStore.s14.test.ts`        | **MODIFY** +4 cases                               |
+| tests    | `src/renderer/components/editor/__tests__/ParamEditor.test.tsx` | **MODIFY** +2 cases                               |
+| tests    | `tests/e2e/sprint-14-picker-flow.spec.ts`                       | **MODIFY** +1 E2E                                 |
 
 **No new files**. All changes land in shipped files, keeping the diff
 tight and easy to review.
@@ -137,14 +137,14 @@ tight and easy to review.
 
 ### Type-mapping table
 
-| BSWMD `ParamDef.kind` | ECUC `ParamValue.type` | Output XML tag | Default-value handling |
-|---|---|---|---|
-| `integer` | `'integer'` | `ECUC-NUMERICAL-PARAM-VALUE` | number required; `null` → skip |
-| `float` | `'float'` | `ECUC-NUMERICAL-PARAM-VALUE` | number required; `null` → skip |
-| `boolean` | `'boolean'` | `ECUC-NUMERICAL-PARAM-VALUE` | `0\|1`; `null` → skip |
-| `enumeration` | `'enum'` | `ECUC-TEXTUAL-PARAM-VALUE` | literal string; `null` → empty string |
-| `string` | `'string'` | `ECUC-TEXTUAL-PARAM-VALUE` | `null` → empty string |
-| `function-name` | `'string'` | `ECUC-TEXTUAL-PARAM-VALUE` | `null` → empty string |
+| BSWMD `ParamDef.kind` | ECUC `ParamValue.type` | Output XML tag               | Default-value handling                |
+| --------------------- | ---------------------- | ---------------------------- | ------------------------------------- |
+| `integer`             | `'integer'`            | `ECUC-NUMERICAL-PARAM-VALUE` | number required; `null` → skip        |
+| `float`               | `'float'`              | `ECUC-NUMERICAL-PARAM-VALUE` | number required; `null` → skip        |
+| `boolean`             | `'boolean'`            | `ECUC-NUMERICAL-PARAM-VALUE` | `0\|1`; `null` → skip                 |
+| `enumeration`         | `'enum'`               | `ECUC-TEXTUAL-PARAM-VALUE`   | literal string; `null` → empty string |
+| `string`              | `'string'`             | `ECUC-TEXTUAL-PARAM-VALUE`   | `null` → empty string                 |
+| `function-name`       | `'string'`             | `ECUC-TEXTUAL-PARAM-VALUE`   | `null` → empty string                 |
 
 `reference` is **not** in this table — references go through the
 separate `addReference` flow and are **not** emitted by skeleton.
@@ -171,9 +171,7 @@ function buildDefaultParamValue(p: ParamDef): ParamValue | null {
   switch (p.kind) {
     case 'integer':
     case 'float':
-      return typeof p.defaultValue === 'number'
-        ? { type: p.kind, value: p.defaultValue }
-        : null;
+      return typeof p.defaultValue === 'number' ? { type: p.kind, value: p.defaultValue } : null;
     case 'boolean':
       if (typeof p.defaultValue === 'number') {
         return { type: 'boolean', value: p.defaultValue };
@@ -193,25 +191,25 @@ function buildDefaultParamValue(p: ParamDef): ParamValue | null {
 
 ### Edge cases
 
-| Condition | Behavior |
-|---|---|
-| `defaultValue === null` + integer/float/boolean | **skip** (don't emit `0`) |
-| `defaultValue === null` + string/enum/function-name | emit `''` (matches `mutation.addParameter` fallback) |
-| `ParamDef.kind === 'reference'` | **skip** (references use `addReference`) |
-| `ContainerDef.choices` | **do not expand** (choices are user-instance in editor) |
-| Module-level params (rare) | **emit** (top-layer = module-level + top-container) |
-| Multiplicity 0..N containers | skeleton still emits 1 instance |
-| Type-map mismatch | return `null` → silently skip; no throw |
+| Condition                                           | Behavior                                                |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| `defaultValue === null` + integer/float/boolean     | **skip** (don't emit `0`)                               |
+| `defaultValue === null` + string/enum/function-name | emit `''` (matches `mutation.addParameter` fallback)    |
+| `ParamDef.kind === 'reference'`                     | **skip** (references use `addReference`)                |
+| `ContainerDef.choices`                              | **do not expand** (choices are user-instance in editor) |
+| Module-level params (rare)                          | **emit** (top-layer = module-level + top-container)     |
+| Multiplicity 0..N containers                        | skeleton still emits 1 instance                         |
+| Type-map mismatch                                   | return `null` → silently skip; no throw                 |
 
 ## Subfolder Path Resolution
 
 ### Path rule
 
-| Scenario | Old path | New path |
-|---|---|---|
-| Single pick | `<proj>/Can_Cfg.arxml` | `<proj>/ecuc/Can_Cfg.arxml` |
-| Cross-BSWMD name collision | `<proj>/Can__intewell_Cfg.arxml` | `<proj>/ecuc/Can__intewell_Cfg.arxml` |
-| Same vendor key repeats | `<proj>/Can__intewell_1_Cfg.arxml` | `<proj>/ecuc/Can__intewell_1_Cfg.arxml` |
+| Scenario                   | Old path                           | New path                                |
+| -------------------------- | ---------------------------------- | --------------------------------------- |
+| Single pick                | `<proj>/Can_Cfg.arxml`             | `<proj>/ecuc/Can_Cfg.arxml`             |
+| Cross-BSWMD name collision | `<proj>/Can__intewell_Cfg.arxml`   | `<proj>/ecuc/Can__intewell_Cfg.arxml`   |
+| Same vendor key repeats    | `<proj>/Can__intewell_1_Cfg.arxml` | `<proj>/ecuc/Can__intewell_1_Cfg.arxml` |
 
 ### Implementation
 
@@ -253,11 +251,9 @@ For files created via the BSWMD picker, `hasBswmdForModule` returns
 
 ```typescript
 // renderer/store/useArxmlStore.ts
-export function selectHasBswmdForModule(
-  state: ArxmlState,
-): (selectedPath: string) => boolean {
+export function selectHasBswmdForModule(state: ArxmlState): (selectedPath: string) => boolean {
   return (selectedPath) => {
-    const doc = state.documents.find(d => d.path === selectedPath);
+    const doc = state.documents.find((d) => d.path === selectedPath);
     if (doc === undefined) return false;
 
     // A. Priority: sourceBswmdPath (picker-created ECUC).
@@ -267,9 +263,7 @@ export function selectHasBswmdForModule(
 
     // B. Fallback: path-inference (legacy / manually-imported ECUC).
     const moduleShortName = inferModuleShortName(selectedPath);
-    return state.bswmdSchemas.some(s =>
-      s.modules.some(m => m.shortName === moduleShortName),
-    );
+    return state.bswmdSchemas.some((s) => s.modules.some((m) => m.shortName === moduleShortName));
   };
 }
 ```
@@ -301,38 +295,38 @@ No other i18n additions — `mutation.action.addParameter`,
 
 ## Files Changed (predicted)
 
-| Action | File |
-|---|---|
-| MODIFY | `src/core/arxml/skeleton.ts` |
-| MODIFY | `src/shared/i18n.ts` (+1 key, zh-CN + en) |
-| MODIFY | `src/renderer/store/useArxmlStore.ts` (selector or inline) |
-| MODIFY | `src/core/arxml/__tests__/skeleton.test.ts` (+15 cases) |
-| MODIFY | `src/renderer/store/__tests__/useArxmlStore.s14.test.ts` (+4) |
+| Action | File                                                                 |
+| ------ | -------------------------------------------------------------------- |
+| MODIFY | `src/core/arxml/skeleton.ts`                                         |
+| MODIFY | `src/shared/i18n.ts` (+1 key, zh-CN + en)                            |
+| MODIFY | `src/renderer/store/useArxmlStore.ts` (selector or inline)           |
+| MODIFY | `src/core/arxml/__tests__/skeleton.test.ts` (+15 cases)              |
+| MODIFY | `src/renderer/store/__tests__/useArxmlStore.s14.test.ts` (+4)        |
 | MODIFY | `src/renderer/components/editor/__tests__/ParamEditor.test.tsx` (+2) |
-| MODIFY | `tests/e2e/sprint-14-picker-flow.spec.ts` (+1 E2E) |
+| MODIFY | `tests/e2e/sprint-14-picker-flow.spec.ts` (+1 E2E)                   |
 
 No new files; no package.json change; no IPC contract change.
 
 ## Testing Strategy
 
-| Layer | Target | New cases |
-|---|---|---|
-| `skeleton.test.ts` type-map unit | ≥ 95% | 9 (one per kind) + 3 edges (null int, null str, reference skip) |
-| `skeleton.test.ts` resolveCollisionFilename | ≥ 95% | 3 (single pick, vendor suffix + subfolder, trailing slash) |
-| `useArxmlStore.s14.test.ts` | ≥ 90% | 4 (source path A, fallback B, no match, post-cascade) |
-| `ParamEditor.test.tsx` | ≥ 85% | 2 (button enabled for new doc, disabled when BSWMD missing) |
-| E2E `sprint-14-picker-flow.spec.ts` | full flow | 1 (pick module → create ECUC → file in `ecuc/` → +Add Parameter works) |
+| Layer                                       | Target    | New cases                                                              |
+| ------------------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `skeleton.test.ts` type-map unit            | ≥ 95%     | 9 (one per kind) + 3 edges (null int, null str, reference skip)        |
+| `skeleton.test.ts` resolveCollisionFilename | ≥ 95%     | 3 (single pick, vendor suffix + subfolder, trailing slash)             |
+| `useArxmlStore.s14.test.ts`                 | ≥ 90%     | 4 (source path A, fallback B, no match, post-cascade)                  |
+| `ParamEditor.test.tsx`                      | ≥ 85%     | 2 (button enabled for new doc, disabled when BSWMD missing)            |
+| E2E `sprint-14-picker-flow.spec.ts`         | full flow | 1 (pick module → create ECUC → file in `ecuc/` → +Add Parameter works) |
 
 **Estimated +22 tests; coverage floor stays ≥ 97.5% stmts / 90.7%
 branches / 100% funcs.**
 
 ## Commit Plan (3 commits)
 
-| # | Commit message | Scope |
-|---|---|---|
-| 1 | `feat(bswmd): skeleton emit default param values from BSWMD top-level containers` | `core/arxml/skeleton.ts` + `__tests__/skeleton.test.ts` (12 cases) |
-| 2 | `feat(bswmd): route new ECUC files to <proj>/ecuc/ subfolder` | `core/arxml/skeleton.ts` `resolveCollisionFilename` + `shared/i18n.ts` (1 key) + 3 unit cases |
-| 3 | `fix(editor): enable + Add Parameter for ECUC files created from BSWMD picker` | `useArxmlStore.ts` selector fix + 4 store cases + 2 component cases + 1 E2E |
+| #   | Commit message                                                                    | Scope                                                                                         |
+| --- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 1   | `feat(bswmd): skeleton emit default param values from BSWMD top-level containers` | `core/arxml/skeleton.ts` + `__tests__/skeleton.test.ts` (12 cases)                            |
+| 2   | `feat(bswmd): route new ECUC files to <proj>/ecuc/ subfolder`                     | `core/arxml/skeleton.ts` `resolveCollisionFilename` + `shared/i18n.ts` (1 key) + 3 unit cases |
+| 3   | `fix(editor): enable + Add Parameter for ECUC files created from BSWMD picker`    | `useArxmlStore.ts` selector fix + 4 store cases + 2 component cases + 1 E2E                   |
 
 Each commit is independently shippable / revertable. Land all 3 on
 `feature/post-v1.0.0-wip` (current branch); the PR to `main` then
@@ -340,15 +334,15 @@ includes this spec's 3 commits + the 6 already on the branch.
 
 ## Risk Register
 
-| Risk | Level | Mitigation |
-|---|---|---|
-| `hasBswmdForModule` is inline, not a selector | LOW | Read the implementation first in the plan; apply A→B at call site; extraction is separate |
-| BSWMD author omits `defaultValue` → skeleton still empty | LOW | Falls back to Sprint 14 behavior; user can still add params via the (now-fixed) gate |
-| Subfolder name `ecuc/` collides with user project | MED | New files only; user can rename / move post-create if needed |
-| Sub-container not filled → users expect full skeleton | LOW | User-confirmed "top-layer only"; sub-containers are user-extensible via existing UI |
-| Serialization of default boolean (`1`/`0`) | LOW | Reuses `mutation.buildDefaultValue` semantics; already covered by mutation tests |
-| Backward-compat regression on ProjectOpen | LOW | Path computation is create-time only; ProjectOpen unchanged |
-| Skeleton `buildDefaultParamValue` drifts from `mutation.buildDefaultValue` | LOW | Implementation plan **must** read `core/arxml/mutation.ts` `buildDefaultValue` first and align semantics (or extract to a shared `core/arxml/defaultValue.ts` if same logic) |
+| Risk                                                                       | Level | Mitigation                                                                                                                                                                   |
+| -------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hasBswmdForModule` is inline, not a selector                              | LOW   | Read the implementation first in the plan; apply A→B at call site; extraction is separate                                                                                    |
+| BSWMD author omits `defaultValue` → skeleton still empty                   | LOW   | Falls back to Sprint 14 behavior; user can still add params via the (now-fixed) gate                                                                                         |
+| Subfolder name `ecuc/` collides with user project                          | MED   | New files only; user can rename / move post-create if needed                                                                                                                 |
+| Sub-container not filled → users expect full skeleton                      | LOW   | User-confirmed "top-layer only"; sub-containers are user-extensible via existing UI                                                                                          |
+| Serialization of default boolean (`1`/`0`)                                 | LOW   | Reuses `mutation.buildDefaultValue` semantics; already covered by mutation tests                                                                                             |
+| Backward-compat regression on ProjectOpen                                  | LOW   | Path computation is create-time only; ProjectOpen unchanged                                                                                                                  |
+| Skeleton `buildDefaultParamValue` drifts from `mutation.buildDefaultValue` | LOW   | Implementation plan **must** read `core/arxml/mutation.ts` `buildDefaultValue` first and align semantics (or extract to a shared `core/arxml/defaultValue.ts` if same logic) |
 
 ## Open Questions
 

@@ -25,12 +25,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlModule,
-  ParamValue,
-} from '@core/arxml/types';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
 import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import { useArxmlStore } from '../useArxmlStore';
@@ -156,9 +151,7 @@ describe('useArxmlStore — addParameter stamps definitionRef (Sprint 16c #2)', 
     useArxmlStore.getState().addDocument(doc, '/tmp/Adc.arxml');
     const realBswmdPath = '/EAS/Adc/AdcConfig/TestParam';
     useArxmlStore.setState({
-      bswmdSchemas: [
-        makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', realBswmdPath)),
-      ],
+      bswmdSchemas: [makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', realBswmdPath))],
       bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
     });
 
@@ -171,9 +164,7 @@ describe('useArxmlStore — addParameter stamps definitionRef (Sprint 16c #2)', 
     expect(container.params['TestParam']).toBeDefined();
     expect(container.params['TestParam']?.definitionRef).toBe(realBswmdPath);
     // Negative assertion — must NOT fall back to synthesized path.
-    expect(container.params['TestParam']?.definitionRef).not.toContain(
-      '/__synthesized__/',
-    );
+    expect(container.params['TestParam']?.definitionRef).not.toContain('/__synthesized__/');
   });
 });
 
@@ -190,9 +181,7 @@ describe('useArxmlStore — addParameter in combined view (Sprint 16c #2)', () =
     useArxmlStore.getState().addDocument(canDoc, '/tmp/Can.arxml');
     const realBswmdPath = '/EAS/Can/CanConfig/TestParam';
     useArxmlStore.setState({
-      bswmdSchemas: [
-        makeBswmd(makeBswModule('Can', 'CanConfig', 'TestParam', realBswmdPath)),
-      ],
+      bswmdSchemas: [makeBswmd(makeBswModule('Can', 'CanConfig', 'TestParam', realBswmdPath))],
       bswmdPaths: ['/schemas/Can.bswmd.arxml'],
     });
     useArxmlStore.getState().setViewMode('combined');
@@ -205,9 +194,7 @@ describe('useArxmlStore — addParameter in combined view (Sprint 16c #2)', () =
     const canDocAfter = after.documents.find((d) => d.path === '/tmp/Can.arxml')!;
     const canContainer = firstContainerOf(canDocAfter);
     expect(canContainer.params['TestParam']?.definitionRef).toBe(realBswmdPath);
-    expect(canContainer.params['TestParam']?.definitionRef).not.toContain(
-      '/__synthesized__/',
-    );
+    expect(canContainer.params['TestParam']?.definitionRef).not.toContain('/__synthesized__/');
 
     // And Adc.arxml was not touched.
     const adcDocAfter = after.documents.find((d) => d.path === '/tmp/Adc.arxml')!;
@@ -228,9 +215,7 @@ describe('useArxmlStore — addParameter with empty paramDef.path (Sprint 16c #2
     const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
     useArxmlStore.getState().addDocument(doc, '/tmp/Adc.arxml');
     useArxmlStore.setState({
-      bswmdSchemas: [
-        makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', '')),
-      ],
+      bswmdSchemas: [makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', ''))],
       bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
     });
 

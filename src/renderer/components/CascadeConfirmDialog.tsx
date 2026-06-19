@@ -152,11 +152,7 @@ export function CascadeConfirmRoot(): JSX.Element | null {
           </h2>
         </div>
         <div className="cascade-dialog-body">
-          <div
-            id={messageId}
-            className="cascade-message"
-            data-testid="cascade-message"
-          >
+          <div id={messageId} className="cascade-message" data-testid="cascade-message">
             {message}
           </div>
           <ul className="cascade-refs" data-testid="cascade-refs">

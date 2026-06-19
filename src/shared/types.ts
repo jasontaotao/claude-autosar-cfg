@@ -383,7 +383,11 @@ export interface ProjectWriteArxmlBatchRequest {
 
 export type ProjectWriteArxmlBatchResult =
   | { readonly kind: 'ok'; readonly written: readonly string[] }
-  | { readonly kind: 'partial'; readonly written: readonly string[]; readonly failed: readonly { readonly filePath: string; readonly message: string }[] }
+  | {
+      readonly kind: 'partial';
+      readonly written: readonly string[];
+      readonly failed: readonly { readonly filePath: string; readonly message: string }[];
+    }
   | { readonly kind: 'write-failed'; readonly message: string };
 
 export interface ProjectDeleteArxmlRequest {

@@ -52,7 +52,10 @@ describe('buildDefaultValue', () => {
   });
 
   it('enumeration with string default', () => {
-    expect(buildDefaultValue(pd('enumeration', 'POLLING'))).toEqual({ type: 'enum', value: 'POLLING' });
+    expect(buildDefaultValue(pd('enumeration', 'POLLING'))).toEqual({
+      type: 'enum',
+      value: 'POLLING',
+    });
   });
 
   it('enumeration rejects numeric default', () => {
@@ -68,6 +71,9 @@ describe('buildDefaultValue', () => {
   });
 
   it('function-name with string default', () => {
-    expect(buildDefaultValue(pd('function-name', 'MyFn'))).toEqual({ type: 'string', value: 'MyFn' });
+    expect(buildDefaultValue(pd('function-name', 'MyFn'))).toEqual({
+      type: 'string',
+      value: 'MyFn',
+    });
   });
 });

@@ -73,13 +73,7 @@ describe('ProjectPanelInfo', () => {
 
   it('clicking the BSWMD add button calls onAddBswmd', () => {
     const onAddBswmd = vi.fn();
-    render(
-      <ProjectPanelInfo
-        {...baseProps}
-        manifest={makeManifest()}
-        onAddBswmd={onAddBswmd}
-      />,
-    );
+    render(<ProjectPanelInfo {...baseProps} manifest={makeManifest()} onAddBswmd={onAddBswmd} />);
     fireEvent.click(screen.getByTestId('project-panel-bswmd-add'));
     expect(onAddBswmd).toHaveBeenCalledOnce();
   });
@@ -87,13 +81,7 @@ describe('ProjectPanelInfo', () => {
   it('ARXML list shows the basename; click on remove calls onRemoveArxml', () => {
     const onRemoveArxml = vi.fn();
     const manifest = makeManifest({ valueArxmlPaths: ['/p/EcuC.arxml'] });
-    render(
-      <ProjectPanelInfo
-        {...baseProps}
-        manifest={manifest}
-        onRemoveArxml={onRemoveArxml}
-      />,
-    );
+    render(<ProjectPanelInfo {...baseProps} manifest={manifest} onRemoveArxml={onRemoveArxml} />);
     expect(screen.getByText('EcuC.arxml')).toBeTruthy();
     fireEvent.click(screen.getByTestId('project-panel-arxml-remove-/p/EcuC.arxml'));
     expect(onRemoveArxml).toHaveBeenCalledWith('/p/EcuC.arxml');
@@ -111,7 +99,9 @@ describe('ProjectPanelInfo', () => {
   it('empty BSWMD list shows the empty hint', () => {
     render(<ProjectPanelInfo {...baseProps} manifest={makeManifest()} />);
     expect(
-      screen.getByText((content) => content.includes('尚未加载 BSWMD') || /No BSWMDs/i.test(content)),
+      screen.getByText(
+        (content) => content.includes('尚未加载 BSWMD') || /No BSWMDs/i.test(content),
+      ),
     ).toBeTruthy();
   });
 });

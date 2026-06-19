@@ -791,7 +791,8 @@ export const MessagesEn: Messages = {
   'ecuc.fromBswmd.willCreate': 'Will create',
   'ecuc.fromBswmd.targetDir': 'Target directory',
   'ecuc.fromBswmd.createN': 'Create {count} ECUC',
-  'ecuc.fromBswmd.collisionWarn': 'Name collision detected — multiple BSWMDs declare the same module, auto-suffix applied',
+  'ecuc.fromBswmd.collisionWarn':
+    'Name collision detected — multiple BSWMDs declare the same module, auto-suffix applied',
   'ecuc.fromBswmd.upperBoundReached': 'Upper bound reached ({current}/{max})',
   'ecuc.fromBswmd.toast': 'Created {count} ECUC files',
   'ecuc.fromBswmd.modulesActive': 'Modules ({active}/{total} active)',

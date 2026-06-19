@@ -265,7 +265,8 @@ describe('useArxmlStore — addContainer (Sprint 15)', () => {
     });
     // Manually add an AdcChannel to the doc so the conflict fires.
     const stateBefore = useArxmlStore.getState();
-    const adcConfig = (stateBefore.documents[0]!.packages[0]!.elements[0] as ArxmlModule).children[0]! as ArxmlContainer;
+    const adcConfig = (stateBefore.documents[0]!.packages[0]!.elements[0] as ArxmlModule)
+      .children[0]! as ArxmlContainer;
     const conflictDoc: ArxmlDocument = {
       ...stateBefore.documents[0]!,
       packages: [
@@ -662,9 +663,7 @@ describe('useArxmlStore — combined-mode mutation (Sprint 15)', () => {
     useArxmlStore.getState().setActiveDocument('/tmp/Adc.arxml');
 
     // Act — use the combined-mode basename-prefixed path
-    useArxmlStore
-      .getState()
-      .addContainer('/Can.arxml/EAS/Can/CanConfig', 'CanController');
+    useArxmlStore.getState().addContainer('/Can.arxml/EAS/Can/CanConfig', 'CanController');
 
     // Assert — Can.arxml got the new container, Adc.arxml was not touched.
     const after = useArxmlStore.getState();
@@ -702,8 +701,8 @@ describe('useArxmlStore — combined-mode mutation (Sprint 15)', () => {
 
     // Assert — Can.arxml got the new param, Adc.arxml was not touched.
     const after = useArxmlStore.getState();
-    const canMod = after.documents.find((d) => d.path === '/tmp/Can.arxml')!
-      .packages[0]!.elements[0]!;
+    const canMod = after.documents.find((d) => d.path === '/tmp/Can.arxml')!.packages[0]!
+      .elements[0]!;
     if (canMod.kind !== 'module') throw new Error('expected module');
     const canContainer = canMod.children[0]!;
     if (canContainer.kind !== 'container') throw new Error('expected container');
@@ -712,8 +711,8 @@ describe('useArxmlStore — combined-mode mutation (Sprint 15)', () => {
       value: 0,
       definitionRef: '/EAS/Can/CanConfig/TestParam',
     });
-    const adcMod = after.documents.find((d) => d.path === '/tmp/Adc.arxml')!
-      .packages[0]!.elements[0]!;
+    const adcMod = after.documents.find((d) => d.path === '/tmp/Adc.arxml')!.packages[0]!
+      .elements[0]!;
     if (adcMod.kind !== 'module') throw new Error('expected module');
     const adcContainer = adcMod.children[0]!;
     if (adcContainer.kind !== 'container') throw new Error('expected container');

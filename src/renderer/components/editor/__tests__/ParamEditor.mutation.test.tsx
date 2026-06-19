@@ -4,7 +4,13 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlPackage, ArxmlReference, ParamValue } from '@core/arxml/types';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlPackage,
+  ArxmlReference,
+  ParamValue,
+} from '@core/arxml/types';
 import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import { useArxmlStore } from '../../../store/useArxmlStore';

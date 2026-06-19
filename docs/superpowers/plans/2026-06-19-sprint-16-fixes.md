@@ -8,6 +8,7 @@
 - **Sprint 16b** — follow-ups: T6 (project reopen bug) + T7 (Save All button)
 
 **Architecture:**
+
 - 1 store refactor: `buildCombinedDocument` adds smart collision detection; `findByPathMultiDoc` + `stripCombinedPrefix` accept unprefixed paths as fallback (T1)
 - 1 IPC contract extension: `SaveArxmlRequest` gains optional `currentPath`; `SAVE_ARXML` handler skips dialog when present (T2)
 - 1 type widening: `ParamValue` gains optional `definitionRef`; skeleton fills it; serializer prefers it; `applyParamUpdate` preserves it (T3)
@@ -22,13 +23,13 @@
 
 ## 起点状态 (2026-06-19, post-Sprint 16a)
 
-| 项 | 状态 |
-|---|---|
-| `local HEAD` | `a227220` (Sprint 16a 完成, branch `feature/sprint-16-fixes`) |
-| Working tree | clean (T6/T7 起点) |
-| Tests baseline | 1134 passed / 0 fail / 1 skipped |
-| Typecheck | 0 errors |
-| branch for Sprint 16b | `feature/sprint-16-fixes` from `a227220`（不切新分支，延续） |
+| 项                    | 状态                                                          |
+| --------------------- | ------------------------------------------------------------- |
+| `local HEAD`          | `a227220` (Sprint 16a 完成, branch `feature/sprint-16-fixes`) |
+| Working tree          | clean (T6/T7 起点)                                            |
+| Tests baseline        | 1134 passed / 0 fail / 1 skipped                              |
+| Typecheck             | 0 errors                                                      |
+| branch for Sprint 16b | `feature/sprint-16-fixes` from `a227220`（不切新分支，延续）  |
 
 ---
 
@@ -46,13 +47,13 @@
 
 ## Issue list (user-reported, 2026-06-19)
 
-| # | Issue | Layer | Symptom |
-|---|---|---|---|
-| 1 | Combined tree shows redundant `xxxCfg.arxml package` wrapper | renderer store + tree | Noise above every module when ≥1 ARXML loaded |
-| 2 | `SAVE_ARXML` always pops save-as dialog; never silent-writes back | main IPC + renderer | Can't save edited ECUC cleanly |
-| 3 | Generated ECUC writes `DEFINITION-REF = /__synthesized__/<paramShortName>` | core arxml | Placeholder path; vendor tools reject |
-| 4 | Generated ECUC filename `<Module>_Cfg.arxml` not standard | core arxml | Naming convention mismatch |
-| 5 | Picker "uncheck module" has no effect — module stays in tree | renderer hook + store | Missing set-semantic exclude flow |
+| #   | Issue                                                                      | Layer                 | Symptom                                       |
+| --- | -------------------------------------------------------------------------- | --------------------- | --------------------------------------------- |
+| 1   | Combined tree shows redundant `xxxCfg.arxml package` wrapper               | renderer store + tree | Noise above every module when ≥1 ARXML loaded |
+| 2   | `SAVE_ARXML` always pops save-as dialog; never silent-writes back          | main IPC + renderer   | Can't save edited ECUC cleanly                |
+| 3   | Generated ECUC writes `DEFINITION-REF = /__synthesized__/<paramShortName>` | core arxml            | Placeholder path; vendor tools reject         |
+| 4   | Generated ECUC filename `<Module>_Cfg.arxml` not standard                  | core arxml            | Naming convention mismatch                    |
+| 5   | Picker "uncheck module" has no effect — module stays in tree               | renderer hook + store | Missing set-semantic exclude flow             |
 
 ---
 
@@ -77,6 +78,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 ### Task 1: Combined-view smart basename wrapper skip
 
 **Files:**
+
 - Modify: `src/renderer/store/useArxmlStore.ts:1493-1526` (`buildCombinedDocument`)
 - Modify: `src/core/arxml/path.ts:132-163` (`findByPathMultiDoc`)
 - Modify: `src/renderer/store/useArxmlStore.ts:1572-1582` (`stripCombinedPrefix`)
@@ -86,6 +88,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 1.1: Write failing test for collision detection**
 
   Add to `useArxmlStore.combined.test.ts`:
+
   ```ts
   it('combined mode: single file skips basename wrapper', () => {
     const store = useArxmlStore.getState();
@@ -117,8 +120,10 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
     const next = useArxmlStore.getState();
     if (next.displayDoc === null) throw new Error('expected displayDoc');
     // Module shortName collision → basename wrapper required.
-    expect(next.displayDoc.packages.map((p) => p.shortName).sort())
-      .toEqual(['Can.arxml', '[doc:1]']);
+    expect(next.displayDoc.packages.map((p) => p.shortName).sort()).toEqual([
+      'Can.arxml',
+      '[doc:1]',
+    ]);
   });
   ```
 
@@ -129,6 +134,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 1.2: Write failing test for `findByPathMultiDoc` fallback**
 
   Add to `path.test.ts`:
+
   ```ts
   it('findByPathMultiDoc falls back to per-doc lookup when no basename prefix', () => {
     // In flat (no-wrapper) mode, paths are unprefixed. findByPathMultiDoc
@@ -161,6 +167,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 1.4: Implement `findByPathMultiDoc` fallback**
 
   In `src/core/arxml/path.ts:132-163`, after the existing prefix-matching block, add:
+
   ```ts
   // Flat-mode fallback: when no doc's basename or [doc:N] matches the
   // head segment, the combined view is using flat paths (no wrapper).
@@ -180,6 +187,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 1.5: Update `stripCombinedPrefix` for flat mode**
 
   In `useArxmlStore.ts:1572-1582`, change:
+
   ```ts
   function stripCombinedPrefix(combinedPath, sourceFilePath): string | null {
     const segments = combinedPath.split('/').filter(Boolean);
@@ -224,6 +232,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 ### Task 2: Silent save-back when `currentPath` is known
 
 **Files:**
+
 - Modify: `src/shared/types.ts:84-87` (extend `SaveArxmlRequest`)
 - Modify: `src/main/ipc/register.ts:160-192` (`SAVE_ARXML` handler)
 - Modify: `src/renderer/components/AppHeader.tsx:215-233` (`onSave`)
@@ -243,13 +252,14 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
   export interface SaveArxmlRequest {
     readonly doc: ArxmlDocument;
     readonly defaultName?: string;
-    readonly currentPath?: string;   // ← new; when present, skip dialog
+    readonly currentPath?: string; // ← new; when present, skip dialog
   }
   ```
 
 - [ ] **Step 2.3: Modify `SAVE_ARXML` handler**
 
   In `register.ts:160-192`:
+
   ```ts
   ipcMain.handle(IPC_CHANNELS.SAVE_ARXML, async (_evt, req) => {
     const defaultName = req.defaultName ?? 'untitled.arxml';
@@ -278,7 +288,10 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
       await fs.writeFile(targetPath, serialized.value, 'utf8');
       return { ok: true, value: { canceled: false, path: targetPath } };
     } catch (e) {
-      return { ok: false, error: { kind: 'write-failed', message: e instanceof Error ? e.message : String(e) } };
+      return {
+        ok: false,
+        error: { kind: 'write-failed', message: e instanceof Error ? e.message : String(e) },
+      };
     }
   });
   ```
@@ -289,7 +302,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
   const saved = await window.autosarApi.saveArxml({
     doc,
     defaultName,
-    currentPath: filePath ?? undefined,   // ← new
+    currentPath: filePath ?? undefined, // ← new
   });
   ```
 
@@ -312,6 +325,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 ### Task 3: `DEFINITION-REF` real BSWMD path (drop `__synthesized__/`)
 
 **Files:**
+
 - Modify: `src/core/arxml/types.ts:77-83` (extend `ParamValue` variants)
 - Modify: `src/core/arxml/skeleton.ts:132-145` (carry `definitionRef` in `buildTopContainer`)
 - Modify: `src/core/arxml/serializer.ts:289-298, 300-318` (prefer `value.definitionRef`)
@@ -337,6 +351,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 3.2: Extend `ParamValue`**
 
   Each variant gains `readonly definitionRef?: string`:
+
   ```ts
   export type ParamValue =
     | { readonly type: 'string'; readonly value: string; readonly definitionRef?: string }
@@ -344,12 +359,18 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
     | { readonly type: 'float'; readonly value: number; readonly definitionRef?: string }
     | { readonly type: 'boolean'; readonly value: boolean; readonly definitionRef?: string }
     | { readonly type: 'enum'; readonly value: string; readonly definitionRef?: string }
-    | { readonly type: 'reference'; readonly value: string; readonly dest?: string; readonly definitionRef?: string };
+    | {
+        readonly type: 'reference';
+        readonly value: string;
+        readonly dest?: string;
+        readonly definitionRef?: string;
+      };
   ```
 
 - [ ] **Step 3.3: Update `buildTopContainer` in `skeleton.ts:132-145`**
 
   When `buildDefaultValue(p)` returns a value, attach `definitionRef: p.path`:
+
   ```ts
   const v = buildDefaultValue(p);
   if (v !== null) {
@@ -367,15 +388,18 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 - [ ] **Step 3.4: Update `applyParamUpdate` in `useArxmlStore.ts:1360`**
 
   When replacing a param, preserve the existing `definitionRef`:
+
   ```ts
-  const nextValue = existingValue.definitionRef !== undefined
-    ? { ...newValue, definitionRef: existingValue.definitionRef }
-    : newValue;
+  const nextValue =
+    existingValue.definitionRef !== undefined
+      ? { ...newValue, definitionRef: existingValue.definitionRef }
+      : newValue;
   ```
 
 - [ ] **Step 3.5: Update serializer `renderRegularParam` + `renderReferenceParam`**
 
   In `serializer.ts:289-298`:
+
   ```ts
   const refPath = value.definitionRef ?? `/__synthesized__/${defName}`;
   return {
@@ -409,6 +433,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 ### Task 4: Filename `<Module>_Cfg.arxml` → `<Module>_EcucValues.arxml`
 
 **Files:**
+
 - Modify: `src/core/arxml/skeleton.ts:229, 247, 258` (3 template literals in `resolveCollisionFilename`)
 - Test: 6 test fixtures with `_Cfg.arxml` (see grep at `__tests__/skeleton.test.ts`, `useCreateEcucFromBswmd.test.tsx`, `useProjectActions.s14.test.ts`, `useArxmlStore.s14.test.ts`, `ParamEditor.test.tsx`, `shared/__tests__/types.test.ts`)
 
@@ -468,6 +493,7 @@ T1 is greenlit (user said "先不要排plan" before this plan was written — th
 ### Task 5: Picker "uncheck module" excludes ECUC from project (set semantics + dirty-guard)
 
 **Files:**
+
 - Modify: `src/renderer/components/ModuleFromBswmdPicker.tsx` (compute existing picks, pre-seed `selected`, drive onConfirm with diff)
 - New hook: `src/renderer/hooks/useRemoveEcucFiles.ts` (orchestrates diff-delete + dirty-guard)
 - Modify: `src/renderer/components/App.tsx` (wire onConfirm to new behaviour)
@@ -585,16 +611,17 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
 
 ## Issue list (16b)
 
-| # | Issue | Layer | Symptom |
-|---|---|---|---|
-| 6 | Project reopen fails after BSWMD-to-ECUC generation | renderer store + manifest | `Manifest invalid: absolute path`; user can't reopen saved project |
-| 7 | Save All button missing | renderer AppHeader | dirty 5 ECUCs requires 5 individual Save clicks |
+| #   | Issue                                               | Layer                     | Symptom                                                            |
+| --- | --------------------------------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| 6   | Project reopen fails after BSWMD-to-ECUC generation | renderer store + manifest | `Manifest invalid: absolute path`; user can't reopen saved project |
+| 7   | Save All button missing                             | renderer AppHeader        | dirty 5 ECUCs requires 5 individual Save clicks                    |
 
 ---
 
 ### Task 6: Project reopen after BSWMD-to-ECUC (abs → rel path round-trip)
 
 **Files:**
+
 - Modify: `src/shared/path.ts` (add `dirname` + `toManifestRelative`)
 - Modify: `src/renderer/store/useArxmlStore.ts` (`projectSyncAddPath` / `projectSyncRemovePath` + their 4 call sites)
 - Test: `src/shared/__tests__/path.test.ts` (new helpers)
@@ -653,9 +680,7 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
    * Returns null when the file lives outside manifestDir (different
    * drive on Windows, no shared prefix on POSIX).
    */
-  export function toManifestRelative(
-    manifestDir: string, filePath: string,
-  ): string | null {
+  export function toManifestRelative(manifestDir: string, filePath: string): string | null {
     if (filePath === '') return null;
     // Normalise separators
     const normDir = manifestDir.replace(/\\/g, '/');
@@ -688,9 +713,8 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
     manifestDir: string | null,
   ): ProjectManifest | null {
     if (m === null) return m;
-    const rel = manifestDir !== null
-      ? (toManifestRelative(manifestDir, filePath) ?? filePath)
-      : filePath;
+    const rel =
+      manifestDir !== null ? (toManifestRelative(manifestDir, filePath) ?? filePath) : filePath;
     if (m.valueArxmlPaths.includes(rel)) return m;
     return { ...m, valueArxmlPaths: [...m.valueArxmlPaths, rel] };
   }
@@ -701,17 +725,14 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
     manifestDir: string | null,
   ): ProjectManifest | null {
     if (m === null) return m;
-    const rel = manifestDir !== null
-      ? (toManifestRelative(manifestDir, filePath) ?? filePath)
-      : filePath;
+    const rel =
+      manifestDir !== null ? (toManifestRelative(manifestDir, filePath) ?? filePath) : filePath;
     if (!m.valueArxmlPaths.includes(rel) && !m.valueArxmlPaths.includes(filePath)) {
       return m;
     }
     return {
       ...m,
-      valueArxmlPaths: m.valueArxmlPaths.filter(
-        (p) => p !== rel && p !== filePath,
-      ),
+      valueArxmlPaths: m.valueArxmlPaths.filter((p) => p !== rel && p !== filePath),
     };
   }
   ```
@@ -750,6 +771,7 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
 ### Task 7: Save All toolbar button
 
 **Files:**
+
 - Modify: `src/renderer/components/AppHeader.tsx` (new `onSaveAll` + button + i18n)
 - Modify: `src/shared/i18n.ts` (zh-CN + en)
 - Test: `src/renderer/components/__tests__/AppHeader.test.tsx` (extend)
@@ -805,7 +827,9 @@ Two follow-ups identified after the original 5 shipped. Both real bugs/UX gaps s
     } else {
       setStoreError(
         t(locale, 'app.saveAllPartial', {
-          saved, failed: failed.length, firstError: failed[0],
+          saved,
+          failed: failed.length,
+          firstError: failed[0],
         }),
       );
     }

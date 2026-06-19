@@ -126,10 +126,7 @@ function clampToViewport(
 // from — we use the simple `modules[].shortName` match as the gate.
 // ---------------------------------------------------------------------------
 
-function isModuleCoveredByBswmd(
-  path: string,
-  schemas: readonly BswmdDocument[],
-): boolean {
+function isModuleCoveredByBswmd(path: string, schemas: readonly BswmdDocument[]): boolean {
   if (schemas.length === 0) return false;
   // path = "/<module>/..." — the module shortName is the first
   // non-empty segment after the leading slash.
@@ -197,10 +194,7 @@ function buildContainerItems(
   ];
 }
 
-function buildReferenceItems(
-  target: ContextMenuTarget,
-  locale: Locale,
-): readonly MenuItemSpec[] {
+function buildReferenceItems(target: ContextMenuTarget, locale: Locale): readonly MenuItemSpec[] {
   return [
     {
       id: 'delete-reference',
@@ -233,7 +227,10 @@ interface ContextMenuRootProps {
   readonly locale?: Locale;
 }
 
-export function ContextMenuRoot({ onAction, locale = 'zh-CN' }: ContextMenuRootProps): JSX.Element | null {
+export function ContextMenuRoot({
+  onAction,
+  locale = 'zh-CN',
+}: ContextMenuRootProps): JSX.Element | null {
   const [s, setS] = useState<ContextMenuState | null>(state);
   // Mirror the store's locale via subscription so the menu labels
   // hot-update when the user toggles language. We only subscribe
@@ -328,7 +325,11 @@ export function ContextMenuRoot({ onAction, locale = 'zh-CN' }: ContextMenuRootP
     (e: React.KeyboardEvent<HTMLUListElement>): void => {
       if (s === null) return;
       // Build the list of enabled items once per keystroke.
-      const items = buildItems(s.target, useArxmlStore.getState().bswmdSchemas, effectiveLocaleRef.current);
+      const items = buildItems(
+        s.target,
+        useArxmlStore.getState().bswmdSchemas,
+        effectiveLocaleRef.current,
+      );
       const enabledIndexes = items
         .map((it, idx) => (it.disabled ? -1 : idx))
         .filter((idx) => idx >= 0);
@@ -339,7 +340,7 @@ export function ContextMenuRoot({ onAction, locale = 'zh-CN' }: ContextMenuRootP
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         const next = enabledIndexes[(focusedInEnabled + 1) % enabledIndexes.length];
-        const el = next === undefined ? null : itemRefs.current[next] ?? null;
+        const el = next === undefined ? null : (itemRefs.current[next] ?? null);
         el?.focus();
         return;
       }
@@ -347,7 +348,7 @@ export function ContextMenuRoot({ onAction, locale = 'zh-CN' }: ContextMenuRootP
         e.preventDefault();
         const prevIdx = focusedInEnabled <= 0 ? enabledIndexes.length - 1 : focusedInEnabled - 1;
         const prev = enabledIndexes[prevIdx];
-        const el = prev === undefined ? null : itemRefs.current[prev] ?? null;
+        const el = prev === undefined ? null : (itemRefs.current[prev] ?? null);
         el?.focus();
         return;
       }

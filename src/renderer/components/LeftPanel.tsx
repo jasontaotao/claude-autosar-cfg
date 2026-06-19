@@ -136,10 +136,7 @@ export function LeftPanel({ onAddEcucFromBswmd }: LeftPanelProps = {}): JSX.Elem
                 onConfigureModules={onAddEcucFromBswmd}
               />
             ) : (
-              <div
-                className="left-panel-pane-empty"
-                data-testid="left-pane-project-empty"
-              >
+              <div className="left-panel-pane-empty" data-testid="left-pane-project-empty">
                 {t(locale, 'leftPanel.project.empty')}
               </div>
             )}

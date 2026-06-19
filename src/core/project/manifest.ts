@@ -78,10 +78,7 @@ export type ManifestResult<T> =
  * Without `manifestDir`, behaviour is identical to the pre-migration
  * strict validator (legacy absolute paths are rejected).
  */
-export function loadManifest(
-  json: string,
-  manifestDir?: string,
-): ManifestResult<ProjectManifest> {
+export function loadManifest(json: string, manifestDir?: string): ManifestResult<ProjectManifest> {
   let raw: unknown;
   try {
     raw = JSON.parse(json);
@@ -100,10 +97,7 @@ export function loadManifest(
   // `manifestDir`, fall back to the pre-migration strict path check
   // (legacy absolute paths are still rejected loudly — no silent
   // masking of broken paths).
-  const parsed = parseManifestShape(
-    raw,
-    manifestDir !== undefined ? { lenientPaths: true } : {},
-  );
+  const parsed = parseManifestShape(raw, manifestDir !== undefined ? { lenientPaths: true } : {});
   if (!parsed.ok) return parsed;
   if (manifestDir === undefined) return parsed;
 
@@ -142,10 +136,7 @@ export function loadManifest(
  * testability and in case the renderer ever needs a standalone
  * relativiser.
  */
-export function migrateManifestPaths(
-  m: ProjectManifest,
-  manifestDir: string,
-): ProjectManifest {
+export function migrateManifestPaths(m: ProjectManifest, manifestDir: string): ProjectManifest {
   const relativise = (paths: readonly string[]): readonly string[] =>
     paths.map((p) => {
       const r = toManifestRelative(manifestDir, p);

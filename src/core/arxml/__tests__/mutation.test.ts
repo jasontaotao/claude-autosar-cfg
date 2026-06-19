@@ -116,10 +116,7 @@ function makeBswParam(
   };
 }
 
-function makeBswModule(
-  shortName: string,
-  containers: readonly ContainerDef[] = [],
-): BswModuleDef {
+function makeBswModule(shortName: string, containers: readonly ContainerDef[] = []): BswModuleDef {
   return {
     shortName,
     path: `/${shortName}`,
@@ -141,7 +138,9 @@ describe('addContainer', () => {
     // Arrange
     const childDef = makeBswContainer('CanIfRxPduCfg');
     const doc = makeDoc('Can', [makeContainer('CanConfigSet')]);
-    const moduleDef = makeBswModule('Can', [makeBswContainer('CanConfigSet', { subContainers: [childDef] })]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+    ]);
 
     // Act
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
@@ -160,11 +159,19 @@ describe('addContainer', () => {
     const childDef = makeBswContainer('BaudRate');
     const doc = makeDoc('Can', [makeContainer('CanConfigSet', [makeContainer('CanController')])]);
     const moduleDef = makeBswModule('Can', [
-      makeBswContainer('CanConfigSet', { subContainers: [makeBswContainer('CanController', { subContainers: [childDef] })] }),
+      makeBswContainer('CanConfigSet', {
+        subContainers: [makeBswContainer('CanController', { subContainers: [childDef] })],
+      }),
     ]);
 
     // Act
-    const r = addContainer(doc, '/EAS/Can/CanConfigSet/CanController', 'BaudRate', moduleDef, childDef);
+    const r = addContainer(
+      doc,
+      '/EAS/Can/CanConfigSet/CanController',
+      'BaudRate',
+      moduleDef,
+      childDef,
+    );
 
     // Assert
     expect(r.ok).toBe(true);
@@ -179,7 +186,9 @@ describe('addContainer', () => {
     // Arrange
     const childDef = makeBswContainer('CanIfRxPduCfg');
     const doc = makeDoc('Can', [makeContainer('CanConfigSet'), makeContainer('CanIfRxPduCfg')]);
-    const moduleDef = makeBswModule('Can', [makeBswContainer('CanConfigSet', { subContainers: [childDef] })]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+    ]);
 
     // Act
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
@@ -197,7 +206,9 @@ describe('addContainer', () => {
     // Arrange
     const childDef = makeBswContainer('CanIfRxPduCfg', { upper: 1 });
     const doc = makeDoc('Can', [makeContainer('CanConfigSet'), makeContainer('CanIfRxPduCfg')]);
-    const moduleDef = makeBswModule('Can', [makeBswContainer('CanConfigSet', { subContainers: [childDef] })]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+    ]);
 
     // Act
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
@@ -227,7 +238,9 @@ describe('addContainer', () => {
     // Arrange — name-conflict short-circuits, doc should be returned unchanged.
     const childDef = makeBswContainer('CanIfRxPduCfg');
     const doc = makeDoc('Can', [makeContainer('CanIfRxPduCfg')]);
-    const moduleDef = makeBswModule('Can', [makeBswContainer('CanConfigSet', { subContainers: [childDef] })]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+    ]);
 
     // Act
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
@@ -265,7 +278,10 @@ describe('removeContainer', () => {
   it('removes a nested container', () => {
     // Arrange
     const doc = makeDoc('Can', [
-      makeContainer('CanConfigSet', [makeContainer('CanController'), makeContainer('CanControllerConfig')]),
+      makeContainer('CanConfigSet', [
+        makeContainer('CanController'),
+        makeContainer('CanControllerConfig'),
+      ]),
     ]);
 
     // Act
@@ -423,7 +439,9 @@ describe('addParameter', () => {
   it('returns name-conflict when a parameter with the same key already exists', () => {
     // Arrange
     const paramDef = makeBswParam('BaudRate', 'integer', 500000);
-    const doc = makeDoc('Can', [makeContainer('CanConfigSet', [], { BaudRate: { type: 'integer', value: 250000 } })]);
+    const doc = makeDoc('Can', [
+      makeContainer('CanConfigSet', [], { BaudRate: { type: 'integer', value: 250000 } }),
+    ]);
     const moduleDef = makeBswModule('Can', [
       makeBswContainer('CanConfigSet', { parameters: [paramDef] }),
     ]);
@@ -557,8 +575,12 @@ describe('listAllowedSubElements', () => {
       'BaudRate',
       'CanPduIdType',
     ]);
-    expect(allowed.filter((a) => a.kind === 'reference').map((a) => a.shortName)).toEqual(['CanIfRef']);
-    expect(allowed.filter((a) => a.kind === 'container').map((a) => a.shortName)).toEqual(['CanController']);
+    expect(allowed.filter((a) => a.kind === 'reference').map((a) => a.shortName)).toEqual([
+      'CanIfRef',
+    ]);
+    expect(allowed.filter((a) => a.kind === 'container').map((a) => a.shortName)).toEqual([
+      'CanController',
+    ]);
   });
 
   it('marks a container as disabled when current count equals the upper bound', () => {

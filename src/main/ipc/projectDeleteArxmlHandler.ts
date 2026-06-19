@@ -31,10 +31,7 @@
 
 import { promises as fs } from 'node:fs';
 
-import type {
-  ProjectDeleteArxmlRequest,
-  ProjectDeleteArxmlResult,
-} from '../../shared/types.js';
+import type { ProjectDeleteArxmlRequest, ProjectDeleteArxmlResult } from '../../shared/types.js';
 
 export async function projectDeleteArxmlHandler(
   req: ProjectDeleteArxmlRequest,

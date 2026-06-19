@@ -7,6 +7,7 @@
 **Goal:** 在 claude-AutosarCfg 增加多份 ECUC ARXML 聚合导入机制：按 module 选择 + 撞名 diff 表 + merged 虚拟视图 + 原子 commit 拆回源 doc。
 
 **Architecture:**
+
 - 4 个新 core 模块（`core/import/{types,diff,merge,patch}.ts`）— 纯函数，零 react/electron 依赖
 - `useArxmlStore` 扩 `ImportSession` slice + viewMode 三态 + isDirty 含 importSession
 - 3 个新 UI 组件（`ImportEntry` / `ModuleSelectionPanel` / `DiffTable`）+ 1 个现有组件修改（`FileListTab`）
@@ -18,14 +19,14 @@
 
 ## 起点状态 (2026-06-18)
 
-| 项 | 状态 |
-|---|---|
-| `local HEAD` | `ef6430a` (spec commit, ahead 7) |
-| `origin/main` | 落后 7 commit |
-| Tests baseline | 876 passed / 97.52% stmts / 90.72% branches (v1.0.0) |
-| Version | v1.0.0 |
-| Spec | `docs/superpowers/specs/2026-06-18-ecuc-arxml-import-design.md` |
-| Sprint 历史 | Sprint 13 Stage 3.5 Combined View 经验可复用 |
+| 项             | 状态                                                            |
+| -------------- | --------------------------------------------------------------- |
+| `local HEAD`   | `ef6430a` (spec commit, ahead 7)                                |
+| `origin/main`  | 落后 7 commit                                                   |
+| Tests baseline | 876 passed / 97.52% stmts / 90.72% branches (v1.0.0)            |
+| Version        | v1.0.0                                                          |
+| Spec           | `docs/superpowers/specs/2026-06-18-ecuc-arxml-import-design.md` |
+| Sprint 历史    | Sprint 13 Stage 3.5 Combined View 经验可复用                    |
 
 ---
 
@@ -36,10 +37,12 @@
 #### Task 1: core/import/types.ts — 数据契约
 
 **Files:**
+
 - Create: `src/core/import/types.ts`
 - Create: `src/core/import/__tests__/types.test.ts`
 
 **工作:**
+
 - 定义 `ImportResolution` (4 个 literal union)
 - 定义 `ModuleSelection` / `ModuleResolution` / `ImportSession` / `ImportPatch` / `ImportPatchOp` (4 个 op kind)
 - 定义 `ModuleDiff` / `ContainerDiff` / `ParamOverride`
@@ -54,10 +57,12 @@
 #### Task 2: shared/i18n.ts — +18 i18n keys
 
 **Files:**
+
 - Modify: `src/shared/i18n.ts` (Messages interface + MessagesZhCN + MessagesEn)
 - Modify: `src/shared/__tests__/i18n.test.ts` (parity assertion)
 
 **工作:**
+
 - 加 spec §7.5 表中 18 个 key（zh-CN + en 各 18 条）
 - 按 Sprint 11 Phase 1 风格：MessageKey 联合类型 + t(locale, key, params)
 - i18n.test.ts 加 parity assertion（zh-CN 与 en 的 key 集合完全相等）
@@ -71,10 +76,12 @@
 #### Task 3: core/import/diff.ts — buildModuleDiff
 
 **Files:**
+
 - Create: `src/core/import/diff.ts`
 - Create: `src/core/import/__tests__/diff.test.ts`
 
 **工作:**
+
 - 导出 `buildModuleDiff(target: ArxmlModule | null, incoming: ArxmlModule): Result<ModuleDiff, ImportError>`
 - 内部纯函数：按 container path 分组 existing/incoming
 - 计算 paramOverride（值不同 / 新增 / 删除）
@@ -82,6 +89,7 @@
 - 处理 multiplicity 超限（触发 `'multiplicity-exceeded'` 错误）
 
 **测试 (≥8, spec §8.2 diff):**
+
 1. 两个空 module
 2. identical module
 3. 仅 incoming 有
@@ -96,16 +104,19 @@
 #### Task 4: core/import/merge.ts — buildMergedView
 
 **Files:**
+
 - Create: `src/core/import/merge.ts`
 - Create: `src/core/import/__tests__/merge.test.ts`
 
 **工作:**
+
 - 导出 `buildMergedView(targetDocs: readonly ArxmlDocument[], session: ImportSession): MergedView`
 - 复用 `wrapPackageUnderSegment` 思路（spec §5.3），segment 名 `[import:N]`
 - 按 session.resolutions 决定每个 module 的渲染形态
 - 'keep-both' 时自动加 `_imported` suffix
 
 **测试 (≥6, spec §8.2 merge):**
+
 1. 单 doc 单 module 无决议
 2. 多 doc 各自 module，不撞
 3. 撞名 resolution='overwrite'
@@ -118,10 +129,12 @@
 #### Task 5: core/import/patch.ts — compile + apply
 
 **Files:**
+
 - Create: `src/core/import/patch.ts`
 - Create: `src/core/import/__tests__/patch.test.ts`
 
 **工作:**
+
 - 导出 `compileResolutionToPatches(session: ImportSession): readonly ImportPatch[]`
 - 导出 `applyPatchesToDocument(doc: ArxmlDocument, patches: readonly ImportPatchOp[]): ArxmlDocument`
 - 按 sourceFile 分组 → 每个 patch 含该 sourceFile 的 ops
@@ -129,6 +142,7 @@
 - multiplicity 校验失败抛错（caller 负责 rollback）
 
 **测试 (≥10, spec §8.2 patch):**
+
 1. 空 session → 空 patches
 2. 单 doc 单 module overwrite → 1 patch
 3. keep-existing → 0 patch
@@ -147,10 +161,12 @@
 #### Task 6: useArxmlStore — ImportSession state + startImport
 
 **Files:**
+
 - Modify: `src/renderer/store/useArxmlStore.ts` (新 state 字段 + startImport action)
 - Create: `src/renderer/store/__tests__/useArxmlStore.importSession.test.ts`
 
 **工作:**
+
 - 新 state 字段: `importSession: ImportSession | null` / `viewMode: 'single' | 'combined' | 'import-merged'` / `lastCommitSnapshot: Map<string, ArxmlDocument> | null`
 - 新 action: `startImport(incomingDocs, originalPaths)` — 建 session、set viewMode='import-merged'、不动 documents
 - 默认 selections: 所有 module 勾选；默认 resolutions: 仅撞名 module 加 'overwrite' 决议
@@ -162,10 +178,12 @@
 #### Task 7: useArxmlStore — selectModule / resolveModule / openDiff / closeDiff + 内部 undoStack
 
 **Files:**
+
 - Modify: `src/renderer/store/useArxmlStore.ts`
 - Modify: `src/renderer/store/__tests__/useArxmlStore.importSession.test.ts`
 
 **工作:**
+
 - 新 action: `selectModule(mergedPath, selected: boolean)`
 - 新 action: `resolveModule(mergedPath, resolution: ImportResolution, containerResolutions?: Map<string, ImportResolution>)`
 - 新 action: `openDiff(mergedPath)` / `closeDiff()`
@@ -179,10 +197,12 @@
 #### Task 8: useArxmlStore — commitImport (原子 + snapshot rollback)
 
 **Files:**
+
 - Modify: `src/renderer/store/useArxmlStore.ts`
 - Modify: `src/renderer/store/__tests__/useArxmlStore.importSession.test.ts`
 
 **工作:**
+
 - 新 action: `commitImport(): Result<{ sourceFilesTouched: string[] }, ImportError>`
 - 流程（spec §7.3）：拍 snapshots → 遍历 patches → 任一失败 catch + rollback（importSession 保留、documents 不变）→ 全部成功 set state
 - 成功后：documents 更新、dirtyPaths += sourceFilesTouched、importSession=null、viewMode='single'、lastCommitSnapshot=snapshots、validateProjectForRenderer 重跑
@@ -194,10 +214,12 @@
 #### Task 9: useArxmlStore — cancelImport + undoLastCommit + isDirty 扩展
 
 **Files:**
+
 - Modify: `src/renderer/store/useArxmlStore.ts`
 - Modify: `src/renderer/store/__tests__/useArxmlStore.importSession.test.ts`
 
 **工作:**
+
 - 新 action: `cancelImport()` — importSession=null、viewMode='single'、documents 不变（不弹 confirm）
 - 新 action: `undoLastCommit()` — 用 lastCommitSnapshot 还原 documents + dirtyPaths 清理
 - 扩展 `isDirty()` 函数：`dirtyPaths.size > 0 || importSession !== null`
@@ -212,11 +234,13 @@
 #### Task 10: ImportEntry.tsx + FileListTab 入口
 
 **Files:**
+
 - Create: `src/renderer/components/ImportEntry.tsx`
 - Create: `src/renderer/components/__tests__/ImportEntry.test.tsx`
 - Modify: `src/renderer/components/FileListTab.tsx` (加 [Import…] 按钮)
 
 **工作:**
+
 - ImportEntry: 触发 dialog.showOpenDialog (multi, .arxml filter)，返回 paths → store.startImport
 - 通过 preload bridge `openArxmlMultiDialog` (已有，F1 复用)
 - FileListTab 加 `[Import…]` 按钮在 files 列表头部
@@ -229,10 +253,12 @@
 #### Task 11: ModuleSelectionPanel.tsx
 
 **Files:**
+
 - Create: `src/renderer/components/ModuleSelectionPanel.tsx`
 - Create: `src/renderer/components/__tests__/ModuleSelectionPanel.test.tsx`
 
 **工作:**
+
 - 列出所有 incoming module：sourceFile + moduleShortName + path + 撞名 badge
 - 每行 checkbox + openDiff 按钮（勾选后启用）
 - 状态：unselected / selected / collision-existing
@@ -246,10 +272,12 @@
 #### Task 12: DiffTable.tsx (lazy diff)
 
 **Files:**
+
 - Create: `src/renderer/components/DiffTable.tsx`
 - Create: `src/renderer/components/__tests__/DiffTable.test.tsx`
 
 **工作:**
+
 - 三栏布局: existing | incoming | 决策 radio
 - 每行 resolution radio: keepExisting / overwrite / keepBoth / skip
 - 嵌套 container 展开 / 折叠
@@ -264,10 +292,12 @@
 #### Task 13: App.tsx 挂载 + viewMode 路由
 
 **Files:**
+
 - Modify: `src/renderer/App.tsx`
 - Modify: `src/renderer/store/useArxmlStore.ts` (viewMode 三态互斥逻辑)
 
 **工作:**
+
 - App.tsx 在 viewMode='import-merged' 时：
   - Tree 显示 buildMergedView(targetDocs, session) 的结果
   - 隐藏 Combined 入口 / Save 按钮（已 commit 才能 save）
@@ -283,9 +313,11 @@
 #### Task 14: Playwright E2E — happy + abort path
 
 **Files:**
+
 - Create: `tests/e2e/import-flow.spec.ts`
 
 **工作:**
+
 - happy path: 启动 app → FileListTab [Import…] → mock dialog 返回 2 fixtures (CanIf + EcuC) → ModuleSelection 勾选 CanIfConfig → DiffTable 选 overwrite → Commit → ConfirmDialog → 验证 target doc 更新 + dirtyPaths +1
 - abort path: 启动 → Import → ModuleSelection → Cancel → 验证 viewMode='single'、documents 不变
 - 用 `playwright/_electron.ts` 已有 setup（如果存在）或 vitest renderer 测试
@@ -297,10 +329,12 @@
 #### Task 15: scripts/verify.mjs stage 7 + 最终全量验证
 
 **Files:**
+
 - Modify: `scripts/verify.mjs` (加 stage 7 import regression)
 - Modify: `scripts/verify.mjs` (加 importMergeRoundTrip guard)
 
 **工作:**
+
 - stage 7: 加载 CanIf + EcuC fixtures → 模拟 startImport → compileResolutionToPatches → applyPatchesToDocument → serialize → parse → 验证 byte-identical (round-trip)
 - 加 baseline guard：`importMergeRoundTrip: 'byte-identical'`
 - 最终全量：`pnpm test:coverage` 必须 ≥ 当前 baseline（876 tests / 97.52%）
@@ -361,15 +395,15 @@ Task 2 (i18n) ───┘                                                      
 
 ## 风险与缓解 (引自 spec §10)
 
-| # | 风险 | 缓解 |
-|---|---|---|
-| R1 | merged view 性能 (5+ MB ECUC) | lazy diff（点开 module 才算） |
-| R2 | viewMode 三态与 dirty 保护交互 | isDirty() 显式含 importSession；离开 import-merged 单一入口 |
-| R3 | patch apply 失败 rollback 边界 | snapshot 仅含 sourceFilesTouched；commitImport 失败保留 session |
-| R4 | 跨文件 ref 失效 | 复用现有 9 个 validation kind；ref-dest 不动 |
-| R5 | undoLastCommit 后用户继续操作 | lastCommitSnapshot 在下次 commit / save 清；store action 显式提示 |
-| R6 | 与 Combined View 共存导致 UI 混乱 | FileListTab 入口互斥；viewMode 状态机硬约束 |
-| R7 | multiplicity 校验缺 BSWMD | 'schema-unknown' warning；不阻止 commit |
+| #   | 风险                              | 缓解                                                              |
+| --- | --------------------------------- | ----------------------------------------------------------------- |
+| R1  | merged view 性能 (5+ MB ECUC)     | lazy diff（点开 module 才算）                                     |
+| R2  | viewMode 三态与 dirty 保护交互    | isDirty() 显式含 importSession；离开 import-merged 单一入口       |
+| R3  | patch apply 失败 rollback 边界    | snapshot 仅含 sourceFilesTouched；commitImport 失败保留 session   |
+| R4  | 跨文件 ref 失效                   | 复用现有 9 个 validation kind；ref-dest 不动                      |
+| R5  | undoLastCommit 后用户继续操作     | lastCommitSnapshot 在下次 commit / save 清；store action 显式提示 |
+| R6  | 与 Combined View 共存导致 UI 混乱 | FileListTab 入口互斥；viewMode 状态机硬约束                       |
+| R7  | multiplicity 校验缺 BSWMD         | 'schema-unknown' warning；不阻止 commit                           |
 
 ---
 
@@ -388,9 +422,11 @@ Task 2 (i18n) ───┘                                                      
 ## 关联文件
 
 ### Spec
+
 - `docs/superpowers/specs/2026-06-18-ecuc-arxml-import-design.md` (commit `ef6430a`)
 
 ### 复用源（不修改）
+
 - `src/core/arxml/{types,parser,serializer,path}.ts`
 - `src/renderer/store/useArxmlStore.ts:863` (`computeDisplayDoc`)
 - `src/renderer/store/useArxmlStore.ts:894` (`wrapPackageUnderSegment`)

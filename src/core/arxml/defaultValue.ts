@@ -61,7 +61,8 @@ export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
     case 'string':
     case 'function-name': {
       if (typeof def === 'string') return { type: 'string', value: def };
-      if (typeof def === 'number' || typeof def === 'boolean') return { type: 'string', value: String(def) };
+      if (typeof def === 'number' || typeof def === 'boolean')
+        return { type: 'string', value: String(def) };
       return null;
     }
   }

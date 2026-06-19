@@ -60,7 +60,10 @@ describe('parseArxml', () => {
     expect(container.shortName).toBe('EcuCGeneralConfiguration');
     const keys = Object.keys(container.params);
     expect(keys).toHaveLength(3);
-    expect(container.params['ConfigConsistencyRequired']).toMatchObject({ type: 'integer', value: 1 });
+    expect(container.params['ConfigConsistencyRequired']).toMatchObject({
+      type: 'integer',
+      value: 1,
+    });
     expect(container.params['PostBuildVariantUsed']).toMatchObject({ type: 'integer', value: 0 });
     expect(container.params['SleepMode']).toMatchObject({ type: 'float', value: 2.5 });
   });

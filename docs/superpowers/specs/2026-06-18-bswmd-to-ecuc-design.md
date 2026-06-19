@@ -52,6 +52,7 @@ Both paths converge on `<ModuleFromBswmdPicker />`, which is parameterized
 on `preSelectedBswmdPath?: string`.
 
 **Why dual entry** (vs single menu / single "+"):
+
 - Menu matches EB tresos / Vector DaVinci / Artop convention — discoverable
 - "+" matches the pattern users already see on the project panel
 - One picker, one skeleton generator, two entry triggers — clean reuse
@@ -78,11 +79,11 @@ collides for the same shortName.
 
 **Resolution strategy** (recommended):
 
-| Scenario | File naming |
-|---|---|
-| Single BSWMD, single `Can` | `Can_Cfg.arxml` |
-| Two BSWMDs both have `Can`, only one checked | `Can_Cfg.arxml` |
-| Two BSWMDs both have `Can`, BOTH checked | `Can_Cfg.arxml` + `Can__<vendorKey>_Cfg.arxml` (double underscore = collision marker) |
+| Scenario                                     | File naming                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Single BSWMD, single `Can`                   | `Can_Cfg.arxml`                                                                       |
+| Two BSWMDs both have `Can`, only one checked | `Can_Cfg.arxml`                                                                       |
+| Two BSWMDs both have `Can`, BOTH checked     | `Can_Cfg.arxml` + `Can__<vendorKey>_Cfg.arxml` (double underscore = collision marker) |
 
 `<vendorKey>` is derived from BSWMD file basename (e.g.
 `Can_Bswmd.arxml` → `Bswmd`, `Intewell_42.arxml` → `Intewell_42`),
@@ -157,15 +158,15 @@ can be traced back to which BSWMD it came from even after the fact.
 
 ### Edge / Error Cases
 
-| Condition | Behavior |
-|---|---|
-| No BSWMD loaded | Menu item disabled + tooltip "请先加载 BSWMD"; "+" buttons in ProjectPanel hidden |
-| No project open (loose mode) | Menu item disabled + tooltip "请先新建/打开项目"; "+" buttons hidden |
-| User selects module whose `<Module>_Cfg.arxml` already exists | Overwrite confirm (collected for batch; one dialog for all N) |
-| Same moduleShortName across BSWMDs, both checked | Auto-suffix per §4.2; right pane previews both names |
-| Selected module is at upper module-level multiplicity | Picker checkbox row disabled + tooltip "已达实例上限 (1/1)" |
-| Generation throws (filesystem write fail, etc.) | store.error set; modal stays open with error banner; partial success written so far stays |
-| Network/disk fails mid-batch | Roll back: delete the N files already written before failure; show error |
+| Condition                                                     | Behavior                                                                                  |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| No BSWMD loaded                                               | Menu item disabled + tooltip "请先加载 BSWMD"; "+" buttons in ProjectPanel hidden         |
+| No project open (loose mode)                                  | Menu item disabled + tooltip "请先新建/打开项目"; "+" buttons hidden                      |
+| User selects module whose `<Module>_Cfg.arxml` already exists | Overwrite confirm (collected for batch; one dialog for all N)                             |
+| Same moduleShortName across BSWMDs, both checked              | Auto-suffix per §4.2; right pane previews both names                                      |
+| Selected module is at upper module-level multiplicity         | Picker checkbox row disabled + tooltip "已达实例上限 (1/1)"                               |
+| Generation throws (filesystem write fail, etc.)               | store.error set; modal stays open with error banner; partial success written so far stays |
+| Network/disk fails mid-batch                                  | Roll back: delete the N files already written before failure; show error                  |
 
 ## 6. Architecture
 
@@ -263,8 +264,8 @@ export const PROJECT_WRITE_ARXML = 'project:writeArxml';
 
 // src/shared/types.ts (ADD)
 export interface ProjectWriteArxmlRequest {
-  readonly filePath: string;       // absolute path
-  readonly content: string;         // serialized arxml (utf-8)
+  readonly filePath: string; // absolute path
+  readonly content: string; // serialized arxml (utf-8)
 }
 export interface ProjectWriteArxmlResult {
   readonly kind: 'ok' | 'write-failed';
@@ -278,14 +279,14 @@ Preload: expose `writeArxml(req: ProjectWriteArxmlRequest): Promise<ProjectWrite
 
 ## 9. Error handling
 
-| Failure mode | Detection | User-facing |
-|---|---|---|
-| No BSWMD loaded | `bswmdSchemas.length === 0` at render | Menu disabled, "+" hidden |
-| No project open | `project === null` | Menu disabled, "+" hidden |
-| File exists | `fs.existsSync(filePath)` before write | ConfirmDialog overwrite |
-| Write fails (EACCES, ENOSPC) | catch in IPC handler | Inline picker error + store.error banner |
-| Skeleton gen throws | catch in useCreateEcucFromBswmd | Inline picker error |
-| Module shortName collision (different BSWMD, same name) | check existing manifest.valueArxmlPaths | ConfirmDialog "覆盖?" |
+| Failure mode                                            | Detection                               | User-facing                              |
+| ------------------------------------------------------- | --------------------------------------- | ---------------------------------------- |
+| No BSWMD loaded                                         | `bswmdSchemas.length === 0` at render   | Menu disabled, "+" hidden                |
+| No project open                                         | `project === null`                      | Menu disabled, "+" hidden                |
+| File exists                                             | `fs.existsSync(filePath)` before write  | ConfirmDialog overwrite                  |
+| Write fails (EACCES, ENOSPC)                            | catch in IPC handler                    | Inline picker error + store.error banner |
+| Skeleton gen throws                                     | catch in useCreateEcucFromBswmd         | Inline picker error                      |
+| Module shortName collision (different BSWMD, same name) | check existing manifest.valueArxmlPaths | ConfirmDialog "覆盖?"                    |
 
 ## 10. i18n keys (8 new keys, zh-CN + en parity)
 
@@ -302,36 +303,36 @@ ecuc.fromBswmd.toast          "已新建 {filename}"           / "Created {filen
 
 ## 11. Files Changed (predicted)
 
-| Action | File |
-|---|---|
-| NEW | `src/core/arxml/skeleton.ts` — pure skeleton generator + `resolveCollisionFilename()` |
-| NEW | `src/core/arxml/__tests__/skeleton.test.ts` — unit tests (incl. collision resolution) |
-| NEW | `src/renderer/components/ModuleFromBswmdPicker.tsx` — multi-select picker |
-| NEW | `src/renderer/components/ModuleFromBswmdPicker.css` |
-| NEW | `src/renderer/components/__tests__/ModuleFromBswmdPicker.test.tsx` |
-| NEW | `src/renderer/hooks/useCreateEcucFromBswmd.ts` — batch orchestration + rollback |
-| NEW | `src/main/ipc/projectWriteArxmlHandler.ts` — supports batch write (multiple paths in one IPC) |
-| MODIFY | `src/main/ipc/register.ts` — register PROJECT_WRITE_ARXML_BATCH |
-| MODIFY | `src/preload/index.ts` — expose writeArxmlBatch |
-| MODIFY | `src/shared/ipc-contract.ts` — add channel + types |
-| MODIFY | `src/shared/types.ts` — add request/result types |
-| MODIFY | `src/shared/types.ts` — add `sourceBswmdPath?: string` to `ArxmlDocument` |
-| MODIFY | `src/shared/i18n.ts` — add 12 keys (8 base + 4 collision) |
-| MODIFY | `src/renderer/components/AppHeader.tsx` — add menu entry under fileOps |
-| MODIFY | `src/renderer/components/ProjectPanel.tsx` — add "+" button per BSWMD row |
-| MODIFY | `src/renderer/components/App.tsx` — mount <ModuleFromBswmdPicker /> |
+| Action | File                                                                                          |
+| ------ | --------------------------------------------------------------------------------------------- |
+| NEW    | `src/core/arxml/skeleton.ts` — pure skeleton generator + `resolveCollisionFilename()`         |
+| NEW    | `src/core/arxml/__tests__/skeleton.test.ts` — unit tests (incl. collision resolution)         |
+| NEW    | `src/renderer/components/ModuleFromBswmdPicker.tsx` — multi-select picker                     |
+| NEW    | `src/renderer/components/ModuleFromBswmdPicker.css`                                           |
+| NEW    | `src/renderer/components/__tests__/ModuleFromBswmdPicker.test.tsx`                            |
+| NEW    | `src/renderer/hooks/useCreateEcucFromBswmd.ts` — batch orchestration + rollback               |
+| NEW    | `src/main/ipc/projectWriteArxmlHandler.ts` — supports batch write (multiple paths in one IPC) |
+| MODIFY | `src/main/ipc/register.ts` — register PROJECT_WRITE_ARXML_BATCH                               |
+| MODIFY | `src/preload/index.ts` — expose writeArxmlBatch                                               |
+| MODIFY | `src/shared/ipc-contract.ts` — add channel + types                                            |
+| MODIFY | `src/shared/types.ts` — add request/result types                                              |
+| MODIFY | `src/shared/types.ts` — add `sourceBswmdPath?: string` to `ArxmlDocument`                     |
+| MODIFY | `src/shared/i18n.ts` — add 12 keys (8 base + 4 collision)                                     |
+| MODIFY | `src/renderer/components/AppHeader.tsx` — add menu entry under fileOps                        |
+| MODIFY | `src/renderer/components/ProjectPanel.tsx` — add "+" button per BSWMD row                     |
+| MODIFY | `src/renderer/components/App.tsx` — mount <ModuleFromBswmdPicker />                           |
 
 ## 12. Testing strategy
 
-| Layer | Coverage target |
-|---|---|
-| `generateEcucSkeleton` unit | ≥ 95% (pure function, every container shape) |
-| `resolveCollisionFilename` unit | ≥ 95% — covers: single pick, multi pick same BSWMD, multi pick different BSWMDs, vendor key extraction from filename, duplicate basename fallback to numeric suffix |
-| `ModuleFromBswmdPicker` component | Render with 0/1/many BSWMDs, multi-select checkbox state, filter behavior, disabled states, collision warnings visible, confirm emission (empty array, 1, N) |
-| `useCreateEcucFromBswmd` hook | dirty guard, IPC batch call shape, store update for each, partial-failure rollback, overwrite confirm collection |
-| E2E (Playwright) | Menu entry → multi-check 3 modules → batch file write → Tree shows 3 new nodes |
-| E2E | "+" entry → pre-selected BSWMD with all modules checked → uncheck 1 → confirm → 4 of 5 created |
-| E2E | Collision: load 2 BSWMDs both with Can → check both → confirm → 2 files created (one with vendor suffix) |
+| Layer                             | Coverage target                                                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generateEcucSkeleton` unit       | ≥ 95% (pure function, every container shape)                                                                                                                        |
+| `resolveCollisionFilename` unit   | ≥ 95% — covers: single pick, multi pick same BSWMD, multi pick different BSWMDs, vendor key extraction from filename, duplicate basename fallback to numeric suffix |
+| `ModuleFromBswmdPicker` component | Render with 0/1/many BSWMDs, multi-select checkbox state, filter behavior, disabled states, collision warnings visible, confirm emission (empty array, 1, N)        |
+| `useCreateEcucFromBswmd` hook     | dirty guard, IPC batch call shape, store update for each, partial-failure rollback, overwrite confirm collection                                                    |
+| E2E (Playwright)                  | Menu entry → multi-check 3 modules → batch file write → Tree shows 3 new nodes                                                                                      |
+| E2E                               | "+" entry → pre-selected BSWMD with all modules checked → uncheck 1 → confirm → 4 of 5 created                                                                      |
+| E2E                               | Collision: load 2 BSWMDs both with Can → check both → confirm → 2 files created (one with vendor suffix)                                                            |
 
 Total new tests: ~35 unit (incl. 8 collision) + ~10 component + ~6 E2E = **~51 new tests**.
 
@@ -355,9 +356,11 @@ references module paths that no schema defines, so validation re-runs
 emit a flood of `'schema-unknown'` errors.
 
 **Required flow:**
+
 1. User clicks × on a BSWMD row → count dependents
 2. If `dependents.length === 0` → proceed with current `removeBswmd`
 3. If `dependents.length > 0` → ConfirmDialog:
+
    ```
    移除 BSWMD "Can_bswmd.arxml"?
 
@@ -369,9 +372,11 @@ emit a flood of `'schema-unknown'` errors.
 
    [取消]  [仅移除 BSWMD（保留 ECUC 文件）]  [移除 BSWMD + 删除依赖文件]
    ```
+
 4. Default focus = "仅移除 BSWMD" (safer; user can manually delete later)
 
 **Implementation:**
+
 - `removeBswmdWithCascade(path)` action in `useProjectActions`
   - Computes `dependents = state.valueArxmlPaths.filter(p => isCreatedFrom(p, path))`
   - If `dependents.length > 0` → open ConfirmDialog
@@ -394,13 +399,15 @@ typically care about 5-10. Two consequences:
 **Required: per-module enable/disable.**
 
 **Data model:**
+
 - Add `BswmdDocument.disabledModules: ReadonlySet<string>` field (Set of
   module shortNames). New BSWMDs default to `new Set()` (all active).
 - Migration: existing BSWMD documents in store need `disabledModules:
-  new Set()` defaulted on access — `getActiveModules(doc)` returns
+new Set()` defaulted on access — `getActiveModules(doc)` returns
   `doc.modules.filter(m => !doc.disabledModules.has(m.shortName))`.
 
 **UI entry — ProjectPanel BSWMD row "modules" popover:**
+
 - Add a "Modules" sub-row under each BSWMD in ProjectPanel (collapsible)
 - OR add a "📋" badge button next to "+" that opens a popover with
   checkboxes per module
@@ -408,6 +415,7 @@ typically care about 5-10. Two consequences:
   "5/12 active") that opens a "Configure modules" modal
 
 **Recommendation: chip badge approach** — least new UI, fits in picker:
+
 - The picker header shows "Modules (5/12 active)" — clickable
 - Opens an inline accordion inside the picker showing all modules with
   checkboxes; user can toggle
@@ -415,6 +423,7 @@ typically care about 5-10. Two consequences:
   multiplicity case, but with reason "Manually disabled")
 
 **Behavior on disable:**
+
 - Picker hides disabled modules (existing ECUC files from disabled
   modules remain — re-enable to bring back into validation)
 - Validation re-runs with filtered `buildSchemaLayer` (use
@@ -424,9 +433,10 @@ typically care about 5-10. Two consequences:
   remove behavior)
 
 **Implementation:**
+
 - `BswmdDocument.disabledModules: ReadonlySet<string>` field
 - `setBswmdModuleEnabled(path: string, moduleShortName: string,
-  enabled: boolean)` store action
+enabled: boolean)` store action
 - ProjectPanel BSWMD row: add small "📋 5/12" chip → opens popover with
   module checkboxes
 - Picker: shows all modules but disables manually-disabled ones
@@ -435,16 +445,16 @@ typically care about 5-10. Two consequences:
 
 ### 14.3 Updated files (additions to §11)
 
-| Action | File |
-|---|---|
-| MODIFY | `src/core/project/bswmd.ts` — add `disabledModules` field to `BswmdDocument` |
+| Action | File                                                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| MODIFY | `src/core/project/bswmd.ts` — add `disabledModules` field to `BswmdDocument`                                                |
 | MODIFY | `src/renderer/store/useArxmlStore.ts` — add `sourceBswmdPath` to ArxmlDocument creation, add `setBswmdModuleEnabled` action |
-| MODIFY | `src/renderer/components/ProjectPanel.tsx` — add "📋 N/M" chip + popover |
-| MODIFY | `src/renderer/components/FileListTab.tsx` — add remove warning hint |
-| MODIFY | `src/renderer/hooks/useProjectActions.ts` — add `removeBswmdWithCascade` |
-| MODIFY | `src/shared/ipc-contract.ts` — add `PROJECT_DELETE_ARXML` channel |
-| NEW | `src/main/ipc/projectDeleteArxmlHandler.ts` |
-| MODIFY | `src/shared/i18n.ts` — add 4 new keys for cascade confirm dialog |
+| MODIFY | `src/renderer/components/ProjectPanel.tsx` — add "📋 N/M" chip + popover                                                    |
+| MODIFY | `src/renderer/components/FileListTab.tsx` — add remove warning hint                                                         |
+| MODIFY | `src/renderer/hooks/useProjectActions.ts` — add `removeBswmdWithCascade`                                                    |
+| MODIFY | `src/shared/ipc-contract.ts` — add `PROJECT_DELETE_ARXML` channel                                                           |
+| NEW    | `src/main/ipc/projectDeleteArxmlHandler.ts`                                                                                 |
+| MODIFY | `src/shared/i18n.ts` — add 4 new keys for cascade confirm dialog                                                            |
 
 ### 14.4 New i18n keys (4 additions to §10)
 
