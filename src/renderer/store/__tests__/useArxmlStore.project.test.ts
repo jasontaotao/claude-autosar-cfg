@@ -11,6 +11,7 @@ import type { ArxmlDocument } from '@core/arxml/types';
 
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
+import { loadManifest, saveManifest } from '../../../core/project/manifest.js';
 import { useArxmlStore } from '../useArxmlStore.js';
 
 // ---------------------------------------------------------------------------
@@ -283,26 +284,28 @@ describe('useArxmlStore — project sync on add/remove', () => {
     // Act
     useArxmlStore.getState().addDocument(parseArxmlOrThrow(MIN_ARXML), '/proj/NewDoc.arxml');
 
-    // Assert
+    // Assert — Sprint 16b T6: manifest stores the RELATIVE form
+    // (relativised against dirname(projectPath) = /proj). documentPaths
+    // keeps the absolute path; that's the on-disk source.
     const after = useArxmlStore.getState();
-    expect(after.project?.valueArxmlPaths).toEqual(['/proj/NewDoc.arxml']);
+    expect(after.project?.valueArxmlPaths).toEqual(['NewDoc.arxml']);
     expect(after.documentPaths).toEqual(['/proj/NewDoc.arxml']);
   });
 
   it('addDocument with project open does NOT duplicate already-present path', () => {
-    // Arrange
+    // Arrange — manifest already lists the relative form (T6 contract).
     useArxmlStore.getState().openProject({
       manifestPath: '/proj/p.json',
-      manifest: sampleManifest({ valueArxmlPaths: ['/proj/A.arxml'] }),
-      docs: [{ rel: '/proj/A.arxml', path: '/proj/A.arxml', content: MIN_ARXML }],
+      manifest: sampleManifest({ valueArxmlPaths: ['A.arxml'] }),
+      docs: [{ rel: 'A.arxml', path: '/proj/A.arxml', content: MIN_ARXML }],
     });
 
     // Act — replace same path
     useArxmlStore.getState().addDocument(parseArxmlOrThrow(MIN_ARXML), '/proj/A.arxml');
 
-    // Assert — path list still single
+    // Assert — path list still single, relativised form preserved.
     const after = useArxmlStore.getState();
-    expect(after.project?.valueArxmlPaths).toEqual(['/proj/A.arxml']);
+    expect(after.project?.valueArxmlPaths).toEqual(['A.arxml']);
     expect(after.documentPaths).toEqual(['/proj/A.arxml']);
   });
 
@@ -379,6 +382,132 @@ describe('useArxmlStore — markSaved in project mode', () => {
     const after = useArxmlStore.getState();
     expect(after.project).not.toBeNull();
     expect(after.project?.valueArxmlPaths).toEqual(['/proj/A.arxml', '/proj/B.arxml']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint 16b T6 — Project reopen round-trip (abs → rel path)
+// ---------------------------------------------------------------------------
+
+describe('useArxmlStore — T6 project reopen round-trip (abs → rel path)', () => {
+  it('addDocument + saveManifest + loadManifest round-trip succeeds with relative paths', () => {
+    // 1. Project open at D:/proj/MyProj.autosarcfg.json
+    // 2. addDocument with absolute filePath D:/proj/ecuc/Can_EcucValues.arxml
+    // 3. project.valueArxmlPaths must contain the RELATIVE form
+    //    './ecuc/Can_EcucValues.arxml', NOT the absolute
+    // 4. saveManifest(...) → loadManifest(...) round-trip accepts (no 'absolute' error)
+
+    // Arrange — open a project, but DON'T pre-populate the document set
+    // (the user will add the file via the OS picker, which yields the
+    // absolute on-disk path).
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/MyProj.autosarcfg.json',
+      manifest: sampleManifest(),
+      docs: [],
+    });
+
+    // Act — add a doc with the absolute Windows path
+    useArxmlStore
+      .getState()
+      .addDocument(parseArxmlOrThrow(MIN_ARXML), 'D:/proj/ecuc/Can_EcucValues.arxml');
+
+    // Assert — the manifest stores the RELATIVE form, not the absolute
+    const afterAdd = useArxmlStore.getState();
+    expect(afterAdd.project?.valueArxmlPaths).toEqual(['ecuc/Can_EcucValues.arxml']);
+    // documentPaths keeps the absolute path (that's the on-disk source)
+    expect(afterAdd.documentPaths).toEqual(['D:/proj/ecuc/Can_EcucValues.arxml']);
+
+    // Round-trip the manifest through save → load
+    const saved = saveManifest(afterAdd.project!);
+    const reloaded = loadManifest(saved);
+
+    // Assert — loadManifest accepts the saved form (no 'absolute' error).
+    // The reloaded manifest's valueArxmlPaths still carries the relative
+    // form, ready for the next project:open call.
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) {
+      expect(reloaded.value.valueArxmlPaths).toEqual(['ecuc/Can_EcucValues.arxml']);
+    }
+  });
+
+  it('removeDocument removes the relative entry when given an absolute filePath', () => {
+    // When the user removes a doc by absolute filePath, the manifest's
+    // relative entry must also be removed (not just the in-memory doc).
+
+    // Arrange — open a project and add a doc
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/MyProj.autosarcfg.json',
+      manifest: sampleManifest(),
+      docs: [],
+    });
+    useArxmlStore
+      .getState()
+      .addDocument(parseArxmlOrThrow(MIN_ARXML), 'D:/proj/ecuc/Can_EcucValues.arxml');
+    // Sanity — manifest stored the relative form
+    expect(useArxmlStore.getState().project?.valueArxmlPaths).toEqual([
+      'ecuc/Can_EcucValues.arxml',
+    ]);
+
+    // Act — remove by absolute filePath
+    useArxmlStore.getState().removeDocument('D:/proj/ecuc/Can_EcucValues.arxml');
+
+    // Assert — manifest entry was removed
+    const after = useArxmlStore.getState();
+    expect(after.documentPaths).toEqual([]);
+    expect(after.project?.valueArxmlPaths).toEqual([]);
+  });
+
+  it('POSIX: addDocument with absolute path relativises to the project dir', () => {
+    // Arrange
+    useArxmlStore.getState().openProject({
+      manifestPath: '/proj/MyProj.autosarcfg.json',
+      manifest: sampleManifest(),
+      docs: [],
+    });
+
+    // Act
+    useArxmlStore
+      .getState()
+      .addDocument(parseArxmlOrThrow(MIN_ARXML), '/proj/ecuc/Can_EcucValues.arxml');
+
+    // Assert
+    const after = useArxmlStore.getState();
+    expect(after.project?.valueArxmlPaths).toEqual(['ecuc/Can_EcucValues.arxml']);
+  });
+
+  it('cross-drive addDocument keeps path absolute and save rejects it (documented edge)', () => {
+    // Edge case: filePath on a different Windows drive than the manifest
+    // directory can't be relativized. Documented behaviour: the path is
+    // kept absolute in the manifest and the next save round-trip will
+    // fail loudly with an 'invalid-path' / 'absolute' error so the user
+    // notices the mistake.
+
+    // Arrange
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/MyProj.autosarcfg.json',
+      manifest: sampleManifest(),
+      docs: [],
+    });
+
+    // Act
+    useArxmlStore
+      .getState()
+      .addDocument(parseArxmlOrThrow(MIN_ARXML), 'E:/otherproj/ecuc/Can_EcucValues.arxml');
+
+    // Assert — manifest kept the absolute path (no relativisation possible)
+    const after = useArxmlStore.getState();
+    expect(after.project?.valueArxmlPaths).toEqual(['E:/otherproj/ecuc/Can_EcucValues.arxml']);
+
+    // Round-trip exposes the issue: saveManifest → loadManifest returns
+    // an 'absolute' error so the user sees a real problem.
+    const saved = saveManifest(after.project!);
+    const reloaded = loadManifest(saved);
+    expect(reloaded.ok).toBe(false);
+    if (!reloaded.ok && reloaded.error.kind === 'invalid-path') {
+      expect(reloaded.error.reason).toBe('absolute');
+    } else {
+      throw new Error(`expected invalid-path/absolute, got ${JSON.stringify(reloaded)}`);
+    }
   });
 });
 

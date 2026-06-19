@@ -25,6 +25,7 @@ import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { DEFAULT_LOCALE, t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
+import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
 /**
@@ -396,7 +397,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     }
     // Project-sync: when a project is open, also append the new path to
     // the manifest's valueArxmlPaths so the next Save Project persists it.
-    const nextProject = projectSyncAddPath(state.project, filePath);
+    // Sprint 16b T6 — relativise the absolute filePath against the
+    // manifest's directory so the on-disk manifest stays valid
+    // (classifyBadPath rejects absolute paths). `toManifestRelative`
+    // returns null on cross-drive Windows / sibling POSIX paths; in
+    // that case we keep the absolute path and the next save round-trip
+    // will surface an 'invalid-path' / 'absolute' error so the user
+    // notices the mistake.
+    const nextProject = projectSyncAddPath(
+      state.project,
+      filePath,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
     const nextPaths = state.documentPaths.includes(filePath)
       ? state.documentPaths
       : [...state.documentPaths, filePath];
@@ -431,7 +443,15 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const nextActiveDoc = activeIdx === -1 ? null : (nextDocuments[activeIdx] ?? null);
     // Project-sync: when a project is open, also drop the path from
     // the manifest so Save Project doesn't resurrect a deleted file.
-    const nextProject = projectSyncRemovePath(state.project, filePath);
+    // Sprint 16b T6 — match the path-shape that was stored by
+    // addDocument: try the relativised form first, then the raw
+    // absolute path. Removing a doc by its absolute filePath therefore
+    // also drops the relative manifest entry.
+    const nextProject = projectSyncRemovePath(
+      state.project,
+      filePath,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
     const nextDisplayDoc = computeDisplayDoc(
       state.viewMode,
       nextActiveDoc,
@@ -689,9 +709,17 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // Step 3: commit. Append the schema + path, mirror to the
     // manifest when a project is open, then re-validate using the
     // freshly built layer.
+    // Sprint 16b T6 — relativise the BSWMD path against the manifest
+    // directory the same way addDocument does, so the on-disk manifest
+    // only ever stores relative paths (the absolute path is still
+    // tracked in `bswmdPaths` for parser lookup).
     const nextSchemas = [...state.bswmdSchemas, result.value];
     const nextPaths = [...state.bswmdPaths, path];
-    const nextProject = projectSyncAddBswmdPath(state.project, path);
+    const nextProject = projectSyncAddBswmdPath(
+      state.project,
+      path,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
     set({
       bswmdSchemas: nextSchemas,
       bswmdPaths: nextPaths,
@@ -713,7 +741,15 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // one we're dropping.
     const nextSchemas = state.bswmdSchemas.filter((_, i) => i !== idx);
     const nextPaths = state.bswmdPaths.filter((p) => p !== path);
-    const nextProject = projectSyncRemoveBswmdPath(state.project, path);
+    // Sprint 16b T6 — match the path-shape that was stored by
+    // addBswmd: try the relativised form first, then the raw absolute
+    // path. Removing a BSWMD by its absolute filePath also drops the
+    // relative manifest entry.
+    const nextProject = projectSyncRemoveBswmdPath(
+      state.project,
+      path,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
     set({
       bswmdSchemas: nextSchemas,
       bswmdPaths: nextPaths,
@@ -1256,21 +1292,55 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
  * Return a new manifest with `path` appended to valueArxmlPaths, or the
  * unchanged `m` if `m === null` (loose mode) or the path is already
  * present. Pure — produces a new manifest reference only when needed.
+ *
+ * Sprint 16b T6 — `manifestDir` is the directory of the saved manifest
+ * (the parent of `state.projectPath`). When supplied, `path` is
+ * relativised against `manifestDir` before being stored so the on-disk
+ * manifest stays valid (classifyBadPath rejects absolute paths).
+ * `toManifestRelative` returns `null` when the path is on a different
+ * drive / outside the manifest dir; in that case we fall back to the
+ * raw absolute path so the next save round-trip surfaces an
+ * 'invalid-path' / 'absolute' error and the user notices the mistake.
  */
-function projectSyncAddPath(m: ProjectManifest | null, path: string): ProjectManifest | null {
-  if (m === null) return null;
-  if (m.valueArxmlPaths.includes(path)) return m;
-  return { ...m, valueArxmlPaths: [...m.valueArxmlPaths, path] };
+function projectSyncAddPath(
+  m: ProjectManifest | null,
+  path: string,
+  manifestDir: string | null,
+): ProjectManifest | null {
+  if (m === null) return m;
+  const rel = manifestDir !== null
+    ? (toManifestRelative(manifestDir, path) ?? path)
+    : path;
+  if (m.valueArxmlPaths.includes(rel)) return m;
+  return { ...m, valueArxmlPaths: [...m.valueArxmlPaths, rel] };
 }
 
 /**
  * Return a new manifest with `path` removed from valueArxmlPaths, or the
  * unchanged `m` if `m === null` (loose mode) or the path isn't present.
+ *
+ * Sprint 16b T6 — try both the relativised form and the raw absolute
+ * form so removing a doc by its absolute filePath also drops the
+ * relative manifest entry that was written by `projectSyncAddPath`.
  */
-function projectSyncRemovePath(m: ProjectManifest | null, path: string): ProjectManifest | null {
-  if (m === null) return null;
-  if (!m.valueArxmlPaths.includes(path)) return m;
-  return { ...m, valueArxmlPaths: m.valueArxmlPaths.filter((p) => p !== path) };
+function projectSyncRemovePath(
+  m: ProjectManifest | null,
+  path: string,
+  manifestDir: string | null,
+): ProjectManifest | null {
+  if (m === null) return m;
+  const rel = manifestDir !== null
+    ? (toManifestRelative(manifestDir, path) ?? path)
+    : path;
+  if (!m.valueArxmlPaths.includes(rel) && !m.valueArxmlPaths.includes(path)) {
+    return m;
+  }
+  return {
+    ...m,
+    valueArxmlPaths: m.valueArxmlPaths.filter(
+      (p) => p !== rel && p !== path,
+    ),
+  };
 }
 
 /**
@@ -1278,11 +1348,22 @@ function projectSyncRemovePath(m: ProjectManifest | null, path: string): Project
  * new manifest with `path` appended to `bswmdPaths`, or the unchanged
  * `m` if `m === null` (loose mode) or the path is already present.
  * Pure — produces a new manifest reference only when needed.
+ *
+ * Sprint 16b T6 — `manifestDir` mirrors `projectSyncAddPath`. The
+ * relativisation contract is identical (null on cross-drive, fall back
+ * to absolute).
  */
-function projectSyncAddBswmdPath(m: ProjectManifest | null, path: string): ProjectManifest | null {
-  if (m === null) return null;
-  if (m.bswmdPaths.includes(path)) return m;
-  return { ...m, bswmdPaths: [...m.bswmdPaths, path] };
+function projectSyncAddBswmdPath(
+  m: ProjectManifest | null,
+  path: string,
+  manifestDir: string | null,
+): ProjectManifest | null {
+  if (m === null) return m;
+  const rel = manifestDir !== null
+    ? (toManifestRelative(manifestDir, path) ?? path)
+    : path;
+  if (m.bswmdPaths.includes(rel)) return m;
+  return { ...m, bswmdPaths: [...m.bswmdPaths, rel] };
 }
 
 /**
@@ -1290,14 +1371,27 @@ function projectSyncAddBswmdPath(m: ProjectManifest | null, path: string): Proje
  * a new manifest with `path` removed from `bswmdPaths`, or the
  * unchanged `m` if `m === null` (loose mode) or the path isn't
  * present.
+ *
+ * Sprint 16b T6 — try both the relativised form and the raw absolute
+ * form so removing a BSWMD by its absolute filePath also drops the
+ * relative manifest entry that was written by `projectSyncAddBswmdPath`.
  */
 function projectSyncRemoveBswmdPath(
   m: ProjectManifest | null,
   path: string,
+  manifestDir: string | null,
 ): ProjectManifest | null {
-  if (m === null) return null;
-  if (!m.bswmdPaths.includes(path)) return m;
-  return { ...m, bswmdPaths: m.bswmdPaths.filter((p) => p !== path) };
+  if (m === null) return m;
+  const rel = manifestDir !== null
+    ? (toManifestRelative(manifestDir, path) ?? path)
+    : path;
+  if (!m.bswmdPaths.includes(rel) && !m.bswmdPaths.includes(path)) {
+    return m;
+  }
+  return {
+    ...m,
+    bswmdPaths: m.bswmdPaths.filter((p) => p !== rel && p !== path),
+  };
 }
 
 /**
