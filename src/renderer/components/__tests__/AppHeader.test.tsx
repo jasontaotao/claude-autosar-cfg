@@ -225,6 +225,129 @@ describe('AppHeader doc-tab strip (Sprint 10 #2)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprint 16b T7 — Save All toolbar button
+// ---------------------------------------------------------------------------
+//
+// Common case: BSWMD-to-ECUC generates N files, user edits params in
+// several of them, then clicks 全部保存 once instead of N individual
+// Save clicks. The new `btn-save-all` button loops over every entry
+// in `store.dirtyPaths`, calls saveArxml with `currentPath` so the
+// main process silent-saves (reuses the T2 contract), and surfaces
+// the saved/failed counts in a toast.
+
+describe('AppHeader Save All button (Sprint 16b T7)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = makeWindowApi();
+  });
+
+  it('Save All click silent-saves every dirty ECUC via currentPath', async () => {
+    // 3 dirty docs with distinct filePaths → saveArxml called 3 times,
+    // each with currentPath === doc.path; markSaved called 3 times;
+    // toast set to "已保存 3 个文件" / "Saved 3 files"
+    const api = makeWindowApi();
+    // Echo the requested currentPath back as the saved path so
+    // markSaved drops the matching entry from dirtyPaths on every
+    // iteration. (Hard-coding a single path would let markSaved
+    // succeed only once because subsequent calls are no-ops on the
+    // already-removed path — which masks real behaviour for the
+    // multi-doc case.)
+    api.saveArxml.mockImplementation(async (req: { currentPath?: string }) => ({
+      ok: true,
+      value: { canceled: false, path: req.currentPath ?? '/p/A.arxml' },
+    }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = api;
+
+    // Three distinct docs, all dirty.
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/C.arxml');
+    useArxmlStore.setState({
+      dirtyPaths: new Set(['/p/A.arxml', '/p/B.arxml', '/p/C.arxml']),
+    });
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-save-all'));
+
+    // Three silent saves, one per dirty path.
+    await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(3));
+    const calls = api.saveArxml.mock.calls;
+    const seenPaths = calls.map((c) => (c[0] as { currentPath?: string }).currentPath).sort();
+    expect(seenPaths).toEqual(['/p/A.arxml', '/p/B.arxml', '/p/C.arxml']);
+    // All calls carried currentPath (no dialog) — every call had a path.
+    for (const c of calls) {
+      const req = c[0] as { currentPath?: string };
+      expect(req.currentPath).toBeTruthy();
+    }
+
+    // markSaved was called for every dirty path → dirtyPaths is empty.
+    await vi.waitFor(() => {
+      expect(useArxmlStore.getState().dirtyPaths.size).toBe(0);
+    });
+
+    // Toast reports the success count, localized for the current locale.
+    await vi.waitFor(() => {
+      const err = useArxmlStore.getState().error;
+      expect(err).toBe('Saved 3 files');
+    });
+  });
+
+  it('Save All is disabled when no doc is dirty', () => {
+    // 0 dirty paths → button disabled.
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    // dirtyPaths stays empty.
+    render(<AppHeader {...noopProps} />);
+    const btn = screen.getByTestId('btn-save-all');
+    expect(btn).toBeDisabled();
+  });
+
+  it('Save All surfaces partial-failure toast', async () => {
+    // 2 dirty, second saveArxml returns ok:false → toast shows failure
+    // (1 saved, 1 failed). The first doc is still saved; the second
+    // doc's dirty bit is preserved (markSaved was NOT called for it).
+    const api = makeWindowApi();
+    // First call (A.arxml) succeeds, second call (B.arxml) fails.
+    api.saveArxml
+      .mockResolvedValueOnce({ ok: true, value: { canceled: false, path: '/p/A.arxml' } })
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { kind: 'permission-denied', message: 'EACCES' },
+      });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = api;
+
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml', '/p/B.arxml']) });
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-save-all'));
+
+    await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(2));
+    // Only the successful path was markSaved'd → /p/A.arxml is clean,
+    // /p/B.arxml is still dirty.
+    await vi.waitFor(() => {
+      const dirty = useArxmlStore.getState().dirtyPaths;
+      expect(dirty.has('/p/A.arxml')).toBe(false);
+      expect(dirty.has('/p/B.arxml')).toBe(true);
+      expect(dirty.size).toBe(1);
+    });
+    // Toast reports partial failure: 1 saved, 1 failed, EACCES.
+    await vi.waitFor(() => {
+      const err = useArxmlStore.getState().error;
+      expect(err).not.toBeNull();
+      expect(err).toContain('Saved 1');
+      expect(err).toContain('1 failed');
+      expect(err).toContain('EACCES');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Sprint 13+ — store-error banner surfacing
 // ---------------------------------------------------------------------------
 //

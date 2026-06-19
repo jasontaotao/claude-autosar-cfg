@@ -118,6 +118,13 @@ export function AppHeader({
   // Sprint 11 Phase 1 (Option A) — i18n
   const locale = useArxmlStore((s) => s.locale);
   const setLocale = useArxmlStore((s) => s.setLocale);
+  // Sprint 16b T7 — Save All button. `dirtyPaths` is the per-path Set
+  // and `documents` is the parallel ArxmlDocument array; the handler
+  // below walks the Set and resolves each path to its ArxmlDocument
+  // via `find` before calling saveArxml. We subscribe to the Set
+  // directly (not the size) so the button enables/disables on every
+  // add/delete, not on selection changes.
+  const dirtyPaths = useArxmlStore((s) => s.dirtyPaths);
   // Sprint 11 Phase 1 (H2 fix) — shared project actions; same hook
   // ProjectPanel.LooseView uses, so no synthetic-click coupling.
   const { newProject, openProjectFromDialog, saveProject } = useProjectActions();
@@ -242,6 +249,62 @@ export function AppHeader({
   };
 
   // -----------------------------------------------------------------
+  // Sprint 16b T7 — Save All toolbar button. Loops over every entry
+  // in `dirtyPaths`, resolves each to its ArxmlDocument, and calls
+  // saveArxml with `currentPath = path` so the main process silent-
+  // saves (reuses the T2 contract; no dialog per file). On success
+  // markSaved drops the path from `dirtyPaths`; on failure the path
+  // stays dirty and the error is collected into a per-failure list.
+  // Final toast reports either N saved (all good) or "Saved X, Y
+  // failed: firstError" when at least one save errored.
+  // -----------------------------------------------------------------
+  const onSaveAll = async (): Promise<void> => {
+    if (state.busy) return;
+    const storeState = useArxmlStore.getState();
+    const dirty = Array.from(storeState.dirtyPaths);
+    if (dirty.length === 0) return;
+    setState({ busy: true });
+    setStoreError(null);
+    let saved = 0;
+    const failed: string[] = [];
+    for (const path of dirty) {
+      // Resolve the path to its ArxmlDocument via the parallel-array
+      // index. `documents[i]` corresponds to `documentPaths[i]` (the
+      // contract `addDocument` enforces); we cannot match by
+      // `doc.path` because docs carry their OWN in-memory path
+      // (`/in-memory` in tests, the source path in production) rather
+      // than the filePath keying the documentPaths set.
+      const idx = storeState.documentPaths.indexOf(path);
+      if (idx === -1) continue;
+      const docEntry = storeState.documents[idx];
+      if (docEntry === undefined) continue;
+      const r = await window.autosarApi.saveArxml({
+        doc: docEntry,
+        defaultName: basename(path) || 'untitled.arxml',
+        currentPath: path,
+      });
+      if (r.ok && !r.value.canceled) {
+        useArxmlStore.getState().markSaved(r.value.path ?? path);
+        saved += 1;
+      } else if (!r.ok) {
+        failed.push(r.error.message);
+      }
+    }
+    setState({ busy: false });
+    if (failed.length === 0) {
+      setStoreError(t(locale, 'app.saveAllDone', { count: saved }));
+    } else {
+      setStoreError(
+        t(locale, 'app.saveAllPartial', {
+          saved,
+          failed: failed.length,
+          firstError: failed[0] ?? '',
+        }),
+      );
+    }
+  };
+
+  // -----------------------------------------------------------------
   // Sprint 11 Phase 1 — project handlers
   // -----------------------------------------------------------------
 
@@ -270,6 +333,14 @@ export function AppHeader({
   };
 
   const canSave = doc !== null && !state.busy && isActiveDirty;
+  // Sprint 16b T7 — Save All enable predicate. The button is live when
+  // at least one dirty doc exists AND no other action is in-flight. We
+  // re-read `dirtyPaths.size` instead of `projectDirtyCount` so the
+  // button tracks the per-doc Set directly (projectDirtyCount was
+  // introduced for the Save Project tooltip). Both end up the same
+  // value, but naming them separately keeps each predicate's intent
+  // obvious at the call site.
+  const canSaveAll = !state.busy && dirtyPaths.size > 0;
   const projectDirtyCount = useArxmlStore((s) => s.dirtyPaths.size);
   const canSaveProject = project !== null && !state.busy && projectDirtyCount === 0;
 
@@ -426,6 +497,29 @@ export function AppHeader({
           data-testid="btn-save"
         >
           {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
+        </button>
+        {/* Sprint 16b T7 — Save All. Loops dirty paths silently (no
+            per-file dialog). Label previews the count when N>0 so the
+            user can see how many files will be touched; tooltip
+            matches. Disabled when the set is empty OR another action
+            is in-flight (`state.busy` is set during the loop). Placed
+            immediately right of `btn-save` per the "高频按钮常驻工具栏"
+            UX rule. */}
+        <button
+          type="button"
+          onClick={() => { void onSaveAll(); }}
+          disabled={!canSaveAll}
+          className={`app-btn app-btn-save-all ${dirtyPaths.size > 0 ? 'is-dirty' : ''}`}
+          data-testid="btn-save-all"
+          title={
+            dirtyPaths.size > 0
+              ? t(locale, 'app.saveAllDirtyTitle', { count: dirtyPaths.size })
+              : t(locale, 'app.saveAllTitle')
+          }
+        >
+          {dirtyPaths.size > 0
+            ? t(locale, 'app.saveAllDirty', { count: dirtyPaths.size })
+            : t(locale, 'app.saveAll')}
         </button>
       </div>
       {/* Sprint 13+ — removed the doc-tab strip (app-doc-tabs) that showed

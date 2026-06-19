@@ -49,6 +49,18 @@ export interface Messages {
   readonly 'app.open': string;
   readonly 'app.save': string;
   readonly 'app.saveDirty': string;
+  // Sprint 16b T7 — Save All toolbar button. `saveAll` is the idle label
+  // (button enabled but zero dirty docs → tooltip "Save all unsaved
+  // ECUCs"). `saveAllDirty` swaps in when N>0 dirty paths exist so the
+  // button previews its impact ("Save 3"). `saveAllTitle` / `saveAllDirtyTitle`
+  // are the tooltip variants. `saveAllDone` / `saveAllPartial` are the
+  // post-action toasts the Save All handler writes to the store.
+  readonly 'app.saveAll': string;
+  readonly 'app.saveAllDirty': string; // {count}
+  readonly 'app.saveAllTitle': string;
+  readonly 'app.saveAllDirtyTitle': string; // {count}
+  readonly 'app.saveAllDone': string; // {count}
+  readonly 'app.saveAllPartial': string; // {saved}, {failed}, {firstError}
   readonly 'app.project.new': string;
   readonly 'app.project.open': string;
   readonly 'app.project.save': string;
@@ -332,6 +344,12 @@ export const MessagesZhCN: Messages = {
   'app.open': '打开',
   'app.save': '保存',
   'app.saveDirty': '保存 *',
+  'app.saveAll': '全部保存',
+  'app.saveAllDirty': '保存 {count} 个',
+  'app.saveAllTitle': '保存所有未存的 ECUC',
+  'app.saveAllDirtyTitle': '{count} 个 ECUC 待保存',
+  'app.saveAllDone': '已保存 {count} 个文件',
+  'app.saveAllPartial': '已保存 {saved} 个，{failed} 个失败：{firstError}',
   'app.project.new': '新建项目',
   'app.project.open': '打开项目',
   'app.project.save': '保存项目',
@@ -560,6 +578,12 @@ export const MessagesEn: Messages = {
   'app.open': 'Open',
   'app.save': 'Save',
   'app.saveDirty': 'Save *',
+  'app.saveAll': 'Save All',
+  'app.saveAllDirty': 'Save {count}',
+  'app.saveAllTitle': 'Save all unsaved ECUCs',
+  'app.saveAllDirtyTitle': '{count} ECUCs pending',
+  'app.saveAllDone': 'Saved {count} files',
+  'app.saveAllPartial': 'Saved {saved}, {failed} failed: {firstError}',
   'app.project.new': 'New Project',
   'app.project.open': 'Open Project',
   'app.project.save': 'Save Project',
