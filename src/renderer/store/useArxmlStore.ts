@@ -397,6 +397,59 @@ export interface ArxmlState {
   setLocale: (locale: Locale) => void;
 }
 
+// ---------------------------------------------------------------------------
+// Sprint 17c T8 — resolveContainerTarget helper
+//
+// The store actions (addContainer / addParameter / addReference /
+// deleteContainer / deleteParameter / updateParam) all open with a
+// "find the source document" block that branches on viewMode. In
+// 'combined' mode the path is basename-prefixed and we route via
+// `findByPathMultiDoc`; in 'single' mode we use the active document.
+// The block was duplicated 7 times — extract it to a single pure
+// function so the call sites shrink to a null check + destructure.
+//
+// Pure: no I/O, no mutation, no closure over the store. The caller
+// passes the state snapshot and the path; we return either a resolved
+// target (doc + filePath + innerPath) or null when no source can be
+// found. innerPath equals the input path for both modes — the
+// basename-prefix stripping in combined mode is handled inside
+// `findByPathMultiDoc`; callers using the inner path for
+// `applyParamUpdate` continue to do so via the explicit
+// `stripCombinedPrefix` call they already perform.
+// ---------------------------------------------------------------------------
+
+export interface ResolvedContainerTarget {
+  readonly doc: ArxmlDocument;
+  readonly filePath: string;
+  readonly innerPath: string;
+}
+
+/**
+ * Resolve a container path to its source document + filePath + innerPath.
+ *
+ * - 'combined' mode: routes via `findByPathMultiDoc` (path may carry a
+ *   source file's basename as a prefix; the inner path is identical to
+ *   the input because the per-doc lookup inside `findByPathMultiDoc`
+ *   already strips the prefix when needed).
+ * - 'single' mode: returns the active document; innerPath equals the
+ *   input path verbatim.
+ * - Returns `null` when the combined-mode lookup misses or the
+ *   single-mode store has no active document — callers treat null as
+ *   a 'path-not-found' error.
+ */
+export function resolveContainerTarget(
+  state: ArxmlState,
+  containerPath: string,
+): ResolvedContainerTarget | null {
+  if (state.viewMode === 'combined') {
+    const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+    if (hit === null) return null;
+    return { doc: hit.doc, filePath: hit.filePath, innerPath: containerPath };
+  }
+  if (state.doc === null) return null;
+  return { doc: state.doc, filePath: state.filePath ?? '', innerPath: containerPath };
+}
+
 export const useArxmlStore = create<ArxmlState>((set, get) => ({
   documents: [],
   documentPaths: [],
@@ -576,13 +629,14 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     // Combined-mode routing (Sprint 13 Stage 3.5): when viewMode is
     // 'combined', the selectedPath is prefixed with the source file's
     // basename. Resolve it back to the source document via
-    // findByPathMultiDoc and mutate THAT document, not the active one.
-    // In 'single' mode, containerPath is a regular path inside the
-    // active doc and we keep the legacy route.
+    // resolveContainerTarget (which delegates to findByPathMultiDoc)
+    // and mutate THAT document, not the active one. In 'single' mode,
+    // containerPath is a regular path inside the active doc and we
+    // keep the legacy route.
     if (state.viewMode === 'combined') {
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
-      if (hit === null) return;
-      const { doc: sourceDoc, filePath: sourcePath } = hit;
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) return;
+      const { doc: sourceDoc, filePath: sourcePath } = target;
       const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) return;
       // The source's own path doesn't carry the basename prefix, so
@@ -976,17 +1030,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const state = get();
     if (state.viewMode === 'combined') {
       // Combined-mode dispatch: route to the source document.
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, parentPath);
-      if (hit === null) {
+      const target = resolveContainerTarget(state, parentPath);
+      if (target === null) {
         setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
         return;
       }
-      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      const { doc: sourceDoc, filePath: sourcePath } = target;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) {
         setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
         return;
       }
-      const innerPath = stripCombinedPrefix(parentPath, hit.filePath);
+      const innerPath = stripCombinedPrefix(parentPath, sourcePath);
       if (innerPath === null) {
         setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
         return;
@@ -1007,12 +1062,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
         set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
         return;
       }
-      const result = coreAddContainer(hit.doc, innerPath, shortName, moduleDef, childDef);
+      const result = coreAddContainer(sourceDoc, innerPath, shortName, moduleDef, childDef);
       if (!result.ok) {
         set({ error: mutationErrorToI18n(state.locale, result.error) });
         return;
       }
-      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      applyMutationResultToSource(set, state, sourceIdx, result.value, sourcePath);
       return;
     }
     // Single-mode dispatch — the active document.
@@ -1042,17 +1097,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
     const state = get();
     if (state.viewMode === 'combined') {
       // Combined-mode: resolve to the source doc.
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
-      if (hit === null) {
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      const { doc: sourceDoc, filePath: sourcePath } = target;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      const innerPath = stripCombinedPrefix(containerPath, sourcePath);
       if (innerPath === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
@@ -1065,13 +1121,13 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       const refs = findReferencesTo(refBundle, innerPath);
       if (refs.length === 0) {
         // HIGH-2: pass moduleDef so the core can enforce multiplicity-floor.
-        const moduleDef = findModuleDefForPath(state.bswmdSchemas, hit.doc.path);
-        const result = coreRemoveContainer(hit.doc, innerPath, false, moduleDef);
+        const moduleDef = findModuleDefForPath(state.bswmdSchemas, sourceDoc.path);
+        const result = coreRemoveContainer(sourceDoc, innerPath, false, moduleDef);
         if (!result.ok) {
           set({ error: mutationErrorToI18n(state.locale, result.error) });
           return;
         }
-        applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+        applyMutationResultToSource(set, state, sourceIdx, result.value, sourcePath);
         return;
       }
       // Defer to the cascade dialog via pendingDelete.
@@ -1104,17 +1160,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   addParameter: (containerPath, paramShortName) => {
     const state = get();
     if (state.viewMode === 'combined') {
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
-      if (hit === null) {
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      const { doc: sourceDoc, filePath: sourcePath } = target;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      const innerPath = stripCombinedPrefix(containerPath, sourcePath);
       if (innerPath === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
@@ -1133,12 +1190,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
         });
         return;
       }
-      const result = coreAddParameter(hit.doc, innerPath, paramDef, moduleDef);
+      const result = coreAddParameter(sourceDoc, innerPath, paramDef, moduleDef);
       if (!result.ok) {
         set({ error: mutationErrorToI18n(state.locale, result.error) });
         return;
       }
-      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      applyMutationResultToSource(set, state, sourceIdx, result.value, sourcePath);
       return;
     }
     if (state.activeDocumentPath === null || state.doc === null) return;
@@ -1172,17 +1229,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   addReference: (containerPath, refShortName) => {
     const state = get();
     if (state.viewMode === 'combined') {
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
-      if (hit === null) {
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      const { doc: sourceDoc, filePath: sourcePath } = target;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      const innerPath = stripCombinedPrefix(containerPath, sourcePath);
       if (innerPath === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
@@ -1199,12 +1257,12 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
         });
         return;
       }
-      const result = coreAddReference(hit.doc, innerPath, refDef, moduleDef);
+      const result = coreAddReference(sourceDoc, innerPath, refDef, moduleDef);
       if (!result.ok) {
         set({ error: mutationErrorToI18n(state.locale, result.error) });
         return;
       }
-      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      applyMutationResultToSource(set, state, sourceIdx, result.value, sourcePath);
       return;
     }
     if (state.activeDocumentPath === null || state.doc === null) return;
@@ -1233,27 +1291,28 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   deleteParameter: (containerPath, paramKey) => {
     const state = get();
     if (state.viewMode === 'combined') {
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
-      if (hit === null) {
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const sourceIdx = state.documentPaths.indexOf(hit.filePath);
+      const { doc: sourceDoc, filePath: sourcePath } = target;
+      const sourceIdx = state.documentPaths.indexOf(sourcePath);
       if (sourceIdx === -1) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const innerPath = stripCombinedPrefix(containerPath, hit.filePath);
+      const innerPath = stripCombinedPrefix(containerPath, sourcePath);
       if (innerPath === null) {
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const result = coreRemoveParameter(hit.doc, innerPath, paramKey);
+      const result = coreRemoveParameter(sourceDoc, innerPath, paramKey);
       if (!result.ok) {
         set({ error: mutationErrorToI18n(state.locale, result.error) });
         return;
       }
-      applyMutationResultToSource(set, state, sourceIdx, result.value, hit.filePath);
+      applyMutationResultToSource(set, state, sourceIdx, result.value, sourcePath);
       return;
     }
     if (state.activeDocumentPath === null || state.doc === null) return;
@@ -1306,13 +1365,13 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
 
     // Combined-mode: the target path may live in a different file.
     if (state.viewMode === 'combined') {
-      const hit = findByPathMultiDoc(state.documents, state.documentPaths, pending.path);
-      if (hit !== null) {
-        const inner = stripCombinedPrefix(pending.path, hit.filePath);
+      const target = resolveContainerTarget(state, pending.path);
+      if (target !== null) {
+        const inner = stripCombinedPrefix(pending.path, target.filePath);
         if (inner !== null) {
-          workingDoc = hit.doc;
-          workingIdx = state.documentPaths.indexOf(hit.filePath);
-          workingPath = hit.filePath;
+          workingDoc = target.doc;
+          workingIdx = state.documentPaths.indexOf(target.filePath);
+          workingPath = target.filePath;
         }
       }
     } else {

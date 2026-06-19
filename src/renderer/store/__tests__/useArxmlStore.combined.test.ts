@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
 
-import { useArxmlStore } from '../useArxmlStore';
+import { resolveContainerTarget, useArxmlStore } from '../useArxmlStore';
 
 function makeDoc(
   filePath: string,
@@ -258,5 +258,74 @@ describe('useArxmlStore — Combined Tree View (Stage 3.5)', () => {
     useArxmlStore.getState().clear();
     expect(useArxmlStore.getState().viewMode).toBe('single');
     expect(useArxmlStore.getState().displayDoc).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint 17c T8 — resolveContainerTarget helper
+//
+// The store has 7 inline blocks of the form:
+//   if (state.viewMode === 'combined') {
+//     const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+//     if (hit === null) { /* error */ return; }
+//     /* use hit.doc / hit.filePath */
+//   } else { /* use state.doc */ }
+//
+// `resolveContainerTarget(state, containerPath)` consolidates that into a
+// single pure function so the call sites shrink to a null check.
+// ---------------------------------------------------------------------------
+
+describe('resolveContainerTarget (Sprint 17c T8)', () => {
+  it('combined mode: routes to source doc via findByPathMultiDoc (basename-prefixed path)', () => {
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/a/Can.arxml', 'Can', 'A'), '/a/Can.arxml');
+    store.addDocument(makeDoc('/b/Can.arxml', 'Can', 'B'), '/b/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+
+    // Collision: module shortName 'Can' appears in 2 docs → basename wrapper.
+    // Inner path is `/EAS/Can/A` under the first file.
+    const state = useArxmlStore.getState();
+    const target = resolveContainerTarget(state, '/Can.arxml/EAS/Can/A');
+    expect(target).not.toBeNull();
+    expect(target?.filePath).toBe('/a/Can.arxml');
+    expect(target?.innerPath).toBe('/Can.arxml/EAS/Can/A');
+    expect(target?.doc).toBe(state.documents[0]);
+  });
+
+  it('single mode: returns active doc; innerPath equals containerPath', () => {
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig'), '/tmp/Adc.arxml');
+    // viewMode stays 'single' (the default)
+    const state = useArxmlStore.getState();
+    const target = resolveContainerTarget(state, '/EAS/Adc/AdcConfig');
+    expect(target).not.toBeNull();
+    expect(target?.doc).toBe(state.doc);
+    expect(target?.filePath).toBe('/tmp/Adc.arxml');
+    expect(target?.innerPath).toBe('/EAS/Adc/AdcConfig');
+  });
+
+  it('single mode with no active doc: returns null', () => {
+    // Force a fresh empty state: clear() drops documents + active path.
+    // (The beforeEach above already calls clear(), but the surrounding
+    // tests load docs — make this one robust against the order in which
+    // vitest runs the four cases.)
+    useArxmlStore.getState().clear();
+    const state = useArxmlStore.getState();
+    expect(state.doc).toBeNull();
+    const target = resolveContainerTarget(state, '/EAS/Adc/AdcConfig');
+    expect(target).toBeNull();
+  });
+
+  it('combined mode with no matching source: returns null', () => {
+    const store = useArxmlStore.getState();
+    store.setDoc(makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig'), '/tmp/Adc.arxml');
+    store.addDocument(makeDoc('/tmp/Can.arxml', 'Can', 'CanConfig'), '/tmp/Can.arxml');
+    useArxmlStore.getState().setViewMode('combined');
+
+    // Combined mode + flat (no collision) + a path that doesn't exist in
+    // either doc → findByPathMultiDoc returns null → helper returns null.
+    const state = useArxmlStore.getState();
+    const target = resolveContainerTarget(state, '/EAS/Missing/Unknown');
+    expect(target).toBeNull();
   });
 });

@@ -30,7 +30,6 @@ import { createPortal } from 'react-dom';
 
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import type { AllowedSubElement, MutationError } from '@core/arxml/mutation.js';
-import { findByPathMultiDoc } from '@core/arxml/path.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -43,7 +42,7 @@ import type { BswModuleDef } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n.js';
 import type { Locale } from '@shared/i18n.js';
 
-import { useArxmlStore } from '../store/useArxmlStore.js';
+import { resolveContainerTarget, useArxmlStore } from '../store/useArxmlStore.js';
 
 import './BswmdPickerDialog.css';
 
@@ -83,20 +82,18 @@ function resolvePickerSource(
   state: ReturnType<typeof useArxmlStore.getState>,
 ): ResolvedPickerSource | null {
   if (state.documents.length === 0) return null;
-  let sourceDoc: ArxmlDocument | null = null;
-  let innerPath = parentPath;
-  if (state.viewMode === 'combined') {
-    const hit = findByPathMultiDoc(state.documents, state.documentPaths, parentPath);
-    if (hit === null) return null;
-    sourceDoc = hit.doc;
-    // The picker doesn't need to strip the combined prefix for the
-    // BSWMD lookup because the BSWMD lookup helper resolves by
-    // module shortName (segments[1]), not by full path.
-    innerPath = parentPath;
-  } else {
-    if (state.doc === null) return null;
-    sourceDoc = state.doc;
-  }
+  // Sprint 17c T8 — use the shared `resolveContainerTarget` helper so
+  // the picker's "find the source doc" block matches the store's own
+  // action-level dispatch. The helper returns null when no source
+  // resolves (unknown basename / [doc:N] / null active doc).
+  const target = resolveContainerTarget(state, parentPath);
+  if (target === null) return null;
+  const sourceDoc: ArxmlDocument = target.doc;
+  // The picker doesn't need to strip the combined prefix for the
+  // BSWMD lookup because the BSWMD lookup helper resolves by module
+  // shortName (segments[1]), not by full path. innerPath mirrors
+  // the helper's contract: identical to parentPath in both modes.
+  const innerPath: string = target.innerPath;
   // Find parent element by walking the value-side path.
   const parentElement = locateParentElement(sourceDoc, innerPath);
   if (parentElement === null) {
