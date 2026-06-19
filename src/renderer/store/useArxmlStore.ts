@@ -287,6 +287,8 @@ export interface ArxmlState {
   closeDiff: () => void;
   undoInternal: () => void;
   commitImport: () => Result<{ readonly sourceFilesTouched: readonly string[] }, ImportError>;
+  cancelImport: () => void;
+  undoLastCommit: () => void;
 
   // Sprint 17c T10 — build warnings surfaced from the combined
   // document synthesis. `buildCombinedDocument` now deduplicates root
@@ -599,7 +601,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // closed; no pending action. The `isDirty` getter is a function on
   // the state (zustand permits functions in state alongside data) so
   // it always reflects the current `dirtyPaths` set.
-  isDirty: () => get().dirtyPaths.size > 0,
+  isDirty: () => get().dirtyPaths.size > 0 || get().importSession !== null,
   newProjectDialogOpen: false,
   confirmDialogOpen: false,
   // Sprint 15 Phase 2 — picker + cascade confirm defaults. Both
@@ -940,6 +942,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // 'single' so a fresh project doesn't open in combined mode by
       // accident; the user re-opens the combined view explicitly.
       viewMode: 'single',
+      // Sprint 14 — clear the ImportSession slice + lastCommitSnapshot
+      // so a fresh project doesn't reopen a stale import dialog or
+      // accidentally offer undoLastCommit from a prior commit.
+      importSession: null,
+      lastCommitSnapshot: null,
       // Locale is a user preference — clear() resets docs but keeps
       // the language setting. Use setLocale() explicitly to change.
     }),
@@ -1492,6 +1499,63 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       ok: true,
       value: { sourceFilesTouched: [...sourceFilesTouched] },
     };
+  },
+
+  // -------------------------------------------------------------------
+  // Sprint 14 ECUC ARXML Import — T9 actions.
+  //
+  // `cancelImport` discards the in-flight session WITHOUT
+  // confirmation (spec §6.3: "退出不弹 confirm"). Source
+  // documents and dirty paths are untouched. Used by the
+  // ModuleSelectionPanel's [Cancel] button and by the AppHeader
+  // guard that blocks Save while viewMode === 'import-merged'.
+  //
+  // `undoLastCommit` reverses the most recent successful commit
+  // by restoring the `lastCommitSnapshot` documents and dropping
+  // the snapshot entries from `dirtyPaths`. The snapshot is
+  // cleared so a second `undoLastCommit` is a no-op (we only
+  // support one level of undo per spec §7.4).
+  // -------------------------------------------------------------------
+
+  cancelImport: () => {
+    const state = get();
+    if (state.importSession === null) return;
+    set({
+      importSession: null,
+      viewMode: 'single',
+      // activeModuleForDiff is nested inside importSession — once
+      // the session is null there is no diff to display. The
+      // setter would be a no-op anyway; we just make the intent
+      // explicit.
+      activeModuleForDiff: null,
+    });
+  },
+
+  undoLastCommit: () => {
+    const state = get();
+    const snapshot = state.lastCommitSnapshot;
+    if (snapshot === null) return;
+    // Restore the documents for every snapshot entry, leaving
+    // all other docs unchanged. Also clear the dirty bit for
+    // each restored file (we're undoing the commit that dirtied
+    // them).
+    const nextDocuments = state.documents.map((d, i) => {
+      const filePath = state.documentPaths[i];
+      if (filePath === undefined) return d;
+      const snap = snapshot.get(filePath);
+      return snap ?? d;
+    });
+    let nextDirty = state.dirtyPaths;
+    for (const filePath of snapshot.keys()) {
+      nextDirty = dropFromDirty(nextDirty, filePath);
+    }
+    set({
+      documents: nextDocuments,
+      dirtyPaths: nextDirty,
+      lastCommitSnapshot: null,
+      validationErrors: validateProjectForRenderer(nextDocuments),
+      lastValidatedAt: Date.now(),
+    });
   },
 
   // Sprint 12 #3 Task 7 — dialog visibility setters. All three setters
