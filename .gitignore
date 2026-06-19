@@ -19,6 +19,12 @@ test-results/
 # the 80% coverage gate on their own. Sprint 2 adds 5-sample mutation
 # round-trip (T7) which depends on these, so they are now in-repo.
 
+# Local reference ARXML (not shipped templates).
+# `samples/arxml/<id>/` is the convention for shipped templates (see samples/README.md).
+# Flat `AUTOSAR_MOD_*.arxml` here is the full AUTOSAR R21-11 standard ECUC parameter
+# definition (~15 MB) — kept as a local reference fixture, not shipped via electron-builder.
+samples/arxml/AUTOSAR_MOD_*.arxml
+
 # Environment
 .env
 .env.local

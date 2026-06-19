@@ -11,6 +11,16 @@
 - ✅ main process 的 `templates:list` IPC 已实现，渲染器 NewProjectDialog 的 preset picker 已落地
 - ⏳ 实际样例文件：用户后续放置（见下方"如何添加模板"）
 
+## 本地参考 fixture（不入库、不随包分发）
+
+`samples/arxml/` 顶层若存在 `AUTOSAR_MOD_*.arxml` 之类的**平铺**文件，属于**本地参考**，**不入 git**、**不随 electron-builder 分发**：
+
+- 用途：开发期手动比对 AUTOSAR 标准 ECUC parameter definition（如 R21-11 的 `AUTOSAR_MOD_ECUConfigurationParameters.arxml`，~15 MB）。
+- 不会被 `discoverBuiltinTemplates` 识别（缺 `template.json` + 不在 `<id>/` 下）。
+- 已加入 `.gitignore`（`samples/arxml/AUTOSAR_MOD_*.arxml`），不会污染仓库。
+
+要 ship 一个真实模板，按下方"如何添加模板"流程在 `samples/arxml/<id>/` 下建子目录。
+
 ## 目录结构
 
 ```
