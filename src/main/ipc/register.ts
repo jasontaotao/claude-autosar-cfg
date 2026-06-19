@@ -30,6 +30,10 @@ import type {
   ReadBswmdResponse,
   SaveArxmlRequest,
   SaveArxmlResponse,
+  ScriptDeleteRequest,
+  ScriptListRequest,
+  ScriptRunRequest,
+  ScriptSaveRequest,
 } from '../../shared/types.js';
 
 import { readBswmdHandler } from './bswmdReadHandler.js';
@@ -39,6 +43,12 @@ import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
 import { projectWriteArxmlBatchHandler } from './projectWriteArxmlBatchHandler.js';
 import { saveArxmlHandler } from './saveArxmlHandler.js';
+import {
+  scriptDeleteHandler,
+  scriptListHandler,
+  scriptRunHandler,
+  scriptSaveHandler,
+} from './script-handler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
@@ -372,6 +382,29 @@ export function registerIpcHandlers(): void {
     async (_evt, req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> => {
       return projectDeleteArxmlHandler(req);
     },
+  );
+
+  // Sprint 14 #1 — script engine IPC. The 4 invoke handlers are
+  // wired to the dedicated `script-handler.ts` module so they can be
+  // unit-tested directly without a full ipcMain round-trip. The
+  // `SCRIPT_PROGRESS` channel is push-only (main → renderer via
+  // webContents.send); it is intentionally NOT registered here
+  // (Phase C wires the subscription in the preload bridge).
+  ipcMain.handle(
+    IPC_CHANNELS.SCRIPT_LIST,
+    async (_evt, req: ScriptListRequest) => scriptListHandler(req),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.SCRIPT_SAVE,
+    async (_evt, req: ScriptSaveRequest) => scriptSaveHandler(req),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.SCRIPT_DELETE,
+    async (_evt, req: ScriptDeleteRequest) => scriptDeleteHandler(req),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.SCRIPT_RUN,
+    async (_evt, req: ScriptRunRequest) => scriptRunHandler(req),
   );
 
   ipcMain.handle(
