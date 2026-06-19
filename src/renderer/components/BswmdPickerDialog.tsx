@@ -276,13 +276,15 @@ export function BswmdPickerRoot(): JSX.Element | null {
 
   const resolution = useMemo(() => {
     if (!picker.open || picker.parentPath === null || picker.kind === null) return null;
-    // Pull the latest state on every render so the resolution tracks
-    // document / bswmd updates between opens.
+    // Read state fresh on each memo run — `useArxmlStore.getState()` is a
+    // stable import (not a captured hook value), so it doesn't appear in
+    // deps. `documents` + `documentPaths` ARE in deps as intentional
+    // triggers: when the document set changes, the memo re-runs and
+    // `getState()` returns the fresh state, fixing the T9 stale-seed bug
+    // where the picker kept showing the original active-doc resolution.
     const state = useArxmlStore.getState();
     return resolvePickerSource(picker.parentPath, picker.kind, state);
-    // documents / documentPaths in the deps list ensure the memo
-    // re-runs when the document set changes (T9 stale-seed fix).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers; values consumed via getState()
   }, [picker.open, picker.parentPath, picker.kind, documents, documentPaths]);
 
   if (!picker.open || picker.parentPath === null || picker.kind === null) {
