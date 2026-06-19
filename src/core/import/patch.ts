@@ -11,7 +11,6 @@
 //
 //        'overwrite' on no-collision      → 'add-module'
 //        'overwrite' on collision         → 'merge-into-module'
-//        'overwrite-module' resolution    → 'overwrite-module'
 //        'keep-both' on collision         → 'rename-incoming'
 //                                            (op paired with add-module)
 //
@@ -136,16 +135,6 @@ export function compileResolutionToPatches(
       } else {
         list.push({ kind: 'add-module', module: incoming });
       }
-      opsByFile.set(sourcePath, list);
-      continue;
-    }
-
-    if (resolution === 'overwrite-module') {
-      list.push({
-        kind: 'overwrite-module',
-        moduleShortName: incoming.shortName,
-        replacement: incoming,
-      });
       opsByFile.set(sourcePath, list);
       continue;
     }
