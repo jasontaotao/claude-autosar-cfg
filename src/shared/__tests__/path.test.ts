@@ -119,4 +119,20 @@ describe('shared/path.toManifestRelative', () => {
   it('returns null for empty filePath', () => {
     expect(toManifestRelative('/proj', '')).toBeNull();
   });
+
+  // ---------------------------------------------------------------------------
+  // Sprint 17a T1 — toManifestRelative rejects `..` segments in relative input
+  // ---------------------------------------------------------------------------
+
+  it('rejects relative input containing ".." segment', () => {
+    expect(toManifestRelative('/proj', '../foo.arxml')).toBeNull();
+  });
+
+  it('rejects relative input with embedded ".." segment', () => {
+    expect(toManifestRelative('/proj', 'foo/../bar.arxml')).toBeNull();
+  });
+
+  it('still passes through "foo/bar" relative input unchanged', () => {
+    expect(toManifestRelative('/proj', 'foo/bar.arxml')).toBe('foo/bar.arxml');
+  });
 });

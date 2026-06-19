@@ -49,11 +49,9 @@ export function dirname(p: string): string {
  *   - Sibling POSIX:       `/a/b` + `/a/c/X.arxml` (different parent)
  *   - Asymmetric drive prefix (one has, one doesn't)
  *   - Empty `filePath`
+ *   - Already-relative input containing `..` segment (parent traversal)
  */
-export function toManifestRelative(
-  manifestDir: string,
-  filePath: string,
-): string | null {
+export function toManifestRelative(manifestDir: string, filePath: string): string | null {
   if (filePath === '') return null;
   // Normalise backslashes to forward slashes for the comparison.
   const normDir = manifestDir.replace(/\\/g, '/');
@@ -78,12 +76,19 @@ export function toManifestRelative(
     return fileNoDrive.slice(dirNorm.length + 1);
   }
   // Already-relative input (no leading '/' and no drive letter): pass
-  // through unchanged. The caller is responsible for re-validating
-  // shape (no parent-traversal, no empty). This is a deliberate
-  // convenience for the renderer: openProject reads manifest-relative
-  // paths from disk, and addDocument may receive either form depending
-  // on the picker's source.
+  // through unchanged UNLESS the input contains a parent-traversal
+  // segment. We deliberately do NOT call `path.posix.normalize` here
+  // (renderer-safe, no node:path); instead we reject any path whose
+  // segments contain `..` after splitting on `/` and stripping empty
+  // segments. The caller can then treat `null` identically to
+  // "outside manifestDir" (typically: keep absolute path, surface
+  // error on next save round-trip).
   if (dirDrive === undefined && fileDrive === undefined && !filePath.startsWith('/')) {
+    const segments = filePath
+      .replace(/\\/g, '/')
+      .split('/')
+      .filter((s) => s !== '');
+    if (segments.some((s) => s === '..')) return null;
     return filePath;
   }
   return null;
