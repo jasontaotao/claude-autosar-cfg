@@ -46,9 +46,11 @@ import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
+import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
 import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
+import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { PromptRoot } from './components/PromptDialog';
@@ -134,6 +136,13 @@ export function App(): JSX.Element {
   const canSelectEcucModule = useArxmlStore((s) => s.bswmdSchemas.length > 0 && s.project !== null);
   const locale = useArxmlStore((s) => s.locale);
   const setStoreError = useArxmlStore((s) => s.setError);
+  // Sprint 14 / T13 — viewMode three-state guard. While
+  // viewMode === 'import-merged' the import-merged panel mounts in
+  // the left column and the Save / Combined UI affordances are
+  // hidden. The setViewMode guard (already in the store) rejects a
+  // manual switch to 'combined' while the import is in flight.
+  const viewMode = useArxmlStore((s) => s.viewMode);
+  const isImportMerged = viewMode === 'import-merged';
 
   const handleMenuSelectEcucModule = useCallback((): void => {
     setPreSelectedBswmdPath(undefined);
@@ -304,7 +313,17 @@ export function App(): JSX.Element {
           onLayoutChanged={onLayoutChanged}
         >
           <Panel id="workspace-left" minSize="20%" defaultSize="30%">
-            <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} />
+            {isImportMerged ? (
+              <div
+                className="app-import-merged-column"
+                data-testid="app-import-merged-column"
+              >
+                <ModuleSelectionPanel />
+                <DiffTable />
+              </div>
+            ) : (
+              <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} />
+            )}
           </Panel>
           <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
           <Panel id="workspace-right">
