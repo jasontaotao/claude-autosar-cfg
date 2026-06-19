@@ -1,0 +1,83 @@
+/* DiffTable — Sprint 14 / T12.
+ *
+ * Three-column diff table styling. Mirrors the existing
+ * ModuleSelectionPanel row conventions so the panel reads as a
+ * native extension of the file list.
+ */
+
+.diff-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 4px;
+  background: var(--color-surface, #fff);
+}
+
+.diff-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.diff-table-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.diff-table-close {
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 3px;
+  background: var(--color-surface, #fff);
+  cursor: pointer;
+  font: inherit;
+}
+
+.diff-table-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.diff-table-grid th,
+.diff-table-grid td {
+  border: 1px solid var(--color-border-muted, #ddd);
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.diff-table-grid th {
+  background: var(--color-surface-alt, #fafafa);
+  font-weight: 600;
+}
+
+.diff-table-cell-highlight {
+  background: var(--color-warning-bg, #fff8e1);
+  color: var(--color-warning-text, #8a6d00);
+}
+
+.diff-table-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  margin-right: 0.5em;
+  white-space: nowrap;
+}
+
+.diff-table-footer {
+  font-size: 0.85em;
+  color: var(--color-text-muted, #666);
+}
+
+.diff-table-error-message {
+  color: var(--color-error-text, #c00);
+  font-weight: 500;
+}
+
+.diff-table-param-override-marker {
+  display: none;
+}
