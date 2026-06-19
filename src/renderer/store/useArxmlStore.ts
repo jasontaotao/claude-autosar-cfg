@@ -35,7 +35,9 @@ import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 // Sprint 14 — ECUC ARXML Import slice.
 import type {
+  ImportResolution,
   ImportSession,
+  ModuleResolution,
   ModuleSelection,
 } from '@core/import/types.js';
 
@@ -271,6 +273,15 @@ export interface ArxmlState {
     incomingDocs: readonly ArxmlDocument[],
     originalPaths: readonly string[],
   ) => void;
+  selectModule: (mergedPath: string, selected: boolean) => void;
+  resolveModule: (
+    mergedPath: string,
+    resolution: ImportResolution,
+    containerResolutions?: ReadonlyMap<string, ImportResolution>,
+  ) => void;
+  openDiff: (mergedPath: string) => void;
+  closeDiff: () => void;
+  undoInternal: () => void;
 
   // Sprint 17c T10 — build warnings surfaced from the combined
   // document synthesis. `buildCombinedDocument` now deduplicates root
@@ -1253,6 +1264,95 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // Clear lastCommitSnapshot — a previous commit is no longer
       // "the last commit" once a new session starts.
       lastCommitSnapshot: null,
+    });
+  },
+
+  // -------------------------------------------------------------------
+  // Sprint 14 ECUC ARXML Import — T7 actions.
+  //
+  // `selectModule` flips the `selected` flag on a single
+  // `ModuleSelection` row. `resolveModule` records a per-module
+  // decision in the `resolutions` map (overwrites an existing entry
+  // for the same merged path so the UI can re-toggle freely).
+  // `openDiff` / `closeDiff` toggle `activeModuleForDiff` — the
+  // store does NOT compute the diff itself; the DiffTable component
+  // reads `activeModuleForDiff` and calls `buildModuleDiff` from
+  // core/import/diff.ts directly. `undoInternal` pops the most
+  // recent snapshot from `undoStack` (≤20 entries), restoring the
+  // previous `resolutions` array. `undoStack` is captured inside
+  // `resolveModule` (one snapshot per call) so `undoInternal` can
+  // step back one decision at a time.
+  // -------------------------------------------------------------------
+
+  selectModule: (mergedPath, selected) => {
+    const state = get();
+    if (state.importSession === null) return;
+    const nextSelections = state.importSession.selections.map((s) =>
+      s.mergedModulePath === mergedPath ? { ...s, selected } : s,
+    );
+    set({
+      importSession: { ...state.importSession, selections: nextSelections },
+    });
+  },
+
+  resolveModule: (mergedPath, resolution, containerResolutions) => {
+    const state = get();
+    if (state.importSession === null) return;
+    // Snapshot the previous resolutions for undoInternal.
+    const undoStack = state.importSession.undoStack;
+    const nextUndoStack = [...undoStack, state.importSession.resolutions].slice(-20);
+    const existingIdx = state.importSession.resolutions.findIndex(
+      (r) => r.mergedModulePath === mergedPath,
+    );
+    const newResolution: ModuleResolution = {
+      mergedModulePath: mergedPath,
+      resolution,
+      ...(containerResolutions !== undefined ? { containerResolutions } : {}),
+    };
+    const nextResolutions: ModuleResolution[] =
+      existingIdx === -1
+        ? [...state.importSession.resolutions, newResolution]
+        : state.importSession.resolutions.map((r, i) =>
+            i === existingIdx ? newResolution : r,
+          );
+    set({
+      importSession: {
+        ...state.importSession,
+        resolutions: nextResolutions,
+        undoStack: nextUndoStack,
+      },
+    });
+  },
+
+  openDiff: (mergedPath) => {
+    const state = get();
+    if (state.importSession === null) return;
+    set({
+      importSession: { ...state.importSession, activeModuleForDiff: mergedPath },
+    });
+  },
+
+  closeDiff: () => {
+    const state = get();
+    if (state.importSession === null) return;
+    set({
+      importSession: { ...state.importSession, activeModuleForDiff: null },
+    });
+  },
+
+  undoInternal: () => {
+    const state = get();
+    if (state.importSession === null) return;
+    const stack = state.importSession.undoStack;
+    if (stack.length === 0) return;
+    const last = stack[stack.length - 1]!;
+    const nextStack = stack.slice(0, -1);
+    set({
+      importSession: {
+        ...state.importSession,
+        resolutions: last,
+        undoStack: nextStack,
+      },
     });
   },
 
