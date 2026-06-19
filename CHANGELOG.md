@@ -5,6 +5,88 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-06-20 — Sprint 14 Script Engine
+
+MINOR bump: **EB tresos 风格的 Script Engine** — 用户在 panel 内写
+JavaScript，whitelisted ctx API 操作 ARXML project，validator / transformer /
+report / free 4 种 kind 直接进入 ValidationPanel。21 commits, +184 tests
+(1493 total).
+
+### Added
+
+- **Main core** (`14073ff` ~ `1aedd45`)：6 个新模块 —
+  `types.ts` (ScriptEntry / ScriptLog / ScriptViolation / ScriptMutation 等
+  5 个核心类型) / `errors.ts` (16 种 ScriptErrorKind 工厂 +
+  `validateShortName` + RESERVED_SHORTNAMES 19 个保留字) /
+  `import-resolver.ts` (DAG + cycle 检测 + depth-limit) / `ctx.ts`
+  (whitelisted API surface — `project.findContainers` / `getContainer` /
+  `validator.addViolation` / `log.*` / `utils.path`) / `transaction.ts`
+  (WorkingCopy + commit/discard) / `vm-runner.ts` (`node:vm` 沙箱 + post-hoc
+  timeout + user-line stack 捕获)。**零 react/electron import**。
+- **5 个 IPC 通道** (`8227305` + `2ef9917` + `df47e23`)：
+  `SCRIPT_LIST` / `SCRIPT_SAVE` / `SCRIPT_DELETE` / `SCRIPT_RUN` +
+  `SCRIPT_PROGRESS` push channel。`script-handler.ts` (299 行) + preload
+  bridge 5 wrappers。
+- **25 个 i18n keys** (`55c55c8`)：zh-CN + en 双语，覆盖 panel / library /
+  editor / output / violation / error 全部 scope。Parity 测试保证双语 key 集合
+  完全一致。
+- **3 个 sample fixtures** (`adbe248`)：`pduid-uniqueness.js` (validator) /
+  `wdgif-defaults.js` (transformer) / `utils/path.js` (shared helper)。`node
+  --check` 全过。
+- **Renderer** (`d0286bc` ~ `45e3d7c`)：
+  - `useScriptStore` (Zustand singleton) + `useScriptActions` (IPC bridge)
+  - `ScriptEditor` with **CodeMirror 6** (`@codemirror/state` +
+    `lang-javascript` + `theme-one-dark` + `view`)
+  - `ScriptLibrary` + `ScriptOutput` + `ScriptKindBadge`
+  - `ScriptPanel` 3-column host (library / editor / output) + App/AppHeader
+    Scripts toggle
+  - `ValidationPanel` Script 校验 group（validator-kind 脚本的 latest run
+    violations 单独列出）
+- **T16 PduId validation E2E** (`569e710`)：
+  `tests/e2e-vitest/script-pduid-validation.test.ts` — 5 个真实 fixture
+  (Com_Com / Det_Det / EcuC_EcuC / PduR_PduR / WdgIf_WdgIf) 跑过完整 pipeline
+  + 1 个 duplicate-injection case（`setParamInDocument` 强制 2 个 ComTxIPdu
+  共享 id=42 → 验证 `script:pduid-duplicate` violation 触发）。
+- **T17 Playwright E2E happy path** (`e071dfb`)：
+  `tests/e2e/script-panel.spec.ts` — Scripts toggle → 选 fixture →
+  editor 填充 → Run → output 渲染 logs + status='ok'。
+
+### Changed
+
+- **`vite.main.config.ts`** (`a9fad9d`)：`rollupOptions.external` 扩
+  `node:vm` + `node:crypto`，Phase A import 的 Node-only 模块不再被 Vite
+  错误内联到 main bundle。
+- **`core/project/manifest.ts`** (`14073ff`)：additive
+  `scripts?: ScriptEntry[]` + 兼容 normalization / migration path。
+
+### Internal
+
+- **Phase A lint polish** (`d947e53`)：post-pass cleanup — import order +
+  `exactOptionalPropertyTypes` 兼容 + 删除 ctx.ts duplicated `walk`。
+- **vitest include**：`tests/e2e-vitest/__tests__/**` 已纳入现有 include
+  pattern（与 `tests/e2e/**` 互斥）。
+
+### Verified
+
+- 5/5 baseline gate green：format / lint 0 warnings / type-check / test
+  (1493 passing / 1 skipped) / build (renderer 779KB / main 146KB /
+  preload 2KB)
+- T16 E2E：6/6 通过（5 fixture happy path + 1 duplicate injection）
+- T17 E2E：spec file 通过 lint + type-check（Playwright 需 display server，
+  CI 用 packaged Electron build 跑）
+- Final self-review: 0 CRITICAL / 0 HIGH / 14 LOW（全部记录为已知设计 gap
+  或 Sprint 15+ follow-up）
+
+### Out of Scope (deferred to Sprint 15+)
+
+- 真实 ES module import（`_import` 当前是 stub）
+- `ScriptPanel.handleNew` proper dialog（当前是 stub saveScript）
+- `onCommitMutation` mutation replay pipeline 接通到 arxml store
+- ValidationPanel Script 校验 group 点击跳转
+- Code-split ScriptPanel 子树（lazy `import()` for CodeMirror 6）
+- TypeScript-in-script 模式
+- Multi-script run + 依赖图可视化
+
 ## [1.2.0] - 2026-06-19 — Sprint 14 ECUC ARXML Import
 
 MINOR bump: **EB tresos 风格 "Resolve Conflicts" wizard** — 多份 ECUC
