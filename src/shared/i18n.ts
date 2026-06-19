@@ -375,6 +375,38 @@ export interface Messages {
   readonly 'app.import.commit.success': string; // {N} {M}
   readonly 'app.import.commit.rolledBack': string;
   readonly 'app.import.undoLastCommit': string;
+
+  // --- Sprint 14 #1 — embedded script engine (spec §6.5) ---
+  // 25 keys covering the side panel (Scripts), the 3-column inner
+  // layout (lib / editor / output), the 4 kind labels, the 4 error
+  // categories, and the violation group header. The renderer wires
+  // these in Phase C; the parity test below catches missing keys at
+  // build time.
+  readonly 'script.panel.title': string;
+  readonly 'script.panel.toggle': string;
+  readonly 'script.lib.title': string;
+  readonly 'script.lib.empty': string;
+  readonly 'script.lib.new': string;
+  readonly 'script.lib.delete': string;
+  readonly 'script.editor.save': string;
+  readonly 'script.editor.run': string;
+  readonly 'script.editor.stop': string;
+  readonly 'script.editor.placeholder': string;
+  readonly 'script.output.title': string;
+  readonly 'script.output.clear': string;
+  readonly 'script.output.commit': string;
+  readonly 'script.output.discard': string;
+  readonly 'script.output.summary.mutations': string;
+  readonly 'script.output.summary.violations': string;
+  readonly 'script.kind.validator': string;
+  readonly 'script.kind.transformer': string;
+  readonly 'script.kind.report': string;
+  readonly 'script.kind.free': string;
+  readonly 'script.error.syntax': string;
+  readonly 'script.error.runtime': string;
+  readonly 'script.error.timeout': string;
+  readonly 'script.error.import': string;
+  readonly 'script.violation.group': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -644,6 +676,33 @@ export const MessagesZhCN: Messages = {
   'app.import.commit.success': '已合并 {N} 个模块到 {M} 个文档',
   'app.import.commit.rolledBack': '已回滚本次合并（未应用任何修改）',
   'app.import.undoLastCommit': '撤销上次合并',
+
+  // Sprint 14 #1 — embedded script engine (spec §6.5)
+  'script.panel.title': '脚本',
+  'script.panel.toggle': '显示/隐藏脚本面板',
+  'script.lib.title': '脚本库',
+  'script.lib.empty': '还没有脚本，点 + 新建',
+  'script.lib.new': '新建',
+  'script.lib.delete': '删除',
+  'script.editor.save': '保存',
+  'script.editor.run': '运行',
+  'script.editor.stop': '停止',
+  'script.editor.placeholder': '在这里写 JavaScript…',
+  'script.output.title': '输出',
+  'script.output.clear': '清空',
+  'script.output.commit': '应用到项目',
+  'script.output.discard': '放弃改动',
+  'script.output.summary.mutations': '修改',
+  'script.output.summary.violations': '校验项',
+  'script.kind.validator': '校验',
+  'script.kind.transformer': '转换',
+  'script.kind.report': '报告',
+  'script.kind.free': '自由',
+  'script.error.syntax': '语法错误',
+  'script.error.runtime': '运行时错误',
+  'script.error.timeout': '脚本超时',
+  'script.error.import': 'import 解析失败',
+  'script.violation.group': '脚本校验',
 };
 
 // ---------------------------------------------------------------------------
@@ -915,6 +974,33 @@ export const MessagesEn: Messages = {
   'app.import.commit.success': 'Merged {N} module(s) into {M} document(s)',
   'app.import.commit.rolledBack': 'Import rolled back (no changes applied)',
   'app.import.undoLastCommit': 'Undo last import',
+
+  // Sprint 14 #1 — embedded script engine (spec §6.5)
+  'script.panel.title': 'Scripts',
+  'script.panel.toggle': 'Show/hide Scripts panel',
+  'script.lib.title': 'Script library',
+  'script.lib.empty': 'No scripts yet. Click + to create one.',
+  'script.lib.new': 'New',
+  'script.lib.delete': 'Delete',
+  'script.editor.save': 'Save',
+  'script.editor.run': 'Run',
+  'script.editor.stop': 'Stop',
+  'script.editor.placeholder': 'Write JavaScript here…',
+  'script.output.title': 'Output',
+  'script.output.clear': 'Clear',
+  'script.output.commit': 'Apply to project',
+  'script.output.discard': 'Discard',
+  'script.output.summary.mutations': 'mutations',
+  'script.output.summary.violations': 'violations',
+  'script.kind.validator': 'Validator',
+  'script.kind.transformer': 'Transformer',
+  'script.kind.report': 'Report',
+  'script.kind.free': 'Free',
+  'script.error.syntax': 'Syntax error',
+  'script.error.runtime': 'Runtime error',
+  'script.error.timeout': 'Script timeout',
+  'script.error.import': 'Import parse failed',
+  'script.violation.group': 'Script validations',
 };
 
 // ---------------------------------------------------------------------------

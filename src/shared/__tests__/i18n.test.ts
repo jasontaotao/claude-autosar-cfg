@@ -585,6 +585,109 @@ describe('i18n — locale type', () => {
   });
 });
 
+// Sprint 14 #1 Phase B (T9) — 25 script.* keys (spec §6.5). The
+// parity test above already enforces key-count parity, but these
+// cases document the exact translations and catch silent key
+// renames. The brief asks for "19 keys" but the spec / plan locked
+// 25; we ship the spec count and let the parity test catch any
+// future additions.
+describe('i18n — Sprint 14 #1 script engine (spec §6.5, 25 keys)', () => {
+  it('renders script.panel.title / panel.toggle / lib.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'script.panel.title')).toBe('脚本');
+    expect(t('en', 'script.panel.title')).toBe('Scripts');
+    expect(t('zh-CN', 'script.panel.toggle')).toBe('显示/隐藏脚本面板');
+    expect(t('en', 'script.panel.toggle')).toBe('Show/hide Scripts panel');
+    expect(t('zh-CN', 'script.lib.title')).toBe('脚本库');
+    expect(t('en', 'script.lib.title')).toBe('Script library');
+  });
+
+  it('renders script.editor / output / lib actions (zh-CN + en)', () => {
+    expect(t('zh-CN', 'script.editor.save')).toBe('保存');
+    expect(t('en', 'script.editor.save')).toBe('Save');
+    expect(t('zh-CN', 'script.editor.run')).toBe('运行');
+    expect(t('en', 'script.editor.run')).toBe('Run');
+    expect(t('zh-CN', 'script.editor.stop')).toBe('停止');
+    expect(t('en', 'script.editor.stop')).toBe('Stop');
+    expect(t('zh-CN', 'script.output.title')).toBe('输出');
+    expect(t('en', 'script.output.title')).toBe('Output');
+    expect(t('zh-CN', 'script.output.commit')).toBe('应用到项目');
+    expect(t('en', 'script.output.commit')).toBe('Apply to project');
+    expect(t('zh-CN', 'script.output.discard')).toBe('放弃改动');
+    expect(t('en', 'script.output.discard')).toBe('Discard');
+    expect(t('zh-CN', 'script.lib.new')).toBe('新建');
+    expect(t('en', 'script.lib.new')).toBe('New');
+    expect(t('zh-CN', 'script.lib.delete')).toBe('删除');
+    expect(t('en', 'script.lib.delete')).toBe('Delete');
+  });
+
+  it('renders the 4 kind labels (zh-CN + en)', () => {
+    expect(t('zh-CN', 'script.kind.validator')).toBe('校验');
+    expect(t('en', 'script.kind.validator')).toBe('Validator');
+    expect(t('zh-CN', 'script.kind.transformer')).toBe('转换');
+    expect(t('en', 'script.kind.transformer')).toBe('Transformer');
+    expect(t('zh-CN', 'script.kind.report')).toBe('报告');
+    expect(t('en', 'script.kind.report')).toBe('Report');
+    expect(t('zh-CN', 'script.kind.free')).toBe('自由');
+    expect(t('en', 'script.kind.free')).toBe('Free');
+  });
+
+  it('renders the 4 error categories + violation group (zh-CN + en)', () => {
+    expect(t('zh-CN', 'script.error.syntax')).toBe('语法错误');
+    expect(t('en', 'script.error.syntax')).toBe('Syntax error');
+    expect(t('zh-CN', 'script.error.runtime')).toBe('运行时错误');
+    expect(t('en', 'script.error.runtime')).toBe('Runtime error');
+    expect(t('zh-CN', 'script.error.timeout')).toBe('脚本超时');
+    expect(t('en', 'script.error.timeout')).toBe('Script timeout');
+    expect(t('zh-CN', 'script.error.import')).toBe('import 解析失败');
+    expect(t('en', 'script.error.import')).toBe('Import parse failed');
+    expect(t('zh-CN', 'script.violation.group')).toBe('脚本校验');
+    expect(t('en', 'script.violation.group')).toBe('Script validations');
+  });
+
+  it('missing key in one bundle is caught by the parity assertion (script.* sweep)', () => {
+    // The parity test above iterates ALL_KEYS (computed from
+    // MessagesZhCN at test-load time). If we forget to add a new
+    // key to MessagesEn, that loop fails. This test documents the
+    // invariant for the 25 script.* keys.
+    const zhKeys = new Set(Object.keys(MessagesZhCN));
+    const allScriptKeys = [
+      'script.panel.title',
+      'script.panel.toggle',
+      'script.lib.title',
+      'script.lib.empty',
+      'script.lib.new',
+      'script.lib.delete',
+      'script.editor.save',
+      'script.editor.run',
+      'script.editor.stop',
+      'script.editor.placeholder',
+      'script.output.title',
+      'script.output.clear',
+      'script.output.commit',
+      'script.output.discard',
+      'script.output.summary.mutations',
+      'script.output.summary.violations',
+      'script.kind.validator',
+      'script.kind.transformer',
+      'script.kind.report',
+      'script.kind.free',
+      'script.error.syntax',
+      'script.error.runtime',
+      'script.error.timeout',
+      'script.error.import',
+      'script.violation.group',
+    ] as MessageKey[];
+    for (const k of allScriptKeys) {
+      expect(zhKeys.has(k), `zh-CN missing ${k}`).toBe(true);
+    }
+    // Render every key in en too — catches empty/missing translations.
+    for (const k of allScriptKeys) {
+      expect(t('en', k).length).toBeGreaterThan(0);
+      expect(t('zh-CN', k).length).toBeGreaterThan(0);
+    }
+  });
+});
+
 // Suppress the unknown-key warning in parity tests so console output stays
 // clean. (No unknown keys expected — this is just hygiene.)
 beforeEach(() => {
