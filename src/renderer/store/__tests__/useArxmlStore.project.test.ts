@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { parseArxml } from '@core/arxml/parser';
 import type { ArxmlDocument } from '@core/arxml/types';
 
+import { loadManifest, saveManifest } from '../../../core/project/manifest.js';
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import type { ProjectManifest } from '../../../shared/project.js';
-import { loadManifest, saveManifest } from '../../../core/project/manifest.js';
 import { useArxmlStore } from '../useArxmlStore.js';
 
 // ---------------------------------------------------------------------------

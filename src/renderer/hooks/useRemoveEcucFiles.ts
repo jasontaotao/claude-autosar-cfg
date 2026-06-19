@@ -27,8 +27,8 @@
 import { useCallback } from 'react';
 
 import type { PickedModule } from '@core/arxml/skeleton.js';
-import type { ProjectDeleteArxmlResult } from '@shared/types.js';
 import { t } from '@shared/i18n.js';
+import type { ProjectDeleteArxmlResult } from '@shared/types.js';
 
 import { confirm } from '../components/ConfirmDialog.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
