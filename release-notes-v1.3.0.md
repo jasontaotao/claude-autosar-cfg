@@ -101,6 +101,36 @@ MINOR bump（new feature，零 breaking change）。
   - vm-runner 不剥 `import` 语句：保留为已知设计 gap，Phase 15+ 决定 ESM
     引入 vs API 内部 import
 
+### Final Whole-Branch Review (pre-push gate)
+
+- **Verdict**: APPROVE_WITH_MINOR — recommend ship v1.3.0
+- **Severity**: 0 CRITICAL / 0 HIGH / 1 MEDIUM / 3 LOW
+- **Design invariants (8)**: 7 PASS / 1 PARTIAL
+  - DI-1 sandbox isolation: PASS (`vm-runner.ts:84-95` blocks
+    process/require/fetch/globalThis/console)
+  - DI-2 validator `script:` prefix: PASS (`ctx.ts:338-342`)
+  - DI-3 import DAG + cycle detection: PASS (`import-resolver.ts:519-575`)
+  - DI-4 transactional commit/discard: PARTIAL — `applyMutation` is a stub
+    deferred to Sprint 14 #2 (`useScriptStore.ts:282-287` documented;
+    `scriptRunHandler` runs against `emptyProject()`)
+  - DI-5 i18n parity: PASS (25 keys × 2 langs)
+  - DI-6 shortName reservation: PASS (19 reserved names enforced)
+  - DI-7 error matrix: PASS (syntax / runtime / timeout / import-error)
+  - DI-8 manifest backward compat: PASS (`scripts: []` normalized on load)
+- **Acceptance gates (spec §11)**: 10/10 PASS
+  (format / lint / type-check / test 1493+1 / coverage / build / i18n parity /
+   no console.log / manifest back-compat / shortName enforcement)
+- **Coverage**: 96.34% stmts / 88.21% branches (≥ v1.2.0 baseline)
+- **Per-finding disposition**:
+  - M-1 applyMutation stub → Sprint 14 #2 backlog (NOT a defect; explicit
+    Phase D deferral per spec §7.4)
+  - L-1 `__resetForTest` exported → MATCHES `templatesHandler` convention
+    (NOT a defect)
+  - L-2 hard-coded line offset -3 in vm-runner → ACCEPTABLE (tied to wrapper
+    shape, documented)
+  - L-3 raw error message in ScriptOutput → ACCEPTABLE for technical
+    diagnostics
+
 ### Files
 
 - 53 files changed, +6,500 / -200 lines（rough estimate, exact 在 git diff）
