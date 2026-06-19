@@ -460,9 +460,14 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
           continue;
         }
         const param = parseParamValue(wrapperTag, valueRaw, defDest);
+        // Sprint 16c #2 follow-up — preserve the DEFINITION-REF path on
+        // the in-memory model so reload-then-save keeps the real BSWMD
+        // path (without this, the second serialize would fall back to
+        // /__synthesized__/<shortName>).
+        const stamped: ParamValue = { ...param, definitionRef: defPath };
         // Key = last path segment after '/'
         const key = defPath.split('/').pop() ?? defPath;
-        params[key] = param;
+        params[key] = stamped;
       }
     }
   }
@@ -526,10 +531,13 @@ function extractReferenceParams(
   if (refPath === undefined) return;
   if (refPath === '' || refPath.endsWith('/')) return;
   const key = defPath.split('/').pop() ?? defPath;
+  // Sprint 16c #2 follow-up — same as the PARAMETER-VALUES path: stamp
+  // the DEFINITION-REF path so reload-then-save preserves the real
+  // BSWMD path on the in-memory reference ParamValue.
   const param: ParamValue =
     refDest !== undefined
-      ? { type: 'reference', value: refPath, dest: refDest }
-      : { type: 'reference', value: refPath };
+      ? { type: 'reference', value: refPath, dest: refDest, definitionRef: defPath }
+      : { type: 'reference', value: refPath, definitionRef: defPath };
   params[key] = param;
 }
 

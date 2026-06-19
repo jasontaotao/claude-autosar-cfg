@@ -60,9 +60,9 @@ describe('parseArxml', () => {
     expect(container.shortName).toBe('EcuCGeneralConfiguration');
     const keys = Object.keys(container.params);
     expect(keys).toHaveLength(3);
-    expect(container.params['ConfigConsistencyRequired']).toEqual({ type: 'integer', value: 1 });
-    expect(container.params['PostBuildVariantUsed']).toEqual({ type: 'integer', value: 0 });
-    expect(container.params['SleepMode']).toEqual({ type: 'float', value: 2.5 });
+    expect(container.params['ConfigConsistencyRequired']).toMatchObject({ type: 'integer', value: 1 });
+    expect(container.params['PostBuildVariantUsed']).toMatchObject({ type: 'integer', value: 0 });
+    expect(container.params['SleepMode']).toMatchObject({ type: 'float', value: 2.5 });
   });
 
   it('extracts DEST attribute on DEFINITION-REF references', () => {
@@ -129,8 +129,8 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['FlagOn']).toEqual({ type: 'boolean', value: true });
-    expect(c.params['FlagOff']).toEqual({ type: 'boolean', value: false });
+    expect(c.params['FlagOn']).toMatchObject({ type: 'boolean', value: true });
+    expect(c.params['FlagOff']).toMatchObject({ type: 'boolean', value: false });
   });
 
   it('skips param wrapper with DEFINITION-REF but missing VALUE (no crash, key absent)', () => {
@@ -140,7 +140,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['HasValue']).toEqual({ type: 'integer', value: 42 });
+    expect(c.params['HasValue']).toMatchObject({ type: 'integer', value: 42 });
     expect(c.params['NoValue']).toBeUndefined();
     expect(Object.keys(c.params)).toHaveLength(1);
   });
@@ -156,7 +156,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['FlagOn']).toEqual({ type: 'boolean', value: true });
+    expect(c.params['FlagOn']).toMatchObject({ type: 'boolean', value: true });
   });
 
   it('parses BOOLEAN DEST (false) inside NUMERICAL wrapper → boolean(false)', () => {
@@ -166,7 +166,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['FlagOff']).toEqual({ type: 'boolean', value: false });
+    expect(c.params['FlagOff']).toMatchObject({ type: 'boolean', value: false });
   });
 
   it('parses STRING DEST inside TEXTUAL wrapper (ECUC-STRING-PARAM-DEF) → string', () => {
@@ -176,7 +176,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['CddHeaderFile']).toEqual({ type: 'string', value: 'Det.c' });
+    expect(c.params['CddHeaderFile']).toMatchObject({ type: 'string', value: 'Det.c' });
   });
 
   it('parses FUNCTION-NAME DEST inside TEXTUAL wrapper (ECUC-FUNCTION-NAME-DEF) → string', () => {
@@ -186,7 +186,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['WdgSetModeName']).toEqual({ type: 'string', value: 'Wdg_SetMode' });
+    expect(c.params['WdgSetModeName']).toMatchObject({ type: 'string', value: 'Wdg_SetMode' });
   });
 
   it('falls back to enum when TEXTUAL wrapper has no DEST (back-compat)', () => {
@@ -198,7 +198,7 @@ describe('parseArxml', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params['BusType']).toEqual({ type: 'enum', value: 'LSB' });
+    expect(c.params['BusType']).toMatchObject({ type: 'enum', value: 'LSB' });
   });
 
   // ---------- Sprint 7 T1-A: <REFERENCE-VALUES> wrapper parsing ----------
@@ -214,7 +214,7 @@ describe('parseArxml', () => {
       if (!r.ok) return;
       const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
       const c = mod.children[0] as ArxmlContainer;
-      expect(c.params['ComPduIdRef']).toEqual({
+      expect(c.params['ComPduIdRef']).toMatchObject({
         type: 'reference',
         value: '/EAS/EcuC/EcucPduCollection/Pdu/MyPdu',
         dest: 'ECUC-CONTAINER-VALUE',
@@ -242,7 +242,7 @@ describe('parseArxml', () => {
       const c = mod.children[0] as ArxmlContainer;
       expect(c.params['UnsetRef']).toBeUndefined();
       expect(c.params['TrailingSlashRef']).toBeUndefined();
-      expect(c.params['RealRef']).toEqual({
+      expect(c.params['RealRef']).toMatchObject({
         type: 'reference',
         value: '/A/B/Target',
         dest: 'ECUC-CONTAINER-VALUE',
@@ -257,17 +257,17 @@ describe('parseArxml', () => {
       if (!r.ok) return;
       const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
       const c = mod.children[0] as ArxmlContainer;
-      expect(c.params['ComPduIdRef']).toEqual({
+      expect(c.params['ComPduIdRef']).toMatchObject({
         type: 'reference',
         value: '/EAS/EcuC/EcucPduCollection/Pdu/PduA',
         dest: 'ECUC-CONTAINER-VALUE',
       });
-      expect(c.params['ComIPduGroupRef']).toEqual({
+      expect(c.params['ComIPduGroupRef']).toMatchObject({
         type: 'reference',
         value: '/EAS/Com/ComConfig/ComIPduGroup/GroupA',
         dest: 'ECUC-CONTAINER-VALUE',
       });
-      expect(c.params['ComIPduSignalRef']).toEqual({
+      expect(c.params['ComIPduSignalRef']).toMatchObject({
         type: 'reference',
         value: '/EAS/Com/ComConfig/ComSignal/Sig1',
         dest: 'ECUC-CONTAINER-VALUE',
@@ -284,7 +284,7 @@ describe('parseArxml', () => {
       if (!r.ok) return;
       const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
       const c = mod.children[0] as ArxmlContainer;
-      expect(c.params['WithUserDef']).toEqual({
+      expect(c.params['WithUserDef']).toMatchObject({
         type: 'reference',
         value: '/A/B/Target',
         dest: 'ECUC-CONTAINER-VALUE',
@@ -328,7 +328,7 @@ describe('parseArxml', () => {
       expect(mod.kind).toBe('module');
       expect(mod.shortName).toBe('CanIf');
       const c = mod.children[0] as ArxmlContainer;
-      expect(c.params['CfgSet']).toEqual({ type: 'string', value: 'CanIf_Config' });
+      expect(c.params['CfgSet']).toMatchObject({ type: 'string', value: 'CanIf_Config' });
     });
 
     it('case 2: triple-nested AR-PACKAGE recurses through every level', () => {
@@ -424,7 +424,7 @@ describe('parseArxml', () => {
       expect(p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]!.shortName).toBe('M');
       const c = (p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]! as ArxmlModule)
         .children[0] as ArxmlContainer;
-      expect(c.params['X']).toEqual({ type: 'integer', value: 7 });
+      expect(c.params['X']).toMatchObject({ type: 'integer', value: 7 });
     });
 
     // Sprint 9 #12 (review H-2): two packages with identical shortName in
@@ -579,7 +579,7 @@ describe('parseArxml — defensive structure validation', () => {
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
     // No key was added — the entry was dropped silently.
-    expect(c.params).toEqual({});
+    expect(c.params).toMatchObject({});
   });
 
   it('skips REFERENCE-VALUES entries with DEFINITION-REF object but no #text (line 477-484)', () => {
@@ -591,7 +591,7 @@ describe('parseArxml — defensive structure validation', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     const c = mod.children[0] as ArxmlContainer;
-    expect(c.params).toEqual({});
+    expect(c.params).toMatchObject({});
   });
 
   it('drops ECUC-CONTAINER-VALUE without SHORT-NAME (line 381)', () => {

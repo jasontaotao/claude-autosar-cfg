@@ -141,7 +141,11 @@ describe('round-trip after mutation (5 samples)', () => {
       }
       const reTarget: ArxmlModule | ArxmlContainer = cursor;
       const reParam = reTarget.params[target.paramKey];
-      expect(reParam).toEqual(target.newValue);
+      // Sprint 16c #4 follow-up: reloaded params now carry `definitionRef`
+      // (the DEFINITION-REF path from the XML). Use toMatchObject so the
+      // comparison is value-only; the metadata is verified separately
+      // by the dedicated definitionRef tests.
+      expect(reParam).toMatchObject(target.newValue);
     });
   }
 });

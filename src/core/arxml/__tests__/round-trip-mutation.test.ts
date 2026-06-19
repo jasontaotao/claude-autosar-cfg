@@ -159,7 +159,7 @@ describe('round-trip: addParameter survives serialize / re-parse', () => {
     const newPkg = p2.value.packages[0]!;
     const newModuleIdx = findModuleIndexInPackage(newPkg);
     const newRoot = newPkg.elements[newModuleIdx] as ArxmlModule;
-    expect(newRoot.params['Sprint15TestParam']).toEqual({ type: 'integer', value: 42 });
+    expect(newRoot.params['Sprint15TestParam']).toMatchObject({ type: 'integer', value: 42 });
   });
 });
 
