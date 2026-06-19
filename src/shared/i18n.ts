@@ -350,6 +350,29 @@ export interface Messages {
   // save loop and shows this toast; the failed target is held back from
   // the delete loop so its dirty edits are preserved (not silently lost).
   readonly 'ecuc.fromBswmd.saveFailedAbort': string; // {name}, {message}
+
+  // Sprint 14 — ECUC ARXML Import (spec §7.5). 18 keys covering the
+  // FileListTab [Import…] entry, ModuleSelectionPanel header + collision
+  // badge, DiffTable title + 4 resolution labels, commit confirm + 3
+  // success/rollback/failure toasts, and an undo button label.
+  readonly 'app.import.button': string;
+  readonly 'app.import.title': string;
+  readonly 'app.import.moduleSelection.title': string;
+  readonly 'app.import.collision.badge': string;
+  readonly 'app.import.diff.title': string; // {shortName}
+  readonly 'app.import.resolution.keepExisting': string;
+  readonly 'app.import.resolution.overwrite': string;
+  readonly 'app.import.resolution.keepBoth': string;
+  readonly 'app.import.resolution.skip': string;
+  readonly 'app.import.commit.confirm': string; // {N} {M}
+  readonly 'app.import.error.readFailed': string; // {path} {message}
+  readonly 'app.import.error.parseFailed': string; // {path} {message}
+  readonly 'app.import.error.patchFailed': string; // {path} {message}
+  readonly 'app.import.error.noModulesSelected': string;
+  readonly 'app.import.error.viewModeLocked': string;
+  readonly 'app.import.commit.success': string; // {N} {M}
+  readonly 'app.import.commit.rolledBack': string;
+  readonly 'app.import.undoLastCommit': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -597,6 +620,26 @@ export const MessagesZhCN: Messages = {
     '以下 ECUC 模块存在未保存改动：{names}\n选择"不保存"将丢失这些改动，选择"保存并排除"会先静默保存到磁盘再删除。',
   'ecuc.fromBswmd.saveFailedAbort':
     '保存 {name} 失败：{message}。已中止排除流程，该模块的改动已保留（未删除）。',
+
+  // Sprint 14 — ECUC ARXML Import
+  'app.import.button': '导入…',
+  'app.import.title': '导入 ECUC ARXML',
+  'app.import.moduleSelection.title': '选择要导入的模块',
+  'app.import.collision.badge': '⚠ 模块已存在',
+  'app.import.diff.title': '模块冲突：{shortName}',
+  'app.import.resolution.keepExisting': '保留现有',
+  'app.import.resolution.overwrite': '覆盖',
+  'app.import.resolution.keepBoth': '保留两份',
+  'app.import.resolution.skip': '跳过',
+  'app.import.commit.confirm': '将 {N} 个模块合并到 {M} 个目标文档，是否继续？',
+  'app.import.error.readFailed': '无法读取 {path}：{message}',
+  'app.import.error.parseFailed': '解析 {path} 失败：{message}',
+  'app.import.error.patchFailed': '合并到 {path} 失败：{message}',
+  'app.import.error.noModulesSelected': '未选中任何模块',
+  'app.import.error.viewModeLocked': '请先完成或取消导入',
+  'app.import.commit.success': '已合并 {N} 个模块到 {M} 个文档',
+  'app.import.commit.rolledBack': '已回滚本次合并（未应用任何修改）',
+  'app.import.undoLastCommit': '撤销上次合并',
 };
 
 // ---------------------------------------------------------------------------
@@ -846,6 +889,26 @@ export const MessagesEn: Messages = {
     'The following ECUC modules have unsaved changes: {names}\n"Discard" loses the changes, "Save & Exclude" silently saves to disk before deletion.',
   'ecuc.fromBswmd.saveFailedAbort':
     'Saving {name} failed: {message}. Exclude aborted — that module was NOT deleted and its unsaved edits are preserved.',
+
+  // Sprint 14 — ECUC ARXML Import
+  'app.import.button': 'Import…',
+  'app.import.title': 'Import ECUC ARXML',
+  'app.import.moduleSelection.title': 'Select modules to import',
+  'app.import.collision.badge': '⚠ Module exists',
+  'app.import.diff.title': 'Module conflict: {shortName}',
+  'app.import.resolution.keepExisting': 'Keep existing',
+  'app.import.resolution.overwrite': 'Overwrite',
+  'app.import.resolution.keepBoth': 'Keep both',
+  'app.import.resolution.skip': 'Skip',
+  'app.import.commit.confirm': 'Merge {N} module(s) into {M} target document(s). Continue?',
+  'app.import.error.readFailed': 'Cannot read {path}: {message}',
+  'app.import.error.parseFailed': 'Parse {path} failed: {message}',
+  'app.import.error.patchFailed': 'Merge into {path} failed: {message}',
+  'app.import.error.noModulesSelected': 'No modules selected',
+  'app.import.error.viewModeLocked': 'Please finish or cancel the import first',
+  'app.import.commit.success': 'Merged {N} module(s) into {M} document(s)',
+  'app.import.commit.rolledBack': 'Import rolled back (no changes applied)',
+  'app.import.undoLastCommit': 'Undo last import',
 };
 
 // ---------------------------------------------------------------------------

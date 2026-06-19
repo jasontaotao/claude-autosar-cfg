@@ -451,6 +451,133 @@ describe('i18n — message bundle parity', () => {
   });
 });
 
+describe('i18n — Sprint 14 ECUC ARXML Import (18 keys, spec §7.5)', () => {
+  it('renders app.import.button (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.button')).toBe('导入…');
+    expect(t('en', 'app.import.button')).toBe('Import…');
+  });
+
+  it('renders app.import.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.title')).toBe('导入 ECUC ARXML');
+    expect(t('en', 'app.import.title')).toBe('Import ECUC ARXML');
+  });
+
+  it('renders app.import.moduleSelection.title (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.moduleSelection.title')).toBe('选择要导入的模块');
+    expect(t('en', 'app.import.moduleSelection.title')).toBe('Select modules to import');
+  });
+
+  it('renders app.import.collision.badge (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.collision.badge')).toBe('⚠ 模块已存在');
+    expect(t('en', 'app.import.collision.badge')).toBe('⚠ Module exists');
+  });
+
+  it('renders app.import.diff.title with {shortName} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.diff.title', { shortName: 'CanIf' })).toBe(
+      '模块冲突：CanIf',
+    );
+    expect(t('en', 'app.import.diff.title', { shortName: 'CanIf' })).toBe(
+      'Module conflict: CanIf',
+    );
+  });
+
+  it('renders 4 resolution labels (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.resolution.keepExisting')).toBe('保留现有');
+    expect(t('en', 'app.import.resolution.keepExisting')).toBe('Keep existing');
+    expect(t('zh-CN', 'app.import.resolution.overwrite')).toBe('覆盖');
+    expect(t('en', 'app.import.resolution.overwrite')).toBe('Overwrite');
+    expect(t('zh-CN', 'app.import.resolution.keepBoth')).toBe('保留两份');
+    expect(t('en', 'app.import.resolution.keepBoth')).toBe('Keep both');
+    expect(t('zh-CN', 'app.import.resolution.skip')).toBe('跳过');
+    expect(t('en', 'app.import.resolution.skip')).toBe('Skip');
+  });
+
+  it('renders app.import.commit.confirm with {N} {M} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.commit.confirm', { N: 3, M: 2 })).toBe(
+      '将 3 个模块合并到 2 个目标文档，是否继续？',
+    );
+    expect(t('en', 'app.import.commit.confirm', { N: 3, M: 2 })).toBe(
+      'Merge 3 module(s) into 2 target document(s). Continue?',
+    );
+  });
+
+  it('renders app.import.error.readFailed / parseFailed / patchFailed (zh-CN + en)', () => {
+    expect(
+      t('zh-CN', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' }),
+    ).toBe('无法读取 /x.arxml：ENOENT');
+    expect(
+      t('en', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' }),
+    ).toBe('Cannot read /x.arxml: ENOENT');
+    expect(
+      t('zh-CN', 'app.import.error.parseFailed', { path: '/y.arxml', message: 'malformed' }),
+    ).toBe('解析 /y.arxml 失败：malformed');
+    expect(
+      t('en', 'app.import.error.parseFailed', { path: '/y.arxml', message: 'malformed' }),
+    ).toBe('Parse /y.arxml failed: malformed');
+    expect(
+      t('zh-CN', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' }),
+    ).toBe('合并到 /z.arxml 失败：oops');
+    expect(
+      t('en', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' }),
+    ).toBe('Merge into /z.arxml failed: oops');
+  });
+
+  it('renders app.import.error.noModulesSelected / viewModeLocked (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.error.noModulesSelected')).toBe('未选中任何模块');
+    expect(t('en', 'app.import.error.noModulesSelected')).toBe('No modules selected');
+    expect(t('zh-CN', 'app.import.error.viewModeLocked')).toBe('请先完成或取消导入');
+    expect(t('en', 'app.import.error.viewModeLocked')).toBe(
+      'Please finish or cancel the import first',
+    );
+  });
+
+  it('renders app.import.commit.success with {N} {M} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.commit.success', { N: 3, M: 2 })).toBe(
+      '已合并 3 个模块到 2 个文档',
+    );
+    expect(t('en', 'app.import.commit.success', { N: 3, M: 2 })).toBe(
+      'Merged 3 module(s) into 2 document(s)',
+    );
+  });
+
+  it('renders app.import.commit.rolledBack and undoLastCommit (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.commit.rolledBack')).toBe('已回滚本次合并（未应用任何修改）');
+    expect(t('en', 'app.import.commit.rolledBack')).toBe('Import rolled back (no changes applied)');
+    expect(t('zh-CN', 'app.import.undoLastCommit')).toBe('撤销上次合并');
+    expect(t('en', 'app.import.undoLastCommit')).toBe('Undo last import');
+  });
+
+  it('missing key in one bundle is caught by the parity assertion', () => {
+    // Sanity: the bundle parity loop above iterates ALL_KEYS (computed
+    // from MessagesZhCN at test-load time). If we forget to add a new
+    // key to MessagesEn, that loop fails. This test documents the
+    // invariant in one place.
+    const zhKeys = new Set(Object.keys(MessagesZhCN));
+    for (const k of [
+      'app.import.button',
+      'app.import.title',
+      'app.import.moduleSelection.title',
+      'app.import.collision.badge',
+      'app.import.diff.title',
+      'app.import.resolution.keepExisting',
+      'app.import.resolution.overwrite',
+      'app.import.resolution.keepBoth',
+      'app.import.resolution.skip',
+      'app.import.commit.confirm',
+      'app.import.error.readFailed',
+      'app.import.error.parseFailed',
+      'app.import.error.patchFailed',
+      'app.import.error.noModulesSelected',
+      'app.import.error.viewModeLocked',
+      'app.import.commit.success',
+      'app.import.commit.rolledBack',
+      'app.import.undoLastCommit',
+    ] as MessageKey[]) {
+      expect(zhKeys.has(k), `zh-CN missing ${k}`).toBe(true);
+    }
+  });
+});
+
 describe('i18n — locale type', () => {
   it('accepts "zh-CN" and "en"', () => {
     const locales: Locale[] = ['zh-CN', 'en'];
