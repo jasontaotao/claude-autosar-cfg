@@ -26,7 +26,6 @@ import { useCallback, useState } from 'react';
 import type { JSX } from 'react';
 
 import type { ArxmlDocument } from '@core/arxml/types';
-
 import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../store/useArxmlStore';

@@ -1,0 +1,110 @@
+/* ModuleSelectionPanel — Sprint 14 / T11.
+ *
+ * Plain panel styling for the row list. Mirrors the existing
+ * FileListTab row conventions (border + padding + row hover) so the
+ * panel reads as a native extension of the file list.
+ */
+
+.module-selection-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 4px;
+  background: var(--color-surface, #fff);
+}
+
+.module-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.module-selection-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.module-selection-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.module-selection-row {
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  background: var(--color-surface-alt, #fafafa);
+}
+
+.module-selection-row:hover {
+  background: var(--color-surface-hover, #f3f3f3);
+}
+
+.module-selection-row-label {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  cursor: pointer;
+  font: inherit;
+}
+
+.module-selection-row-name {
+  font-weight: 500;
+}
+
+.module-selection-row-source {
+  color: var(--color-text-muted, #666);
+  font-size: 0.85em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.module-selection-collision-badge {
+  background: var(--color-warning-bg, #fff8e1);
+  color: var(--color-warning-text, #8a6d00);
+  border: 1px solid var(--color-warning-border, #e0c070);
+  padding: 0 0.4em;
+  border-radius: 3px;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.module-selection-footer {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border, #ccc);
+}
+
+.module-selection-cancel,
+.module-selection-commit {
+  padding: 0.3em 0.8em;
+  border-radius: 3px;
+  border: 1px solid var(--color-border, #ccc);
+  background: var(--color-surface, #fff);
+  cursor: pointer;
+  font: inherit;
+}
+
+.module-selection-commit:not(:disabled) {
+  background: var(--color-accent, #4a90e2);
+  color: #fff;
+  border-color: var(--color-accent, #4a90e2);
+}
+
+.module-selection-commit:disabled,
+.module-selection-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
