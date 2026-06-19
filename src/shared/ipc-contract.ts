@@ -59,6 +59,27 @@ export const IPC_CHANNELS = {
   // renderer can distinguish "deleted" from "already gone" from
   // "permission error".
   PROJECT_DELETE_ARXML: 'project:deleteArxml',
+  // Sprint 14 #1 — embedded script engine IPC.
+  //
+  // Four invoke channels + one main→renderer push channel. The script
+  // engine stores user scripts inside `manifest.scripts[]` (Phase A
+  // T1) and runs them in a `node:vm` sandbox (Phase A T5). Phase B
+  // wires the core (types / errors / import-resolver / ctx /
+  // transaction / vm-runner) to the outside world via these 5
+  // channels:
+  //
+  // - `script:list`     (R→M)  list summaries for the script library UI
+  // - `script:save`     (R→M)  create or update a script entry
+  // - `script:delete`   (R→M)  remove a script entry
+  // - `script:run`      (R→M)  execute a script in the sandbox; sync
+  // - `script:progress` (M→R)  push live log events during a run; the
+  //                            renderer accumulates these before the
+  //                            final ScriptRunResult arrives
+  SCRIPT_LIST: 'script:list',
+  SCRIPT_SAVE: 'script:save',
+  SCRIPT_DELETE: 'script:delete',
+  SCRIPT_RUN: 'script:run',
+  SCRIPT_PROGRESS: 'script:progress',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
