@@ -305,6 +305,34 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
     expect(btn).toBeDisabled();
   });
 
+  // ---------------------------------------------------------------------------
+  // Sprint 17a T3 — Save All button gets `is-dirty` visual cue
+  // ---------------------------------------------------------------------------
+
+  it('Save All gets is-dirty className when any doc is dirty', () => {
+    const dirtyDoc = makeDoc();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(dirtyDoc, '/p/B.arxml');
+    // Mark B as dirty via the store's mutation API.
+    useArxmlStore.setState((s) => {
+      const nextDirty = new Set(s.dirtyPaths);
+      nextDirty.add('/p/B.arxml');
+      return { dirtyPaths: nextDirty };
+    });
+    render(<AppHeader {...noopProps} />);
+    const btn = screen.getByTestId('btn-save-all');
+    expect(btn.className).toContain('is-dirty');
+  });
+
+  it('Save All omits is-dirty className when no doc is dirty', () => {
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    // No dirty mark → dirtyPaths stays empty.
+    render(<AppHeader {...noopProps} />);
+    const btn = screen.getByTestId('btn-save-all');
+    expect(btn.className).not.toContain('is-dirty');
+  });
+
   it('Save All surfaces partial-failure toast', async () => {
     // 2 dirty, second saveArxml returns ok:false → toast shows failure
     // (1 saved, 1 failed). The first doc is still saved; the second

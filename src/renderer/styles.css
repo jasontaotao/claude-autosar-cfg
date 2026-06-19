@@ -313,6 +313,22 @@ body,
   border-color: #ea580c;
 }
 
+/* Sprint 17a T3 — Save All button gets the same amber highlight as
+ * the per-doc Save button when any document is dirty. Mirrors
+ * `.app-btn-save.is-dirty` palette (amber-700 base, amber-600 hover,
+ * orange-50 text) so users see at a glance there's multi-file work
+ * to save. */
+.app-btn-save-all.is-dirty {
+  background: #b45309;
+  border-color: #c2410c;
+  color: #fff7ed;
+}
+
+.app-btn-save-all.is-dirty:hover:not(:disabled) {
+  background: #c2410c;
+  border-color: #ea580c;
+}
+
 /* ------------------------------------------------------------------ */
 /* EB-style project dropdown menu                                     */
 /* ------------------------------------------------------------------ */
