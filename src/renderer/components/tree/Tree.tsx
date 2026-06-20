@@ -10,6 +10,7 @@
 // used for doc + selectedPath).
 
 import { useEffect, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
 import { t } from '@shared/i18n';
@@ -48,7 +49,11 @@ interface TreeProps {
   // Sprint 15 / Phase 3.4 — right-click handler. The host (App.tsx
   // in Sprint 15 wiring) wires this to the global ContextMenu.open()
   // so the user can right-click any tree node to add/delete.
-  readonly onContextMenu?: (path: string, kind: TreeKind) => void;
+  // Sprint A X2 — added the 3rd `e: ReactMouseEvent` arg so the
+  // host can read clientX / clientY without re-binding. Existing
+  // two-arg callers keep working because the parameter is unused
+  // when the host doesn't need it.
+  readonly onContextMenu?: (path: string, kind: TreeKind, e: ReactMouseEvent) => void;
 }
 
 /** Public component — top-level container. */
@@ -131,7 +136,7 @@ function renderPackage(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
-  onContextMenu?: (path: string, kind: TreeKind) => void,
+  onContextMenu?: (path: string, kind: TreeKind, e: ReactMouseEvent) => void,
 ): JSX.Element {
   const hasElements = pkg.elements.length > 0;
   const hasSubPackages = pkg.packages !== undefined && pkg.packages.length > 0;
@@ -181,7 +186,7 @@ function renderChildren(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
-  onContextMenu?: (path: string, kind: TreeKind) => void,
+  onContextMenu?: (path: string, kind: TreeKind, e: ReactMouseEvent) => void,
 ): JSX.Element[] {
   return elements.map((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;

@@ -9,7 +9,7 @@
 // subtrees are not rendered, so a simple `querySelectorAll('[role=treeitem]')`
 // at the tree root gives us the visible list — no separate bookkeeping).
 
-import { useCallback, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 
 /** Discriminator for the visual kind indicator (replaces the previous
  *  text subtitle on element rows). Packages use the text "package" badge
@@ -37,7 +37,9 @@ interface TreeNodeProps {
   // the user gets an Add/Delete menu on a node they right-click. The
   // handler receives the node's path and kind so the menu can pick
   // the right item set.
-  readonly onContextMenu?: (path: string, kind: TreeKind) => void;
+  // Sprint A X2 — added the 3rd `e: React.MouseEvent` arg so the
+  // host can read clientX / clientY for menu positioning.
+  readonly onContextMenu?: (path: string, kind: TreeKind, e: MouseEvent) => void;
   children?: ReactNode;
 }
 
@@ -158,8 +160,10 @@ export function TreeNode({
         // browser's native context menu does not also appear; the
         // host's onContextMenu decides whether to actually open a
         // menu (it may no-op if the kind/path is not supported).
+        // Sprint A X2 — forward the React MouseEvent so the host
+        // can read clientX / clientY for menu positioning.
         e.preventDefault();
-        onContextMenu?.(path, kind ?? 'container');
+        onContextMenu?.(path, kind ?? 'container', e);
       }}
       onClick={(e) => {
         // Stop the click from bubbling to ancestor treeitems — each

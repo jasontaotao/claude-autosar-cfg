@@ -318,6 +318,11 @@ export interface Messages {
   readonly 'mutation.action.addReference': string;
   readonly 'mutation.action.delete': string; // {name}
   readonly 'mutation.action.deleteParameter': string; // aria-label
+  // Sprint A X2 — P0-3: context-menu "Delete reference" is exposed
+  // but the underlying mutation is not yet implemented (the
+  // reference graph has no remove path). Surface a localized info
+  // toast so the user gets feedback instead of a silent no-op.
+  readonly 'mutation.action.deleteReferenceNotImplemented': string;
   // Sprint 15 — CascadeConfirmDialog (3-option). Distinct from the
   // existing dirty-guard confirm.cascade.* which is reserved for
   // unsaved-changes flows.
@@ -643,6 +648,7 @@ export const MessagesZhCN: Messages = {
   'mutation.action.addReference': '添加引用',
   'mutation.action.delete': "删除 '{name}'",
   'mutation.action.deleteParameter': '删除参数',
+  'mutation.action.deleteReferenceNotImplemented': '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
   'confirm.cascade.message': "'{name}' 被 {count} 处引用指向：",
   'confirm.cascade.cancel': '取消',
@@ -950,6 +956,7 @@ export const MessagesEn: Messages = {
   'mutation.action.addReference': 'Add reference',
   'mutation.action.delete': "Delete '{name}'",
   'mutation.action.deleteParameter': 'Delete parameter',
+  'mutation.action.deleteReferenceNotImplemented': 'Deleting references is not yet implemented (tracked in Sprint A backlog)',
   'confirm.cascade.title': "Delete '{name}'?",
   'confirm.cascade.message': "'{name}' is referenced by {count} places:",
   'confirm.cascade.cancel': 'Cancel',

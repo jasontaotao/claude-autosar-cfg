@@ -20,7 +20,7 @@
 // The Tree is always rendered below the tab area, outside the tab
 // switching logic, so it remains visible regardless of active tab.
 
-import type { JSX } from 'react';
+import type { JSX, MouseEvent as ReactMouseEvent } from 'react';
 
 import { t } from '@shared/i18n';
 
@@ -55,9 +55,27 @@ export interface LeftPanelProps {
    * the picker state; LeftPanel just forwards the click.
    */
   readonly onAddEcucFromBswmd?: (bswmdPath: string) => void;
+  /**
+   * Sprint A X2 — P0-3 wiring: forwarded to `<Tree />` so a right-click
+   * on a tree row opens the global ContextMenu. The host (App.tsx)
+   * passes a callback that captures the MouseEvent (to read
+   * clientX / clientY) before forwarding to `openContextMenu`. The
+   * Tree's own prop signature is `(path, kind)` so we match that
+   * shape here for forward-compat; the MouseEvent capture happens
+   * inside the host. Optional for back-compat with existing call
+   * sites.
+   */
+  readonly onContextMenu?: (
+    path: string,
+    kind: 'module' | 'container' | 'reference',
+    e: ReactMouseEvent,
+  ) => void;
 }
 
-export function LeftPanel({ onAddEcucFromBswmd }: LeftPanelProps = {}): JSX.Element {
+export function LeftPanel({
+  onAddEcucFromBswmd,
+  onContextMenu,
+}: LeftPanelProps = {}): JSX.Element {
   const leftTab = useArxmlStore((s) => s.leftTab);
   const setLeftTab = useArxmlStore((s) => s.setLeftTab);
   const locale = useArxmlStore((s) => s.locale);
@@ -166,9 +184,11 @@ export function LeftPanel({ onAddEcucFromBswmd }: LeftPanelProps = {}): JSX.Elem
         )}
       </div>
 
-      {/* Tree — always visible below tabs */}
+      {/* Tree — always visible below tabs. Sprint A X2 forwards the
+          host's onContextMenu so a right-click on a tree row opens
+          the global ContextMenu via the host-wired router. */}
       <div className="left-panel-tree">
-        <Tree store={useArxmlStore} />
+        <Tree store={useArxmlStore} onContextMenu={onContextMenu} />
       </div>
     </div>
   );

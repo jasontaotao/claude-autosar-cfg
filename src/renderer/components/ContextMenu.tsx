@@ -120,21 +120,105 @@ function clampToViewport(
 
 // ---------------------------------------------------------------------------
 // BSWMD coverage — the "add" items are disabled (with a tooltip) when
-// no loaded BSWMD schema defines a module whose shortName matches the
-// first path segment of the target. A "covered" module is one that
+// no loaded BSWMD schema defines a module whose shortName appears
+// anywhere along the value-side path. A "covered" module is one that
 // has at least one ContainerDef / ParamDef / ReferenceDef to choose
 // from — we use the simple `modules[].shortName` match as the gate.
+//
+// Sprint A X3 — P1 bugfix: the original implementation only checked
+// the FIRST path segment. Real value-side paths are shaped
+// `/<AR-PACKAGE>/<MODULE>/...`, so when the AR-PACKAGE shortName
+// differs from the module shortName (e.g. user data uses
+// `JWQ_CDD_PACK` as the package and `JWQ3399` as the module), the
+// first segment never matches the module and every "Add *" item
+// stayed disabled. In combined mode the path additionally carries
+// a source-file basename prefix (`<basename>/...`) or a `[doc:N]`
+// index prefix, so even paths that DO start with the module shortName
+// end up with the basename or doc-index as the first segment.
+//
+// Fix: strip the combined-mode prefix (when in scope) and then walk
+// the segments from the back, matching any segment equal to a known
+// module shortName. Walking from the back matches the store's
+// `findModuleDefForPath` algorithm (see useArxmlStore.ts:2904) and
+// keeps the legacy `/<module>/...` shape working because the only
+// segment there is the module shortName.
 // ---------------------------------------------------------------------------
 
-function isModuleCoveredByBswmd(path: string, schemas: readonly BswmdDocument[]): boolean {
+/** Last path segment after the final `/` or `\`. Mirrors
+ *  `useArxmlStore#lastSegment`; inlined here to keep the
+ *  `shared/path` dependency out of the renderer-only module. */
+function lastPathSegment(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
+/** Strip the combined-mode prefix from `combinedPath` so the inner
+ *  value-side path is what gets scanned for module shortName matches.
+ *  Mirrors `useArxmlStore#stripCombinedPrefix`: the head segment is
+ *  either the source file's basename, a `[doc:N]` index, or — when
+ *  the combined view uses the flat (no-wrapper) shape — the actual
+ *  first inner segment. Returns `null` only when the input has fewer
+ *  than 2 segments (nothing to strip and nothing inner to use). */
+function stripCombinedPrefix(
+  combinedPath: string,
+  sourceFilePath: string,
+): string | null {
+  const segments = combinedPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const [head, ...rest] = segments;
+  if (head === undefined) return null;
+  // Accept either the literal basename or the [doc:N] index form.
+  if (
+    head === lastPathSegment(sourceFilePath) ||
+    /^\[doc:\d+\]$/.test(head)
+  ) {
+    return `/${rest.join('/')}`;
+  }
+  // Flat mode: no wrapper in the combined view — the path is already
+  // an inner path. Return verbatim.
+  return combinedPath;
+}
+
+export interface BswmdCoverageOptions {
+  /** View mode from the store. When `'combined'`, the path may carry a
+   *  source-file prefix that must be stripped before the segment
+   *  walk. Defaults to `'single'` for callers that don't pass options. */
+  readonly viewMode?: 'single' | 'combined';
+  /** Absolute on-disk path of the source document the target path
+   *  belongs to. Required for combined-mode prefix stripping. When
+   *  omitted in combined mode, the path is treated as an inner path. */
+  readonly sourceFilePath?: string;
+}
+
+function isModuleCoveredByBswmd(
+  path: string,
+  schemas: readonly BswmdDocument[],
+  options?: BswmdCoverageOptions,
+): boolean {
   if (schemas.length === 0) return false;
-  // path = "/<module>/..." — the module shortName is the first
-  // non-empty segment after the leading slash.
-  const firstSegment = path.split('/').filter(Boolean)[0];
-  if (firstSegment === undefined) return false;
-  for (const schema of schemas) {
-    for (const mod of schema.modules) {
-      if (mod.shortName === firstSegment) return true;
+  // 1. Strip combined-mode prefix when applicable. The stripper
+  //    returns the inner path (or the verbatim input when there is no
+  //    prefix to strip) so the segment walk below always sees the
+  //    value-side path inside the source document.
+  let stripped = path;
+  if (options?.viewMode === 'combined' && options.sourceFilePath !== undefined) {
+    const inner = stripCombinedPrefix(path, options.sourceFilePath);
+    if (inner !== null) stripped = inner;
+  }
+  // 2. Walk the segments from the back and return true on the first
+  //    module shortName match. Walking from the back mirrors
+  //    `useArxmlStore#findModuleDefForPath` so both layers agree on
+  //    which module "owns" a given path. It also lets the legacy
+  //    `/<module>/...` shape keep working (single segment → matches
+  //    on the first iteration) while accommodating the
+  //    `/<AR-PACKAGE>/<MODULE>/...` shape (second segment matches).
+  const segments = stripped.split('/').filter(Boolean);
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    const candidate = segments[i];
+    if (candidate === undefined) continue;
+    for (const schema of schemas) {
+      for (const mod of schema.modules) {
+        if (mod.shortName === candidate) return true;
+      }
     }
   }
   return false;
@@ -420,7 +504,24 @@ function buildItems(
   if (target.kind === 'reference') {
     return buildReferenceItems(target, locale);
   }
-  const covered = isModuleCoveredByBswmd(target.path, schemas);
+  // Sprint A X3 — pull combined-mode + source file path from the
+  // store so `isModuleCoveredByBswmd` can strip the combined-mode
+  // prefix before scanning for a matching module shortName. The
+  // `activeDocumentPath` covers single-mode (one doc open) and
+  // combined-mode (the doc that owns the right-clicked tree node).
+  // Falls back to legacy first-segment matching when these are null
+  // (e.g. early-mount or transition states).
+  const storeState = useArxmlStore.getState();
+  // Only `'single'` and `'combined'` need the basename-prefix strip
+  // (the `'import-merged'` mode is a Sprint 14 wizard state that
+  // surfaces no tree for right-click). Treat anything else as single.
+  const viewMode: 'single' | 'combined' =
+    storeState.viewMode === 'combined' ? 'combined' : 'single';
+  const sourceFilePath = storeState.activeDocumentPath ?? storeState.filePath ?? undefined;
+  const covered = isModuleCoveredByBswmd(target.path, schemas, {
+    viewMode,
+    sourceFilePath,
+  });
   const disabledTitle = t(locale, 'mutation.error.no-bswmd-for-module');
   return buildContainerItems(target, covered, locale, disabledTitle);
 }

@@ -1,14 +1,15 @@
 /* ContextMenu — Sprint 15 / Phase 3.1.
    Portal-based right-click menu. Catppuccin Mocha theme to match the
    rest of the renderer (ConfirmDialog / CascadeConfirmDialog). z-index
-   9995 — sits BELOW the cascade / confirm dialogs so a context menu
-   can be safely open while a modal flow is in progress (and a
-   backdrop click is impossible because the menu closes on outside
-   click first). */
+   9994 — sits BELOW the BSWMD picker (9995), the cascade (9996), and
+   the confirm (9998) dialogs. In practice the menu auto-closes on
+   outside-mousedown before any of those mount, so the stacking tie
+   is benign; the explicit z-index avoids future regressions if the
+   auto-close logic changes. */
 
 .context-menu {
   position: fixed;
-  z-index: 9995;
+  z-index: 9994;
   min-width: 200px;
   max-width: 320px;
   background: #313244; /* --color-surface */

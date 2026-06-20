@@ -36,7 +36,7 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import type { PickedModule } from '@core/arxml/skeleton.js';
@@ -44,8 +44,11 @@ import { t as i18nT } from '@shared/i18n';
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
+import { BswmdPickerRoot } from './components/BswmdPickerDialog';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
+import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
+import type { ContextMenuAction } from './components/ContextMenu';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
@@ -272,6 +275,73 @@ export function App(): JSX.Element {
     [createEcuc, removeEcuc, locale, setStoreError],
   );
 
+  // Sprint A X2 — P0-3 wiring. The Tree's onContextMenu fires with
+  // (path, kind, e: ReactMouseEvent); we capture the React event so
+  // we can read clientX / clientY for menu positioning. The
+  // closure here is intentionally thin — all routing logic lives in
+  // `handleContextMenuAction` below.
+  const handleContextMenu = useCallback(
+    (
+      path: string,
+      kind: 'module' | 'container' | 'reference',
+      e: ReactMouseEvent,
+    ): void => {
+      // Extract `shortName` from the path's last segment so the
+      // menu's delete label can show what is being deleted.
+      const shortName = path.split('/').filter(Boolean).pop() ?? '';
+      openContextMenu({ path, kind, shortName }, e.clientX, e.clientY);
+    },
+    [],
+  );
+
+  // Sprint A X2 — P0-3 wiring. Routes every action emitted by
+  // ContextMenuRoot to the matching store action. Three "add" items
+  // open the BSWMD picker (single + Done model from Sprint 15);
+  // "delete-container" delegates to `deleteContainer` (which itself
+  // handles cascade-confirm internally); "delete-reference" has no
+  // dedicated store action today, so we surface a localized info
+  // toast and no-op (the reference graph still lacks a remove path
+  // — see Sprint A backlog).
+  const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
+  const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
+  const setInfo = useArxmlStore((s) => s.setInfo);
+  const handleContextMenuAction = useCallback(
+    (action: ContextMenuAction): void => {
+      switch (action.type) {
+        case 'add-container':
+          openBswmdPicker({ parentPath: action.path, kind: 'container' });
+          return;
+        case 'add-parameter':
+          openBswmdPicker({ parentPath: action.path, kind: 'parameter' });
+          return;
+        case 'add-reference':
+          openBswmdPicker({ parentPath: action.path, kind: 'reference' });
+          return;
+        case 'delete-container':
+          deleteContainerAction(action.path);
+          return;
+        case 'delete-reference':
+          // No store action exists today; surface a localized
+          // info toast so the user gets feedback without a silent
+          // no-op. We reuse the "info" toast because the operation
+          // is supported (the menu exposes the item) but its
+          // underlying mutation is not yet implemented — see
+          // Sprint A backlog.
+          setInfo(
+            i18nT(locale, 'mutation.action.deleteReferenceNotImplemented'),
+          );
+          return;
+        default: {
+          // Exhaustiveness — TS will error here if a new action is
+          // added without a handler.
+          const _exhaustive: never = action;
+          void _exhaustive;
+        }
+      }
+    },
+    [openBswmdPicker, deleteContainerAction, setInfo, locale],
+  );
+
   // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns
   // the open/close flag and passes it down via AppHeader. Mounting
   // the panel conditionally keeps the bundle lazy: only when the
@@ -322,7 +392,13 @@ export function App(): JSX.Element {
                 <DiffTable />
               </div>
             ) : (
-              <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} />
+              // Sprint A X2 — wire handleContextMenu so a right-click
+              // on a Tree row opens the global ContextMenu, which in
+              // turn routes back through handleContextMenuAction.
+              <LeftPanel
+                onAddEcucFromBswmd={handleAddEcucFromBswmd}
+                onContextMenu={handleContextMenu}
+              />
             )}
           </Panel>
           <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
@@ -376,6 +452,22 @@ export function App(): JSX.Element {
         onConfirm={handleConfirmEcucPicker}
         onClose={handleCloseEcucPicker}
       />
+      {/* Sprint A X2 — P0-3 wiring. Mount the two dialog hosts that
+          back the Tree right-click flow:
+            - <BswmdPickerRoot /> (z-index 9995): subscribes to
+              useArxmlStore.bswmdPicker; opens when the menu emits an
+              'add-*' action. The host action handles Done → close.
+            - <ContextMenuRoot onAction={handleContextMenuAction} /> (z-index 9998):
+              module-level externalSetState API; opens when
+              openContextMenu() is called from TreeNode.onContextMenu.
+              Note: ContextMenuRoot sits at a HIGHER z-index than
+              BswmdPickerRoot so a click on the picker closes the menu
+              without overlap collisions.
+          The two hosts share no internal state; App.tsx is the single
+          router between them (handleContextMenuAction), keeping each
+          component decoupled from the other's update path. */}
+      <BswmdPickerRoot />
+      <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
     </div>
   );
 }
