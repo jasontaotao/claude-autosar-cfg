@@ -166,6 +166,25 @@ export interface CombinedDocumentResult {
   readonly warnings: readonly CombinedDocumentWarning[];
 }
 
+/**
+ * Sprint 17 P1 — single-level undo payload for `removeBswmdFromDisk`.
+ *
+ * `path` is the absolute on-disk path the user just removed (the
+ * `bswmdPaths` entry that was dropped). `schema` is the parsed
+ * `BswmdDocument` captured just before the disk unlink, so
+ * `undoLastRemoveBswmd` can put the in-memory state back without
+ * re-reading the file (which is now gone from disk). `timestamp`
+ * is `Date.now()` at capture time, exposed for the future
+ * "expire after N seconds" policy — v1 keeps the snapshot
+ * forever (cleared on the next `removeBswmdFromDisk` or
+ * `undoLastRemoveBswmd`).
+ */
+export interface BswmdRemoveSnapshot {
+  readonly path: string;
+  readonly schema: BswmdDocument;
+  readonly timestamp: number;
+}
+
 export interface ArxmlState {
   // Multi-doc state (canonical)
   readonly documents: readonly ArxmlDocument[];
@@ -485,6 +504,53 @@ export interface ArxmlState {
   removeBswmd: (path: string) => void;
 
   /**
+   * Sprint 17 P1 — `removeBswmdFromDisk`. Unlinks the BSWMD file
+   * from disk via the `bswmd:delete` IPC channel and then drops
+   * the matching entry from `bswmdSchemas` / `bswmdPaths` (same
+   * `projectSyncRemoveBswmdPath` path as `removeBswmd`). On
+   * success, the removed `BswmdDocument` is captured into
+   * `lastRemoveSnapshot` so a subsequent `undoLastRemoveBswmd`
+   * can put it back. The IPC contract is the same
+   * ok / not-found / write-failed union as
+   * `project:deleteArxml`; the renderer treats `ok` AND
+   * `not-found` as success (the cascade flow must be idempotent
+   * against a user-deleted file).
+   *
+   * Return shape mirrors the hook layer's
+   * `ProjectActionResult` so the UI can dispatch on `kind`
+   * directly. `kind: 'canceled'` is returned when the path is
+   * not in `bswmdPaths` (a stale id from the renderer).
+   */
+  removeBswmdFromDisk: (path: string) => Promise<
+    | { readonly kind: 'ok' }
+    | { readonly kind: 'canceled' }
+    | { readonly kind: 'write-failed'; readonly message: string }
+  >;
+
+  /**
+   * Sprint 17 P1 — `undoLastRemoveBswmd`. Restores the most
+   * recently removed BSWMD via `lastRemoveSnapshot`. Re-inserts
+   * the captured `BswmdDocument` at the end of `bswmdSchemas`,
+   * the matching path into `bswmdPaths`, and the relative path
+   * back into `project.bswmdPaths` (when a project is open).
+   * The snapshot is cleared so a second `undoLastRemoveBswmd`
+   * is a no-op (one level of undo, matching
+   * `undoLastCommit`). The on-disk file is NOT restored — the
+   * BSWMD file is gone; the in-memory schema reappears so the
+   * user can keep editing with stale-but-visible schema
+   * knowledge until they re-add the file via the dialog.
+   */
+  undoLastRemoveBswmd: () => void;
+
+  /**
+   * Sprint 17 P1 — most recent successful `removeBswmdFromDisk`
+   * snapshot. Cleared by `undoLastRemoveBswmd` and by any
+   * subsequent `removeBswmdFromDisk` (single-level undo, same
+   * constraint as `lastCommitSnapshot`).
+   */
+  readonly lastRemoveSnapshot: BswmdRemoveSnapshot | null;
+
+  /**
    * Sprint 14 — toggle a BSW module's enabled state within a loaded BSWMD
    * schema. `enabled=false` adds `moduleShortName` to the schema's
    * `disabledModules` Set (the picker / `buildSchemaLayer` then treat
@@ -617,6 +683,8 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // no last-commit snapshot.
   importSession: null,
   lastCommitSnapshot: null,
+  // Sprint 17 P1 — no BSWMD remove in flight at startup.
+  lastRemoveSnapshot: null,
   // Sprint 12 #3 Task 7 — dialog state defaults. Both dialogs start
   // closed; no pending action. The `isDirty` getter is a function on
   // the state (zustand permits functions in state alongside data) so
@@ -967,6 +1035,11 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // accidentally offer undoLastCommit from a prior commit.
       importSession: null,
       lastCommitSnapshot: null,
+      // Sprint 17 P1 — clear the BSWMD remove snapshot so a fresh
+      // project doesn't accidentally offer undoLastRemoveBswmd
+      // from a prior project. Single-level undo; cleared the same
+      // way as lastCommitSnapshot.
+      lastRemoveSnapshot: null,
       // Locale is a user preference — clear() resets docs but keeps
       // the language setting. Use setLocale() explicitly to change.
     }),
@@ -1067,12 +1140,6 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
       dirtyPaths: new Set<string>(),
-      // Sprint A — clear stale bswmd schemas/paths from any prior
-      // project before installing the new bundle. Without this, a
-      // closeProject → openProject sequence leaks the previous
-      // project's schemas into the new one.
-      bswmdSchemas: bswmdSchemasOut,
-      bswmdPaths: bswmdPathsOut,
       // Sprint 17b T6 — clear the typed toast alongside `error` so a
       // stale open-failure banner doesn't survive a successful open,
       // UNLESS we hit a BSWMD parse error above (in which case the
@@ -1179,6 +1246,112 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       bswmdSchemas: nextSchemas,
       bswmdPaths: nextPaths,
       project: nextProject,
+      ...revalidateWithBswmd(state.documents, nextSchemas),
+    });
+  },
+
+  // Sprint 17 P1 — `removeBswmdFromDisk`. IPC + in-memory +
+  // undo-snapshot in one transaction. The on-disk unlink is the
+  // only "risky" step; if it fails with `write-failed` we leave
+  // the in-memory state untouched and surface a typed error
+  // toast. `ok` and `not-found` are both treated as success
+  // (the cascade flow must be idempotent against a user-deleted
+  // BSWMD file), and both push a snapshot for undo.
+  removeBswmdFromDisk: async (path) => {
+    const state = get();
+    const idx = state.bswmdPaths.indexOf(path);
+    // No-op on unknown path — a stale id from the renderer
+    // shouldn't pop the dialog. Mirrors `removeBswmd`'s guard.
+    if (idx === -1) return { kind: 'canceled' as const };
+
+    // Capture the schema BEFORE the IPC so undo can re-insert the
+    // exact reference (no re-parse needed; the file is going away).
+    const schema = state.bswmdSchemas[idx]!;
+
+    // The IPC call. We catch + re-shape into the same
+    // ok / write-failed / not-found envelope the handler returns,
+    // so the renderer can switch on `kind` uniformly regardless of
+    // whether the failure was a thrown exception (defensive) or a
+    // returned `write-failed` (normal).
+    let ipcResult: { kind: 'ok' } | { kind: 'not-found' } | { kind: 'write-failed'; message: string };
+    try {
+      ipcResult = await window.autosarApi.deleteBswmd({ filePath: path });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      set({
+        error: t(state.locale, 'app.error.removeBswmdFromDisk', { message }),
+      });
+      return { kind: 'write-failed' as const, message };
+    }
+
+    if (ipcResult.kind === 'write-failed') {
+      set({
+        error: t(state.locale, 'app.error.removeBswmdFromDisk', {
+          message: ipcResult.message,
+        }),
+      });
+      return { kind: 'write-failed' as const, message: ipcResult.message };
+    }
+
+    // ok OR not-found — drop the in-memory state and push a
+    // snapshot. The schema is restored on undo WITHOUT touching
+    // disk (the file is gone, the on-disk side is a separate
+    // concern handled by the 4th dialog option "delete BSWMD
+    // from disk").
+    const nextSchemas = state.bswmdSchemas.filter((_, i) => i !== idx);
+    const nextPaths = state.bswmdPaths.filter((p) => p !== path);
+    const nextProject = projectSyncRemoveBswmdPath(
+      state.project,
+      path,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
+    set({
+      bswmdSchemas: nextSchemas,
+      bswmdPaths: nextPaths,
+      project: nextProject,
+      lastRemoveSnapshot: { path, schema, timestamp: Date.now() },
+      // Successful remove clears a stale prior error so a user who
+      // just retried after a write-failed attempt doesn't see the
+      // old banner linger.
+      error: null,
+      toast: null,
+      ...revalidateWithBswmd(state.documents, nextSchemas),
+    });
+    return { kind: 'ok' as const };
+  },
+
+  // Sprint 17 P1 — `undoLastRemoveBswmd`. Mirrors the
+  // `undoLastCommit` shape: pop the snapshot, restore the
+  // captured schema, re-validate, clear the snapshot. The on-disk
+  // file is NOT restored — the BSWMD file is gone; the in-memory
+  // schema reappears so the user can keep editing with
+  // stale-but-visible schema knowledge until they re-add the file
+  // via the dialog. (A future enhancement could write the
+  // captured schema back to disk via `writeArxmlBatch`-style
+  // IPC, but v1 is in-memory only — the same constraint as
+  // `undoLastCommit`.)
+  undoLastRemoveBswmd: () => {
+    const state = get();
+    const snapshot = state.lastRemoveSnapshot;
+    if (snapshot === null) return;
+
+    // `addBswmd` has a duplicate-path guard; undo is the inverse
+    // — the path was just dropped so the slot is free. We mirror
+    // the parallel-array append + project-sync-add path from
+    // `addBswmd`'s commit phase, but skip the parse step (we
+    // already have the parsed `BswmdDocument`).
+    const nextSchemas = [...state.bswmdSchemas, snapshot.schema];
+    const nextPaths = [...state.bswmdPaths, snapshot.path];
+    const nextProject = projectSyncAddBswmdPath(
+      state.project,
+      snapshot.path,
+      state.projectPath !== null ? sharedDirname(state.projectPath) : null,
+    );
+    set({
+      bswmdSchemas: nextSchemas,
+      bswmdPaths: nextPaths,
+      project: nextProject,
+      lastRemoveSnapshot: null,
       ...revalidateWithBswmd(state.documents, nextSchemas),
     });
   },

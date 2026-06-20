@@ -59,6 +59,13 @@ export const IPC_CHANNELS = {
   // renderer can distinguish "deleted" from "already gone" from
   // "permission error".
   PROJECT_DELETE_ARXML: 'project:deleteArxml',
+  // Sprint 17 P1 — `bswmd:delete` IPC. Unlink a single BSWMD file
+  // from disk. Used by the `removeBswmdFromDisk` store action when
+  // the user picks the 4th option "delete BSWMD from disk" in the
+  // RemoveModuleConfirmDialog (P2). Returns the same
+  // ok / not-found / write-failed shape as `project:deleteArxml`
+  // (ENOTDIR / EACCES / EPERM all fall through to write-failed).
+  BSWMD_DELETE: 'bswmd:delete',
   // Sprint 14 #1 — embedded script engine IPC.
   //
   // Four invoke channels + one main→renderer push channel. The script

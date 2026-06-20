@@ -13,6 +13,8 @@ import type {
   PickDirResult,
   ProjectDeleteArxmlRequest,
   ProjectDeleteArxmlResult,
+  ProjectDeleteBswmdRequest,
+  ProjectDeleteBswmdResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -97,6 +99,13 @@ const api = {
   // user-deleted value-side file.
   deleteArxml: (req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_ARXML, req),
+  // Sprint 17 P1 — delete a BSWMD file from disk. Used by the
+  // 4th option "delete BSWMD from disk" in RemoveModuleConfirmDialog
+  // (P2). Mirrors `deleteArxml` for the same idempotent
+  // ok / not-found / write-failed shape; see
+  // `bswmdDeleteHandler.ts` for the rationale.
+  deleteBswmd: (req: ProjectDeleteBswmdRequest): Promise<ProjectDeleteBswmdResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.BSWMD_DELETE, req),
   // Sprint 14 #1 — script engine IPC bridge. Four invoke wrappers
   // (`listScripts` / `saveScript` / `deleteScript` / `runScript`) and
   // one push subscription (`onScriptProgress`) that returns an

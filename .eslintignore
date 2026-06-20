@@ -6,3 +6,8 @@ test-results
 *.config.js
 *.config.cjs
 *.config.mjs
+
+# Local regeneration scripts (one-off per project, gitignored too).
+# See .gitignore: `claude-AutosarCfg/` is a personal regeneration
+# workspace and not part of the repo.
+claude-AutosarCfg/

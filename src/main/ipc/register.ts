@@ -19,6 +19,8 @@ import type {
   PickDirResult,
   ProjectDeleteArxmlRequest,
   ProjectDeleteArxmlResult,
+  ProjectDeleteBswmdRequest,
+  ProjectDeleteBswmdResult,
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
@@ -36,6 +38,7 @@ import type {
   ScriptSaveRequest,
 } from '../../shared/types.js';
 
+import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
@@ -382,6 +385,17 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.PROJECT_DELETE_ARXML,
     async (_evt, req: ProjectDeleteArxmlRequest): Promise<ProjectDeleteArxmlResult> => {
       return projectDeleteArxmlHandler(req);
+    },
+  );
+
+  // Sprint 17 P1 — `bswmd:delete` handler. Unlink a single BSWMD
+  // file from disk. Mirrors `PROJECT_DELETE_ARXML` for the same
+  // ok / not-found / write-failed contract; see
+  // `bswmdDeleteHandler.ts` for the rationale.
+  ipcMain.handle(
+    IPC_CHANNELS.BSWMD_DELETE,
+    async (_evt, req: ProjectDeleteBswmdRequest): Promise<ProjectDeleteBswmdResult> => {
+      return bswmdDeleteHandler(req);
     },
   );
 

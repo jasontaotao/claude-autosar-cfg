@@ -446,6 +446,24 @@ export type ProjectDeleteArxmlResult =
   | { readonly kind: 'not-found' }
   | { readonly kind: 'write-failed'; readonly message: string };
 
+// --- Sprint 17 P1 — `bswmd:delete` IPC types --------------------------------
+//
+// Mirrors `ProjectDeleteArxmlRequest/Result` for parity. The shape is
+// identical (delete a file by absolute path, return
+// ok / not-found / write-failed) but the names are kept distinct so
+// the type system is honest about which channel the value flows
+// through. Future divergence (e.g. a size cap or a path-containment
+// check on BSWMD deletes) is easier to land in a non-shared type.
+
+export interface ProjectDeleteBswmdRequest {
+  readonly filePath: string;
+}
+
+export type ProjectDeleteBswmdResult =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'write-failed'; readonly message: string };
+
 // --- Sprint 14 #1 — script engine IPC types --------------------------------
 //
 // The renderer drives script CRUD through 4 invoke channels and consumes

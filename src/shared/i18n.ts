@@ -100,6 +100,7 @@ export interface Messages {
   readonly 'app.error.readBswmdFailed': string; // {message}
   readonly 'app.error.parseBswmdFailed': string; // {message}
   readonly 'app.error.duplicateBswmd': string; // {path}
+  readonly 'app.error.removeBswmdFromDisk': string; // {message}
   readonly 'app.error.needProject': string;
   readonly 'app.error.dismissAria': string;
   // Sprint 17b T6 — per-kind ARIA labels. The non-error kinds (warning /
@@ -482,6 +483,7 @@ export const MessagesZhCN: Messages = {
   'app.error.readBswmdFailed': '读取 BSWMD 失败: {message}',
   'app.error.parseBswmdFailed': 'BSWMD 解析失败: {message}',
   'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
+  'app.error.removeBswmdFromDisk': '从磁盘移除 BSWMD 失败: {message}',
   'app.error.needProject': '需要先打开或创建项目',
   'app.error.dismissAria': '关闭提醒',
   'app.error.warningAria': '警告通知',
@@ -787,6 +789,7 @@ export const MessagesEn: Messages = {
   'app.error.readBswmdFailed': 'Failed to read BSWMD: {message}',
   'app.error.parseBswmdFailed': 'BSWMD parse failed: {message}',
   'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
+  'app.error.removeBswmdFromDisk': 'Failed to remove BSWMD from disk: {message}',
   'app.error.needProject': 'Please open or create a project first',
   'app.error.dismissAria': 'Dismiss notification',
   'app.error.warningAria': 'Warning notification',
