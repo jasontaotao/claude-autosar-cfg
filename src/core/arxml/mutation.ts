@@ -629,6 +629,12 @@ function scanElement(
   out: ReferenceHit[],
 ): void {
   if (el.kind === 'reference') return;
+  // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
+  // and carry no params / children to scan for cross-refs. They
+  // contain opaque data captured verbatim and cannot host any
+  // project-internal VALUE-REFs (those would have been classified as
+  // ArxmlReference / ArxmlContainer in `classifyElement`).
+  if (el.kind === 'unknown') return;
   for (const [key, value] of Object.entries(el.params)) {
     if (value.type === 'reference' && endsWithPath(value.value, targetPath)) {
       out.push({ filePath, containerPath: elPath, paramKey: key });
@@ -699,7 +705,7 @@ function locateInPackage(
     }
     return null;
   }
-  if (isPackage(cursor) || cursor.kind === 'reference') return null;
+  if (isPackage(cursor) || cursor.kind === 'reference' || cursor.kind === 'unknown') return null;
   return { parent: cursor, pkg };
 }
 
@@ -718,7 +724,12 @@ function isPackage(value: ArxmlElement | ArxmlPackage): value is ArxmlPackage {
 }
 
 function shortNameOf(e: ArxmlElement): string {
-  return e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName;
+  if (e.kind === 'reference') return e.shortName ?? e.value;
+  // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME;
+  // fall back to the captured tagName so sibling iteration still
+  // produces a unique path segment.
+  if (e.kind === 'unknown') return e.tagName;
+  return e.shortName;
 }
 
 function hasChildWithShortName(parent: ArxmlModule | ArxmlContainer, shortName: string): boolean {
@@ -852,7 +863,9 @@ function removeInElements(
   let changed = false;
   const next: ArxmlElement[] = [];
   for (const el of elements) {
-    if (el.kind === 'reference') {
+    if (el.kind === 'reference' || el.kind === 'unknown') {
+      // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
+      // and have no SHORT-NAME match — push through untouched.
       next.push(el);
       continue;
     }

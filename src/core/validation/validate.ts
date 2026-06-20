@@ -82,6 +82,10 @@ function walkElements(
     } else if (el.kind === 'reference') {
       walkReference(parentPath, el, errors, layer);
     }
+    // else: `unknown` elements are skipped — they have no params
+    // / refs / children to validate (Sprint 17c v1.4.0 trust
+    // sprint). They are preserved on round-trip via the model's
+    // ArxmlUnknown variant; validation just doesn't address them.
   }
 }
 
@@ -643,6 +647,10 @@ function walkPathIndex(
       }
       continue;
     }
+    // v1.4.0 trust sprint — 17c. Unknown vendor extensions are not
+    // addressable through the cross-ref path index; they have no
+    // SHORT-NAME and no children to recurse into. Skip them.
+    if (el.kind === 'unknown') continue;
     // module or container
     const p = `${basePath}/${el.shortName}`;
     index.set(p, { path: p, kind: el.kind, shortName: el.shortName });
@@ -686,6 +694,10 @@ function walkRefs(parentPath: string, elements: readonly ArxmlElement[], sites: 
       sites.push(site);
       continue;
     }
+    // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
+    // and carry no SHORT-NAME / params / children. Skip the
+    // ref-scan + recurse for this variant.
+    if (el.kind === 'unknown') continue;
     // module or container — also scan `params[]` for type:'reference' values
     // (the parser folds VALUE-REFs inside ECUC-NUMERICAL-PARAM-VALUE /
     // ECUC-REFERENCE-VALUE wrappers into container.params[], not as discrete

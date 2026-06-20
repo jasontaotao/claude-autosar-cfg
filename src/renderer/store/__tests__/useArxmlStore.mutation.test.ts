@@ -567,7 +567,10 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     const mod = after.documents[0]!.packages[0]!.elements[0]!;
     if (mod.kind !== 'module') throw new Error('expected module');
     // AdcConfig removed, AdcConfigSet still has the reference param.
-    const shortNames = mod.children.map((c) => c.shortName);
+    // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
+    const shortNames = mod.children
+      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .map((c) => c.shortName);
     expect(shortNames).toEqual(['AdcConfigSet']);
     const configSet = mod.children[0]!;
     if (configSet.kind !== 'container') throw new Error('expected container');
@@ -591,7 +594,10 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     // since AdcConfigSet had no other children, it stays as an empty
     // container). Actually, the cascade deletes the REFERENCE PARAM on
     // AdcConfigSet, not AdcConfigSet itself.
-    const shortNames = mod.children.map((c) => c.shortName);
+    // v1.4.0 trust sprint — 17c. Filter to known kinds.
+    const shortNames = mod.children
+      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .map((c) => c.shortName);
     expect(shortNames).toEqual(['AdcConfigSet']);
     const configSet = mod.children[0]!;
     if (configSet.kind !== 'container') throw new Error('expected container');
@@ -673,7 +679,12 @@ describe('useArxmlStore — combined-mode mutation (Sprint 15)', () => {
     if (canMod.kind !== 'module') throw new Error('expected module');
     const canContainer = canMod.children[0]!;
     if (canContainer.kind !== 'container') throw new Error('expected container');
-    expect(canContainer.children[0]?.shortName).toBe('CanController');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    const canFirstChild = canContainer.children[0];
+    expect(canFirstChild?.kind).toBe('container');
+    if (canFirstChild?.kind === 'module' || canFirstChild?.kind === 'container') {
+      expect(canFirstChild.shortName).toBe('CanController');
+    }
     const adcMod = adcAfter.packages[0]!.elements[0]!;
     if (adcMod.kind !== 'module') throw new Error('expected module');
     const adcContainer = adcMod.children[0]!;

@@ -119,8 +119,18 @@ describe('round-trip after mutation (5 samples)', () => {
       const [firstSeg, ...tailSegs] = rest;
       if (firstSeg === undefined) return; // path was just /pkgName — no target
 
+      // v1.4.0 trust sprint — 17c. Use a single helper that gracefully
+      // surfaces an element's effective "name" (reference's value,
+      // module/container's SHORT-NAME, unknown's tagName) so the
+      // search below narrows correctly without reading `shortName`
+      // off an `ArxmlUnknown`.
+      const effectiveName = (e: ArxmlElement): string => {
+        if (e.kind === 'reference') return e.shortName ?? e.value;
+        if (e.kind === 'unknown') return e.tagName;
+        return e.shortName;
+      };
       const startEl: ArxmlElement | undefined = rePkg.elements.find(
-        (e) => (e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName) === firstSeg,
+        (e) => effectiveName(e) === firstSeg,
       );
       let cursor: ArxmlElement | undefined = startEl;
       for (const seg of tailSegs) {
@@ -129,14 +139,17 @@ describe('round-trip after mutation (5 samples)', () => {
           cursor = undefined;
           break;
         }
-        const next = cursor.children.find(
-          (c) => (c.kind === 'reference' ? (c.shortName ?? c.value) : c.shortName) === seg,
-        );
+        const next = cursor.children.find((c) => effectiveName(c) === seg);
         cursor = next;
       }
       expect(cursor).toBeDefined();
       if (cursor === undefined) return;
       if (cursor.kind === 'reference') {
+        throw new Error('expected container/module at target path');
+      }
+      // v1.4.0 trust sprint — 17c. Unknown elements are leaves with no
+      // params; throw early if the test path somehow lands on one.
+      if (cursor.kind === 'unknown') {
         throw new Error('expected container/module at target path');
       }
       const reTarget: ArxmlModule | ArxmlContainer = cursor;

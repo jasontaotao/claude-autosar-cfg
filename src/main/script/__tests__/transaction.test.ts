@@ -34,7 +34,13 @@ beforeAll(() => {
   ): string | null {
     for (const el of siblings) {
       if (el === target) {
-        return `${parentPath}/${el.shortName}`;
+        // v1.4.0 trust sprint — 17c. `target` is always a module or
+        // container (the walk() discovery above only enters the
+        // module/container branch), so it always has SHORT-NAME.
+        // Cast through unknown first so TS narrows correctly for the
+        // mixed `El` (ArxmlModule | ArxmlContainer | ArxmlReference |
+        // ArxmlUnknown) union after the variant widening.
+        return `${parentPath}/${(el as { shortName: string }).shortName}`;
       }
       if (el.kind === 'module' || el.kind === 'container') {
         const found = computeSyntheticPath(

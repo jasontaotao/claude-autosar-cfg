@@ -185,12 +185,14 @@ function renderChildren(
 ): JSX.Element[] {
   return elements.map((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
-    const isLeaf = el.kind === 'reference';
+    // v1.4.0 trust sprint — 17c. Unknown vendor extensions and
+    // references are both leaves with no children to recurse into.
+    const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
     return (
       <TreeNode
         key={childPath}
         label={shortNameOf(el)}
-        kind={el.kind}
+        kind={el.kind === 'unknown' ? undefined : el.kind}
         path={childPath}
         depth={depth}
         isLeaf={isLeaf}
@@ -217,5 +219,10 @@ function renderChildren(
 }
 
 function shortNameOf(e: ArxmlElement): string {
-  return e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName;
+  if (e.kind === 'reference') return e.shortName ?? e.value;
+  // v1.4.0 trust sprint — 17c. Unknown vendor extensions have no
+  // SHORT-NAME; surface the captured tagName so the user sees the
+  // element in the tree.
+  if (e.kind === 'unknown') return e.tagName;
+  return e.shortName;
 }

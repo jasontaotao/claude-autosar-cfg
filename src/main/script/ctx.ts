@@ -108,6 +108,12 @@ function toScriptType(t: string): ParamSnapshot['type'] {
 function flattenElement(el: ArxmlElement, parentPath: string): RawContainer[] {
   // Reference elements have no params / children — skip
   if (el.kind === 'reference') return [];
+  // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
+  // with no SHORT-NAME, params, or children. Script API has no
+  // representation for them; skip from the flattened view (the data
+  // is preserved in the source XML via the parser's `parsed` capture
+  // and round-tripped by the serializer).
+  if (el.kind === 'unknown') return [];
   // Both module and container share the same shape: { path, shortName, params, children }
   const path = `${parentPath}/${el.shortName}`;
   // The parser does NOT expose `path` on ArxmlModule/ArxmlContainer
@@ -371,6 +377,9 @@ export function findElementByPath(doc: ArxmlDocument, path: string): ArxmlElemen
   function walk(elements: readonly ArxmlElement[], parentPath: string): ArxmlElement | null {
     for (const el of elements) {
       if (el.kind === 'reference') continue;
+      // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME
+      // and no children to recurse into; skip from path lookup.
+      if (el.kind === 'unknown') continue;
       const myPath = `${parentPath}/${el.shortName}`;
       if (myPath === path) return el;
       const inner = walk(el.children, myPath);

@@ -341,7 +341,12 @@ function classifyElement(
   if (tagName === 'DEFINITION-REF' || tagName === 'REFERENCE' || tagName === 'VALUE-REF') {
     return buildReference(tagName, item);
   }
-  return null;
+  // v1.4.0 trust sprint — 17c. Catch-all for any tag the parser does not
+  // classify as module / container / reference (vendor extensions such as
+  // SERVICE-NEEDS, EXCLUSIVE-AREA, /EAS/ namespaced elements). The original
+  // fast-xml-parser node is captured verbatim and re-emitted by the
+  // serializer without string re-parsing.
+  return { kind: 'unknown', tagName, parsed: item };
 }
 
 function buildModule(

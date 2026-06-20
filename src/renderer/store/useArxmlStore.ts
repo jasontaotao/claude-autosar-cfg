@@ -2385,6 +2385,9 @@ function paramValueEquals(a: ParamValue, b: ParamValue): boolean {
 
 function shortName(e: ArxmlElement): string {
   if (e.kind === 'reference') return e.shortName ?? e.value;
+  // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME;
+  // surface the captured tagName so debug logs stay readable.
+  if (e.kind === 'unknown') return e.tagName;
   return e.shortName;
 }
 
@@ -2649,8 +2652,14 @@ function packagesDeepEqual(a: ArxmlPackage, b: ArxmlPackage): boolean {
 
 function elementsEqual(a: ArxmlElement, b: ArxmlElement): boolean {
   if (a.kind !== b.kind) return false;
-  if (a.shortName !== b.shortName) return false;
+  // v1.4.0 trust sprint — 17c. Unknown elements are identified by
+  // tagName (no SHORT-NAME). Compare the captured `parsed` payload
+  // verbatim so any structural drift in the re-emitted XML is detected.
+  if (a.kind === 'unknown' && b.kind === 'unknown') {
+    return JSON.stringify(a.parsed) === JSON.stringify(b.parsed);
+  }
   if (a.kind === 'reference' && b.kind === 'reference') {
+    if (a.shortName !== b.shortName) return false;
     if (a.value !== b.value) return false;
     if (a.dest !== b.dest) return false;
     return true;
@@ -2659,6 +2668,7 @@ function elementsEqual(a: ArxmlElement, b: ArxmlElement): boolean {
     (a.kind === 'module' || a.kind === 'container') &&
     (b.kind === 'module' || b.kind === 'container')
   ) {
+    if (a.shortName !== b.shortName) return false;
     if (a.tagName !== b.tagName) return false;
     if (!paramsDeepEqual(a.params, b.params)) return false;
     if (a.children.length !== b.children.length) return false;
@@ -2769,6 +2779,11 @@ function wrapNestedPackage(pkg: ArxmlPackage, segment: string): ArxmlPackage {
 }
 
 function wrapElement(el: ArxmlElement, parentPath: string): ArxmlElement {
+  // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME and
+  // no children to recurse into; pass them through with the parent path
+  // attached for downstream debugging (the renderer still sees them via
+  // the package's `elements` list).
+  if (el.kind === 'unknown') return { ...el };
   const childPath = `${parentPath}/${el.shortName}`;
   if (el.kind === 'reference') return { ...el };
   return {

@@ -46,7 +46,7 @@ export interface ArxmlPackage {
   readonly packages?: readonly ArxmlPackage[];
 }
 
-export type ArxmlElement = ArxmlModule | ArxmlContainer | ArxmlReference;
+export type ArxmlElement = ArxmlModule | ArxmlContainer | ArxmlReference | ArxmlUnknown;
 
 export interface ArxmlModule {
   readonly kind: 'module';
@@ -72,6 +72,31 @@ export interface ArxmlReference {
   readonly value: string;
   /** AUTOSAR DEST attribute from <VALUE-REF DEST="..."> (e.g. "PDU", "COM-SIGNAL") */
   readonly dest?: string;
+}
+
+/**
+ * v1.4.0 trust sprint — sub-sprint 17c.
+ *
+ * Catch-all variant for any element the parser does not classify as
+ * module / container / reference (vendor extensions such as
+ * `<SERVICE-NEEDS>`, `<EXCLUSIVE-AREA>`, `/EAS/`-namespaced elements).
+ *
+ * `parsed` is the **original fast-xml-parser node**, captured verbatim
+ * during `classifyElement`. The serializer re-emits it via
+ * `{ [tagName]: parsed }` without string re-parsing — `XMLBuilder`
+ * accepts the same shape the parser produces (attributes under `@_`,
+ * text under `#text`, child elements as object keys).
+ *
+ * Known limitation: sibling order between known and unknown elements
+ * within the same parent is determined by model iteration order, not
+ * original source order. Documented in CHANGELOG; full preservation
+ * requires `preserveOrder: true`, deferred to v1.5+.
+ */
+export interface ArxmlUnknown {
+  readonly kind: 'unknown';
+  readonly tagName: string;
+  /** Original fast-xml-parser node — passed verbatim to XMLBuilder for re-emit. */
+  readonly parsed: Readonly<Record<string, unknown>>;
 }
 
 export type ParamValue =

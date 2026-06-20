@@ -20,7 +20,7 @@ import type { BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd.j
 import { addContainer, addParameter, removeContainer } from '../mutation.js';
 import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
-import type { ArxmlDocument, ArxmlElement, ArxmlModule } from '../types.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule } from '../types.js';
 
 const SAMPLES = ['Det_Det', 'EcuC_EcuC', 'Com_Com', 'PduR_PduR', 'WdgIf_WdgIf'] as const;
 const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
@@ -129,7 +129,12 @@ describe('round-trip: addContainer survives serialize / re-parse', () => {
     const newPkg = p2.value.packages[0]!;
     const newModuleIdx = findModuleIndexInPackage(newPkg);
     const newRoot = newPkg.elements[newModuleIdx] as ArxmlModule;
-    expect(newRoot.children.map((c) => c.shortName)).toContain('Sprint15TestContainer');
+    // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
+    expect(
+      newRoot.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).toContain('Sprint15TestContainer');
   });
 });
 
@@ -278,6 +283,11 @@ describe('round-trip: removeContainer survives serialize / re-parse', () => {
     const newPkg = p2.value.packages[0]!;
     const newModuleIdx = findModuleIndexInPackage(newPkg);
     const newRoot = newPkg.elements[newModuleIdx] as ArxmlModule;
-    expect(newRoot.children.map((c) => c.shortName)).not.toContain('Sprint15ToBeRemoved');
+    // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
+    expect(
+      newRoot.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).not.toContain('Sprint15ToBeRemoved');
   });
 });

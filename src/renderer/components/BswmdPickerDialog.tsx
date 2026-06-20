@@ -210,15 +210,24 @@ function locateParentElement(
       // 'reference' due to the children-access below. Cast preserves
       // the type-narrowing intent.
       if ((cursor as ArxmlElement).kind === 'reference') return null;
+      // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME
+      // and no children to descend into; the picker is for BSWMD
+      // module/container navigation, so treat unknowns as leaves.
+      if ((cursor as ArxmlElement).kind === 'unknown') return null;
       const child: ArxmlElement | undefined = (
         cursor as ArxmlContainer | ArxmlModule
-      ).children.find((c: ArxmlElement) => c.shortName === name);
+      ).children.find(
+        (c: ArxmlElement) =>
+          (c.kind === 'module' || c.kind === 'container') && c.shortName === name,
+      );
       if (child === undefined || child.kind === 'reference') return null;
       cursor = child;
       continue;
     }
     // Package: look in elements.
-    const child: ArxmlElement | undefined = cursor.elements.find((e) => e.shortName === name);
+    const child: ArxmlElement | undefined = cursor.elements.find(
+      (e) => (e.kind === 'module' || e.kind === 'container') && e.shortName === name,
+    );
     if (child === undefined || child.kind === 'reference') return null;
     cursor = child;
   }

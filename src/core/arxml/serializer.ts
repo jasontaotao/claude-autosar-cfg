@@ -10,6 +10,7 @@ import type {
   ArxmlModule,
   ArxmlPackage,
   ArxmlReference,
+  ArxmlUnknown,
   ArxmlVersion,
   ParamValue,
   Result,
@@ -159,7 +160,23 @@ function renderPackage(pkg: ArxmlPackage): Record<string, unknown> {
 function renderElement(elem: ArxmlElement): Record<string, unknown> {
   if (elem.kind === 'module') return { [elem.tagName]: renderModule(elem) };
   if (elem.kind === 'container') return { [elem.tagName]: renderContainer(elem) };
+  if (elem.kind === 'unknown') return renderUnknown(elem);
   return renderReference(elem);
+}
+
+/**
+ * v1.4.0 trust sprint — 17c. Re-emit a captured fast-xml-parser node for
+ * any element the parser did not classify. `XMLBuilder` accepts the same
+ * shape the parser produces (attributes under `@_`, text under `#text`,
+ * child elements as object keys), so no string re-parsing is needed.
+ *
+ * We widen the readonly `parsed` to a mutable record here because
+ * `XMLBuilder.build` mutates object references in place when serialising
+ * attribute keys (rare; the v1.4.0 fixtures have no attributes on the
+ * unknown elements, but the contract should hold either way).
+ */
+function renderUnknown(elem: ArxmlUnknown): Record<string, unknown> {
+  return { [elem.tagName]: { ...elem.parsed } };
 }
 
 function renderModule(m: ArxmlModule): Record<string, unknown> {
@@ -167,12 +184,20 @@ function renderModule(m: ArxmlModule): Record<string, unknown> {
     'SHORT-NAME': m.shortName,
   };
   if (m.references.length > 0) {
-    const ref = m.references[0]!;
-    const [dest, ...rest] = ref.split(':');
-    const value = rest.join(':') || ref;
-    const defRef: Record<string, unknown> = { '#text': value };
-    if (dest !== undefined) defRef['@_DEST'] = dest;
-    out['DEFINITION-REF'] = defRef;
+    // v1.4.0 trust sprint — 17c. Emit every module-level DEFINITION-REF as
+    // a top-level sibling. The pre-fix code only emitted `m.references[0]`,
+    // silently dropping every additional DEFINITION-REF the parser had
+    // captured. The parser reads top-level DEFINITION-REF via `asArray`
+    // (parser.ts:500) so all siblings round-trip into `m.references` on
+    // re-parse.
+    const defRefs = m.references.map((ref) => {
+      const [dest, ...rest] = ref.split(':');
+      const value = rest.join(':') || ref;
+      const defRef: Record<string, unknown> = { '#text': value };
+      if (dest !== undefined) defRef['@_DEST'] = dest;
+      return defRef;
+    });
+    out['DEFINITION-REF'] = defRefs.length === 1 ? defRefs[0] : defRefs;
   }
   const { regular: regularArr, refs: refsArr } = renderParamEntries(m.params);
   const containersArr = m.children.filter((c): c is ArxmlContainer => c.kind === 'container');

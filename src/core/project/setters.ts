@@ -45,6 +45,9 @@ export function findContainerByPath(
   function walk(elements: readonly ArxmlElement[], parentPath: string): ArxmlModule | ArxmlContainer | null {
     for (const el of elements) {
       if (el.kind === 'reference') continue;
+      // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
+      // with no SHORT-NAME and no children. Skip them in path lookup.
+      if (el.kind === 'unknown') continue;
       const myPath = `${parentPath}/${el.shortName}`;
       if (myPath === path) {
         if (el.kind === 'module' || el.kind === 'container') return el;
@@ -106,7 +109,16 @@ export function addChildInDocument(
   if (target === null) {
     throw new Error(`addChild: container ${containerPath} not found`);
   }
-  if (target.children.some((c) => c.kind !== 'reference' && c.shortName === newShortName)) {
+  if (
+    target.children.some(
+      // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME so
+      // they cannot clash by name; skip them in the duplicate check.
+      (c) =>
+        c.kind !== 'reference' &&
+        c.kind !== 'unknown' &&
+        c.shortName === newShortName,
+    )
+  ) {
     throw new Error(`addChild: shortName "${newShortName}" already exists at ${containerPath}`);
   }
   const newChild: ArxmlContainer = {
@@ -128,7 +140,9 @@ export function removeChildInDocument(
   const target = findContainerByPath(doc, containerPath);
   if (target === null) return;
   const nextChildren: readonly ArxmlElement[] = target.children.filter(
-    (c) => c.kind === 'reference' || c.shortName !== shortName,
+    // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME so
+    // they cannot match the removal key; pass through untouched.
+    (c) => c.kind === 'reference' || c.kind === 'unknown' || c.shortName !== shortName,
   );
   if (nextChildren.length === target.children.length) return;
   spliceContainer(doc, containerPath, { ...target, children: nextChildren });
@@ -145,6 +159,9 @@ function spliceContainer(
 ): void {
   function matchesPath(el: ArxmlElement, parentPath: string): boolean {
     if (el.kind === 'reference') return false;
+    // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME and
+    // cannot be the splice target; short-circuit to false.
+    if (el.kind === 'unknown') return false;
     return `${parentPath}/${el.shortName}` === path;
   }
 
@@ -155,7 +172,10 @@ function spliceContainer(
       if (matchesPath(el, parentPath)) {
         out.push(replacement);
         changed = true;
-      } else if (el.kind === 'reference') {
+      } else if (el.kind === 'reference' || el.kind === 'unknown') {
+        // v1.4.0 trust sprint — 17c. Unknown vendor extensions are
+        // leaves with no children to descend into; treat like references
+        // here — push through untouched.
         out.push(el);
       } else {
         const myPath = `${parentPath}/${el.shortName}`;

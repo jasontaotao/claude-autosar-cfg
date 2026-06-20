@@ -150,8 +150,13 @@ describe('addContainer', () => {
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     expect(rootModule.children).toHaveLength(2);
-    expect(rootModule.children[1]!.shortName).toBe('CanIfRxPduCfg');
-    expect(rootModule.children[1]!.kind).toBe('container');
+    // v1.4.0 trust sprint — 17c. Narrow to module/container (unknown
+    // vendor extensions have no SHORT-NAME).
+    const lastChild = rootModule.children[1]!;
+    expect(lastChild.kind).toBe('container');
+    if (lastChild.kind === 'container' || lastChild.kind === 'module') {
+      expect(lastChild.shortName).toBe('CanIfRxPduCfg');
+    }
   });
 
   it('appends a new sub-container to an existing container (nested add)', () => {
@@ -179,7 +184,12 @@ describe('addContainer', () => {
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const canConfigSet = rootModule.children[0]! as ArxmlContainer;
     const canController = canConfigSet.children[0]! as ArxmlContainer;
-    expect(canController.children.map((c) => c.shortName)).toEqual(['BaudRate']);
+    // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
+    expect(
+      canController.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).toEqual(['BaudRate']);
   });
 
   it('returns name-conflict when the short name already exists in the parent', () => {
@@ -272,7 +282,12 @@ describe('removeContainer', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
-    expect(rootModule.children.map((c) => c.shortName)).toEqual(['CanConfigSet']);
+    // v1.4.0 trust sprint — 17c. Filter to known kinds.
+    expect(
+      rootModule.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).toEqual(['CanConfigSet']);
   });
 
   it('removes a nested container', () => {
@@ -292,7 +307,12 @@ describe('removeContainer', () => {
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const canConfigSet = rootModule.children[0]! as ArxmlContainer;
-    expect(canConfigSet.children.map((c) => c.shortName)).toEqual(['CanControllerConfig']);
+    // v1.4.0 trust sprint — 17c. Filter to known kinds.
+    expect(
+      canConfigSet.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).toEqual(['CanControllerConfig']);
   });
 
   it('returns path-not-found when the container does not exist', () => {

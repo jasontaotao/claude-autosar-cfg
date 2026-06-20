@@ -204,5 +204,10 @@ export function paramsEqual(
 }
 
 function shortNameOf(e: ArxmlElement): string {
-  return e.kind === 'reference' ? (e.shortName ?? e.value) : e.shortName;
+  if (e.kind === 'reference') return e.shortName ?? e.value;
+  // v1.4.0 trust sprint — 17c. Unknown vendor extensions have no
+  // SHORT-NAME; fall back to the captured tagName so path lookup
+  // still gets a unique segment.
+  if (e.kind === 'unknown') return e.tagName;
+  return e.shortName;
 }

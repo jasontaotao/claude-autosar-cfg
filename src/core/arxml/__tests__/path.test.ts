@@ -153,7 +153,13 @@ describe('path helpers', () => {
     const found = findByPathMultiDoc(docs, paths, '/Can.arxml/EAS/Can/CanConfigSet');
     expect(found).not.toBeNull();
     expect(found?.filePath).toBe('/tmp/Can.arxml');
-    expect(found?.element.shortName).toBe('CanConfigSet');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    if (found !== null) {
+      expect(found.element.kind).toBe('container');
+      if (found.element.kind === 'module' || found.element.kind === 'container') {
+        expect(found.element.shortName).toBe('CanConfigSet');
+      }
+    }
   });
 
   it('findByPathMultiDoc returns null when basename prefix is unknown', () => {
@@ -323,7 +329,13 @@ describe('path helpers', () => {
     const found = findByPathMultiDoc(docs, paths, '/EAS/Can/CanConfigSet');
     expect(found).not.toBeNull();
     expect(found?.filePath).toBe('/tmp/Can.arxml');
-    expect(found?.element.shortName).toBe('CanConfigSet');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    if (found !== null) {
+      expect(found.element.kind).toBe('container');
+      if (found.element.kind === 'module' || found.element.kind === 'container') {
+        expect(found.element.shortName).toBe('CanConfigSet');
+      }
+    }
   });
 
   it('findByPathMultiDoc flat-mode returns null when no doc contains the path', () => {

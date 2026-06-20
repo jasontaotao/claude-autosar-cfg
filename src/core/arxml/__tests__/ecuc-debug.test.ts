@@ -19,7 +19,12 @@ describe('EcuC_EcuC.arxml debug', () => {
     console.log('root package:', pkg.shortName, 'elements:', pkg.elements.length);
 
     // Find the EcuC module
-    const mod = pkg.elements.find((e) => e.shortName === 'EcuC');
+    const mod = pkg.elements.find(
+      // v1.4.0 trust sprint — 17c. Narrow to module/container (unknown
+      // vendor extensions have no SHORT-NAME and can't match 'EcuC').
+      (e): e is Extract<typeof e, { kind: 'module' | 'container' }> =>
+        (e.kind === 'module' || e.kind === 'container') && e.shortName === 'EcuC',
+    );
     expect(mod).toBeDefined();
     if (!mod) return;
     expect(mod.kind).toBe('module');
@@ -37,6 +42,9 @@ describe('EcuC_EcuC.arxml debug', () => {
 
     // List children
     for (const ch of m.children) {
+      // v1.4.0 trust sprint — 17c. The EcuC fixture has no unknown
+      // children, but skip defensively so the debug helper is robust.
+      if (ch.kind !== 'container' && ch.kind !== 'module') continue;
       const c = ch as ArxmlContainer;
       console.log(
         '  child:',
@@ -51,17 +59,20 @@ describe('EcuC_EcuC.arxml debug', () => {
     }
 
     // EcucGeneral should be a child
-    const ecucGeneral = m.children.find((c) => c.shortName === 'EcucGeneral') as
-      | ArxmlContainer
-      | undefined;
+    // v1.4.0 trust sprint — 17c. Narrow to known kinds before reading
+    // SHORT-NAME (unknown elements have no SHORT-NAME).
+    const ecucGeneral = m.children.find(
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'EcucGeneral',
+    );
     expect(ecucGeneral).toBeDefined();
     if (!ecucGeneral) return;
     expect(Object.keys(ecucGeneral.params)).toEqual(['BitOrder', 'ByteOrder', 'CPUType']);
 
     // EcucPduCollection should have sub-containers
-    const pduCollection = m.children.find((c) => c.shortName === 'EcucPduCollection') as
-      | ArxmlContainer
-      | undefined;
+    const pduCollection = m.children.find(
+      // v1.4.0 trust sprint — 17c. Narrow to container before reading SHORT-NAME.
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'EcucPduCollection',
+    );
     expect(pduCollection).toBeDefined();
     if (!pduCollection) return;
     console.log('EcucPduCollection children count:', pduCollection.children.length);

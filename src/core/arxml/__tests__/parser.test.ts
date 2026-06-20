@@ -424,7 +424,12 @@ describe('parseArxml', () => {
       // Deep-equal ArxmlDocument (path + nested packages + module + container + param).
       expect(p2.value).toEqual(p1.value);
       // Drill down to confirm the inner element survives the round-trip.
-      expect(p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]!.shortName).toBe('M');
+      // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+      const drilled = p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]!;
+      expect(drilled.kind).toBe('module');
+      if (drilled.kind === 'module' || drilled.kind === 'container') {
+        expect(drilled.shortName).toBe('M');
+      }
       const c = (p2.value.packages[0]!.packages![0]!.packages![0]!.elements[0]! as ArxmlModule)
         .children[0] as ArxmlContainer;
       expect(c.params['X']).toMatchObject({ type: 'integer', value: 7 });
@@ -607,7 +612,12 @@ describe('parseArxml — defensive structure validation', () => {
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     // Only the second (named) container survives.
     expect(mod.children).toHaveLength(1);
-    expect(mod.children[0]!.shortName).toBe('C');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    const firstChild = mod.children[0]!;
+    expect(firstChild.kind).toBe('container');
+    if (firstChild.kind === 'module' || firstChild.kind === 'container') {
+      expect(firstChild.shortName).toBe('C');
+    }
   });
 
   it('walks SUB-CONTAINERS into module.children (line 362-363)', () => {
@@ -619,7 +629,12 @@ describe('parseArxml — defensive structure validation', () => {
     if (!r.ok) return;
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     expect(mod.children).toHaveLength(1);
-    expect(mod.children[0]!.shortName).toBe('SubA');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    const subAChild = mod.children[0]!;
+    expect(subAChild.kind).toBe('container');
+    if (subAChild.kind === 'module' || subAChild.kind === 'container') {
+      expect(subAChild.shortName).toBe('SubA');
+    }
   });
 
   it('drops generic ECUC-* elements without SHORT-NAME (line 334-338)', () => {
@@ -632,6 +647,11 @@ describe('parseArxml — defensive structure validation', () => {
     const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
     // Only the named generic tag survives; the unnamed one is dropped.
     expect(mod.children).toHaveLength(1);
-    expect(mod.children[0]!.shortName).toBe('HasName');
+    // v1.4.0 trust sprint — 17c. Narrow before reading SHORT-NAME.
+    const hasNameChild = mod.children[0]!;
+    expect(hasNameChild.kind).toBe('container');
+    if (hasNameChild.kind === 'module' || hasNameChild.kind === 'container') {
+      expect(hasNameChild.shortName).toBe('HasName');
+    }
   });
 });
