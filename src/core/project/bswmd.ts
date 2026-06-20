@@ -865,6 +865,20 @@ function buildContainerList(
         out.push(buildChoiceContainer(item, parentPath, warnings, guard));
         continue;
       }
+      // Bug — Vector/EB tresos dialect BSWMDs use the shorter
+      // `ECUC-CHOICE-CONTAINER-DEF` tag for choice containers instead
+      // of the AUTOSAR-standard `ECUC-CHOICE-ORIENTED-STRUCTURE-DEF`.
+      // Both have an identical `<CHOICES>` block of nested
+      // `ECUC-PARAM-CONF-CONTAINER-DEF` branches, so the same builder
+      // handles either tag. Before this branch was added the parser
+      // fell through to the "Unknown container kind" warning and the
+      // choice subtree was silently dropped — user-reported as
+      // "JWQ3399SpiConfig comes back empty even though BSWMD
+      // declares CommonContainer and ChoiceContainer".
+      if (tagName === 'ECUC-CHOICE-CONTAINER-DEF') {
+        out.push(buildChoiceContainer(item, parentPath, warnings, guard));
+        continue;
+      }
       // Unknown inner container kind — surface as a non-fatal warning so
       // the project panel can flag the file without aborting the whole parse.
       if (warnings !== undefined) {
@@ -1154,7 +1168,30 @@ function buildRefList(node: Record<string, unknown>, parentPath: string): Refere
   const out: ReferenceDef[] = [];
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
-    if (tagName !== 'ECUC-REFERENCE-DEF' && tagName !== 'ECUC-FOREIGN-REFERENCE-DEF') continue;
+    // Bug — `ECUC-CHOICE-REFERENCE-DEF` is the standard AUTOSAR way
+    // to declare a reference whose target can be any of several
+    // alternative container kinds (e.g. CanIf / Arti / Com picking
+    // between different `DESTINATION-REF`s). Vector / EB tresos
+    // BSWMDs use it ~80 times across the canonical ECUConfiguration
+    // fixture (see samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml
+    // — CanIf/Arti/Com all carry these). Before this branch was
+    // added the parser silently skipped the entire `<REFERENCES>`
+    // block on any container that mixed choice references with plain
+    // ones — the user could not add the reference via the picker
+    // and the validator's DEST_KIND_MAP had no entry.
+    //
+    // The destKind field falls back to the tagName itself when
+    // `<DESTINATION-REF>` is absent, mirroring the plain-reference
+    // default. A future task may parse the multi-target
+    // `<DESTINATION-REFS>` block for round-trip fidelity — see
+    // validate.ts:DEST_KIND_MAP for the downstream consumer.
+    if (
+      tagName !== 'ECUC-REFERENCE-DEF' &&
+      tagName !== 'ECUC-FOREIGN-REFERENCE-DEF' &&
+      tagName !== 'ECUC-CHOICE-REFERENCE-DEF'
+    ) {
+      continue;
+    }
     for (const item of asArray<Record<string, unknown>>(raw)) {
       out.push(buildRef(item, parentPath, tagName));
     }

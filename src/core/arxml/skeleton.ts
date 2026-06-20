@@ -155,7 +155,20 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
     params,
-    children: c.subContainers.flatMap(buildSubContainerShell),
+    // Both `subContainers` (plain ECUC-PARAM-CONF-CONTAINER-DEF) and
+    // `choices` (ECUC-CHOICE-CONTAINER-DEF) get pre-created shells.
+    // Choice branches themselves are user-instanced — see the spec at
+    // docs/superpowers/specs/2026-06-18-bswmd-ecuc-skeleton-defaults-design.md
+    // §"Edge cases" — so the choice shell is emitted as an empty
+    // ECUC-CONTAINER-VALUE (no branch pre-selected) that the user
+    // descends into via the picker. Without `c.choices.flatMap(...)`,
+    // required choice containers like JWQ3399SpiCsConfig / SpiHWUnitRef
+    // were silently dropped from the skeleton, leaving the parent
+    // container empty even though BSWMD declares them as lower=1.
+    children: [
+      ...c.subContainers.flatMap(buildSubContainerShell),
+      ...c.choices.flatMap(buildChoiceShell),
+    ],
   };
 }
 
@@ -178,7 +191,48 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
       params: {},
-      children: c.subContainers.flatMap(buildSubContainerShell),
+      // Same `choices` traversal as `buildTopContainer` — required
+      // choice branches must be reachable from any depth, not only
+      // from the top-level module containers.
+      children: [
+        ...c.subContainers.flatMap(buildSubContainerShell),
+        ...c.choices.flatMap(buildChoiceShell),
+      ],
+    },
+  ];
+}
+
+/**
+ * Pre-create a value-side shell for a BSWMD choice container
+ * (`<ECUC-CHOICE-CONTAINER-DEF>`) when its `lowerMultiplicity > 0`.
+ *
+ * Choice containers in AUTOSAR are runtime-exclusive alternatives: the
+ * user picks at most one branch from `<CHOICES>` to instance. The
+ * value-side encoding has no `ECUC-CHOICE-CONTAINER-VALUE` tag — the
+ * choice is implicit from which branch container the user added. So
+ * a choice-container shell in the skeleton is simply an empty
+ * `ECUC-CONTAINER-VALUE` carrying the choice's own shortName; the
+ * concrete branch is selected via the picker (`addContainer` +
+ * `listAllowedSubElements`).
+ *
+ * `lowerMultiplicity <= 0` returns `[]` so the optional-choice case
+ * stays out of the skeleton — matching the `buildSubContainerShell`
+ * gate for plain containers.
+ */
+function buildChoiceShell(c: ContainerDef): ArxmlContainer[] {
+  if (c.lowerMultiplicity <= 0) return [];
+  return [
+    {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: c.shortName,
+      params: {},
+      // A choice container in BSWMD exposes its alternatives under
+      // `c.choices` (not `c.subContainers`) — see
+      // bswmd.ts::buildChoiceContainer. We do NOT pre-create the
+      // branches here; the user picks one via the editor and `addContainer`
+      // wires the correct `DEFINITION-REF` via the picker.
+      children: [],
     },
   ];
 }

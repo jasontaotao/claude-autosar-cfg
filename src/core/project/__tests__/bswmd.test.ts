@@ -246,6 +246,89 @@ const CHOICES = `<?xml version="1.0" encoding="UTF-8"?>
   </AR-PACKAGES>
 </AUTOSAR>`;
 
+// Bug regression — Vector/EB tresos dialect uses ECUC-CHOICE-CONTAINER-DEF
+// (shorter tag) instead of the AUTOSAR-standard
+// ECUC-CHOICE-ORIENTED-STRUCTURE-DEF. The choice subtree has the same
+// <CHOICES> shape, so the same builder must accept either tag. Before
+// the fix at bswmd.ts:878 the parser fell through to the "Unknown
+// container kind" warning and silently dropped the choice container
+// — user reported "JWQ3399SpiConfig comes back empty even though
+// BSWMD declares CommonContainer and ChoiceContainer".
+const CHOICE_CONTAINER_DEF = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>JWQ</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>JWQSpiConfig</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <SUB-CONTAINERS>
+                <ECUC-CHOICE-CONTAINER-DEF>
+                  <SHORT-NAME>JWQSpiCsConfig</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <CHOICES>
+                    <ECUC-PARAM-CONF-CONTAINER-DEF>
+                      <SHORT-NAME>SpiCsViaPher</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                    </ECUC-PARAM-CONF-CONTAINER-DEF>
+                    <ECUC-PARAM-CONF-CONTAINER-DEF>
+                      <SHORT-NAME>SpiCsViaGPIO</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                    </ECUC-PARAM-CONF-CONTAINER-DEF>
+                  </CHOICES>
+                </ECUC-CHOICE-CONTAINER-DEF>
+              </SUB-CONTAINERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+// Bug regression — Vector BSWMDs use ECUC-CHOICE-REFERENCE-DEF for
+// references whose target can be any of several alternative container
+// kinds (~80 occurrences in samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml
+// across CanIf/Arti/Com). Before the fix at bswmd.ts:1171 the parser
+// silently dropped these refs, leaving the parent container's
+// references list empty.
+const CHOICE_REFERENCE_DEF = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>CanIf</SHORT-NAME>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>CanIfHrhCfg</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+              <REFERENCES>
+                <ECUC-CHOICE-REFERENCE-DEF>
+                  <SHORT-NAME>CanIfHrhCanCtrlRef</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <DESTINATION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/EcucDefs/Can/CanConfigSet</DESTINATION-REF>
+                </ECUC-CHOICE-REFERENCE-DEF>
+              </REFERENCES>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
 // ---------------------------------------------------------------------------
 // parseBswmd — happy path
 // ---------------------------------------------------------------------------
@@ -530,6 +613,46 @@ describe('parseBswmd — happy path', () => {
     if (!r.ok) return;
     const c = r.value.modules[0]!.containers[0]!;
     expect(c.upperMultiplicity).toBe('infinite');
+  });
+
+  it('parses CHOICES via Vector-style ECUC-CHOICE-CONTAINER-DEF (regression: bug — silent drop)', () => {
+    // Arrange + Act
+    const r = parseBswmd(CHOICE_CONTAINER_DEF);
+
+    // Assert — same shape as the ECUC-CHOICE-ORIENTED-STRUCTURE-DEF
+    // case: the choice container is registered in subContainers, its
+    // `choices` field carries the two branches, and no "Unknown
+    // container kind" warning is recorded.
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.warnings).toEqual([]);
+    const spiParent = r.value.modules[0]!.containers[0]!;
+    expect(spiParent.shortName).toBe('JWQSpiConfig');
+    expect(spiParent.subContainers).toHaveLength(1);
+    const choice = spiParent.subContainers[0]!;
+    expect(choice.shortName).toBe('JWQSpiCsConfig');
+    expect(choice.lowerMultiplicity).toBe(1);
+    expect(choice.choices).toHaveLength(2);
+    expect(choice.choices.map((c) => c.shortName)).toEqual([
+      'SpiCsViaPher',
+      'SpiCsViaGPIO',
+    ]);
+  });
+
+  it('parses REFERENCES via Vector-style ECUC-CHOICE-REFERENCE-DEF (regression: bug — silent drop)', () => {
+    // Arrange + Act
+    const r = parseBswmd(CHOICE_REFERENCE_DEF);
+
+    // Assert — the choice-reference is surfaced in the parent
+    // container's `references` list with the correct destKind
+    // resolved from the inner DESTINATION-REF @_DEST attribute.
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.warnings).toEqual([]);
+    const cfg = r.value.modules[0]!.containers[0]!;
+    expect(cfg.references).toHaveLength(1);
+    expect(cfg.references[0]!.shortName).toBe('CanIfHrhCanCtrlRef');
+    expect(cfg.references[0]!.destKind).toBe('ECUC-PARAM-CONF-CONTAINER-DEF');
   });
 
   it('returns an empty modules list for an empty ELEMENTS block', () => {

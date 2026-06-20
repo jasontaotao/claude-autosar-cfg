@@ -1,0 +1,2656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude-AutosarCfg 用户手册 · v1.2.0</title>
+<style>
+/* ============================================================
+   claude-AutosarCfg User Manual
+   Palette: Catppuccin Mocha (matches the in-app dialog language)
+   ============================================================ */
+:root {
+  --ctp-base:    #1e1e2e;
+  --ctp-mantle:  #181825;
+  --ctp-crust:   #11111b;
+  --ctp-surface0:#313244;
+  --ctp-surface1:#45475a;
+  --ctp-surface2:#585b70;
+  --ctp-overlay0:#6c7086;
+  --ctp-overlay1:#7f849c;
+  --ctp-overlay2:#9399b2;
+  --ctp-subtext0:#a6adc8;
+  --ctp-subtext1:#bac2de;
+  --ctp-text:    #cdd6f4;
+  --ctp-lavender:#b4befe;
+  --ctp-blue:    #89b4fa;
+  --ctp-sapphire:#74c7ec;
+  --ctp-sky:     #89dceb;
+  --ctp-teal:    #94e2d5;
+  --ctp-green:   #a6e3a1;
+  --ctp-yellow:  #f9e2af;
+  --ctp-peach:   #fab387;
+  --ctp-maroon:  #eba0ac;
+  --ctp-red:     #f38ba8;
+  --ctp-mauve:   #cba6f7;
+  --ctp-pink:    #f5c2e7;
+  --ctp-rosewater:#f5e0dc;
+  --ctp-flamingo:#f2cdcd;
+
+  --slate-50:#f8fafc; --slate-100:#f1f5f9; --slate-200:#e2e8f0;
+  --slate-300:#cbd5e1; --slate-400:#94a3b8; --slate-500:#64748b;
+  --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b;
+  --slate-900:#0f172a;
+
+  --sidebar-w: 264px;
+  --content-max: 940px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
+               'Hiragino Sans GB', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono',
+               'Cascadia Code', Consolas, 'Liberation Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+
+body {
+  background:
+    radial-gradient(1200px 800px at 80% -10%, rgba(137,180,250,.07), transparent 60%),
+    radial-gradient(900px 700px at -10% 20%, rgba(203,166,247,.05), transparent 60%),
+    var(--ctp-crust);
+  color: var(--ctp-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Layout shell */
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 18px;
+  background: linear-gradient(180deg, var(--ctp-mantle) 0%, var(--ctp-crust) 100%);
+  border-right: 1px solid var(--ctp-surface0);
+}
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--ctp-surface1); border-radius: 3px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--ctp-surface0);
+}
+.brand-logo {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--ctp-mauve), var(--ctp-blue));
+  display: grid; place-items: center;
+  color: var(--ctp-crust);
+  font-weight: 800;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: .02em;
+  box-shadow: 0 4px 12px rgba(137,180,250,.25);
+}
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text strong { color: var(--ctp-text); font-size: 14px; }
+.brand-text span { color: var(--ctp-overlay1); font-size: 11px; font-family: var(--font-mono); }
+
+.toc-label {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ctp-overlay1);
+  margin: 16px 6px 8px;
+  font-weight: 600;
+}
+
+.toc { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: 0; }
+.toc a {
+  display: block;
+  padding: 6px 10px;
+  margin: 1px 0;
+  border-radius: var(--radius-sm);
+  color: var(--ctp-subtext1);
+  text-decoration: none;
+  font-size: 13px;
+  border-left: 2px solid transparent;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.toc a:hover { background: var(--ctp-surface0); color: var(--ctp-text); }
+.toc a.active {
+  background: var(--ctp-surface0);
+  color: var(--ctp-lavender);
+  border-left-color: var(--ctp-lavender);
+}
+.toc .ch-num {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ctp-overlay0);
+  margin-right: 8px;
+  min-width: 22px;
+}
+
+/* Main */
+main {
+  padding: 0 0 80px;
+  min-width: 0;
+}
+.content {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 56px 48px 0;
+}
+
+/* Hero */
+.hero {
+  position: relative;
+  padding: 56px 48px 40px;
+  border-bottom: 1px solid var(--ctp-surface0);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -100px; right: -80px;
+  width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(203,166,247,.18), transparent 60%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: var(--ctp-surface0);
+  border: 1px solid var(--ctp-surface1);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ctp-lavender);
+  margin-bottom: 16px;
+}
+.hero-eyebrow .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ctp-green);
+  box-shadow: 0 0 8px var(--ctp-green);
+}
+.hero h1 {
+  font-size: 40px;
+  line-height: 1.1;
+  margin: 0 0 14px;
+  color: var(--ctp-text);
+  letter-spacing: -.02em;
+  font-weight: 700;
+}
+.hero h1 .accent {
+  background: linear-gradient(135deg, var(--ctp-lavender), var(--ctp-mauve));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-sub {
+  font-size: 16px;
+  color: var(--ctp-subtext1);
+  max-width: 640px;
+  margin: 0 0 28px;
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  font-size: 12px;
+  color: var(--ctp-overlay1);
+  font-family: var(--font-mono);
+}
+.hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.hero-meta strong { color: var(--ctp-text); font-weight: 600; }
+
+/* Chapter */
+.chapter {
+  margin: 56px 0 0;
+  padding: 0;
+}
+.chapter-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ctp-surface0);
+}
+.ch-num-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--ctp-surface0), var(--ctp-surface1));
+  color: var(--ctp-lavender);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: .02em;
+  border: 1px solid var(--ctp-surface1);
+}
+.chapter h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ctp-text);
+  margin: 0;
+  letter-spacing: -.01em;
+}
+.chapter h2 .en {
+  display: block;
+  font-size: 12px;
+  color: var(--ctp-overlay1);
+  font-family: var(--font-mono);
+  font-weight: 400;
+  margin-top: 4px;
+  letter-spacing: .04em;
+}
+
+h3 {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ctp-text);
+  margin: 36px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+h3::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(180deg, var(--ctp-lavender), var(--ctp-blue));
+  border-radius: 2px;
+}
+h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ctp-subtext1);
+  margin: 24px 0 8px;
+}
+
+p { margin: 0 0 12px; color: var(--ctp-subtext1); }
+strong { color: var(--ctp-text); }
+em { color: var(--ctp-peach); font-style: normal; }
+code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 2px 6px;
+  background: var(--ctp-surface0);
+  border-radius: 4px;
+  color: var(--ctp-peach);
+  border: 1px solid var(--ctp-surface1);
+}
+a { color: var(--ctp-blue); }
+a:hover { color: var(--ctp-lavender); }
+
+/* Lists */
+ul, ol { padding-left: 22px; margin: 0 0 16px; color: var(--ctp-subtext1); }
+ul li, ol li { margin: 4px 0; }
+ul li::marker { color: var(--ctp-lavender); }
+ol li::marker { color: var(--ctp-blue); font-family: var(--font-mono); font-weight: 600; }
+
+/* Cards / callouts */
+.callout {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  border-radius: var(--radius-md);
+  background: var(--ctp-surface0);
+  border: 1px solid var(--ctp-surface1);
+  border-left: 3px solid var(--ctp-blue);
+  font-size: 14px;
+}
+.callout-icon {
+  flex: 0 0 auto;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--ctp-surface1);
+  display: grid; place-items: center;
+  font-weight: 700;
+  color: var(--ctp-crust);
+  font-size: 13px;
+}
+.callout-body { color: var(--ctp-subtext1); }
+.callout-body strong { color: var(--ctp-text); }
+.callout.tip  { border-left-color: var(--ctp-green);  }
+.callout.tip .callout-icon  { background: var(--ctp-green); }
+.callout.warn { border-left-color: var(--ctp-peach);  }
+.callout.warn .callout-icon { background: var(--ctp-peach); }
+.callout.danger { border-left-color: var(--ctp-red);  }
+.callout.danger .callout-icon { background: var(--ctp-red); }
+.callout.note { border-left-color: var(--ctp-blue);  }
+.callout.note .callout-icon { background: var(--ctp-blue); }
+
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--ctp-surface1);
+  border-radius: var(--radius-md);
+  margin: 16px 0;
+  background: var(--ctp-mantle);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+th, td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ctp-surface0);
+  vertical-align: top;
+}
+th {
+  background: var(--ctp-surface0);
+  color: var(--ctp-text);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: rgba(137,180,250,.04); }
+
+/* Code blocks */
+pre {
+  background: var(--ctp-mantle);
+  border: 1px solid var(--ctp-surface1);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ctp-subtext1);
+  margin: 14px 0;
+}
+pre .kw  { color: var(--ctp-mauve); }
+pre .str { color: var(--ctp-green); }
+pre .num { color: var(--ctp-peach); }
+pre .com { color: var(--ctp-overlay0); font-style: italic; }
+pre .tag { color: var(--ctp-red); }
+pre .attr { color: var(--ctp-yellow); }
+pre .val { color: var(--ctp-sky); }
+
+/* Badges & chips */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--ctp-surface0);
+  color: var(--ctp-text);
+  border: 1px solid var(--ctp-surface1);
+}
+.badge.green   { background: rgba(166,227,161,.12); color: var(--ctp-green);  border-color: rgba(166,227,161,.3); }
+.badge.red     { background: rgba(243,139,168,.12); color: var(--ctp-red);    border-color: rgba(243,139,168,.3); }
+.badge.yellow  { background: rgba(249,226,175,.12); color: var(--ctp-yellow); border-color: rgba(249,226,175,.3); }
+.badge.blue    { background: rgba(137,180,250,.12); color: var(--ctp-blue);   border-color: rgba(137,180,250,.3); }
+.badge.lavender{ background: rgba(180,190,254,.12); color: var(--ctp-lavender); border-color: rgba(180,190,254,.3); }
+.badge.teal    { background: rgba(148,226,213,.12); color: var(--ctp-teal);   border-color: rgba(148,226,213,.3); }
+.badge.peach   { background: rgba(250,179,135,.12); color: var(--ctp-peach);  border-color: rgba(250,179,135,.3); }
+.badge.maroon  { background: rgba(235,160,172,.12); color: var(--ctp-maroon); border-color: rgba(235,160,172,.3); }
+.badge.sapphire{ background: rgba(116,199,236,.12); color: var(--ctp-sapphire); border-color: rgba(116,199,236,.3); }
+.badge.mauve   { background: rgba(203,166,247,.12); color: var(--ctp-mauve);  border-color: rgba(203,166,247,.3); }
+.badge.gray    { background: var(--ctp-surface0);    color: var(--ctp-overlay1); border-color: var(--ctp-surface1); }
+.badge.sky     { background: rgba(137,220,235,.12); color: var(--ctp-sky);    border-color: rgba(137,220,235,.3); }
+
+/* Figure / SVG container */
+figure {
+  margin: 20px 0;
+  padding: 20px;
+  background: var(--ctp-mantle);
+  border: 1px solid var(--ctp-surface1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+figure svg { display: block; max-width: 100%; height: auto; }
+figcaption {
+  font-size: 12.5px;
+  color: var(--ctp-overlay1);
+  margin-top: 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Section grid (2-col on wide screens) */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
+}
+@media (max-width: 800px) {
+  .split { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; }
+  .hero { padding: 36px 24px 24px; }
+  .hero h1 { font-size: 30px; }
+  .content { padding: 32px 24px 0; }
+}
+
+/* Feature list with icons */
+.feat-list { list-style: none; padding: 0; margin: 16px 0; }
+.feat-list li {
+  display: flex;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--ctp-surface0);
+  border: 1px solid var(--ctp-surface1);
+  margin: 8px 0;
+  align-items: flex-start;
+}
+.feat-list .feat-icon {
+  flex: 0 0 auto;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  background: var(--ctp-mantle);
+  border: 1px solid var(--ctp-surface1);
+  color: var(--ctp-lavender);
+}
+.feat-list .feat-text strong { color: var(--ctp-text); display: block; margin-bottom: 2px; }
+.feat-list .feat-text span { color: var(--ctp-overlay1); font-size: 13px; }
+
+/* Step list */
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding: 14px 16px 14px 60px;
+  border-left: 2px solid var(--ctp-surface1);
+  margin-left: 18px;
+  color: var(--ctp-subtext1);
+}
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: -22px;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  background: var(--ctp-mantle);
+  border: 2px solid var(--ctp-lavender);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ctp-lavender);
+  box-shadow: 0 0 0 4px var(--ctp-crust);
+}
+.steps > li strong { color: var(--ctp-text); display: block; margin-bottom: 4px; }
+
+/* Keyboard kbd */
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--ctp-surface0);
+  border: 1px solid var(--ctp-surface1);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--ctp-text);
+  white-space: nowrap;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* Print */
+@media print {
+  body { background: white; color: #111; }
+  .sidebar { display: none; }
+  .layout { grid-template-columns: 1fr; }
+  .content { max-width: 100%; padding: 0 16px; }
+  .hero, .chapter { break-inside: avoid; }
+  a { color: #2563eb; text-decoration: none; }
+  pre, figure, .callout, .table-wrap { break-inside: avoid; }
+  h2, h3 { page-break-after: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo">A·C</div>
+    <div class="brand-text">
+      <strong>claude-AutosarCfg</strong>
+      <span>v1.2.0 · manual</span>
+    </div>
+  </div>
+
+  <div class="toc-label">目录 / Contents</div>
+  <ul class="toc">
+    <li><a href="#ch1"><span class="ch-num">01</span>入门</a></li>
+    <li><a href="#ch2"><span class="ch-num">02</span>主界面总览</a></li>
+    <li><a href="#ch3"><span class="ch-num">03</span>项目管理</a></li>
+    <li><a href="#ch4"><span class="ch-num">04</span>ARXML 文件操作</a></li>
+    <li><a href="#ch5"><span class="ch-num">05</span>树形导航</a></li>
+    <li><a href="#ch6"><span class="ch-num">06</span>参数编辑</a></li>
+    <li><a href="#ch7"><span class="ch-num">07</span>实时校验</a></li>
+    <li><a href="#ch8"><span class="ch-num">08</span>跨容器引用</a></li>
+    <li><a href="#ch9"><span class="ch-num">09</span>BSWMD 模块管理</a></li>
+    <li><a href="#ch10"><span class="ch-num">10</span>多文件 ECUC 导入</a></li>
+    <li><a href="#ch11"><span class="ch-num">11</span>快捷键</a></li>
+    <li><a href="#ch12"><span class="ch-num">12</span>常见问题</a></li>
+    <li><a href="#apa"><span class="ch-num">A</span>术语表</a></li>
+    <li><a href="#apb"><span class="ch-num">B</span>文件结构</a></li>
+  </ul>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main>
+  <header class="hero">
+    <span class="hero-eyebrow"><span class="dot"></span>v1.2.0 · Sprint 14 · 2026-06-19</span>
+    <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
+    <p class="hero-sub">
+      AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
+      值的全链路编辑、实时校验、跨容器引用解析与多文件合并导入。
+    </p>
+    <div class="hero-meta">
+      <span>📦 Electron 30 · TypeScript 5 · React 18</span>
+      <span>🧪 1309 tests · 96.72% stmts</span>
+      <span>🪟 Windows / macOS / Linux</span>
+      <span>📄 License: <strong>MIT</strong></span>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 1: 入门 / GETTING STARTED             -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch1">
+      <div class="chapter-head">
+        <div class="ch-num-badge">01</div>
+        <h2>入门<span class="en">Getting Started</span></h2>
+      </div>
+
+      <h3>1.1 产品定位</h3>
+      <p>
+        <strong>claude-AutosarCfg</strong> 是一款独立的桌面 GUI，
+        面向 <strong>AUTOSAR Classic Platform</strong> 的 BSW（Basic Software）配置工程师。
+        它在 <code>ARXML</code> 解析器与 ECU 抽取（ECU Extract）生成器之间，
+        提供了<strong>图形化、实时校验、可视化引用追踪</strong>的中间编辑层。
+      </p>
+
+      <h3>1.2 核心能力一览</h3>
+      <ul class="feat-list">
+        <li>
+          <div class="feat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong>ARXML IO · v0.2.0</strong>
+            <span>原生 Electron 对话框打开 / 保存 .arxml；支持 r4.x ECUC 子集，15+ fixture 文件 round-trip。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14H7L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong>树形导航 + 7 种参数编辑器 · v0.3.0</strong>
+            <span>左：递归 ARIA 树（package → module → container → param）。右：类型感知编辑器（string/integer/float/boolean/enum/reference/multiline）。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong>实时校验（7 种 kind）· v0.4 – v0.8</strong>
+            <span>每次编辑同步触发校验：<span class="badge red">range</span><span class="badge peach">enum</span><span class="badge yellow">reference</span><span class="badge green">required</span><span class="badge lavender">schema</span><span class="badge blue">multiplicity</span><span class="badge teal">cross-ref</span>。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong>BSWMD 模块管理 · v1.1.0</strong>
+            <span>从 BSWMD schema 模板一键生成 ECUC 容器实例（Skeleton + 默认值）。支持 chip 多选 + dirty-guard。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v18M16 3v18"/><path d="M3 8h18M3 16h18"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong>多文件 ECUC 合并导入 · v1.2.0</strong>
+            <span>EB tresos 风格的 Resolve Conflicts wizard：按 module 维度聚合多源，撞名 diff 三栏 + 原子提交 + 单步撤销。</span>
+          </div>
+        </li>
+      </ul>
+
+      <h3>1.3 系统要求</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>环境</th><th>最低版本</th><th>推荐版本</th></tr></thead>
+          <tbody>
+            <tr><td>Node.js</td><td>22.13</td><td>22 LTS</td></tr>
+            <tr><td>pnpm</td><td>11.0</td><td>11.x</td></tr>
+            <tr><td>OS</td><td>Windows 10 1909+ / macOS 12 / Ubuntu 22.04</td><td>Win 11 / macOS 14</td></tr>
+            <tr><td>内存</td><td>4 GB</td><td>8 GB+（大 ECUC 树）</td></tr>
+            <tr><td>磁盘</td><td>500 MB（应用 + 缓存）</td><td>2 GB+</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>1.4 安装与启动</h3>
+      <p>从源码启动（开发模式）：</p>
+      <pre><span class="com"># 1. 克隆与安装依赖</span>
+git clone https://github.com/jasontaotao/claude-AutosarCfg.git
+cd claude-AutosarCfg
+pnpm install
+
+<span class="com"># 2. 一次性构建 main / preload 进程</span>
+<span class="com"># (Vite 不在 dev 模式下服务这两个进程，</span>
+<span class="com">#  全新 clone 必须先 build 一次)</span>
+pnpm build
+
+<span class="com"># 3. 启动开发模式</span>
+<span class="com">#    - renderer 由 Vite HMR 实时刷新</span>
+<span class="com">#    - main / preload 修改后需重启 pnpm dev</span>
+pnpm dev</pre>
+
+      <div class="callout tip">
+        <div class="callout-icon">!</div>
+        <div class="callout-body">
+          <strong>跳过 build 会怎样？</strong> 如果不执行 <code>pnpm build</code> 就直接
+          <code>pnpm dev</code>，Electron 主进程会因为找不到 <code>dist/main/index.js</code> 而立即报错退出，并提示
+          "Please run <code>pnpm build</code> first"。
+        </div>
+      </div>
+
+      <p>从发布产物启动（生产模式）：</p>
+      <pre><span class="com"># Windows 安装包（NSIS）</span>
+<span class="str">"release/AutosarCfg Setup 1.2.0.exe"</span>
+
+<span class="com"># 免安装绿色版</span>
+release/win-unpacked/AutosarCfg.exe</pre>
+
+      <h3>1.5 验证完整性</h3>
+      <p>首次启动后建议运行内置 verify 流水线，6 阶段全部 PASS 才算健康：</p>
+      <pre>pnpm verify
+<span class="com"># === Stage: format ===      PASS</span>
+<span class="com"># === Stage: lint ===        PASS</span>
+<span class="com"># === Stage: type-check ===  PASS</span>
+<span class="com"># === Stage: test ===        PASS (1309 passed)</span>
+<span class="com"># === Stage: coverage ===    PASS (96.72% stmts)</span>
+<span class="com"># === Stage: build ===       PASS</span></pre>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 2: 主界面 / MAIN UI                   -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch2">
+      <div class="chapter-head">
+        <div class="ch-num-badge">02</div>
+        <h2>主界面总览<span class="en">Main Interface</span></h2>
+      </div>
+
+      <h3>2.1 整体布局</h3>
+      <p>
+        应用采用<strong>三段式</strong>布局：顶部 <span class="badge lavender">AppHeader</span> 横贯全宽，
+        下方工作区分左右两栏，左栏承载 <span class="badge blue">LeftPanel</span>（项目 / 文件 / 校验 / 树形 tab），
+        右栏承载 <span class="badge peach">ParamEditor</span>（选中节点的参数编辑）。
+        分隔条可拖拽，宽度通过 <code>useDefaultLayout({ groupId: 'workspace' })</code> 持久化到 localStorage。
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 920 540" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <!-- Window chrome -->
+          <rect x="0" y="0" width="920" height="540" fill="#181825" stroke="#313244"/>
+          <!-- Title bar -->
+          <rect x="0" y="0" width="920" height="32" fill="#11111b"/>
+          <circle cx="16" cy="16" r="5" fill="#f38ba8"/>
+          <circle cx="32" cy="16" r="5" fill="#fab387"/>
+          <circle cx="48" cy="16" r="5" fill="#a6e3a1"/>
+          <text x="460" y="20" fill="#a6adc8" font-size="11" text-anchor="middle" font-family="JetBrains Mono">claude-AutosarCfg — S32K148_EAS_EB_3399A</text>
+
+          <!-- AppHeader -->
+          <rect x="0" y="32" width="920" height="44" fill="#1e1e2e" stroke="#313244"/>
+          <rect x="12" y="42" width="32" height="24" rx="4" fill="linear-gradient(#cba6f7,#89b4fa)"/>
+          <rect x="12" y="42" width="32" height="24" rx="4" fill="#cba6f7" opacity="0.85"/>
+          <text x="50" y="58" fill="#cdd6f4" font-size="13" font-weight="600">AutosarCfg</text>
+          <text x="115" y="58" fill="#7f849c" font-size="11" font-family="JetBrains Mono">v1.2.0</text>
+          <!-- Menu buttons -->
+          <g font-size="11" fill="#bac2de">
+            <rect x="180" y="42" width="60" height="24" rx="4" fill="#313244"/>
+            <text x="210" y="58" text-anchor="middle">File ▾</text>
+            <rect x="246" y="42" width="60" height="24" rx="4" fill="#313244"/>
+            <text x="276" y="58" text-anchor="middle">Edit ▾</text>
+            <rect x="312" y="42" width="80" height="24" rx="4" fill="#313244"/>
+            <text x="352" y="58" text-anchor="middle">Project ▾</text>
+            <rect x="398" y="42" width="80" height="24" rx="4" fill="#313244"/>
+            <text x="438" y="58" text-anchor="middle">Import ▾</text>
+            <rect x="484" y="42" width="70" height="24" rx="4" fill="#313244"/>
+            <text x="519" y="58" text-anchor="middle">View ▾</text>
+            <rect x="560" y="42" width="60" height="24" rx="4" fill="#313244"/>
+            <text x="590" y="58" text-anchor="middle">Help ▾</text>
+          </g>
+          <!-- Locale switch + save indicator -->
+          <g font-size="11" fill="#bac2de" font-family="JetBrains Mono">
+            <rect x="780" y="42" width="60" height="24" rx="4" fill="none" stroke="#45475a"/>
+            <text x="810" y="58" text-anchor="middle">zh-CN / en</text>
+            <circle cx="860" cy="54" r="5" fill="#a6e3a1"/>
+            <text x="872" y="58">Saved</text>
+          </g>
+
+          <!-- Error strip -->
+          <rect x="0" y="76" width="920" height="22" fill="#313244" stroke="#45475a"/>
+          <text x="14" y="91" fill="#f9e2af" font-size="11" font-family="JetBrains Mono">⚠</text>
+          <text x="28" y="91" fill="#bac2de" font-size="11">BSWMD 加载完成：5 schemas · 1 warning (Com_ComGeneral 未注册 ComConfig)</text>
+
+          <!-- Workspace -->
+          <rect x="0" y="98" width="920" height="442" fill="#11111b"/>
+
+          <!-- Left panel -->
+          <rect x="0" y="98" width="280" height="442" fill="#1e1e2e" stroke="#313244"/>
+          <!-- Tabs -->
+          <g font-size="10" font-family="JetBrains Mono">
+            <rect x="0" y="98" width="70" height="26" fill="#313244" stroke="#45475a"/>
+            <text x="35" y="115" fill="#b4befe" text-anchor="middle">Project</text>
+            <rect x="70" y="98" width="70" height="26" fill="#1e1e2e" stroke="#45475a"/>
+            <text x="105" y="115" fill="#7f849c" text-anchor="middle">Files</text>
+            <rect x="140" y="98" width="70" height="26" fill="#1e1e2e" stroke="#45475a"/>
+            <text x="175" y="115" fill="#7f849c" text-anchor="middle">Validate</text>
+          </g>
+
+          <!-- Project tab content -->
+          <rect x="0" y="124" width="280" height="140" fill="#181825"/>
+          <text x="12" y="142" fill="#cdd6f4" font-size="11" font-weight="600">S32K148_EAS_EB_3399A</text>
+          <text x="12" y="156" fill="#7f849c" font-size="10" font-family="JetBrains Mono">D:\proj\S32K148_EAS_EB_3399A\manifest.json</text>
+          <!-- BSWMD chips -->
+          <text x="12" y="178" fill="#9399b2" font-size="10" font-weight="600">BSWMD SCHEMAS</text>
+          <g font-size="10">
+            <rect x="12" y="186" width="50" height="18" rx="9" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+            <text x="37" y="199" fill="#b4befe" text-anchor="middle">Com</text>
+            <rect x="68" y="186" width="42" height="18" rx="9" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+            <text x="89" y="199" fill="#b4befe" text-anchor="middle">Det</text>
+            <rect x="116" y="186" width="50" height="18" rx="9" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+            <text x="141" y="199" fill="#b4befe" text-anchor="middle">EcuC</text>
+            <rect x="172" y="186" width="52" height="18" rx="9" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+            <text x="198" y="199" fill="#b4befe" text-anchor="middle">PduR</text>
+            <rect x="230" y="186" width="42" height="18" rx="9" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+            <text x="251" y="199" fill="#b4befe" text-anchor="middle">+ 1</text>
+          </g>
+          <!-- ECUC modules -->
+          <text x="12" y="226" fill="#9399b2" font-size="10" font-weight="600">ECUC MODULES</text>
+          <g font-size="10" font-family="JetBrains Mono">
+            <rect x="12" y="232" width="256" height="16" rx="3" fill="#313244"/>
+            <text x="22" y="244" fill="#a6e3a1">●</text>
+            <text x="34" y="244" fill="#bac2de">Com_Com_EcucValues.arxml</text>
+            <text x="240" y="244" fill="#7f849c">✓</text>
+          </g>
+
+          <!-- Validation summary -->
+          <rect x="0" y="264" width="280" height="64" fill="#181825" stroke="#313244"/>
+          <text x="12" y="280" fill="#cdd6f4" font-size="11" font-weight="600">Validation</text>
+          <text x="12" y="296" fill="#7f849c" font-size="10" font-family="JetBrains Mono">Last run: just now · 1336 cross-ref</text>
+          <g font-size="9" font-family="JetBrains Mono">
+            <rect x="12" y="304" width="50" height="16" rx="3" fill="rgba(243,139,168,.15)" stroke="#f38ba8"/>
+            <text x="37" y="315" fill="#f38ba8" text-anchor="middle">1336 ✕</text>
+            <rect x="68" y="304" width="46" height="16" rx="3" fill="rgba(166,227,161,.15)" stroke="#a6e3a1"/>
+            <text x="91" y="315" fill="#a6e3a1" text-anchor="middle">0 ✓</text>
+            <rect x="120" y="304" width="46" height="16" rx="3" fill="rgba(249,226,175,.15)" stroke="#f9e2af"/>
+            <text x="143" y="315" fill="#f9e2af" text-anchor="middle">0 !</text>
+          </g>
+
+          <!-- Tree -->
+          <rect x="0" y="328" width="280" height="212" fill="#11111b"/>
+          <text x="12" y="346" fill="#9399b2" font-size="10" font-weight="600" font-family="JetBrains Mono">ECUC TREE</text>
+          <g font-size="11" font-family="JetBrains Mono">
+            <!-- Root packages -->
+            <text x="14" y="368" fill="#7f849c">▾</text>
+            <text x="28" y="368" fill="#b4befe">📁</text>
+            <text x="46" y="368" fill="#cdd6f4">AR-PACKAGE Com</text>
+            <!-- Module -->
+            <text x="26" y="386" fill="#7f849c">▾</text>
+            <text x="40" y="386" fill="#89b4fa">⚙</text>
+            <text x="58" y="386" fill="#cdd6f4" font-weight="600">MODULE Com</text>
+            <!-- Container -->
+            <text x="52" y="404" fill="#7f849c">▾</text>
+            <text x="66" y="404" fill="#94e2d5">▣</text>
+            <text x="84" y="404" fill="#cdd6f4">ComConfig</text>
+            <!-- Sub-container -->
+            <text x="78" y="422" fill="#7f849c">▾</text>
+            <text x="92" y="422" fill="#94e2d5">▣</text>
+            <text x="110" y="422" fill="#cdd6f4">ComIPdu (×67)</text>
+            <text x="78" y="440" fill="#7f849c">▸</text>
+            <text x="92" y="440" fill="#94e2d5">▣</text>
+            <text x="110" y="440" fill="#7f849c">ComSignal</text>
+            <!-- Selected node -->
+            <rect x="100" y="448" width="170" height="16" rx="2" fill="rgba(137,180,250,.18)" stroke="#89b4fa"/>
+            <text x="110" y="460" fill="#cdd6f4">▶ ComIPdu_001</text>
+            <text x="78" y="476" fill="#7f849c">▸</text>
+            <text x="92" y="476" fill="#94e2d5">▣</text>
+            <text x="110" y="476" fill="#7f849c">ComIPdu_002</text>
+            <text x="78" y="492" fill="#7f849c">▸</text>
+            <text x="92" y="492" fill="#94e2d5">▣</text>
+            <text x="110" y="492" fill="#7f849c">ComIPdu_003</text>
+            <text x="78" y="508" fill="#7f849c">▸</text>
+            <text x="92" y="508" fill="#94e2d5">▣</text>
+            <text x="110" y="508" fill="#7f849c">ComIPdu_004</text>
+            <text x="78" y="524" fill="#7f849c">…</text>
+          </g>
+
+          <!-- Resize handle -->
+          <rect x="280" y="98" width="4" height="442" fill="#45475a"/>
+          <rect x="281" y="300" width="2" height="20" fill="#6c7086"/>
+
+          <!-- Right panel - ParamEditor -->
+          <rect x="284" y="98" width="636" height="442" fill="#1e1e2e"/>
+          <rect x="284" y="98" width="636" height="36" fill="#181825" stroke="#313244"/>
+          <text x="298" y="121" fill="#cdd6f4" font-size="12" font-weight="600">Com / ComConfig / ComIPdu / ComIPdu_001</text>
+          <text x="298" y="121" fill="#cdd6f4" font-size="12" font-weight="600" opacity="0">Com / ComConfig / ComIPdu / ComIPdu_001</text>
+          <text x="900" y="121" fill="#f9e2af" font-size="10" font-family="JetBrains Mono" text-anchor="end">● dirty</text>
+
+          <!-- Param rows -->
+          <g font-size="11">
+            <!-- Row 1: integer -->
+            <text x="298" y="160" fill="#7f849c" font-family="JetBrains Mono" font-size="10">DEFINITION-REF</text>
+            <text x="298" y="178" fill="#cdd6f4" font-family="JetBrains Mono">ComIPdu</text>
+            <text x="450" y="160" fill="#7f849c" font-family="JetBrains Mono" font-size="10">SHORT-NAME</text>
+            <text x="450" y="178" fill="#cdd6f4" font-family="JetBrains Mono">ComIPdu_001</text>
+            <text x="650" y="160" fill="#7f849c" font-family="JetBrains Mono" font-size="10">LENGTH</text>
+            <rect x="650" y="168" width="80" height="20" rx="4" fill="#313244" stroke="#45475a"/>
+            <text x="660" y="183" fill="#a6e3a1" font-family="JetBrains Mono">8</text>
+
+            <!-- Row 2: enum -->
+            <text x="298" y="212" fill="#7f849c" font-family="JetBrains Mono" font-size="10">TRANSMISSION_MODE</text>
+            <rect x="298" y="220" width="200" height="22" rx="4" fill="#313244" stroke="#45475a"/>
+            <text x="308" y="235" fill="#cdd6f4" font-family="JetBrains Mono">DIRECTED</text>
+            <text x="478" y="235" fill="#7f849c">▾</text>
+            <text x="520" y="212" fill="#7f849c" font-family="JetBrains Mono" font-size="10">DIRECTION</text>
+            <rect x="520" y="220" width="120" height="22" rx="4" fill="#313244" stroke="#45475a"/>
+            <text x="530" y="235" fill="#cdd6f4" font-family="JetBrains Mono">RECEIVE</text>
+            <text x="620" y="235" fill="#7f849c">▾</text>
+
+            <!-- Row 3: reference -->
+            <text x="298" y="262" fill="#7f849c" font-family="JetBrains Mono" font-size="10">REFERENCE-VALUE → ComSignal</text>
+            <rect x="298" y="270" width="350" height="22" rx="4" fill="#313244" stroke="#45475a"/>
+            <text x="308" y="285" fill="#f9e2af" font-family="JetBrains Mono" font-size="10">/Com/ComConfig/ComSignalGroup_Rx/ComSignal_EngineSpeed</text>
+            <rect x="652" y="270" width="68" height="22" rx="4" fill="rgba(137,180,250,.15)" stroke="#89b4fa"/>
+            <text x="686" y="285" fill="#89b4fa" text-anchor="middle" font-size="10">DEST: ref</text>
+
+            <!-- Row 4: boolean -->
+            <text x="298" y="312" fill="#7f849c" font-family="JetBrains Mono" font-size="10">DYNAMIC_LENGTH</text>
+            <rect x="298" y="320" width="36" height="20" rx="4" fill="rgba(166,227,161,.2)" stroke="#a6e3a1"/>
+            <text x="316" y="334" fill="#a6e3a1" text-anchor="middle">✓</text>
+            <text x="298" y="312" fill="transparent" font-family="JetBrains Mono" font-size="10">DYNAMIC_LENGTH</text>
+
+            <!-- Row 5: multiline -->
+            <text x="298" y="362" fill="#7f849c" font-family="JetBrains Mono" font-size="10">DESCRIPTION (multi-line)</text>
+            <rect x="298" y="370" width="420" height="48" rx="4" fill="#313244" stroke="#45475a"/>
+            <text x="308" y="386" fill="#cdd6f4" font-family="JetBrains Mono" font-size="10">Engine RPM signal from CAN1 bus.</text>
+            <text x="308" y="402" fill="#cdd6f4" font-family="JetBrains Mono" font-size="10">Cycle time: 10ms · Endian: little</text>
+
+            <!-- Inline validation hint -->
+            <rect x="298" y="436" width="420" height="22" rx="4" fill="rgba(243,139,168,.1)" stroke="#f38ba8"/>
+            <text x="306" y="451" fill="#f38ba8" font-size="10" font-family="JetBrains Mono">✕ range: ComIPduLength must be 0..65535</text>
+          </g>
+
+          <!-- Save button -->
+          <rect x="760" y="500" width="120" height="26" rx="4" fill="rgba(250,179,135,.18)" stroke="#fab387"/>
+          <text x="820" y="518" fill="#fab387" font-size="11" text-anchor="middle" font-family="JetBrains Mono">Save (unsaved)</text>
+
+          <!-- Numbered callouts -->
+          <g font-size="10" font-family="JetBrains Mono" fill="#7f849c">
+            <line x1="30" y1="40" x2="30" y2="20" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="210" y1="40" x2="210" y2="20" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="900" y1="40" x2="900" y2="20" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="35" y1="98" x2="35" y2="74" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="140" y1="98" x2="140" y2="74" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="380" y1="264" x2="380" y2="240" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="600" y1="328" x2="600" y2="304" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="600" y1="116" x2="600" y2="84" stroke="#6c7086" stroke-dasharray="2,2"/>
+            <line x1="820" y1="500" x2="820" y2="450" stroke="#6c7086" stroke-dasharray="2,2"/>
+          </g>
+        </svg>
+        <figcaption>图 2.1 — 主窗口结构（缩放可见全部标注）</figcaption>
+      </figure>
+
+      <h3>2.2 区域编号索引</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:60px">编号</th><th>区域</th><th>关键交互</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge">①</span></td><td><strong>Brand</strong></td><td>产品 Logo + 版本号，固定显示。</td></tr>
+            <tr><td><span class="badge">②</span></td><td><strong>菜单栏</strong></td><td>File / Edit / Project / Import / View / Help 6 个下拉菜单。</td></tr>
+            <tr><td><span class="badge">③</span></td><td><strong>语言切换 + 保存状态指示</strong></td><td>zh-CN / en 切换；右侧 <span class="badge green">● Saved</span> / <span class="badge peach">● Unsaved</span>。</td></tr>
+            <tr><td><span class="badge">④</span></td><td><strong>ErrorBanner</strong></td><td>全宽错误条，可点击展开 <code>ErrorViewerModal</code>。</td></tr>
+            <tr><td><span class="badge">⑤</span></td><td><strong>LeftPanel · Project tab</strong></td><td>项目元信息 + BSWMD chips + ECUC 文件列表。</td></tr>
+            <tr><td><span class="badge">⑥</span></td><td><strong>Validation 摘要</strong></td><td>校验结果按 kind 分色徽标，可点击跳到错误。</td></tr>
+            <tr><td><span class="badge">⑦</span></td><td><strong>ECUC Tree</strong></td><td>递归 ARIA 树，支持键盘导航。</td></tr>
+            <tr><td><span class="badge">⑧</span></td><td><strong>ParamEditor 标题栏</strong></td><td>面包屑：当前选中节点的完整路径 + dirty 标记。</td></tr>
+            <tr><td><span class="badge">⑨</span></td><td><strong>ParamEditor 表单</strong></td><td>7 种类型感知编辑控件 + 实时校验提示。</td></tr>
+            <tr><td><span class="badge">⑩</span></td><td><strong>Save 按钮</strong></td><td>未保存时变橙色 <span class="badge peach">Save (unsaved)</span>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.3 顶栏 AppHeader 详解</h3>
+      <p>AppHeader 是命令层的中枢。详细菜单结构如下：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>菜单</th><th>条目</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><strong>File</strong></td><td>Open ARXML… / Save / Save As… / Save All / Close Project</td><td>原生 Electron 对话框；Save All 仅在多文件 dirty 时启用。</td></tr>
+            <tr><td><strong>Edit</strong></td><td>Undo / Redo / Cut / Copy / Paste / Find in Tree</td><td>Undo/Redo 基于 store snapshot，作用域为整个 session。</td></tr>
+            <tr><td><strong>Project</strong></td><td>New Project… / Open Project… / Recent / Project Info</td><td>New Project 打开 <code>NewProjectDialog</code>。</td></tr>
+            <tr><td><strong>Import</strong></td><td>Import ECUC ARXML… / Import BSWMD…</td><td>触发 <code>ImportEntry</code> 与 <code>BswmdPickerDialog</code>。</td></tr>
+            <tr><td><strong>View</strong></td><td>Combined Tree / Single Tree / Refresh / Toggle Theme</td><td>Combined View 跨多文件聚合；<em>即将支持</em> 主题切换。</td></tr>
+            <tr><td><strong>Help</strong></td><td>Documentation / Open Samples / About</td><td>指向本手册、sample 目录与版本信息。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.4 状态指示符规范</h3>
+      <p>应用使用统一的状态色，跨所有 panel 一致：</p>
+      <ul class="feat-list">
+        <li>
+          <div class="feat-icon" style="color:#a6e3a1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong><span class="badge green">Saved / Valid</span></strong>
+            <span>文件已落盘；校验全部通过；schema 解析成功。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon" style="color:#fab387">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong><span class="badge peach">Unsaved / Warning</span></strong>
+            <span>有未保存编辑；schema 警告；BSWMD 缺失引用。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon" style="color:#f38ba8">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong><span class="badge red">Error / Blocked</span></strong>
+            <span>校验失败；引用解析失败；save 写入失败。</span>
+          </div>
+        </li>
+        <li>
+          <div class="feat-icon" style="color:#b4befe">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="feat-text">
+            <strong><span class="badge lavender">Loading / Pending</span></strong>
+            <span>IPC 在飞；commit 在执行；debounced 校验排队中。</span>
+          </div>
+        </li>
+      </ul>
+
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 3: 项目管理 / PROJECT MGMT            -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch3">
+      <div class="chapter-head">
+        <div class="ch-num-badge">03</div>
+        <h2>项目管理<span class="en">Project Management</span></h2>
+      </div>
+
+      <p>
+        一个 <strong>claude-AutosarCfg Project</strong> 是同一 BSW 工程在磁盘上的逻辑容器：
+        <code>manifest.json</code> 记录所有 value-side <code>ARXML</code>、schema-side
+        <code>BSWMD</code> 引用与项目元数据。项目根目录下不会写额外二进制，
+        所有编辑最终落回原 ARXML 文件。
+      </p>
+
+      <h3>3.1 manifest.json 内存布局</h3>
+      <pre><span class="tag">{</span>
+  <span class="attr">"schemaVersion"</span>: <span class="num">2</span>,
+  <span class="attr">"name"</span>: <span class="str">"S32K148_EAS_EB_3399A"</span>,
+  <span class="attr">"createdAt"</span>: <span class="str">"2026-06-13T08:14:22Z"</span>,
+  <span class="attr">"valueArxmlPaths"</span>: <span class="tag">[</span>
+    <span class="str">"Com_Com_EcucValues.arxml"</span>,
+    <span class="str">"Det_Det_EcucValues.arxml"</span>,
+    <span class="str">"EcuC_EcuC_EcucValues.arxml"</span>,
+    <span class="str">"PduR_PduR_EcucValues.arxml"</span>,
+    <span class="str">"WdgIf_WdgIf_EcucValues.arxml"</span>
+  <span class="tag">]</span>,
+  <span class="attr">"bswmdPaths"</span>: <span class="tag">[</span>
+    <span class="str">"bswmd/Com_Bswmd.arxml"</span>,
+    <span class="str">"bswmd/Det_Bswmd.arxml"</span>,
+    <span class="str">"bswmd/EcuC_Bswmd.arxml"</span>,
+    <span class="str">"bswmd/PduR_Bswmd.arxml"</span>,
+    <span class="str">"bswmd/WdgIf_Bswmd.arxml"</span>
+  <span class="tag">]</span>
+<span class="tag">}</span></pre>
+
+      <div class="callout note">
+        <div class="callout-icon">i</div>
+        <div class="callout-body">
+          路径以 <strong>manifest 相对路径</strong> 持久化（v1.1.1+）。v1.1.0 时代的绝对路径会在
+          <code>loadManifest()</code> 时自动 <code>migrateManifestPaths()</code>，对用户透明。
+        </div>
+      </div>
+
+      <h3>3.2 新建项目</h3>
+      <p>菜单 <code>Project → New Project…</code> 或顶部 AppHeader 的 Project 下拉触发
+        <code>NewProjectDialog</code>，它是一个统一入口，整合了模板选择、目录挑选与
+        BSWMD chip 多选（v1.1.0 引入）。
+      </p>
+
+      <figure>
+        <svg viewBox="0 0 520 540" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <!-- Backdrop -->
+          <rect width="520" height="540" fill="rgba(0,0,0,.55)"/>
+          <!-- Dialog -->
+          <rect x="20" y="20" width="480" height="500" rx="12" fill="#313244" stroke="#45475a"/>
+          <!-- Header -->
+          <rect x="20" y="20" width="480" height="52" rx="12" fill="#181825"/>
+          <rect x="20" y="60" width="480" height="12" fill="#181825"/>
+          <text x="40" y="52" fill="#cdd6f4" font-size="15" font-weight="600">新建项目 / New Project</text>
+          <rect x="450" y="32" width="32" height="28" rx="6" fill="transparent"/>
+          <text x="466" y="50" fill="#6c7086" font-size="18" text-anchor="middle">×</text>
+
+          <!-- Body -->
+          <g font-size="12">
+            <!-- Project name -->
+            <text x="40" y="98" fill="#bac2de" font-weight="500">项目名称 / Name</text>
+            <rect x="40" y="106" width="440" height="32" rx="6" fill="#1e1e2e" stroke="#45475a"/>
+            <text x="50" y="127" fill="#cdd6f4" font-family="JetBrains Mono">S32K148_EAS_EB_3399A</text>
+
+            <!-- Directory -->
+            <text x="40" y="166" fill="#bac2de" font-weight="500">目标目录 / Directory</text>
+            <rect x="40" y="174" width="380" height="32" rx="6" fill="#1e1e2e" stroke="#45475a"/>
+            <text x="50" y="195" fill="#cdd6f4" font-family="JetBrains Mono">D:\proj\S32K148_EAS_EB_3399A</text>
+            <rect x="425" y="174" width="55" height="32" rx="6" fill="#45475a"/>
+            <text x="452" y="195" fill="#cdd6f4" text-anchor="middle">Browse</text>
+
+            <!-- Template -->
+            <text x="40" y="234" fill="#bac2de" font-weight="500">模板 / Template</text>
+            <g>
+              <rect x="40" y="242" width="140" height="100" rx="8" fill="#1e1e2e" stroke="#45475a"/>
+              <text x="110" y="270" fill="#6c7086" font-size="22" text-anchor="middle">∅</text>
+              <text x="110" y="295" fill="#cdd6f4" text-anchor="middle" font-weight="600">Empty</text>
+              <text x="110" y="312" fill="#7f849c" font-size="10" text-anchor="middle">空白项目</text>
+              <text x="110" y="326" fill="#7f849c" font-size="10" text-anchor="middle">无模板</text>
+
+              <rect x="190" y="242" width="140" height="100" rx="8" fill="rgba(137,180,250,.1)" stroke="#89b4fa" stroke-width="2"/>
+              <text x="260" y="268" fill="#89b4fa" font-size="20" text-anchor="middle">📋</text>
+              <text x="260" y="293" fill="#cdd6f4" text-anchor="middle" font-weight="600">Classic</text>
+              <text x="260" y="310" fill="#7f849c" font-size="10" text-anchor="middle">Classic Platform</text>
+              <text x="260" y="324" fill="#7f849c" font-size="10" text-anchor="middle">Com/Det/PduR</text>
+
+              <rect x="340" y="242" width="140" height="100" rx="8" fill="#1e1e2e" stroke="#45475a"/>
+              <text x="410" y="270" fill="#6c7086" font-size="22" text-anchor="middle">⎘</text>
+              <text x="410" y="295" fill="#cdd6f4" text-anchor="middle" font-weight="600">Clone</text>
+              <text x="410" y="312" fill="#7f849c" font-size="10" text-anchor="middle">从已有项目</text>
+              <text x="410" y="326" fill="#7f849c" font-size="10" text-anchor="middle">复制</text>
+            </g>
+
+            <!-- BSWMD chips -->
+            <text x="40" y="370" fill="#bac2de" font-weight="500">BSWMD 选择（多选）</text>
+            <g font-size="11">
+              <rect x="40" y="378" width="50" height="22" rx="11" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+              <text x="65" y="393" fill="#b4befe" text-anchor="middle">✓ Com</text>
+              <rect x="98" y="378" width="48" height="22" rx="11" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+              <text x="122" y="393" fill="#b4befe" text-anchor="middle">✓ Det</text>
+              <rect x="154" y="378" width="56" height="22" rx="11" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+              <text x="182" y="393" fill="#b4befe" text-anchor="middle">✓ EcuC</text>
+              <rect x="218" y="378" width="54" height="22" rx="11" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+              <text x="245" y="393" fill="#b4befe" text-anchor="middle">✓ PduR</text>
+              <rect x="280" y="378" width="62" height="22" rx="11" fill="rgba(180,190,254,.15)" stroke="#b4befe"/>
+              <text x="311" y="393" fill="#b4befe" text-anchor="middle">✓ WdgIf</text>
+              <rect x="350" y="378" width="70" height="22" rx="11" fill="rgba(116,199,236,.12)" stroke="#74c7ec"/>
+              <text x="385" y="393" fill="#74c7ec" text-anchor="middle">+ 添加</text>
+            </g>
+
+            <!-- Summary -->
+            <text x="40" y="426" fill="#7f849c" font-size="11" font-family="JetBrains Mono">将创建 5 个 value-side ARXML + 5 个 BSWMD</text>
+          </g>
+
+          <!-- Footer -->
+          <line x1="20" y1="460" x2="500" y2="460" stroke="#45475a"/>
+          <rect x="40" y="476" width="80" height="32" rx="6" fill="transparent" stroke="#45475a"/>
+          <text x="80" y="496" fill="#bac2de" text-anchor="middle">取消</text>
+          <rect x="400" y="476" width="80" height="32" rx="6" fill="rgba(166,227,161,.18)" stroke="#a6e3a1"/>
+          <text x="440" y="496" fill="#a6e3a1" text-anchor="middle" font-weight="600">Create</text>
+        </svg>
+        <figcaption>图 3.1 — NewProjectDialog（v1.1.0 整合：模板 + BSWMD chip 多选）</figcaption>
+      </figure>
+
+      <h3>3.3 新建流程</h3>
+      <ol class="steps">
+        <li>
+          <strong>输入项目名</strong>
+          <code>S32K148_EAS_EB_3399A</code>，遵循 ECU 工程命名惯例（kebab-case 或 PascalCase，禁止路径分隔符）。
+        </li>
+        <li>
+          <strong>选择目标目录</strong>
+          点击 <span class="badge">Browse</span> 调起原生文件夹选择器，确认后回填绝对路径。
+        </li>
+        <li>
+          <strong>选择模板</strong>
+          <span class="badge">Empty</span>（完全空白）/<span class="badge">Classic</span>（带 Classic 5 模块脚手架）/<span class="badge">Clone</span>（从既有项目复制 ARXML + BSWMD）。
+        </li>
+        <li>
+          <strong>勾选 BSWMD</strong>
+          模板为 Classic 时，BSWMD chips 会预填 5 个标准 BSW 模块；可继续添加自定义 BSWMD。
+        </li>
+        <li>
+          <strong>点击 Create</strong>
+          若有未保存编辑，会先弹 <span class="badge peach">ConfirmDialog</span>（3 选项：Save / Discard / Cancel）。确认后 <code>IPC: project:new</code> 落盘 manifest + 模板文件。
+        </li>
+        <li>
+          <strong>切换视图</strong>
+          项目创建后自动 <code>openProject()</code>，新文件立即出现在 LeftPanel 的 Files 标签。
+        </li>
+      </ol>
+
+      <h3>3.4 打开项目</h3>
+      <p>两种方式：</p>
+      <ul>
+        <li><strong>菜单入口</strong>：<code>Project → Open Project…</code> 选 <code>manifest.json</code>。</li>
+        <li><strong>直接双击</strong>：在文件管理器双击 <code>manifest.json</code>，
+            系统需先建立文件关联（NSIS 安装包已自动注册 <code>.autosarcfg</code> 关联）。</li>
+        <li><strong>Recent 列表</strong>：<code>Project → Recent</code> 展开最近 8 个项目。</li>
+      </ul>
+
+      <div class="callout warn">
+        <div class="callout-icon">!</div>
+        <div class="callout-body">
+          <strong>打开时若当前有 dirty 编辑</strong>，会先弹 <code>ConfirmDialog</code> 询问处置。
+          注意：<em>关闭项目</em> 不会自动保存，请先 <code>Save All</code>。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 4: ARXML 文件操作 / FILE IO           -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch4">
+      <div class="chapter-head">
+        <div class="ch-num-badge">04</div>
+        <h2>ARXML 文件操作<span class="en">ARXML File Operations</span></h2>
+      </div>
+
+      <p>
+        一切配置都源于 <code>ARXML</code>（AUTOSAR XML）。本章说明 claude-AutosarCfg 如何打开、编辑、保存这类文件，
+        以及背后的 IPC 通道、错误处理与版本兼容策略。
+      </p>
+
+      <h3>4.1 解析能力</h3>
+      <p>解析器（<code>core/arxml/parser.ts</code>）支持 AUTOSAR r4.x 的 ECUC 子集：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>元素</th><th>覆盖</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>AR-PACKAGE</code></td><td>递归</td><td>支持任意嵌套深度，递归下降为树节点。</td></tr>
+            <tr><td><code>ELEMENT</code> (module / container)</td><td>✓</td><td>通过 <code>SHORT-NAME</code> + <code>DEFINITION-REF</code> 标识。</td></tr>
+            <tr><td><code>PARAMETER-VALUES</code></td><td>✓</td><td>包装数值参数；按 <code>DEFINITION-REF DEST</code> 决定类型。</td></tr>
+            <tr><td><code>REFERENCE-VALUES</code></td><td>✓ (v0.8+)</td><td>标准 <code>&lt;REFERENCE-VALUES&gt;</code> 包装 + EcuC vendor dialect。</td></tr>
+            <tr><td><code>VALUE-REF DEST</code></td><td>✓</td><td>跨模块引用；路径索引全局可见。</td></tr>
+            <tr><td><code>CHOICES</code> / <code>LITERALS</code></td><td>✓</td><td>enum 字面量集合。</td></tr>
+            <tr><td><code>MULTIPLICITY</code></td><td>✓ (v0.6+)</td><td>容器子实例上下界。</td></tr>
+            <tr><td><code>SW-BASE-TYPE</code> 等 C-impl 字段</td><td>⏸ Pass-through</td><td>解析保留原样，UI 不暴露。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.2 打开 ARXML</h3>
+      <ol class="steps">
+        <li>
+          <strong>触发入口</strong>
+          <code>File → Open ARXML…</code> 或 <code>Ctrl+O</code> 唤起原生文件对话框。
+        </li>
+        <li>
+          <strong>选择文件</strong>
+          一次可多选（按住 <kbd>Shift</kbd> / <kbd>Ctrl</kbd>）；多文件会进入 <span class="badge">Combined Tree</span> 模式。
+        </li>
+        <li>
+          <strong>解析与 schema 匹配</strong>
+          <code>arxml:parse</code> IPC 启动 fast-xml-parser；schema 侧通过 <code>buildPathIndex</code> + <code>extractReferences</code> 建立全局索引。
+        </li>
+        <li>
+          <strong>首次校验</strong>
+          同步运行 <code>validateProject</code>，耗时通常 &lt; 50ms（5 fixture 9.2 MB）。
+        </li>
+        <li>
+          <strong>渲染</strong>
+          树与编辑器挂载；校验结果分组显示。
+        </li>
+      </ol>
+
+      <figure>
+        <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <!-- Flow boxes -->
+          <g font-size="12" font-family="Inter">
+            <rect x="20" y="100" width="140" height="80" rx="8" fill="#1e1e2e" stroke="#585b70"/>
+            <text x="90" y="135" fill="#cdd6f4" text-anchor="middle" font-weight="600">.arxml on disk</text>
+            <text x="90" y="155" fill="#7f849c" text-anchor="middle" font-size="10" font-family="JetBrains Mono">S32K148_EAS_EB_3399A</text>
+
+            <rect x="200" y="100" width="140" height="80" rx="8" fill="#1e1e2e" stroke="#89b4fa"/>
+            <text x="270" y="130" fill="#89b4fa" text-anchor="middle" font-size="10" font-family="JetBrains Mono">arxml:parse</text>
+            <text x="270" y="148" fill="#cdd6f4" text-anchor="middle" font-weight="600">fast-xml-parser</text>
+            <text x="270" y="168" fill="#7f849c" text-anchor="middle" font-size="10">r4.x ECUC subset</text>
+
+            <rect x="380" y="100" width="140" height="80" rx="8" fill="#1e1e2e" stroke="#b4befe"/>
+            <text x="450" y="130" fill="#b4befe" text-anchor="middle" font-size="10" font-family="JetBrains Mono">core/validation</text>
+            <text x="450" y="148" fill="#cdd6f4" text-anchor="middle" font-weight="600">validateProject</text>
+            <text x="450" y="168" fill="#7f849c" text-anchor="middle" font-size="10">7 kinds · debounce</text>
+
+            <rect x="560" y="100" width="140" height="80" rx="8" fill="#1e1e2e" stroke="#a6e3a1"/>
+            <text x="630" y="130" fill="#a6e3a1" text-anchor="middle" font-size="10" font-family="JetBrains Mono">useArxmlStore</text>
+            <text x="630" y="148" fill="#cdd6f4" text-anchor="middle" font-weight="600">React render</text>
+            <text x="630" y="168" fill="#7f849c" text-anchor="middle" font-size="10">tree + editor</text>
+          </g>
+          <!-- Arrows -->
+          <g stroke="#89b4fa" stroke-width="2" fill="none">
+            <line x1="160" y1="140" x2="200" y2="140" marker-end="url(#arrow)"/>
+            <line x1="340" y1="140" x2="380" y2="140" marker-end="url(#arrow)"/>
+            <line x1="520" y1="140" x2="560" y2="140" marker-end="url(#arrow)"/>
+          </g>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#89b4fa"/>
+            </marker>
+          </defs>
+          <!-- Time annotation -->
+          <text x="360" y="80" fill="#7f849c" font-size="10" font-family="JetBrains Mono" text-anchor="middle">~ 50ms for 9.2 MB / 5 fixtures</text>
+          <text x="360" y="220" fill="#7f849c" font-size="10" font-family="JetBrains Mono" text-anchor="middle">main process → preload bridge → renderer store</text>
+        </svg>
+        <figcaption>图 4.1 — 打开 ARXML 时的进程间数据流</figcaption>
+      </figure>
+
+      <h3>4.3 保存 ARXML</h3>
+      <p>保存路径（<code>arxml:save</code>）由 <code>saveArxmlHandler</code> 处理。v1.1.2 起错误按 NodeJS errno code 区分 6 种 typed kind：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>errno</th><th>Typed kind</th><th>触发场景</th><th>用户提示</th></tr></thead>
+          <tbody>
+            <tr><td><code>EACCES</code></td><td><span class="badge red">read-only</span></td><td>文件被设为只读 / 持有者无写权限</td><td>"文件被锁定，请检查权限"</td></tr>
+            <tr><td><code>EPERM</code></td><td><span class="badge red">forbidden</span></td><td>Windows ACL / SELinux 拒绝</td><td>"权限被拒绝，请联系管理员"</td></tr>
+            <tr><td><code>ENOSPC</code></td><td><span class="badge red">no-space</span></td><td>磁盘满</td><td>"磁盘空间不足，请清理"</td></tr>
+            <tr><td><code>EDQUOT</code></td><td><span class="badge red">quota</span></td><td>用户配额超限</td><td>"磁盘配额超限"</td></tr>
+            <tr><td><code>ENOENT</code></td><td><span class="badge red">missing</span></td><td>父目录不存在 / 已被删</td><td>"目录不存在"</td></tr>
+            <tr><td><code>ENOTDIR</code></td><td><span class="badge red">not-dir</span></td><td>路径中段不是目录</td><td>"路径无效"</td></tr>
+            <tr><td><code>EIO</code> / 其它</td><td><span class="badge red">write-failed</span></td><td>通用 IO 错误</td><td>"写入失败：&lt;原因&gt;"</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>4.4 多文件 Save All</h3>
+      <p>当 multi-ECUC dirty session 激活时（v1.1.1+），AppHeader 的 Save 按钮旁出现 <span class="badge">Save All</span>。
+        每个文件独立 partial-failure UI：</p>
+      <pre>┌─ Save All progress ─────────────────────┐
+│ ✓ Com_Com_EcucValues.arxml    4.2 KB     │
+│ ✓ Det_Det_EcucValues.arxml    1.8 KB     │
+│ ✕ PduR_PduR_EcucValues.arxml  EACCES     │  ← 失败独立展示
+│ ✓ EcuC_EcuC_EcucValues.arxml  0.3 KB     │
+│ ✓ WdgIf_WdgIf_EcucValues.arxml 0.1 KB    │
+│                                          │
+│ Summary: 4 saved, 1 failed              │
+│ [Retry failed] [Dismiss]                 │
+└──────────────────────────────────────────┘</pre>
+
+      <h3>4.5 Raw XML 查看器（ArxmlPanel）</h3>
+      <p>菜单 <code>View → Toggle ArxmlPanel</code> 唤起一个只读 XML 预览窗，
+        用于排查解析差异。内容来自 <code>useArxmlStore.rawXml</code>，与编辑器同步刷新。</p>
+
+      <div class="callout tip">
+        <div class="callout-icon">✓</div>
+        <div class="callout-body">
+          <strong>Round-trip 等价性</strong>：解析 → 编辑 → 序列化产生的 XML
+          与输入 <em>字段级</em> 相等（保留所有空白、属性顺序、注释）。验证：
+          <code>pnpm test -- snapshot/round-trip</code> 跑全部 fixture。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 5: 树形导航 / TREE NAVIGATION          -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch5">
+      <div class="chapter-head">
+        <div class="ch-num-badge">05</div>
+        <h2>树形导航<span class="en">Tree Navigation</span></h2>
+      </div>
+
+      <p>
+        左侧 <span class="badge blue">ECUC TREE</span> 把 ARXML 文档结构可视化为
+        <strong>递归 ARIA tree</strong>，符合 WAI-ARIA 1.2 规范。每一行对应一个 ECUC 元素，
+        选中后右侧编辑器加载它的参数。
+      </p>
+
+      <h3>5.1 树形层次</h3>
+      <figure>
+        <svg viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace">
+          <rect x="0" y="0" width="720" height="460" fill="#1e1e2e"/>
+          <!-- Connector lines -->
+          <g stroke="#585b70" stroke-width="1">
+            <line x1="40" y1="48" x2="40" y2="430"/>
+            <line x1="100" y1="78" x2="100" y2="430"/>
+            <line x1="160" y1="138" x2="160" y2="430"/>
+            <line x1="220" y1="168" x2="220" y2="250"/>
+            <line x1="40" y1="48" x2="720" y2="48"/>
+            <line x1="100" y1="78" x2="720" y2="78"/>
+            <line x1="100" y1="108" x2="720" y2="108"/>
+            <line x1="100" y1="138" x2="720" y2="138"/>
+            <line x1="160" y1="168" x2="720" y2="168"/>
+            <line x1="160" y1="198" x2="720" y2="198"/>
+            <line x1="160" y1="228" x2="720" y2="228"/>
+            <line x1="160" y1="258" x2="720" y2="258"/>
+            <line x1="160" y1="288" x2="720" y2="288"/>
+            <line x1="160" y1="318" x2="720" y2="318"/>
+          </g>
+          <!-- Nodes -->
+          <g font-size="12">
+            <!-- Root AR-PACKAGE -->
+            <rect x="40" y="36" width="6" height="14" fill="#b4befe"/>
+            <text x="56" y="48" fill="#cdd6f4">▾</text>
+            <text x="76" y="48" fill="#cdd6f4" font-weight="600">📁 AR-PACKAGE /ActiveHardware</text>
+            <text x="280" y="48" fill="#7f849c">/AR-PACKAGE/ActiveHardware</text>
+            <text x="640" y="48" fill="#7f849c" text-anchor="end">▼ package</text>
+
+            <!-- ECU-INSTANCE -->
+            <text x="116" y="78" fill="#cdd6f4">▾</text>
+            <text x="136" y="78" fill="#cdd6f4" font-weight="600">⚙ ECU-INSTANCE EcuInstance</text>
+            <text x="640" y="78" fill="#7f849c" text-anchor="end">▼ module</text>
+
+            <!-- MODULE-DEF placeholder -->
+            <text x="116" y="108" fill="#7f849c">▸</text>
+            <text x="136" y="108" fill="#7f849c">📁 AR-PACKAGE Ecuc</text>
+            <text x="640" y="108" fill="#7f849c" text-anchor="end">▶ package (collapsed)</text>
+
+            <!-- AR-PACKAGE Com -->
+            <text x="116" y="138" fill="#cdd6f4">▾</text>
+            <text x="136" y="138" fill="#cdd6f4" font-weight="600">📁 AR-PACKAGE Com</text>
+            <text x="640" y="138" fill="#7f849c" text-anchor="end">▼ package</text>
+
+            <!-- MODULE Com -->
+            <text x="176" y="168" fill="#cdd6f4">▾</text>
+            <text x="196" y="168" fill="#cdd6f4" font-weight="600">⚙ MODULE Com</text>
+            <text x="640" y="168" fill="#7f849c" text-anchor="end">▼ module · 67 IPdus</text>
+
+            <!-- CONTAINER ComConfig -->
+            <text x="236" y="198" fill="#cdd6f4">▾</text>
+            <text x="256" y="198" fill="#cdd6f4">▣ CONTAINER ComConfig</text>
+            <text x="640" y="198" fill="#7f849c" text-anchor="end">▼ container · 67 children</text>
+
+            <!-- CONTAINER ComIPdu -->
+            <text x="296" y="228" fill="#cdd6f4">▾</text>
+            <text x="316" y="228" fill="#cdd6f4">▣ CONTAINER ComIPdu</text>
+            <text x="640" y="228" fill="#7f849c" text-anchor="end">▼ container · ×67</text>
+
+            <!-- Selected node highlight -->
+            <rect x="280" y="252" width="380" height="20" fill="rgba(137,180,250,.18)" stroke="#89b4fa" rx="3"/>
+            <text x="316" y="266" fill="#cdd6f4" font-weight="600">▶ ComIPdu_001</text>
+            <text x="560" y="266" fill="#89b4fa" text-anchor="end">★ selected</text>
+
+            <!-- siblings -->
+            <text x="316" y="292" fill="#7f849c">ComIPdu_002</text>
+            <text x="316" y="318" fill="#7f849c">ComIPdu_003</text>
+            <text x="316" y="344" fill="#7f849c">…</text>
+            <text x="316" y="370" fill="#7f849c">ComIPdu_067</text>
+
+            <!-- Reference leaf -->
+            <text x="236" y="400" fill="#7f849c">▸</text>
+            <text x="256" y="400" fill="#7f849c">▣ CONTAINER ComSignal</text>
+            <text x="640" y="400" fill="#7f849c" text-anchor="end">▶ container · ×42</text>
+
+            <!-- error indicator -->
+            <text x="236" y="430" fill="#cdd6f4">▸</text>
+            <text x="256" y="430" fill="#f38ba8">⛔ CONTAINER ComGwMapping</text>
+            <text x="560" y="430" fill="#f38ba8">2 errors</text>
+          </g>
+        </svg>
+        <figcaption>图 5.1 — 树形结构：AR-PACKAGE → MODULE → CONTAINER → CONTAINER</figcaption>
+      </figure>
+
+      <h3>5.2 节点类型与图标</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>图标</th><th>类型</th><th>XML 元素</th><th>展开后子项</th></tr></thead>
+          <tbody>
+            <tr><td>📁</td><td>Package</td><td><code>AR-PACKAGE</code></td><td>其它 package / module / container</td></tr>
+            <tr><td>⚙</td><td>Module</td><td><code>ELEMENT&gt;MODULE-CONFIGURATION</code></td><td>顶层 container 列表</td></tr>
+            <tr><td>▣</td><td>Container</td><td><code>ELEMENT&gt;CONTAINER</code></td><td>参数 + 子 container</td></tr>
+            <tr><td>⛔</td><td>Container w/ error</td><td>含 ≥1 校验错误</td><td>—</td></tr>
+            <tr><td>↻</td><td>Reference placeholder</td><td><code>VALUE-REF DEST</code></td><td>不展开（leaf）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>5.3 键盘操作</h3>
+      <p>树完全可键盘操作，符合 WAI-ARIA Tree Pattern：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>按键</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>↓</kbd> / <kbd>↑</kbd></td><td>焦点移到下一个 / 上一个可见节点</td></tr>
+            <tr><td><kbd>→</kbd></td><td>展开 collapsed 节点；已是 expanded 则跳到第一个子节点</td></tr>
+            <tr><td><kbd>←</kbd></td><td>折叠 expanded 节点；已是 collapsed 则跳到父节点</td></tr>
+            <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>选中（select）节点，加载到右侧编辑器</td></tr>
+            <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>跳到第一个 / 最后一个可见节点</td></tr>
+            <tr><td><kbd>Page Up</kbd> / <kbd>Page Down</kbd></td><td>翻页</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>聚焦树内搜索框（<em>Sprint 16 follow-up</em>）</td></tr>
+            <tr><td><kbd>Delete</kbd></td><td>删除当前 container（v1.0.1+，带 cascade confirm）</td></tr>
+            <tr><td>右键</td><td>弹出 <code>ContextMenu</code>：Add Sub-container / Duplicate / Delete / Copy Reference Path</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>5.4 节点选择同步</h3>
+      <p>树的 <code>onSelect</code> 回调写入 <code>useArxmlStore.selectedPath</code>，
+        <code>ParamEditor</code> 订阅同一字段，实现"左点右显"的双向绑定。
+        反向（从校验错误跳到树）也走同一字段：</p>
+      <pre><span class="com">// ValidationPanel.tsx</span>
+<span class="kw">const</span> containerPath = <span class="attr">extractContainerPath</span>(err);
+<span class="attr">select</span>(containerPath);  <span class="com">// 同一 store action，触发现实</span></pre>
+
+      <h3>5.5 上下文菜单</h3>
+      <p>右键树节点唤起 <code>ContextMenu</code>，根据节点类型动态启用条目：</p>
+      <ul>
+        <li><strong>Add Sub-container</strong>：弹出类型选择子菜单（schema 已加载时显示合法定义）。</li>
+        <li><strong>Duplicate</strong>：深拷贝当前 container 到同一父节点，自动加 <code>_copy</code> 后缀。</li>
+        <li><strong>Copy Reference Path</strong>：复制完整 <code>/A/B/C</code> 路径到剪贴板，便于跨工具引用。</li>
+        <li><strong>Delete</strong>：v1.0.1+ 带 <span class="badge">CascadeConfirmDialog</span>，3 选项：
+            <span class="badge green">仅删本节点</span> / <span class="badge peach">级联删子节点</span> / <span class="badge red">级联删引用方</span>。</li>
+      </ul>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 6: 参数编辑 / PARAM EDITOR            -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch6">
+      <div class="chapter-head">
+        <div class="ch-num-badge">06</div>
+        <h2>参数编辑<span class="en">Parameter Editor</span></h2>
+      </div>
+
+      <p>
+        右侧 <span class="badge peach">ParamEditor</span> 根据当前选中节点的
+        <code>DEFINITION-REF</code> 决定渲染哪一类输入控件。
+        7 种类型与 BSWMD schema 一一对应，每种都有独立的 <code>&lt;ModeName&gt;Editor.tsx</code>：
+      </p>
+
+      <h3>6.1 7 种参数类型</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>DEFINITION-REF DEST</th><th>控件</th><th>校验</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge lavender">string</span></td><td><code>ECUC-STRING-PARAM-DEF</code></td><td>单行 input</td><td>maxLength (range kind)</td></tr>
+            <tr><td><span class="badge blue">integer</span></td><td><code>ECUC-INTEGER-PARAM-DEF</code></td><td>numeric input（step=1）</td><td>min/max (range kind)</td></tr>
+            <tr><td><span class="badge sapphire">float</span></td><td><code>ECUC-FLOAT-PARAM-DEF</code></td><td>numeric input（step=any）</td><td>min/max (range kind)</td></tr>
+            <tr><td><span class="badge green">boolean</span></td><td><code>ECUC-BOOLEAN-PARAM-DEF</code></td><td>checkbox / toggle</td><td>—</td></tr>
+            <tr><td><span class="badge peach">enum</span></td><td><code>ECUC-ENUMERATION-PARAM-DEF</code></td><td>原生 &lt;select&gt;</td><td>enum value (enum kind)</td></tr>
+            <tr><td><span class="badge yellow">reference</span></td><td><code>ECUC-REFERENCE-VALUE</code> / <code>ECUC-FOREIGN-REFERENCE-DEF</code></td><td>text + DEST badge + picker</td><td>path resolves? (reference / cross-ref)</td></tr>
+            <tr><td><span class="badge maroon">multiline</span></td><td><code>ECUC-MULTILINE-STRING-PARAM-DEF</code></td><td>textarea</td><td>maxLength (range kind)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.2 编辑器界面 7 例</h3>
+
+      <figure>
+        <svg viewBox="0 0 720 540" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="540" fill="#1e1e2e"/>
+          <!-- 1. string -->
+          <text x="20" y="30" fill="#b4befe" font-size="11" font-weight="600" font-family="JetBrains Mono">01 · string · ECUC-STRING-PARAM-DEF</text>
+          <text x="200" y="30" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComIPduName</text>
+          <rect x="200" y="38" width="280" height="26" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="55" fill="#cdd6f4" font-family="JetBrains Mono">EngineSpeed_CAN1</text>
+
+          <!-- 2. integer -->
+          <text x="20" y="92" fill="#89b4fa" font-size="11" font-weight="600" font-family="JetBrains Mono">02 · integer · ECUC-INTEGER-PARAM-DEF</text>
+          <text x="200" y="92" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComIPduLength (0..65535)</text>
+          <rect x="200" y="100" width="120" height="26" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="117" fill="#a6e3a1" font-family="JetBrains Mono">8</text>
+          <text x="200" y="142" fill="#7f849c" font-size="9" font-family="JetBrains Mono">▾ 0 ▴</text>
+
+          <!-- 3. float -->
+          <text x="20" y="170" fill="#74c7ec" font-size="11" font-weight="600" font-family="JetBrains Mono">03 · float · ECUC-FLOAT-PARAM-DEF</text>
+          <text x="200" y="170" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComTimeout (0.0..10.0)</text>
+          <rect x="200" y="178" width="120" height="26" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="195" fill="#a6e3a1" font-family="JetBrains Mono">0.5</text>
+
+          <!-- 4. boolean -->
+          <text x="20" y="232" fill="#a6e3a1" font-size="11" font-weight="600" font-family="JetBrains Mono">04 · boolean · ECUC-BOOLEAN-PARAM-DEF</text>
+          <text x="200" y="232" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComDynamicLength</text>
+          <rect x="200" y="240" width="44" height="22" rx="11" fill="rgba(166,227,161,.25)" stroke="#a6e3a1"/>
+          <circle cx="234" cy="251" r="9" fill="#a6e3a1"/>
+          <text x="218" y="255" fill="#a6e3a1" font-size="9" text-anchor="middle">ON</text>
+
+          <!-- 5. enum -->
+          <text x="20" y="294" fill="#fab387" font-size="11" font-weight="600" font-family="JetBrains Mono">05 · enum · ECUC-ENUMERATION-PARAM-DEF</text>
+          <text x="200" y="294" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComTxMode</text>
+          <rect x="200" y="302" width="220" height="26" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="319" fill="#cdd6f4" font-family="JetBrains Mono">DIRECTED</text>
+          <text x="408" y="319" fill="#7f849c">▾</text>
+          <rect x="200" y="328" width="220" height="80" rx="4" fill="#1e1e2e" stroke="#45475a" opacity="0.85"/>
+          <text x="210" y="346" fill="#cdd6f4" font-family="JetBrains Mono">DIRECTED</text>
+          <text x="210" y="366" fill="#a6adc8" font-family="JetBrains Mono">MIXED</text>
+          <text x="210" y="386" fill="#a6adc8" font-family="JetBrains Mono">PERIODIC</text>
+          <text x="210" y="406" fill="#a6adc8" font-family="JetBrains Mono">NONE</text>
+
+          <!-- 6. reference -->
+          <text x="20" y="442" fill="#f9e2af" font-size="11" font-weight="600" font-family="JetBrains Mono">06 · reference · ECUC-REFERENCE-VALUE</text>
+          <text x="200" y="442" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComIPduSignalRef</text>
+          <rect x="200" y="450" width="380" height="26" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="467" fill="#f9e2af" font-family="JetBrains Mono" font-size="11">/Com/ComConfig/ComSignalGroup_Rx/ComSignal_EngineSpeed</text>
+          <rect x="586" y="450" width="80" height="26" rx="4" fill="rgba(137,180,250,.15)" stroke="#89b4fa"/>
+          <text x="626" y="467" fill="#89b4fa" text-anchor="middle" font-size="10" font-family="JetBrains Mono">DEST: ref</text>
+
+          <!-- 7. multiline -->
+          <text x="20" y="500" fill="#eba0ac" font-size="11" font-weight="600" font-family="JetBrains Mono">07 · multiline · ECUC-MULTILINE-STRING-PARAM-DEF</text>
+          <text x="200" y="500" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComDescription</text>
+          <rect x="200" y="508" width="380" height="24" rx="4" fill="#313244" stroke="#45475a"/>
+          <text x="210" y="525" fill="#cdd6f4" font-family="JetBrains Mono" font-size="10">Engine RPM @ 10ms cycle…</text>
+        </svg>
+        <figcaption>图 6.1 — 7 种参数编辑器（v0.3.0+ 持续打磨至 v1.1.2）</figcaption>
+      </figure>
+
+      <h3>6.3 编辑流程</h3>
+      <ol class="steps">
+        <li>
+          <strong>选中树节点</strong>
+          点击 ECUC TREE 中任一节点，ParamEditor 加载该节点的参数定义。
+        </li>
+        <li>
+          <strong>字段渲染</strong>
+          <code>ParamEditor</code> 按 <code>DEFINITION-REF DEST</code> 决定控件类型，调用对应 <code>&lt;Mode&gt;Editor</code>。
+        </li>
+        <li>
+          <strong>用户输入</strong>
+          所有变更经 <code>useArxmlStore.updateParam(path, key, value)</code> 进入 store。
+        </li>
+        <li>
+          <strong>同步触发校验</strong>
+          store action 同步调用 <code>validate(documents)</code>，错误的参数行内显示红色边框。
+        </li>
+        <li>
+          <strong>300ms debounced revalidate</strong>
+          <code>useDebouncedValidation(300)</code> 兜底，覆盖未来可能的 async mutation 路径。
+        </li>
+        <li>
+          <strong>Dirty 标记</strong>
+          store 检测 mutation，自动设 <code>isDirty = true</code>，AppHeader 的 Save 按钮变橙。
+        </li>
+      </ol>
+
+      <h3>6.4 Reference 编辑器深度</h3>
+      <p>引用是最复杂的类型。ReferenceEditor 支持：</p>
+      <ul>
+        <li><strong>实时校验路径存在性</strong>：每输入一个字符，跨全部 document 查 <code>buildPathIndex</code>，匹配时高亮 <span class="badge teal">✓ resolves</span>，未匹配时标红 <span class="badge red">✕ broken</span>。</li>
+        <li><strong>DEST 约束</strong>：DEST badge 显示 <code>ECUC-REFERENCE-VALUE</code> 等目标定义，类型不匹配时提示。</li>
+        <li><strong>Picker 唤起</strong>：右侧 <span class="badge">📁</span> 按钮唤起 <code>ModuleFromBswmdPicker</code>，按 BSWMD schema 过滤候选。</li>
+        <li><strong>占位跳过</strong>：空路径或 <code>/</code> 视为未设置（<code>isUnsetPlaceholder</code>），不进入 cross-ref 校验。</li>
+      </ul>
+
+      <div class="callout tip">
+        <div class="callout-icon">✓</div>
+        <div class="callout-body">
+          <strong>v0.8 重大改进</strong>：parser 同时支持标准 <code>&lt;REFERENCE-VALUES&gt;</code> 包装
+          （Com / PduR / WdgIf）与 EcuC vendor dialect（<code>&lt;REFERENCE-VALUE&gt;</code> 嵌套在
+          <code>&lt;PARAMETER-VALUES&gt;</code> 下 + <code>DEST="ECUC-FOREIGN-REFERENCE-DEF"</code>）。
+          序列化时统一输出标准格式，跨方言 round-trip 字段级一致。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 7: 实时校验 / LIVE VALIDATION          -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch7">
+      <div class="chapter-head">
+        <div class="ch-num-badge">07</div>
+        <h2>实时校验<span class="en">Live Validation</span></h2>
+      </div>
+
+      <p>
+        校验是 claude-AutosarCfg 的<strong>灵魂功能</strong>。每次按键都同步触发
+        <code>validateProject(documents)</code>，把违规即时反馈到 UI。
+        7 种 <code>ValidationErrorKind</code> 覆盖 BSW 工程 95% 的常见问题。
+      </p>
+
+      <h3>7.1 7 种 Validation Kind 色卡</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kind</th><th>颜色</th><th>触发条件</th><th>示例</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge red">range</span></td>
+              <td>🔴 红</td>
+              <td>数值 / 字符串越界</td>
+              <td><code>ComIPduLength=70000</code> 超 <code>max=65535</code></td>
+            </tr>
+            <tr>
+              <td><span class="badge peach">enum</span></td>
+              <td>🟠 桃</td>
+              <td>枚举值不在 CHOICES</td>
+              <td><code>ComTxMode=DIRECTD</code>（拼错）</td>
+            </tr>
+            <tr>
+              <td><span class="badge yellow">reference</span></td>
+              <td>🟡 黄</td>
+              <td>本文件内引用路径不解析</td>
+              <td><code>VALUE-REF</code> 指向不存在的 path</td>
+            </tr>
+            <tr>
+              <td><span class="badge green">required</span></td>
+              <td>🟢 绿</td>
+              <td>必填参数缺失</td>
+              <td><code>ComIPdu.ComIPduHandleId</code> 未填</td>
+            </tr>
+            <tr>
+              <td><span class="badge lavender">schema</span></td>
+              <td>🟣 薰衣草</td>
+              <td>BSWMD 未提供该定义</td>
+              <td>参数不在 ECUC schema 中</td>
+            </tr>
+            <tr>
+              <td><span class="badge blue">multiplicity</span></td>
+              <td>🔵 蓝</td>
+              <td>container 直接子实例数违反 <code>[lower, upper]</code></td>
+              <td>某 <code>ComIPduGroup</code> 需要 ≥1，0 个</td>
+            </tr>
+            <tr>
+              <td><span class="badge teal">cross-ref</span></td>
+              <td>🟦 青</td>
+              <td>跨文档引用目标不在 path index</td>
+              <td>引用了未加载模块的 path</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>7.2 校验面板</h3>
+      <figure>
+        <svg viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="460" fill="#1e1e2e"/>
+          <!-- Header -->
+          <rect x="0" y="0" width="720" height="44" fill="#181825" stroke="#313244"/>
+          <text x="20" y="28" fill="#cdd6f4" font-size="13" font-weight="600">Validation</text>
+          <text x="100" y="28" fill="#7f849c" font-size="11" font-family="JetBrains Mono">Last run: 240ms ago · 7 kinds detected</text>
+          <g font-size="10" font-family="JetBrains Mono">
+            <rect x="540" y="14" width="56" height="20" rx="10" fill="rgba(243,139,168,.15)" stroke="#f38ba8"/>
+            <text x="568" y="28" fill="#f38ba8" text-anchor="middle">1336 ✕</text>
+            <rect x="604" y="14" width="50" height="20" rx="10" fill="rgba(249,226,175,.15)" stroke="#f9e2af"/>
+            <text x="629" y="28" fill="#f9e2af" text-anchor="middle">3 !</text>
+            <rect x="662" y="14" width="44" height="20" rx="10" fill="rgba(166,227,161,.15)" stroke="#a6e3a1"/>
+            <text x="684" y="28" fill="#a6e3a1" text-anchor="middle">42 ✓</text>
+          </g>
+
+          <!-- cross-ref group (largest) -->
+          <rect x="0" y="44" width="720" height="160" fill="#181825"/>
+          <text x="20" y="68" fill="#94e2d5" font-size="11" font-weight="600" font-family="JetBrains Mono">▼ CROSS-REF · 1336 errors</text>
+          <line x1="20" y1="76" x2="700" y2="76" stroke="#313244"/>
+          <g font-size="10" font-family="JetBrains Mono">
+            <text x="20" y="96" fill="#94e2d5">●</text>
+            <text x="36" y="96" fill="#cdd6f4">/Com/ComConfig/ComIPdu/ComIPdu_001/ComPduIdRef →</text>
+            <text x="380" y="96" fill="#f38ba8">✕ unresolved (path index miss)</text>
+            <text x="20" y="118" fill="#94e2d5">●</text>
+            <text x="36" y="118" fill="#cdd6f4">/Com/ComConfig/ComIPdu/ComIPdu_002/ComIPduSignalRef →</text>
+            <text x="380" y="118" fill="#f38ba8">✕ path not in any loaded document</text>
+            <text x="20" y="140" fill="#94e2d5">●</text>
+            <text x="36" y="140" fill="#cdd6f4">/PduR/PduRRoutingTable/.../PduRSrcPduRef →</text>
+            <text x="380" y="140" fill="#f38ba8">✕ target module not in project</text>
+            <text x="20" y="162" fill="#7f849c">… 1333 more (collapsed)</text>
+          </g>
+          <text x="20" y="194" fill="#7f849c" font-size="10" font-style="italic">1336 cross-ref 是 S32K148 fixture 的已知 baseline；详见 CHANGELOG v0.8.0</text>
+
+          <!-- range group -->
+          <rect x="0" y="204" width="720" height="76" fill="#1e1e2e"/>
+          <text x="20" y="226" fill="#f38ba8" font-size="11" font-weight="600" font-family="JetBrains Mono">▼ RANGE · 2 errors</text>
+          <line x1="20" y1="234" x2="700" y2="234" stroke="#313244"/>
+          <g font-size="10" font-family="JetBrains Mono">
+            <text x="20" y="252" fill="#f38ba8">●</text>
+            <text x="36" y="252" fill="#cdd6f4">/Com/ComConfig/ComIPdu/ComIPdu_001/ComIPduLength=70000</text>
+            <text x="380" y="252" fill="#f38ba8">✕ max=65535</text>
+            <text x="20" y="272" fill="#f38ba8">●</text>
+            <text x="36" y="272" fill="#cdd6f4">/Com/ComConfig/ComTxModeTimePeriod=20</text>
+            <text x="380" y="272" fill="#f38ba8">✕ max=10.0</text>
+          </g>
+
+          <!-- multiplicity group -->
+          <rect x="0" y="280" width="720" height="56" fill="#181825"/>
+          <text x="20" y="302" fill="#89b4fa" font-size="11" font-weight="600" font-family="JetBrains Mono">▼ MULTIPLICITY · 1 error</text>
+          <line x1="20" y1="310" x2="700" y2="310" stroke="#313244"/>
+          <text x="20" y="328" fill="#89b4fa" font-size="10" font-family="JetBrains Mono">●</text>
+          <text x="36" y="328" fill="#cdd6f4" font-size="10" font-family="JetBrains Mono">/Com/ComConfig/ComIPduGroup</text>
+          <text x="380" y="328" fill="#89b4fa" font-size="10" font-family="JetBrains Mono">✕ [1, *] requires ≥1, found 0</text>
+
+          <!-- schema group -->
+          <rect x="0" y="336" width="720" height="56" fill="#1e1e2e"/>
+          <text x="20" y="358" fill="#b4befe" font-size="11" font-weight="600" font-family="JetBrains Mono">▶ SCHEMA · 0 errors (collapsed)</text>
+
+          <!-- bottom actions -->
+          <line x1="0" y1="392" x2="720" y2="392" stroke="#313244"/>
+          <rect x="20" y="402" width="80" height="32" rx="6" fill="transparent" stroke="#45475a"/>
+          <text x="60" y="422" fill="#bac2de" text-anchor="middle" font-size="11">Export…</text>
+          <rect x="110" y="402" width="100" height="32" rx="6" fill="rgba(137,180,250,.15)" stroke="#89b4fa"/>
+          <text x="160" y="422" fill="#89b4fa" text-anchor="middle" font-size="11">Jump to first</text>
+        </svg>
+        <figcaption>图 7.1 — ValidationPanel（v1.1.2 加入 Cross-ref 单独 section，色卡与 kind 一一对应）</figcaption>
+      </figure>
+
+      <h3>7.3 错误定位与跳转</h3>
+      <p>点击任一错误，触发 <code>select(containerPath)</code>，自动展开树并滚动到目标节点，
+        编辑器加载该节点；如错误是 param 级（range/enum/required），ParamEditor 高亮对应输入行：</p>
+      <pre><span class="com">// ValidationPanel.tsx 错误点击处理</span>
+<span class="kw">const</span> onClick = () =&gt; {
+  <span class="kw">const</span> target = <span class="attr">extractContainerPath</span>(err);
+  <span class="attr">select</span>(target);  <span class="com">// 树跳转 + 编辑器加载</span>
+};</pre>
+
+      <h3>7.4 校验架构图</h3>
+      <figure>
+        <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="320" fill="#1e1e2e"/>
+          <!-- Layer 1: store -->
+          <rect x="40" y="30" width="200" height="50" rx="8" fill="#1e1e2e" stroke="#89b4fa"/>
+          <text x="140" y="50" fill="#89b4fa" text-anchor="middle" font-size="10" font-family="JetBrains Mono">store action</text>
+          <text x="140" y="68" fill="#cdd6f4" text-anchor="middle" font-size="12">updateParam()</text>
+
+          <!-- Layer 2: orchestrator -->
+          <rect x="280" y="30" width="200" height="50" rx="8" fill="#1e1e2e" stroke="#b4befe"/>
+          <text x="380" y="50" fill="#b4befe" text-anchor="middle" font-size="10" font-family="JetBrains Mono">core/validation</text>
+          <text x="380" y="68" fill="#cdd6f4" text-anchor="middle" font-size="12">validateProject(docs)</text>
+
+          <!-- Layer 3: 4 helpers -->
+          <g font-size="10" font-family="JetBrains Mono">
+            <rect x="20" y="140" width="160" height="50" rx="8" fill="#1e1e2e" stroke="#94e2d5"/>
+            <text x="100" y="160" fill="#94e2d5" text-anchor="middle">buildPathIndex</text>
+            <text x="100" y="178" fill="#cdd6f4" text-anchor="middle" font-size="11">pure · Map&lt;path, node&gt;</text>
+
+            <rect x="190" y="140" width="160" height="50" rx="8" fill="#1e1e2e" stroke="#f9e2af"/>
+            <text x="270" y="160" fill="#f9e2af" text-anchor="middle">extractReferences</text>
+            <text x="270" y="178" fill="#cdd6f4" text-anchor="middle" font-size="11">1336 sites</text>
+
+            <rect x="360" y="140" width="160" height="50" rx="8" fill="#1e1e2e" stroke="#89b4fa"/>
+            <text x="440" y="160" fill="#89b4fa" text-anchor="middle">checkMultiplicity</text>
+            <text x="440" y="178" fill="#cdd6f4" text-anchor="middle" font-size="11">13 schemas · 5 fixtures</text>
+
+            <rect x="530" y="140" width="160" height="50" rx="8" fill="#1e1e2e" stroke="#f38ba8"/>
+            <text x="610" y="160" fill="#f38ba8" text-anchor="middle">checkCrossRefs</text>
+            <text x="610" y="178" fill="#cdd6f4" text-anchor="middle" font-size="11">1336 errors</text>
+          </g>
+
+          <!-- Layer 4: emit -->
+          <rect x="280" y="240" width="200" height="50" rx="8" fill="#1e1e2e" stroke="#a6e3a1"/>
+          <text x="380" y="260" fill="#a6e3a1" text-anchor="middle" font-size="10" font-family="JetBrains Mono">store.validationErrors</text>
+          <text x="380" y="278" fill="#cdd6f4" text-anchor="middle" font-size="12">7 kinds · &lt; 50ms</text>
+
+          <!-- Arrows -->
+          <g stroke="#89b4fa" stroke-width="1.5" fill="none">
+            <line x1="240" y1="55" x2="280" y2="55" marker-end="url(#a2)"/>
+            <line x1="380" y1="80" x2="380" y2="140" marker-end="url(#a2)"/>
+            <line x1="380" y1="190" x2="380" y2="240" marker-end="url(#a2)"/>
+          </g>
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#89b4fa"/>
+            </marker>
+          </defs>
+          <text x="380" y="310" fill="#7f849c" font-size="10" font-family="JetBrains Mono" text-anchor="middle">纯函数管道 · 0 react/electron 依赖</text>
+        </svg>
+        <figcaption>图 7.2 — 校验管道：store action → validateProject → 4 helpers → emit</figcaption>
+      </figure>
+
+      <h3>7.5 已知 Baseline</h3>
+      <p>跨 5 个 S32K148 fixture（9.2 MB），v0.8.0 起的 cross-ref baseline：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Module</th><th>Cross-ref 站点数</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>Com</td><td>678</td><td>IPduSignalRef、GatewaySourceRef</td></tr>
+            <tr><td>PduR</td><td>412</td><td>RoutingTable → IPdu</td></tr>
+            <tr><td>Det</td><td>42</td><td>开发错误追踪器，少量</td></tr>
+            <tr><td>WdgIf</td><td>13</td><td>看门狗接口，单层</td></tr>
+            <tr><td>EcuC</td><td>191</td><td>PN inter-module</td></tr>
+            <tr><td><strong>Total</strong></td><td><strong>1336</strong></td><td>signed-guard [1300, 1400]</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout note">
+        <div class="callout-icon">i</div>
+        <div class="callout-body">
+          1336 是 v0.8.0 接受的 <em>baseline</em>，因为 S32K148 fixture 是切片，
+          不构成自包含的 project。生产 BSW 工程的 cross-ref 应趋向 0（所有
+          引用方都加载到同一 project）。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 8: 跨容器引用 / CROSS-REF              -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch8">
+      <div class="chapter-head">
+        <div class="ch-num-badge">08</div>
+        <h2>跨容器引用<span class="en">Cross-Container References</span></h2>
+      </div>
+
+      <p>
+        AUTOSAR 工程的核心特征是<strong>跨容器引用</strong>：一个 ComIPdu 引用 ComSignal，
+        PduR 的路由表引用 ComIPdu 的 handle，Det 的错误源引用任意模块的 API。
+        claude-AutosarCfg 用全局 path index 统一管理这些引用，校验时跨文档比对。
+      </p>
+
+      <h3>8.1 引用模型</h3>
+      <pre><span class="com">// core/arxml/types.ts</span>
+<span class="kw">interface</span> <span class="tag">ParamValue</span> {
+  <span class="attr">type</span>: <span class="str">'reference'</span>;
+  <span class="attr">value</span>: <span class="kw">string</span>;       <span class="com">// path: "/Com/ComConfig/ComSignal/..."</span>
+  <span class="attr">dest</span>?: <span class="kw">string</span>;       <span class="com">// ECUC-REFERENCE-VALUE / ECUC-FOREIGN-REFERENCE-DEF</span>
+}</pre>
+
+      <h3>8.2 全局 path index</h3>
+      <p>每次 ARXML 加载后，<code>buildPathIndex(documents)</code> 遍历所有元素，
+        以完整路径为 key 索引到节点引用。索引在内存中是 <code>Map&lt;string, ElementRef&gt;</code>：</p>
+      <pre><span class="com">// 索引条目示例（v0.8.0 跑 S32K148 fixture 后）</span>
+{
+  <span class="str">"/Com/ComConfig/ComIPdu/ComIPdu_001"</span>: { docId, kind: <span class="str">'container'</span>, shortName: <span class="str">'ComIPdu_001'</span> },
+  <span class="str">"/Com/ComConfig/ComSignal/ComSignal_EngineSpeed"</span>: { ... },
+  <span class="str">"/PduR/PduRRoutingTable/RoutingTable_0/..."</span>: { ... }
+  <span class="com">// ... 共 14,200+ 条目</span>
+}</pre>
+
+      <h3>8.3 跨引用解析流程</h3>
+      <ol class="steps">
+        <li>
+          <strong>扫描所有 VALUE-REF</strong>
+          <code>extractReferences(documents)</code> 收集每个 reference 类型参数的
+          <code>{ value, dest }</code>，返回 <code>readonly ReferenceSite[]</code>。
+        </li>
+        <li>
+          <strong>逐条 path index 查找</strong>
+          <code>checkCrossRefs(sites, index)</code> 对每条 site 调 <code>index.get(path)</code>。
+        </li>
+        <li>
+          <strong>emit ValidationError</strong>
+          缺失时 emit <code>{ kind: 'cross-ref', path: sourcePath, message: 'unresolved' }</code>。
+        </li>
+        <li>
+          <strong>聚合入 project 结果</strong>
+          <code>validateProject(docs)</code> 把 cross-ref 与其它 6 种合并后写入 store。
+        </li>
+      </ol>
+
+      <h3>8.4 跨文档 vs 同文档</h3>
+      <p>ReferenceEditor 区分两种"未解析"：</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>场景</th><th>kind</th><th>提示</th></tr></thead>
+          <tbody>
+            <tr><td>同文档内 path 写错</td><td><span class="badge yellow">reference</span></td><td>"path not found in current document"</td></tr>
+            <tr><td>跨文档未加载到 project</td><td><span class="badge teal">cross-ref</span></td><td>"path not in any loaded document"</td></tr>
+            <tr><td>同文档但 multiplicity 冲突</td><td><span class="badge blue">multiplicity</span></td><td>"target container count out of range"</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>8.5 实战：3 步修一个 broken cross-ref</h3>
+      <figure>
+        <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="240" fill="#1e1e2e"/>
+          <!-- Step 1: error appears -->
+          <rect x="20" y="20" width="220" height="80" rx="8" fill="#1e1e2e" stroke="#f38ba8"/>
+          <text x="130" y="40" fill="#f38ba8" text-anchor="middle" font-size="10" font-family="JetBrains Mono">STEP 1</text>
+          <text x="130" y="60" fill="#cdd6f4" text-anchor="middle" font-size="12" font-weight="600">Validation 报错</text>
+          <text x="130" y="78" fill="#7f849c" text-anchor="middle" font-size="10">1336 cross-ref detected</text>
+          <text x="130" y="92" fill="#7f849c" text-anchor="middle" font-size="10">1300 baseline + 36 real</text>
+
+          <!-- Step 2: click -->
+          <rect x="260" y="20" width="220" height="80" rx="8" fill="#1e1e2e" stroke="#f9e2af"/>
+          <text x="370" y="40" fill="#f9e2af" text-anchor="middle" font-size="10" font-family="JetBrains Mono">STEP 2</text>
+          <text x="370" y="60" fill="#cdd6f4" text-anchor="middle" font-size="12" font-weight="600">点击错误</text>
+          <text x="370" y="78" fill="#7f849c" text-anchor="middle" font-size="10">select(path)</text>
+          <text x="370" y="92" fill="#7f849c" text-anchor="middle" font-size="10">树跳转到 ComIPdu_001</text>
+
+          <!-- Step 3: fix -->
+          <rect x="500" y="20" width="200" height="80" rx="8" fill="#1e1e2e" stroke="#a6e3a1"/>
+          <text x="600" y="40" fill="#a6e3a1" text-anchor="middle" font-size="10" font-family="JetBrains Mono">STEP 3</text>
+          <text x="600" y="60" fill="#cdd6f4" text-anchor="middle" font-size="12" font-weight="600">修正 / 加载</text>
+          <text x="600" y="78" fill="#7f849c" text-anchor="middle" font-size="10">改 path 或 Import 模块</text>
+          <text x="600" y="92" fill="#7f849c" text-anchor="middle" font-size="10">校验实时收敛</text>
+
+          <!-- Arrows -->
+          <g stroke="#89b4fa" stroke-width="1.5" fill="none">
+            <line x1="240" y1="60" x2="260" y2="60" marker-end="url(#a3)"/>
+            <line x1="480" y1="60" x2="500" y2="60" marker-end="url(#a3)"/>
+          </g>
+          <defs>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#89b4fa"/>
+            </marker>
+          </defs>
+
+          <!-- Bottom: re-validate -->
+          <rect x="20" y="140" width="680" height="80" rx="8" fill="#1e1e2e" stroke="#585b70"/>
+          <text x="360" y="162" fill="#a6e3a1" text-anchor="middle" font-size="11" font-weight="600">实时收敛</text>
+          <text x="360" y="180" fill="#cdd6f4" text-anchor="middle" font-size="10" font-family="JetBrains Mono">1336 → 1335 → ... → 1300 (baseline)</text>
+          <text x="360" y="200" fill="#7f849c" text-anchor="middle" font-size="10">debounce 300ms · synchronous · no IPC roundtrip</text>
+        </svg>
+        <figcaption>图 8.1 — Cross-ref 修复闭环：报错 → 跳转 → 修正 → 收敛</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 9: BSWMD 模块管理 / BSWMD MGMT       -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch9">
+      <div class="chapter-head">
+        <div class="ch-num-badge">09</div>
+        <h2>BSWMD 模块管理<span class="en">BSWMD Module Management</span></h2>
+      </div>
+
+      <p>
+        BSWMD（Basic Software Module Description）是 schema-side 的 AUTOSAR XML，
+        描述每个 BSW 模块的<strong>合法参数定义</strong>。v1.1.0 起，claude-AutosarCfg 支持
+        从 BSWMD 模板一键生成 ECUC 容器实例（<em>Skeleton</em>），含默认值与类型约束。
+      </p>
+
+      <h3>9.1 核心概念</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>术语</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Schema-side</strong></td><td>BSWMD：定义 Com 有什么参数、取值范围、multiplicity。</td></tr>
+            <tr><td><strong>Value-side</strong></td><td>ECUC ARXML：具体工程中实际的参数值。</td></tr>
+            <tr><td><strong>Skeleton</strong></td><td>从 BSWMD 生成的空 ECUC 模板（参数取默认值）。</td></tr>
+            <tr><td><strong>Module</strong></td><td>BSWMD 顶层 <code>ECUC-MODULE-DEF</code>，如 Com / Det / PduR。</td></tr>
+            <tr><td><strong>Container</strong></td><td>BSWMD <code>ECUC-PARAM-CONF-CONTAINER-DEF</code>，可被实例化。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>9.2 添加 ECUC 模块的 3 种入口</h3>
+      <ul>
+        <li><strong>ProjectPanel 芯片行</strong>：点击 <span class="badge">+ Add</span> 直接唤起 picker，预选对应 BSWMD。</li>
+        <li><strong>AppHeader 菜单</strong>：<code>Project → New ECUC Module from BSWMD…</code> 不带预选。</li>
+        <li><strong>右键树根</strong>：从 AR-PACKAGE 右键菜单添加（<em>Roadmap</em>）。</li>
+      </ul>
+
+      <h3>9.3 ModuleFromBswmdPicker 流程</h3>
+      <figure>
+        <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="360" fill="#1e1e2e"/>
+          <rect x="0" y="0" width="720" height="36" fill="#181825"/>
+          <text x="20" y="22" fill="#cdd6f4" font-size="12" font-weight="600">选择 ECUC 模块 / Pick ECUC Module</text>
+          <text x="700" y="22" fill="#7f849c" text-anchor="end" font-size="11">×</text>
+
+          <!-- BSWMD selector -->
+          <text x="20" y="60" fill="#7f849c" font-size="11" font-family="JetBrains Mono">BSWMD schema</text>
+          <rect x="20" y="68" width="300" height="32" rx="6" fill="#313244" stroke="#89b4fa"/>
+          <text x="32" y="89" fill="#cdd6f4" font-family="JetBrains Mono">Com_Bswmd.arxml</text>
+          <text x="305" y="89" fill="#7f849c">▾</text>
+
+          <!-- Module list -->
+          <text x="20" y="124" fill="#7f849c" font-size="11" font-family="JetBrains Mono">MODULE-CONFIGURATIONS in this BSWMD</text>
+          <g>
+            <rect x="20" y="134" width="680" height="44" rx="6" fill="rgba(137,180,250,.1)" stroke="#89b4fa"/>
+            <rect x="30" y="144" width="20" height="20" rx="4" fill="#89b4fa"/>
+            <text x="40" y="159" fill="#89b4fa" text-anchor="middle">✓</text>
+            <text x="62" y="155" fill="#cdd6f4" font-size="12" font-weight="600">Com</text>
+            <text x="62" y="170" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComConfig + 0 instances</text>
+            <text x="680" y="160" fill="#89b4fa" text-anchor="end" font-size="10" font-family="JetBrains Mono">DEFAULT</text>
+
+            <rect x="20" y="186" width="680" height="44" rx="6" fill="#1e1e2e" stroke="#45475a"/>
+            <rect x="30" y="196" width="20" height="20" rx="4" fill="transparent" stroke="#585b70"/>
+            <text x="62" y="207" fill="#bac2de" font-size="12">ComM</text>
+            <text x="62" y="222" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComMConfig + 0 instances</text>
+          </g>
+
+          <!-- Summary -->
+          <rect x="20" y="248" width="680" height="48" rx="6" fill="#1e1e2e" stroke="#45475a"/>
+          <text x="32" y="268" fill="#7f849c" font-size="10" font-family="JetBrains Mono">Will create:</text>
+          <text x="32" y="285" fill="#a6e3a1" font-size="11" font-family="JetBrains Mono">Com_Com_EcucValues.arxml</text>
+          <text x="280" y="285" fill="#7f849c" font-size="10" font-family="JetBrains Mono">in project dir</text>
+
+          <!-- Footer -->
+          <line x1="0" y1="312" x2="720" y2="312" stroke="#313244"/>
+          <rect x="540" y="320" width="80" height="32" rx="6" fill="rgba(166,227,161,.18)" stroke="#a6e3a1"/>
+          <text x="580" y="340" fill="#a6e3a1" text-anchor="middle" font-weight="600">Confirm</text>
+          <rect x="440" y="320" width="80" height="32" rx="6" fill="transparent" stroke="#45475a"/>
+          <text x="480" y="340" fill="#bac2de" text-anchor="middle">Cancel</text>
+        </svg>
+        <figcaption>图 9.1 — ModuleFromBswmdPicker：选 BSWMD → 勾 module → 写盘</figcaption>
+      </figure>
+
+      <h3>9.4 Add / Remove 语义（v1.1.1）</h3>
+      <p>Picker 的"确认"是<strong>set-semantic</strong>的：</p>
+      <ol class="steps">
+        <li>
+          <strong>收集现有 ECUC 实例</strong>
+          从 <code>state.documents</code> 列出 <code>sourceBswmdPath + moduleShortName</code>。
+        </li>
+        <li>
+          <strong>diff 现有 vs 新勾选</strong>
+          算 <code>toAdd = picks - existing</code>，<code>toRemove = existing - picks</code>。
+        </li>
+        <li>
+          <strong>Add 路径</strong>
+          调 <code>useCreateEcucFromBswmd</code> hook，写 ARXML + 注册到 store。
+        </li>
+        <li>
+          <strong>Remove 路径</strong>
+          调 <code>useRemoveEcucFiles</code>，带 dirty-guard 弹 <code>ConfirmDialog</code>。
+        </li>
+        <li>
+          <strong>错误回滚</strong>
+          save 失败第一个就 break，partial 失败单独 toast。
+        </li>
+      </ol>
+
+      <div class="callout warn">
+        <div class="callout-icon">!</div>
+        <div class="callout-body">
+          <strong>Remove 的 dirty-guard</strong>：删除 ECUC 文件前若文档 dirty，弹
+          <code>ConfirmDialog</code> 三选项（Save / Discard / Cancel）。Sprint 16c #3 修复了
+          "save 失败时仍 delete" 的数据丢失 race。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 10: 多文件 ECUC 导入 / IMPORT WIZARD   -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch10">
+      <div class="chapter-head">
+        <div class="ch-num-badge">10</div>
+        <h2>多文件 ECUC 导入<span class="en">Resolve Conflicts Wizard · v1.2.0</span></h2>
+      </div>
+
+      <p>
+        v1.2.0 起，<strong>Import</strong> 菜单引入 EB tresos 风格的 <em>Resolve Conflicts</em> wizard：
+        把多份 ECUC ARXML 按 module 维度聚合导入到当前 project，撞名时弹三栏 diff 表让用户决策，
+        最后 atomic commit + 单步撤销。
+      </p>
+
+      <h3>10.1 设计理念</h3>
+      <ul>
+        <li><strong>Lazy Merged View</strong>：源文档在 commit 前<strong>完全不被修改</strong>，所有合并是叠加态。</li>
+        <li><strong>Module 维度</strong>：以 <code>MODULE-CONFIGURATION.shortName</code> 为单位聚合，跨多份文件。</li>
+        <li><strong>冲突暴露</strong>：同 module 撞名时按 container 维度列出，让用户决定每个冲突。</li>
+        <li><strong>原子性</strong>：commit 时先 snapshot + immutable apply，任一 patch 抛错立即 rollback。</li>
+        <li><strong>可撤销</strong>：单步 <code>undoLastCommit</code> 回到 commit 前状态。</li>
+      </ul>
+
+      <h3>10.2 完整流程</h3>
+      <figure>
+        <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="220" fill="#1e1e2e"/>
+          <g font-size="11" font-family="Inter">
+            <!-- 5 stages -->
+            <g>
+              <rect x="20" y="40" width="120" height="50" rx="8" fill="#1e1e2e" stroke="#89b4fa"/>
+              <text x="80" y="62" fill="#89b4fa" text-anchor="middle" font-size="10" font-family="JetBrains Mono">①</text>
+              <text x="80" y="78" fill="#cdd6f4" text-anchor="middle" font-weight="600">Select</text>
+              <text x="80" y="92" fill="#7f849c" text-anchor="middle" font-size="9">选 N 份 ECUC</text>
+            </g>
+            <g>
+              <rect x="160" y="40" width="120" height="50" rx="8" fill="#1e1e2e" stroke="#b4befe"/>
+              <text x="220" y="62" fill="#b4befe" text-anchor="middle" font-size="10" font-family="JetBrains Mono">②</text>
+              <text x="220" y="78" fill="#cdd6f4" text-anchor="middle" font-weight="600">Module</text>
+              <text x="220" y="92" fill="#7f849c" text-anchor="middle" font-size="9">按 module 勾选</text>
+            </g>
+            <g>
+              <rect x="300" y="40" width="120" height="50" rx="8" fill="#1e1e2e" stroke="#f9e2af"/>
+              <text x="360" y="62" fill="#f9e2af" text-anchor="middle" font-size="10" font-family="JetBrains Mono">③</text>
+              <text x="360" y="78" fill="#cdd6f4" text-anchor="middle" font-weight="600">Resolve</text>
+              <text x="360" y="92" fill="#7f849c" text-anchor="middle" font-size="9">撞名 diff</text>
+            </g>
+            <g>
+              <rect x="440" y="40" width="120" height="50" rx="8" fill="#1e1e2e" stroke="#a6e3a1"/>
+              <text x="500" y="62" fill="#a6e3a1" text-anchor="middle" font-size="10" font-family="JetBrains Mono">④</text>
+              <text x="500" y="78" fill="#cdd6f4" text-anchor="middle" font-weight="600">Commit</text>
+              <text x="500" y="92" fill="#7f849c" text-anchor="middle" font-size="9">原子落盘</text>
+            </g>
+            <g>
+              <rect x="580" y="40" width="120" height="50" rx="8" fill="#1e1e2e" stroke="#cba6f7"/>
+              <text x="640" y="62" fill="#cba6f7" text-anchor="middle" font-size="10" font-family="JetBrains Mono">⑤</text>
+              <text x="640" y="78" fill="#cdd6f4" text-anchor="middle" font-weight="600">Undo</text>
+              <text x="640" y="92" fill="#7f849c" text-anchor="middle" font-size="9">单步撤销</text>
+            </g>
+          </g>
+          <g stroke="#89b4fa" stroke-width="1.5" fill="none">
+            <line x1="140" y1="65" x2="160" y2="65" marker-end="url(#a4)"/>
+            <line x1="280" y1="65" x2="300" y2="65" marker-end="url(#a4)"/>
+            <line x1="420" y1="65" x2="440" y2="65" marker-end="url(#a4)"/>
+            <line x1="560" y1="65" x2="580" y2="65" marker-end="url(#a4)"/>
+          </g>
+          <defs>
+            <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0 0L10 5L0 10z" fill="#89b4fa"/>
+            </marker>
+          </defs>
+          <text x="360" y="140" fill="#7f849c" text-anchor="middle" font-size="11">每个阶段都有 abort 出口；任何中断都不会污染源文档</text>
+          <text x="360" y="160" fill="#7f849c" text-anchor="middle" font-size="10" font-family="JetBrains Mono">viewMode: 'import-merged' (左栏切换到合并视图，Save 隐藏)</text>
+          <text x="360" y="190" fill="#94e2d5" text-anchor="middle" font-size="11">commitImport 期间 store.isDirty() 包含 importSession 状态</text>
+        </svg>
+        <figcaption>图 10.1 — 5 阶段导入流程：选 → 勾 → 决 → 落 → 撤</figcaption>
+      </figure>
+
+      <h3>10.3 ModuleSelectionPanel</h3>
+      <figure>
+        <svg viewBox="0 0 600 320" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="600" height="320" fill="#1e1e2e"/>
+          <rect x="0" y="0" width="600" height="32" fill="#181825"/>
+          <text x="16" y="20" fill="#cdd6f4" font-size="12" font-weight="600">Module Selection</text>
+          <text x="580" y="20" fill="#7f849c" text-anchor="end" font-size="11">3 modules · 2 conflicts</text>
+
+          <!-- Module row 1 -->
+          <rect x="0" y="32" width="600" height="64" fill="#1e1e2e"/>
+          <rect x="14" y="46" width="20" height="20" rx="4" fill="#89b4fa"/>
+          <text x="24" y="60" fill="#89b4fa" text-anchor="middle">✓</text>
+          <text x="44" y="60" fill="#cdd6f4" font-size="12" font-weight="600">Com</text>
+          <text x="44" y="78" fill="#7f849c" font-size="10" font-family="JetBrains Mono">ComConfig + 0 new</text>
+          <text x="540" y="60" fill="#7f849c" font-size="10" font-family="JetBrains Mono">from 2 files</text>
+          <rect x="540" y="68" width="50" height="18" rx="9" fill="rgba(243,139,168,.15)" stroke="#f38ba8"/>
+          <text x="565" y="80" fill="#f38ba8" text-anchor="middle" font-size="10">2 ✕</text>
+
+          <!-- Module row 2 -->
+          <rect x="0" y="96" width="600" height="64" fill="#181825"/>
+          <rect x="14" y="110" width="20" height="20" rx="4" fill="#89b4fa"/>
+          <text x="24" y="124" fill="#89b4fa" text-anchor="middle">✓</text>
+          <text x="44" y="124" fill="#cdd6f4" font-size="12" font-weight="600">Det</text>
+          <text x="44" y="142" fill="#7f849c" font-size="10" font-family="JetBrains Mono">DetConfig + 0 new</text>
+          <text x="540" y="124" fill="#7f849c" font-size="10" font-family="JetBrains Mono">from 1 file</text>
+          <rect x="540" y="132" width="50" height="18" rx="9" fill="rgba(166,227,161,.15)" stroke="#a6e3a1"/>
+          <text x="565" y="144" fill="#a6e3a1" text-anchor="middle" font-size="10">0 ✓</text>
+
+          <!-- Module row 3 -->
+          <rect x="0" y="160" width="600" height="64" fill="#1e1e2e"/>
+          <rect x="14" y="174" width="20" height="20" rx="4" fill="transparent" stroke="#45475a"/>
+          <text x="44" y="188" fill="#bac2de" font-size="12">EcuC</text>
+          <text x="44" y="206" fill="#7f849c" font-size="10" font-family="JetBrains Mono">skipped · not selected</text>
+
+          <!-- Footer -->
+          <line x1="0" y1="248" x2="600" y2="248" stroke="#313244"/>
+          <rect x="380" y="260" width="100" height="32" rx="6" fill="rgba(166,227,161,.18)" stroke="#a6e3a1"/>
+          <text x="430" y="280" fill="#a6e3a1" text-anchor="middle" font-size="11" font-weight="600">Commit (2)</text>
+          <rect x="490" y="260" width="80" height="32" rx="6" fill="transparent" stroke="#45475a"/>
+          <text x="530" y="280" fill="#bac2de" text-anchor="middle" font-size="11">Cancel</text>
+        </svg>
+        <figcaption>图 10.2 — ModuleSelectionPanel：勾选 + 撞名 badge</figcaption>
+      </figure>
+
+      <h3>10.4 DiffTable — 三栏冲突解决</h3>
+      <figure>
+        <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+          <rect width="720" height="380" fill="#1e1e2e"/>
+          <rect x="0" y="0" width="720" height="32" fill="#181825"/>
+          <text x="16" y="20" fill="#cdd6f4" font-size="12" font-weight="600">Conflict: ComConfig.ComTxMode_001</text>
+          <text x="700" y="20" fill="#7f849c" text-anchor="end" font-size="11">3 of 5 resolved</text>
+
+          <!-- Column headers -->
+          <g font-size="11" font-weight="600">
+            <rect x="0" y="32" width="240" height="32" fill="#313244"/>
+            <text x="120" y="52" fill="#cdd6f4" text-anchor="middle">EXISTING</text>
+            <text x="120" y="62" fill="#7f849c" text-anchor="middle" font-size="9" font-weight="400">target doc · current</text>
+            <rect x="240" y="32" width="240" height="32" fill="#313244"/>
+            <text x="360" y="52" fill="#cdd6f4" text-anchor="middle">INCOMING</text>
+            <text x="360" y="62" fill="#7f849c" text-anchor="middle" font-size="9" font-weight="400">source doc · proposed</text>
+            <rect x="480" y="32" width="240" height="32" fill="#1e1e2e"/>
+            <text x="600" y="52" fill="#cdd6f4" text-anchor="middle">DECISION</text>
+            <text x="600" y="62" fill="#7f849c" text-anchor="middle" font-size="9" font-weight="400">keep / replace / merge</text>
+          </g>
+
+          <!-- Param row 1: range match -->
+          <g font-size="11" font-family="JetBrains Mono">
+            <rect x="0" y="64" width="240" height="32" fill="#1e1e2e"/>
+            <text x="14" y="84" fill="#7f849c">ComTxModeTimePeriod</text>
+            <rect x="240" y="64" width="240" height="32" fill="#1e1e2e"/>
+            <text x="254" y="84" fill="#cdd6f4">0.005</text>
+            <text x="360" y="84" fill="#f38ba8" text-anchor="middle">≠</text>
+            <rect x="480" y="64" width="240" height="32" fill="#1e1e2e"/>
+            <circle cx="498" cy="80" r="6" fill="none" stroke="#a6e3a1"/>
+            <circle cx="498" cy="80" r="4" fill="#a6e3a1"/>
+            <text x="514" y="84" fill="#a6e3a1">Keep existing (0.01)</text>
+          </g>
+
+          <!-- Param row 2: enum match -->
+          <g font-size="11" font-family="JetBrains Mono">
+            <rect x="0" y="96" width="240" height="32" fill="#181825"/>
+            <text x="14" y="116" fill="#7f849c">ComTxMode</text>
+            <rect x="240" y="96" width="240" height="32" fill="#181825"/>
+            <text x="254" y="116" fill="#cdd6f4">DIRECTED</text>
+            <text x="360" y="116" fill="#a6e3a1" text-anchor="middle">=</text>
+            <rect x="480" y="96" width="240" height="32" fill="#181825"/>
+            <circle cx="498" cy="112" r="6" fill="none" stroke="#89b4fa"/>
+            <circle cx="498" cy="112" r="4" fill="#89b4fa"/>
+            <text x="514" y="116" fill="#89b4fa">Auto-merge (identical)</text>
+          </g>
+
+          <!-- Param row 3: ref differs -->
+          <g font-size="11" font-family="JetBrains Mono">
+            <rect x="0" y="128" width="240" height="32" fill="#1e1e2e"/>
+            <text x="14" y="148" fill="#7f849c">ComIPduSignalRef</text>
+            <rect x="240" y="128" width="240" height="32" fill="#1e1e2e"/>
+            <text x="254" y="148" fill="#f9e2af" font-size="10">/Com/.../Sig_A</text>
+            <text x="360" y="148" fill="#f38ba8" text-anchor="middle">≠</text>
+            <rect x="480" y="128" width="240" height="32" fill="#1e1e2e"/>
+            <circle cx="498" cy="144" r="6" fill="none" stroke="#fab387"/>
+            <circle cx="498" cy="144" r="4" fill="#fab387"/>
+            <text x="514" y="148" fill="#fab387">Use incoming (/Sig_B)</text>
+          </g>
+
+          <!-- Footer -->
+          <line x1="0" y1="180" x2="720" y2="180" stroke="#313244"/>
+          <text x="16" y="200" fill="#7f849c" font-size="11">3 of 5 conflicts resolved · 2 pending</text>
+
+          <rect x="20" y="220" width="680" height="100" rx="6" fill="#181825" stroke="#313244"/>
+          <text x="36" y="240" fill="#94e2d5" font-size="11" font-weight="600">PREVIEW</text>
+          <text x="36" y="260" fill="#7f849c" font-size="10" font-family="JetBrains Mono">+ ComIPdu_003 (incoming only, no conflict)</text>
+          <text x="36" y="278" fill="#7f849c" font-size="10" font-family="JetBrains Mono">~ ComTxMode_001: ComTxModeTimePeriod kept, ComIPduSignalRef replaced</text>
+          <text x="36" y="296" fill="#7f849c" font-size="10" font-family="JetBrains Mono">= ComTxMode_002: identical, auto-merged</text>
+        </svg>
+        <figcaption>图 10.3 — DiffTable 三栏：existing / incoming / decision</figcaption>
+      </figure>
+
+      <h3>10.5 冲突决策类型（8 种 ImportError / 4 种 Patch）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>决策</th><th>语义</th><th>patch.ts 行为</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge green">keep</span></td><td>保留 existing 的值</td><td>noop patch</td></tr>
+            <tr><td><span class="badge peach">replace</span></td><td>用 incoming 覆盖</td><td>setParam patch</td></tr>
+            <tr><td><span class="badge blue">merge</span></td><td>字段级合并</td><td>multi-patch per-field</td></tr>
+            <tr><td><span class="badge lavender">add</span></td><td>新增 container</td><td>addContainer patch</td></tr>
+            <tr><td><span class="badge red">skip</span></td><td>跳过</td><td>noop patch</td></tr>
+            <tr><td><span class="badge yellow">rename</span></td><td>改名 (Sprint 15+)</td><td>setShortName patch</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>10.6 原子提交与回滚</h3>
+      <p>Commit 阶段 3 步：</p>
+      <ol class="steps">
+        <li>
+          <strong>Snapshot</strong>
+          记录 <code>sourceFilesTouched</code> 的完整状态。
+        </li>
+        <li>
+          <strong>Immutable Apply</strong>
+          按 patch 顺序应用，每个 patch 用 <code>Object.freeze</code> 包裹。
+          任何 patch 抛错 → 跳到 rollback。
+        </li>
+        <li>
+          <strong>Set 状态</strong>
+          仅当全部成功时 <code>set()</code> 提交；<code>importSession</code> 保留供 retry。
+        </li>
+      </ol>
+
+      <p>回滚（<code>undoLastCommit</code>）：</p>
+      <pre><span class="com">// store action</span>
+<span class="kw">const</span> <span class="attr">undoLastCommit</span> = () =&gt; {
+  <span class="kw">if</span> (snapshot === <span class="kw">null</span>) <span class="kw">return</span>;
+  <span class="attr">set</span>((s) =&gt; ({
+    ...s,
+    documents: <span class="attr">restoreFromSnapshot</span>(snapshot),
+    importSession: snapshot.importSession,
+    viewMode: <span class="str">'import-merged'</span>,
+  }));
+  <span class="attr">toast</span>(<span class="str">'已撤销最近一次 commit'</span>);
+};</pre>
+
+      <div class="callout warn">
+        <div class="callout-icon">!</div>
+        <div class="callout-body">
+          <strong>ViewMode 三态 guard</strong>：<code>viewMode ∈ {'single', 'combined', 'import-merged'}</code>。
+          commit 进行中（<code>commitInFlight === true</code>）时 store 拒绝手动切到其它 mode，
+          防止半状态被其他组件读取。
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 11: 快捷键 / KEYBOARD                  -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch11">
+      <div class="chapter-head">
+        <div class="ch-num-badge">11</div>
+        <h2>快捷键<span class="en">Keyboard Shortcuts</span></h2>
+      </div>
+
+      <h3>11.1 全局</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>按键</th><th>行为</th><th>范围</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>打开 ARXML</td><td>全局</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>保存当前 / Save All</td><td>全局</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save As…</td><td>全局</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / Redo</td><td>全局（store 粒度）</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Find in Tree</td><td>左栏聚焦</td></tr>
+            <tr><td><kbd>F1</kbd></td><td>打开本手册</td><td>全局</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>关闭顶层对话框</td><td>任何 modal</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>关闭当前项目</td><td>全局（带 dirty-guard）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>11.2 树（ECUC Tree）</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>按键</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>↓</kbd> / <kbd>↑</kbd></td><td>焦点移下 / 上</td></tr>
+            <tr><td><kbd>→</kbd></td><td>展开 / 进入子节点</td></tr>
+            <tr><td><kbd>←</kbd></td><td>折叠 / 跳父节点</td></tr>
+            <tr><td><kbd>Enter</kbd> / <kbd>Space</kbd></td><td>选中节点</td></tr>
+            <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>首 / 末可见节点</td></tr>
+            <tr><td><kbd>Delete</kbd></td><td>删除当前 container（Cascade confirm）</td></tr>
+            <tr><td><kbd>Shift</kbd>+<kbd>F10</kbd></td><td>上下文菜单</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>11.3 参数编辑器</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>按键</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>下一 / 上一字段</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>提交当前字段（自动 validate）</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>撤销当前编辑（恢复到 store 值）</td></tr>
+            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>数字字段 +/− 1（按住 Shift × 10）</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>Click</kbd> on ref</td><td>跳到引用目标节点</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>聚焦当前路径框（reference 字段）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>11.4 校验面板</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>按键</th><th>行为</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Click</kbd> on error</td><td>跳转 + 选中</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Export 错误报告为 JSON</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>J</kbd></td><td>跳到第一个未解决错误</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- CHAPTER 12: 常见问题 / FAQ                     -->
+    <!-- ============================================ -->
+    <section class="chapter" id="ch12">
+      <div class="chapter-head">
+        <div class="ch-num-badge">12</div>
+        <h2>常见问题<span class="en">FAQ · Troubleshooting</span></h2>
+      </div>
+
+      <h3>Q1 · 启动 dev 报 "Please run pnpm build first"</h3>
+      <p>
+        Vite 不会在 dev 模式下服务 main / preload 进程。新 clone 出的仓库必须先
+        <code>pnpm build</code> 一次产出 <code>dist/main/index.js</code>。
+        之后 <code>pnpm dev</code> 即可，Vite 会热重载 renderer。
+      </p>
+
+      <h3>Q2 · Save 后再 reload，发现改动丢失</h3>
+      <p>
+        这是 Sprint 16 修复的 regression（commit <code>f7b69a3</code>）。
+        早期版本 parser 没有把 <code>DEFINITION-REF</code> 写到 in-memory <code>ParamValue</code>，
+        reload 后丢失；现在所有 5 层（parser / addParameter / addReference / serializer /
+        skeleton）都 stamp <code>definitionRef</code>。请确保版本 ≥ v1.1.1。
+      </p>
+
+      <h3>Q3 · 1336 cross-ref baseline 是 bug 吗？</h3>
+      <p>
+        不是。S32K148 fixture 是 <strong>切片</strong>（slices），不构成自包含的 project。
+        大部分 cross-ref 指向未加载的模块。生产 BSW 工程应趋向 0。详见
+        <code>CHANGELOG.md</code> v0.8.0 的 Deviations 章节。
+      </p>
+
+      <h3>Q4 · 跨项目导入支持吗？</h3>
+      <p>
+        v1.2.0 不支持。导入目标必须是 <strong>当前 project</strong>。跨项目导入
+        列入 Sprint 15+ Out of Scope 列表。
+      </p>
+
+      <h3>Q5 · 编辑时校验慢/卡顿</h3>
+      <p>
+        校验是同步的，但 <code>validateProject</code> 在 5 fixture 9.2 MB 上 &lt; 50ms。
+        如果卡顿，99% 是 IPC 慢（文件 IO）。检查：
+      </p>
+      <ul>
+        <li>是否启用了 Windows Defender 实时扫描 ARXML 目录？</li>
+        <li>是否把项目放在网络盘 / OneDrive 同步目录？</li>
+        <li>是否 BSWMD 文件过大（&gt; 50 MB）？v1.0.0+ 已经支持 32 MiB cap。</li>
+      </ul>
+
+      <h3>Q6 · 如何升级而不丢失数据？</h3>
+      <p>
+        manifest.json v1.1.0 时代的绝对路径会被 v1.1.1+ 自动 <code>migrateManifestPaths()</code>，
+        用户无感。手动操作：升级前 <code>Save All</code>，确保 0 dirty，再覆盖安装。
+      </p>
+
+      <h3>Q7 · Script Engine 什么时候能上？</h3>
+      <p>
+        Script Engine v1.3.0 spec 已锁定（commit <code>f77acf5</code>），基于 CodeMirror 6 +
+        <code>node:vm</code> sandbox。计划在 Sprint 14 ECUC Import 之后排期。
+        详见 <code>docs/superpowers/specs/2026-06-18-script-engine-design.md</code>。
+      </p>
+
+      <h3>Q8 · 是否支持 Classic 以外的平台？</h3>
+      <p>
+        目前仅支持 <strong>AUTOSAR Classic Platform</strong>。Adaptive Platform 的
+        <code>manifest.json</code>、服务接口（<code>SOME/IP</code>、<code>IPC</code>）解析不在 scope。
+        关注 RoadMap 留意后续动态。
+      </p>
+
+      <h3>Q9 · BSWMD picker 选过之后又改怎么重置？</h3>
+      <p>
+        picker 是 <em>stateless modal</em>，每次打开都从当前 store 重新解析源
+        （v1.1.2 stale-seed 修复，<code>82ca016</code>），不会用缓存。
+        直接关掉重开即可。
+      </p>
+
+      <h3>Q10 · 怎么报告 bug？</h3>
+      <p>
+        在 <a href="https://github.com/jasontaotao/claude-AutosarCfg/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a> 创建 issue，附：
+      </p>
+      <ul>
+        <li><code>pnpm dev</code> 完整启动日志（截最后 30 行）</li>
+        <li>复现 ARXML / BSWMD 路径（脱敏后）</li>
+        <li><code>pnpm verify</code> 的 6 阶段结果</li>
+        <li>Node / pnpm 版本（<code>node -v && pnpm -v</code>）</li>
+      </ul>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- APPENDIX A: 术语表 / GLOSSARY                  -->
+    <!-- ============================================ -->
+    <section class="chapter" id="apa">
+      <div class="chapter-head">
+        <div class="ch-num-badge">A</div>
+        <h2>术语表<span class="en">Glossary</span></h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width: 200px">术语</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><strong>AUTOSAR</strong></td><td>Automotive Open System Architecture，汽车开放系统架构。</td></tr>
+            <tr><td><strong>ARXML</strong></td><td>AUTOSAR XML，BSW 配置描述格式，r4.x 主流。</td></tr>
+            <tr><td><strong>BSW</strong></td><td>Basic Software，AUTOSAR 层级中的基础软件层（OS、Com、Det、PduR、…）。</td></tr>
+            <tr><td><strong>BSWMD</strong></td><td>BSW Module Description，<em>schema-side</em>，定义每个 BSW 模块的合法参数。</td></tr>
+            <tr><td><strong>ECUC</strong></td><td>ECU Configuration，<em>value-side</em>，描述具体 ECU 的实际参数值。</td></tr>
+            <tr><td><strong>AR-PACKAGE</strong></td><td>AUTOSAR XML 中递归的包容器，类比文件夹。</td></tr>
+            <tr><td><strong>MODULE-CONFIGURATION</strong></td><td>一个 BSW 模块在 ECUC 中的实例。</td></tr>
+            <tr><td><strong>CONTAINER</strong></td><td>可包含参数和子容器的复合配置项。</td></tr>
+            <tr><td><strong>PARAMETER</strong></td><td>单一的配置项（string / integer / float / boolean / enum / reference）。</td></tr>
+            <tr><td><strong>DEFINITION-REF</strong></td><td>指向 BSWMD 中某个定义（DEF）的引用，是 schema-side 的入口。</td></tr>
+            <tr><td><strong>VALUE-REF</strong></td><td>指向另一 container 的引用，是 cross-container 关系的载体。</td></tr>
+            <tr><td><strong>CHOICES</strong></td><td>enum 参数的合法值集合。</td></tr>
+            <tr><td><strong>MULTIPLICITY</strong></td><td>container 的实例数上下界 <code>[lower, upper]</code>，<code>*</code> 表示无上界。</td></tr>
+            <tr><td><strong>ECU Extract</strong></td><td>从系统描述中抽取的单个 ECU 的配置，claude-AutosarCfg 主要消费对象。</td></tr>
+            <tr><td><strong>Skeleton</strong></td><td>从 BSWMD 生成的空 ECUC 模板（参数取默认值）。</td></tr>
+            <tr><td><strong>Cross-ref</strong></td><td>跨容器引用的解析问题，<code>cross-ref</code> 校验 kind。</td></tr>
+            <tr><td><strong>IPC</strong></td><td>Inter-Process Communication，Electron main ↔ renderer。</td></tr>
+            <tr><td><strong>NSIS</strong></td><td>Nullsoft Scriptable Install System，Windows 安装包格式。</td></tr>
+            <tr><td><strong>round-trip</strong></td><td>解析 → 编辑 → 序列化 产生的 XML 与输入字段级相等。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- APPENDIX B: 文件结构 / FILE LAYOUT            -->
+    <!-- ============================================ -->
+    <section class="chapter" id="apb">
+      <div class="chapter-head">
+        <div class="ch-num-badge">B</div>
+        <h2>文件结构<span class="en">File Layout</span></h2>
+      </div>
+
+      <h3>B.1 源代码布局</h3>
+      <pre>src/
+├── core/                <span class="com"># 纯 TS，无 react/electron 依赖</span>
+│   ├── arxml/           <span class="com">#   parser / serializer / types / path helpers</span>
+│   ├── validation/      <span class="com">#   validate() + ECUC schema (param + container)</span>
+│   ├── import/          <span class="com">#   diff / merge / patch（v1.2.0 新增）</span>
+│   └── project/         <span class="com">#   manifest + bswmd 持久化</span>
+├── main/                <span class="com"># Electron 主进程（可使用 node / electron）</span>
+│   └── ipc/             <span class="com">#   arxml / save / bswmd / project / templates / pickDir</span>
+├── preload/             <span class="com"># contextBridge 桥接层</span>
+├── renderer/            <span class="com"># React + Zustand UI（只能通过 preload 调用 IPC）</span>
+│   ├── components/      <span class="com">#   Tree / ValidationPanel / ParamEditor / 各 Dialog</span>
+│   ├── hooks/           <span class="com">#   useDebouncedValidation / useProjectActions / useCreateEcuc...</span>
+│   └── store/           <span class="com">#   useArxmlStore（单一 source of truth）</span>
+└── shared/              <span class="com"># 跨层 types 和 IPC contract</span>
+
+tests/
+├── fixtures/arxml/      <span class="com"># 5 S32K148_EAS_EB_3399A 样例 (9.2 MB in-repo)</span>
+└── e2e/                 <span class="com"># Playwright（可选，需要 display）</span>
+
+samples/
+├── arxml/               <span class="com"># 内置模板 + 内置样例 (随安装包分发)</span>
+└── bswmd/               <span class="com"># (Roadmap)</span>
+
+scripts/                 <span class="com"># dev.mjs + verify.{mjs,ps1,sh}</span>
+docs/                    <span class="com"># specs / plans / release notes / 本手册</span></pre>
+
+      <h3>B.2 Layer Separation 规则</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>层</th><th>允许依赖</th><th>禁止</th><th>ESLint 强制</th></tr></thead>
+          <tbody>
+            <tr><td><code>core/</code></td><td>无（纯 TS）</td><td>react / react-dom / electron / DOM</td><td>✓ <code>no-restricted-imports</code></td></tr>
+            <tr><td><code>shared/</code></td><td>无（纯 TS types）</td><td>react / react-dom / electron</td><td>✓</td></tr>
+            <tr><td><code>main/</code></td><td>electron / node</td><td>react</td><td>✓</td></tr>
+            <tr><td><code>preload/</code></td><td>electron</td><td>react</td><td>✓</td></tr>
+            <tr><td><code>renderer/</code></td><td>react / zustand</td><td>electron（必须走 preload）</td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>B.3 项目目录布局（用户视角）</h3>
+      <pre>MyProject/                    <span class="com"># 用户在 NewProjectDialog 选的目录</span>
+├── manifest.json             <span class="com"># valueArxmlPaths + bswmdPaths + 元数据</span>
+├── Com_Com_EcucValues.arxml  <span class="com"># value-side</span>
+├── Det_Det_EcucValues.arxml
+├── EcuC_EcuC_EcucValues.arxml
+├── PduR_PduR_EcucValues.arxml
+├── WdgIf_WdgIf_EcucValues.arxml
+└── bswmd/                    <span class="com"># schema-side (用户也可不放在 bswmd/，路径在 manifest 中)</span>
+    ├── Com_Bswmd.arxml
+    ├── Det_Bswmd.arxml
+    ├── EcuC_Bswmd.arxml
+    ├── PduR_Bswmd.arxml
+    └── WdgIf_Bswmd.arxml</pre>
+
+      <h3>B.4 IPC 通道速查</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>通道</th><th>方向</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><code>arxml:open</code></td><td>R → M</td><td>原生对话框 + 选文件</td></tr>
+            <tr><td><code>arxml:parse</code></td><td>R → M</td><td>解析 + 返回 documents</td></tr>
+            <tr><td><code>arxml:save</code></td><td>R → M</td><td>序列化单文件到磁盘</td></tr>
+            <tr><td><code>project:new</code></td><td>R → M</td><td>创建 manifest + 模板文件</td></tr>
+            <tr><td><code>project:open</code></td><td>R → M</td><td>读取 manifest 装载 documents</td></tr>
+            <tr><td><code>project:close</code></td><td>R → M</td><td>关闭 + 清空 store</td></tr>
+            <tr><td><code>bswmd:read</code></td><td>R → M</td><td>解析 BSWMD，返回 schema</td></tr>
+            <tr><td><code>bswmd:parse</code></td><td>R → M</td><td>BSWMD 解析（带 cap 32 MiB）</td></tr>
+            <tr><td><code>templates:list</code></td><td>R → M</td><td>列出内置模板（opt-in）</td></tr>
+            <tr><td><code>templates:copy</code></td><td>R → M</td><td>复制模板到目标目录</td></tr>
+            <tr><td><code>pick:dir</code></td><td>R → M</td><td>原生目录选择对话框</td></tr>
+            <tr><td><code>pick:file</code></td><td>R → M</td><td>原生文件选择对话框</td></tr>
+            <tr><td><code>project:writeArxmlBatch</code></td><td>R → M</td><td>原子批量写（multi-ECUC Save All）</td></tr>
+            <tr><td><code>project:deleteArxml</code></td><td>R → M</td><td>删除 ECUC 文件（v1.1.0+）</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>B.5 性能基线</h3>
+      <ul>
+        <li><strong>打开 5 fixture (9.2 MB)</strong>: ~ 50 ms parse + 30 ms validate</li>
+        <li><strong>单参数编辑触发校验</strong>: &lt; 5 ms（同步）</li>
+        <li><strong>debounced 校验</strong>: 300 ms 后兜底</li>
+        <li><strong>Save 单文件</strong>: &lt; 20 ms（writeFile）</li>
+        <li><strong>Save All 5 文件</strong>: ~ 80 ms（顺序写）</li>
+        <li><strong>Cross-ref 索引构建</strong>: ~ 12 ms（14200 条目）</li>
+      </ul>
+
+      <hr style="border: 0; border-top: 1px solid var(--ctp-surface1); margin: 60px 0 24px;">
+
+      <p style="text-align: center; color: var(--ctp-overlay1); font-family: var(--font-mono); font-size: 12px;">
+        claude-AutosarCfg User Manual · v1.2.0 · MIT License ·<br>
+        Generated 2026-06-19 · Source: <code>docs/user-manual.html</code><br>
+        See also: <code>CHANGELOG.md</code> · <code>PROGRESS.md</code> · <code>README.md</code>
+      </p>
+    </section>
+
+  </div>
+</main>
+</div>
+</body>
+</html>

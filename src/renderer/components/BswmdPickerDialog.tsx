@@ -178,15 +178,38 @@ function resolveModuleAndParentContainerLocal(
 } | null {
   const segments = valuePath.split('/').filter(Boolean);
   if (segments.length < 2) return null;
+  const pkgName = segments[0];
+  if (pkgName === undefined) return null;
+  // Canonical 4-segment walk first (segments[1] is module shortName).
   const moduleShortName = segments[1];
-  if (moduleShortName === undefined) return null;
+  if (moduleShortName !== undefined) {
+    for (const schema of schemas) {
+      for (const mod of schema.modules) {
+        if (mod.shortName !== moduleShortName) continue;
+        const subSegments = segments.slice(2);
+        const subPath = subSegments.join('/');
+        const parentContainerDef =
+          subPath === '' ? null : getContainerDefByPath(mod, subPath);
+        if (parentContainerDef !== null || subPath === '') {
+          return { moduleDef: mod, parentContainerDef };
+        }
+      }
+    }
+  }
+  // Compressed 3-segment fallback (companion to `findByPath` in
+  // core/arxml/path.ts:78-87): when `<pkg>`'s shortName equals the
+  // module shortName (e.g. project `JWQ3399` whose package + module
+  // both name themselves `JWQ3399`), `segments[1]` is the top-level
+  // container shortName. Treat `segments.slice(1)` as the BSWMD sub-path.
   for (const schema of schemas) {
     for (const mod of schema.modules) {
-      if (mod.shortName !== moduleShortName) continue;
-      const subSegments = segments.slice(2);
+      if (mod.shortName !== pkgName) continue;
+      const subSegments = segments.slice(1);
       const subPath = subSegments.join('/');
-      const parentContainerDef = subPath === '' ? null : getContainerDefByPath(mod, subPath);
-      return { moduleDef: mod, parentContainerDef };
+      const parentContainerDef = getContainerDefByPath(mod, subPath);
+      if (parentContainerDef !== null) {
+        return { moduleDef: mod, parentContainerDef };
+      }
     }
   }
   return null;

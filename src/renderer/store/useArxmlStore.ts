@@ -1047,6 +1047,17 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       doc: activeDoc,
       filePath: activePath,
       displayDoc: nextDisplayResult?.doc ?? null,
+      // Sprint A (P0-A2) — register the freshly-parsed BSWMDs so
+      // downstream consumers (`BswmdPickerDialog`, the validation
+      // layer, the `ProjectPanel` 0/0 chip) see them. Pre-fix this
+      // block populated `bswmdSchemasOut` / `bswmdPathsOut` locals
+      // but never wrote them to the store, leaving `bswmdSchemas`
+      // permanently empty and the picker resolution returning
+      // `no-bswmd-for-module` on every right-click → Add Container.
+      // User-reported as "JWQ3399SpiConfig picker is empty / cannot
+      // add SpiSequenceRef".
+      bswmdSchemas: bswmdSchemasOut,
+      bswmdPaths: bswmdPathsOut,
       // Sprint 17c T10 — refresh warnings in combined mode.
       warnings:
         get().viewMode === 'combined' && nextDisplayResult !== null
@@ -2940,16 +2951,45 @@ function resolveModuleAndParentContainer(
 ): { readonly moduleDef: BswModuleDef; readonly parentContainerDef: ContainerDef | null } | null {
   const segments = valuePath.split('/').filter(Boolean);
   if (segments.length < 2) return null;
+  const pkgName = segments[0];
+  if (pkgName === undefined) return null;
+  // Try the canonical 4-segment path first:
+  //   /<pkg>/<module>/<container>/...
+  // where `segments[1]` is the module shortName. Most projects use this
+  // shape because the BSWMD-skeleton factory always writes a separate
+  // module shortName even when it matches the package name.
   const moduleShortName = segments[1];
-  if (moduleShortName === undefined) return null;
+  if (moduleShortName !== undefined) {
+    for (const schema of schemas) {
+      for (const mod of schema.modules) {
+        if (mod.shortName !== moduleShortName) continue;
+        const subSegments = segments.slice(2);
+        const subPath = subSegments.join('/');
+        const parentContainerDef =
+          subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
+        if (parentContainerDef !== null || subPath === '') {
+          return { moduleDef: mod, parentContainerDef };
+        }
+      }
+    }
+  }
+  // Compressed 3-segment fallback (companion to `findByPath` in
+  // core/arxml/path.ts):
+  //   /<pkg>/<container>/...
+  // when `<pkg>`'s shortName equals the module shortName (e.g. project
+  // `JWQ3399` whose package + module both name themselves `JWQ3399`).
+  // We re-use `resolveContainerDefBySubPath` directly by treating the
+  // sub-path as `segments.slice(1)` — same shape as the canonical walk
+  // but starting at the first container shortName instead of the module.
   for (const schema of schemas) {
     for (const mod of schema.modules) {
-      if (mod.shortName !== moduleShortName) continue;
-      // subPath: the segments after the module shortName.
-      const subSegments = segments.slice(2);
+      if (mod.shortName !== pkgName) continue;
+      const subSegments = segments.slice(1);
       const subPath = subSegments.join('/');
-      const parentContainerDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
-      return { moduleDef: mod, parentContainerDef };
+      const parentContainerDef = resolveContainerDefBySubPath(mod, subPath);
+      if (parentContainerDef !== null) {
+        return { moduleDef: mod, parentContainerDef };
+      }
     }
   }
   return null;
@@ -2972,28 +3012,16 @@ function resolveParamDefForPath(
   containerPath: string,
   paramShortName: string,
 ): { readonly moduleDef: BswModuleDef; readonly paramDef: ParamDef | null } | null {
-  const segments = containerPath.split('/').filter(Boolean);
-  if (segments.length < 2) return null;
-  const moduleShortName = segments[1];
-  if (moduleShortName === undefined) return null;
-  for (const schema of schemas) {
-    for (const mod of schema.modules) {
-      if (mod.shortName !== moduleShortName) continue;
-      // subPath: the segments after the module.
-      const subSegments = segments.slice(2);
-      const subPath = subSegments.join('/');
-      const parentDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
-      if (subPath !== '' && parentDef === null) continue;
-      // Module-level parents (subPath === '') have no parameters per
-      // current AUTOSAR practice, so the param shortName cannot
-      // resolve. Return the module def with a null paramDef so the
-      // caller surfaces the proper error.
-      if (parentDef === null) return { moduleDef: mod, paramDef: null };
-      const paramDef = parentDef.parameters.find((p) => p.shortName === paramShortName);
-      return { moduleDef: mod, paramDef: paramDef ?? null };
-    }
-  }
-  return null;
+  const lookup = resolveModuleAndParentContainer(schemas, containerPath);
+  if (lookup === null) return null;
+  const { moduleDef, parentContainerDef } = lookup;
+  // Module-level parents (parentContainerDef === null) have no
+  // parameters per current AUTOSAR practice, so the param shortName
+  // cannot resolve. Return the module def with a null paramDef so the
+  // caller surfaces the proper error.
+  if (parentContainerDef === null) return { moduleDef, paramDef: null };
+  const paramDef = parentContainerDef.parameters.find((p) => p.shortName === paramShortName);
+  return { moduleDef, paramDef: paramDef ?? null };
 }
 
 /**
@@ -3008,23 +3036,12 @@ function resolveReferenceDefForPath(
   containerPath: string,
   refShortName: string,
 ): { readonly moduleDef: BswModuleDef; readonly refDef: ReferenceDef | null } | null {
-  const segments = containerPath.split('/').filter(Boolean);
-  if (segments.length < 2) return null;
-  const moduleShortName = segments[1];
-  if (moduleShortName === undefined) return null;
-  for (const schema of schemas) {
-    for (const mod of schema.modules) {
-      if (mod.shortName !== moduleShortName) continue;
-      const subSegments = segments.slice(2);
-      const subPath = subSegments.join('/');
-      const parentDef = subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
-      if (subPath !== '' && parentDef === null) continue;
-      if (parentDef === null) return { moduleDef: mod, refDef: null };
-      const refDef = parentDef.references.find((r) => r.shortName === refShortName);
-      return { moduleDef: mod, refDef: refDef ?? null };
-    }
-  }
-  return null;
+  const lookup = resolveModuleAndParentContainer(schemas, containerPath);
+  if (lookup === null) return null;
+  const { moduleDef, parentContainerDef } = lookup;
+  if (parentContainerDef === null) return { moduleDef, refDef: null };
+  const refDef = parentContainerDef.references.find((r) => r.shortName === refShortName);
+  return { moduleDef, refDef: refDef ?? null };
 }
 
 /**

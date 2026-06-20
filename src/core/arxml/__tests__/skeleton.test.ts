@@ -197,6 +197,99 @@ describe('generateEcucSkeleton', () => {
     expect(ar.packages[0]!.shortName).toBe('Can');
     expect(ar.packages[0]!.path).toBe('/Can');
   });
+
+  // Bug — JWQ3399SpiConfig-style containers mix ECUC-PARAM-CONF-CONTAINER-DEF
+  // (in `subContainers`) and ECUC-CHOICE-CONTAINER-DEF (in `choices`). The
+  // skeleton factory pre-creates only `subContainers` shells, so the entire
+  // choice subtree was lost on round-trip — user reported that
+  // JWQ3399SpiConfig comes back empty even though BSWMD declares
+  // SpiCsConfig + SpiHWUnitRef as required choice containers. These two
+  // tests pin the fix.
+  it('emits an ECUC-CONTAINER-VALUE shell per choice container when its lowerMultiplicity > 0', () => {
+    // Arrange — SpiConfig-shaped: 2 optional sub-containers (lower=0)
+    // + 2 required choice containers (lower=1, 2 branches each). The
+    // choice containers live in the `choices` field, not
+    // `subContainers`, mirroring how `bswmd.ts::buildChoiceContainer`
+    // surfaces them after parsing BSWMD's
+    // `<ECUC-CHOICE-CONTAINER-DEF><CHOICES>` block.
+    const spiSequence = makeBswContainer('SpiSequenceRef', [], 0);
+    const spiChannel = makeBswContainer('SpiChannelRef', [], 0);
+    const spiCsBranchA = makeBswContainer('SpiCsViaPher', [], 0);
+    const spiCsBranchB = makeBswContainer('SpiCsViaGPIO', [], 0);
+    const spiCsConfig: ContainerDef = {
+      ...makeBswContainer('SpiCsConfig', [], 1),
+      choices: [spiCsBranchA, spiCsBranchB],
+    };
+    const spiHwBranchA = makeBswContainer('SpiHWUnitRef', [], 0);
+    const spiHwBranchB = makeBswContainer('SpiHWUnitUserDef', [], 0);
+    const spiHwConfig: ContainerDef = {
+      ...makeBswContainer('SpiHWUnitRef', [], 1),
+      choices: [spiHwBranchA, spiHwBranchB],
+    };
+    // `subContainers` = plain containers only; choice containers live
+    // in the `choices` field — this matches what `buildContainer` in
+    // bswmd.ts produces for a `SUB-CONTAINERS` block (which never
+    // contains `<ECUC-CHOICE-CONTAINER-DEF>`).
+    const spiConfig: ContainerDef = {
+      ...makeBswContainer('SpiConfig', [spiSequence, spiChannel], 1),
+      choices: [spiCsConfig, spiHwConfig],
+    };
+    const mod = makeBswModule('Spi', [spiConfig]);
+    const doc = makeBswmd([mod]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'Spi');
+
+    // Assert — SpiConfig is a required top-level container, so it must
+    // exist. Inside it the 2 optional sub-containers (lower=0) stay
+    // absent, but the 2 required choice containers (lower=1) must be
+    // pre-created as empty ECUC-CONTAINER-VALUE shells so the user can
+    // descend into them from the editor.
+    const modEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+    expect(modEl.children).toHaveLength(1);
+    const spiCfg = modEl.children[0]! as ArxmlContainer;
+    expect(spiCfg.shortName).toBe('SpiConfig');
+    expect(spiCfg.children).toHaveLength(2);
+    const childNames = spiCfg.children.map((c) => (c as ArxmlContainer).shortName);
+    expect(childNames).toContain('SpiCsConfig');
+    expect(childNames).toContain('SpiHWUnitRef');
+    // Pre-created choice shells carry ECUC-CONTAINER-VALUE (value-side
+    // tag — Bug 2a from v1.4.1) and start empty; the user picks the
+    // concrete branch via the picker.
+    for (const child of spiCfg.children) {
+      const cc = child as ArxmlContainer;
+      expect(cc.tagName).toBe('ECUC-CONTAINER-VALUE');
+      expect(cc.params).toEqual({});
+      expect(cc.children).toEqual([]);
+    }
+  });
+
+  it('does NOT pre-create a choice container shell when its lowerMultiplicity == 0', () => {
+    // Arrange — one optional choice container (lower=0) under a required
+    // top-level container.
+    const branchA = makeBswContainer('BranchA', [], 0);
+    const branchB = makeBswContainer('BranchB', [], 0);
+    const optionalChoice: ContainerDef = {
+      ...makeBswContainer('OptionalChoice', [], 0),
+      choices: [branchA, branchB],
+    };
+    const top: ContainerDef = {
+      ...makeBswContainer('Top', [], 1),
+      choices: [optionalChoice],
+    };
+    const mod = makeBswModule('M', [top]);
+    const doc = makeBswmd([mod]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'M');
+
+    // Assert — even though `choices` is now traversed, the lower=0
+    // gate still applies: optional choice containers stay out of the
+    // skeleton so the picker doesn't see a ghost shell.
+    const modEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+    const topEl = modEl.children[0]! as ArxmlContainer;
+    expect(topEl.children).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
