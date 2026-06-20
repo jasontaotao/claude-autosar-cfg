@@ -534,6 +534,7 @@ describe('validate() — schema-unknown layer-aware disambiguator (line 124-126)
       references: [],
       subContainers: [],
       choices: [],
+      multiplicityConfigClasses: [],
     };
     const eucCModule: BswModuleDef = {
       path: '/EcucDefs/EcuC',
@@ -544,6 +545,7 @@ describe('validate() — schema-unknown layer-aware disambiguator (line 124-126)
       upperMultiplicity: 1,
       containers: [ecucGeneralContainer],
       providedEntries: [],
+      multiplicityConfigClasses: [],
     };
     const doc: BswmdDocument = { version: '4.6', modules: [eucCModule], warnings: [] };
     return buildSchemaLayer([doc]);

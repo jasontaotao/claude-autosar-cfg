@@ -176,6 +176,7 @@ function buildCanIfLayer(): ReturnType<typeof buildSchemaLayer> {
     ],
     references: [],
     choices: [],
+    multiplicityConfigClasses: [],
   };
   const canIf: BswModuleDef = {
     shortName: 'CanIf',
@@ -186,6 +187,7 @@ function buildCanIfLayer(): ReturnType<typeof buildSchemaLayer> {
     providedEntries: [],
     lowerMultiplicity: 0,
     upperMultiplicity: 1,
+    multiplicityConfigClasses: [],
   };
   const doc: BswmdDocument = {
     version: '4.6',

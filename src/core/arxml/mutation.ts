@@ -23,6 +23,7 @@ import { getContainerDefByPath } from '../project/bswmd.js';
 import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
 
 import { buildDefaultValue } from './defaultValue.js';
+import { findByPath } from './path.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -671,42 +672,22 @@ interface LocatedParent {
 
 /**
  * Walk `doc.packages` to find the element at `parentPath`. Returns the
- * parent module / container and the package it lives in. Handles the
- * R21/R22 nested-`<AR-PACKAGES>` shape via recursion.
+ * parent module / container and the package it lives in.
+ *
+ * Bug 2c (v1.4.1) — delegates to `findByPath` so the canonical 4-segment
+ * shape (`/<pkg>/<module>/<container>/<sub>…`) AND the compressed 3-segment
+ * shape (`/<pkg>/<container>/<sub>…`, used when `pkg.shortName ===
+ * module.shortName`) both resolve. The caller cannot normalise upstream.
+ *
+ * Refuses unknown / reference leaves — those are not valid mutation
+ * parents even when path-walking succeeds.
  */
 function locateParent(doc: ArxmlDocument, parentPath: string): LocatedParent | null {
-  const segments = parentPath.split('/').filter(Boolean);
-  if (segments.length < 2) return null;
-  const [pkgName, ...rest] = segments;
-  if (pkgName === undefined) return null;
-  const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
-  if (rootPkg === null) return null;
-  return locateInPackage(rootPkg, rest, parentPath);
-}
-
-function locateInPackage(
-  pkg: ArxmlPackage,
-  segments: readonly string[],
-  _fullPath: string,
-): LocatedParent | null {
-  let cursor: ArxmlElement | ArxmlPackage = pkg;
-  for (const name of segments) {
-    if (isPackage(cursor)) {
-      const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
-      if (child === undefined) return null;
-      cursor = child;
-      continue;
-    }
-    if (cursor.kind === 'module' || cursor.kind === 'container') {
-      const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
-      if (next === undefined) return null;
-      cursor = next;
-      continue;
-    }
-    return null;
-  }
-  if (isPackage(cursor) || cursor.kind === 'reference' || cursor.kind === 'unknown') return null;
-  return { parent: cursor, pkg };
+  const found = findByPath(doc, parentPath);
+  if (found === null) return null;
+  const { pkg, element } = found;
+  if (element.kind === 'reference' || element.kind === 'unknown') return null;
+  return { parent: element, pkg };
 }
 
 function findRootPackageByShortName(

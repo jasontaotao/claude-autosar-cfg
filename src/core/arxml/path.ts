@@ -37,6 +37,26 @@ function findPackageByPath(pkgs: readonly ArxmlPackage[], path: string): ArxmlPa
  * resolves through the nested package structure. Once the leaf package is
  * located the remaining segments are walked against `elements` / `children`.
  *
+ * Bug 2c (v1.4.1) — accept BOTH path shapes:
+ *
+ *   - Canonical 4-segment: `/<pkg>/<module>/<container>/<sub>…` where
+ *     `<module>` is the shortName of the `ECUC-MODULE-CONFIGURATION-VALUES`
+ *     element inside `pkg.elements`. This is the shape the tree renderer
+ *     produces and what the skeleton's `packagePath` field sets up.
+ *
+ *   - Compressed 3-segment: `/<pkg>/<container>/<sub>…` where the module
+ *     segment is omitted. Common when `pkg.shortName === module.shortName`
+ *     (the skeleton's default layout — package and module share the
+ *     shortName), so the module segment is redundant. Real BSWMD-derived
+ *     user projects sometimes ship this shape; the dispatcher cannot
+ *     always normalise upstream. The fallback walks every module in the
+ *     pkg and accepts the path if `rest[0]` resolves to one of its
+ *     top-level containers.
+ *
+ * The 4-segment walk is tried first because it is the canonical form.
+ * The 3-segment fallback only fires when the canonical walk fails on
+ * `rest[0]`.
+ *
  * At each level a segment may resolve to either a nested `<AR-PACKAGE>` (one
  * of `pkg.packages`) or a child element (module / container / reference) of
  * the current cursor — both shapes are valid in real AUTOSAR trees.
@@ -52,9 +72,33 @@ export function findByPath(
   // Locate the root package by shortName (root of the recursive <AR-PACKAGES> tree).
   const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
   if (rootPkg === null) return null;
-  // Walk remaining segments. Each segment may be a nested package or a child element.
-  let cursor: ArxmlElement | ArxmlPackage | undefined = rootPkg;
-  for (const name of rest) {
+  // Canonical 4-segment walk: rest[0] is a module/element in pkg.
+  const canonical = walkFrom(rootPkg, rest);
+  if (canonical !== null) return { pkg: rootPkg, element: canonical };
+  // Compressed 3-segment fallback: rest[0] is a top-level container of
+  // SOME module inside pkg.elements. We try every module and accept the
+  // first whose top-level children match.
+  for (const mod of rootPkg.elements) {
+    if (mod.kind !== 'module') continue;
+    const child = mod.children.find((c) => shortNameOf(c) === rest[0]);
+    if (child === undefined) continue;
+    const target = walkFrom(child, rest.slice(1));
+    if (target !== null) return { pkg: rootPkg, element: target };
+  }
+  return null;
+}
+
+/**
+ * Walk a sequence of segments against `start`, descending through packages,
+ * modules, and containers. Pure helper used by both the canonical walk
+ * and the 3-segment fallback in `findByPath`.
+ */
+function walkFrom(
+  start: ArxmlElement | ArxmlPackage,
+  segments: readonly string[],
+): ArxmlElement | null {
+  let cursor: ArxmlElement | ArxmlPackage | undefined = start;
+  for (const name of segments) {
     if (cursor === undefined) return null;
     if (isPackage(cursor)) {
       const nested = findPackageByShortName(cursor.packages, name);
@@ -75,7 +119,7 @@ export function findByPath(
     }
   }
   if (cursor === undefined || isPackage(cursor)) return null;
-  return { pkg: rootPkg, element: cursor };
+  return cursor;
 }
 
 function findRootPackageByShortName(

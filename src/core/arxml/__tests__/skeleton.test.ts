@@ -33,16 +33,18 @@ import type { ArxmlContainer, ArxmlModule } from '../types.js';
 function makeBswContainer(
   shortName: string,
   subContainers: readonly ContainerDef[] = [],
+  lowerMultiplicity = 1,
 ): ContainerDef {
   return {
     shortName,
     path: `/Module/${shortName}`,
-    lowerMultiplicity: 0,
+    lowerMultiplicity,
     upperMultiplicity: 1,
     subContainers,
     parameters: [],
     references: [],
     choices: [],
+    multiplicityConfigClasses: [],
   };
 }
 
@@ -56,6 +58,7 @@ function makeBswModule(shortName: string, containers: readonly ContainerDef[] = 
     providedEntries: [],
     lowerMultiplicity: 0,
     upperMultiplicity: 'infinite',
+    multiplicityConfigClasses: [],
   };
 }
 
@@ -130,7 +133,7 @@ describe('generateEcucSkeleton', () => {
     expect(mod.children).toHaveLength(1);
     const child = mod.children[0]! as ArxmlContainer;
     expect(child.kind).toBe('container');
-    expect(child.tagName).toBe('ECUC-CONFIGURATION-CONTAINER');
+    expect(child.tagName).toBe('ECUC-CONTAINER-VALUE');
     expect(child.shortName).toBe('CanConfigSet');
     expect(child.params).toEqual({});
   });

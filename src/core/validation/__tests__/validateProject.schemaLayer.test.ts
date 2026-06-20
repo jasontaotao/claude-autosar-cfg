@@ -65,6 +65,7 @@ function container(
     parameters: overrides.parameters ?? [],
     references: overrides.references ?? [],
     choices: overrides.choices ?? [],
+    multiplicityConfigClasses: overrides.multiplicityConfigClasses ?? [],
   };
 }
 
@@ -80,6 +81,7 @@ function module(
     providedEntries: overrides.providedEntries ?? [],
     lowerMultiplicity: overrides.lowerMultiplicity ?? 0,
     upperMultiplicity: overrides.upperMultiplicity ?? 1,
+    multiplicityConfigClasses: overrides.multiplicityConfigClasses ?? [],
   };
 }
 

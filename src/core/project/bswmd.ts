@@ -57,6 +57,25 @@ export interface BswModuleDef {
   readonly providedEntries: readonly ProvidedEntry[];
   readonly lowerMultiplicity: number;
   readonly upperMultiplicity: number | 'infinite';
+  /**
+   * v1.4.1 — module-level `<MULTIPLICITY-CONFIG-CLASSES>` block from
+   * `<ECUC-MODULE-DEF>`. Mirrors `ContainerDef.multiplicityConfigClasses`
+   * but applies to the whole module instance. Optional — see
+   * `ContainerDef.multiplicityConfigClasses` for the rationale.
+   */
+  readonly multiplicityConfigClasses?: readonly MultiplicityConfigClass[];
+}
+
+/**
+ * v1.4.1 — one `<ECUC-MULTIPLICITY-CONFIGURATION-CLASS>` row in a
+ * `<MULTIPLICITY-CONFIG-CLASSES>` block. Pairs a `CONFIG-CLASS` (e.g.
+ * `PRE-COMPILE`, `LINK-TIME`, `POST-BUILD`) with the `CONFIG-VARIANT`
+ * (`VARIANT-PRE-COMPILE`, `VARIANT-POST-BUILD`, `VARIANT-LINK-TIME`)
+ * that the multiplicity applies to.
+ */
+export interface MultiplicityConfigClass {
+  readonly configClass: string;
+  readonly configVariant: string;
 }
 
 export interface ContainerDef {
@@ -68,6 +87,16 @@ export interface ContainerDef {
   readonly parameters: readonly ParamDef[];
   readonly references: readonly ReferenceDef[];
   readonly choices: readonly ContainerDef[];
+  /**
+   * v1.4.1 — BSWMD `<MULTIPLICITY-CONFIG-CLASSES>` block from the
+   * `<ECUC-PARAM-CONF-CONTAINER-DEF>`. Each entry pins the container
+   * multiplicity to a particular `(CONFIG-CLASS, CONFIG-VARIANT)` pair
+   * (e.g. PRE-COMPILE / VARIANT-POST-BUILD). Optional — the BSWMD parser
+   * always populates it (default empty), but existing test literals and
+   * hand-built fixtures don't carry the field. The picker reads it via
+   * `def.multiplicityConfigClasses ?? []` so undefined is safe.
+   */
+  readonly multiplicityConfigClasses?: readonly MultiplicityConfigClass[];
 }
 
 /**
@@ -481,6 +510,36 @@ function readLowerMultiplicity(node: Record<string, unknown>): number {
   return n === null ? 0 : n;
 }
 
+/**
+ * v1.4.1 — read the `<MULTIPLICITY-CONFIG-CLASSES>` block.
+ *
+ * Each `<ECUC-MULTIPLICITY-CONFIGURATION-CLASS>` child contributes one
+ * `(CONFIG-CLASS, CONFIG-VARIANT)` row. Missing or empty block → empty
+ * array. Missing sub-fields default to empty string — the consumer can
+ * distinguish "no constraint declared" via `length === 0`.
+ *
+ * Per AUTOSAR TPS_StandardizationTemplate the values are restricted
+ * literals; we keep them as plain strings here so callers can format /
+ * validate however they like.
+ */
+function readMultiplicityConfigClasses(
+  node: Record<string, unknown>,
+): readonly MultiplicityConfigClass[] {
+  const block = node['MULTIPLICITY-CONFIG-CLASSES'];
+  if (typeof block !== 'object' || block === null) return [];
+  const rows = asArray<Record<string, unknown>>(
+    (block as Record<string, unknown>)['ECUC-MULTIPLICITY-CONFIGURATION-CLASS'],
+  );
+  const out: MultiplicityConfigClass[] = [];
+  for (const row of rows) {
+    const configClass = readElementText(row['CONFIG-CLASS']);
+    const configVariant = readElementText(row['CONFIG-VARIANT']);
+    if (configClass === '' && configVariant === '') continue;
+    out.push({ configClass, configVariant });
+  }
+  return out;
+}
+
 function findContainerInTree(
   containers: readonly ContainerDef[],
   shortName: string,
@@ -652,6 +711,10 @@ function buildEbModule(
     providedEntries: provided,
     lowerMultiplicity: 0,
     upperMultiplicity: 'infinite',
+    // EB tresos BSW-MODULE-DESCRIPTION dialect has no
+    // <MULTIPLICITY-CONFIG-CLASSES> on the module-level shape;
+    // info lives in the vendor-private ECUC-MODULE-DEF sibling.
+    multiplicityConfigClasses: [],
   };
 }
 
@@ -768,6 +831,7 @@ function buildEcucModule(
     providedEntries: [],
     lowerMultiplicity: readLowerMultiplicity(item),
     upperMultiplicity: readUpperMultiplicity(item),
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
   };
 }
 
@@ -867,6 +931,7 @@ function buildContainer(
         parameters: [],
         references: [],
         choices: [],
+        multiplicityConfigClasses: readMultiplicityConfigClasses(item),
       };
     }
   }
@@ -896,6 +961,7 @@ function buildContainer(
     parameters,
     references,
     choices: [],
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
   };
   if (guard !== undefined) {
     guard.depth -= 1;
@@ -937,6 +1003,7 @@ function buildChoiceContainer(
         parameters: [],
         references: [],
         choices: [],
+        multiplicityConfigClasses: readMultiplicityConfigClasses(item),
       };
     }
   }
@@ -956,6 +1023,7 @@ function buildChoiceContainer(
     parameters: [],
     references: [],
     choices,
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
   };
   if (guard !== undefined) {
     guard.depth -= 1;

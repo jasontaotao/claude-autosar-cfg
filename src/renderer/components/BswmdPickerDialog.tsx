@@ -30,12 +30,11 @@ import { createPortal } from 'react-dom';
 
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import type { AllowedSubElement, MutationError } from '@core/arxml/mutation.js';
+import { findByPath } from '@core/arxml/path.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
-  ArxmlElement,
   ArxmlModule,
-  ArxmlPackage,
 } from '@core/arxml/types';
 import { getContainerDefByPath } from '@core/project/bswmd.js';
 import type { BswModuleDef } from '@core/project/bswmd.js';
@@ -148,6 +147,10 @@ function resolvePickerSource(
       parameters: [],
       references: [],
       choices: [],
+      // v1.4.1 — synthesized def carries the module's own MCC; the
+      // picker's chip badge reads it from here. `?? []` so a hand-built
+      // module def without the field still type-checks.
+      multiplicityConfigClasses: moduleDef.multiplicityConfigClasses ?? [],
     };
   }
   const allowed = listAllowedSubElements(moduleDef, containerDefForList, parentElement);
@@ -197,44 +200,17 @@ function locateParentElement(
   doc: ArxmlDocument,
   parentPath: string,
 ): ArxmlContainer | ArxmlModule | null {
-  const segments = parentPath.split('/').filter(Boolean);
-  if (segments.length < 2) return null;
-  const [pkgName, ...rest] = segments;
-  if (pkgName === undefined) return null;
-  const rootPkg = doc.packages.find((p) => p.shortName === pkgName);
-  if (rootPkg === undefined) return null;
-  let cursor: ArxmlElement | ArxmlPackage = rootPkg;
-  for (const name of rest) {
-    if ('kind' in cursor) {
-      // ArxmlElement is {module|container|reference}; TS narrows away
-      // 'reference' due to the children-access below. Cast preserves
-      // the type-narrowing intent.
-      if ((cursor as ArxmlElement).kind === 'reference') return null;
-      // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME
-      // and no children to descend into; the picker is for BSWMD
-      // module/container navigation, so treat unknowns as leaves.
-      if ((cursor as ArxmlElement).kind === 'unknown') return null;
-      const child: ArxmlElement | undefined = (
-        cursor as ArxmlContainer | ArxmlModule
-      ).children.find(
-        (c: ArxmlElement) =>
-          (c.kind === 'module' || c.kind === 'container') && c.shortName === name,
-      );
-      if (child === undefined || child.kind === 'reference') return null;
-      cursor = child;
-      continue;
-    }
-    // Package: look in elements.
-    const child: ArxmlElement | undefined = cursor.elements.find(
-      (e) => (e.kind === 'module' || e.kind === 'container') && e.shortName === name,
-    );
-    if (child === undefined || child.kind === 'reference') return null;
-    cursor = child;
-  }
-  if ('kind' in cursor && (cursor.kind === 'module' || cursor.kind === 'container')) {
-    return cursor;
-  }
-  return null;
+  // Bug 2c (v1.4.1) — delegate to `findByPath` so the picker accepts BOTH
+  // canonical 4-segment (`/<pkg>/<module>/<container>/…`) AND compressed
+  // 3-segment (`/<pkg>/<container>/…`) paths. The latter is what some user
+  // dispatchers produce when `pkg.shortName === module.shortName`.
+  const found = findByPath(doc, parentPath);
+  if (found === null) return null;
+  const { element } = found;
+  // The picker only navigates module/container parents — reference and
+  // unknown leaves return null even when path-walking succeeded.
+  if (element.kind !== 'module' && element.kind !== 'container') return null;
+  return element;
 }
 
 /**

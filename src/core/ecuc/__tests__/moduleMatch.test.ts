@@ -28,6 +28,7 @@ function mkBswmd(shortNames: string[]): BswmdDocument {
       providedEntries: [],
       lowerMultiplicity: 1,
       upperMultiplicity: 1,
+      multiplicityConfigClasses: [],
     })),
     warnings: [],
   };

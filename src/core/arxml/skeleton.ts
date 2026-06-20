@@ -145,24 +145,42 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
   }
   return {
     kind: 'container',
-    tagName: 'ECUC-CONFIGURATION-CONTAINER',
+    // Bug 2a (v1.4.1) — value-side containers must use the value-side tag
+    // `ECUC-CONTAINER-VALUE` (AUTOSAR TPS_StandardizationTemplate). The
+    // pre-fix code emitted `ECUC-CONFIGURATION-CONTAINER` which is the
+    // schema-side / BSWMD tag. The parser is lenient and accepts both
+    // on round-trip, but the XML was non-spec-compliant — sibling
+    // containers added via mutation would emit the value-side tag,
+    // producing inconsistent XML.
+    tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
     params,
-    children: c.subContainers.map(buildSubContainerShell),
+    children: c.subContainers.flatMap(buildSubContainerShell),
   };
 }
 
-function buildSubContainerShell(c: ContainerDef): ArxmlContainer {
-  // Sub-containers stay as empty shells — the user instanceiates them
-  // explicitly. Their params get filled later by the editor's
-  // `addSubContainer` flow which clones the BSWMD defaults.
-  return {
-    kind: 'container',
-    tagName: 'ECUC-CONFIGURATION-CONTAINER',
-    shortName: c.shortName,
-    params: {},
-    children: c.subContainers.map(buildSubContainerShell),
-  };
+function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
+  // Bug 2b (v1.4.1) — only pre-create a shell when the BSWMD declares
+  // `lowerMultiplicity > 0`. Optional containers (lower=0, upper=1) were
+  // being created as empty shells regardless, leaving the user with a
+  // ghost placeholder that has no `DEFINITION-REF` and confuses the
+  // picker (it counted the shell as a real instance). Containers with
+  // `lowerMultiplicity >= 1` keep the existing auto-create behaviour so
+  // the skeleton's multiplicity contract is honoured.
+  //
+  // Returning an array (not a single container or null) lets the caller
+  // use `flatMap(buildSubContainerShell)` — optional children produce
+  // an empty array which `flatMap` drops automatically.
+  if (c.lowerMultiplicity <= 0) return [];
+  return [
+    {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: c.shortName,
+      params: {},
+      children: c.subContainers.flatMap(buildSubContainerShell),
+    },
+  ];
 }
 
 /**
