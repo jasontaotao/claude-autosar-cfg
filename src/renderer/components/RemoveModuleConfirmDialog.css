@@ -1,0 +1,163 @@
+/* RemoveModuleConfirmDialog — Sprint 17 P2.
+   Visual shell mirrors CascadeConfirmDialog (Catppuccin Mocha) but
+   with 4 buttons instead of 3. z-index 9997 — sits BETWEEN
+   CascadeConfirmDialog (9996) and ConfirmDialog (9998), so the
+   cascade-dialog can stack inside an unsaved-changes confirm. */
+
+.remove-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.remove-dialog {
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
+  border-radius: 12px;
+  min-width: 480px;
+  max-width: 620px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #cdd6f4; /* --color-text */
+  overflow: hidden;
+}
+
+.remove-dialog-header {
+  background: #181825; /* --color-bg (darker) */
+  padding: 14px 20px;
+  border-bottom: 1px solid #45475a;
+}
+
+.remove-dialog-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.remove-dialog-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.remove-message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cdd6f4;
+  margin-bottom: 4px;
+}
+
+.remove-deps {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #a6adc8; /* --color-text-dim */
+  max-height: 280px;
+  overflow-y: auto;
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 6px;
+}
+
+.remove-dep-item {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.remove-dep-file {
+  color: #89b4fa; /* --color-accent */
+  font-weight: 600;
+}
+
+.remove-more {
+  font-size: 12px;
+  color: #a6adc8;
+  font-style: italic;
+  text-align: right;
+}
+
+.remove-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #181825;
+  padding: 12px 20px;
+  border-top: 1px solid #45475a;
+}
+
+.remove-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.remove-btn-cancel {
+  background: #45475a;
+  color: #cdd6f4;
+  border-color: #585b70;
+}
+
+.remove-btn-cancel:hover {
+  background: #585b70;
+}
+
+.remove-btn-only {
+  background: #89b4fa; /* --color-accent — safe default, the autoFocus target */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #89b4fa;
+}
+
+.remove-btn-only:hover {
+  background: #74c7ec;
+  border-color: #74c7ec;
+}
+
+.remove-btn-cascade {
+  background: #f38ba8; /* --color-error — destructive, also cascades */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #f38ba8;
+}
+
+.remove-btn-cascade:hover {
+  background: #eba0ac;
+  border-color: #eba0ac;
+}
+
+.remove-btn-cascadeAndUnlink {
+  /* 4th option — even more destructive (deletes BSWMD from disk on
+     top of cascade). Distinct color (warning yellow) so the user can
+     tell it apart from the 3rd option at a glance. */
+  background: #f9e2af; /* --color-warning */
+  color: #1e1e2e;
+  font-weight: 600;
+  border-color: #f9e2af;
+}
+
+.remove-btn-cascadeAndUnlink:hover {
+  background: #fab387;
+  border-color: #fab387;
+}

@@ -57,6 +57,7 @@ import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { PromptRoot } from './components/PromptDialog';
+import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog';
 import { ScriptPanel } from './components/ScriptPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
@@ -435,6 +436,14 @@ export function App(): JSX.Element {
           — see Phase 2). Mounted last because it depends on no other
           dialog; no cross-mount ordering requirement. */}
       <CascadeConfirmRoot />
+      {/* Sprint 17 P2 — RemoveModuleConfirmRoot hosts the 4-option
+          BSWMD-remove confirm dialog (cancel / only / cascade /
+          cascade-and-unlink). The 4th option unlinks the BSWMD file
+          from disk on top of cascade — fired by
+          `confirmRemoveBswmd()` from `useProjectActions.removeBswmdWithFullFlow`.
+          Distinct from CascadeConfirmDialog (3-option) because the
+          4th option's semantics have no ECUC analog. */}
+      <RemoveModuleConfirmRoot />
       <NewProjectDialog onSubmit={handleNewProjectSubmit} />
       {/* Sprint 14 / Task 11 — ECUC picker. Hosted at App.tsx so any
           sibling entry point (AppHeader menu / ProjectPanel row chip)

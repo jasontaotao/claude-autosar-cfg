@@ -332,6 +332,17 @@ export interface Messages {
   readonly 'confirm.cascade.cancel': string;
   readonly 'confirm.cascade.only': string;
   readonly 'confirm.cascade.cascade': string;
+  // Sprint 17 P2 — RemoveModuleConfirmDialog (4-option for BSWMD
+  // remove with dependents). Distinct from `confirm.cascade.*`
+  // (3-option for ECUC container delete) because the 4th option
+  // `cascade-and-unlink` adds disk unlink of the BSWMD file on top
+  // of cascade — a verb the ECUC case has no equivalent for.
+  readonly 'confirm.removeBswmd.title': string; // {name}
+  readonly 'confirm.removeBswmd.message': string; // {name} {count}
+  readonly 'confirm.removeBswmd.cancel': string;
+  readonly 'confirm.removeBswmd.only': string;
+  readonly 'confirm.removeBswmd.cascade': string;
+  readonly 'confirm.removeBswmd.cascadeAndUnlink': string;
 
   // --- Sprint 15 — picker / editor chrome ---
   // BswmdPickerDialog + ParamEditor placeholders. Splitting them off
@@ -656,6 +667,12 @@ export const MessagesZhCN: Messages = {
   'confirm.cascade.cancel': '取消',
   'confirm.cascade.only': '仅删容器',
   'confirm.cascade.cascade': '一并删引用',
+  'confirm.removeBswmd.title': "移除 BSWMD '{name}'?",
+  'confirm.removeBswmd.message': "'{name}' 被 {count} 个 value-side 文件依赖：",
+  'confirm.removeBswmd.cancel': '取消',
+  'confirm.removeBswmd.only': '仅移除 BSWMD',
+  'confirm.removeBswmd.cascade': '一并删除依赖文件',
+  'confirm.removeBswmd.cascadeAndUnlink': '一并删除 + 从磁盘删除 BSWMD',
 
   'picker.search.placeholder': '搜索…',
   'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
@@ -965,6 +982,12 @@ export const MessagesEn: Messages = {
   'confirm.cascade.cancel': 'Cancel',
   'confirm.cascade.only': 'Only delete',
   'confirm.cascade.cascade': 'Cascade delete',
+  'confirm.removeBswmd.title': "Remove BSWMD '{name}'?",
+  'confirm.removeBswmd.message': "'{name}' is depended on by {count} value-side file(s):",
+  'confirm.removeBswmd.cancel': 'Cancel',
+  'confirm.removeBswmd.only': 'Only remove BSWMD',
+  'confirm.removeBswmd.cascade': 'Also delete dependents',
+  'confirm.removeBswmd.cascadeAndUnlink': 'Also delete + remove BSWMD from disk',
 
   'picker.search.placeholder': 'Search…',
   'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',

@@ -73,8 +73,8 @@ import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 import { basename } from '@shared/path';
 
-import { confirmCascade } from '../components/CascadeConfirmDialog';
 import { confirm } from '../components/ConfirmDialog';
+import { confirmRemoveBswmd } from '../components/RemoveModuleConfirmDialog';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 export type ProjectActionResult =
@@ -255,7 +255,12 @@ export function useProjectActions(): {
   readonly saveProject: () => Promise<ProjectActionResult>;
   readonly addBswmdFromDialog: () => Promise<ProjectActionResult>;
   readonly removeBswmdWithGuard: (path: string) => Promise<ProjectActionResult>;
-  readonly removeBswmdWithCascade: (path: string) => Promise<ProjectActionResult>;
+  // Sprint 17 P2 — replaces `removeBswmdWithCascade`. Unified entry
+  // point that does dirty-guard + 4-option BSWMD-remove dialog +
+  // dispatch on the user's choice. Replaces both `removeBswmdWithGuard`
+  // and `removeBswmdWithCascade` callers in P3 (UI context-menu +
+  // ProjectPanel × button rewrite).
+  readonly removeBswmdWithFullFlow: (path: string) => Promise<ProjectActionResult>;
   readonly submitNewProject: (
     name: string,
     directory: string,
@@ -546,63 +551,138 @@ export function useProjectActions(): {
   // product wants the dirty guard on cascade remove later, lift it
   // from `removeBswmdWithGuard` and prepend it here.
   // -------------------------------------------------------------------------
-  const removeBswmdWithCascade = useCallback(async (path: string): Promise<ProjectActionResult> => {
-    // Bail up-front on unknown paths so we don't pop the dialog for
-    // a no-op click. Mirrors `removeBswmdWithGuard`'s first-line
-    // guard.
-    if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
-      return { kind: 'canceled' };
-    }
-    // Snapshot dependents via the T7 store action. `dependents` is
-    // a fresh array each call (the store filters + maps on demand),
-    // so it's safe to use directly without re-snapshotting.
-    const dependents = useArxmlStore.getState().findDependentsOfBswmd(path);
-    if (dependents.length > 0) {
-      // Reuse the existing `CascadeConfirmDialog.confirmCascade` —
-      // already mounted in App.tsx, already i18n'd via
-      // `confirm.cascade.*`. The dialog accepts
-      // `{ targetShortName, references: [{filePath, containerPath,
-      // paramKey}] }`; for BSWMD-remove the per-reference
-      // containerPath / paramKey are not meaningful (a whole ARXML
-      // is the dependent, not a single param), so we pass empty
-      // strings and let the filePath be the visible identifier.
-      const choice = await confirmCascade({
+  // Sprint 17 P2 — `removeBswmdWithFullFlow`. Replaces
+  // `removeBswmdWithCascade`. Unified entry point that does
+  // dirty-guard + 4-option BSWMD-remove dialog + dispatch on the
+  // user's choice.
+  //
+  // Why merge: P1's design flagged "dirty-guard + cascade dialog
+  // 双弹窗顺序是 UX 风险" — two separate paths risk "cascade dialog
+  // 已开但 dirty guard 已被取消" 半态. P2 fixes by collapsing into a
+  // single function.
+  //
+  // Dispatch on choice:
+  //   - 'cancel'             — no mutation; return ok (the user
+  //                             explicitly backed out)
+  //   - 'only'               — in-memory `removeBswmd` (BSWMD stays
+  //                             on disk; dependents stay in store
+  //                             and become dangling)
+  //   - 'cascade'            — for each dependent, IPC deleteArxml
+  //                             + removeDocument; then in-memory
+  //                             `removeBswmd` (BSWMD stays on disk)
+  //   - 'cascade-and-unlink' — same as cascade + ALSO call
+  //                             `removeBswmdFromDisk` (Sprint 17
+  //                             P1 store action) which fires the
+  //                             `bswmd:delete` IPC. BSWMD file is
+  //                             gone from disk; in-memory schema
+  //                             captured into `lastRemoveSnapshot`
+  //                             for single-level undo
+  //
+  // No-dependents path: skip the dialog entirely (no destructive
+  // choice to make) and call `removeBswmd` directly. This is the
+  // pre-P2 behavior of `removeBswmdWithGuard` when the project is
+  // clean; kept identical to avoid surprising users who hit the
+  // "× delete a BSWMD with no dependents" path.
+  // -------------------------------------------------------------------------
+  const removeBswmdWithFullFlow = useCallback(
+    async (path: string): Promise<ProjectActionResult> => {
+      // Bail up-front on unknown paths so we don't pop the dirty-
+      // guard or the cascade dialog for a no-op click. Mirrors the
+      // old `removeBswmdWithGuard` first-line guard.
+      if (!useArxmlStore.getState().bswmdPaths.includes(path)) {
+        return { kind: 'canceled' };
+      }
+
+      // Dirty-guard. The dirty-guard ConfirmDialog must be answered
+      // before the cascade dialog. If the user cancels the
+      // dirty-guard, we short-circuit (no cascade dialog shown).
+      const guard = await guardedDirtySwitch({
+        action: 'removeBswmd',
+        targetName: path,
+        save: saveProject,
+      });
+      if (!guard.proceed) {
+        if ('saveError' in guard) {
+          return { kind: 'error', message: guard.saveError };
+        }
+        return { kind: 'canceled' };
+      }
+
+      // Snapshot dependents via the existing store action. Fresh
+      // array each call (the store filters + maps on demand), so
+      // safe to use directly without re-snapshotting.
+      const dependents = useArxmlStore.getState().findDependentsOfBswmd(path);
+
+      // No dependents: skip the dialog entirely. The "× button on
+      // a BSWMD with no dependents" path stays identical to the
+      // pre-P2 behavior (in-memory only, BSWMD stays on disk). The
+      // disk-unlink path is only reachable through the 4-option
+      // dialog, which is only shown when the BSWMD has dependents.
+      if (dependents.length === 0) {
+        useArxmlStore.getState().removeBswmd(path);
+        return { kind: 'ok' };
+      }
+
+      // 4-option dialog. See RemoveModuleConfirmDialog.tsx for the
+      // full resolution semantics. The dialog accepts
+      // `{ targetShortName, dependents: [{filePath}] }` — for
+      // BSWMD-remove the per-reference containerPath / paramKey
+      // are not meaningful (a whole ARXML is the dependent, not a
+      // single <REFERENCE-VALUES> entry), so the new
+      // RemoveBswmdDependent shape drops those fields.
+      const choice = await confirmRemoveBswmd({
         targetShortName: basename(path),
-        references: dependents.map((filePath) => ({
-          filePath,
-          containerPath: '',
-          paramKey: '',
-        })),
+        dependents: dependents.map((filePath) => ({ filePath })),
       });
       if (choice === 'cancel') {
         return { kind: 'ok' };
       }
-      if (choice === 'cascade') {
+      if (choice === 'only') {
+        // In-memory only; BSWMD stays on disk; dependents become
+        // dangling. The user explicitly chose this — validation
+        // will flag the dangling refs downstream.
+        useArxmlStore.getState().removeBswmd(path);
+        return { kind: 'ok' };
+      }
+      if (choice === 'cascade' || choice === 'cascade-and-unlink') {
         // For each dependent, delete from disk via IPC, then drop
         // from the store. We read `removeDocument` on a fresh
         // `getState()` per call so the loop sees the post-removal
-        // documentPaths each iteration (the store's `removeDocument`
-        // is index-by-path, so it tolerates stale snapshots — but
-        // this is the explicit, correct shape).
+        // documentPaths each iteration. Best-effort disk delete —
+        // `not-found` is fine (still drop in-memory), `write-failed`
+        // is a real error we surface through the IPC result.
         for (const filePath of dependents) {
-          // Best-effort disk delete. The IPC handler returns
-          // `{ kind: 'ok' | 'not-found' | 'write-failed' }`. A
-          // `not-found` (file already gone) is fine — we still drop
-          // the in-memory entry. A `write-failed` is also OK here:
-          // the in-memory doc is stale either way, and the user
-          // gets to see a store-level error via the next mutation
-          // if it matters.
-          await window.autosarApi.deleteArxml({ filePath });
+          const result = await window.autosarApi.deleteArxml({ filePath });
+          if (result.kind === 'write-failed') {
+            return { kind: 'error', message: result.message };
+          }
           useArxmlStore.getState().removeDocument(filePath);
         }
+        if (choice === 'cascade') {
+          // In-memory only; BSWMD stays on disk.
+          useArxmlStore.getState().removeBswmd(path);
+          return { kind: 'ok' };
+        }
+        // 'cascade-and-unlink' — cascade + unlink the BSWMD file
+        // from disk via the P1 store action. The store action
+        // pushes a snapshot into `lastRemoveSnapshot` so a
+        // single-level `undoLastRemoveBswmd` can restore the
+        // in-memory state. Map the P1 action's `write-failed`
+        // envelope to the hook's `error` envelope so the caller
+        // (UI / ProjectActionResult consumer) sees a uniform shape.
+        const r = await useArxmlStore.getState().removeBswmdFromDisk(path);
+        if (r.kind === 'write-failed') {
+          return { kind: 'error', message: r.message };
+        }
+        return { kind: r.kind };
       }
-      // 'only' falls through to remove the BSWMD only — dependents
-      // stay in the store and lose schema validation, which is what
-      // the user explicitly chose.
-    }
-    useArxmlStore.getState().removeBswmd(path);
-    return { kind: 'ok' };
-  }, []);
+      // Unreachable: the dialog only returns the 4 enum values,
+      // and we just handled all 4. Defensive exhaustive check for
+      // future enum additions.
+      return { kind: 'ok' };
+    },
+    [saveProject],
+  );
 
   return {
     newProject,
@@ -610,7 +690,7 @@ export function useProjectActions(): {
     saveProject,
     addBswmdFromDialog,
     removeBswmdWithGuard,
-    removeBswmdWithCascade,
+    removeBswmdWithFullFlow,
     submitNewProject,
   };
 }
