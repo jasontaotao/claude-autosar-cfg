@@ -16,11 +16,11 @@ import { resolve } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
+import { serializeArxml } from '@core/arxml/serializer.js';
+import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
+import type { ArxmlContainer, ArxmlModule } from '@core/arxml/types.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type { BswModuleDef, ContainerDef } from '@core/project/bswmd.js';
-import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
-import { serializeArxml } from '@core/arxml/serializer.js';
-import type { ArxmlContainer, ArxmlModule } from '@core/arxml/types.js';
 
 const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
 

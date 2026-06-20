@@ -11,10 +11,10 @@ import { resolve } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
-import { parseBswmd } from '@core/project/bswmd.js';
-import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
+import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
 import type { ArxmlContainer, ArxmlModule } from '@core/arxml/types.js';
+import { parseBswmd } from '@core/project/bswmd.js';
 
 const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
 
