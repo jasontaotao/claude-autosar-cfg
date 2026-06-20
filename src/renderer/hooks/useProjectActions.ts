@@ -428,10 +428,16 @@ export function useProjectActions(): {
         };
       case 'opened':
         try {
+          // Sprint A (P0-A2) — forward the BSWMD bundle from the IPC
+          // response so the store can parse each entry into
+          // bswmdSchemas. Pre-Sprint-A this was silently dropped,
+          // leaving `📋 0/0` stuck on zero even when the manifest
+          // referenced real BSWMDs.
           useArxmlStore.getState().openProject({
             manifestPath: result.manifestPath,
             manifest: result.manifest,
             docs: result.docs,
+            bswmds: result.bswmds,
           });
           return { kind: 'ok' };
         } catch (e) {

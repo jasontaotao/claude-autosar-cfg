@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { basename, dirname, toManifestRelative } from '../path.js';
+import { basename, bswmdKeyFor, dirname, toManifestRelative } from '../path.js';
 
 describe('shared/path.basename', () => {
   it('returns last segment for Unix-style paths', () => {
@@ -134,5 +134,64 @@ describe('shared/path.toManifestRelative', () => {
 
   it('still passes through "foo/bar" relative input unchanged', () => {
     expect(toManifestRelative('/proj', 'foo/bar.arxml')).toBe('foo/bar.arxml');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint A — bswmdKeyFor
+//
+// P0-A1 fix helper: render two paths that may come from different sources
+// (manifest-relative POSIX vs absolute Windows) to the same canonical key,
+// so callers can do a `Map.get(key)` lookup without worrying about
+// separator shape, drive-letter casing, or absolute-vs-relative form.
+//
+// Implementation strategy: take the last 2 path segments after lowercasing
+// + separator canonicalisation. This collapses `bswmd/EcuC.arxml` and
+// `D:\proj\bswmd\EcuC.arxml` to the same key (`bswmd/ecuc.arxml`) while
+// still distinguishing two BSWMDs that live in different subfolders.
+// ---------------------------------------------------------------------------
+
+describe('shared/path.bswmdKeyFor', () => {
+  it('returns the same key for manifest-relative POSIX and absolute Windows forms of the same file', () => {
+    const manifestRel = 'bswmd/EcuC.arxml';
+    const winAbs = 'D:\\proj\\bswmd\\EcuC.arxml';
+    expect(bswmdKeyFor(manifestRel)).toBe(bswmdKeyFor(winAbs));
+  });
+
+  it('returns the same key for absolute POSIX and absolute Windows forms', () => {
+    expect(bswmdKeyFor('/proj/bswmd/EcuC.arxml')).toBe(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'));
+  });
+
+  it('returns the same key for mixed-separator and pure-backslash forms', () => {
+    expect(bswmdKeyFor('D:/proj/bswmd\\EcuC.arxml')).toBe(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'));
+  });
+
+  it('is case-insensitive across the whole path (Windows paths are case-insensitive on disk)', () => {
+    expect(bswmdKeyFor('D:\\proj\\X.arxml')).toBe(bswmdKeyFor('d:\\proj\\X.arxml'));
+    expect(bswmdKeyFor('D:\\Proj\\X.arxml')).toBe(bswmdKeyFor('d:\\proj\\X.arxml'));
+  });
+
+  it('strips trailing separators before keying', () => {
+    expect(bswmdKeyFor('/proj/bswmd/EcuC.arxml/')).toBe(bswmdKeyFor('/proj/bswmd/EcuC.arxml'));
+    expect(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml\\')).toBe(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'));
+  });
+
+  it('returns just the basename for a top-level file (no parent dir)', () => {
+    expect(bswmdKeyFor('EcuC.arxml')).toBe('ecuc.arxml');
+  });
+
+  it('returns the empty string for an empty input', () => {
+    expect(bswmdKeyFor('')).toBe('');
+  });
+
+  it('differentiates two BSWMDs that live in different sub-folders of the same project', () => {
+    // Sprint 16b — the collision-safety contract: two entries in
+    // manifest.bswmdPaths that share a basename but live in different
+    // sub-dirs must still pair to distinct schemas.
+    expect(bswmdKeyFor('subdir1/EcuC.arxml')).not.toBe(bswmdKeyFor('subdir2/EcuC.arxml'));
+  });
+
+  it('uses a single-segment tail when the input has only one path component', () => {
+    expect(bswmdKeyFor('bswmd')).toBe('bswmd');
   });
 });

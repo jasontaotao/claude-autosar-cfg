@@ -404,6 +404,16 @@ export interface ArxmlState {
    * the bundle returned by IPC `project:open`. `manifest.bswmdPaths`
    * is recorded but the actual BSWMD contents are NOT parsed in
    * Phase 1 — that wires up in Phase 2 once `parseBswmd` lands.
+   *
+   * Sprint A (P0-A2) — also accepts `bswmds` (the IPC contract already
+   * returns them but Phase 1 dropped the bundle). Each entry's
+   * `content` is parsed via `parseBswmd` and the resulting schema is
+   * pushed to `bswmdSchemas` alongside the IPC-provided absolute
+   * `path` in `bswmdPaths`. Parse failures surface a localized
+   * `'app.error.parseBswmdFailed'` toast and the bad entry is
+   * skipped — good entries still register (best-effort load). Any
+   * pre-existing `bswmdSchemas` / `bswmdPaths` are cleared first so a
+   * prior project's schemas don't leak across openProject calls.
    */
   openProject: (input: {
     readonly manifestPath: string;
@@ -415,6 +425,17 @@ export interface ArxmlState {
      * basename (e.g. `subdir1/EcuC.arxml` and `subdir2/EcuC.arxml`).
      */
     readonly docs: readonly {
+      readonly rel: string;
+      readonly path: string;
+      readonly content: string;
+    }[];
+    /**
+     * Sprint A — bundled BSWMDs from IPC `project:open`. Same shape
+     * as `docs` (rel + absolute path + content). Optional for
+     * back-compat: New project flow passes nothing here today, and
+     * tests that pre-date this field must keep working.
+     */
+    readonly bswmds?: readonly {
       readonly rel: string;
       readonly path: string;
       readonly content: string;
@@ -950,7 +971,7 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // the language setting. Use setLocale() explicitly to change.
     }),
 
-  openProject: ({ manifestPath, manifest, docs }) => {
+  openProject: ({ manifestPath, manifest, docs, bswmds }) => {
     // Phase 1 only parses ARXML docs; BSWMDs are recorded in
     // `manifest.bswmdPaths` but their content is left unparsed (Phase 2
     // wires the BSWMD parser). The renderer pulls BSWMD content from the
@@ -983,6 +1004,42 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       orderedDocuments,
       orderedPaths,
     );
+
+    // Sprint A (P0-A2) — parse each BSWMD entry from the IPC bundle
+    // and push the result onto `bswmdSchemas` / `bswmdPaths`. Mirrors
+    // the dialog-driven `addBswmd` path so consumers (`ProjectPanel`,
+    // `ModuleFromBswmdPicker`) see the same shape regardless of how
+    // the schema arrived. Pre-Sprint-A this branch silently dropped
+    // `bswmds`, leaving the `📋 0/0` chip stuck on zero.
+    //
+    // Pair by IPC-provided absolute `path` — `manifest.bswmdPaths` is
+    // relative, but `state.bswmdPaths` is absolute (the addBswmd
+    // contract). Same key shape as the dialog flow so P0-A1's
+    // `bswmdKeyFor` lookup in `ProjectPanel` resolves correctly.
+    //
+    // Best-effort: parse failures surface a localized banner and the
+    // bad entry is skipped — good entries still register so a single
+    // malformed BSWMD doesn't sink the whole project load.
+    const locale = get().locale;
+    const bswmdSchemasOut: BswmdDocument[] = [];
+    const bswmdPathsOut: string[] = [];
+    let lastParseError: string | null = null;
+    if (bswmds !== undefined) {
+      for (const entry of bswmds) {
+        const result = parseBswmd(entry.content);
+        if (!result.ok) {
+          const message =
+            'message' in result.error
+              ? result.error.message
+              : `unsupported version: ${result.error.version}`;
+          lastParseError = t(locale, 'app.error.parseBswmdFailed', { message });
+          continue;
+        }
+        bswmdSchemasOut.push(result.value);
+        bswmdPathsOut.push(entry.path);
+      }
+    }
+
     set({
       documents: orderedDocuments,
       documentPaths: orderedPaths,
@@ -999,9 +1056,18 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
       dirtyPaths: new Set<string>(),
+      // Sprint A — clear stale bswmd schemas/paths from any prior
+      // project before installing the new bundle. Without this, a
+      // closeProject → openProject sequence leaks the previous
+      // project's schemas into the new one.
+      bswmdSchemas: bswmdSchemasOut,
+      bswmdPaths: bswmdPathsOut,
       // Sprint 17b T6 — clear the typed toast alongside `error` so a
-      // stale open-failure banner doesn't survive a successful open.
-      error: null,
+      // stale open-failure banner doesn't survive a successful open,
+      // UNLESS we hit a BSWMD parse error above (in which case the
+      // banner takes priority — the user needs to know the partial
+      // load).
+      error: lastParseError,
       toast: null,
       project: manifest,
       projectPath: manifestPath,

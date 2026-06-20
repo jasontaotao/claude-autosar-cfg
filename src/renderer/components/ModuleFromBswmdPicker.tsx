@@ -33,7 +33,9 @@ import { createPortal } from 'react-dom';
 import { resolveCollisionFilename } from '@core/arxml/skeleton.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { getActiveModules } from '@core/project/bswmd.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n.js';
+import { bswmdKeyFor } from '@shared/path.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';
 
@@ -79,6 +81,24 @@ export function ModuleFromBswmdPicker({
   // marks it for generation. `preSelectedBswmdPath` (when supplied by
   // the host) further seeds every active module from that BSWMD so a
   // user opening the picker from a ProjectPanel "+" lands inside it.
+
+  // Sprint A (P0-A1) — derive a `bswmdKey → schema` map so the
+  // pre-selection lookup resolves across the manifest-relative /
+  // absolute Windows shape mismatch. Same approach as
+  // `ProjectPanelInfo` (see that file for the full rationale). This
+  // memo MUST be declared before the `useState` initializer below
+  // that consumes it (Rules of Hooks: no hooks-after-state-init
+  // cross-talk).
+  const bswmdKeyToSchema = useMemo<ReadonlyMap<string, BswmdDocument>>(() => {
+    const map = new Map<string, BswmdDocument>();
+    bswmdPaths.forEach((path, idx) => {
+      const schema = bswmdSchemas[idx];
+      if (schema === undefined) return;
+      map.set(bswmdKeyFor(path), schema);
+    });
+    return map;
+  }, [bswmdSchemas, bswmdPaths]);
+
   const [selected, setSelected] = useState<Set<string>>(() => {
     const seeds = new Set<string>();
     for (const doc of documents) {
@@ -88,8 +108,12 @@ export function ModuleFromBswmdPicker({
       seeds.add(pickKey({ bswmdPath: doc.sourceBswmdPath, moduleShortName: moduleEl.shortName }));
     }
     if (preSelectedBswmdPath !== undefined) {
-      const idx = bswmdPaths.indexOf(preSelectedBswmdPath);
-      const schema = idx >= 0 ? bswmdSchemas[idx] : undefined;
+      // Sprint A (P0-A1) — `preSelectedBswmdPath` arrives as a
+      // manifest-relative POSIX path; `bswmdPaths` holds absolute
+      // Windows paths. A strict `indexOf` never matches. Resolve via
+      // `bswmdKeyFor` against a key→schema map derived from the
+      // store's parallel arrays (same approach ProjectPanel uses).
+      const schema = bswmdKeyToSchema.get(bswmdKeyFor(preSelectedBswmdPath));
       if (schema !== undefined) {
         for (const m of getActiveModules(schema)) {
           seeds.add(pickKey({ bswmdPath: preSelectedBswmdPath, moduleShortName: m.shortName }));
@@ -105,8 +129,10 @@ export function ModuleFromBswmdPicker({
   // render path so user-driven check toggles aren't overwritten.
   useEffect(() => {
     if (preSelectedBswmdPath === undefined) return;
-    const idx = bswmdPaths.indexOf(preSelectedBswmdPath);
-    const schema = idx >= 0 ? bswmdSchemas[idx] : undefined;
+    // Sprint A (P0-A1) — same path-shape mismatch fix as the initial
+    // seed above: resolve via `bswmdKeyFor` against the canonical
+    // key→schema map.
+    const schema = bswmdKeyToSchema.get(bswmdKeyFor(preSelectedBswmdPath));
     if (schema === undefined) return;
     setSelected((prev) => {
       // Add the new pre-selection seeds; preserve any existing checks
@@ -117,7 +143,7 @@ export function ModuleFromBswmdPicker({
       }
       return next;
     });
-  }, [preSelectedBswmdPath, bswmdPaths, bswmdSchemas]);
+  }, [preSelectedBswmdPath, bswmdKeyToSchema]);
 
   // Enumerate (bswmdPath, moduleShortName) pairs across all BSWMDs,
   // applying the disabled-module filter (`getActiveModules`) and the

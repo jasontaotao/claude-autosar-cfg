@@ -19,11 +19,13 @@
 // AppHeader locale toggle.
 
 import type { JSX, ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { getActiveModules } from '@core/project/bswmd.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
-import { basename } from '@shared/path';
+import { basename, bswmdKeyFor } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
 import { useArxmlStore } from '../store/useArxmlStore';
@@ -186,6 +188,28 @@ export function ProjectPanelInfo({
   const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
   const bswmdPathsInStore = useArxmlStore((s) => s.bswmdPaths);
 
+  // Sprint A (P0-A1) — derive a `bswmdKey → schema` lookup so the
+  // trailing chip can pair a manifest row (relative POSIX path) to
+  // its schema in the store (absolute Windows path) even when the
+  // two strings never compare equal. The key is the last 2
+  // path segments, lowercased + forward-slashed; see
+  // `shared/path.bswmdKeyFor` for the full contract.
+  //
+  // We materialise this map inside the component (rather than adding
+  // a selector to the store) so the store's interface stays focused
+  // on state, not on derived render helpers. `useMemo` keeps the map
+  // stable across re-renders as long as the underlying arrays don't
+  // change.
+  const bswmdKeyToSchema = useMemo<ReadonlyMap<string, BswmdDocument>>(() => {
+    const map = new Map<string, BswmdDocument>();
+    bswmdPathsInStore.forEach((path, idx) => {
+      const schema = bswmdSchemas[idx];
+      if (schema === undefined) return;
+      map.set(bswmdKeyFor(path), schema);
+    });
+    return map;
+  }, [bswmdSchemas, bswmdPathsInStore]);
+
   return (
     <div className="project-panel project-panel-open" data-testid="project-panel-open">
       <header className="project-panel-header">
@@ -261,9 +285,14 @@ export function ProjectPanelInfo({
         // fail transiently while a BSWMD is mid-parse; in that case we
         // fall back to 0/0 and skip the buttons (no schema = no
         // modules to instantiate).
+        //
+        // Sprint A (P0-A1) — the two arrays hold different path shapes
+        // (manifest.bswmdPaths = relative POSIX, store.bswmdPaths =
+        // absolute Windows), so a strict `indexOf` never hits. The
+        // `bswmdKeyToSchema` map built above collapses both shapes
+        // to a single canonical key.
         renderTrailing={(bswmdPath, idx) => {
-          const storeIdx = bswmdPathsInStore.indexOf(bswmdPath);
-          const schema = storeIdx >= 0 ? bswmdSchemas[storeIdx] : undefined;
+          const schema = bswmdKeyToSchema.get(bswmdKeyFor(bswmdPath));
           const totalCount = schema !== undefined ? schema.modules.length : 0;
           const activeModules = schema !== undefined ? getActiveModules(schema) : [];
           const activeCount = activeModules.length;

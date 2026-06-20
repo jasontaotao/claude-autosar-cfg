@@ -93,3 +93,37 @@ export function toManifestRelative(manifestDir: string, filePath: string): strin
   }
   return null;
 }
+
+/**
+ * Sprint A (P0-A1) — render a BSWMD path to a canonical lookup key so
+ * callers can match across two shapes the project layer actually
+ * produces:
+ *
+ *   - `manifest.bswmdPaths` — the manifest stores POSIX-relative
+ *     paths (`bswmd/EcuC.arxml`), computed via `toManifestRelative`.
+ *   - `state.bswmdPaths` — the store keeps the absolute on-disk path
+ *     (`D:\proj\bswmd\EcuC.arxml`) for parser lookup.
+ *
+ * `ProjectPanel.tsx` needs to pair these back together when rendering
+ * the active/total module chip trailing each BSWMD row. A naive
+ * `indexOf` misses because the strings never compare equal. This helper
+ * reduces both shapes to the same lowercase, forward-slash, trailing-
+ * separator-stripped key by taking the **last 2 path segments** — that
+ * is enough to disambiguate same-basename BSWMDs in different
+ * sub-directories (Sprint 16 collision-safety contract) while
+ * collapsing the absolute-vs-relative difference.
+ *
+ * Pure, no I/O, no `node:path` (renderer-safe).
+ */
+export function bswmdKeyFor(path: string): string {
+  if (path === '') return '';
+  // 1. Lowercase + backslash → forward slash + strip trailing separators.
+  const normalised = path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  // 2. Split into segments and take the last 2 (or all if fewer). This
+  //    collapses an absolute path's leading drive / root directory so a
+  //    POSIX-relative form (`bswmd/EcuC.arxml`) and the matching
+  //    absolute form (`D:\proj\bswmd\EcuC.arxml`) land on the same key.
+  const segments = normalised.split('/').filter((s) => s !== '');
+  const tail = segments.slice(-2);
+  return tail.join('/');
+}
