@@ -25,6 +25,10 @@ import { describe, it, expect } from 'vitest';
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '../../arxml/types.js';
 import { validateProjectForRenderer } from '../index.js';
 
+import { buildSubsetLikeLayer } from './_testSchemaLayer.js';
+
+const LAYER = buildSubsetLikeLayer();
+
 // ---------------------------------------------------------------------------
 // Test fixture builders (synthetic, in-memory)
 // ---------------------------------------------------------------------------
@@ -132,7 +136,7 @@ describe('validateProjectForRenderer — single doc with both kinds', () => {
   const doc = makeWdgIfDoc({ deviceIndex: 999, driverRef: '/No/Where' });
 
   it('with level=single returns the range error but suppresses cross-ref', () => {
-    const errors = validateProjectForRenderer([doc], { level: 'single' });
+    const errors = validateProjectForRenderer([doc], { level: 'single', schemaLayer: LAYER });
     const kinds = new Set(errors.map((e) => e.kind));
     expect(kinds.has('range')).toBe(true);
     expect(kinds.has('cross-ref')).toBe(false);
@@ -141,14 +145,14 @@ describe('validateProjectForRenderer — single doc with both kinds', () => {
   });
 
   it('with level=project returns range AND cross-ref', () => {
-    const errors = validateProjectForRenderer([doc], { level: 'project' });
+    const errors = validateProjectForRenderer([doc], { level: 'project', schemaLayer: LAYER });
     const kinds = new Set(errors.map((e) => e.kind));
     expect(kinds.has('range')).toBe(true);
     expect(kinds.has('cross-ref')).toBe(true);
   });
 
   it('default level is project (no opts ≡ { level: "project" })', () => {
-    const errors = validateProjectForRenderer([doc]);
+    const errors = validateProjectForRenderer([doc], { schemaLayer: LAYER });
     const kinds = new Set(errors.map((e) => e.kind));
     expect(kinds.has('range')).toBe(true);
     expect(kinds.has('cross-ref')).toBe(true);
@@ -196,7 +200,10 @@ describe('validateProjectForRenderer — return shape', () => {
     // Two docs each with a range violation; level=single should return ≥2 range errors
     const docA = makeWdgIfDoc({ deviceIndex: 999, driverRef: '' });
     const docB = makeWdgIfDoc({ deviceIndex: -1, driverRef: '' });
-    const errors = validateProjectForRenderer([docA, docB], { level: 'single' });
+    const errors = validateProjectForRenderer([docA, docB], {
+      level: 'single',
+      schemaLayer: LAYER,
+    });
     const rangeErrors = errors.filter((e) => e.kind === 'range');
     expect(rangeErrors.length).toBeGreaterThanOrEqual(2);
   });

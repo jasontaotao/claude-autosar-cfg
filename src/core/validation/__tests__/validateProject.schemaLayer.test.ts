@@ -2,9 +2,9 @@
 //
 // Pins the contract the renderer store depends on after layer integration:
 //   1. `validate(doc, layer)` / `validateProject(documents, layer)` accept
-//      an optional layer; omitting it preserves pre-#2 behaviour.
-//   2. With a layer, the layer wins over `ECUC_SUBSET_SCHEMA` when both
-//      catalogue the same param (layer is authoritative).
+//      an optional layer; omitting it makes every param silent-skip.
+//   2. With a layer, the layer is the authoritative source for
+//      param-level constraints.
 //   3. With a layer, paths under known modules that are not catalogued
 //      anywhere emit a 'schema-unknown' violation (BSWMD-declared
 //      module has no schema for this path).
@@ -135,17 +135,14 @@ function makeContainerEl(
 }
 
 // ---------------------------------------------------------------------------
-// Layer overrides static subset
+// Layer is the authoritative source
 // ---------------------------------------------------------------------------
 
-describe('validate(doc, layer) — layer overrides static subset', () => {
+describe('validate(doc, layer) — layer is authoritative', () => {
   // CanIf BSWMD declares one boolean param: CanIfDevErrorDetect at
-  // /EcucDefs/CanIf/CanIfGeneral/CanIfDevErrorDetect. The layer must
-  // take precedence over ECUC_SUBSET_SCHEMA when the ARXML happens to
-  // match both (we exploit Det/DetGeneral/VersionCheck which exists in
-  // the static subset, by overriding it via a synthetic BswmdDocument
-  // that points a CanIf-style module at the same path with a different
-  // type to demonstrate the layer wins).
+  // /EcucDefs/CanIf/CanIfGeneral/CanIfDevErrorDetect. The layer is the
+  // only source of param-level schema now that ECUC_SUBSET_SCHEMA has
+  // been retired; without it, every CanIf param would silent-skip.
   const canIfGeneral = container({
     shortName: 'CanIfGeneral',
     path: '/EcucDefs/CanIf/CanIfGeneral',
@@ -153,7 +150,7 @@ describe('validate(doc, layer) — layer overrides static subset', () => {
       param({
         shortName: 'CanIfDevErrorDetect',
         path: '/EcucDefs/CanIf/CanIfGeneral/CanIfDevErrorDetect',
-        kind: 'integer', // Different from static subset's absence — purely demonstrative
+        kind: 'integer',
         minValue: 0,
         maxValue: 1,
       }),
@@ -384,8 +381,10 @@ describe('baseline 5/5 regression gate — validate() with no layer', () => {
       expect(parsed.ok).toBe(true);
       if (!parsed.ok) return;
 
-      // Guard: layer omitted. The single-doc validator's contract
-      // before Sprint 12 #2 was 0 errors; that contract must hold.
+      // Without a layer, every param is silent-skip (no schema entry to
+      // check against), so validate() returns 0 errors. Container
+      // multiplicity still consults the static ECUC_CONTAINER_SCHEMA
+      // table, but the 5 fixtures sit within those bounds.
       expect(validate(parsed.value)).toEqual([]);
     });
 
@@ -397,11 +396,11 @@ describe('baseline 5/5 regression gate — validate() with no layer', () => {
       expect(parsed.ok).toBe(true);
       if (!parsed.ok) return;
 
-      // Sprint 12 #1 baseline: project-level pipeline yields 782
-      // cross-ref errors on the 5-fixture suite (intentional
-      // orphan-VALUE-REFs in the fixture set). We only assert here
-      // that validateProject continues to function with no layer and
-      // does NOT add any schema-unknown errors on top.
+      // Without a layer, validateProject() cannot emit 'schema-unknown'
+      // (that kind only fires when a layer is provided). Sprint 12 #1
+      // baseline: 782 cross-ref errors on the 5-fixture suite from
+      // intentional orphan-VALUE-REFs; we don't re-pin that number here,
+      // we just check the schema-unknown negative.
       const errors = validateProject([parsed.value]);
       expect(errors.some((e) => e.kind === 'schema-unknown')).toBe(false);
     });

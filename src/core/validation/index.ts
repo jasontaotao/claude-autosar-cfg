@@ -22,11 +22,11 @@ export {
 export { validateProjectForRenderer } from './dispatch.js';
 export type { ValidationLevel, DispatchOptions } from './dispatch.js';
 
-export { ECUC_SUBSET_SCHEMA, lookupSchema, allSchemaPaths } from './schema/ecucSubset.js';
+export { ECUC_CONTAINER_SCHEMA, lookupSchema, lookupContainerSchema } from './schema/ecucSubset.js';
 
 // Sprint 12 #2 — expose the runtime BSWMD-derived schema layer so the
 // renderer can build a layer from loaded BSWMD files and pass it into
 // validateProjectForRenderer / validateProject / validate without
 // importing internal submodules.
-export { buildSchemaLayer, findModuleForPath } from './runtimeSchema.js';
+export { buildSchemaLayer, findModuleForPath, lookupSchemaAcrossModuleRoots } from './runtimeSchema.js';
 export type { SchemaLayer } from './runtimeSchema.js';

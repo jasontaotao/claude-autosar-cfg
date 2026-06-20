@@ -119,6 +119,10 @@ import {
   validateProject,
 } from '../index.js';
 
+import { buildSubsetLikeLayer } from './_testSchemaLayer.js';
+
+const LAYER = buildSubsetLikeLayer();
+
 const FIXTURES = [
   'Det_Det.arxml',
   'EcuC_EcuC.arxml',
@@ -184,7 +188,7 @@ describe('5-fixture project-level baseline (Sprint 7 F7)', () => {
     const crossRefErrors = checkCrossRefs(refSites, pathIndex);
     const refDestErrors = checkRefDests(refSites, pathIndex);
     const refCycleErrors = checkRefCycles(refSites, pathIndex);
-    const allErrors = validateProject(docs);
+    const allErrors = validateProject(docs, LAYER).filter((e) => e.kind !== 'schema-unknown');
 
     // Count how many string-typed 'reference' params exist in the parsed
     // tree (the parser folds VALUE-REFs into `params` with type:'reference'

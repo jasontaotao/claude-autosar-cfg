@@ -11,10 +11,11 @@
 // kind, emitted only when the caller provides a layer).
 //
 // Lookup precedence (in `lookupSchema` / `lookupContainerSchema` in
-// `schema/ecucSubset.ts`): layer first, then static `ECUC_SUBSET_SCHEMA`
-// fallback. The layer wins because the user's BSWMD is the authoritative
-// schema-side spec for the modules it covers; the static subset is just
-// baseline coverage for the 5 test fixtures.
+// `schema/ecucSubset.ts`): layer first. Container multiplicity still
+// falls through to the static `ECUC_CONTAINER_SCHEMA` table when the
+// layer misses a path — param-level lookups have no static fallback,
+// so callers that need baseline 5/5 coverage must wire a layer
+// explicitly (see `core/validation/__tests__/_testSchemaLayer.ts`).
 //
 // Path format: BSWMD container paths are absolute (`/<AR-PACKAGE>/<module>/...`)
 // — same convention as the validator's `pathIndex`. Store layer paths raw;
@@ -31,6 +32,7 @@
 
 import type { BswmdDocument, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
 
+import { resolveTargetPath } from './pathNormalize.js';
 import type { EcucContainerSchemaEntry, EcucParamType, EcucSchemaEntry } from './types.js';
 
 /**
@@ -102,21 +104,30 @@ function indexContainer(
   containers: Map<string, EcucContainerSchemaEntry>,
   sourcePaths: Set<string>,
 ): void {
-  containers.set(container.path, {
-    path: container.path,
+  // Sprint 17d — apply `resolveTargetPath` at index time so layer keys
+  // share the same value-side namespace and type-segment-stripped
+  // form as the query paths that already ran the same helper. Without
+  // this, a BSWMD published under `/AUTOSAR_R22/EcucDefs/...` and a
+  // container multiplicity `Pdu` segment would not match a query that
+  // was normalised to `/EcucDefs/...` and stripped of `Pdu`.
+  const containerKey = resolveTargetPath(container.path);
+  containers.set(containerKey, {
+    path: containerKey,
     lower: container.lowerMultiplicity,
     upper: container.upperMultiplicity === 'infinite' ? 'unbounded' : container.upperMultiplicity,
   });
-  sourcePaths.add(container.path);
+  sourcePaths.add(containerKey);
 
   for (const p of container.parameters) {
-    params.set(p.path, paramDefToSchemaEntry(p));
-    sourcePaths.add(p.path);
+    const pKey = resolveTargetPath(p.path);
+    params.set(pKey, paramDefToSchemaEntry(p));
+    sourcePaths.add(pKey);
   }
 
   for (const r of container.references) {
-    params.set(r.path, referenceDefToSchemaEntry(r));
-    sourcePaths.add(r.path);
+    const rKey = resolveTargetPath(r.path);
+    params.set(rKey, referenceDefToSchemaEntry(r));
+    sourcePaths.add(rKey);
   }
 
   for (const sub of container.subContainers) {
@@ -226,4 +237,59 @@ export function findModuleForPath(layer: SchemaLayer, paramPath: string): string
   const modulePath = `/${segments[0]}/${segments[1]}`;
   if (!layer.containers.has(modulePath)) return null;
   return modulePath;
+}
+
+/**
+ * Sprint 17d follow-up — vendor CDD namespace-mismatch lookup.
+ *
+ * The classic AUTOSAR vendor CDD layout has the value-side ECUC values
+ * under `<pkg>/<module>` (e.g. `/JWQ3399/JWQ3399/...`) while the BSWMD
+ * schema-side is published under a nested `<AR-PACKAGE>` chain that
+ * prepends a vendor package (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...`).
+ * Module shortName is identical on both sides — only the package
+ * prefix differs.
+ *
+ * `lookupSchema(paramPath, layer)` matches only when the query path
+ * already uses the schema-side package prefix (the JWQ_ECucValues file
+ * does NOT — its `DEFINITION-REF` cross-references the schema-side
+ * path, but the rendered `containerPath` follows the value-side shape).
+ *
+ * This helper tries the direct lookup first, then for each candidate
+ * `moduleRoot` (taken from the loaded BSWMD modules) whose shortName
+ * matches `segments[1]` of the query, it rebuilds the candidate path
+ * as `<moduleRoot>/<suffix-from-segment[2]>` and tries again.
+ *
+ * Pure / side-effect-free.
+ *
+ * @param paramPath   normalised absolute path; the caller's job to run
+ *                    `resolveTargetPath` first (namespace / type-segment
+ *                    strip). Must already be value-side namespace form.
+ * @param layer       the runtime schema layer.
+ * @param moduleRoots optional list of candidate module roots from the
+ *                    loaded BSWMDs. When omitted, behaviour matches
+ *                    `lookupSchema(paramPath, layer)`.
+ * @returns the matching `EcucSchemaEntry` or `null`.
+ */
+export function lookupSchemaAcrossModuleRoots(
+  paramPath: string,
+  layer: SchemaLayer,
+  moduleRoots: readonly string[] = [],
+): EcucSchemaEntry | null {
+  const direct = layer.params.get(paramPath);
+  if (direct !== undefined) return direct;
+  if (paramPath === '' || !paramPath.startsWith('/')) return null;
+  const segments = paramPath.split('/').filter((s) => s.length > 0);
+  if (segments.length < 2) return null;
+  const queryModShortName = segments[1];
+  const suffix = '/' + segments.slice(2).join('/');
+  for (const root of moduleRoots) {
+    if (root === '' || !root.startsWith('/')) continue;
+    const rootSegments = root.split('/').filter((s) => s.length > 0);
+    const rootModShortName = rootSegments[rootSegments.length - 1];
+    if (rootModShortName !== queryModShortName) continue;
+    const candidate = root + suffix;
+    const found = layer.params.get(candidate);
+    if (found !== undefined) return found;
+  }
+  return null;
 }

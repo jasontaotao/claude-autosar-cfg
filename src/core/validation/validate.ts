@@ -1,4 +1,4 @@
-// Validate an ArxmlDocument against ECUC_SUBSET_SCHEMA.
+// Validate an ArxmlDocument against a runtime BSWMD-derived SchemaLayer.
 // Pure function: no side effects, no I/O. Returns a readonly list of
 // violations; empty list = valid.
 
@@ -11,31 +11,30 @@ import type {
   ParamValue,
 } from '../arxml/types.js';
 
-import { findModuleForPath } from './runtimeSchema.js';
+import { normalizePath, resolveTargetPath } from './pathNormalize.js';
+export { normalizePath, tryStripTypeSegment, resolveTargetPath } from './pathNormalize.js';
 import type { SchemaLayer } from './runtimeSchema.js';
+import { findModuleForPath } from './runtimeSchema.js';
 import { lookupContainerSchema, lookupSchema } from './schema/ecucSubset.js';
 import type { EcucSchemaEntry, PathIndexEntry, RefSite, ValidationError } from './types.js';
 
 /**
- * Validate `doc` against `ECUC_SUBSET_SCHEMA`.
+ * Validate `doc` against a runtime BSWMD-derived `SchemaLayer`.
  *
  * Walks every package, module, container and reference in the document,
- * looks up each param's absolute path in the schema, and emits a
+ * looks up each param's absolute path in the layer, and emits a
  * `ValidationError` per violation. Returned list is a snapshot — the
  * caller may safely keep the reference for diagnostics.
  *
- * The optional `layer` argument (Sprint 12 #2) lets the caller override
- * the static `ECUC_SUBSET_SCHEMA` with a runtime BSWMD-derived
- * `SchemaLayer`. When provided, lookups consult the layer first and fall
- * through to the static subset only on a layer miss. When provided, the
- * validator additionally emits `'schema-unknown'` errors for paths that
- * are *not* catalogued anywhere — the disambiguator for "outside any
- * schema we know about" vs. the existing silent-skip behaviour for
- * "in-schema-but-unconstrained" paths.
+ * The optional `layer` argument (Sprint 12 #2) supplies the param-level
+ * schema. When provided, the validator emits `'schema-unknown'` errors
+ * for paths that are not catalogued by the layer — the disambiguator
+ * for "outside any schema we know about" vs. the silent-skip behaviour
+ * for "in-schema-but-unconstrained" paths.
  *
- * Backwards compatibility: omitting `layer` preserves the pre-Sprint 12
- * #2 single-doc pipeline exactly. The 5 baseline fixtures continue to
- * validate with 0 errors.
+ * Without a layer the validator silently skips every param — callers
+ * that want baseline 5/5 0-error coverage must wire a layer explicitly
+ * (see `core/validation/__tests__/_testSchemaLayer.ts`).
  */
 export function validate(doc: ArxmlDocument, layer?: SchemaLayer): readonly ValidationError[] {
   const errors: ValidationError[] = [];
@@ -97,7 +96,15 @@ function walkContainer(
 ): void {
   const elementPath = `${parentPath}/${el.shortName}`;
   for (const [paramKey, value] of Object.entries(el.params)) {
-    const paramPath = `${elementPath}/${paramKey}`;
+    const rawPath = `${elementPath}/${paramKey}`;
+    // Normalise through `resolveTargetPath` so a layer keyed on the
+    // value-side namespace (`/EcucDefs/...`) and with schema-side type
+    // segments already stripped matches a query built from a
+    // definition-side ARXML path (`/AUTOSAR_R<NN>/EcucDefs/...`,
+    // `/EAS/EcucDefs/...`, `/.../Pdu/...` with the Pdu type segment).
+    // Sprint 17d: `runtimeSchema.ts#indexContainer` runs the same
+    // helper at index time so layer keys share this shape.
+    const paramPath = resolveTargetPath(rawPath);
     const entry = lookupSchema(paramPath, layer);
     if (entry === null) {
       // Layer-aware schema-unknown disambiguation: when a layer is
@@ -107,10 +114,15 @@ function walkContainer(
       // but forgot to also load the BSWMD that defines CanIfInitConfiguration).
       // Without a layer (5 baseline fixtures), preserve silent-skip.
       if (layer !== undefined) {
-        emitSchemaUnknownIfInKnownModule(layer, paramPath, errors);
+        // Pass the *raw* path so the error's `path` field keeps the
+        // caller's exact ARXML shape (incl. type segments like `Pdu`).
+        emitSchemaUnknownIfInKnownModule(layer, rawPath, errors);
       }
       continue;
     }
+    // Same rationale: keep the normalised path on the error so the
+    // error shape is stable across ARXML namespace variations and the
+    // renderer can pin its lookups against a single canonical form.
     checkParam(paramPath, paramKey, value, entry, errors);
   }
   walkElements(elementPath, el.children, errors, layer);
@@ -123,10 +135,12 @@ function walkReference(
   layer?: SchemaLayer,
 ): void {
   const refPath = `${parentPath}/${el.shortName ?? el.value}`;
-  const entry = lookupSchema(refPath, layer);
+  // Sprint 17d — normalise query side so a layer keyed on the value-side
+  // namespace + stripped type segments matches the reference path.
+  const entry = lookupSchema(resolveTargetPath(refPath), layer);
   if (entry === null || entry.type !== 'reference') {
     if (layer !== undefined) {
-      emitSchemaUnknownIfInKnownModule(layer, refPath, errors);
+      emitSchemaUnknownIfInKnownModule(layer, resolveTargetPath(refPath), errors);
     }
     return;
   }
@@ -283,7 +297,9 @@ function checkContainerMultiplicity(
   errors: ValidationError[],
   layer?: SchemaLayer,
 ): void {
-  const schema = lookupContainerSchema(containerPath, layer);
+  // Sprint 17d — same normalisation as `walkContainer`. Layer keys are
+  // folded at index time so the lookup needs the same shape.
+  const schema = lookupContainerSchema(resolveTargetPath(containerPath), layer);
   if (schema === null) {
     // Layer-aware schema-unknown: same disambiguator as the param-level
     // check above — if the layer knows the *parent* module but didn't
@@ -332,130 +348,10 @@ function typeMatches(value: ParamValue, expected: EcucSchemaEntry['type']): bool
 }
 
 // ============================================================================
-// Sprint 8 — Cross-fixture VALUE-REF namespace normalisation
+// Sprint 17d — `normalizePath` / `tryStripTypeSegment` / `resolveTargetPath`
+// moved to `./pathNormalize.ts` so the layer index side can apply the
+// same pipeline at index time without creating an import cycle.
 // ============================================================================
-
-/**
- * Cross-fixture namespace map: collapses `/EAS/...` (definition-side
- * target namespace emitted by EB tresos / Vector tools in fixture
- * ARXML) to `/EcucDefs/...` (value-side namespace matching
- * `AR-PACKAGE > SHORT-NAME = "EcucDefs"` used by buildPathIndex).
- *
- * Hard-coded as file-level constants — the 5 baseline fixtures only
- * emit this one mismatch; if a future fixture surfaces a new
- * namespace pair, add an `if` here WITHOUT changing the signature.
- */
-const NAMESPACE_VALUE_PREFIX = '/EcucDefs';
-const NAMESPACE_DEFINITION_PREFIX = '/EAS';
-
-/**
- * Normalize an absolute AUTOSAR path so cross-ref sites and
- * path-index keys share the value-side namespace prefix. Pure /
- * side-effect-free / immutable.
- *
- * Pass-through (return input unchanged) for:
- *   - empty string (let `isUnsetPlaceholder` filter)
- *   - bare typename with no leading `/` (e.g. `PDU-TO-FRAME-MAPPING/`,
- *     already filtered by `isUnsetPlaceholder` elsewhere)
- *   - paths already in the value-side namespace (`/EcucDefs/...`)
- *   - paths with any other prefix (minimum-intrusion contract:
- *     helper only collapses the one known mismatch)
- *
- * @param path absolute AUTOSAR path
- * @returns normalized path; input preserved when no rewrite applies
- */
-export function normalizePath(path: string): string {
-  if (path === '' || !path.startsWith('/')) return path;
-  if (path === NAMESPACE_DEFINITION_PREFIX || path.startsWith(`${NAMESPACE_DEFINITION_PREFIX}/`)) {
-    return `${NAMESPACE_VALUE_PREFIX}${path.slice(NAMESPACE_DEFINITION_PREFIX.length)}`;
-  }
-  return path;
-}
-
-// ============================================================================
-// Sprint 9 #1 — Schema type-segment strip
-// ============================================================================
-
-/**
- * ECUC per-instance container *type* segments that real BSWMD + EcucValues
- * VALUE-REFs emit between the parent container and the instance shortName
- * but `buildPathIndex` does not (it keys directly off the instance shortName).
- *
- * Hard-coded whitelist: deriving from `ECUC_CONTAINER_SCHEMA` would miss
- * `ComSignal` / `ComIPduGroup` (they have no multiplicity constraints and
- * are not in the container schema). Maintenance contract: when
- * `ECUC_SUBSET_SCHEMA` / `ECUC_CONTAINER_SCHEMA` gain new per-instance
- * container types (Sprint 9 #14 CanIf + others), extend this set in
- * lockstep — see PROGRESS.md Sprint 9 #1 for the rationale.
- */
-const KNOWN_TYPE_SEGMENTS: ReadonlySet<string> = new Set([
-  'Pdu',
-  'ComIPdu',
-  'ComSignal',
-  'ComIPduGroup',
-]);
-
-/**
- * Strip schema-side type segments from an absolute AUTOSAR path so it
- * matches the value-side path index built by `walkPathIndex`. Pure /
- * side-effect-free / immutable.
- *
- * Algorithm: split on `/`, drop any segment whose exact value is in
- * `KNOWN_TYPE_SEGMENTS`, rejoin. Trailing-slash placeholders are
- * preserved (caller `isUnsetPlaceholder` filters them before lookup).
- * The empty-string and bare-typename cases from `normalizePath` also
- * pass through unchanged.
- *
- * Examples (post-`normalizePath` value-side form):
- *   - `/EcucDefs/Com/ComConfig/ComIPdu/ComConfigSet_Tx_X`
- *     → `/EcucDefs/Com/ComConfig/ComConfigSet_Tx_X`
- *   - `/EcucDefs/EcuC/EcucPduCollection/Pdu/X`
- *     → `/EcucDefs/EcuC/EcucPduCollection/X`
- *
- * Pass-through for: empty string, paths without any known type segment.
- * Case-sensitive: lowercase variants (e.g. `pdu`) are NOT stripped —
- * ECUC type segments are uppercase by convention.
- *
- * @param path absolute AUTOSAR path (already namespace-normalised)
- * @returns path with known type segments removed
- */
-export function tryStripTypeSegment(path: string): string {
-  if (path === '') return path;
-  const segments = path.split('/');
-  let dropped = false;
-  const kept: string[] = [];
-  for (const seg of segments) {
-    if (KNOWN_TYPE_SEGMENTS.has(seg)) {
-      dropped = true;
-      continue;
-    }
-    kept.push(seg);
-  }
-  return dropped ? kept.join('/') : path;
-}
-
-/**
- * Apply the cross-ref path-resolution pipeline used by every project-level
- * reference check (cross-ref, ref-dest, ref-cycle): namespace normalisation
- * followed by schema-side type-segment stripping. Pure / side-effect-free.
- *
- * Equivalent to `tryStripTypeSegment(normalizePath(path))` but centralised
- * here so the three checks (and any future cross-ref helper) cannot drift
- * apart. Sprint 9 #2 code-reviewer LOW-2 finding noted the duplication as
- * a "micro" deferred item; Sprint 9 #3 added the third call site
- * (`checkRefCycles` for source-side path resolution) which made the
- * extraction obviously right.
- *
- * Pass-through: empty string (placeholder filter is the caller's job),
- * paths with no namespace mismatch and no type segments.
- *
- * @param path absolute AUTOSAR path (may be empty / placeholder — caller
- *             must filter via `isUnsetPlaceholder` before lookup).
- * @returns path after `normalizePath` + `tryStripTypeSegment`.
- */
-export function resolveTargetPath(path: string): string {
-  return tryStripTypeSegment(normalizePath(path));
-}
 
 // ============================================================================
 // Sprint 9 #4 — shortName uniqueness fallback resolver

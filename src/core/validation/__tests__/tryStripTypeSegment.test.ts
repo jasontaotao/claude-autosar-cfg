@@ -9,10 +9,10 @@
 // `walkPathIndex` keys directly off the instance shortName, so the
 // type segment must be stripped before the lookup.
 //
-// Maintenance contract: when `ECUC_SUBSET_SCHEMA` / `ECUC_CONTAINER_SCHEMA`
-// gain new per-instance container types (Sprint 9 #14 CanIf + others),
-// extend `KNOWN_TYPE_SEGMENTS` in lockstep so the new module's
-// VALUE-REFs keep resolving. See PROGRESS.md Sprint 9 #1 for details.
+// Maintenance contract: when `ECUC_CONTAINER_SCHEMA` gains new
+// per-instance container types (Sprint 9 #14 CanIf + others), extend
+// `KNOWN_TYPE_SEGMENTS` in lockstep so the new module's VALUE-REFs
+// keep resolving. See PROGRESS.md Sprint 9 #1 for details.
 
 import { describe, it, expect } from 'vitest';
 

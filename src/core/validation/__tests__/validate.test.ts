@@ -1,6 +1,6 @@
 // Unit tests for validate(). Constructs minimal ArxmlDocument literals —
-// no fixtures, no fs. Each test exercises a single rule against a real
-// schema entry from ECUC_SUBSET_SCHEMA so future schema edits surface
+// no fixtures, no fs. Each test exercises a single rule against the
+// shared layer in `_testSchemaLayer.ts` so future schema edits surface
 // as test failures with full diagnostic context.
 
 import { afterEach, describe, it, expect, vi } from 'vitest';
@@ -19,6 +19,8 @@ import { buildSchemaLayer } from '../runtimeSchema.js';
 import type { SchemaLayer } from '../runtimeSchema.js';
 import * as schemaModule from '../schema/ecucSubset.js';
 import { validate } from '../validate.js';
+
+import { buildSubsetLikeLayer } from './_testSchemaLayer.js';
 
 // ---------------------------------------------------------------------------
 // Test fixture builders
@@ -77,19 +79,27 @@ const enumVal = (s: string): ParamValue => ({ type: 'enum', value: s });
 // Tests
 // ---------------------------------------------------------------------------
 
+// Mirrors the 46-entry ECUC_SUBSET_SCHEMA that used to back every
+// param-level rule. See _testSchemaLayer.ts for the translation.
+const LAYER = buildSubsetLikeLayer();
+
 describe('validate()', () => {
   it('returns 0 errors for an empty document', () => {
     const doc = makeDoc();
-    expect(validate(doc)).toEqual([]);
+    expect(validate(doc, LAYER)).toEqual([]);
   });
 
   it('returns 0 errors for a param not covered by the schema', () => {
-    // /EcucDefs/EcuC/EcucGeneral/FooBar is unconstrained — schema is silent.
-    const eucC = makeModule('EcuC', {}, [
-      makeContainer('EcucGeneral', { FooBar: intVal(999) }, []),
+    // /EcucDefs/OtherMod/OtherGeneral/FooBar lives under a module the
+    // layer doesn't know about, so the validator silently skips the
+    // unconstrained param. (If we used EcuC here, the layer would
+    // flag the path as 'schema-unknown' — see the dedicated test
+    // block below.)
+    const other = makeModule('OtherMod', {}, [
+      makeContainer('OtherGeneral', { FooBar: intVal(999) }, []),
     ]);
-    const doc = makeDoc(eucC);
-    expect(validate(doc)).toEqual([]);
+    const doc = makeDoc(other);
+    expect(validate(doc, LAYER)).toEqual([]);
   });
 
   it('emits a range error when integer is below schema min', () => {
@@ -99,11 +109,11 @@ describe('validate()', () => {
     const eucC = makeModule('EcuC', {}, [collection]);
     const doc = makeDoc(eucC);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     const e = errors[0]!;
     expect(e.kind).toBe('range');
-    expect(e.path).toBe('/EcucDefs/EcuC/EcucPduCollection/Pdu/PduLength');
+    expect(e.path).toBe('/EcucDefs/EcuC/EcucPduCollection/PduLength');
     expect(e.paramKey).toBe('PduLength');
     expect(e.expected).toBe('>= 0');
     expect(e.actual).toBe('-1');
@@ -116,7 +126,7 @@ describe('validate()', () => {
     const eucC = makeModule('EcuC', {}, [collection]);
     const doc = makeDoc(eucC);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     const e = errors[0]!;
     expect(e.kind).toBe('range');
@@ -129,7 +139,7 @@ describe('validate()', () => {
     const collection = makeContainer('EcucPduCollection', {}, [pdu]);
     const eucC = makeModule('EcuC', {}, [collection]);
     const doc = makeDoc(eucC);
-    expect(validate(doc)).toEqual([]);
+    expect(validate(doc, LAYER)).toEqual([]);
   });
 
   it('emits a range error when float is below min', () => {
@@ -140,11 +150,11 @@ describe('validate()', () => {
     const com = makeModule('Com', {}, [config]);
     const doc = makeDoc(com);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     const e = errors[0]!;
     expect(e.kind).toBe('range');
-    expect(e.path).toBe('/EcucDefs/Com/ComConfig/ComIPdu/ComTxIPdu/ComMinimumDelayTime');
+    expect(e.path).toBe('/EcucDefs/Com/ComConfig/ComTxIPdu/ComMinimumDelayTime');
     expect(e.expected).toBe('>= 0');
     expect(e.actual).toBe('-0.1');
   });
@@ -156,7 +166,7 @@ describe('validate()', () => {
     const com = makeModule('Com', {}, [config]);
     const doc = makeDoc(com);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     expect(errors[0]!.kind).toBe('range');
     expect(errors[0]!.expected).toBe('<= 65.535');
@@ -168,7 +178,7 @@ describe('validate()', () => {
     const eucC = makeModule('EcuC', {}, [general]);
     const doc = makeDoc(eucC);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     const e = errors[0]!;
     expect(e.kind).toBe('enum');
@@ -180,7 +190,7 @@ describe('validate()', () => {
     const general = makeContainer('EcucGeneral', { BitOrder: enumVal('LSB') }, []);
     const eucC = makeModule('EcuC', {}, [general]);
     const doc = makeDoc(eucC);
-    expect(validate(doc)).toEqual([]);
+    expect(validate(doc, LAYER)).toEqual([]);
   });
 
   it('emits a reference error when DEST attribute mismatches', () => {
@@ -196,7 +206,7 @@ describe('validate()', () => {
     const wdg = makeModule('WdgIf', {}, [device]);
     const doc = makeDoc(wdg);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     // Note: the reference's shortName+value forms its path; lookup by
     // `${parent}/WdgIfDriverRef` matches the schema entry.
     const refErr = errors.find((e) => e.kind === 'reference');
@@ -217,7 +227,7 @@ describe('validate()', () => {
     const eucC = makeModule('EcuC', {}, [collection]);
     const doc = makeDoc(eucC);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors).toHaveLength(1);
     const e = errors[0]!;
     expect(e.kind).toBe('schema');
@@ -231,13 +241,17 @@ describe('validate()', () => {
     //   - boolean VersionCheck at level 2 (matches schema type, OK)
     //   - integer DetDebugLoop at level 2 (mismatch: schema says boolean → schema error)
     //   - enum BitOrder at /EcucDefs/EcuC/EcucGeneral (mismatch → enum error)
-    //   - reference DEST at level 3 (path not in schema → silently skipped)
-    // No errors for the OK ones, errors for the rest.
+    //   - reference DEST at level 3 (path under Det, not in schema → schema-unknown)
+    //   - param FooBar at level 3 (path under Det, not in schema → schema-unknown)
+    // No errors for the OK ones; errors for the rest. The
+    // schema-unknown kind fires because we always wire a layer now;
+    // pre-subset-removal these would have silently skipped.
     const level3 = makeContainer(
       'DetVersion',
       {
         // No schema entry for /EcucDefs/Det/DetGeneral/DetVersion/* — all params here
-        // are unconstrained and skipped by validate().
+        // are unconstrained. With a layer wired in, the validator emits
+        // 'schema-unknown' because the path is under a known module.
         FooBar: enumVal('Baz'),
       },
       [makeReference('DriverRef', '/path', 'WRONG-DEST')],
@@ -257,7 +271,7 @@ describe('validate()', () => {
     const det = makeModule('Det', {}, [level2]);
     const doc = makeDoc(det, eucC);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
 
     // DetDebugLoop (boolean schema, integer value) at level 2 → schema (type) error
     const schemaErr = errors.find((e) => e.path.endsWith('/DetDebugLoop'));
@@ -272,15 +286,32 @@ describe('validate()', () => {
     expect(enumErr!.kind).toBe('enum');
     expect(enumErr!.actual).toBe('MSB');
 
+    // FooBar and DriverRef under /EcucDefs/Det are unconstrained —
+    // layer-aware validator emits 'schema-unknown' for both.
+    const fooBar = errors.find((e) => e.path.endsWith('/FooBar'));
+    expect(fooBar).toBeDefined();
+    expect(fooBar!.kind).toBe('schema-unknown');
+    const driverRef = errors.find((e) => e.path.endsWith('/DriverRef'));
+    expect(driverRef).toBeDefined();
+    expect(driverRef!.kind).toBe('schema-unknown');
+    // DetVersion (the level-3 container itself) is also unknown to the
+    // layer — schema-unknown fires for the container path the walker
+    // passed through multiplicity check.
+    const detVersion = errors.find((e) => e.path.endsWith('/DetVersion'));
+    expect(detVersion).toBeDefined();
+    expect(detVersion!.kind).toBe('schema-unknown');
+
     // VersionCheck (boolean) at level 2 — schema entry present, matches type → no error
-    // DriverRef path is not in the schema → silently skipped (intentional).
 
     const refErrors = errors.filter((e) => e.kind === 'reference');
     expect(refErrors).toHaveLength(0);
 
-    // Total: schema + enum = 2 errors. Verify no other kinds slipped in.
-    expect(errors).toHaveLength(2);
-    expect(errors.every((e) => e.kind === 'schema' || e.kind === 'enum')).toBe(true);
+    // Total: schema + enum + 3 schema-unknown = 5 errors. Verify no other
+    // kinds slipped in.
+    expect(errors).toHaveLength(5);
+    expect(
+      errors.every((e) => e.kind === 'schema' || e.kind === 'enum' || e.kind === 'schema-unknown'),
+    ).toBe(true);
   });
 
   it('produces no errors for a fully-valid nested module', () => {
@@ -311,7 +342,7 @@ describe('validate()', () => {
     const config = makeContainer('ComConfig', {}, [ipdu]);
     const com = makeModule('Com', {}, [config]);
     const doc = makeDoc(com);
-    expect(validate(doc)).toEqual([]);
+    expect(validate(doc, LAYER)).toEqual([]);
   });
 });
 
@@ -353,7 +384,7 @@ describe('container-level multiplicity', () => {
     const mod = makeModule('MyMod', {}, [parent]);
     const doc = makeDoc(mod);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     const mult = errors.filter((e) => e.kind === 'multiplicity');
     expect(mult).toHaveLength(1);
     expect(mult[0]!.path).toBe('/EcucDefs/MyMod/MyContainerParent/MyContainer');
@@ -373,7 +404,7 @@ describe('container-level multiplicity', () => {
     const mod = makeModule('MyMod', {}, [parent]);
     const doc = makeDoc(mod);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     const mult = errors.filter((e) => e.kind === 'multiplicity');
     expect(mult).toHaveLength(1);
     expect(mult[0]!.path).toBe('/EcucDefs/MyMod/MyContainerParent/MyContainer');
@@ -392,7 +423,7 @@ describe('container-level multiplicity', () => {
     const mod = makeModule('MyMod', {}, [parent]);
     const doc = makeDoc(mod);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
   });
 
@@ -408,7 +439,7 @@ describe('container-level multiplicity', () => {
     const mod = makeModule('MyMod', {}, [parent]);
     const doc = makeDoc(mod);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
   });
 
@@ -422,7 +453,7 @@ describe('container-level multiplicity', () => {
     const mod = makeModule('MyMod', {}, [parent]);
     const doc = makeDoc(mod);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors.filter((e) => e.kind === 'multiplicity')).toEqual([]);
   });
 });
@@ -448,7 +479,7 @@ describe('validate() — string maxLength and walkReference layer paths', () => 
     const det = makeModule('Det', {}, [detGeneral]);
     const doc = makeDoc(det);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     const rangeErr = errors.find((e) => e.kind === 'range' && e.path.endsWith('/DetErrorHook'));
     expect(rangeErr).toBeDefined();
     expect(rangeErr!.expected).toBe('<= 256 chars');
@@ -466,7 +497,7 @@ describe('validate() — string maxLength and walkReference layer paths', () => 
     const det = makeModule('Det', {}, [detGeneral]);
     const doc = makeDoc(det);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     expect(errors.filter((e) => e.path.endsWith('/DetErrorHook'))).toEqual([]);
   });
 
@@ -479,7 +510,7 @@ describe('validate() — string maxLength and walkReference layer paths', () => 
     const wdgIf = makeModule('WdgIf', {}, [wdgIfDevice]);
     const doc = makeDoc(wdgIf);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     const refErr = errors.find((e) => e.kind === 'reference');
     expect(refErr).toBeDefined();
     expect(refErr!.expected).toBe('ECUC-CONTAINER-VALUE');
@@ -495,7 +526,7 @@ describe('validate() — string maxLength and walkReference layer paths', () => 
     const wdgIf = makeModule('WdgIf', {}, [wdgIfDevice]);
     const doc = makeDoc(wdgIf);
 
-    const errors = validate(doc);
+    const errors = validate(doc, LAYER);
     const refErr = errors.find((e) => e.kind === 'reference');
     expect(refErr).toBeDefined();
     expect(refErr!.actual).toBe('<unset>');

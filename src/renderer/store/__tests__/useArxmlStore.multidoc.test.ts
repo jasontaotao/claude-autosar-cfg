@@ -158,13 +158,14 @@ describe('useArxmlStore - addDocument (Sprint 10 #2)', () => {
     // even if the validation pipeline collapsed kinds or dropped errors).
     const counts: Record<string, number> = {};
     for (const e of errors) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
-    // 'range' is single-doc (WdgIfDeviceIndex=999 in doc A): exactly 1
-    expect(counts['range']).toBe(1);
+    // Sprint 17d — `range` only fires when the BSWMD layer is loaded
+    // (the legacy 46-entry ECUC_SUBSET_SCHEMA fallback has been
+    // retired). This test does not load BSWMD, so the WdgIfDeviceIndex
+    // range violation is silent-skipped; the cross-doc reference test
+    // below still exercises the project-level path.
+    expect(counts['range'] ?? 0).toBe(0);
     // 'cross-ref' is project-level: exactly 1 (the dangling ref into /OtherPkg/SomeContainer)
     expect(counts['cross-ref']).toBe(1);
-    // The range error's path lives in doc A
-    const rangeErr = errors.find((e) => e.kind === 'range')!;
-    expect(rangeErr.path.startsWith('/EcucDefs/WdgIf/')).toBe(true);
     // The cross-ref error's sourcePath lives in doc A
     const crossRefErr = errors.find((e) => e.kind === 'cross-ref')!;
     expect(crossRefErr.path.startsWith('/EcucDefs/WdgIf/')).toBe(true);

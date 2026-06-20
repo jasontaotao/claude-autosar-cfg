@@ -36,10 +36,10 @@ export type ValidationLevel = 'single' | 'project';
  * renderer-side call site signature.
  *
  * `schemaLayer` (Sprint 12 #2) — when provided, the validator consults
- * the layer's params/containers index before the static
- * `ECUC_SUBSET_SCHEMA` and emits `'schema-unknown'` errors for paths
- * under known modules that aren't catalogued anywhere. Omit to keep the
- * pre-Sprint 12 #2 behaviour (layer-less lookup).
+ * the layer's params/containers index and emits `'schema-unknown'`
+ * errors for paths under known modules that aren't catalogued
+ * anywhere. Omit to skip param-level checks entirely (every param
+ * becomes unconstrained and silently passes).
  */
 export interface DispatchOptions {
   readonly level?: ValidationLevel;

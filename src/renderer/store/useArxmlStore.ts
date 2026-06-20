@@ -754,7 +754,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       error: null,
       toast: null,
       project: nextProject,
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
   },
@@ -805,7 +807,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       // is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
       project: nextProject,
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
   },
@@ -897,7 +901,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
         doc: nextActiveDoc,
         displayDoc: nextDisplayResult?.doc ?? null,
         dirtyPaths: addToDirty(state.dirtyPaths, sourcePath),
-        validationErrors: validateProjectForRenderer(nextDocuments),
+        validationErrors: validateProjectForRenderer(nextDocuments, {
+          schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+        }),
         lastValidatedAt: Date.now(),
         // Sprint 17c T10 — refresh warnings in combined mode (the
         // source-doc content changed; the dedup result may differ).
@@ -927,7 +933,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       doc: nextActiveDoc,
       displayDoc: nextDisplayResult?.doc ?? null,
       dirtyPaths: addToDirty(state.dirtyPaths, state.activeDocumentPath),
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
       // Sprint 17c T10 — single-mode path. The combined-mode
       // branch above already exited with its own warnings slice;
@@ -984,7 +992,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   validate: () => {
     const state = get();
     set({
-      validationErrors: validateProjectForRenderer(state.documents),
+      validationErrors: validateProjectForRenderer(state.documents, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
   },
@@ -1149,7 +1159,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       toast: null,
       project: manifest,
       projectPath: manifestPath,
-      validationErrors: validateProjectForRenderer(orderedDocuments),
+      validationErrors: validateProjectForRenderer(orderedDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
   },
@@ -1741,7 +1753,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       importSession: null,
       viewMode: 'single',
       lastCommitSnapshot: snapshots,
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
     return {
@@ -1801,7 +1815,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       documents: nextDocuments,
       dirtyPaths: nextDirty,
       lastCommitSnapshot: null,
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
     });
   },
@@ -2259,7 +2275,9 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
       displayDoc: nextDisplayResult?.doc ?? null,
       dirtyPaths: nextDirty,
       pendingDelete: null,
-      validationErrors: validateProjectForRenderer(nextDocuments),
+      validationErrors: validateProjectForRenderer(nextDocuments, {
+        schemaLayer: buildSchemaLayer(get().bswmdSchemas),
+      }),
       lastValidatedAt: Date.now(),
       // Sprint 17c T10 — refresh warnings in combined mode.
       warnings:

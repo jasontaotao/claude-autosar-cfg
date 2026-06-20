@@ -1,14 +1,24 @@
 // renderer/components/editor/modes/EnumEditor.tsx
-// S3-T9: schema-aware enum editor.
-// When ECUC_SUBSET_SCHEMA has enumLiterals for this exact param path,
-// render a <select> with those literals. Otherwise fall back to the
-// free-form text input (preserves the Sprint 2 behaviour for unknown
-// enum params that aren't in our 46-entry subset).
+// Sprint 17d — schema-aware enum editor.
+//
+// Reads `enumLiterals` from the BSWMD `SchemaLayer` produced by the
+// store's `bswmdSchemas`. The path is normalised through
+// `resolveTargetPath` (folds vendor / release-namespace prefixes such
+// as `/EAS` and `/AUTOSAR_R<NN>` to value-side `/EcucDefs`, strips
+// schema-side type segments like `Pdu` / `ComIPdu`) and the combined-
+// mode `<basename>/` prefix is stripped so the layer's value-side key
+// matches.
+//
+// When the layer has no entry for the param path (i.e. the BSWMD
+// didn't declare a literal list — or no BSWMD is loaded at all) the
+// component falls back to a free-form text input. This preserves the
+// long-standing "always let the user type something" behaviour for
+// enum params that the project does not yet have a schema for.
 
 import { useMemo, type JSX } from 'react';
 
 import type { ParamValue } from '@core/arxml/types';
-import { lookupSchema } from '@core/validation';
+import { buildSchemaLayer, lookupSchema, resolveTargetPath } from '@core/validation';
 
 import { useArxmlStore } from '../../../store/useArxmlStore';
 
@@ -20,23 +30,43 @@ interface Props {
   readonly containerPath: string;
 }
 
-export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Element {
-  const doc = useArxmlStore((s) => s.doc);
-  const updateParam = useArxmlStore((s) => s.updateParam);
+/**
+ * Combined-mode path resolution: the `containerPath` may carry a
+ * `<basename>/` prefix (or `[doc:N]/` for the cross-doc alias). Strip
+ * it so we can match the layer's value-side key, which is always the
+ * inner absolute path (`/EcucDefs/...`).
+ */
+function stripLeadingBasename(path: string, documentPaths: readonly string[]): string {
+  if (documentPaths.length <= 1) return path;
+  const m = path.match(/^\/([^/]+)\//);
+  if (!m || m[1] === undefined) return path;
+  const head = m[1];
+  const lastSeg = (p: string): string => {
+    const parts = p.split(/[\\/]/).filter(Boolean);
+    return parts[parts.length - 1] ?? '';
+  };
+  const matches = documentPaths.some((p) => lastSeg(p) === head || /^\[doc:\d+\]$/.test(head));
+  if (!matches) return path;
+  return path.replace(/^\/[^/]+/, '');
+}
 
-  // Look up enum literals from the ECUC subset schema for this exact
-  // container.path + '/' + paramKey. useMemo so we don't rescan the
-  // 46-entry array on every keystroke.
+export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Element {
+  const updateParam = useArxmlStore((s) => s.updateParam);
+  const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
+  const documentPaths = useArxmlStore((s) => s.documentPaths);
+
+  const layer = useMemo(() => buildSchemaLayer(bswmdSchemas), [bswmdSchemas]);
+
   const literals = useMemo<readonly string[] | null>(() => {
-    if (!doc) return null;
-    const paramPath = `${containerPath}/${paramKey}`;
-    const entry = lookupSchema(paramPath);
+    const raw = `${containerPath}/${paramKey}`;
+    const stripped = stripLeadingBasename(raw, documentPaths);
+    const normalised = resolveTargetPath(stripped);
+    const entry = lookupSchema(normalised, layer);
     return entry?.enumLiterals ?? null;
-  }, [doc, containerPath, paramKey]);
+  }, [containerPath, paramKey, layer, documentPaths]);
 
   if (value.type !== 'enum') return <span className="text-red-500">type mismatch</span>;
 
-  // Schema hit: render <select> dropdown with the known literals.
   if (literals !== null && literals.length > 0) {
     return (
       <select
@@ -60,8 +90,6 @@ export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Eleme
     );
   }
 
-  // Fallback: free-form text input (preserves Sprint 2 behaviour for
-  // enum params not yet in the 46-entry ECUC_SUBSET_SCHEMA subset).
   return (
     <input
       className="enum-editor"

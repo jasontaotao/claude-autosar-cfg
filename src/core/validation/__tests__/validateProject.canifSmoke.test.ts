@@ -272,10 +272,13 @@ describe('CanIf/Adc BSWMD end-to-end smoke (Sprint 12 #2)', () => {
     expect(layer.sourcePaths.size).toBeGreaterThanOrEqual(40);
 
     // The AdcChannelRangeSelect enum param is the linchpin of cases A/B;
-    // assert it is keyed exactly as the validator expects.
+// assert it is keyed exactly as the validator expects. Sprint 17d
+// folds `/AUTOSAR_R<NN>/EcucDefs` → `/EcucDefs` at index time so the
+// layer key uses the value-side namespace (matches what
+// `resolveTargetPath` emits on the query side).
     expect(
       layer.params.has(
-        '/AUTOSAR_R22/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
+        '/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
       ),
     ).toBe(true);
   });
@@ -314,7 +317,7 @@ describe('Case B — ARXML with invalid enum literal', () => {
 
     expect(enumErrors).toHaveLength(1);
     expect(enumErrors[0]?.path).toBe(
-      '/AUTOSAR_R22/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
+      '/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
     );
     expect(enumErrors[0]?.actual).toBe('NOT_A_REAL_LITERAL');
     // The expected payload must list the real declared literals from
