@@ -5,6 +5,40 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-06-20 — Trust Sprint (17a + 17b + 17c)
+
+MINOR bump: **三个 trust-critical 修复** — round-trip 不再静默丢数据 / Dialog 全 i18n 化 / 写路径防 `..` 遍历。1511 tests pass (从 1493, +18), 0 type errors, 0 lint errors, build success。
+
+### Fixed
+
+- **P0-1 + P0-2 (Sprint 17c) — Round-trip 不再丢 vendor extensions**：`classifyElement` 对未识别 tag 返回 `ArxmlUnknown` 而不是 `null`；`renderElement` 通过 `{ [tagName]: parsed }` 原始 fast-xml-parser 节点 verbatim 发出。SERVICE-NEEDS / EXCLUSIVE-AREA / `/EAS/` namespace 等 vendor 扩展现在 round-trip 保留。新 fixture `vendor-extension.arxml` + 新测试覆盖。
+- **P0-1 second-order drop (Sprint 17c) — 多 DEFINITION-REF 不再丢**：`renderModule` 修复了 `m.references[0]` 静默丢弃所有其他 `DEFINITION-REF` 的 bug。改为把所有 references 作为 top-level `<DEFINITION-REF>` siblings 发出（与 `parser.ts:500` 的 `asArray` 消费端契约匹配）。
+- **H8 (Sprint 17b) — 写路径防 `..` parent-traversal**：新增 `path.normalize(p).includes('..')` 预检，覆盖 3 个写入口：PROJECT_SAVE（抽出为新 `projectSaveHandler.ts`） / saveArxmlHandler（per-doc write） / script-handler（manifest read/write）。关闭了 renderer 伪造 `../../etc/passwd` 的 CVE-shaped vector。
+
+### Changed
+
+- **H6 → P0 (Sprint 17a) — Dialog 全 i18n 化**：9 个硬编码 user-facing 字符串（zh-CN + en）替换为 `t(locale, key)`。7 个新 i18n keys (`prompt.*` 2, `app.import.diff.column.*` 3, `app.import.diff.referenceCount`, `confirm.unsaved.saveAndNew.import`)。`ImportEntry.tsx:64` 从 `window.confirm` 迁移到 app 自己的 3-state `confirm()`，与其他 dirty-guard 一致。`ConfirmRoot` 订阅 `useArxmlStore((s) => s.locale)`，切语言时 label 实时更新。
+
+### Known limitations (deliberate, deferred to v1.5+)
+
+- **Sibling order between known and unknown elements within a parent** is determined by model iteration order, not original source order. Full preservation requires `preserveOrder: true` (2-week refactor).
+- **XML comments / CDATA / processing instructions** are still lost (parser config doesn't preserve them).
+- **Full `isPathInside(manifestDir)` containment** is deferred because it would break the loose-mode back-compat contract at `register.ts:414-418` (users can open ARXMLs from anywhere and save back to the same path). The 17b fix closes the actual attack vector without changing UX.
+- **Symlink bypass** — `path.normalize` doesn't resolve symlinks. A renderer that has write access to a symlink target can still write there. Tracked for v1.5+ as a follow-up.
+
+### Out of scope (deferred with reason)
+
+- **P0-3 file lock** — over-engineering for single-user desktop tool; EB tresos / Vector don't force locks either.
+- **H1/H2/H4/H5/H7/H9/H10** — UX/architecture overhauls; defer to v1.5+.
+- **M13 batch-write atomicity** — report was wrong; handler already uses `partial` discriminated union correctly.
+- **All other MEDIUM and P1-P3** — defer to v1.5+.
+
+### Test count
+
+| Before | After | Delta |
+|---|---|---|
+| 1493 pass + 1 skipped | 1511 pass + 1 skipped | +18 tests |
+
 ## [1.3.0] - 2026-06-20 — Sprint 14 Script Engine
 
 MINOR bump: **EB tresos 风格的 Script Engine** — 用户在 panel 内写
