@@ -22,6 +22,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { ConfirmRoot, confirm } from '../ConfirmDialog.js';
 
 /**
@@ -70,6 +71,23 @@ describe('ConfirmDialog (Sprint 12 #3 Task 6)', () => {
     expect(screen.getByTestId('confirm-continue')).toHaveTextContent('继续编辑');
     expect(screen.getByTestId('confirm-discard')).toHaveTextContent('不保存，新建');
     expect(screen.getByTestId('confirm-saveAndProceed')).toHaveTextContent('保存并新建');
+  });
+
+  // Sprint 17a — locale-reactive labels. The default labels should
+  // follow the store's `locale` slice. en renders the English bundle.
+  it('renders English labels when locale="en"', async () => {
+    useArxmlStore.setState({ locale: 'en' });
+    try {
+      confirm({ title: 't', message: 'm' });
+      await screen.findByTestId('confirm-overlay');
+      expect(screen.getByTestId('confirm-continue')).toHaveTextContent('Keep Editing');
+      expect(screen.getByTestId('confirm-discard')).toHaveTextContent('Discard & New');
+      expect(screen.getByTestId('confirm-saveAndProceed')).toHaveTextContent('Save & New');
+    } finally {
+      // Reset to default so other tests (and the rest of the suite) see
+      // the same starting locale.
+      useArxmlStore.setState({ locale: 'zh-CN' });
+    }
   });
 
   it('accepts custom labels for each button', async () => {

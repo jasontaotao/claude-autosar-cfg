@@ -271,9 +271,15 @@ export function DiffTable(): JSX.Element | null {
       <table className="diff-table-grid">
         <thead>
           <tr>
-            <th data-testid="diff-table-column-existing">Existing</th>
-            <th data-testid="diff-table-column-incoming">Incoming</th>
-            <th data-testid="diff-table-column-decision">Decision</th>
+            <th data-testid="diff-table-column-existing">
+              {t(locale, 'app.import.diff.column.existing')}
+            </th>
+            <th data-testid="diff-table-column-incoming">
+              {t(locale, 'app.import.diff.column.incoming')}
+            </th>
+            <th data-testid="diff-table-column-decision">
+              {t(locale, 'app.import.diff.column.decision')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -340,7 +346,7 @@ export function DiffTable(): JSX.Element | null {
         <span>
           {t(locale, 'app.import.diff.title', { shortName: activeSelection.moduleShortName })}
           {' · '}
-          {diff.references.length} reference(s)
+          {t(locale, 'app.import.diff.referenceCount', { count: diff.references.length })}
         </span>
       </footer>
     </section>

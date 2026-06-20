@@ -688,6 +688,59 @@ describe('i18n — Sprint 14 #1 script engine (spec §6.5, 25 keys)', () => {
   });
 });
 
+// Sprint 17a — Dialog i18n audit (H6 → P0). 7 new keys replacing
+// 9 hardcoded user-facing strings in 4 files (ConfirmDialog,
+// PromptDialog, DiffTable, ImportEntry). The bundle parity test
+// above already enforces the keys are present in both bundles;
+// these explicit assertions pin the exact translations.
+describe('i18n — Sprint 17a dialog i18n audit (7 new keys)', () => {
+  it('renders prompt.cancel / prompt.confirm (zh-CN + en)', () => {
+    expect(t('zh-CN', 'prompt.cancel')).toBe('取消');
+    expect(t('en', 'prompt.cancel')).toBe('Cancel');
+    expect(t('zh-CN', 'prompt.confirm')).toBe('确定');
+    expect(t('en', 'prompt.confirm')).toBe('OK');
+  });
+
+  it('renders confirm.unsaved.saveAndNew.import (zh-CN + en)', () => {
+    expect(t('zh-CN', 'confirm.unsaved.saveAndNew.import')).toBe('保存并导入');
+    expect(t('en', 'confirm.unsaved.saveAndNew.import')).toBe('Save and import');
+  });
+
+  it('renders app.import.diff.column.{existing,incoming,decision} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.diff.column.existing')).toBe('已存在');
+    expect(t('en', 'app.import.diff.column.existing')).toBe('Existing');
+    expect(t('zh-CN', 'app.import.diff.column.incoming')).toBe('导入');
+    expect(t('en', 'app.import.diff.column.incoming')).toBe('Incoming');
+    expect(t('zh-CN', 'app.import.diff.column.decision')).toBe('决策');
+    expect(t('en', 'app.import.diff.column.decision')).toBe('Decision');
+  });
+
+  it('renders app.import.diff.referenceCount with {count} placeholder (zh-CN + en)', () => {
+    expect(t('zh-CN', 'app.import.diff.referenceCount', { count: 0 })).toBe('0 个引用');
+    expect(t('zh-CN', 'app.import.diff.referenceCount', { count: 3 })).toBe('3 个引用');
+    expect(t('en', 'app.import.diff.referenceCount', { count: 0 })).toBe('0 reference(s)');
+    expect(t('en', 'app.import.diff.referenceCount', { count: 5 })).toBe('5 reference(s)');
+  });
+
+  it('all 7 new keys are present in both bundles (parity sweep)', () => {
+    const zhKeys = new Set(Object.keys(MessagesZhCN));
+    const enKeys = new Set(Object.keys(MessagesEn));
+    const newKeys = [
+      'prompt.cancel',
+      'prompt.confirm',
+      'app.import.diff.column.existing',
+      'app.import.diff.column.incoming',
+      'app.import.diff.column.decision',
+      'app.import.diff.referenceCount',
+      'confirm.unsaved.saveAndNew.import',
+    ] as MessageKey[];
+    for (const k of newKeys) {
+      expect(zhKeys.has(k), `zh-CN missing ${k}`).toBe(true);
+      expect(enKeys.has(k), `en missing ${k}`).toBe(true);
+    }
+  });
+});
+
 // Suppress the unknown-key warning in parity tests so console output stays
 // clean. (No unknown keys expected — this is just hygiene.)
 beforeEach(() => {

@@ -4,9 +4,15 @@
 // disabled (returns null immediately). This module provides a promise-based
 // `prompt()` function that renders a minimal modal dialog via React and
 // resolves with the user's input string, or `null` on cancel.
+//
+// Sprint 17a — the Cancel / OK button labels are now locale-reactive.
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+import { t } from '@shared/i18n';
+
+import { useArxmlStore } from '../store/useArxmlStore';
 
 import './PromptDialog.css';
 
@@ -46,6 +52,9 @@ export function prompt(options: PromptOptions): Promise<string | null> {
 export function PromptRoot(): JSX.Element | null {
   const [state, setState] = useState<PromptState | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Subscribe to locale so the Cancel / OK labels re-render when the
+  // user toggles the language mid-modal.
+  const locale = useArxmlStore((s) => s.locale);
 
   // Expose setState to the module-level `prompt()` function.
   useEffect(() => {
@@ -107,7 +116,7 @@ export function PromptRoot(): JSX.Element | null {
             onClick={handleCancel}
             data-testid="prompt-cancel"
           >
-            Cancel
+            {t(locale, 'prompt.cancel')}
           </button>
           <button
             type="button"
@@ -115,7 +124,7 @@ export function PromptRoot(): JSX.Element | null {
             onClick={handleConfirm}
             data-testid="prompt-confirm"
           >
-            OK
+            {t(locale, 'prompt.confirm')}
           </button>
         </div>
       </div>

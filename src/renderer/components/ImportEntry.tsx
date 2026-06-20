@@ -12,6 +12,12 @@
 // we pop the unsaved-changes ConfirmDialog and only proceed on
 // 'discard' / 'saveAndProceed'. cancel / Esc = no-op.
 //
+// Sprint 17a — the dirty-guard now uses the app's 3-state `confirm()`
+// (from ConfirmDialog.tsx) instead of `window.confirm`. The
+// `saveAndProceed` choice is wired to the standard "save then
+// proceed" path; the 3rd button is labelled "Save and import" so the
+// action matches the entry point.
+//
 // Design choices:
 //   - We do NOT introduce a new IPC channel — the existing
 //     `openArxmlMulti` + `parseArxml` pair covers the flow.
@@ -29,6 +35,8 @@ import type { ArxmlDocument } from '@core/arxml/types';
 import { t } from '@shared/i18n';
 
 import { useArxmlStore } from '../store/useArxmlStore';
+
+import { confirm } from './ConfirmDialog';
 
 import './ImportEntry.css';
 
@@ -60,11 +68,45 @@ export function ImportEntry({ variant = 'inline' }: ImportEntryProps): JSX.Eleme
   const handleClick = useCallback(async (): Promise<void> => {
     if (busy) return;
     // 1. Dirty guard — mirror useProjectActions.addBswmdFromDialog.
+    // Sprint 17a: use the app's 3-state confirm() instead of
+    // window.confirm so the experience is consistent with the
+    // other dirty-guards (New / Open / Add BSWMD / Remove BSWMD).
     if (isDirty) {
-      const choice = await window.confirm(
-        t(locale, 'confirm.unsaved.message.import'),
-      );
-      if (!choice) return;
+      const choice = await confirm({
+        title: t(locale, 'confirm.unsaved.title'),
+        message: t(locale, 'confirm.unsaved.message.import'),
+        saveLabel: t(locale, 'confirm.unsaved.saveAndNew.import'),
+      });
+      if (choice === 'continue') return;
+      if (choice === 'saveAndProceed') {
+        // Sprint 17a — silent-save-back of dirty ARXML docs before
+        // proceeding with the import. Mirrors the pattern in
+        // `useRemoveEcucFiles.ts:151-186` (Sprint 16 T2 / 16c #3):
+        // feed each dirty target's on-disk path as `currentPath` so
+        // the IPC skips the dialog. If the FIRST save fails we
+        // break the loop and surface the failure; the unsaved
+        // edits stay in memory and we bail.
+        const state = useArxmlStore.getState();
+        for (const filePath of Array.from(state.dirtyPaths)) {
+          const doc = state.documents.find((d) => d.path === filePath);
+          if (doc === undefined) continue;
+          const saveResult = await window.autosarApi.saveArxml({
+            doc,
+            currentPath: filePath,
+          });
+          if (saveResult.ok && !saveResult.value.canceled) {
+            useArxmlStore.getState().markSaved(saveResult.value.path ?? filePath);
+            continue;
+          }
+          // First failure aborts the loop and bails the import.
+          const message = saveResult.ok ? 'save canceled by user' : saveResult.error.message;
+          setError(
+            t(locale, 'app.error.saveFailed', { message }),
+          );
+          return;
+        }
+      }
+      // 'discard' falls through to proceed with import.
     }
     // 2. Open dialog.
     setBusy(true);

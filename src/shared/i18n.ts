@@ -73,6 +73,11 @@ export interface Messages {
   readonly 'app.save.error.serialize-failed': string;
   readonly 'app.save.error.write-failed': string; // {message}
   readonly 'app.save.error.unknown': string; // {message}
+  // Sprint 17b (H8) — defensive path-containment. The renderer
+  // surfaces this when the main process rejects a write path with
+  // `..` parent-traversal (e.g. a compromised preload bridge forged
+  // `../../etc/passwd`). Should never happen in the legitimate flow.
+  readonly 'app.save.error.invalid-path': string;
   readonly 'app.project.new': string;
   readonly 'app.project.open': string;
   readonly 'app.project.save': string;
@@ -175,6 +180,10 @@ export interface Messages {
   readonly 'confirm.unsaved.discard': string;
   readonly 'confirm.unsaved.saveAndNew': string;
 
+  // --- prompt dialog (Cancel / OK buttons) ---
+  readonly 'prompt.cancel': string;
+  readonly 'prompt.confirm': string;
+
   // --- per-action confirm variants (Sprint 13 #2 Stage 3.2 Task 4) ---
   // The dirty-guard ConfirmDialog was previously a single string set
   // hard-wired to "新建项目" wording, even when the trigger was
@@ -196,6 +205,8 @@ export interface Messages {
   readonly 'confirm.unsaved.saveAndNew.addBswmd': string;
   readonly 'confirm.unsaved.saveAndNew.removeBswmd': string;
   readonly 'confirm.unsaved.saveAndNew.excludeEcuc': string;
+  // Sprint 17a — Import entry-point "save and import" label.
+  readonly 'confirm.unsaved.saveAndNew.import': string;
 
   // --- overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5) ---
   // When `project:new` IPC returns `{ kind: 'overwrite-confirm', path }`
@@ -362,6 +373,11 @@ export interface Messages {
   readonly 'app.import.moduleSelection.title': string;
   readonly 'app.import.collision.badge': string;
   readonly 'app.import.diff.title': string; // {shortName}
+  // Sprint 17a — three-column diff header + reference count footnote.
+  readonly 'app.import.diff.column.existing': string;
+  readonly 'app.import.diff.column.incoming': string;
+  readonly 'app.import.diff.column.decision': string;
+  readonly 'app.import.diff.referenceCount': string; // {count}
   readonly 'app.import.resolution.keepExisting': string;
   readonly 'app.import.resolution.overwrite': string;
   readonly 'app.import.resolution.keepBoth': string;
@@ -438,6 +454,7 @@ export const MessagesZhCN: Messages = {
   'app.save.error.serialize-failed': '序列化 ARXML 失败。如反复出现请报告 bug。',
   'app.save.error.write-failed': '保存失败：{message}',
   'app.save.error.unknown': '保存失败：{message}',
+  'app.save.error.invalid-path': '保存路径无效（含父目录遍历）。',
   'app.project.new': '新建项目',
   'app.project.open': '打开项目',
   'app.project.save': '保存项目',
@@ -522,6 +539,10 @@ export const MessagesZhCN: Messages = {
   'confirm.unsaved.discard': '不保存，新建',
   'confirm.unsaved.saveAndNew': '保存并新建',
 
+  // prompt dialog
+  'prompt.cancel': '取消',
+  'prompt.confirm': '确定',
+
   // confirm dialog — per-action variants (Sprint 13 #2 Stage 3.2 Task 4)
   'confirm.unsaved.message.new': '当前项目 {name} 有未保存的更改。\n新建项目将丢失这些更改。',
   'confirm.unsaved.message.open': '当前项目 {name} 有未保存的更改。\n打开其他项目将丢失这些更改。',
@@ -541,6 +562,7 @@ export const MessagesZhCN: Messages = {
   'confirm.unsaved.saveAndNew.addBswmd': '保存并添加',
   'confirm.unsaved.saveAndNew.removeBswmd': '保存并移除',
   'confirm.unsaved.saveAndNew.excludeEcuc': '保存并排除',
+  'confirm.unsaved.saveAndNew.import': '保存并导入',
 
   // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
   'confirm.overwrite.title': '文件已存在',
@@ -663,6 +685,10 @@ export const MessagesZhCN: Messages = {
   'app.import.moduleSelection.title': '选择要导入的模块',
   'app.import.collision.badge': '⚠ 模块已存在',
   'app.import.diff.title': '模块冲突：{shortName}',
+  'app.import.diff.column.existing': '已存在',
+  'app.import.diff.column.incoming': '导入',
+  'app.import.diff.column.decision': '决策',
+  'app.import.diff.referenceCount': '{count} 个引用',
   'app.import.resolution.keepExisting': '保留现有',
   'app.import.resolution.overwrite': '覆盖',
   'app.import.resolution.keepBoth': '保留两份',
@@ -732,6 +758,7 @@ export const MessagesEn: Messages = {
   'app.save.error.serialize-failed': 'Failed to serialize ARXML. Report a bug if this persists.',
   'app.save.error.write-failed': 'Save failed: {message}',
   'app.save.error.unknown': 'Save failed: {message}',
+  'app.save.error.invalid-path': 'Invalid save path (parent traversal rejected).',
   'app.project.new': 'New Project',
   'app.project.open': 'Open Project',
   'app.project.save': 'Save Project',
@@ -817,6 +844,10 @@ export const MessagesEn: Messages = {
   'confirm.unsaved.discard': 'Discard & New',
   'confirm.unsaved.saveAndNew': 'Save & New',
 
+  // prompt dialog
+  'prompt.cancel': 'Cancel',
+  'prompt.confirm': 'OK',
+
   // confirm dialog — per-action variants (Sprint 13 #2 Stage 3.2 Task 4)
   'confirm.unsaved.message.new':
     'Project "{name}" has unsaved changes.\nCreating a new project will discard them.',
@@ -838,6 +869,7 @@ export const MessagesEn: Messages = {
   'confirm.unsaved.saveAndNew.addBswmd': 'Save & Add',
   'confirm.unsaved.saveAndNew.removeBswmd': 'Save & Remove',
   'confirm.unsaved.saveAndNew.excludeEcuc': 'Save & Exclude',
+  'confirm.unsaved.saveAndNew.import': 'Save and import',
 
   // overwrite-confirm dialog (Sprint 13 #2 Stage 3.2 Task 5)
   'confirm.overwrite.title': 'File Exists',
@@ -961,6 +993,10 @@ export const MessagesEn: Messages = {
   'app.import.moduleSelection.title': 'Select modules to import',
   'app.import.collision.badge': '⚠ Module exists',
   'app.import.diff.title': 'Module conflict: {shortName}',
+  'app.import.diff.column.existing': 'Existing',
+  'app.import.diff.column.incoming': 'Incoming',
+  'app.import.diff.column.decision': 'Decision',
+  'app.import.diff.referenceCount': '{count} reference(s)',
   'app.import.resolution.keepExisting': 'Keep existing',
   'app.import.resolution.overwrite': 'Overwrite',
   'app.import.resolution.keepBoth': 'Keep both',

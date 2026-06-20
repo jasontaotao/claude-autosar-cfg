@@ -4,12 +4,23 @@
 // Pattern mirrors PromptDialog (Sprint 12 #2): module-level
 // `externalSetState` + promise resolve. The host component mounts once
 // at the app root. Calling `confirm(options)` shows a 3-button modal
-// (继续编辑 / 不保存，新建 / 保存并新建) and resolves with the user's
-// choice. Esc, backdrop click, and the × close button all resolve with
-// 'continue' — the user has not committed to a destructive action.
+// and resolves with the user's choice. Esc, backdrop click, and the ×
+// close button all resolve with 'continue' — the user has not committed
+// to a destructive action.
+//
+// Sprint 17a — the default button labels are now locale-reactive.
+// `ConfirmRoot` subscribes to `useArxmlStore((s) => s.locale)` and
+// resolves the default labels via `t(locale, ...)`. Custom labels
+// passed in `ConfirmOptions` still override the defaults (the
+// per-action dirty-guard in `useProjectActions` keeps using the
+// existing `confirm.unsaved.saveAndNew.<action>` keys without change).
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+import { t } from '@shared/i18n';
+
+import { useArxmlStore } from '../store/useArxmlStore';
 
 import './ConfirmDialog.css';
 
@@ -30,9 +41,24 @@ interface ConfirmState {
 
 let externalSetState: ((state: ConfirmState | null) => void) | null = null;
 
-const DEFAULT_CONTINUE_LABEL = '继续编辑';
-const DEFAULT_DISCARD_LABEL = '不保存，新建';
-const DEFAULT_SAVE_LABEL = '保存并新建';
+/**
+ * Resolve the default button labels for the given locale. The
+ * i18n bundle values for the 3 default keys are identical to the
+ * previous hardcoded constants (so the existing zh-CN tests
+ * continue to pass without change); the en values are the canonical
+ * English strings.
+ */
+function defaultLabels(locale: 'zh-CN' | 'en'): {
+  continue: string;
+  discard: string;
+  save: string;
+} {
+  return {
+    continue: t(locale, 'confirm.unsaved.continue'),
+    discard: t(locale, 'confirm.unsaved.discard'),
+    save: t(locale, 'confirm.unsaved.saveAndNew'),
+  };
+}
 
 /**
  * Show a confirm dialog. Returns a promise that resolves with the user's
@@ -62,6 +88,9 @@ export function confirm(options: ConfirmOptions): Promise<ConfirmChoice> {
  */
 export function ConfirmRoot(): JSX.Element | null {
   const [state, setState] = useState<ConfirmState | null>(null);
+  // Subscribe to locale so default labels re-render when the user
+  // toggles the language mid-modal.
+  const locale = useArxmlStore((s) => s.locale);
 
   // Expose setState to the module-level `confirm()` function.
   useEffect(() => {
@@ -98,6 +127,7 @@ export function ConfirmRoot(): JSX.Element | null {
   };
 
   const titleId = 'confirm-dialog-title';
+  const labels = defaultLabels(locale);
 
   return createPortal(
     <div
@@ -139,7 +169,7 @@ export function ConfirmRoot(): JSX.Element | null {
             data-testid="confirm-continue"
             onClick={handleContinue}
           >
-            {state.options.continueLabel ?? DEFAULT_CONTINUE_LABEL}
+            {state.options.continueLabel ?? labels.continue}
           </button>
           <button
             type="button"
@@ -147,7 +177,7 @@ export function ConfirmRoot(): JSX.Element | null {
             data-testid="confirm-discard"
             onClick={handleDiscard}
           >
-            {state.options.discardLabel ?? DEFAULT_DISCARD_LABEL}
+            {state.options.discardLabel ?? labels.discard}
           </button>
           <button
             type="button"
@@ -155,7 +185,7 @@ export function ConfirmRoot(): JSX.Element | null {
             data-testid="confirm-saveAndProceed"
             onClick={handleSave}
           >
-            {state.options.saveLabel ?? DEFAULT_SAVE_LABEL}
+            {state.options.saveLabel ?? labels.save}
           </button>
         </div>
       </div>

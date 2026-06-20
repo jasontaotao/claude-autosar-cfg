@@ -22,6 +22,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useArxmlStore } from '../../store/useArxmlStore';
 import { ImportEntry } from '../ImportEntry';
 
+// ConfirmDialog is module-level; mock the `confirm` function so we
+// can drive each choice deterministically. The hoisted() helper lets
+// us share the same `vi.fn()` reference between the mock factory
+// and the test body.
+const { confirmMock } = vi.hoisted(() => ({
+  confirmMock: vi.fn(),
+}));
+
+vi.mock('../ConfirmDialog', () => ({
+  confirm: confirmMock,
+}));
+
 // Stub the preload bridge. We use `vi.fn()` for each method so
 // individual tests can swap in a per-test implementation.
 interface ApiStub {
@@ -166,19 +178,13 @@ describe('ImportEntry (Sprint 14 / T10)', () => {
 
   it('blocks on the dirty-guard when isDirty() is true (user cancel → no startImport)', async () => {
     // Mark the store dirty so isDirty() returns true. The dirty-
-    // guard uses window.confirm; we stub it to return false (= no
-    // proceed). openArxmlMulti should NOT be called.
+    // guard uses ConfirmDialog.confirm; we mock it to resolve to
+    // 'continue' (= no proceed). openArxmlMulti should NOT be
+    // called.
     useArxmlStore.setState({
-      // dirty via a phantom dirtyPath: the store's isDirty()
-      // considers the importSession state too, so we just set
-      // importSession to a non-null value to force dirty.
-      // Easier: just set viewMode='import-merged' which
-      // implicitly makes isDirty() true? No — we need a direct
-      // dirty hit. The cleanest way: use updateParam to dirty a
-      // doc. We have to set a doc first.
-      // The simplest path: set importSession to a fake session so
-      // isDirty() returns true. The ImportEntry will then bail at
-      // the dirty guard.
+      // Mark the store dirty by faking an importSession. The
+      // store's isDirty() also returns true when importSession is
+      // non-null (it treats an in-flight import as unsaved).
       importSession: {
         id: 'import-x',
         incomingDocs: [],
@@ -191,12 +197,105 @@ describe('ImportEntry (Sprint 14 / T10)', () => {
       },
     });
     const stub = installApiStub();
-    // window.confirm is the dirty-guard primitive in ImportEntry.
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    // Sprint 17a: dirty-guard uses ConfirmDialog.confirm (3-state).
+    confirmMock.mockResolvedValueOnce('continue');
     const { getByTestId } = render(<ImportEntry />);
     fireEvent.click(getByTestId('import-entry-button'));
-    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     expect(stub.openArxmlMulti).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
+  });
+
+  it('proceeds with the import when the user chooses "discard" in the dirty-guard', async () => {
+    // Mark dirty via importSession (cheaper than constructing a real
+    // document). confirm resolves to 'discard' = proceed without
+    // saving. openArxmlMulti SHOULD be called.
+    useArxmlStore.setState({
+      importSession: {
+        id: 'import-x',
+        incomingDocs: [],
+        originalPaths: [],
+        selections: [],
+        resolutions: [],
+        activeModuleForDiff: null,
+        createdAt: 0,
+        undoStack: [],
+      },
+    });
+    const stub = installApiStub({
+      openArxmlMulti: vi.fn().mockResolvedValue({ kind: 'canceled' }),
+    });
+    confirmMock.mockResolvedValueOnce('discard');
+    const { getByTestId } = render(<ImportEntry />);
+    fireEvent.click(getByTestId('import-entry-button'));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    await waitFor(() => expect(stub.openArxmlMulti).toHaveBeenCalledTimes(1));
+    expect(stub.saveArxml).not.toHaveBeenCalled();
+  });
+
+  it('runs the silent-save loop when the user chooses "saveAndProceed" in the dirty-guard', async () => {
+    // Mark dirty by populating dirtyPaths AND documents so the
+    // save-loop has something to iterate. confirm resolves to
+    // 'saveAndProceed' = save each dirty doc, then proceed with
+    // the import dialog.
+    const dirtyPath = '/in/Dirty.arxml';
+    // Minimal ArxmlDocument shape — only `.path` is read by the
+    // save-loop's `find()` lookup; serialize() is never invoked
+    // because saveArxml is stubbed.
+    const dirtyDoc = {
+      path: dirtyPath,
+      version: '4.6',
+      packages: [],
+    } as unknown as ReturnType<typeof useArxmlStore.getState>['documents'][number];
+    useArxmlStore.setState({
+      dirtyPaths: new Set([dirtyPath]),
+      documents: [dirtyDoc],
+    });
+    const stub = installApiStub({
+      saveArxml: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { canceled: false, path: dirtyPath },
+      }),
+      openArxmlMulti: vi.fn().mockResolvedValue({ kind: 'canceled' }),
+    });
+    confirmMock.mockResolvedValueOnce('saveAndProceed');
+    const { getByTestId } = render(<ImportEntry />);
+    fireEvent.click(getByTestId('import-entry-button'));
+    // saveArxml is called BEFORE openArxmlMulti (the loop must
+    // complete first per `ImportEntry.tsx:90-107`).
+    await waitFor(() => expect(stub.saveArxml).toHaveBeenCalledTimes(1));
+    expect(stub.saveArxml).toHaveBeenCalledWith(
+      expect.objectContaining({ currentPath: dirtyPath }),
+    );
+    await waitFor(() => expect(stub.openArxmlMulti).toHaveBeenCalledTimes(1));
+  });
+
+  it('bails the import when the first silent-save fails', async () => {
+    // saveAndProceed + a save that returns ok:false → the loop
+    // bails on the first failure and openArxmlMulti is NEVER
+    // called. The unsaved edits stay in memory.
+    const dirtyPath = '/in/Dirty.arxml';
+    const dirtyDoc = {
+      path: dirtyPath,
+      version: '4.6',
+      packages: [],
+    } as unknown as ReturnType<typeof useArxmlStore.getState>['documents'][number];
+    useArxmlStore.setState({
+      dirtyPaths: new Set([dirtyPath]),
+      documents: [dirtyDoc],
+    });
+    const stub = installApiStub({
+      saveArxml: vi.fn().mockResolvedValue({
+        ok: false,
+        error: { kind: 'write-failed', message: 'EACCES' },
+      }),
+    });
+    confirmMock.mockResolvedValueOnce('saveAndProceed');
+    const { getByTestId } = render(<ImportEntry />);
+    fireEvent.click(getByTestId('import-entry-button'));
+    await waitFor(() => expect(stub.saveArxml).toHaveBeenCalledTimes(1));
+    // The bail happens synchronously after the first save failure;
+    // openArxmlMulti should never fire.
+    expect(stub.openArxmlMulti).not.toHaveBeenCalled();
+    expect(useArxmlStore.getState().error).not.toBeNull();
   });
 });
