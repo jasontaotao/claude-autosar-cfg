@@ -46,6 +46,12 @@ export type SaveArxmlErrorKind =
   | 'path-not-found' // ENOENT, ENOTDIR
   | 'serialize-failed' // serializeArxml returned ok:false (in-memory)
   | 'write-failed' // legacy alias — any unspecialised IO failure
+  // Sprint 17b (H8) — defensive path-containment check. The renderer
+  // (or a compromised preload bridge) could otherwise forge a path
+  // like `../../etc/passwd` and the main process would happily write
+  // to it. We reject any path containing a `..` parent-traversal
+  // segment before touching the filesystem.
+  | 'invalid-path'
   | 'unknown'; // unmapped errno (preserves the original code)
 
 /**

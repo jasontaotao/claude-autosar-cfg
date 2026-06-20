@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { dialog, ipcMain } from 'electron';
 
 import { parseBswmd } from '../../core/project/bswmd.js';
-import { loadManifest, saveManifest } from '../../core/project/manifest.js';
+import { loadManifest } from '../../core/project/manifest.js';
 import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
@@ -41,6 +41,7 @@ import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
+import { projectSaveHandler } from './projectSaveHandler.js';
 import { projectWriteArxmlBatchHandler } from './projectWriteArxmlBatchHandler.js';
 import { saveArxmlHandler } from './saveArxmlHandler.js';
 import {
@@ -410,35 +411,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_SAVE,
     async (_evt, req: ProjectSaveRequest): Promise<ProjectSaveResult> => {
-      const manifestDir = path.dirname(req.manifestPath);
-      // Phase 1: files are written verbatim to their declared paths. We
-      // don't constrain them to manifestDir because the renderer may have
-      // intentionally captured an "Open ARXML" file that's elsewhere on
-      // disk (the loose-mode back-compat contract). Path containment is
-      // enforced on PROJECT_OPEN, not PROJECT_SAVE.
-      for (const f of req.files) {
-        try {
-          await fs.writeFile(f.path, f.content, 'utf8');
-        } catch (e) {
-          return {
-            kind: 'write-failed',
-            message: `Failed to write ${f.path}: ${e instanceof Error ? e.message : String(e)}`,
-          };
-        }
-      }
-      try {
-        await fs.writeFile(req.manifestPath, saveManifest(req.manifest), 'utf8');
-        return { kind: 'saved', path: req.manifestPath };
-      } catch (e) {
-        return {
-          kind: 'write-failed',
-          message: `Failed to write manifest: ${e instanceof Error ? e.message : String(e)}`,
-        };
-      }
-      // Reference `manifestDir` so the noUnusedLocals linter doesn't flag it
-      // — future phases may use it for output staging or relative-path
-      // re-writing. (Reachable only if Phase 2 adds extra logic above.)
-      void manifestDir;
+      // Sprint 17b (H8) — handler extracted to `projectSaveHandler.ts`
+      // so the path-traversal pre-flight check is unit-testable
+      // without the full IPC round-trip. The body preserves the
+      // loose-mode back-compat contract (files may live anywhere
+      // on disk; containment is enforced on PROJECT_OPEN, not
+      // PROJECT_SAVE).
+      return projectSaveHandler(req);
     },
   );
 }

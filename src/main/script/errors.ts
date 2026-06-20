@@ -17,7 +17,12 @@ export type ScriptErrorKind =
   | 'sandbox-runtime'
   | 'sandbox-timeout'
   | 'manifest-read'
-  | 'no-project';
+  | 'no-project'
+  // Sprint 17b (H8) — defensive parity with the PROJECT_SAVE and
+  // saveArxmlHandler containment checks. The script engine reads
+  // / writes the manifest path it was given at startup; we refuse
+  // any path with a `..` parent-traversal segment.
+  | 'invalid-path';
 
 export interface ScriptErrorPayload {
   readonly kind: ScriptErrorKind;

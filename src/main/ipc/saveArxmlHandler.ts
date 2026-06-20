@@ -20,6 +20,7 @@
 //      class. `code` carries the raw NodeJS errno string when set.)
 
 import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 
 import { dialog } from 'electron';
 
@@ -52,6 +53,21 @@ export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxml
       return { ok: true, value: { canceled: true } };
     }
     targetPath = result.filePath;
+  }
+
+  // Sprint 17b (H8) — defensive path-containment check. Reject any
+  // `targetPath` containing a `..` parent-traversal segment before
+  // touching the filesystem. The OS dialog always returns a
+  // normalized path, but the renderer's `currentPath` (silent save-
+  // back) is a renderer-controlled string — a compromised preload
+  // bridge could otherwise forge `../../etc/passwd` and we'd
+  // happily overwrite it.
+  if (path.normalize(targetPath).includes('..')) {
+    const err: SaveArxmlError = {
+      kind: 'invalid-path',
+      message: `File path contains parent traversal: ${targetPath}`,
+    };
+    return { ok: false, error: err };
   }
 
   const serialized = serializeArxml(req.doc);

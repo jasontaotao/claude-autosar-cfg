@@ -19,6 +19,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
+import * as path from 'node:path';
 
 import type { ArxmlDocument, ArxmlVersion } from '../../core/arxml/types.js';
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
@@ -53,6 +54,26 @@ export function __resetForTest(manifestPath: string | null, projectId: string | 
   _projectId = projectId;
 }
 
+/**
+ * Sprint 17b (H8) — defensive path-containment check. Reject any
+ * `_manifestPath` containing a `..` parent-traversal segment before
+ * touching the filesystem. The script engine reads / writes the
+ * manifest path it was given at startup; a compromised preload
+ * bridge could otherwise forge `../../etc/passwd`. Throws
+ * `ScriptError` with `kind: 'invalid-path'` on violation so the
+ * renderer can dispatch a localized toast off the typed kind.
+ */
+function assertSafeManifestPath(p: string | null): asserts p is string {
+  if (p === null) return; // null is the "no project" sentinel; the caller handles it.
+  if (path.normalize(p).includes('..')) {
+    throw classScriptError(
+      'invalid-path',
+      `script handler: manifest path contains parent traversal: ${p}`,
+      { path: p },
+    );
+  }
+}
+
 interface LoadedManifest {
   readonly scripts: readonly ScriptEntry[];
 }
@@ -64,6 +85,7 @@ function loadCurrentManifest(): LoadedManifest {
       'script handler: no project is open (call __resetForTest or wire via project:open)',
     );
   }
+  assertSafeManifestPath(_manifestPath);
   let raw: string;
   try {
     raw = readFileSync(_manifestPath, 'utf8');
@@ -98,6 +120,7 @@ function loadCurrentManifest(): LoadedManifest {
 
 function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
   if (_manifestPath === null) throw classScriptError('no-project', 'script handler: no project open');
+  assertSafeManifestPath(_manifestPath);
   // Round-trip through loadManifest to retain any future fields the
   // runtime knows about. We can't pass the full saved manifest here
   // without widening the helper, so we re-emit the minimal shape that
