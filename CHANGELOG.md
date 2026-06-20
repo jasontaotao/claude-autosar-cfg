@@ -5,6 +5,59 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-06-20 — Wire BSWMD picker + context menu + segment-aware coverage
+
+MINOR bump: **把 Picker / 右键菜单接上 UI** — 修了 v1.4.0 之后一直藏着的三个 P0/P1 缺口。1557 tests pass (从 1511, +46), 0 type errors, 0 lint errors, build success。
+
+### Added
+
+- **App.tsx mount BswmdPickerRoot + ContextMenuRoot + handleContextMenuAction** (`d0f3ecf`)：之前 `App.tsx` 完全没有 import 这两个 root 组件，store 里 `bswmdPicker` / context menu state 翻成 `open=true` 也没人渲染。修复后右击 tree 节点 → 弹菜单 → 点 Add parameter → 弹 picker → 选 → 写盘，端到端通。`handleContextMenuAction` exhaustively switch 5 种 `ContextMenuAction`（add-container / add-parameter / add-reference → `openBswmdPicker`；delete-container → `removeContainer`；delete-reference → `setInfo` toast，因为 store 还没 `removeReference` action，诚实地告诉用户这个 backlog 项）。
+- **LeftPanel 接 onContextMenu prop + Tree/TreeNode 3-arg onContextMenu** (`d0f3ecf`)：Tree 节点右键捕获的 `MouseEvent` 完整传到 App.tsx，让 host 能用 `clientX/clientY` 弹菜单位置。
+
+### Fixed
+
+- **P0-1 — ProjectPanel chip 永远 0/0、+ 按钮永远 disabled** (`4ba5ec4`)：`ProjectPanel.tsx:265` 用 `bswmdPathsInStore.indexOf(bswmdPath)` 但 `manifest.bswmdPaths`（相对 forward-slash 如 `bswmd/JWQ3399.arxml`）跟 `state.bswmdPaths`（绝对 backslash 如 `C:\Users\...\bswmd\JWQ3399.arxml`）形态不一致，indexOf 永不命中。修复：`shared/path.ts` 新增 `bswmdKeyFor` helper（小写 + `\`→`/` + 取最后 2 段），`ProjectPanel` + `ModuleFromBswmdPicker` 用 `useMemo` 派生 `bswmdKeyToSchema: Map<key, BswmdDocument>`，O(1) 查询。
+- **P0-2 — openProject 静默丢弃 IPC `bswmds` 字段** (`4ba5ec4`)：main 进程 `project:open` 返回 `{ manifest, docs, bswmds: [{rel, path, content}] }`，renderer `useArxmlStore.openProject({ manifestPath, manifest, docs })` 签名没 `bswmds` 字段，IPC 数据被 TypeScript 静默丢弃。修复：扩 `openProject` 签名为 optional `bswmds`，循环 `parseBswmd` push 到 `bswmdSchemas` / `bswmdPaths`（用 `entry.path` 绝对路径，跟 dialog 加的形态一致），`useProjectActions.openProjectFromDialog` 转发 `result.bswmds` 给 store action。**重新打开 project 后 schema 真的进 store**。
+- **P1 — `isModuleCoveredByBswmd` segments[0] 错位** (`d0f3ecf`)：注释假设 `path = '/<module>/...'` 但 value-side 路径是 `/<AR-PACKAGE>/<MODULE>/<CONTAINER>/...`。当前 user 测试集碰巧 AR-PACKAGE 跟 module 同名 (`JWQ3399`)，但 vendor 工具普遍用 `JWQ_CDD_PACK` 这种 package 名 — 那个 case 下 add items 全 disabled。修复：inlined `stripCombinedPrefix` + `lastPathSegment` 跟 `useArxmlStore.ts` 那份 byte-for-byte 对齐，从 path 末尾往前 walk 找 module shortName；同时处理 combined mode 的 basename / `[doc:N]` 前缀。Backward-compat：原 caller 不传 `viewMode` 时仍走 single-mode + segment-walk。
+- **MEDIUM-1 — ContextMenu z-index 撞车** (`d0f3ecf`)：ContextMenu.css 9995 跟 BswmdPickerDialog.css 9995 撞车，App.tsx 注释说 9998 跟实际不符。改 ContextMenu 9995→9994（sits below picker 9995 + cascade 9996 + confirm 9998），注释对齐现实。
+
+### Test count
+
+| Before | After | Delta |
+|---|---|---|
+| 1511 pass + 1 skipped | 1557 pass + 1 skipped | +46 tests (X1 18 + X2 11 + X3 5 + v1.4.1 17 + inter-test dedupe -5) |
+
+## [1.4.2] - 2026-06-20 — Project-load P0 patches
+
+PATCH bump: **两个 P0 项目加载 bug** — chip 永远 0/0 + 重新打开 project 丢 BSWMD。1537 tests pass（基线），0 type errors，0 lint errors，build success。
+
+### Fixed
+
+- **P0-1 — ProjectPanel chip 永远 0/0、+ 按钮永远 disabled**：`ProjectPanel.tsx:265` 的 `indexOf` 跨 manifest / store 两种路径形态做严格字符串比较，命中概率为 0。`bswmdKeyFor` helper 双向 normalize 后做 O(1) Map 查询。
+- **P0-2 — `openProject` 静默丢弃 IPC `bswmds`**：renderer 签名没 `bswmds` 字段，IPC 数据被 TypeScript 丢弃。扩 `openProject` 接收 + 循环 `parseBswmd` + 清旧 schema 防 cross-project leak。
+
+详见 release-notes-v1.4.1.md（v1.4.1 + v1.4.2 合并叙述）。
+
+## [1.4.1] - 2026-06-20 — 4-bug fix batch (BSWMD MCC + skeleton tag + 3-segment path)
+
+PATCH bump: **真实 vendor fixture 触发的 4 个 P0 bug** — 来自用户 `JWQ3399_bswmd.arxml` + `JWQ3399_EcucValues.arxml` pair。1537 tests pass（基线），0 type errors，0 lint errors，build success。
+
+### Fixed
+
+- **Bug 1 — BSWMD `<MULTIPLICITY-CONFIG-CLASSES>` 解析器静默丢弃**：`bswmd.ts` 之前完全没读这个块。`ContainerDef` / `BswModuleDef` interface 加 `multiplicityConfigClasses?: readonly MultiplicityConfigClass[]` 字段 + `readMultiplicityConfigClasses()` helper。Picker dialog 用 `moduleDef.multiplicityConfigClasses ?? []` 兜底。
+- **Bug 2a — skeleton 用错 tagName**：`skeleton.ts` `buildTopContainer` + `buildSubContainerShell` 之前 emit `<ECUC-CONFIGURATION-CONTAINER>`（schema-side），但 `addContainer` + serializer 写 `<ECUC-CONTAINER-VALUE>`（value-side）— 跟后续 write path 不一致。改用 `ECUC-CONTAINER-VALUE`。
+- **Bug 2b — skeleton 为 `lower=0` 容器预建空 shell**：`buildSubContainerShell` 之前不管 `lowerMultiplicity` 都 emit 一个空 container，留下 ghost placeholder。改为只在 `lowerMultiplicity > 0` 时 emit shell，返回 `ArxmlContainer[]`（而不是单个）让顶层用 `flatMap` 收口。AUTOSAR 惯例：skeleton 预建 minimum 1 instance，剩下的用户用 picker 加。
+- **Bug 2c — `findByPath` 只接 4-segment path**：用户 UI 发的是 compressed 3-segment `/JWQ3399/JWQ3399ConfigSet/...`（当 `pkg.shortName === module.shortName` 时省 module 段）。Core 层之前假设 canonical 4-segment `/JWQ3399/JWQ3399/JWQ3399ConfigSet/...`。用户明确说"无法实现4段" — UI 改不了，core 必须接住。修复：`findByPath` 加 3-segment fallback（iterate `pkg.elements` 找 module 短名匹配 + 子容器 shortName 匹配 `rest[0]`），提取共享 `walkFrom` helper。`locateParent`（mutation.ts）+ `locateParentElement`（BswmdPickerDialog.tsx）现在都委托 `findByPath`。
+
+### Code review findings (APPROVE_WITH_MEDIUM, 0 C / 0 H / 2 M / 2 L)
+
+- **MEDIUM 1**: 3-segment fallback 在 multiple modules in same pkg 时静默 first-wins。**Dormant in current fixtures; AUTOSAR convention puts each module in own pkg.**
+- **MEDIUM 2**: `replaceElement` / `removeElement` 用 `kind + shortName` identity match，not pkg-scoped。Compounds M1。**Dormant.**
+- **LOW 1**: `multiplicityConfigClasses` optional type vs `buildEbModule` 永远 emit `[]` 的 cosmetic 不一致。
+- **LOW 2**: pre-existing `appendChild` 永远 replace parent identity even when no actual change。Not from this fix.
+
+详见 release-notes-v1.4.1.md。
+
 ## [1.4.0] - 2026-06-20 — Trust Sprint (17a + 17b + 17c)
 
 MINOR bump: **三个 trust-critical 修复** — round-trip 不再静默丢数据 / Dialog 全 i18n 化 / 写路径防 `..` 遍历。1511 tests pass (从 1493, +18), 0 type errors, 0 lint errors, build success。
