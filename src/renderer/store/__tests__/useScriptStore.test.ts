@@ -14,8 +14,13 @@
 //   9. clearOutput drops runResult + runProgress
 //  10. reset() restores initial state
 
+import { promises as fsPromises } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
 import type { ScriptRunResult, ScriptSummary } from '@main/script/types';
 
 import { useArxmlStore } from '../useArxmlStore';
@@ -328,7 +333,7 @@ describe('useScriptStore — runScript', () => {
 });
 
 describe('useScriptStore — applyMutation / discardMutation / clearOutput', () => {
-  it('applyMutation empties mutations on the runResult', () => {
+  it('applyMutation empties mutations on the runResult', async () => {
     useScriptStore.setState({
       runResult: {
         runId: 'r1',
@@ -339,7 +344,7 @@ describe('useScriptStore — applyMutation / discardMutation / clearOutput', () 
         durationMs: 0,
       },
     });
-    useScriptStore.getState().applyMutation();
+    await useScriptStore.getState().applyMutation();
     expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
   });
 
@@ -366,6 +371,227 @@ describe('useScriptStore — applyMutation / discardMutation / clearOutput', () 
     useScriptStore.getState().clearOutput();
     expect(useScriptStore.getState().runResult).toBeNull();
     expect(useScriptStore.getState().runProgress).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint v1.5.1 PR(4) — applyMutation real replay (closes Sprint 14 #2)
+// ---------------------------------------------------------------------------
+//
+// The Sprint 14 #1 Phase C stub cleared `runResult.mutations` without
+// touching the ARXML doc. The Phase D wire-up applies each mutation to
+// the active document via the existing `useArxmlStore` actions, then
+// atomic-writes the serialized XML to the active file path. These
+// tests pin that contract end-to-end against a real temp file (so the
+// atomic-write path is exercised, not stubbed out).
+
+describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
+  // Reuse the synthetic-doc builder pattern from
+  // `useArxmlStore.multidoc.test.ts` so we can exercise `updateParam`
+  // without dragging in a full EcuC fixture (the path shape is what
+  // matters: `/<pkg>/<module>/<container>`).
+  function makeDocWithParam(value: number): ArxmlDocument {
+    return {
+      path: '/tmp/test.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'EAS',
+          path: '/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'EcuC',
+              params: {},
+              children: [
+                {
+                  kind: 'container',
+                  tagName: 'ECUC-CONTAINER-VALUE',
+                  shortName: 'EcuCGeneral',
+                  params: {
+                    ConfigConsistencyRequired: { type: 'integer', value },
+                  },
+                  children: [],
+                },
+              ],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  beforeEach(async () => {
+    useArxmlStore.getState().clear();
+    useScriptStore.getState().reset();
+  });
+
+  it('applies a set-param mutation to the active doc and atomic-writes to disk', async () => {
+    const tmpFile = join(tmpdir(), `apply-mutation-${Date.now()}-${Math.random()}.arxml`);
+    try {
+      const doc = makeDocWithParam(1);
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'set-param',
+              containerPath: '/EAS/EcuC/EcuCGeneral',
+              paramName: 'ConfigConsistencyRequired',
+              newValue: 42,
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+
+      await useScriptStore.getState().applyMutation();
+
+      // The in-memory doc reflects the new value.
+      const next = useArxmlStore.getState();
+      const ecuc = next.doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
+      const general = ecuc?.children[0] as ArxmlContainer | undefined;
+      expect(general?.params.ConfigConsistencyRequired).toEqual({
+        type: 'integer',
+        value: 42,
+      });
+
+      // Mutations cleared on the runResult.
+      expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
+
+      // The atomic-write landed on disk. If it didn't, the error
+      // message in `runResult.errorMessage` tells us why.
+      if (useScriptStore.getState().runResult?.errorMessage !== undefined) {
+        throw new Error(`applyMutation error: ${useScriptStore.getState().runResult?.errorMessage}`);
+      }
+      const onDisk = await fsPromises.readFile(tmpFile, 'utf-8');
+      expect(onDisk).toContain('ConfigConsistencyRequired');
+      expect(onDisk).toMatch(/<VALUE>42<\/VALUE>/);
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
+  });
+
+  it('does not throw when no active document is loaded (no-op)', async () => {
+    // useArxmlStore is empty (cleared in beforeEach).
+    useScriptStore.setState({
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [
+          {
+            kind: 'set-param',
+            containerPath: '/EAS/EcuC/EcuCGeneral',
+            paramName: 'ConfigConsistencyRequired',
+            newValue: 1,
+          },
+        ],
+        durationMs: 0,
+      },
+    });
+    await expect(useScriptStore.getState().applyMutation()).resolves.toBeUndefined();
+    // Mutations are still cleared — the stub contract is preserved
+    // when no doc is loaded.
+    expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
+  });
+
+  it('records a write error and leaves dirty=true when disk write fails', async () => {
+    // The unit test for the write-failure branch. We mock the
+    // `projectSaveHandler` module so `writeAtomic` throws a
+    // deterministic error — this pins the contract that the in-memory
+    // mutation still applies and the run's `errorMessage` reflects
+    // the write failure. (The `writeAtomic` helper itself is
+    // exercised end-to-end in `projectSaveHandler.atomic.test.ts`.)
+    const writeAtomicModule = await import('../../../main/ipc/projectSaveHandler.js');
+    const writeAtomicSpy = vi
+      .spyOn(writeAtomicModule, 'writeAtomic')
+      .mockRejectedValueOnce(new Error('disk full'));
+
+    try {
+      const doc = makeDocWithParam(1);
+      const tmpFile = join(tmpdir(), `apply-mut-writeerr-${Date.now()}.arxml`);
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'set-param',
+              containerPath: '/EAS/EcuC/EcuCGeneral',
+              paramName: 'ConfigConsistencyRequired',
+              newValue: 99,
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+
+      await useScriptStore.getState().applyMutation();
+
+      // The in-memory mutation is still applied even when the disk
+      // write fails — losing the in-memory change silently would be
+      // worse than leaving the user with a dirty file to retry.
+      const next = useArxmlStore.getState();
+      const ecuc = next.doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
+      const general = ecuc?.children[0] as ArxmlContainer | undefined;
+      expect(general?.params.ConfigConsistencyRequired).toEqual({
+        type: 'integer',
+        value: 99,
+      });
+
+      // The script run's `errorMessage` surfaces the write failure.
+      expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/disk full/);
+      // `dirty` flips to true so the MutationPanel can prompt for retry.
+      expect(useScriptStore.getState().dirty).toBe(true);
+      // And writeAtomic was actually called (the dispatcher ran).
+      expect(writeAtomicSpy).toHaveBeenCalledOnce();
+    } finally {
+      writeAtomicSpy.mockRestore();
+    }
+  });
+
+  it('discardMutation still drops the run without touching the doc', () => {
+    const doc = makeDocWithParam(1);
+    useArxmlStore.getState().setDoc(doc, '/tmp/discard.arxml');
+    useScriptStore.setState({
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [
+          {
+            kind: 'set-param',
+            containerPath: '/EAS/EcuC/EcuCGeneral',
+            paramName: 'ConfigConsistencyRequired',
+            newValue: 999,
+          },
+        ],
+        durationMs: 0,
+      },
+    });
+    useScriptStore.getState().discardMutation();
+    // Doc unchanged.
+    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+      | ArxmlModule
+      | undefined;
+    const general = ecuc?.children[0] as ArxmlContainer | undefined;
+    expect(general?.params.ConfigConsistencyRequired).toEqual({
+      type: 'integer',
+      value: 1,
+    });
+    expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
   });
 });
 

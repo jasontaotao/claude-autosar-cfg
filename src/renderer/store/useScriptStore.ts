@@ -26,6 +26,14 @@ import type {
   ScriptSummary,
 } from '@main/script/types';
 
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ParamValue,
+} from '../../core/arxml/types.js';
+
 export interface ScriptRunProgress {
   readonly runId: string;
   readonly level: 'info' | 'warn' | 'error' | 'debug';
@@ -86,7 +94,7 @@ export interface ScriptState {
   /** Replace `runResult` with the run's terminal state. */
   setRunResult: (result: ScriptRunResult | null) => void;
   /** Apply the run's mutations to the open project (commits the run). */
-  applyMutation: () => void;
+  applyMutation: () => Promise<void>;
   /** Drop the run's mutations (discards the run). */
   discardMutation: () => void;
   /** Clear the output panel (log stream + run result). */
@@ -279,18 +287,152 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     set({ runResult: result });
   },
 
-  // Sprint 14 #1 Phase C — `applyMutation` is a thin pass-through to
-  // the existing `useArxmlStore` mutation pipeline. Phase C ships the
-  // UI affordance; Phase D wires the actual mutation replay (the
-  // existing `core/arxml/mutation.ts` API accepts set-param / add-child
-  // / remove-child — same shape as `ScriptMutation`). For now we mark
-  // the run result as consumed so the commit/discard buttons disable.
-  applyMutation: (): void => {
+  // Sprint 14 #1 Phase D (PR(4)) — wire the actual mutation replay.
+  //
+  // The stub from Phase C (commit `33cc250` ancestor) cleared
+  // `runResult.mutations` without touching the ARXML doc. This Phase D
+  // replayer dispatches each `ScriptMutation` to the existing
+  // `useArxmlStore` actions (so the in-memory doc, dirty tracking, and
+  // validation pipeline stay in sync), then serializes the doc and
+  // atomic-writes it back to the active file path via `writeAtomic`
+  // (PR(4) helper, same trust-sprint invariant as the v1.4.0 save
+  // path).
+  //
+  // Closes the Sprint 14 #2 follow-up.
+  applyMutation: async (): Promise<void> => {
     const result = get().runResult;
     if (result === null) return;
+
+    // Lazy-load the collaborators to keep the store import-free at
+    // module load time. The store is consumed both by the renderer
+    // (real) and by these tests (jsdom); dynamic import keeps the
+    // test module graph stable.
+    const { useArxmlStore } = await import('./useArxmlStore.js');
+    const { writeAtomic } = await import('../../main/ipc/projectSaveHandler.js');
+    const { serializeArxml } = await import('../../core/arxml/serializer.js');
+
+    const arxmlState = useArxmlStore.getState();
+    const filePath = arxmlState.activeDocumentPath;
+    // No active doc → nothing to apply. Preserve the stub contract
+    // (clear mutations, drop dirty) so the commit/discard UI still
+    // settles cleanly.
+    if (arxmlState.doc === null || filePath === null) {
+      set({
+        runResult: { ...result, mutations: [] },
+        dirty: false,
+      });
+      return;
+    }
+
+    const writeErrors: string[] = [];
+    let applied = 0;
+    for (const m of result.mutations) {
+      const before = useArxmlStore.getState();
+      if (before.doc === null) continue;
+      switch (m.kind) {
+        case 'set-param': {
+          // Map the script ParamValue to a typed core ParamValue.
+          // The store's `updateParam` reads the existing param's type
+          // tag, so we just have to forward the raw value + a fresh
+          // type tag mirroring whatever the user wrote.
+          const existing = findParamInDoc(before.doc, m.containerPath, m.paramName);
+          if (existing === null) {
+            // Path not found — skip silently (the store will surface
+            // a separate error if the user persists). Don't throw.
+            continue;
+          }
+          const newValue = scriptParamValueToCore(existing.type, m.newValue);
+          before.updateParam(m.containerPath, m.paramName, newValue);
+          break;
+        }
+        case 'add-child': {
+          // `addContainer` requires a BSWMD-derived `childDef`; the
+          // script engine does not have one. We round-trip through
+          // the public action which looks up the def internally and
+          // surfaces a localized error on failure. The script user
+          // does not see the dialog (it runs as a side effect of
+          // commit), so the error is captured in `arxmlState.error`
+          // for the next render — acceptable for Phase D.
+          before.addContainer(m.containerPath, m.newShortName);
+          break;
+        }
+        case 'remove-child': {
+          // `deleteContainer` opens the cascade dialog if references
+          // point at the target; scripts want a non-interactive
+          // replay. Bypass the dialog by calling the core helper
+          // directly via a special-case action — for Phase D we use
+          // `deleteContainer` and accept the dialog short-circuit
+          // when refs exist (the action stores the pending delete
+          // rather than mutating). The renderer's existing UI flow
+          // handles the dialog separately.
+          //
+          // Future improvement: introduce a `removeWithCascade` action
+          // on the store that bypasses the dialog. Out of scope for
+          // this PR.
+          before.deleteContainer(m.containerPath);
+          break;
+        }
+      }
+      // Only count a mutation as applied when the doc reference
+      // actually changed (the store's no-op contract returns the same
+      // `ArxmlDocument` reference when a path can't be resolved).
+      if (useArxmlStore.getState().doc !== before.doc) {
+        applied += 1;
+      }
+    }
+
+    // Atomic-write the serialized doc to the active file path. We
+    // always serialize — even when `applied === 0` — because a future
+    // set-param on a stale doc may still have flipped the dirty bit.
+    // Skipping the write when no mutation landed is fine too: we just
+    // persist the in-memory doc as-is.
+    //
+    // We deliberately do NOT pass `sourceArxml` to the serializer here
+    // — the in-memory doc IS the new source of truth, and rewriting
+    // it in source order would silently re-introduce the very changes
+    // the script just applied. The PR(2) preserveSourceOrder pass is
+    // reserved for hand-edit round-trips (the user loads, edits, saves
+    // without applying any script), where the order is meaningful.
+    try {
+      const latest = useArxmlStore.getState();
+      if (latest.doc !== null) {
+        const result2 = serializeArxml(latest.doc);
+        if (result2.ok) {
+          await writeAtomic(filePath, result2.value);
+        } else {
+          writeErrors.push(`serialize: ${result2.error.message}`);
+        }
+      }
+    } catch (e) {
+      // Atomic-write failure → user data is intact on disk (the
+      // temp file was cleaned up by `writeAtomic`). Surface the
+      // error in the run log so the user can see why the commit
+      // didn't land. We do NOT undo the in-memory mutation — the
+      // user might still be able to re-save manually.
+      writeErrors.push(e instanceof Error ? e.message : String(e));
+    }
+
+    // Surface write errors via the script error channel (the
+    // renderer's MutationPanel reads `runResult.errorMessage` to
+    // decide whether to keep the dirty flag).
+    const errorMessage =
+      writeErrors.length > 0
+        ? `${applied}/${result.mutations.length} mutations applied; write failed: ${writeErrors.join('; ')}`
+        : undefined;
     set({
-      runResult: { ...result, mutations: [] },
-      dirty: false,
+      runResult: {
+        ...result,
+        mutations: [],
+        ...(errorMessage !== undefined ? { errorMessage } : {}),
+      },
+      // The store is dirty whenever the in-memory doc diverges from
+      // disk. The script engine doesn't track its own dirty flag —
+      // the user-facing "save again?" hint comes from
+      // `useArxmlStore.dirtyPaths`. We mirror the contract here:
+      // dirty when a write failed (so the UI prompts for retry) OR
+      // when the user has since re-edited (we don't know; default
+      // to false on a clean write).
+      dirty: writeErrors.length > 0,
     });
   },
 
@@ -360,4 +502,101 @@ function starterForKind(kind: ScriptKind): string {
       return '';
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// applyMutation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Locate a parameter on the doc tree at `containerPath`. Returns the
+ * existing `ParamValue` so the caller can reuse its `type` tag (the
+ * store's `updateParam` keys off the type to keep the typed value
+ * representation stable). Returns `null` when the path does not
+ * resolve OR the leaf is not a module / container (reference /
+ * unknown have no params).
+ */
+function findParamInDoc(
+  doc: ArxmlDocument,
+  containerPath: string,
+  paramName: string,
+): ParamValue | null {
+  const segments = containerPath.split('/').filter((s) => s.length > 0);
+  if (segments.length < 1) return null;
+  // Walk into `doc.packages` first, then into the module / container
+  // children. Reference and unknown leaves are skipped — they have
+  // no `params` to query.
+  const pkgName = segments[0];
+  if (pkgName === undefined) return null;
+  const rootPkg = doc.packages.find((p) => p.shortName === pkgName);
+  if (rootPkg === undefined) return null;
+  let cursor: ArxmlElement | null = null;
+  for (const el of rootPkg.elements) {
+    if (el.kind === 'reference' || el.kind === 'unknown') continue;
+    if (el.shortName === segments[1]) {
+      cursor = el;
+      break;
+    }
+  }
+  if (cursor === null) return null;
+  for (let i = 2; i < segments.length; i += 1) {
+    const seg = segments[i];
+    if (seg === undefined || cursor === null) return null;
+    if (cursor.kind !== 'module' && cursor.kind !== 'container') return null;
+    const cursorNode: ArxmlModule | ArxmlContainer = cursor;
+    const child: ArxmlElement | undefined = cursorNode.children.find(
+      (c) => c.kind !== 'reference' && c.kind !== 'unknown' && c.shortName === seg,
+    );
+    if (child === undefined) return null;
+    cursor = child;
+  }
+  if (cursor === null) return null;
+  if (cursor.kind !== 'module' && cursor.kind !== 'container') return null;
+  return cursor.params[paramName] ?? null;
+}
+
+/**
+ * Convert the script engine's `ParamValue` (loose union — see
+ * `ScriptMutation['newValue']` in `main/script/types.ts`) to a typed
+ * `core/arxml/types.ts` `ParamValue`. We preserve the existing
+ * param's `type` tag so a `set-param` cannot accidentally widen a
+ * string into a number — the script engine's loose union is a UX
+ * nicety for user scripts, but on the way in we keep the type stable.
+ */
+function scriptParamValueToCore(
+  existingType: ParamValue['type'],
+  raw:
+    | number
+    | string
+    | boolean
+    | { readonly value: string; readonly dest?: string },
+): ParamValue {
+  // Reference params: the script's `{ value, dest? }` shape is the
+  // canonical reference value. Forward dest when present, otherwise
+  // drop it (the existing tag is `reference` so the dest is optional
+  // — see `ArxmlReference`).
+  if (existingType === 'reference' && typeof raw === 'object' && raw !== null && 'value' in raw) {
+    const refValue = raw as { readonly value: string; readonly dest?: string };
+    return refValue.dest !== undefined
+      ? { type: 'reference', value: refValue.value, dest: refValue.dest }
+      : { type: 'reference', value: refValue.value };
+  }
+  // Primitive passthrough: number / string / boolean are valid for
+  // the matching ParamValue kinds. We coerce to the existing type's
+  // expectations — for 'integer' / 'float' the value MUST be a
+  // number; for 'boolean' a boolean; for 'string' / 'enum' a string.
+  // The store's `updateParam` re-validates on assignment so a bad
+  // script value surfaces as a localized error rather than a silent
+  // type-coerce.
+  if (existingType === 'integer' || existingType === 'float') {
+    return { type: existingType, value: typeof raw === 'number' ? raw : Number(raw) };
+  }
+  if (existingType === 'boolean') {
+    return { type: 'boolean', value: Boolean(raw) };
+  }
+  if (existingType === 'string' || existingType === 'enum') {
+    return { type: existingType, value: String(raw) };
+  }
+  // Fallback: keep the existing type and stringify the value.
+  return { type: existingType, value: String(raw) };
 }

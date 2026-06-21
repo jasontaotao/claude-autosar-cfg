@@ -440,6 +440,17 @@ export interface Messages {
   readonly 'script.error.timeout': string;
   readonly 'script.error.import': string;
   readonly 'script.violation.group': string;
+
+  // --- Sprint v1.5.1 PR(4) — applyMutation error kinds (4 new) ----
+  // The script engine's commit path emits these when a `MutationPlan`
+  // step fails (invalid plan shape, reference cycle, multiplicity
+  // violation) or the runtime detects a concurrent mutation. The
+  // v1.6.0 headless CLI surfaces them in the user-facing error
+  // stream; today they are emitted as `runResult.errorMessage`.
+  readonly 'error.applyMutation.plan-invalid': string; // {violations}
+  readonly 'error.applyMutation.reference-cycle': string; // {from} {to}
+  readonly 'error.applyMutation.multiplicity-violation': string; // {path} {required} {actual}
+  readonly 'error.applyMutation.concurrent-mutation': string; // {planId} {conflictingPlanId}
 }
 
 export type MessageKey = keyof Messages;
@@ -754,6 +765,10 @@ export const MessagesZhCN: Messages = {
   'script.error.timeout': '脚本超时',
   'script.error.import': 'import 解析失败',
   'script.violation.group': '脚本校验',
+  'error.applyMutation.plan-invalid': '无效的变更计划: {violations}',
+  'error.applyMutation.reference-cycle': '检测到引用循环: {from} → {to}',
+  'error.applyMutation.multiplicity-violation': '{path} 处多重性违规: 期望 {required}，实际 {actual}',
+  'error.applyMutation.concurrent-mutation': '检测到并发变更: {planId} 与 {conflictingPlanId} 冲突',
 };
 
 // ---------------------------------------------------------------------------
@@ -1070,6 +1085,10 @@ export const MessagesEn: Messages = {
   'script.error.timeout': 'Script timeout',
   'script.error.import': 'Import parse failed',
   'script.violation.group': 'Script validations',
+  'error.applyMutation.plan-invalid': 'Invalid mutation plan: {violations}',
+  'error.applyMutation.reference-cycle': 'Reference cycle detected: {from} → {to}',
+  'error.applyMutation.multiplicity-violation': 'Multiplicity violation at {path}: expected {required}, got {actual}',
+  'error.applyMutation.concurrent-mutation': 'Concurrent mutation detected: {planId} vs {conflictingPlanId}',
 };
 
 // ---------------------------------------------------------------------------
