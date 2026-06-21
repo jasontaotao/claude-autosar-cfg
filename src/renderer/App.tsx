@@ -64,6 +64,7 @@ import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useProjectActions } from './hooks/useProjectActions';
 import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
+import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
 import { useArxmlStore } from './store/useArxmlStore';
 
@@ -72,6 +73,12 @@ export function App(): JSX.Element {
   // Note: store.updateParam is already sync-revalidating; this hook
   // covers any future async paths (IPC mutations, undo/redo, etc.).
   useDebouncedValidation(300);
+
+  // v1.6.0 Cluster G — SWS Validator runner. Same 300ms debounce so
+  // rapid edits don't fire N rule suites. Skips when the feature flag
+  // is OFF (per G spec §2 G5). Independent from `useDebouncedValidation`
+  // so the legacy schema validator and the SWS validator stay decoupled.
+  useSwsValidatorRunner(300);
 
   // Sprint 13+ Stage 4 Q1 — react-resizable-panels v4 has no
   // `autoSaveId` prop (verified in node_modules/.../dist/.d.ts:60-142
