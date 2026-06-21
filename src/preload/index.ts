@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { StencilRequest, StencilResponse } from '../main/stencil/types.js';
+import type {
+  StencilRequest,
+  StencilResponse,
+  StencilSaveRequest,
+  StencilSaveResponse,
+} from '../main/stencil/types.js';
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
   OpenArxmlMultiResult,
@@ -143,6 +148,13 @@ const api = {
   // Cmd-K palette command when the flag is OFF (per Task 7 plan).
   stencilGenerate: (req: StencilRequest): Promise<StencilResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.STENCIL_GENERATE_V1, req),
+  // v1.8.0 K Task 12 polish — pairs with `stencilGenerate`. The
+  // wizard calls this after a successful generate to ask main to
+  // show the native save dialog and persist the XML. Same Result
+  // envelope as `saveArxml` so the renderer dispatches per-kind
+  // errors (permission / disk-full / path-not-found) uniformly.
+  stencilSave: (req: StencilSaveRequest): Promise<StencilSaveResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.STENCIL_SAVE_V1, req),
   // v1.6.0 U — feature flags. Renderer reads flags via
   // `autosarApi.getFeatureFlags()` (see
   // `src/renderer/config/featureFlags.ts`). The main-process handler

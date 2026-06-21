@@ -126,6 +126,14 @@ export const IPC_CHANNELS = {
   // policy (`:v1` suffix; breaking changes introduce `:v2`). Gated by
   // `experimental.stencilWizard` feature flag (default OFF).
   STENCIL_GENERATE_V1: 'stencil:generate:v1',
+  // v1.8.0 K — Stencil Wizard save channel (Task 12 polish). Takes a
+  // pre-serialized XML string + suggested filename from the renderer,
+  // pops the native OS save dialog, and writes the file. Lives in a
+  // separate channel from `STENCIL_GENERATE_V1` so the generate path
+  // stays pure (returns XML only) and the save path can be re-used by
+  // any future feature that needs "write this string to a user-chosen
+  // path". Same `:v1` versioning policy.
+  STENCIL_SAVE_V1: 'stencil:save:v1',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

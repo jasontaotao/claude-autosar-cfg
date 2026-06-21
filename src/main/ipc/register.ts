@@ -56,6 +56,7 @@ import {
   scriptSaveHandler,
 } from './script-handler.js';
 import { registerStencilHandler } from './stencilHandler.js';
+import { handleStencilSave } from './stencilSaveHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
@@ -447,6 +448,18 @@ export function registerIpcHandlers(): void {
   // module skeleton (.arxml) for one of 4 families. Gate logic (SWS
   // Validator opt-in) is added in Task 8; CLI parity in v1.9.0+.
   registerStencilHandler();
+
+  // v1.8.0 K — Task 12 polish. The save dialog + disk write live in
+  // a separate channel from `STENCIL_GENERATE_V1` so the generate
+  // path stays pure (no IO) and the save path can be re-used by
+  // future features. Returns the same Result envelope as
+  // `saveArxmlHandler` so the renderer's per-kind error dispatch
+  // works uniformly.
+  ipcMain.handle(
+    IPC_CHANNELS.STENCIL_SAVE_V1,
+    async (_evt, req: { readonly xml: string; readonly suggestedFilename: string }) =>
+      handleStencilSave(req),
+  );
 }
 
 // ---------------------------------------------------------------------------

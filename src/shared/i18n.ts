@@ -623,6 +623,10 @@ export interface Messages {
   // location.
   readonly 'stencil.badge.template': string;
   readonly 'stencil.badge.templateAria': string; // {name}
+  // v1.8.0 K Task 12 — success toast shown after the user picks a
+  // destination in the native save dialog. `{name}` interpolates
+  // the basename of the chosen path.
+  readonly 'stencil.success.saved': string; // {name}
 
   // --- v1.6.0 Cluster W — Onboarding tour (W spec §3.5) ---
   // 20 onboarding keys (welcome card + 5 step title/body + 4 controls + progress)
@@ -1111,6 +1115,7 @@ export const MessagesZhCN: Messages = {
   'stencil.error.unknownFamily': '未知的模块族',
   'stencil.error.gateBlocked': 'SWS 校验发现 {count} 项错误，已阻止生成',
   'stencil.badge.template': '模板',
+  'stencil.success.saved': '已保存到 {name}',
   'stencil.badge.templateAria': '{name} 是模板文件',
 
   // --- v1.6.0 Cluster W — Onboarding tour ---
@@ -1605,6 +1610,7 @@ export const MessagesEn: Messages = {
   'stencil.error.unknownFamily': 'Unknown module family',
   'stencil.error.gateBlocked': 'SWS validation found {count} error(s); generation blocked',
   'stencil.badge.template': 'Template',
+  'stencil.success.saved': 'Saved to {name}',
   'stencil.badge.templateAria': '{name} is a template file',
 
   // --- v1.6.0 Cluster W — Onboarding tour (en) ---
