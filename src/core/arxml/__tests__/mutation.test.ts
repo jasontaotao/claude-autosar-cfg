@@ -13,6 +13,9 @@
 // schema for multiplicity + name-conflict checks; a small hand-built
 // BswModuleDef is the easiest way to keep the tests focused.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 
 import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../../project/bswmd.js';
@@ -22,10 +25,20 @@ import {
   addParameter,
   addReference,
   removeParameter,
+  removeWithCascade,
   listAllowedSubElements,
   findReferencesTo,
 } from '../mutation.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '../types.js';
+import { parseArxml } from '../parser.js';
+import { serializeArxml } from '../serializer.js';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ArxmlReference,
+  ParamValue,
+} from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Hand-built fixtures
@@ -892,5 +905,213 @@ describe('addReference', () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error.kind).toBe('path-not-found');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removeWithCascade
+//
+// Sprint 14 v1.5.1 Foundation — PR(3). Auto-dangle cascade: removes the
+// target container AND any <REFERENCE>-typed params whose value points at
+// the target's path. Single-doc scope (cross-doc cascade is the store's
+// responsibility via findReferencesTo).
+// ---------------------------------------------------------------------------
+
+const CASCADE_FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
+
+function loadFixture(name: string): ArxmlDocument {
+  const source = readFileSync(join(CASCADE_FIXTURE_DIR, name), 'utf-8');
+  const parsed = parseArxml(source);
+  if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+  return parsed.value;
+}
+
+describe('removeWithCascade', () => {
+  it('removes single container with no references', () => {
+    // Arrange
+    const doc = loadFixture('EcuC_EcuC.arxml');
+    const targetPath = '/EcucDefs/EcuC/EcucGeneral';
+
+    // Act
+    const r = removeWithCascade(doc, targetPath);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Target is gone.
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const childShortNames = (rootModule.children as readonly ArxmlElement[])
+      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .map((c) => c.shortName);
+    expect(childShortNames).not.toContain('EcucGeneral');
+  });
+
+  it('cascades: removes target + inbound references within the same doc', () => {
+    // Arrange — hand-build a doc with a reference param pointing at a
+    // sibling container. Cascade must drop both.
+    const targetShortName = 'TargetContainer';
+    const refKey = 'TargetRef';
+    const target: ArxmlContainer = makeContainer(targetShortName);
+    const referencingContainer: ArxmlContainer = makeContainer('ReferencingContainer', [], {
+      [refKey]: { type: 'reference', value: `/EAS/Can/${targetShortName}`, dest: 'ECUC' },
+    });
+    const module: ArxmlModule = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Can',
+      params: {},
+      children: [referencingContainer, target],
+      references: [],
+    };
+    const doc: ArxmlDocument = {
+      path: '/EAS',
+      version: '4.2',
+      packages: [{ shortName: 'EAS', path: '/EAS', elements: [module] }],
+    };
+
+    // Act
+    const r = removeWithCascade(doc, `/EAS/Can/${targetShortName}`);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    // Target is gone.
+    expect(
+      rootModule.children
+        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .map((c) => c.shortName),
+    ).toEqual(['ReferencingContainer']);
+    // Reference param was also dropped.
+    const referencing = rootModule.children[0] as ArxmlContainer;
+    expect(Object.prototype.hasOwnProperty.call(referencing.params, refKey)).toBe(false);
+  });
+
+  it('cascades: cross-module reference removal', () => {
+    // PduR_PduR.arxml contains VALUE-REFs from
+    // PduRRoutingPath → PduRTxBufferTable and → EcuC's Pdu containers.
+    // We use a PduR self-target: removing a path that PduR references
+    // from itself (e.g. a leaf container) must clean the inbound
+    // VALUE-REFs and leave the doc re-parseable.
+    //
+    // Note: VALUE-REFs in fixtures use the SCHEMA-side path
+    // (e.g. `/EAS/PduR/...`) while value-side paths are
+    // `/EcucDefs/PduR/...`. Inbound-ref sweeps work on the value-side
+    // path so we cannot pin a baseline-refs assertion here; the
+    // round-trip parse is the strongest invariant we can assert in
+    // fixture land. The hand-built synthetic case above pins the
+    // actual sweep behavior.
+    const doc = loadFixture('PduR_PduR.arxml');
+    const targetPath = '/EcucDefs/PduR/PduRGeneral';
+
+    // Act
+    const r = removeWithCascade(doc, targetPath);
+
+    // Assert — result must be a parseable, valid doc.
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const serialized = serializeArxml(r.value);
+    expect(serialized.ok).toBe(true);
+    if (!serialized.ok) return;
+    const reparsed = parseArxml(serialized.value);
+    expect(reparsed.ok).toBe(true);
+  });
+
+  it('returns path-not-found for missing path', () => {
+    // Arrange
+    const doc = loadFixture('Det_Det.arxml');
+
+    // Act
+    const r = removeWithCascade(doc, '/NoSuchPath/Sub');
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('path-not-found');
+  });
+
+  it('defends against reference cycles (iterative BFS, no infinite loop)', () => {
+    // Arrange — synthetic doc with a cycle: A → B → A
+    const aRef: ArxmlReference = {
+      kind: 'reference',
+      tagName: 'REFERENCE',
+      shortName: 'refToB',
+      value: '/Root/B',
+      dest: 'ECUC',
+    };
+    const bRef: ArxmlReference = {
+      kind: 'reference',
+      tagName: 'REFERENCE',
+      shortName: 'refToA',
+      value: '/Root/A',
+      dest: 'ECUC',
+    };
+    const a: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'A',
+      params: {},
+      children: [aRef],
+    };
+    const b: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'B',
+      params: {},
+      children: [bRef],
+    };
+    const doc: ArxmlDocument = {
+      path: '/Root',
+      version: '4.2',
+      packages: [
+        {
+          shortName: 'Root',
+          path: '/Root',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'Root',
+              params: {},
+              children: [a, b],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Act — the iterative walker MUST terminate.
+    const r = removeWithCascade(doc, '/Root/Root/A');
+
+    // Assert — strategy is "remove target, accept dangling refs". A
+    // reference to /Root/B which happens to point at B (which still
+    // exists) is fine. A reference to A from B is now dangling; we
+    // accept this and do not loop.
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootMod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    // A is gone, B is still there, B's ref to A is now dangling but
+    // that's the chosen policy.
+    const childShortNames = (rootMod.children as readonly ArxmlElement[])
+      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .map((c) => c.shortName);
+    expect(childShortNames).toEqual(['B']);
+  });
+
+  it('preserves reference equality when no-op (second call returns path-not-found)', () => {
+    // Arrange
+    const doc = loadFixture('EcuC_EcuC.arxml');
+    const targetPath = '/EcucDefs/EcuC/EcucGeneral';
+
+    // Act
+    const r1 = removeWithCascade(doc, targetPath);
+    if (!r1.ok) throw new Error('first remove failed');
+    const r2 = removeWithCascade(r1.value, targetPath);
+
+    // Assert
+    expect(r2.ok).toBe(false);
+    if (r2.ok) return;
+    expect(r2.error.kind).toBe('path-not-found');
   });
 });

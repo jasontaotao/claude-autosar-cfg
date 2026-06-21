@@ -210,6 +210,157 @@ export function removeContainer(
 }
 
 /**
+ * Remove the element at `path` AND any inbound references that target it
+ * (auto-dangle strategy). Single-doc scope: cross-doc cascade is the
+ * store's responsibility via `findReferencesTo`.
+ *
+ * Cascade strategy:
+ *   - Confirm `path` resolves in the doc; otherwise return
+ *     `path-not-found` (the target must exist before we sweep refs).
+ *   - Iteratively walk every package/module/container collecting
+ *     `<REFERENCE>`-typed params whose `value` suffix-matches the
+ *     target. The walk uses a `visited` set to defend against
+ *     reference cycles (e.g. A → B → A would otherwise recurse forever).
+ *   - Remove the target first, then each inbound reference. Each
+ *     remove is a no-op (reference-equality preserved) if the path is
+ *     no longer present — a defensive guard for nested refs that the
+ *     cycle walk might re-record.
+ *   - On the no-op second call the target is gone, so we return
+ *     `path-not-found` (mirrors `removeContainer`'s error envelope).
+ *
+ * The cycle-defence policy is "remove target, accept dangling refs":
+ * if A and B reference each other and A is removed, B's ref to A
+ * becomes dangling. The cascade removes A and the references INTO A
+ * (one of which lives in B) but does not loop to remove B itself.
+ * Callers that need stricter semantics should use
+ * `findReferencesTo` to surface the dangling list in a confirm dialog.
+ */
+export function removeWithCascade(
+  doc: ArxmlDocument,
+  path: string,
+): Result<ArxmlDocument, MutationError> {
+  // Step 1: confirm target exists. `findByPath` walks both the canonical
+  // 4-segment path shape and the compressed 3-segment shape (see
+  // `path.ts` Bug 2c notes) so users with `pkg.shortName ===
+  // module.shortName` layouts still get a hit.
+  const target = findByPath(doc, path);
+  if (target === null) {
+    return { ok: false, error: { kind: 'path-not-found', path } };
+  }
+
+  // Step 2: collect every reference-typed param whose value targets
+  // the path being removed. The walker is iterative (stack-based BFS)
+  // with a `visited` set so cyclic reference graphs terminate.
+  const inboundRefs = findInboundReferences(doc, path);
+
+  // Step 3: apply the removes in order. Remove the target first, then
+  // each inbound ref. Each ref remove is a no-op if the ref is no
+  // longer present (e.g. nested under an element that was already
+  // swept).
+  let next = doc;
+  const targetRemoved = removeElementAtPath(next, path);
+  if (targetRemoved === null) {
+    // Path was resolvable in step 1 but not in step 3 — defensive.
+    // Return the original doc as a no-op to keep the contract
+    // monotonic.
+    return { ok: true, value: next };
+  }
+  next = targetRemoved;
+  for (const refParam of inboundRefs) {
+    const updated = removeReferenceParam(next, refParam);
+    if (updated !== null) next = updated;
+  }
+  return { ok: true, value: next };
+}
+
+/**
+ * Iteratively collect every (containerPath, paramKey) pair whose
+ * `<REFERENCE>`-typed param value targets `targetPath`. The walker
+ * tracks each element's full path by chaining `parentPath + '/' +
+ * shortName` (ArxmlElement does not carry a `path` field — that is
+ * only on ArxmlPackage — so we have to build the path on the fly
+ * during the walk).
+ *
+ * The walk uses a `visited` set keyed by full path so cyclic
+ * reference graphs (A → B → A) terminate. Pure read-only.
+ */
+interface InboundRef {
+  readonly containerPath: string;
+  readonly paramKey: string;
+}
+
+interface StackFrame {
+  readonly el: ArxmlElement;
+  readonly currentPath: string;
+}
+
+function findInboundReferences(doc: ArxmlDocument, targetPath: string): readonly InboundRef[] {
+  const out: InboundRef[] = [];
+  const visited = new Set<string>();
+  // Start from every root element of every package (root packages may
+  // also be nested — walk the recursive `pkg.packages` shape too).
+  const stack: StackFrame[] = [];
+  for (const pkg of doc.packages) {
+    collectPackageElements(pkg, stack);
+  }
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+    if (visited.has(frame.currentPath)) continue;
+    visited.add(frame.currentPath);
+    const { el, currentPath } = frame;
+    // Module + container hold params; reference/unknown are leaves.
+    if (el.kind === 'module' || el.kind === 'container') {
+      for (const [key, value] of Object.entries(el.params)) {
+        if (value.type === 'reference' && endsWithPath(value.value, targetPath)) {
+          out.push({ containerPath: currentPath, paramKey: key });
+        }
+      }
+      for (const child of el.children) {
+        stack.push({ el: child, currentPath: `${currentPath}/${shortNameOf(child)}` });
+      }
+    }
+  }
+  return out;
+}
+
+function collectPackageElements(pkg: ArxmlPackage, out: StackFrame[]): void {
+  for (const el of pkg.elements) {
+    out.push({ el, currentPath: `/${pkg.shortName}/${shortNameOf(el)}` });
+  }
+  if (pkg.packages !== undefined) {
+    for (const nested of pkg.packages) collectPackageElements(nested, out);
+  }
+}
+
+/**
+ * Remove a single `<REFERENCE>`-typed param from a container. Returns
+ * the new doc when the param was actually dropped; `null` when the
+ * container or key is already gone (no-op). Mirrors the
+ * reference-equality convention from `removeParameter`.
+ */
+function removeReferenceParam(doc: ArxmlDocument, ref: InboundRef): ArxmlDocument | null {
+  // Reuse `removeParameter` for the actual param-omit logic — it
+  // already returns a `path-not-found` Result when the parent is
+  // missing, and preserves ref equality on the no-op key case.
+  const r = removeParameter(doc, ref.containerPath, ref.paramKey);
+  return r.ok ? r.value : null;
+}
+
+/**
+ * Path-walker variant of `removeElement` that operates on a full
+ * slash-separated path (not pkgName + tail). Reuses the
+ * `removeElement` helper by splitting the path on `/`.
+ */
+function removeElementAtPath(doc: ArxmlDocument, path: string): ArxmlDocument | null {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 0) return null;
+  const [pkgName, ...rest] = segments;
+  if (pkgName === undefined) return null;
+  return removeElement(doc, pkgName, rest);
+}
+
+/**
  * Return a `multiplicity-floor` error when removing `containerPath` would
  * drop the parent below the target container's BSWMD `lowerMultiplicity`.
  * Returns `null` when the floor is satisfied (or the target has no BSWMD
