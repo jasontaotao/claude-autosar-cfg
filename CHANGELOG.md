@@ -25,6 +25,7 @@ PATCH bump: **2 commits since v1.7.1**, 2028 → 2033 tests (+5). Closes the S4 
 - **Optional container description tooltip** — `desc` field is already on `ContainerDef` (v1.7.1 S3); UI rendering follows when needed.
 - **`D:/claude_proj2/...` hardcoded fixture path in 5 integration tests** — pre-existing v1.6.0 pattern; refactor to portable helper when CI moves to Linux.
 - **§3b submodule migration for `@dbc-forge/core`** — network now reachable (200, 76ms ping 2026-06-21), but bumped to v1.7.3 to keep v1.7.2 a focused PATCH.
+- **Renderer build regression (since v1.6.1 commit `24e13e9`)** — `useSwsValidatorRunner` imports `isSwsValidatorEnabled` from `core/sws-validator/feature-flag.ts` which uses `node:fs` / `node:path`; Vite externalizes then Rollup fails on `join`. Same pattern as v1.5.1 T12-pre fix. Pre-existing in v1.6.1 / v1.7.0 / v1.7.1; fix in v1.7.3 via `feature-flags:get` IPC refactor. `pnpm build:main` and `pnpm build:preload` pass; only renderer bundle affected.
 
 ### Test count
 
