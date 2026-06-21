@@ -1,0 +1,14 @@
+{
+  "name": "claude-autosarcfg-arxml-stream",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./router": "./router.js",
+    "./feature-flag": "./feature-flag.js",
+    "./streaming": "./streaming/index.js",
+    "./cache": "./cache/indexeddb-store.js"
+  }
+}
