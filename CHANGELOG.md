@@ -5,6 +5,62 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.5.1] - 2026-06-21 — Foundation sprint + Sprint 17 follow-up
+
+PATCH bump: **Foundation + 8 pre-Foundation commits** — pays down 4 tech-debt items, adds ARXML streaming + IndexedDB cache (feature-flagged default OFF per Q6 A), and ships the Sprint 17 P1+P2 BSWMD remove-from-disk flow + vendor-CDD module-root fallback. Closes the Sprint 14 #2 `applyMutation` follow-up. 12 commits since v1.5.0, 1692 tests pass + 1 skipped, 0 type errors, 0 lint errors, build success.
+
+> **Why PATCH not MINOR?** The Foundation work itself has no user-visible features by default — `arxml-stream` and `preserveOrder` are feature-flagged OFF, and the `useArxmlStore` split is a pure refactor. The user-visible pieces (BSWMD remove dialog, vendor-CDD fallback) were already shipped to `main` between v1.5.0 and the Foundation start, and bundling them into 1.5.1 keeps the changelog and git history coherent (one tag, one release). If you'd rather split this into 1.5.1 (Foundation-only, MINOR-bump-quality) + 1.5.2 (Sprint 17 P1+P2 + vendor-CDD), revert the version bump and re-tag.
+
+### Added (Foundation)
+
+- **PR(1) — `isPathInside` hardening** (`3084370`): Extract the path-containment check from `src/main/ipc/register.ts:451` to `src/shared/paths/isPathInside.ts`. Hardens against path traversal (`..`), trailing slashes, Windows case-insensitivity, UNC paths, current-dir marker (`.`), double-slash normalization. 12 new unit tests. The deviation from the plan (using `node:path`'s `sep` instead of a hard-coded `/`) makes the implementation platform-correct on Windows.
+- **PR(2) — `preserveOrder` source-aware serializer** (`d8f7dc5`): New `SerializeOptions.sourceArxml` parameter on the serializer. When provided, the output preserves source element order (the user hand-edits a file, re-saves, and the order doesn't shuffle). Index-alignment bug caught by `code-reviewer` HIGH (deletion case) and fixed via `Map<shortName, ArxmlPackage>` lookup. **Feature flag `experimental.preserveOrder` default OFF** per Q6 A — behavior is bit-for-bit identical to v1.5.0 when the flag is off.
+- **PR(3) — `removeWithCascade` cascade-aware ref deletion** (`33cc250`): When a referenced container is removed, all inbound `REFERENCE-VALUES` are auto-dangled in a single BFS walk with cycle defense via a `visited` set keyed by full path. Returns `Result<{ removedPath, danglingRefs }, E>`. The `removeAtPath` behavior is unchanged; `removeWithCascade` is a strictly additive companion.
+- **PR(4) — `applyMutation` real + atomic disk write** (`5b99ac3` + `9e762bb` + `fcd7aef`): Closes the Sprint 14 #2 follow-up. The Phase C stub at `src/renderer/store/useScriptStore.ts:288` is replaced with a real replayer that:
+  1. Dispatches each `ScriptMutation` (`set-param` / `add-child` / `remove-child`) to the existing `useArxmlStore` actions (so the in-memory doc, dirty tracking, and validation pipeline stay in sync).
+  2. Surfaces per-action failures (path-not-found, BSWMD missing, cascade dialog needed) in `runResult.errorMessage` instead of silent no-ops.
+  3. Serializes the in-memory doc and persists via the `project:save` IPC channel (see T12-pre fix below).
+  - **`writeAtomic` helper** at `src/main/ipc/projectSaveHandler.ts`: write-to-temp (`${file}.tmp-${pid}-${Date.now()}`) + `fh.sync()` + `fs.rename(tmp, file)`. Atomic on POSIX, near-atomic on Windows via `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`. On any error, best-effort `unlink(tmp)` keeps the original file untouched.
+  - **T12-pre fix** (`fcd7aef`): The original T6 cross-process dynamic import of `writeAtomic` leaked `node:fs` / `node:path` into the renderer bundle, breaking the production build with `"promises" is not exported by "__vite-browser-external"`. Routed through `window.autosarApi.projectSave` (the existing IPC channel that the main-side handler already implements with `writeAtomic` internally) — same trust-sprint invariant, correct IPC boundary.
+  - **Loose-mode guard**: refuses to persist when no project manifest is loaded; surfaces a clear error and leaves the in-memory mutation applied so the user can save manually.
+- **PR(5) — `useArxmlStore` split** (`94666ff`): Pure refactor, 0 new tests required per Q4 D. **3446 lines → 16 files** (7 slices + 7 helpers): `slices/{mutation,bswmd,import,ecuc,ui,project,i18n}Slice.ts` + `helpers/{combinedDoc,bswmdLookup,projectSync,paramUpdate,mutationErrors,importHelpers,dirty}.ts`. Largest file 492 lines. All existing 1638 tests preserved (the test count is the fuse).
+- **PR(6) — `arxml-stream` package** (`d03c4e6` + `9dd112d` + `828bed1`):
+  - **Sub-A scaffolding** (`d03c4e6`): new `src/main/arxml-stream/` sub-path with public `index.ts`, `feature-flag.ts` reader (settings.json + in-process override), and `router.ts` (`routeArxmlReader` dispatcher). 13 new tests.
+  - **Sub-B SAX reader** (`9dd112d`): `emitSaxEvents` `AsyncIterable<SaxEvent>` + `streamParse` public API. 8 new tests (equivalence with DOM, error path, perf). **See known limitation below — memory bounded-ness is NOT achieved.**
+  - **Sub-C IndexedDB cache** (`828bed1`): `deriveCacheKey` (filePath + mtime + contentHash) + `cacheGet` / `cacheSet` with automatic invalidation. 18 new tests (invalidation 10 + store 8). Default OFF via `experimental.indexedDb`.
+
+### Added (Pre-Foundation, 8 commits rolled into v1.5.1)
+
+- **Sprint 17 P1 — BSWMD remove from disk** (`fc2bf75`): `BSWMD_DELETE` IPC + `useArxmlStore.removeBswmdFromDisk` + `undoLastRemoveBswmd` (8-step rollback flow).
+- **Sprint 17 P2 — `RemoveModuleConfirmDialog`** (`2128e43`): 4-option dialog (cancel / only / cascade / cascade-and-unlink) + `removeBswmdWithFullFlow` hook.
+- **Sprint 17d — `EnumEditor` reads BSWMD layer + vendor CDD fallback** (`fe521bb`): Retires `ECUC_SUBSET_SCHEMA` (46-entry hard-coded fixture fallback). New `lookupSchemaAcrossModuleRoots` + `resolveTargetPath` folding `/AUTOSAR_R<NN>/` and `/EAS/`.
+- **Sprint 17d follow-up — wire vendor-CDD module-root fallback end-to-end** (`d296a6f`): `EnumEditor` + `useArxmlStore` + `validate.ts#checkContainerMultiplicity` all use the new helper.
+- **T9 spec/plan docs** (`82a3629` + `d8f5fc7`): The v1.5.1 Foundation design + implementation plan.
+- **T0 — format cleanup** (`35b1bd0`): 127 files / +8798/-4820 via `pnpm format` + 2 HTML mockup bug fixes (`docs/bswmd-to-ecuc-mockup.html` had a duplicate `</body></html>` tail; `docs/superpowers/specs/2026-06-18-script-engine-design-preview.html` had an over-closed `</div>`). These were the only 2 hard failures blocking `pnpm format:check` since v1.4.0.
+
+### Fixed
+
+- **T12-pre fix** (`fcd7aef`): Renderer→main IPC boundary violation. See PR(4) above. Discovered while running the pre-ship `pnpm verify` for v1.5.1 — without this fix, the production build was broken and the tag could not ship.
+
+### Known limitations (called out for downstream)
+
+- **`arxml-stream` memory bounded-ness is NOT achieved** (PR(6) Sub-B). The `streaming` flag currently yields a post-parse event surface for renderer progressive rendering, not parse-time memory savings. `streamParse` is a thin wrapper around `parseArxml` + `fromArxmlDocument` because `fast-xml-parser` 4.4.1 has no native SAX mode, and the plan's "no new top-level deps" constraint ruled out `sax` / `node-expat` / `htmlparser2`. The `emitSaxEvents` `AsyncIterable` API is preserved for v1.6.0+ renderer work; the v1.7.0 plan is to swap in a true SAX parser. Documented in `src/main/arxml-stream/streaming/sax-reader.ts:1-11` and `streaming/index.ts:13-16`.
+- **`deriveCacheKey` (filePath + mtime + contentHash) has no router consumer yet.** The router currently uses an inline-content hash for cache keys (`contentHashOf(content)` in `router.ts:175`). File-path invalidation machinery is built and tested but unused — wire-up deferred to the headless CLI in v1.6.0.
+
+### Test count
+
+| Before                         | After                 | Delta                                                                                                                |
+| ------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 1557 pass + 1 skipped (v1.5.0) | 1692 pass + 1 skipped | **+135 tests** (PR(1) 12 + PR(2) 6 + PR(3) 6 + PR(4) 12 + PR(5) 0 + PR(6) 39 + T9 round-trip 15 + pre-Foundation 45) |
+
+### Coverage
+
+- **96.31% stmts / 87.96% branches** (target ≥95.5% / ≥87%, both met — verified by the T9 acceptance gate).
+
+### Build status
+
+`pnpm verify` passes all 7 stages: `format` / `lint` / `type-check` / 1692 tests / `coverage` / `build` / `import-regression`.
+
 ## [1.5.0] - 2026-06-20 — Wire BSWMD picker + context menu + segment-aware coverage
 
 MINOR bump: **把 Picker / 右键菜单接上 UI** — 修了 v1.4.0 之后一直藏着的三个 P0/P1 缺口。1557 tests pass (从 1511, +46), 0 type errors, 0 lint errors, build success。
