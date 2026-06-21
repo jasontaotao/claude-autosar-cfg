@@ -5,6 +5,26 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.7.1] - 2026-06-21 — Skeleton defaults fill + choice marker + description carry-through
+
+PATCH bump: **4 commits since v1.7.0**, 2017 → 2029 tests (+12). Fixes 3 platform-level Skeleton generation defects found in code-review (P1-P3 from `docs/superpowers/plans/2026-06-21-skeleton-defaults-fill-and-choice-marker.md`). No new capability surface; existing features get richer output.
+
+> **Why PATCH not MINOR?** All 3 sub-sprints are correctness / completeness fixes from code-review findings — no new feature flags, no new IPC channels, no new UI surfaces (just data fields the UI can later consume). Existing v1.7.0 consumers see no behavior break except the documented S2 default-fill change below.
+
+### Added
+
+- **S1 — Choice container marker** (`ed8a352`): `ArxmlContainer` gains `isChoiceContainer?: boolean` + `choiceBranches?: readonly string[]`. `buildChoiceShell` populates both from the BSWMD-side `ContainerDef.choices`. Lets the UI distinguish choice shells from plain sub-container shells (previously byte-identical). 3 tests.
+- **S2 — Sub-container default value fill** (`de8878e`): New `fillParamsFromBswmd(c)` helper extracted from the inline `buildTopContainer` loop; shared between `buildTopContainer` + `buildSubContainerShell`. Sub-container shells now start with BSWMD-declared defaults instead of hardcoded `params: {}`. Choice shells deliberately stay `params: {}` (branches are user-instanced). 5 tests added, 1 obsolete test removed.
+- **S3 — Container description carry-through** (`e355c3e` + fix `7279170`): BSWMD parser gains `readDesc()` helper; `ContainerDef` + `ParamDef` gain `desc?: string`; `ArxmlContainer` gains `description?: string`. `buildTopContainer` + `buildSubContainerShell` + `buildChoiceShell` all carry `description: c.desc`. 8 tests (4 parser + 4 skeleton).
+
+### Fixed
+
+- **CRITICAL: `exactOptionalPropertyTypes` type errors** (`7279170`, code-reviewer finding): S3's `description: c.desc` and `desc: readDesc(item)` writesites initially failed TS2375 under the project's `strict-optional` setting. Fixed by adding explicit `| undefined` to the 3 new field declarations. Runtime contract unchanged; semantically the field is still optional.
+
+### Changed (observable)
+
+- **S2 default-fill observable behavior** (release-notes call-out): value-side ECUC XML written from a skeleton now contains `<ECUC-*-PARAM-VALUE>` wrappers at every depth instead of only the top layer. Anyone round-tripping a v1.7.0-built ECUC value file through a vendor tool will see additional default-valued parameter entries at depths that previously had empty `<CONTAINER-VALUE>` shapes. No downstream consumer breaks — all read `params[name]` and skip when undefined.
+
 ## [1.7.0] - 2026-06-21 — Cluster 3 I: dbc-forge reuse (plumbing only)
 
 MINOR bump: **1 commit since v1.6.1**, 2010 → 2013 tests (+3 smoke). Brings `@dbc-forge/core` (Excel↔DBC↔Network TypeScript library, v0.1.0 PUBLISHED) into claude-AutosarCfg as a `file:` dep via sibling-repo fallback. Plumbing only — no production code uses dbc-forge yet. Real ARXML↔DBC bridging is v1.8.0+ scope per design §6.
@@ -68,7 +88,7 @@ MINOR bump: **4 new features ship behind feature flags default OFF** — Headles
 - **Feature flags infrastructure** (`config/featureFlags.ts` + `src/shared/ipc/featureFlags.ts` + `src/main/ipc/featureFlagsHandler.ts` + `autosarApi.getFeatureFlags()`): 4 flags default OFF, type-safe renderer access via `feature-flags:get` IPC.
 - **Spec doc-rot fix** (`c4d6a40`): W spec §4.1 `writeAtomic` path corrected from `src/main/arxml/mutation.ts` to `src/main/ipc/projectSaveHandler.ts:50` (actual v1.5.1 PR(4) export site).
 - **A+C wire-shape SoT** (`src/shared/headless/ipc-contract.ts`): `ValidatorResult` / `HeadlessCommand` / `HeadlessResult` / `HeadlessError` / `PatchDocument` types. `severity` narrowed to `'error' | 'warning'` (per implementation; spec updated to match).
-- **i18n additions**: 124 new keys × 2 locales (en + zh-CN) — tour.* / headless.* / sws.* / shortcut.* / flag.* namespaces.
+- **i18n additions**: 124 new keys × 2 locales (en + zh-CN) — tour._ / headless._ / sws._ / shortcut._ / flag.\* namespaces.
 
 ### Fixed
 
