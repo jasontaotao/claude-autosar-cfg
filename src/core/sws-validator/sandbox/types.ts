@@ -7,8 +7,7 @@
 // force one side to absorb the other's API. v1.7.0 will extract
 // `src/core/sandbox/vm-runner.ts` as the canonical SoT.
 
-import type { ValidationContext } from '../types.js';
-import type { InternalValidatorResult } from '../types.js';
+import type { InternalValidatorResult, ValidationContext } from '../types.js';
 
 export interface RuleLog {
   info(message: string): void;

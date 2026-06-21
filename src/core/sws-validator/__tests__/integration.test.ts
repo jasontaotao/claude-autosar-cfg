@@ -11,9 +11,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { EcucContainerSchemaEntry } from '../../validation/types.js';
-import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
+import type { SchemaLayer } from '../../validation/runtimeSchema.js';
+import type { EcucContainerSchemaEntry } from '../../validation/types.js';
 import { runValidation } from '../engine.js';
 import { RuleRegistry } from '../RuleRegistry.js';
 import { rule as c1 } from '../starter/SWS_COM_PDUID_UNIQUE.js';

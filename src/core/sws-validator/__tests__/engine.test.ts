@@ -12,8 +12,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
+import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import { runValidation } from '../engine.js';
 import { RuleRegistry } from '../RuleRegistry.js';
 import type { InternalValidatorResult, RunInput, ValidatorRule } from '../types.js';

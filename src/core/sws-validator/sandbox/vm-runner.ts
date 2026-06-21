@@ -15,7 +15,7 @@
 
 import { createContext, Script as VmScript } from 'node:vm';
 
-import type { ValidationContext, InternalValidatorResult } from '../types.js';
+import type { InternalValidatorResult, ValidationContext } from '../types.js';
 
 import type { RuleCtx, RuleLogSink } from './types.js';
 

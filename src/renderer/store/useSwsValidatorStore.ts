@@ -13,20 +13,17 @@
 
 import { create } from 'zustand';
 
+import { RuleRegistry } from '../../core/sws-validator/RuleRegistry.js';
+import { installTourSubscription, runValidation } from '../../core/sws-validator/engine.js';
+import { isSwsValidatorEnabled } from '../../core/sws-validator/feature-flag.js';
+import { rule as c5 } from '../../core/sws-validator/starter/SWS_BSWMD_DEPS_PRESENT.js';
+import { rule as c1 } from '../../core/sws-validator/starter/SWS_COM_PDUID_UNIQUE.js';
+import { rule as c4 } from '../../core/sws-validator/starter/SWS_ECUC_MULTIPLICITY_MIN.js';
+import { rule as c3 } from '../../core/sws-validator/starter/SWS_PDUR_ROUTING_COMPLETE.js';
 import type {
   InternalValidatorResult,
   RunInput,
 } from '../../core/sws-validator/types.js';
-import {
-  installTourSubscription,
-  runValidation,
-} from '../../core/sws-validator/engine.js';
-import { RuleRegistry } from '../../core/sws-validator/RuleRegistry.js';
-import { rule as c1 } from '../../core/sws-validator/starter/SWS_COM_PDUID_UNIQUE.js';
-import { rule as c3 } from '../../core/sws-validator/starter/SWS_PDUR_ROUTING_COMPLETE.js';
-import { rule as c4 } from '../../core/sws-validator/starter/SWS_ECUC_MULTIPLICITY_MIN.js';
-import { rule as c5 } from '../../core/sws-validator/starter/SWS_BSWMD_DEPS_PRESENT.js';
-import { isSwsValidatorEnabled } from '../../core/sws-validator/feature-flag.js';
 
 export type SeverityFilter = 'all' | 'error' | 'warning';
 

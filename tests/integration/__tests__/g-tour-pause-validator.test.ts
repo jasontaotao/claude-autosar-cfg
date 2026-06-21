@@ -12,16 +12,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { SchemaLayer } from '../../../src/core/validation/runtimeSchema.js';
-import type { NormalizedDocument } from '../../../src/shared/normalized-document.js';
-import { useArxmlStore } from '../../../src/renderer/store/useArxmlStore.js';
+import { RuleRegistry } from '../../../src/core/sws-validator/RuleRegistry.js';
 import {
   installTourSubscription,
   runValidation,
 } from '../../../src/core/sws-validator/engine.js';
-import { RuleRegistry } from '../../../src/core/sws-validator/RuleRegistry.js';
-import { reduceTour } from '../../../src/renderer/onboarding/tourState.js';
 import type { ValidatorRule } from '../../../src/core/sws-validator/types.js';
+import type { SchemaLayer } from '../../../src/core/validation/runtimeSchema.js';
+import { reduceTour } from '../../../src/renderer/onboarding/tourState.js';
+import { useArxmlStore } from '../../../src/renderer/store/useArxmlStore.js';
+import type { NormalizedDocument } from '../../../src/shared/normalized-document.js';
 
 const EMPTY_DOC: NormalizedDocument = {
   version: '4.2',

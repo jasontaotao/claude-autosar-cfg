@@ -10,9 +10,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { EcucContainerSchemaEntry } from '../../validation/types.js';
-import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
+import type { SchemaLayer } from '../../validation/runtimeSchema.js';
+import type { EcucContainerSchemaEntry } from '../../validation/types.js';
 import { buildValidationContext } from '../context.js';
 import { rule } from '../starter/SWS_ECUC_MULTIPLICITY_MIN.js';
 

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { InternalValidatorResult } from '../types.js';
 import { toWireResult, toWireResults } from '../adapter.js';
+import type { InternalValidatorResult } from '../types.js';
 
 describe('toWireResult', () => {
   it('translates error severity verbatim + pre-localizes message', () => {
