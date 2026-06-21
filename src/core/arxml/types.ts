@@ -85,8 +85,14 @@ export interface ArxmlContainer {
    * skeleton carry-through is uniform for top containers, sub-containers,
    * and choice shells. `undefined` when the BSWMD omits `<DESC>` or
    * declares an empty `<DESC></DESC>`.
+   *
+   * Note: declared with explicit `| undefined` for compatibility with
+   * the project's `exactOptionalPropertyTypes: true` setting — the
+   * skeleton writes `description: c.desc` where `c.desc` may be
+   * `undefined`, which is rejected by strict-optional unless the
+   * property type explicitly allows `undefined`.
    */
-  readonly description?: string;
+  readonly description?: string | undefined;
 }
 
 export interface ArxmlReference {

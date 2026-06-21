@@ -94,8 +94,14 @@ export interface ContainerDef {
    * `undefined` when the BSWMD omits `<DESC>` or declares an empty
    * `<DESC></DESC>` (the two cases collapse so downstream UI code does
    * not have to distinguish them).
+   *
+   * Note: declared with explicit `| undefined` for compatibility with
+   * the project's `exactOptionalPropertyTypes: true` setting — the
+   * builders write `desc: readDesc(item)` where the helper may return
+   * `undefined`, which is rejected by strict-optional unless the
+   * property type explicitly allows `undefined`.
    */
-  readonly desc?: string;
+  readonly desc?: string | undefined;
   /**
    * v1.4.1 — BSWMD `<MULTIPLICITY-CONFIG-CLASSES>` block from the
    * `<ECUC-PARAM-CONF-CONTAINER-DEF>`. Each entry pins the container
@@ -136,8 +142,11 @@ export interface ParamDef {
    * v1.7.1 S3 — human-readable documentation text from the BSWMD
    * `<DESC>` element on the parameter definition. `undefined` when
    * the BSWMD omits `<DESC>` or declares an empty `<DESC></DESC>`.
+   *
+   * Note: declared with explicit `| undefined` for compatibility with
+   * the project's `exactOptionalPropertyTypes: true` setting.
    */
-  readonly desc?: string;
+  readonly desc?: string | undefined;
 }
 
 export interface ReferenceDef {
