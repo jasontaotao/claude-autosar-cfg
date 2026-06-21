@@ -5,6 +5,50 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-06-21 — Sprint 14 Final cluster: Headless CLI + SWS Validator + Onboarding + Keyboard-First
+
+MINOR bump: **4 new features ship behind feature flags default OFF** — Headless Config Engine CLI (`bin/autosarcfg.mjs`) for CI/CD integration, SWS Validator framework with 4 starter AUTOSAR rules (Com/PduR/EcuC/BSWMD), First-Run Onboarding tour (5 steps, bundled Demo ECU fixture with intentional violation), and Keyboard-First Power User mode (51 shortcuts + Cmd-K command palette + WCAG 2.2 AA a11y). 26 commits since v1.5.1, 1972 tests pass + 1 skipped, 0 type errors, 0 lint errors, project-wide coverage 96.61% / 87.72% (target ≥ 95.5% / ≥ 87%).
+
+> **Why MINOR not MAJOR?** All 4 features are feature-flagged default OFF (`experimental.headlessCli` / `experimental.swsValidator` / `experimental.onboarding` / `experimental.keyboardFirst`). A user upgrading from v1.5.1 who never touches settings sees bit-for-bit identical behavior. The 4 IPC channels added (`headless:run-command:v1` / `headless:mutate-applied:v1` / `headless:validate-result:v1` / `feature-flags:get`) are additive — the 32 existing v1.5.1 channels are untouched. See `docs/superpowers/plans/release-notes-v1.6.0.md` for the full ship details.
+
+### Added
+
+- **Cluster A+C — Headless Config Engine CLI** (`bin/autosarcfg.mjs`, 4 commits `31e4903` / `2ef5d3b` / `beca4d6` / `0a9a428`): Standalone Node CLI using `commander.js`. 16 flags, 4 exit codes (0 success / 1 fatal / 2 partial-with-warnings / 3 invalid-input). `read` (dump ARXML to stdout) + `mutate` (apply JSON Patch RFC 6902 subset + 3 AUTOSAR extensions) + `--validate` (stub, emits `headless:validate-result:v1` event for SWS Validator integration). 3 new IPC channels in `src/shared/headless/ipc-contract.ts` with `:v1` versioning policy. 63 new tests.
+- **Cluster G — SWS Validator framework** (`src/core/sws-validator/`, 7 commits `662b3bc` / `84d382a` / `87daaa8` / `79c8014` / `326b41c` / `22b391e` / `ed7761d`): ValidationEngine + RuleRegistry + 4 starter rules (`SWS_COM_PDUID_UNIQUE` / `SWS_PDUR_ROUTING_COMPLETE` / `SWS_ECUC_MULTIPLICITY_MIN` / `SWS_BSWMD_DEPS_PRESENT`). GUI ValidationPanel (bottom-docked). Sandbox copied from v1.3.0 Script Engine with 1-file parity test (H1 mitigation; v1.7.0 plan to extract `src/core/sandbox/vm-runner.ts` as canonical SoT). 52 new tests.
+- **Cluster W — First-Run Onboarding** (`src/renderer/onboarding/`, 4 commits `fb1eaaf` / `ec5bc90` / `e995275` / `06b6178`): TourProvider with 5-state machine (idle / running / completed / dismissed / suppressed) + `validationPaused` field (in-process subscription to validator, no IPC). Bundled Demo ECU fixture (5 BSWMDs: Com/ComM/CanIf/EcuC/PduR + 5 value ARXMLs + `demo.autosarcfg.json` manifest with 1 intentional `SWS_COM_PDUID_UNIQUE` violation for tour Step 4 demo). 5-step tour overlay targeting `right-pane-content` (not G's ValidationPanel). 7-day suppress window. 80 new tests.
+- **Cluster U — Keyboard-First Power User** (`src/renderer/keyboard/`, 5 commits `92c8279` / `847dc1d` / `57c64e3` / `cfe9875` / `037b924`): ShortcutRegistry + CommandPalette (Cmd-K) + CheatSheet (`?` key). 51 shortcuts (47 candidates + 4 G-coupled: F8 / Shift+F8 / Mod+Shift+V / Mod+Shift+E for validation panel integration). ResetOnboardingMenuItem wiring W's `tour:reset` IPC. WCAG 2.2 AA a11y: focus trap + `aria-keyshortcuts` + axe-core CI gate. 82 new tests.
+- **Cross-spec integration test matrix** (9 scenarios, 22/22 tests pass, 8 integration files): A+C CLI read/mutate/validate/Demo-ECU-load + W Demo-ECU-via-CLI + G validation-result-to-CLI + U Cmd-K Run-Script + G tour-pause-validator + G sandbox-parity.
+- **Feature flags infrastructure** (`config/featureFlags.ts` + `src/shared/ipc/featureFlags.ts` + `src/main/ipc/featureFlagsHandler.ts` + `autosarApi.getFeatureFlags()`): 4 flags default OFF, type-safe renderer access via `feature-flags:get` IPC.
+- **Spec doc-rot fix** (`c4d6a40`): W spec §4.1 `writeAtomic` path corrected from `src/main/arxml/mutation.ts` to `src/main/ipc/projectSaveHandler.ts:50` (actual v1.5.1 PR(4) export site).
+- **A+C wire-shape SoT** (`src/shared/headless/ipc-contract.ts`): `ValidatorResult` / `HeadlessCommand` / `HeadlessResult` / `HeadlessError` / `PatchDocument` types. `severity` narrowed to `'error' | 'warning'` (per implementation; spec updated to match).
+- **i18n additions**: 124 new keys × 2 locales (en + zh-CN) — tour.* / headless.* / sws.* / shortcut.* / flag.* namespaces.
+
+### Fixed
+
+- **10 type errors** (`680c5f7`): `combinedDoc.ts` (2 — `exactOptionalPropertyTypes`), `bswmdSlice.ts` (1 — `Window` not found; relocated `env.d.ts` to `src/shared/renderer-env.d.ts`), 7 web-tsconfig pre-existing errors (featureFlags test cast, `ModifierToken` literal, `MessageKey` narrowing, `noUncheckedIndexedAccess`).
+- **37 lint errors** (`680c5f7`): 34 auto-fixed via `pnpm lint --fix` (import/order); 3 hand-fixed (prefer-const, no-unused-vars, no-duplicates).
+- **W-3 follow-up** (`1e3808e`): `data-tour-id="right-pane-content"` attribute added to `App.tsx` `<Panel id="workspace-right">` + 4 sibling attributes (closes C2.6 cross-cluster concern).
+- **U-2 completion** (`1e3808e`): `feature-flags:get` IPC main handler shipped with 3 new unit tests (was deferred from U-2 PR).
+
+### Deferred to v1.7.0 (not blocking v1.6.0 ship)
+
+- **C2.3 — `useSwsValidatorStore.run()` has no caller**: Registry surface ships; `run()` body invocation is v1.7.0 follow-up (G spec §10 #4).
+- **C2.4 — A+C mutate handler is a stub**: Real `applyMutation` (v1.5.1 PR(4)) wiring requires main-process CLI refactor (renderer `applyMutation` cannot be reused directly); v1.7.0 GUI bridge PR will deliver the wire-up.
+
+### Test count
+
+- v1.5.1: 1692 pass + 1 skip
+- v1.6.0: **1972 pass + 1 skip** (+280 from 4 implementer agents)
+- 22/22 cross-spec integration tests pass (8 files, 9 scenarios from A+C spec §10.6)
+- Coverage: **96.61% stmt / 87.72% branch** (target ≥ 95.5% / ≥ 87%, per-cluster all meet or exceed)
+
+### Known limitations
+
+- **`bin/autosarcfg.mjs` uses Node's `--experimental-strip-types`** — works locally; published package needs esbuild bundling (post-v1.6.0).
+- **G cluster sandbox is a copy of v1.3.0 Script Engine** with 1-file parity test as v1.6.0 mitigation; v1.7.0 plan is to extract `src/core/sandbox/vm-runner.ts` as canonical SoT.
+- **U `useSwsValidatorStore.run()` is registered but not driven** — the 4 G-coupled shortcuts (F8 / Shift+F8 / Mod+Shift+V / Mod+Shift+E) wait for G cluster to wire the run bodies (v1.7.0 follow-up).
+- **`arxml-stream` memory bounded-ness** remains unachieved (carried over from v1.5.1 PR(6) Sub-B) — `fast-xml-parser` 4.4.1 has no native SAX; v1.7.0 plan is to swap in a true SAX parser.
+
 ## [1.5.1] - 2026-06-21 — Foundation sprint + Sprint 17 follow-up
 
 PATCH bump: **Foundation + 8 pre-Foundation commits** — pays down 4 tech-debt items, adds ARXML streaming + IndexedDB cache (feature-flagged default OFF per Q6 A), and ships the Sprint 17 P1+P2 BSWMD remove-from-disk flow + vendor-CDD module-root fallback. Closes the Sprint 14 #2 `applyMutation` follow-up. 12 commits since v1.5.0, 1692 tests pass + 1 skipped, 0 type errors, 0 lint errors, build success.
