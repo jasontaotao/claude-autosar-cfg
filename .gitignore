@@ -56,3 +56,7 @@ $RECYCLE.BIN/
 # e.g. claude-AutosarCfg/regenerate.ts is a personal script with hard-coded
 # absolute paths to user ECUC fixtures, not a repo-shipped tool.
 claude-AutosarCfg/
+
+# Local Claude Code scratch space (spec-driven dev session reports + reviews).
+# Kept on disk for the active session; never committed.
+.claude/

@@ -5,6 +5,25 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] - 2026-06-21 — Cluster 3 I: dbc-forge reuse (plumbing only)
+
+MINOR bump: **1 commit since v1.6.1**, 2010 → 2013 tests (+3 smoke). Brings `@dbc-forge/core` (Excel↔DBC↔Network TypeScript library, v0.1.0 PUBLISHED) into claude-AutosarCfg as a `file:` dep via sibling-repo fallback. Plumbing only — no production code uses dbc-forge yet. Real ARXML↔DBC bridging is v1.8.0+ scope per design §6.
+
+> **Why sibling-repo `file:` instead of git submodule?** Network outage at ship time (`github.com:443` unreachable direct + via `127.0.0.1:7897` proxy) prevented `git submodule add https://github.com/jasontaotao/dbc-forge.git vendor/dbc-forge`. Local `pnpm install` worked via the existing `D:/claude_proj2/dbc-forge/` checkout. Future cleanup steps documented in `docs/superpowers/specs/2026-06-21-v1-7-0-dbc-forge-integration-design.md` §3b.
+
+### Added
+
+- **`@dbc-forge/core` `file:` dep** (`6c4f5bc`): `package.json` + `pnpm-lock.yaml` resolve the library directly from `..\dbc-forge\packages\core` (36 transitive packages, 3.7s install). Sibling-repo fallback pending network-stable submodule migration per design §3b.
+- **DBC bridge smoke test** (`6c4f5bc`): `src/__tests__/dbcForgeBridge.smoke.test.ts` (73 lines, 3 tests) — asserts expected public API surface (`parseDbc` / `writeDbc` / `deepEqualNetwork`), parses a minimal 1-frame DBC, round-trips `parseDbc → writeDbc → parseDbc` and asserts `deepEqualNetwork` true. Locks in the dependency contract so future production code can rely on it.
+- **Design doc implementation delta** (`6c4f5bc`): §3a + §3b added to `docs/superpowers/specs/2026-06-21-v1-7-0-dbc-forge-integration-design.md` recording what shipped vs. what was recommended, plus future cleanup steps.
+
+### Out of scope (deferred to separate PRs)
+
+- Cluster 3 K — BSWMD-Free Stencil Wizard (depends on G validators now shipped in v1.6.0; planned for v1.7.1 or split into smaller sub-sprints).
+- Real DBC↔ARXML bridging logic, Com/DbCom BSWMD generation from DBC — v1.8.0+ per design §6.
+- Submodule migration (`vendor/dbc-forge/`) — blocked on network stability; per §3b.
+- npm-publishing of dbc-forge — separate project (`D:/claude_proj2/dbc-forge/`); would let AutosarCfg switch to `^0.1.0` registry dep.
+
 ## [1.6.1] - 2026-06-21 — Sprint 17 P3+P4 close-out + v1.6.0 deferred fixes
 
 PATCH bump: **12 commits since v1.6.0**, 1976 → 2010 tests (+34), 0 type errors, 0 lint errors. Closes the Sprint 17 BSWMD remove-from-disk UI wiring (P3 + P4) plus 2 v1.6.0-deferred follow-ups (SWS Validator runner hook + A+C CLI `mutate` real applyMutation). Plus archive housekeeping (15 shipped plans/specs moved from `docs/superpowers/{plans,specs}/` to `archive/`). No breaking changes; safe drop-in upgrade from v1.6.0.
