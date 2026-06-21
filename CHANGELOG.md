@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] - 2026-06-21 — Sprint 17 P3+P4 close-out + v1.6.0 deferred fixes
+
+PATCH bump: **12 commits since v1.6.0**, 1976 → 2010 tests (+34), 0 type errors, 0 lint errors. Closes the Sprint 17 BSWMD remove-from-disk UI wiring (P3 + P4) plus 2 v1.6.0-deferred follow-ups (SWS Validator runner hook + A+C CLI `mutate` real applyMutation). Plus archive housekeeping (15 shipped plans/specs moved from `docs/superpowers/{plans,specs}/` to `archive/`). No breaking changes; safe drop-in upgrade from v1.6.0.
+
+> **Why PATCH not MINOR?** Sprint 17 was originally planned as part of v1.6.0 but the P3+P4 sub-sprints didn't make the v1.6.0 cutoff (P1+P2 had shipped; P3+P4 followed up next session). The new user-facing feature is the BSWMD remove-from-disk context menu + × button 4-option dialog — a meaningful UX addition but not a new capability surface. v1.7.0 is reserved for Cluster 3 (dbc-forge integration + Stencil).
+
+### Added
+
+- **Sprint 17 P3 — UI wiring** (4 commits `7ae07b0` / `0e6202b` / `7915de9` / `b8433e6`): ProjectPanel `<li>` right-click + Tree `kind:'module'` forwarding + ContextMenu "Remove module" item + App.tsx router + LeftPanel `×` button rewire. Single source of truth: `useProjectActions.removeBswmdWithFullFlow(path)`. 8 new tests.
+- **Sprint 17 P4 — Integration + E2E** (3 commits `224a8b4` / `8913e20` / `eb34230`): Full-flow integration test (`removeBswmd.fullFlow.test.tsx`, 6 tests covering all 4 dialog choices + partial-failure + undo) + 2 Playwright E2E specs (add+remove cascade + cascade-and-unlink disk verification). 6 new tests.
+- **v1.6.0 deferred #1 — SWS Validator runner hook** (`24e13e9`): New `useSwsValidatorRunner(delayMs)` debounced hook in `src/renderer/hooks/`. Subscribes to `useArxmlStore` (doc + dirtyPaths + activeDocumentPath) and calls `useSwsValidatorStore.run()` after quiet period. Mounted once at App level. Gated on `experimental.swsValidator` feature flag. 4 new tests.
+- **v1.6.0 deferred #2 — A+C CLI `mutate` real applyMutation** (`ac36f11` + review-fix `101335b`): New renderer-agnostic core engine `src/core/mutation/applyPatchSteps.ts` (533 lines). Handles RFC 6902 subset (`add` / `remove` / `replace`) + 3 AUTOSAR extensions (`set-param` / `add-child` / `remove-with-cascade`). `add` op delegates to `add-child` (corrects v1.6.0 silent no-op that over-reported `stepsApplied`). Atomic disk write via existing `writeAtomic` helper. 19 new tests (14 unit + 5 integration).
+
+### Changed
+
+- **Archive housekeeping** (`05875f9`): 15 shipped plan/spec files moved from `docs/superpowers/{plans,specs}/` to `docs/superpowers/archive/{plans,specs}/`. archive/ now 18 plans + 14 specs + 1 HTML preview covering v0.12.0 → v1.6.0. Per the archive's "Adding to this archive" policy (tagged + pushed + release-notes written). Saves ~30 KB context per dev session that would otherwise scan shipped artifacts as if they were TODO.
+
+### Fixed
+
+- **CRITICAL `add` op silent no-op** (`101335b`, code-reviewer finding): `applyPatchSteps` `case 'add':` previously returned `{doc, error: null}` without mutating the doc, causing the dispatcher to count `applied: 1` for a step that did nothing. CI patches using raw RFC 6902 `add` would report success without changing the doc. Now delegates to `applyAddChild` (extracts `shortName` / `SHORT-NAME` + optional `definitionRef` from `value`, returns `no-bswmd-for-module` when called without BSWMD context, `patch-invalid` for malformed value).
+- **Lint import order in T4.3 Playwright spec** (`2f1199c`): `@playwright/test` import moved below `node:*` per project convention.
+
+### Out of scope (deferred to separate PRs)
+
+- `D:/claude_proj2/...` hardcoded fixture path in 5 integration tests — pre-existing v1.6.0 pattern; refactor to portable helper (e.g. `fileURLToPath(new URL('../../fixtures/...', import.meta.url))`) when CI moves to Linux.
+- `cascade-required` error kind not in A+C spec §9.3 — subagent A's design choice; spec update pending.
+- True RFC 6902 array-index `add` semantics (e.g. `path: '/foo/-'`) — current `add` only supports sub-container insert at named parent path. Spec promise vs implementation gap closed by `patch-invalid` for any other shape.
+
 ## [1.6.0] - 2026-06-21 — Sprint 14 Final cluster: Headless CLI + SWS Validator + Onboarding + Keyboard-First
 
 MINOR bump: **4 new features ship behind feature flags default OFF** — Headless Config Engine CLI (`bin/autosarcfg.mjs`) for CI/CD integration, SWS Validator framework with 4 starter AUTOSAR rules (Com/PduR/EcuC/BSWMD), First-Run Onboarding tour (5 steps, bundled Demo ECU fixture with intentional violation), and Keyboard-First Power User mode (51 shortcuts + Cmd-K command palette + WCAG 2.2 AA a11y). 26 commits since v1.5.1, 1972 tests pass + 1 skipped, 0 type errors, 0 lint errors, project-wide coverage 96.61% / 87.72% (target ≥ 95.5% / ≥ 87%).
