@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
+import { getRendererPlatform } from './platform.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -42,6 +43,10 @@ import type {
 
 const api = {
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),
+  // v1.6.0 Cluster U — expose `process.platform` to the renderer.
+  // The renderer normalizes Mod → Cmd/Ctrl based on this value
+  // (per U spec §6.4 + A+C §17 Q8). Pure passthrough, no IPC.
+  getPlatform: (): NodeJS.Platform => getRendererPlatform(),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION),
   openArxml: (opts?: { readonly title?: string }): Promise<OpenArxmlResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.OPEN_ARXML, opts),
