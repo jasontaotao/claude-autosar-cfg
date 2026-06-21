@@ -144,7 +144,17 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
       data-testid="tree-root"
     >
       {doc.packages.map((pkg: ArxmlPackage) =>
-        renderPackage(pkg, 0, expanded, toggle, selectedPath, store, onContextMenu, bswmdSchemas, locale),
+        renderPackage(
+          pkg,
+          0,
+          expanded,
+          toggle,
+          selectedPath,
+          store,
+          onContextMenu,
+          bswmdSchemas,
+          locale,
+        ),
       )}
     </aside>
   );

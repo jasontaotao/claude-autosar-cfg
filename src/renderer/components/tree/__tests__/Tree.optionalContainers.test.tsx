@@ -284,7 +284,9 @@ describe('Tree optional container visibility (S4)', () => {
     expandToEcuCGeneral();
 
     // Real tree is intact.
-    expect(screen.getByTestId('treeitem-/EAS/EcuC/EcuCGeneral/PresentOptional')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('treeitem-/EAS/EcuC/EcuCGeneral/PresentOptional'),
+    ).toBeInTheDocument();
 
     // No `Add *` buttons anywhere — the helper returned [] because
     // bswmdSchemas is empty.

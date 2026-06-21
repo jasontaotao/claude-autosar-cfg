@@ -792,11 +792,13 @@ export const MessagesZhCN: Messages = {
 
   // v1.6.0 Cluster G — SWS Validator
   'swsValidator.SWS_COM_PDUID_UNIQUE.short': 'Com PduId 重复: {pduName}',
-  'swsValidator.SWS_COM_PDUID_UNIQUE.long': 'ComConfig {configName} 内 ComPdu {pduName} 的 ComPduId {pduId} 重复。',
+  'swsValidator.SWS_COM_PDUID_UNIQUE.long':
+    'ComConfig {configName} 内 ComPdu {pduName} 的 ComPduId {pduId} 重复。',
   'swsValidator.SWS_PDUR_ROUTING_COMPLETE.short': 'PduR 路由路径不完整: {pathName}',
   'swsValidator.SWS_PDUR_ROUTING_COMPLETE.long': 'PduRRoutingPath {pathName} 缺少 {missing}。',
   'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short': '容器实例数不足: {containerName}',
-  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long': '容器 {containerName} 实际 {actual} 个实例，少于 lowerMultiplicity {min}。',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long':
+    '容器 {containerName} 实际 {actual} 个实例，少于 lowerMultiplicity {min}。',
   'swsValidator.SWS_BSWMD_DEPS_PRESENT.short': 'BSWMD 模块依赖缺失: {moduleName}',
   'swsValidator.SWS_BSWMD_DEPS_PRESENT.long': '模块 {moduleName} 引用了未定义的模块 {missingDep}。',
   'swsValidator.runtimeError': '规则 {ruleId} 运行失败: {message}',
@@ -1087,9 +1089,11 @@ export const MessagesZhCN: Messages = {
   'onboarding.controls.finish': '完成',
   'onboarding.progress.label': '第 {current} / {total} 步',
   'tour.coordination.validationPaused.title': '引导期间暂停校验',
-  'tour.coordination.validationPaused.message': '引导运行期间后台校验已暂停；完成或跳过引导后恢复。',
+  'tour.coordination.validationPaused.message':
+    '引导运行期间后台校验已暂停；完成或跳过引导后恢复。',
   'flags.keyboardFirst.label': '键盘优先模式',
-  'flags.keyboardFirst.description': '启用 U 集群的键盘导航面板（实验性）。镜像 `experimental.keyboardFirst`。',
+  'flags.keyboardFirst.description':
+    '启用 U 集群的键盘导航面板（实验性）。镜像 `experimental.keyboardFirst`。',
 };
 
 // ---------------------------------------------------------------------------
@@ -1260,13 +1264,17 @@ export const MessagesEn: Messages = {
 
   // v1.6.0 Cluster G — SWS Validator
   'swsValidator.SWS_COM_PDUID_UNIQUE.short': 'Duplicate Com PduId: {pduName}',
-  'swsValidator.SWS_COM_PDUID_UNIQUE.long': 'ComConfig {configName} has ComPdu {pduName} with duplicate ComPduId {pduId}.',
+  'swsValidator.SWS_COM_PDUID_UNIQUE.long':
+    'ComConfig {configName} has ComPdu {pduName} with duplicate ComPduId {pduId}.',
   'swsValidator.SWS_PDUR_ROUTING_COMPLETE.short': 'PduR routing path incomplete: {pathName}',
   'swsValidator.SWS_PDUR_ROUTING_COMPLETE.long': 'PduRRoutingPath {pathName} is missing {missing}.',
-  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short': 'Container instance count below minimum: {containerName}',
-  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long': 'Container {containerName} has {actual} instances, below lowerMultiplicity {min}.',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short':
+    'Container instance count below minimum: {containerName}',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long':
+    'Container {containerName} has {actual} instances, below lowerMultiplicity {min}.',
   'swsValidator.SWS_BSWMD_DEPS_PRESENT.short': 'BSWMD module dependency missing: {moduleName}',
-  'swsValidator.SWS_BSWMD_DEPS_PRESENT.long': 'Module {moduleName} references undefined module {missingDep}.',
+  'swsValidator.SWS_BSWMD_DEPS_PRESENT.long':
+    'Module {moduleName} references undefined module {missingDep}.',
   'swsValidator.runtimeError': 'Rule {ruleId} failed: {message}',
   'swsValidator.timedOut': 'Rule {ruleId} timed out',
   'swsValidator.panel.title': 'SWS Validation',
@@ -1557,9 +1565,11 @@ export const MessagesEn: Messages = {
   'onboarding.controls.finish': 'Finish',
   'onboarding.progress.label': 'Step {current} of {total}',
   'tour.coordination.validationPaused.title': 'Validation paused during tour',
-  'tour.coordination.validationPaused.message': 'Background validation is paused while the tour is running. It resumes after you finish or skip the tour.',
+  'tour.coordination.validationPaused.message':
+    'Background validation is paused while the tour is running. It resumes after you finish or skip the tour.',
   'flags.keyboardFirst.label': 'Keyboard-first mode',
-  'flags.keyboardFirst.description': 'Enable U cluster keyboard navigation palette (experimental). Mirrors `experimental.keyboardFirst`.',
+  'flags.keyboardFirst.description':
+    'Enable U cluster keyboard navigation palette (experimental). Mirrors `experimental.keyboardFirst`.',
 };
 
 // ---------------------------------------------------------------------------

@@ -27,7 +27,15 @@
 // all P3 callers, so testing the hook is sufficient to pin the
 // integration contract.
 
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -95,8 +103,8 @@ let originalAutosarApi: unknown;
 
 function installApiStub(overrides: Partial<AutosarApiStub> = {}): AutosarApiStub {
   const stub: AutosarApiStub = {
-    deleteArxml: vi.fn(async () => ({ kind: 'ok' as const } satisfies ProjectDeleteArxmlResult)),
-    deleteBswmd: vi.fn(async () => ({ kind: 'ok' as const } satisfies ProjectDeleteBswmdResult)),
+    deleteArxml: vi.fn(async () => ({ kind: 'ok' as const }) satisfies ProjectDeleteArxmlResult),
+    deleteBswmd: vi.fn(async () => ({ kind: 'ok' as const }) satisfies ProjectDeleteBswmdResult),
     ...overrides,
   };
   (window as { autosarApi?: unknown }).autosarApi = stub;
@@ -296,10 +304,13 @@ describe('Sprint 17 P4 — removeBswmdWithFullFlow end-to-end (P1+P2 surface)', 
     // BSWMD from the store (because the cascade is half-done).
     await mountDialogRoot();
     const stub = installApiStub({
-      deleteArxml: vi.fn(async () => ({
-        kind: 'write-failed' as const,
-        message: 'EACCES: permission denied',
-      } satisfies ProjectDeleteArxmlResult)),
+      deleteArxml: vi.fn(
+        async () =>
+          ({
+            kind: 'write-failed' as const,
+            message: 'EACCES: permission denied',
+          }) satisfies ProjectDeleteArxmlResult,
+      ),
     });
 
     const { flowPromise } = await startRemoveFlow(BSWMD_PATH);
