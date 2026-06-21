@@ -63,6 +63,22 @@ export interface ArxmlContainer {
   readonly shortName: string;
   readonly params: Readonly<Record<string, ParamValue>>;
   readonly children: readonly ArxmlElement[];
+  /**
+   * v1.7.1 S1 — true when this shell came from a BSWMD choice container
+   * (`<ECUC-CHOICE-ORIENTED-STRUCTURE-DEF>` / `<ECUC-CHOICE-CONTAINER-DEF>`)
+   * rather than a plain sub-container (`<ECUC-PARAM-CONF-CONTAINER-DEF>`).
+   * The UI uses this marker to render the "please pick a branch" prompt
+   * instead of treating the shell as an editable plain container. Omitted
+   * for plain sub-container shells (use `=== undefined`, not `=== false`).
+   */
+  readonly isChoiceContainer?: boolean;
+  /**
+   * v1.7.1 S1 — shortNames of the alternative branches the user can pick
+   * from. Set only when `isChoiceContainer` is true; preserves iteration
+   * order of `ContainerDef.choices` (which the BSWMD parser emits in
+   * source order, so the UI picker renders branches in the same order).
+   */
+  readonly choiceBranches?: readonly string[];
 }
 
 export interface ArxmlReference {

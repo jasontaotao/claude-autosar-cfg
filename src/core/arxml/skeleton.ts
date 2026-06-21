@@ -227,6 +227,16 @@ function buildChoiceShell(c: ContainerDef): ArxmlContainer[] {
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
       params: {},
+      // v1.7.1 S1 — mark this shell as a choice container and list its
+      // branch shortNames so the UI can distinguish it from a plain
+      // sub-container shell (which omits both fields). The branch list
+      // is sourced from `c.choices` directly (each entry is one
+      // `<ECUC-PARAM-CONF-CONTAINER-DEF>` branch under the choice's
+      // `<CHOICES>` block) and preserves BSWMD source order. The
+      // branches themselves are NOT pre-created as children — see
+      // the comment on `children: []` below.
+      isChoiceContainer: true,
+      choiceBranches: c.choices.map((b) => b.shortName),
       // A choice container in BSWMD exposes its alternatives under
       // `c.choices` (not `c.subContainers`) — see
       // bswmd.ts::buildChoiceContainer. We do NOT pre-create the

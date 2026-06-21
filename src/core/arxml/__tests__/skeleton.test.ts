@@ -290,6 +290,100 @@ describe('generateEcucSkeleton', () => {
     const topEl = modEl.children[0]! as ArxmlContainer;
     expect(topEl.children).toEqual([]);
   });
+
+  // ─── S1 (P3) — choice container marker ──────────────────────────────
+  // v1.7.1 ships a structural distinction between choice-container
+  // shells and plain sub-container shells so the UI can render the
+  // "please pick a branch" prompt. Currently `buildChoiceShell`
+  // emits a shape that is byte-identical to `buildSubContainerShell`
+  // apart from the children list — the only signal is membership in
+  // the parent's `choices[]` array, which is lost the moment the shell
+  // is constructed. These three tests pin the new shape.
+
+  it('S1: choice container shell carries isChoiceContainer: true', () => {
+    // Arrange — one required choice container with 2 branches under a
+    // required top-level container. We navigate down to the
+    // choice-container shell and assert the marker.
+    const branchA = makeBswContainer('BranchA', [], 0);
+    const branchB = makeBswContainer('BranchB', [], 0);
+    const choice: ContainerDef = {
+      ...makeBswContainer('ChoiceContainer', [], 1),
+      choices: [branchA, branchB],
+    };
+    const top: ContainerDef = {
+      ...makeBswContainer('Top', [], 1),
+      choices: [choice],
+    };
+    const mod = makeBswModule('M', [top]);
+    const doc = makeBswmd([mod]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'M');
+
+    // Assert — the choice-container shell under `top` carries the
+    // marker so the UI can tell it apart from a plain sub-container.
+    const modEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+    const topEl = modEl.children[0]! as ArxmlContainer;
+    expect(topEl.children).toHaveLength(1);
+    const choiceEl = topEl.children[0]! as ArxmlContainer;
+    expect(choiceEl.shortName).toBe('ChoiceContainer');
+    expect(choiceEl.isChoiceContainer).toBe(true);
+  });
+
+  it('S1: choice container shell lists branch shortNames in choiceBranches', () => {
+    // Arrange — same shape as above; we additionally assert that the
+    // branch list is exposed for the UI to render the picker.
+    const branchA = makeBswContainer('BranchA', [], 0);
+    const branchB = makeBswContainer('BranchB', [], 0);
+    const branchC = makeBswContainer('BranchC', [], 0);
+    const choice: ContainerDef = {
+      ...makeBswContainer('ChoiceContainer', [], 1),
+      choices: [branchA, branchB, branchC],
+    };
+    const top: ContainerDef = {
+      ...makeBswContainer('Top', [], 1),
+      choices: [choice],
+    };
+    const mod = makeBswModule('M', [top]);
+    const doc = makeBswmd([mod]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'M');
+
+    // Assert — branch list preserves iteration order of `c.choices`
+    // (BSWMD parser emits branches in source order; the UI picker
+    // renders them in the same order).
+    const modEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+    const topEl = modEl.children[0]! as ArxmlContainer;
+    const choiceEl = topEl.children[0]! as ArxmlContainer;
+    expect(choiceEl.choiceBranches).toEqual(['BranchA', 'BranchB', 'BranchC']);
+  });
+
+  it('S1: plain sub-container shell does NOT carry isChoiceContainer / choiceBranches', () => {
+    // Arrange — a plain sub-container (in `subContainers`, not
+    // `choices`). The new markers are choice-specific; the absence
+    // here is what lets the UI distinguish the two cases.
+    const plainSub: ContainerDef = makeBswContainer('PlainSub', [], 1);
+    const top: ContainerDef = {
+      ...makeBswContainer('Top', [plainSub], 1),
+      choices: [],
+    };
+    const mod = makeBswModule('M', [top]);
+    const doc = makeBswmd([mod]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'M');
+
+    // Assert — both marker fields are absent (undefined, not falsey
+    // strings). This is the structural distinction the UI relies on.
+    const modEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+    const topEl = modEl.children[0]! as ArxmlContainer;
+    expect(topEl.children).toHaveLength(1);
+    const subEl = topEl.children[0]! as ArxmlContainer;
+    expect(subEl.shortName).toBe('PlainSub');
+    expect(subEl.isChoiceContainer).toBeUndefined();
+    expect(subEl.choiceBranches).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
