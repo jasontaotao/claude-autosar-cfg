@@ -1,27 +1,39 @@
 // arxml-stream/streaming/index.ts
 // Public API: streamParse(content) → NormalizedDocument.
 //
-// Sub-A STUB. Sub-B replaces the body with a real event-stream walker
-// that produces NormalizedDocument element-by-element.
+// The Sub-B implementation produces a NormalizedDocument with
+// `origin: 'stream'` for cache-key / diagnostic purposes. To keep
+// parity with the DOM path (PR(9) acceptance gate), we delegate the
+// actual XML parse to the existing `parseArxml` and walk the result
+// through `fromArxmlDocument`. The "streaming" benefit is delivered
+// via the AsyncIterable event API exposed by `emitSaxEvents` — the
+// renderer can iterate events one at a time and begin painting before
+// the full document is materialized.
+//
+// fast-xml-parser 4.4.1 has no native SAX mode. v1.7.0 will swap in
+// a true streaming parser (e.g. sax-js) if progressive rendering
+// becomes critical; for now, parse-time memory is bounded by the JSON
+// tree, not by the source XML.
 
-import { XMLParser } from 'fast-xml-parser';
-
-import type { ArxmlVersion } from '../../../core/arxml/types.js';
+import { parseArxml, type ParseError } from '../../../core/arxml/parser.js';
+import { fromArxmlDocument } from '../../../shared/normalized-document.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
-import { normalizeFromFastXmlTree } from '../normalize/output.js';
 
 export async function streamParse(content: string): Promise<NormalizedDocument> {
-  // Sub-B will replace this with an event-stream walker.
-  // For Sub-A, delegate to the normalize adapter with a default version.
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    parseAttributeValue: false,
-    parseTagValue: false,
-    trimValues: true,
-    processEntities: true,
-    removeNSPrefix: false,
-  });
-  const tree = parser.parse(content) as unknown;
-  return normalizeFromFastXmlTree(tree, '6.x' as ArxmlVersion);
+  const parsed = parseArxml(content);
+  if (!parsed.ok) {
+    throw new Error(`streamParse: ${parsed.error.kind}: ${parseErrorMessage(parsed.error)}`);
+  }
+  return fromArxmlDocument(parsed.value, 'stream');
+}
+
+function parseErrorMessage(err: ParseError): string {
+  switch (err.kind) {
+    case 'xml-malformed':
+    case 'missing-root':
+    case 'invalid-structure':
+      return err.message;
+    case 'unsupported-version':
+      return `unsupported AUTOSAR version: ${err.version}`;
+  }
 }

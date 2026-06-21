@@ -12,15 +12,13 @@
 // parser. Cache hits return the cached doc with `path: 'cache'`. Cache
 // miss → parse → fire-and-forget `cacheSet`.
 
-import { XMLParser } from 'fast-xml-parser';
-
 import { parseArxml, type ParseError } from '../../core/arxml/parser.js';
 import type { Result, ArxmlVersion } from '../../core/arxml/types.js';
 import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import type { NormalizedDocument } from '../../shared/normalized-document.js';
 
 import { isIndexedDbEnabled, isStreamingEnabled } from './feature-flag.js';
-import { normalizeFromFastXmlTree } from './normalize/output.js';
+import { streamParse } from './streaming/index.js';
 
 export type ReadPath = 'dom' | 'stream' | 'cache';
 
@@ -85,7 +83,7 @@ export async function routeArxmlReader(
 
   // 4. Stream with DOM fallback.
   try {
-    const doc = streamParseFastXml(content, opts.defaultVersion ?? DEFAULT_VERSION);
+    const doc = await streamParseAsNormalised(content);
     // Fire-and-forget cache write.
     if (cacheOn) {
       void tryCacheSet(content, doc);
@@ -135,22 +133,13 @@ function parseErrorMessage(err: ParseError): string {
 }
 
 /**
- * Streaming parse using fast-xml-parser 4.4.1 (which has no native SAX
- * API). We parse the full tree synchronously then walk it via the
- * streaming event adapter. v1.7.0 will swap in a true SAX parser.
+ * Streaming parse via the `streaming/index.ts` public API. Returns a
+ * NormalizedDocument tagged `origin: 'stream'`. Internally delegates
+ * to `parseArxml` for parity with the DOM path (see streaming/index.ts
+ * header for the rationale).
  */
-function streamParseFastXml(content: string, version: ArxmlVersion): NormalizedDocument {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    parseAttributeValue: false,
-    parseTagValue: false,
-    trimValues: true,
-    processEntities: true,
-    removeNSPrefix: false,
-  });
-  const tree = parser.parse(content) as unknown;
-  return normalizeFromFastXmlTree(tree, version);
+async function streamParseAsNormalised(content: string): Promise<NormalizedDocument> {
+  return streamParse(content);
 }
 
 async function tryCacheGet(content: string): Promise<Result<NormalizedDocument | null, never>> {
