@@ -5,6 +5,30 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] - 2026-06-22 — K Stencil Wizard
+
+MINOR bump: **12 commits since v1.7.3** (`de27500` → `ee94869`), 2033 → 2086 tests (+53 net). Ships the v1.8.0 K Stencil Wizard — a GUI modal that generates minimal valid ECUC module skeletons (Com / ComM / PduR / EcuC) for use as starting templates. Reuses v1.6.0 G's `sws-validator:run:v1` and v1.5.1 A+C's `applyPatchSteps` verbatim; no reimplementation.
+
+> **Why MINOR not MAJOR?** New feature behind a feature flag (`experimental.stencilWizard`, default OFF). Adds a new IPC channel (`stencil:save:v1`); no breaking changes to existing IPC contracts. v1.7.3 consumers see no behavior change unless they explicitly enable the flag.
+
+### Added
+
+- **K — Stencil Wizard** (Tasks 1-11 + 7a critical fix + 12): New modal reachable from File menu (File → New from Stencil) and Cmd-K palette. Pick from 4 module families (Com / ComM / PduR / EcuC), choose mode (BSWMD-free or With-BSWMD merge), optionally enable SWS Validator gate (blocks on `severity === 'error'`). New IPC channel `stencil:generate:v1` (pure — returns XML string + suggestedFilename) + `stencil:save:v1` (pops native save dialog, writes file). Gated by `experimental.stencilWizard` feature flag (default OFF). Reopen-as-template: any `.arxml` opened via File → Open shows a "Template" badge in FileListTab (per KISS — every opened .arxml is a template).
+- **Critical fix — feature flag plumbing** (Task 7a, commit `b3b5911`): the v1.6.0 `feature-flags:get` IPC handler was a hardcoded all-OFF stub that never read the experimental flags. Any feature flag added post-v1.6.0 (including `stencilWizard`) was being ignored at runtime. Wired the handler to read from the existing `core/feature-flags/` module so flags now propagate correctly.
+- **a11y polish** (Task 12): Focus trap on StencilWizard (Tab/Shift+Tab cycle within dialog); auto-focus on the first interactive element on mount; focus returns to the trigger element on close (optional `returnFocusRef` prop); aria-labels on all controls.
+- **i18n additions**: 14 new `stencil.*` keys × 2 locales (en + zh-CN) covering title / 4 family labels / 2 mode labels / gate label / 2 button labels / 4 error envelopes / 2 template-badge labels / 1 success toast.
+
+### Known limitations
+
+- **With-BSWMD mode is currently a no-op seam**: the `with-bswmd` mode routes through `applyPatchSteps` (v1.5.1 A+C) and the BSWMD merge is wired end-to-end, but the renderer does NOT yet pass `useArxmlStore.bswmdSchemas` to the IPC in the default flow (the `bswmds` field on `StencilRequest` is accepted but typically empty in this release). The generated skeleton for `with-bswmd` is therefore byte-identical to the `free`-mode skeleton. The real BSWMD→patch conversion is deferred to v1.8.x once we can guarantee the renderer-side BSWMD state is fully populated when the user opens the wizard.
+- **i18n-key lint test deferred**: G spec R5 calls for a verify-time lint test that fails when a `stencil.*` key is referenced but missing from the i18n catalog. The keys are still hand-maintained; the lint test is tracked for v1.8.x.
+
+### Verification
+
+- **2086 tests pass + 1 skipped** (+53 net from v1.7.3; new save handler 7, wizard polish 4, parity/i18n deltas the rest)
+- **0 type errors** (`npx tsc --noEmit` × 2 configs)
+- **0 lint errors** (`--max-warnings 0`)
+
 ## [1.7.3] - 2026-06-21 — Renderer build fix
 
 PATCH bump: **1 commit since v1.7.2**, 2033 → 2033 tests (no test count delta). Fixes the renderer build regression introduced in v1.6.1 (commit `24e13e9`) where `core/sws-validator/feature-flag.ts` statically imported `node:fs` / `node:path` — Vite externalized the imports but Rollup errored on `join()` reference. Every release from v1.6.1 through v1.7.2 shipped with `pnpm build:renderer` broken; this patch makes `pnpm verify` exit 0 across all 7 stages.
