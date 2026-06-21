@@ -319,34 +319,54 @@ describe('applyPatchSteps', () => {
   });
 
   describe('RFC 6902 add / remove / replace (JSON Patch subset)', () => {
-    it('add inserts a new sub-container at the given path (autosar path form)', () => {
-      // The RFC 6902 `add` step here uses the AUTOSAR slash path that the
-      // tree understands (`/EcucDefs/Com/ComGeneral/-` semantics aren't
-      // standard for our docs). The simplest non-mutating-extension path
-      // we can validate: add a sub-container via add-child. For pure
-      // RFC 6902, the v1 docs only support adding a top-level element
-      // by name; we exercise that with a custom root package.
+    it('add inserts a new sub-container at the given path (delegates to add-child)', () => {
+      // RFC 6902 `add` for AUTOSAR paths = "insert a sub-container at
+      // the parent path". The implementation delegates to applyAddChild;
+      // without BSWMD context, the delegation returns
+      // `no-bswmd-for-module` — that's the contract for v1.6.1 loose
+      // mode. Tests with BSWMD context (in the AUTOSAR extension
+      // section above) cover the successful insert path.
       const doc = makeComDoc();
       const step: PatchStep = {
         op: 'add',
-        path: '/EcucDefs/Com/ComConfig/ComIPdu',
+        path: '/EcucDefs/Com/ComConfig',
         value: {
-          kind: 'container',
-          shortName: 'ComIPdu',
+          shortName: 'ComIPdu_New',
           params: {},
           children: [],
         },
       };
-      // The doc already has ComIPdu — `add` should return a doc where
-      // the value is added (here it's a structural assertion: the
-      // result.applied === 1 indicates the engine didn't error out).
       const result = applyPatchSteps(doc, [step]);
-      // For raw RFC 6902 `add` we do not require mutation-engine
-      // validation; what matters is that the dispatch does NOT throw
-      // and returns either applied=1 with the doc unchanged, OR a
-      // structural error envelope. This is a smoke test of the
-      // dispatch routing.
-      expect(result.applied === 1 || result.errors.length > 0).toBe(true);
+      // Without moduleDef context the engine returns the canonical
+      // "no bswmd for module" error — the test pins that contract.
+      expect(result.applied).toBe(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.kind).toBe('no-bswmd-for-module');
+    });
+
+    it('add returns patch-invalid when value is missing shortName', () => {
+      const doc = makeComDoc();
+      const step: PatchStep = {
+        op: 'add',
+        path: '/EcucDefs/Com/ComConfig',
+        value: { params: {} },
+      };
+      const result = applyPatchSteps(doc, [step]);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.kind).toBe('patch-invalid');
+      expect(result.errors[0]?.message).toMatch(/shortName/);
+    });
+
+    it('add returns patch-invalid when value is null or non-object', () => {
+      const doc = makeComDoc();
+      const step: PatchStep = {
+        op: 'add',
+        path: '/EcucDefs/Com/ComConfig',
+        value: null,
+      };
+      const result = applyPatchSteps(doc, [step]);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.kind).toBe('patch-invalid');
     });
 
     it('remove strips a sub-container when the path resolves', () => {

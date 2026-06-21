@@ -122,10 +122,11 @@ test.describe('Sprint 17 P4 T4.3 — cascade-and-unlink BSWMD', () => {
     await cleanupFs(fsFixtures.dir);
   });
 
-  // P3 dependency: this test requires T3.4 (LeftPanel × button
-  // routes through `removeBswmdWithFullFlow`). Until then, × uses
-  // `removeBswmdWithGuard` and the 4-option dialog never appears.
-  test.skip('ProjectPanel × → 4-option dialog → cascade-and-unlink → BSWMD file gone from disk', async ({
+  // P3 dependency was T3.4 (LeftPanel × button routes through
+  // `removeBswmdWithFullFlow`); that wiring now ships in
+  // `feat(sprint17-p3): T3.4` so this test is enabled. If a
+  // future change reverts T3.4, re-apply `test.skip`.
+  test('ProjectPanel × → 4-option dialog → cascade-and-unlink → BSWMD file gone from disk', async ({
     page,
   }) => {
     await page.goto('/');

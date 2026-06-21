@@ -2,12 +2,23 @@
 //
 // Renderer-agnostic patch step applier (v1.6.1 follow-up to A+C-3).
 //
-// Pure: takes an `ArxmlDocument` + a list of `PatchStep`s (the wire
-// shape from `shared/headless/ipc-contract.ts`) and returns a new
-// document + per-step error list. No I/O, no Electron, no Node fs —
-// the CLI handler is responsible for reading the source ARXML,
-// writing the result, and surfacing errors via the `HeadlessFailure`
-// envelope.
+// Takes an `ArxmlDocument` + a list of `PatchStep`s (the wire
+// shape from `shared/headless/ipc-contract.ts`) and returns the
+// resulting document + per-step error list. No I/O, no Electron,
+// no Node fs — the CLI handler is responsible for reading the
+// source ARXML, writing the result, and surfacing errors via the
+// `HeadlessFailure` envelope.
+//
+// Mutation semantics: the `add-child` and `remove-with-cascade`
+// ops delegate to `coreAddContainer` / `coreRemoveWithCascade`,
+// which are immutable and return new doc refs. The `set-param`
+// op delegates to the legacy `setParamInDocument` helper, which
+// mutates the doc in place (Sprint 14-era API; pre/post value
+// snapshots detect "did anything change?" for the `applied`
+// counter). The `add` / `remove` / `replace` RFC 6902 subset ops
+// route through the same backends. Callers that rely on doc
+// reference equality to detect mutation MUST use `applied` or
+// re-walk the doc tree instead.
 //
 // This module is intentionally separate from `core/arxml/mutation.ts`:
 //   - `core/arxml/mutation.ts` works on container paths and is the
@@ -143,7 +154,7 @@ function applyOneStep(
     case 'add':
     case 'remove':
     case 'replace':
-      return applyJsonPatchStep(doc, step, index);
+      return applyJsonPatchStep(doc, step, index, ctx);
   }
 }
 
@@ -292,6 +303,7 @@ function applyJsonPatchStep(
     | { readonly op: 'remove'; readonly path: string }
     | { readonly op: 'replace'; readonly path: string; readonly value: unknown },
   index: number,
+  ctx: ApplyContext,
 ): OneStepResult {
   // RFC 6902 subset for AUTOSAR-shaped paths. The three ops we
   // support map to:
@@ -368,14 +380,45 @@ function applyJsonPatchStep(
       return { doc, error: null };
     }
     case 'add': {
-      // `add` is accepted as a structural op; the implementation
-      // delegates to `coreRemoveWithCascade`'s "find or no-op"
-      // path. We do NOT mutate the doc on a no-op `add` — that
-      // would be a hidden destructive. Instead, the function
-      // returns `applied=0` and the handler counts it as a
-      // no-op. This matches the v1 wire contract: `add` is a
-      // thin pass-through.
-      return { doc, error: null };
+      // `add` per RFC 6902 inserts a value at the given path. For our
+      // AUTOSAR-shaped docs, this maps to "insert a sub-container at
+      // the parent path" — the same engine path as `add-child`. The
+      // `value` payload carries the container spec; we accept either
+      // a typed object (`{shortName, kind?, params?, children?}`) or
+      // an AUTOSAR-flavored one (`{SHORT-NAME, ...}`). Anything else
+      // returns `patch-invalid` so CI doesn't silently swallow bad
+      // patches.
+      if (step.value === null || typeof step.value !== 'object') {
+        return {
+          doc,
+          error: {
+            stepIndex: index,
+            kind: 'patch-invalid',
+            message: 'add: value must be a container spec object',
+          },
+        };
+      }
+      const v = step.value as Record<string, unknown>;
+      const rawShortName = v.shortName ?? v['SHORT-NAME'];
+      const rawDefRef = v.definitionRef ?? v.DEF ?? v['DEFINITION-REF'];
+      if (typeof rawShortName !== 'string' || rawShortName.length === 0) {
+        return {
+          doc,
+          error: {
+            stepIndex: index,
+            kind: 'patch-invalid',
+            message: 'add: value.shortName (or SHORT-NAME) required and non-empty',
+          },
+        };
+      }
+      const defRef =
+        typeof rawDefRef === 'string' && rawDefRef.length > 0 ? rawDefRef : undefined;
+      return applyAddChild(
+        doc,
+        { op: 'add-child', parentPath: step.path, shortName: rawShortName, ...(defRef !== undefined ? { definitionRef: defRef } : {}) },
+        index,
+        ctx,
+      );
     }
   }
 }
