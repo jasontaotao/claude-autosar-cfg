@@ -302,6 +302,13 @@ export interface Messages {
   readonly 'tree.empty': string;
   readonly 'tree.emptyHint': string;
   readonly 'tree.elementAria': string; // {kind} {name}
+  // S4 (v1.7.2) — optional container visibility. `addOptionalContainer`
+  // is the `+` button's accessible label (parameterised by the
+  // BSWMD shortName of the missing child). `optionalContainerHint`
+  // is the placeholder row's tooltip text — surfaced as a title on
+  // the row and as a screen-reader hint via the row's aria-label.
+  readonly 'tree.addOptionalContainer': string; // {name}
+  readonly 'tree.optionalContainerHint': string;
 
   // --- left panel tabs (Sprint 13 #2 Task 1: tab-based left panel) ---
   readonly 'leftPanel.tab.project': string;
@@ -832,6 +839,8 @@ export const MessagesZhCN: Messages = {
   'tree.empty': '（空）',
   'tree.emptyHint': '未加载文件。点击"打开"按钮开始。',
   'tree.elementAria': '{kind} {name}',
+  'tree.addOptionalContainer': '添加 {name}',
+  'tree.optionalContainerHint': '可选容器 — 点击 + 添加实例',
 
   // left panel tabs
   'leftPanel.tab.project': '项目',
@@ -1298,6 +1307,8 @@ export const MessagesEn: Messages = {
   'tree.empty': '(empty)',
   'tree.emptyHint': 'No file loaded. Click "Open ARXML" to start.',
   'tree.elementAria': '{kind} {name}',
+  'tree.addOptionalContainer': 'Add {name}',
+  'tree.optionalContainerHint': 'Optional container — click + to add an instance',
 
   // left panel tabs
   'leftPanel.tab.project': 'Project',

@@ -8,15 +8,27 @@
 // are localisable. `locale` is read from the store via a subscribe call
 // so the component stays store-agnostic (matches the existing pattern
 // used for doc + selectedPath).
+//
+// S4 (v1.7.2) — optional container visibility. Tree now subscribes to
+// `bswmdSchemas` and, for every expanded container, looks up the
+// BSWMD-side `ContainerDef[]` whose `lowerMultiplicity === 0` and whose
+// shortName is missing from the value tree. Each missing child becomes
+// an `OptionalAddPlaceholder` sibling under the parent, with a `+`
+// button that invokes the existing `addContainer` mutation. No new
+// mutation surface — `addContainer(parentPath, shortName)` was shipped
+// in v1.5.1 PR(4) and is reused as-is.
 
 import { useEffect, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
 
+import { OptionalAddPlaceholder } from './OptionalAddPlaceholder.js';
 import { TreeNode } from './TreeNode.js';
+import { findMissingOptionalSiblings } from './optionalContainers.js';
 
 // Sprint 15 / Phase 3.4 — re-export the TreeNode kind so consumers
 // of the Tree component (App.tsx in Sprint 15 wiring) don't need a
@@ -36,6 +48,19 @@ export interface ArxmlStoreSlice {
   readonly selectedPath: string | null;
   readonly select: (path: string) => void;
   readonly locale: Locale;
+  // S4 (v1.7.2) — Tree reads `bswmdSchemas` to compute the missing
+  // optional siblings per expanded container. Backed by
+  // `useArxmlStore.bswmdSchemas` (the same field that powers the
+  // BswmdPickerDialog and the validator).
+  readonly bswmdSchemas: readonly BswmdDocument[];
+  /**
+   * S4 (v1.7.2) — invoke the existing `addContainer` mutation.
+   * Wired by the host (App.tsx) to `useArxmlStore.getState().addContainer`
+   * (or to a `vi.fn()` in tests). When `undefined`, the `+` button
+   * silently no-ops (a defensive guard so the Tree still mounts
+   * cleanly with the legacy single-mode `ArxmlStoreApi` slice).
+   */
+  readonly addContainer?: (parentPath: string, shortName: string) => void;
 }
 
 /** Minimal store contract — matches the slice this component reads. */
@@ -65,16 +90,25 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
   // visible automatically. Tests / single-mode callers that don't
   // populate `displayDoc` fall back to `doc` so the existing
   // baseline is preserved.
-  const initialDisplay = store.getState().displayDoc ?? store.getState().doc;
+  const initialState = store.getState();
+  const initialDisplay = initialState.displayDoc ?? initialState.doc;
   const [doc, setDoc] = useState<ArxmlDocument | null>(initialDisplay);
-  const [selectedPath, setSelectedPath] = useState<string | null>(store.getState().selectedPath);
-  const [locale, setLocale] = useState<Locale>(store.getState().locale);
+  const [selectedPath, setSelectedPath] = useState<string | null>(initialState.selectedPath);
+  const [locale, setLocale] = useState<Locale>(initialState.locale);
+  // S4 (v1.7.2) — mirror `bswmdSchemas` so a BSWMD add/remove flips
+  // the placeholder set. The slice field is optional on legacy
+  // mocks; fall back to `[]` so `findMissingOptionalSiblings` does
+  // not have to deal with `undefined`.
+  const [bswmdSchemas, setBswmdSchemas] = useState<readonly BswmdDocument[]>(
+    initialState.bswmdSchemas ?? [],
+  );
   useEffect(() => {
     return store.subscribe(() => {
       const s = store.getState();
       setDoc(s.displayDoc ?? s.doc);
       setSelectedPath(s.selectedPath);
       setLocale(s.locale);
+      setBswmdSchemas(s.bswmdSchemas ?? []);
     });
   }, [store]);
 
@@ -110,7 +144,7 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
       data-testid="tree-root"
     >
       {doc.packages.map((pkg: ArxmlPackage) =>
-        renderPackage(pkg, 0, expanded, toggle, selectedPath, store, onContextMenu),
+        renderPackage(pkg, 0, expanded, toggle, selectedPath, store, onContextMenu, bswmdSchemas, locale),
       )}
     </aside>
   );
@@ -136,11 +170,20 @@ function renderPackage(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
-  onContextMenu?: (path: string, kind: TreeKind, e: ReactMouseEvent) => void,
+  onContextMenu: ((path: string, kind: TreeKind, e: ReactMouseEvent) => void) | undefined,
+  bswmdSchemas: readonly BswmdDocument[],
+  locale: Locale,
 ): JSX.Element {
   const hasElements = pkg.elements.length > 0;
   const hasSubPackages = pkg.packages !== undefined && pkg.packages.length > 0;
   const isLeaf = !hasElements && !hasSubPackages;
+
+  // S4 (v1.7.2) — optional placeholders. For a top-level package
+  // there is no BSWMD-side parent container (the package IS the
+  // root), so we only render real sub-packages and real elements;
+  // placeholders for a top-level module/element fall outside the
+  // current S4 scope (S4 is "optional sub-containers of an existing
+  // container").
   return (
     <TreeNode
       key={pkg.path}
@@ -157,7 +200,17 @@ function renderPackage(
     >
       {hasSubPackages &&
         pkg.packages!.map((sp) =>
-          renderPackage(sp, depth + 1, expanded, toggle, selectedPath, store, onContextMenu),
+          renderPackage(
+            sp,
+            depth + 1,
+            expanded,
+            toggle,
+            selectedPath,
+            store,
+            onContextMenu,
+            bswmdSchemas,
+            locale,
+          ),
         )}
       {hasElements &&
         renderChildren(
@@ -169,6 +222,8 @@ function renderPackage(
           selectedPath,
           store,
           onContextMenu,
+          bswmdSchemas,
+          locale,
         )}
     </TreeNode>
   );
@@ -186,9 +241,11 @@ function renderChildren(
   toggle: (p: string) => void,
   selectedPath: string | null,
   store: ArxmlStoreApi,
-  onContextMenu?: (path: string, kind: TreeKind, e: ReactMouseEvent) => void,
+  onContextMenu: ((path: string, kind: TreeKind, e: ReactMouseEvent) => void) | undefined,
+  bswmdSchemas: readonly BswmdDocument[],
+  locale: Locale,
 ): JSX.Element[] {
-  return elements.map((el) => {
+  const realChildren = elements.map((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
     // v1.4.0 trust sprint — 17c. Unknown vendor extensions and
     // references are both leaves with no children to recurse into.
@@ -217,10 +274,49 @@ function renderChildren(
             selectedPath,
             store,
             onContextMenu,
+            bswmdSchemas,
+            locale,
           )}
       </TreeNode>
     );
   });
+
+  // S4 (v1.7.2) — append the optional-add placeholders after the
+  // real children. The helper resolves the BSWMD-side parent
+  // container (if any) by walking the value-side parent path. When
+  // the active doc is not BSWMD-backed or the parent container is
+  // not declared in the schema, the helper returns `[]` and we just
+  // render the real children as before.
+  const missing = findMissingOptionalSiblings(bswmdSchemas, parentPath, elements);
+
+  if (missing.length === 0) return realChildren;
+
+  const addLabel = t(locale, 'tree.addOptionalContainer', { name: '' }).trim();
+  const hintLabel = t(locale, 'tree.optionalContainerHint');
+  const placeholders = missing.map((cd) => {
+    const parentAbsPath = parentPath; // for `addContainer` we need the value-side path
+    return (
+      <OptionalAddPlaceholder
+        key={`optional-${parentAbsPath}/${cd.shortName}`}
+        label={cd.shortName}
+        description={cd.desc}
+        depth={depth}
+        onAdd={() => {
+          // Defensive guard: the legacy single-mode mock slice may
+          // not expose `addContainer`. Skip the dispatch rather than
+          // throw so the placeholder remains visible (the user
+          // gets the missing-affordance signal but the click is a
+          // no-op until the host wires the real mutation).
+          store.getState().addContainer?.(parentAbsPath, cd.shortName);
+        }}
+        addLabel={addLabel}
+        hintLabel={hintLabel}
+        testKey={`${parentPath.replace(/[^A-Za-z0-9]/g, '_')}_${cd.shortName}`}
+      />
+    );
+  });
+
+  return [...realChildren, ...placeholders];
 }
 
 function shortNameOf(e: ArxmlElement): string {

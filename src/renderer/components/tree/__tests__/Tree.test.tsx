@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseArxml } from '@core/arxml/parser.js';
 import type { ArxmlDocument } from '@core/arxml/types.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { Locale } from '@shared/i18n.js';
 
 import { Tree } from '../Tree.js';
@@ -82,6 +83,10 @@ interface MockState {
   clear: ReturnType<typeof vi.fn>;
   // Sprint 11 Phase 1 (Option A) — required by ArxmlStoreSlice.
   locale: Locale;
+  // S4 (v1.7.2) — required by ArxmlStoreSlice. Existing tests
+  // default to an empty list (no BSWMD) so no placeholders render.
+  bswmdSchemas: readonly BswmdDocument[];
+  addContainer?: ReturnType<typeof vi.fn>;
 }
 
 function makeStoreApi(initial: Partial<MockState> = {}): {
@@ -106,6 +111,9 @@ function makeStoreApi(initial: Partial<MockState> = {}): {
     // shape; defaulting to 'en' matches the test assertions below
     // (e.g. "no file loaded" is the en-bundle empty hint).
     locale: 'en',
+    // S4 (v1.7.2) — empty by default. Tests that exercise the
+    // optional-container visibility set this field explicitly.
+    bswmdSchemas: [],
     ...initial,
   };
   if (merged.displayDoc === null) {

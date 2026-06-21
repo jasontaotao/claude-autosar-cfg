@@ -89,6 +89,9 @@ const mockStore: ArxmlStoreApi = {
     toggle: vi.fn(),
     locale: 'zh-CN' as const,
     isDirty: () => false,
+    // S4 (v1.7.2) — empty BSWMD set; the right-click test does not
+    // exercise placeholders, so the helper's lookup returns [].
+    bswmdSchemas: [],
   }),
   subscribe: () => () => undefined,
 };
