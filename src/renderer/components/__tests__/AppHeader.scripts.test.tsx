@@ -120,6 +120,7 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
           headlessCli: false,
           swsValidator: false,
           keyboardFirst: false,
+          stencilWizard: false,
         },
       }),
     };

@@ -20,5 +20,6 @@ export interface FeatureFlags {
     readonly headlessCli: boolean;
     readonly swsValidator: boolean;
     readonly keyboardFirst: boolean;
+    readonly stencilWizard: boolean;
   };
 }

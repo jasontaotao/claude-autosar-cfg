@@ -32,6 +32,7 @@ describe('renderer feature flags (v1.6.0 U)', () => {
             headlessCli: false,
             swsValidator: false,
             keyboardFirst: false,
+            stencilWizard: false,
           },
         }),
       },
@@ -59,6 +60,7 @@ describe('renderer feature flags (v1.6.0 U)', () => {
         headlessCli: false,
         swsValidator: false,
         keyboardFirst: true,
+        stencilWizard: false,
       },
     });
     resetFeatureFlagCache();

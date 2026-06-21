@@ -44,6 +44,7 @@ async function loadFlags(): Promise<FeatureFlagsResponse> {
         headlessCli: false,
         swsValidator: false,
         keyboardFirst: false,
+        stencilWizard: false,
       },
     };
     return cached;
@@ -63,6 +64,7 @@ async function loadFlags(): Promise<FeatureFlagsResponse> {
         headlessCli: false,
         swsValidator: false,
         keyboardFirst: false,
+        stencilWizard: false,
       },
     };
   }

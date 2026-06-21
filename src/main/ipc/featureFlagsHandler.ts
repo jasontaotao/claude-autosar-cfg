@@ -20,6 +20,7 @@
 // ipcMain round-trip.
 
 import type { FeatureFlags } from '../../shared/ipc/featureFlags.js';
+import { isStencilWizardEnabled } from '../stencil/feature-flag.js';
 
 export function featureFlagsGetHandler(): FeatureFlags {
   return {
@@ -30,6 +31,7 @@ export function featureFlagsGetHandler(): FeatureFlags {
       headlessCli: false,
       swsValidator: false,
       keyboardFirst: false,
+      stencilWizard: isStencilWizardEnabled(),
     },
   };
 }
