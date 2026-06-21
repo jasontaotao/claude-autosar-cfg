@@ -1,0 +1,23 @@
+{
+  "manifestVersion": "1",
+  "bswmds": [
+    "bswmd/Bsw_Com_Bswmd.arxml",
+    "bswmd/Bsw_ComM_Bswmd.arxml",
+    "bswmd/Bsw_CanIf_Bswmd.arxml",
+    "bswmd/Bsw_EcuC_Bswmd.arxml",
+    "bswmd/Bsw_PduR_Bswmd.arxml"
+  ],
+  "valueArxmls": [
+    "EcuC_Config.arxml",
+    "Com_Config.arxml",
+    "CanIf_Config.arxml",
+    "ComM_Config.arxml",
+    "PduR_Config.arxml"
+  ],
+  "intentionalViolations": [
+    {
+      "ruleId": "SWS_COM_PDUID_UNIQUE",
+      "path": "/Com/ComConfig/ComIPdu/ComIPdu_1/ComPduId"
+    }
+  ]
+}
