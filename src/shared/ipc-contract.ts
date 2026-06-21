@@ -120,6 +120,12 @@ export const IPC_CHANNELS = {
   HEADLESS_RUN_COMMAND: 'headless:run-command:v1',
   HEADLESS_MUTATE_APPLIED: 'headless:mutate-applied:v1',
   HEADLESS_VALIDATE_RESULT: 'headless:validate-result:v1',
+  // v1.8.0 K — Stencil Wizard IPC channel. Generates a minimal valid
+  // ECUC module skeleton (.arxml) for one of 4 families (Com, ComM,
+  // PduR, EcuC). Channel name follows the v1.6.0 A+C §6 versioning
+  // policy (`:v1` suffix; breaking changes introduce `:v2`). Gated by
+  // `experimental.stencilWizard` feature flag (default OFF).
+  STENCIL_GENERATE_V1: 'stencil:generate:v1',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
