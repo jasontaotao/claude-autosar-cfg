@@ -1,0 +1,202 @@
+/* Cluster G (v1.6.0) — bottom-docked SWS Validator Panel styles. */
+
+.sws-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 40vh;
+  background: var(--color-surface, #fff);
+  border-top: 1px solid var(--color-border, #ddd);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  font-family: inherit;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.sws-panel-disabled {
+  display: none;
+}
+
+.sws-panel-disabled-label {
+  display: none;
+}
+
+.sws-panel-toggle {
+  position: fixed;
+  bottom: 8px;
+  right: 16px;
+  padding: 4px 12px;
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.sws-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-border, #eee);
+}
+
+.sws-panel-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sws-panel-badges {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.sws-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.sws-badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sws-badge-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.sws-panel-running {
+  font-size: 11px;
+  color: var(--color-muted, #6b7280);
+}
+
+.sws-panel-paused {
+  font-size: 11px;
+  color: var(--color-muted, #6b7280);
+  font-style: italic;
+}
+
+.sws-panel-filter {
+  display: flex;
+  gap: 4px;
+}
+
+.sws-filter-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid var(--color-border, #ddd);
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.sws-filter-btn-active {
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  border-color: var(--color-accent, #2563eb);
+}
+
+.sws-panel-close {
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 8px;
+  color: var(--color-muted, #6b7280);
+}
+
+.sws-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sws-panel-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--color-muted, #6b7280);
+  font-size: 12px;
+}
+
+.sws-panel-row {
+  border-bottom: 1px solid var(--color-border, #f3f4f6);
+}
+
+.sws-panel-row-focused {
+  background: var(--color-highlight, #eff6ff);
+}
+
+.sws-panel-row-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 16px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sws-severity {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  min-width: 40px;
+  text-align: center;
+}
+
+.sws-severity-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sws-severity-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.sws-severity-info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.sws-rule-id {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--color-muted, #6b7280);
+  min-width: 180px;
+}
+
+.sws-path {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--color-muted, #4b5563);
+  flex: 0 0 auto;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sws-message {
+  font-size: 11px;
+  color: var(--color-text, #1f2937);
+  flex: 1;
+}

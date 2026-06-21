@@ -13,7 +13,7 @@
 // + globalThis-write blocking + eval/Function blocking match the v1.3.0
 // source verbatim — see G spec §8.1 G3 row + §3.8 mitigation.
 
-import { runInContext, createContext, Script as VmScript } from 'node:vm';
+import { createContext, Script as VmScript } from 'node:vm';
 
 import type { ValidationContext, InternalValidatorResult } from '../types.js';
 

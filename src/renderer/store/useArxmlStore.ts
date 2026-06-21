@@ -32,6 +32,7 @@ import { createI18nSlice, type I18nSlice } from './slices/i18nSlice.js';
 import { createImportSlice, type ImportSlice } from './slices/importSlice.js';
 import { createMutationSlice, type MutationSlice } from './slices/mutationSlice.js';
 import { createProjectSlice, type ProjectSlice } from './slices/projectSlice.js';
+import { createTourSlice, type TourSlice } from './slices/tourSlice.js';
 import { createUiSlice, type UiSlice } from './slices/uiSlice.js';
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ export interface BswmdRemoveSnapshot {
 // ---------------------------------------------------------------------------
 
 export interface ArxmlState
-  extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice {
+  extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice, TourSlice {
   // Every field is declared on its owning slice interface above; this
   // type is the public intersection. The body is intentionally empty.
 }
@@ -122,8 +123,9 @@ export const useArxmlStore = create<ArxmlState>()((...a) => ({
   ...createUiSlice(...a),
   ...createImportSlice(...a),
   ...createMutationSlice(...a),
+  ...createTourSlice(...a),
 }));
 
 // Re-export slice types so downstream consumers can pick a slice's
 // shape without importing the slice file directly.
-export type { EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice };
+export type { EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice, TourSlice };
