@@ -315,6 +315,13 @@ export function App(): JSX.Element {
   const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
   const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
   const setInfo = useArxmlStore((s) => s.setInfo);
+  // Sprint 17 P3 T3.3 — host-side routing for the new
+  // `'remove-module'` action. We pull the unified BSWMD-remove
+  // hook from `useProjectActions` so the dirty-guard + 4-option
+  // dialog (cancel / only / cascade / cascade-and-unlink) stays
+  // in one place. Same hook used by the ProjectPanel × button
+  // (rewired in T3.4).
+  const { removeBswmdWithFullFlow } = useProjectActions();
   const handleContextMenuAction = useCallback(
     (action: ContextMenuAction): void => {
       switch (action.type) {
@@ -339,6 +346,14 @@ export function App(): JSX.Element {
           // Sprint A backlog.
           setInfo(i18nT(locale, 'mutation.action.deleteReferenceNotImplemented'));
           return;
+        case 'remove-module':
+          // Sprint 17 P3 T3.3 — fire-and-forget. The hook returns a
+          // Promise<ProjectActionResult> but the result is surfaced
+          // through the store (toast / error) by the hook itself;
+          // the menu host doesn't need to await. `void` swallows
+          // the unawaited promise for ESLint `no-floating-promises`.
+          void removeBswmdWithFullFlow(action.path);
+          return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
           // added without a handler.
@@ -347,7 +362,7 @@ export function App(): JSX.Element {
         }
       }
     },
-    [openBswmdPicker, deleteContainerAction, setInfo, locale],
+    [openBswmdPicker, deleteContainerAction, setInfo, locale, removeBswmdWithFullFlow],
   );
 
   // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns

@@ -50,15 +50,20 @@ export type ContextMenuTarget = {
   readonly shortName: string;
 };
 
-/** Action union — one of the 5 operations the user can fire from the
+/** Action union — one of the operations the user can fire from the
  *  menu. Phase 2 wires this to `useArxmlStore` actions (or to the
- *  picker dialog state) in the host component (App.tsx), not here. */
+ *  picker dialog state) in the host component (App.tsx), not here.
+ *  Sprint 17 P3 T3.3 adds `'remove-module'` — fired when the user
+ *  right-clicks a BSWMD row (ProjectPanel <li>) or a module-kind
+ *  tree node. App.tsx routes this to
+ *  `useProjectActions.removeBswmdWithFullFlow(path)`. */
 export type ContextMenuAction =
   | { readonly type: 'add-container'; readonly path: string }
   | { readonly type: 'add-parameter'; readonly path: string }
   | { readonly type: 'add-reference'; readonly path: string }
   | { readonly type: 'delete-container'; readonly path: string; readonly name: string }
-  | { readonly type: 'delete-reference'; readonly path: string };
+  | { readonly type: 'delete-reference'; readonly path: string }
+  | { readonly type: 'remove-module'; readonly path: string };
 
 // ---------------------------------------------------------------------------
 // Module-level state cell — the menu's "open or closed" + position.
@@ -295,6 +300,29 @@ function buildReferenceItems(target: ContextMenuTarget, locale: Locale): readonl
   ];
 }
 
+/**
+ * Sprint 17 P3 T3.3 — BSWMD remove menu item. Single action item
+ * surfaced when the target kind is `'bswmd'`. The host (App.tsx)
+ * routes `'remove-module'` to `useProjectActions.removeBswmdWithFullFlow(path)`,
+ * which shows the 4-option dialog (cancel / only / cascade /
+ * cascade-and-unlink). Mirrors the delete-reference shape: a single
+ * destructive item with the path as the only payload field.
+ */
+function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly MenuItemSpec[] {
+  return [
+    {
+      id: 'remove-module',
+      label: t(locale, 'mutation.action.removeModule'),
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-delete',
+      // `target.path` is the BSWMD file path that the right-click
+      // target — the host (App.tsx) routes the action payload to
+      // `useProjectActions.removeBswmdWithFullFlow(path)`.
+      build: () => ({ type: 'remove-module', path: target.path }),
+    },
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Root component — mount once at the app root.
 // ---------------------------------------------------------------------------
@@ -501,6 +529,13 @@ function buildItems(
 ): readonly MenuItemSpec[] {
   if (target.kind === 'reference') {
     return buildReferenceItems(target, locale);
+  }
+  // Sprint 17 P3 T3.3 — `kind: 'bswmd'` shortcut. The BSWMD row
+  // doesn't get add/delete-container items (those are ECUC mutations
+  // scoped to a module tree node), it gets a single "Remove module"
+  // item that routes through `useProjectActions.removeBswmdWithFullFlow`.
+  if (target.kind === 'bswmd') {
+    return buildBswmdItems(target, locale);
   }
   // Sprint A X3 — pull combined-mode + source file path from the
   // store so `isModuleCoveredByBswmd` can strip the combined-mode

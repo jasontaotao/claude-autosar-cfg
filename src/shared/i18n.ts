@@ -349,6 +349,12 @@ export interface Messages {
   readonly 'mutation.action.addReference': string;
   readonly 'mutation.action.delete': string; // {name}
   readonly 'mutation.action.deleteParameter': string; // aria-label
+  // Sprint 17 P3 T3.3 — context-menu item shown when the user
+  // right-clicks a BSWMD row (ProjectPanel <li>) or a module-kind
+  // tree node. Dispatched via ContextMenuAction.type='remove-module'
+  // and routed by App.tsx to useProjectActions.removeBswmdWithFullFlow.
+  readonly 'mutation.action.removeModule': string;
+  readonly 'mutation.action.removeModuleAria': string; // {name}
   // Sprint A X2 — P0-3: context-menu "Delete reference" is exposed
   // but the underlying mutation is not yet implemented (the
   // reference graph has no remove path). Surface a localized info
@@ -857,6 +863,8 @@ export const MessagesZhCN: Messages = {
   'mutation.action.addReference': '添加引用',
   'mutation.action.delete': "删除 '{name}'",
   'mutation.action.deleteParameter': '删除参数',
+  'mutation.action.removeModule': '移除 BSWMD',
+  'mutation.action.removeModuleAria': "移除 BSWMD '{name}'",
   'mutation.action.deleteReferenceNotImplemented':
     '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
@@ -1321,6 +1329,8 @@ export const MessagesEn: Messages = {
   'mutation.action.addReference': 'Add reference',
   'mutation.action.delete': "Delete '{name}'",
   'mutation.action.deleteParameter': 'Delete parameter',
+  'mutation.action.removeModule': 'Remove module',
+  'mutation.action.removeModuleAria': "Remove BSWMD '{name}'",
   'mutation.action.deleteReferenceNotImplemented':
     'Deleting references is not yet implemented (tracked in Sprint A backlog)',
   'confirm.cascade.title': "Delete '{name}'?",

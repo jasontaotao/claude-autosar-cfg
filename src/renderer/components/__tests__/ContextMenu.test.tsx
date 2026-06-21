@@ -44,12 +44,15 @@ import { closeContextMenu, ContextMenuRoot, openContextMenu } from '../ContextMe
 // ---------------------------------------------------------------------------
 
 // Public action shape — mirrors the union inside ContextMenu.tsx.
+// Sprint 17 P3 T3.3 added 'remove-module'; keep this mirror in sync
+// so the test's `onAction` callback accepts the new variant.
 type ContextMenuAction =
   | { type: 'add-container'; path: string }
   | { type: 'add-parameter'; path: string }
   | { type: 'add-reference'; path: string }
   | { type: 'delete-container'; path: string; name: string }
-  | { type: 'delete-reference'; path: string };
+  | { type: 'delete-reference'; path: string }
+  | { type: 'remove-module'; path: string };
 
 interface HostProps {
   readonly onAction: (action: ContextMenuAction) => void;
