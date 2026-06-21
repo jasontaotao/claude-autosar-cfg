@@ -257,6 +257,24 @@ export interface ArxmlState {
   readonly bswmdSchemas: readonly BswmdDocument[];
   readonly bswmdPaths: readonly string[];
 
+  // Sprint 17d — derived view of every BSWMD module's absolute path.
+  // The renderer-side schema lookups (`EnumEditor`'s enum-literal
+  // resolution; the validator's `lookupSchemaAcrossModuleRoots` /
+  // `lookupContainerSchemaAcrossModuleRoots` vendor-CDD fallback) use
+  // this list as the candidate pool when the value-side query path
+  // and the BSWMD-side module root don't share a package prefix
+  // (e.g. ECUC values under `/JWQ3399/...` and BSWMD module under
+  // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`).
+  //
+  // Exposed as a function on the state (matching the `isDirty()`
+  // pattern) and memoized by `bswmdSchemas` reference so callers can
+  // subscribe via `useArxmlStore((s) => s.bswmdModulePaths())`
+  // without re-rendering on unrelated state changes — the cached
+  // array reference only flips when the underlying schema set
+  // actually changes (typically on `addBswmd` / `removeBswmd` /
+  // project open).
+  readonly bswmdModulePaths: () => readonly string[];
+
   // Sprint 13 Stage 3.5 — Combined Tree View. `viewMode` switches
   // between the legacy single-doc Tree and the synthesised multi-doc
   // view. `displayDoc` is the derived field Tree reads: in single mode
@@ -635,6 +653,15 @@ export function resolveContainerTarget(
   return { doc: state.doc, filePath: state.filePath ?? '', innerPath: containerPath };
 }
 
+// Sprint 17d — module-root path cache. Lets the `bswmdModulePaths`
+// selector on the store return a stable `readonly string[]` reference
+// for a given `bswmdSchemas` reference, so renderer consumers (e.g.
+// `EnumEditor`) can subscribe via the standard Zustand selector
+// without spurious re-renders on unrelated state changes. Recomputes
+// only when `bswmdSchemas` itself is replaced.
+let _bswmdSchemasCacheRef: readonly BswmdDocument[] | undefined;
+let _bswmdModulePathsCache: readonly string[] = [];
+
 export const useArxmlStore = create<ArxmlState>((set, get) => ({
   documents: [],
   documentPaths: [],
@@ -671,6 +698,19 @@ export const useArxmlStore = create<ArxmlState>((set, get) => ({
   // for the project-level validation pass.
   bswmdSchemas: [],
   bswmdPaths: [],
+  // Sprint 17d — derived module-root list. Memoized by bswmdSchemas
+  // reference via the module-level cache declared above; returns a
+  // stable array reference until the schema set itself changes.
+  bswmdModulePaths: () => {
+    const schemas = get().bswmdSchemas;
+    if (schemas !== _bswmdSchemasCacheRef) {
+      _bswmdSchemasCacheRef = schemas;
+      _bswmdModulePathsCache = schemas.flatMap((doc) =>
+        doc.modules.map((m) => m.path),
+      );
+    }
+    return _bswmdModulePathsCache;
+  },
   // Sprint 13 Stage 3.5 — combined view defaults. `viewMode` starts
   // 'single' so the existing 746-test baseline sees no change; the
   // 'combined' mode is opt-in via the [Combined] virtual entry in

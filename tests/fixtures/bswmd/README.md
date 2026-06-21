@@ -72,6 +72,37 @@ of this fixture because the module root path
 `findModuleForPath` helper keys its 2-segment lookup off `/<pkg>/<module>`
 — see the smoke test file header for the full rationale.
 
+### `JWQ3399_bswmd.arxml` — vendor CDD (ECUC-MODULE-DEF under `/JWQ_CDD_PACK/JWQ_Packet/`)
+
+- Source: 经纬恒润 Intewell-style vendor CDD layout (anonymised
+  binary fixture; the original ARXML came from a private workspace —
+  see `git log tests/fixtures/bswmd/JWQ3399_bswmd.arxml` for the
+  import commit if the exact provenance is needed).
+- Size: 207,113 bytes (~1,820 lines)
+- Namespace: `http://autosar.org/schema/r4.0` (`AUTOSAR_00046.xsd`)
+- Tool: 经纬恒润 Intewell-style vendor CDD layout — module published
+  under a vendor package chain
+  (`/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`) while the value-side ECUC
+  values live under a shorter path (`/JWQ3399/...`).
+
+Observed by `parseBswmd` on this fixture:
+
+- 1 module: `JWQ3399`, path `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
+- Top-level containers include `JWQ3399ConfigSet` (with deep sub-container
+  chains for `JWQ3399SpiConfig`, `JWQ3399SpiSequenceRef`, `JWQ3399CanConfig`,
+  etc.) and `JWQ3399General` (with the `JWQ3399CommArch` enum param
+  declared with literals `CommArchWithBridge` / `CommArchWithOutBridge`).
+- Several `<MULTIPLICITY-CONFIG-CLASSES>` blocks (Sprint 17d v1.4.1
+  fix added the parser support for these).
+
+Used by `EnumEditor.test.tsx` (Sprint 17d) to pin the
+vendor-CDD namespace-mismatch fix: the test loads this BSWMD, then
+queries the value-side container path `/JWQ3399/JWQ3399/JWQ3399General`
+and expects `EnumEditor` to resolve it back to the schema-side key
+`/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General` via
+`lookupSchemaAcrossModuleRoots` so the `<select>` for `JWQ3399CommArch`
+renders with the BSWMD's enum literals.
+
 ## Usage
 
 The BSWMD parser Round-trip test uses these as the source of truth. The

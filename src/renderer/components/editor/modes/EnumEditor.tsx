@@ -9,6 +9,14 @@
 // mode `<basename>/` prefix is stripped so the layer's value-side key
 // matches.
 //
+// Vendor-CDD fallback (Sprint 17d follow-up): when the BSWMD is
+// published under a vendor package prefix (e.g. `/JWQ_CDD_PACK/
+// JWQ_Packet/JWQ3399/...`) but the value-side container path uses
+// the value namespace (e.g. `/JWQ3399/JWQ3399/...`), the direct layer
+// lookup misses. `lookupSchemaAcrossModuleRoots` iterates the
+// store-derived `bswmdModulePaths` list and rebuilds the candidate
+// as `<moduleRoot>/<suffix>` so the schema-side key matches.
+//
 // When the layer has no entry for the param path (i.e. the BSWMD
 // didn't declare a literal list — or no BSWMD is loaded at all) the
 // component falls back to a free-form text input. This preserves the
@@ -18,7 +26,11 @@
 import { useMemo, type JSX } from 'react';
 
 import type { ParamValue } from '@core/arxml/types';
-import { buildSchemaLayer, lookupSchema, resolveTargetPath } from '@core/validation';
+import {
+  buildSchemaLayer,
+  lookupSchemaAcrossModuleRoots,
+  resolveTargetPath,
+} from '@core/validation';
 
 import { useArxmlStore } from '../../../store/useArxmlStore';
 
@@ -53,6 +65,7 @@ function stripLeadingBasename(path: string, documentPaths: readonly string[]): s
 export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Element {
   const updateParam = useArxmlStore((s) => s.updateParam);
   const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
+  const bswmdModulePaths = useArxmlStore((s) => s.bswmdModulePaths());
   const documentPaths = useArxmlStore((s) => s.documentPaths);
 
   const layer = useMemo(() => buildSchemaLayer(bswmdSchemas), [bswmdSchemas]);
@@ -61,9 +74,12 @@ export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Eleme
     const raw = `${containerPath}/${paramKey}`;
     const stripped = stripLeadingBasename(raw, documentPaths);
     const normalised = resolveTargetPath(stripped);
-    const entry = lookupSchema(normalised, layer);
+    // Sprint 17d — pass bswmdModulePaths so the helper can bridge the
+    // vendor-CDD namespace gap (e.g. value-side /JWQ3399/... vs
+    // BSWMD-side /JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...).
+    const entry = lookupSchemaAcrossModuleRoots(normalised, layer, bswmdModulePaths);
     return entry?.enumLiterals ?? null;
-  }, [containerPath, paramKey, layer, documentPaths]);
+  }, [containerPath, paramKey, layer, documentPaths, bswmdModulePaths]);
 
   if (value.type !== 'enum') return <span className="text-red-500">type mismatch</span>;
 

@@ -17,7 +17,7 @@
 //                        floats for timeouts / enums for direction & processing /
 //                        strings for signal init values / refs to groups)
 
-import type { SchemaLayer } from '../runtimeSchema.js';
+import { lookupContainerSchemaAcrossModuleRoots, type SchemaLayer } from '../runtimeSchema.js';
 import type { EcucSchemaEntry, EcucContainerSchemaEntry } from '../types.js';
 
 /**
@@ -85,14 +85,32 @@ export const ECUC_CONTAINER_SCHEMA: readonly EcucContainerSchemaEntry[] = [
  * Layer wins when supplied; on a layer miss the function falls through
  * to the static `ECUC_CONTAINER_SCHEMA` table (used as a no-layer
  * fallback by the 5-fixture baseline).
+ *
+ * Sprint 17d follow-up — `moduleRoots` (3rd arg, optional): when
+ * supplied AND the direct layer lookup misses, the helper runs
+ * `lookupContainerSchemaAcrossModuleRoots` to bridge vendor-CDD
+ * namespace mismatches (e.g. value-side `/JWQ3399/...` queries
+ * against a BSWMD that publishes under `/JWQ_CDD_PACK/JWQ_Packet/
+ * JWQ3399/...`). The renderer's `validate.ts#checkContainerMultiplicity`
+ * passes `layer.moduleRoots` so the validator's multiplicity check
+ * benefits from the same fix as `EnumEditor`'s enum resolution.
  */
 export function lookupContainerSchema(
   containerPath: string,
   layer?: SchemaLayer,
+  moduleRoots: readonly string[] = [],
 ): EcucContainerSchemaEntry | null {
   if (layer !== undefined) {
     const fromLayer = layer.containers.get(containerPath);
     if (fromLayer !== undefined) return fromLayer;
+    if (moduleRoots.length > 0) {
+      const fromCrossRoot = lookupContainerSchemaAcrossModuleRoots(
+        containerPath,
+        layer,
+        moduleRoots,
+      );
+      if (fromCrossRoot !== null) return fromCrossRoot;
+    }
   }
   for (const entry of ECUC_CONTAINER_SCHEMA) {
     if (entry.path === containerPath) return entry;

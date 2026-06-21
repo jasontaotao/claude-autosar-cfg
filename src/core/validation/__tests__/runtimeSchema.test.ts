@@ -19,6 +19,9 @@
 // (validateProject.fixtures.test.ts + BSWMD round-trip) already covers
 // the parser side; this file is the layer contract surface.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 
 import type {
@@ -28,7 +31,14 @@ import type {
   ParamDef,
   ReferenceDef,
 } from '../../project/bswmd.js';
-import { buildSchemaLayer, findModuleForPath, type SchemaLayer } from '../runtimeSchema.js';
+import { parseBswmd } from '../../project/bswmd.js';
+import {
+  buildSchemaLayer,
+  findModuleForPath,
+  lookupContainerSchemaAcrossModuleRoots,
+  lookupSchemaAcrossModuleRoots,
+  type SchemaLayer,
+} from '../runtimeSchema.js';
 
 // ---------------------------------------------------------------------------
 // Synthetic BSWMD builders
@@ -441,5 +451,173 @@ describe('buildSchemaLayer — choices indexing', () => {
     const entry = layer.params.get('/EcucDefs/EcuC/EcucGeneral/BitOrder');
     expect(entry).toBeDefined();
     expect(entry!.enumLiterals).toEqual(['LSB', 'MSB']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint 17d follow-up — vendor CDD namespace-mismatch lookup helpers.
+// ---------------------------------------------------------------------------
+//
+// Real-world vendor CDD BSWMDs (e.g. 经纬恒润 Intewell's `/JWQ_CDD_PACK/
+// JWQ_Packet/...` chain) publish modules under a vendor package prefix
+// while the value-side ECUC values live under a shorter path. The
+// layer indexer's `resolveTargetPath` only collapses `/EAS` and
+// `/AUTOSAR_R<NN>/EcucDefs` namespaces — the vendor prefix isn't on
+// that list (and shouldn't be, because it's a BSWMD publisher choice
+// not an AUTOSAR standard). The cross-module-root helpers bridge the
+// gap by trying each loaded BSWMD's module root as a prefix candidate.
+
+const VENDOR_CDD_BSWMD_XML = readFileSync(
+  resolve(__dirname, '../../../../tests/fixtures/bswmd/JWQ3399_bswmd.arxml'),
+  'utf8',
+);
+
+function vendorCddLayer(): { layer: SchemaLayer; moduleRoot: string } {
+  const result = parseBswmd(VENDOR_CDD_BSWMD_XML);
+  if (!result.ok) {
+    throw new Error(
+      `Failed to parse JWQ3399 fixture: ${result.error.kind}`,
+    );
+  }
+  const layer = buildSchemaLayer([result.value]);
+  // BSWMD publishes the JWQ3399 module under the vendor package chain
+  // /JWQ_CDD_PACK/JWQ_Packet/JWQ3399.
+  const moduleRoot = '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399';
+  if (!layer.containers.has(moduleRoot)) {
+    throw new Error(
+      `Expected layer to index the vendor-CDD module root at ${moduleRoot}; ` +
+        `actual roots: ${[...layer.containers.keys()].filter((k) => k.endsWith('/JWQ3399')).join(', ')}`,
+    );
+  }
+  return { layer, moduleRoot };
+}
+
+describe('lookupSchemaAcrossModuleRoots — vendor CDD fallback (param side)', () => {
+  it('returns the param entry when the value-side query matches a vendor-CDD module root by shortName', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    // Value-side path the renderer would build from a containerPath like
+    // /JWQ3399/JWQ3399/JWQ3399General with paramKey JWQ3399CommArch.
+    // BSWMD-side key is /JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General/JWQ3399CommArch.
+    const valueSideParamPath = '/JWQ3399/JWQ3399/JWQ3399General/JWQ3399CommArch';
+
+    // Direct lookup MUST miss (layer key has the vendor prefix).
+    expect(layer.params.has(valueSideParamPath)).toBe(false);
+
+    // Cross-module-root lookup MUST hit.
+    const entry = lookupSchemaAcrossModuleRoots(valueSideParamPath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+    expect(entry!.type).toBe('enumeration');
+    expect(entry!.enumLiterals).toEqual(
+      expect.arrayContaining(['CommArchWithBridge', 'CommArchWithOutBridge']),
+    );
+  });
+
+  it('returns null when the query is under a module shortName no BSWMD declares', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    const unknownModulePath = '/JWQ3399/NotARealModule/JWQ3399General/JWQ3399CommArch';
+    expect(lookupSchemaAcrossModuleRoots(unknownModulePath, layer, [moduleRoot])).toBeNull();
+  });
+
+  it('returns the entry via direct lookup when the query already uses the schema-side namespace', () => {
+    // The cross-module-root helper degrades to a direct `layer.params.get`
+    // for paths that already match the schema-side key — no fallback needed.
+    const { layer, moduleRoot } = vendorCddLayer();
+    const schemaSidePath = '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General/JWQ3399CommArch';
+    const direct = lookupSchemaAcrossModuleRoots(schemaSidePath, layer, [moduleRoot]);
+    expect(direct).not.toBeNull();
+    expect(direct!.enumLiterals).toEqual(
+      expect.arrayContaining(['CommArchWithBridge', 'CommArchWithOutBridge']),
+    );
+  });
+
+  it('returns null when moduleRoots is empty (mirrors lookupSchema)', () => {
+    const { layer } = vendorCddLayer();
+    const valueSideParamPath = '/JWQ3399/JWQ3399/JWQ3399General/JWQ3399CommArch';
+    expect(lookupSchemaAcrossModuleRoots(valueSideParamPath, layer, [])).toBeNull();
+  });
+
+  it('returns null for the 2-segment module-level path (params map is container-only)', () => {
+    // Symmetric to the container-side 2-segment test: the helper
+    // builds `candidate = /JWQ_CDD_PACK/JWQ_Packet/JWQ3399` (no
+    // trailing slash) when `segments.slice(2)` is empty, but the
+    // `params` map does not index the module root as a param (only
+    // `containers` does). So a param-side 2-segment query should
+    // return `null` even with the empty-suffix fix.
+    const { layer, moduleRoot } = vendorCddLayer();
+    const moduleLevelPath = '/JWQ3399/JWQ3399';
+    expect(lookupSchemaAcrossModuleRoots(moduleLevelPath, layer, [moduleRoot])).toBeNull();
+  });
+
+  it('returns null for 3-segment compressed shape (caller must use resolveModuleAndParentContainer)', () => {
+    // Pins the documented "3-segment compressed shape NOT covered"
+    // contract. The helper uses `segments[1]` as the module
+    // shortName, so a query like `/JWQ3399/JWQ3399General/...` would
+    // mistreat `JWQ3399General` as a module shortName and miss every
+    // candidate root. Future refactors that widen the algorithm
+    // should update this test to match the new contract.
+    const { layer, moduleRoot } = vendorCddLayer();
+    const compressed3SegPath = '/JWQ3399/JWQ3399General/JWQ3399CommArch';
+    expect(lookupSchemaAcrossModuleRoots(compressed3SegPath, layer, [moduleRoot])).toBeNull();
+  });
+});
+
+describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (container side)', () => {
+  it('returns the container entry when the value-side query matches a vendor-CDD module root', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    // Value-side container path. BSWMD-side key is
+    // /JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General.
+    const valueSideContainerPath = '/JWQ3399/JWQ3399/JWQ3399General';
+
+    // Direct lookup MUST miss.
+    expect(layer.containers.has(valueSideContainerPath)).toBe(false);
+
+    // Cross-module-root lookup MUST hit. The fixture's JWQ3399General
+    // is a required container (lower=1, upper=1) — see the
+    // <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY> at line 694 of
+    // tests/fixtures/bswmd/JWQ3399_bswmd.arxml.
+    const entry = lookupContainerSchemaAcrossModuleRoots(valueSideContainerPath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+    expect(entry!.lower).toBe(1);
+    expect(entry!.upper).toBe(1);
+  });
+
+  it('returns the module root itself when the value-side query is the module-level path', () => {
+    // The /JWQ3399/JWQ3399 path is a 2-segment value-side path that
+    // corresponds to the BSWMD-side module root. The cross-module-root
+    // helper should rebuild the candidate and return the module's own
+    // multiplicity entry (lower=1, upper=1 for JWQ3399).
+    const { layer, moduleRoot } = vendorCddLayer();
+    const moduleLevelPath = '/JWQ3399/JWQ3399';
+    const entry = lookupContainerSchemaAcrossModuleRoots(moduleLevelPath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+    expect(entry!.lower).toBe(1);
+    expect(entry!.upper).toBe(1);
+  });
+
+  it('returns null when the path is under an unknown module shortName', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    expect(
+      lookupContainerSchemaAcrossModuleRoots(
+        '/JWQ3399/NotARealModule/JWQ3399General',
+        layer,
+        [moduleRoot],
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when moduleRoots is empty', () => {
+    const { layer } = vendorCddLayer();
+    expect(
+      lookupContainerSchemaAcrossModuleRoots('/JWQ3399/JWQ3399/JWQ3399General', layer, []),
+    ).toBeNull();
+  });
+
+  it('returns null for malformed input (empty, no leading slash, fewer than 2 segments)', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    expect(lookupContainerSchemaAcrossModuleRoots('', layer, [moduleRoot])).toBeNull();
+    expect(
+      lookupContainerSchemaAcrossModuleRoots('JWQ3399/General', layer, [moduleRoot]),
+    ).toBeNull();
+    expect(lookupContainerSchemaAcrossModuleRoots('/JWQ3399', layer, [moduleRoot])).toBeNull();
   });
 });

@@ -298,8 +298,17 @@ function checkContainerMultiplicity(
   layer?: SchemaLayer,
 ): void {
   // Sprint 17d — same normalisation as `walkContainer`. Layer keys are
-  // folded at index time so the lookup needs the same shape.
-  const schema = lookupContainerSchema(resolveTargetPath(containerPath), layer);
+  // folded at index time so the lookup needs the same shape. The
+  // `moduleRoots` 3rd arg (Sprint 17d follow-up) bridges vendor-CDD
+  // namespace mismatches the same way `EnumEditor`'s enum resolution
+  // does: a layer keyed under `/JWQ_CDD_PACK/JWQ_Packet/...` matches
+  // value-side `/JWQ3399/...` queries via the cross-module-root
+  // fallback in `lookupContainerSchemaAcrossModuleRoots`.
+  const schema = lookupContainerSchema(
+    resolveTargetPath(containerPath),
+    layer,
+    layer?.moduleRoots ?? [],
+  );
   if (schema === null) {
     // Layer-aware schema-unknown: same disambiguator as the param-level
     // check above — if the layer knows the *parent* module but didn't

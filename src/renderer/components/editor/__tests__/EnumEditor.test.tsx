@@ -32,8 +32,12 @@ const REAL_ADC_BSWMD_XML = readFileSync(
 // while the user-selected `containerPath` follows the value-side
 // `/JWQ3399/...` shape. This is the canonical AUTOSAR vendor-CDD
 // mismatch the namespace-folding pipeline must handle.
+//
+// Loaded from the repo-relative `tests/fixtures/bswmd/` path (not
+// from the user's Desktop) so the test runs in any checkout — see
+// the README in that directory for the fixture's provenance.
 const REAL_JWQ_BSWMD_XML = readFileSync(
-  'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml',
+  resolve(__dirname, '../../../../../tests/fixtures/bswmd/JWQ3399_bswmd.arxml'),
   'utf8',
 );
 
@@ -272,18 +276,13 @@ describe('EnumEditor', () => {
     // Sprint 17d follow-up: vendor CDD BSWMDs are published under
     // their own `<AR-PACKAGE>` chain (`/JWQ_CDD_PACK/JWQ_Packet/...`)
     // while the ECUC values live under the value-side package
-    // (`/JWQ3399/...`). The DEFINITION-REF in the ECUC values file
-    // crosses the namespace boundary with the schema-side path.
-    //
-    // The renderer's `selectedPath` follows the value-side shape, so
-    // EnumEditor must resolve `/JWQ3399/JWQ3399/JWQ3399General/JWQ3399CommArch`
-    // to a layer entry keyed under `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...`.
-    //
-    // The current namespace list (`/EAS`, `/AUTOSAR_R\d+/EcucDefs`)
-    // does NOT cover `/JWQ_CDD_PACK/JWQ_Packet` — so this test pins
-    // the gap and documents the expected failure mode: EnumEditor
-    // renders <input type="text"> because the layer key uses the
-    // vendor package path while the query uses the value-side path.
+    // (`/JWQ3399/...`). The `normalizePath` namespace list covers
+    // `/EAS` and `/AUTOSAR_R<NN>/EcucDefs` but NOT vendor CDD prefixes,
+    // so a plain `lookupSchema` would miss. `EnumEditor` must use
+    // `lookupSchemaAcrossModuleRoots` (Sprint 17d follow-up) so the
+    // value-side query path gets mapped back onto the BSWMD-side key
+    // and the enum `<select>` renders with the BSWMD's literals
+    // (`CommArchWithBridge` / `CommArchWithOutBridge`).
     useArxmlStore.getState().addBswmd('/schemas/JWQ3399.bswmd.arxml', REAL_JWQ_BSWMD_XML);
 
     render(
@@ -294,18 +293,9 @@ describe('EnumEditor', () => {
       />,
     );
 
-    const el = screen.queryByTestId('enum-editor-JWQ3399CommArch');
-    const textFallback = screen.queryByTestId('enum-editor-text-JWQ3399CommArch');
-    // eslint-disable-next-line no-console
-    console.log('[JWQ] select=', el?.tagName, 'textInput=', textFallback?.tagName);
-    // The cross-module-root fallback should map the value-side
-    // `/JWQ3399/...` container path onto the BSWMD-side
-    // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...` and find
-    // `JWQ3399CommArch`. The BSWMD's first two literals are
-    // `CommArchWithBridge` / `CommArchWithOutBridge`.
-    expect(el?.tagName).toBe('SELECT');
+    expect(screen.getByTestId('enum-editor-JWQ3399CommArch').tagName).toBe('SELECT');
     expect(screen.getByRole('option', { name: 'CommArchWithBridge' })).toBeInTheDocument();
-    expect(textFallback).toBeNull();
+    expect(screen.queryByTestId('enum-editor-text-JWQ3399CommArch')).toBeNull();
   });
 
   it('strips combined-mode <basename>/ prefix and renders <select>', () => {

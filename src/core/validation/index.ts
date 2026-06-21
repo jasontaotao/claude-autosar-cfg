@@ -28,5 +28,10 @@ export { ECUC_CONTAINER_SCHEMA, lookupSchema, lookupContainerSchema } from './sc
 // renderer can build a layer from loaded BSWMD files and pass it into
 // validateProjectForRenderer / validateProject / validate without
 // importing internal submodules.
-export { buildSchemaLayer, findModuleForPath, lookupSchemaAcrossModuleRoots } from './runtimeSchema.js';
+export {
+  buildSchemaLayer,
+  findModuleForPath,
+  lookupSchemaAcrossModuleRoots,
+  lookupContainerSchemaAcrossModuleRoots,
+} from './runtimeSchema.js';
 export type { SchemaLayer } from './runtimeSchema.js';

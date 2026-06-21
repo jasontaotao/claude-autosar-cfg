@@ -38,18 +38,27 @@ import type { EcucContainerSchemaEntry, EcucParamType, EcucSchemaEntry } from '.
 /**
  * The runtime schema layer built from one or more parsed BSWMDs.
  *
- * All three fields are flat path-indexed lookups:
+ * All fields are flat path-indexed lookups:
  *   - `params`: absolute param path → `EcucSchemaEntry`
  *   - `containers`: absolute container path → `EcucContainerSchemaEntry`
  *   - `sourcePaths`: every absolute path the BSWMD declares (params + containers),
  *     regardless of whether a constraint entry exists. Used by the validator to
  *     distinguish "schema-known-but-unconstrained" (silent skip) from "outside
  *     any schema" (emit 'schema-unknown').
+ *   - `moduleRoots`: every absolute module root path the BSWMD declares
+ *     (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`). Used by
+ *     `lookupSchemaAcrossModuleRoots` /
+ *     `lookupContainerSchemaAcrossModuleRoots` as the candidate pool
+ *     for vendor-CDD namespace-mismatch fallback. Auto-populated by
+ *     `buildSchemaLayer`; manual layer builders (test helpers) can
+ *     pass an empty array when not exercising the cross-module-root
+ *     lookup path.
  */
 export interface SchemaLayer {
   readonly params: ReadonlyMap<string, EcucSchemaEntry>;
   readonly containers: ReadonlyMap<string, EcucContainerSchemaEntry>;
   readonly sourcePaths: ReadonlySet<string>;
+  readonly moduleRoots: readonly string[];
 }
 
 /**
@@ -65,9 +74,16 @@ export function buildSchemaLayer(documents: readonly BswmdDocument[]): SchemaLay
   const params = new Map<string, EcucSchemaEntry>();
   const containers = new Map<string, EcucContainerSchemaEntry>();
   const sourcePaths = new Set<string>();
+  const moduleRoots: string[] = [];
 
   for (const doc of documents) {
     for (const mod of doc.modules) {
+      // Sprint 17d follow-up — track every module root for the
+      // cross-module-root lookup helpers (vendor-CDD namespace
+      // fallback). The list preserves BSWMD insertion order so the
+      // "first match wins" contract on module shortName collisions is
+      // deterministic.
+      moduleRoots.push(mod.path);
       // Index the module root itself as a container so callers (e.g.
       // `findModuleForPath`) can attribute an absolute param path to its
       // containing module via `layer.containers.has(modulePath)`. The
@@ -89,7 +105,7 @@ export function buildSchemaLayer(documents: readonly BswmdDocument[]): SchemaLay
     }
   }
 
-  return { params, containers, sourcePaths };
+  return { params, containers, sourcePaths, moduleRoots };
 }
 
 /**
@@ -259,6 +275,25 @@ export function findModuleForPath(layer: SchemaLayer, paramPath: string): string
  * matches `segments[1]` of the query, it rebuilds the candidate path
  * as `<moduleRoot>/<suffix-from-segment[2]>` and tries again.
  *
+ * **Segment-count coverage.** The helper accepts any path with at
+ * least 2 non-empty segments — the 4-segment canonical form
+ * `/<pkg>/<module>/<container...>/<param>` is the common case
+ * (handled by the `slice2.length > 0` branch), the 2-segment
+ * `/<pkg>/<module>` shape maps to the module root itself (suffix is
+ * empty, no trailing `/`), and intermediate depths work via the same
+ * `slice2.join('/')` logic. The 3-segment compressed shape
+ * (`/<pkg>/<container>/<param>` where `pkg === module shortName`,
+ * handled separately by `useArxmlStore.resolveModuleAndParentContainer`
+ * after `bdb81f6`) is NOT covered by this helper — the caller is
+ * responsible for routing that case to the appropriate resolver
+ * before falling back to layer lookup.
+ *
+ * **Module shortName uniqueness assumption.** If multiple BSWMD modules
+ * share the same shortName but have different package prefixes
+ * (unusual in practice — ECUC value files only refer to a single
+ * module's path space), the first matching `moduleRoot` wins. The
+ * iteration order is whatever the caller passes in `moduleRoots`.
+ *
  * Pure / side-effect-free.
  *
  * @param paramPath   normalised absolute path; the caller's job to run
@@ -281,7 +316,12 @@ export function lookupSchemaAcrossModuleRoots(
   const segments = paramPath.split('/').filter((s) => s.length > 0);
   if (segments.length < 2) return null;
   const queryModShortName = segments[1];
-  const suffix = '/' + segments.slice(2).join('/');
+  // Empty `suffix` for the 2-segment case so the candidate lands on
+  // the module root itself (no trailing `/`) and matches the
+  // layer's `containers` / `params` key. The `/<rest>` form is only
+  // used when there's at least one more segment to append.
+  const slice2 = segments.slice(2);
+  const suffix = slice2.length > 0 ? '/' + slice2.join('/') : '';
   for (const root of moduleRoots) {
     if (root === '' || !root.startsWith('/')) continue;
     const rootSegments = root.split('/').filter((s) => s.length > 0);
@@ -289,6 +329,60 @@ export function lookupSchemaAcrossModuleRoots(
     if (rootModShortName !== queryModShortName) continue;
     const candidate = root + suffix;
     const found = layer.params.get(candidate);
+    if (found !== undefined) return found;
+  }
+  return null;
+}
+
+/**
+ * Sprint 17d follow-up — container-side mirror of
+ * `lookupSchemaAcrossModuleRoots`. Same vendor-CDD namespace-mismatch
+ * scenario, applied to the layer's `containers` map (used by
+ * `lookupContainerSchema` and the validator's `multiplicity` check).
+ *
+ * Layer-only by design: this helper does NOT fall through to the
+ * static `ECUC_CONTAINER_SCHEMA` table. Callers that need the
+ * static-table fallback (the 5-fixture baseline path) should call
+ * `lookupContainerSchema(containerPath, layer)` after this helper
+ * returns `null`.
+ *
+ * **Same limitations as the param version** — 4-segment canonical
+ * form only, module shortName uniqueness assumed. See
+ * `lookupSchemaAcrossModuleRoots` for the full discussion.
+ *
+ * Pure / side-effect-free.
+ *
+ * @param containerPath normalised absolute path (caller runs
+ *                      `resolveTargetPath` first). Value-side
+ *                      namespace form expected.
+ * @param layer         the runtime schema layer.
+ * @param moduleRoots   optional list of candidate module roots from
+ *                      the loaded BSWMDs. When omitted, behaviour
+ *                      matches `layer.containers.get(containerPath)`.
+ * @returns the matching `EcucContainerSchemaEntry` or `null`.
+ */
+export function lookupContainerSchemaAcrossModuleRoots(
+  containerPath: string,
+  layer: SchemaLayer,
+  moduleRoots: readonly string[] = [],
+): EcucContainerSchemaEntry | null {
+  const direct = layer.containers.get(containerPath);
+  if (direct !== undefined) return direct;
+  if (containerPath === '' || !containerPath.startsWith('/')) return null;
+  const segments = containerPath.split('/').filter((s) => s.length > 0);
+  if (segments.length < 2) return null;
+  const queryModShortName = segments[1];
+  // See `lookupSchemaAcrossModuleRoots` for the empty-suffix rationale
+  // (2-segment path → candidate = module root, no trailing `/`).
+  const slice2 = segments.slice(2);
+  const suffix = slice2.length > 0 ? '/' + slice2.join('/') : '';
+  for (const root of moduleRoots) {
+    if (root === '' || !root.startsWith('/')) continue;
+    const rootSegments = root.split('/').filter((s) => s.length > 0);
+    const rootModShortName = rootSegments[rootSegments.length - 1];
+    if (rootModShortName !== queryModShortName) continue;
+    const candidate = root + suffix;
+    const found = layer.containers.get(candidate);
     if (found !== undefined) return found;
   }
   return null;
