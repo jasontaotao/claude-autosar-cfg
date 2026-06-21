@@ -259,7 +259,7 @@ export function AppHeader({
             lastError = `${basename(file.path)}: ${formatParseError(parsed.error, locale)}`;
             continue;
           }
-          addDocument(parsed.value, file.path);
+          addDocument(parsed.value, file.path, { template: true });
         }
         if (failed.length > 0) {
           lastError = failed.map((f) => `${basename(f.path)}: ${f.message}`).join('; ');

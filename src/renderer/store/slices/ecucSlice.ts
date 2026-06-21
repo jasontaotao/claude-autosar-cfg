@@ -53,9 +53,16 @@ export interface EcucSlice {
   readonly dirtyPaths: ReadonlySet<string>;
   readonly validationErrors: readonly ValidationError[];
   readonly lastValidatedAt: number | null;
+  // v1.8.0 K Stencil Task 10 — per-document "is this a template" flag.
+  // A doc is marked as a template when it was loaded from an existing
+  // .arxml on disk via File → Open (any .arxml is a template per
+  // the KISS design). The FileListTab renders a "Template" badge for
+  // every path in this set. Newly created docs (Stencil Wizard
+  // output, blank docs) are NOT in this set — only opened ones.
+  readonly templatePaths: ReadonlySet<string>;
 
   // Multi-doc actions (Sprint 10 #2)
-  addDocument: (doc: ArxmlDocument, filePath: string) => void;
+  addDocument: (doc: ArxmlDocument, filePath: string, options?: { readonly template?: boolean }) => void;
   removeDocument: (filePath: string) => void;
   setActiveDocument: (filePath: string | null) => void;
 
@@ -85,8 +92,12 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
   dirtyPaths: new Set<string>(),
   validationErrors: [],
   lastValidatedAt: null,
+  // v1.8.0 K Stencil Task 10 — set of filePaths marked as templates.
+  // Empty by default; populated by the File → Open flow passing
+  // `options.template: true` to addDocument.
+  templatePaths: new Set<string>(),
 
-  addDocument: (doc, filePath) => {
+  addDocument: (doc, filePath, options) => {
     const state = get();
     const existingIdx = state.documentPaths.indexOf(filePath);
     let nextDocuments: readonly ArxmlDocument[];
@@ -144,6 +155,17 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
         schemaLayer: buildSchemaLayer(get().bswmdSchemas),
       }),
       lastValidatedAt: Date.now(),
+      // v1.8.0 K Stencil Task 10 — add the loaded path to
+      // templatePaths when the caller opts in. The File → Open flow
+      // passes `options.template = true` so any opened .arxml is
+      // treated as a template (KISS: no separate "template" concept).
+      // Newly created docs (Stencil Wizard output) do not pass this
+      // option and stay out of the set. Re-loading an existing path
+      // is idempotent (Set semantics).
+      templatePaths:
+        options?.template === true
+          ? new Set([...state.templatePaths, filePath])
+          : state.templatePaths,
     });
   },
 
@@ -192,6 +214,15 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
       // The removed doc's dirty bit is dropped; other docs' dirty state
       // is preserved.
       dirtyPaths: dropFromDirty(state.dirtyPaths, filePath),
+      // v1.8.0 K Stencil Task 10 — also drop the removed path from
+      // templatePaths so a removed doc's badge doesn't linger. The
+      // Set re-build is cheap (typical N ≤ a handful of paths).
+      templatePaths: (() => {
+        if (!state.templatePaths.has(filePath)) return state.templatePaths;
+        const next = new Set(state.templatePaths);
+        next.delete(filePath);
+        return next;
+      })(),
       project: nextProject,
       validationErrors: validateProjectForRenderer(nextDocuments, {
         schemaLayer: buildSchemaLayer(get().bswmdSchemas),
@@ -362,6 +393,10 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
       // `error` field so a fresh project doesn't reopen a stale
       // banner.
       toast: null,
+      // v1.8.0 K Stencil Task 10 — templatePaths slice; cleared
+      // alongside the document set so a fresh load doesn't carry
+      // badges from a prior project.
+      templatePaths: new Set<string>(),
       validationErrors: [],
       // Sprint 17c T10 — combined-doc warnings; cleared alongside
       // the document set so a fresh load doesn't see stale

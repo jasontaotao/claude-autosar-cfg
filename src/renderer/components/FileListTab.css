@@ -86,6 +86,27 @@
   flex: 0 0 auto;
 }
 
+/* v1.8.0 K Stencil Task 10 — "Template" badge shown next to any
+   .arxml loaded via File → Open. Mirrors the visual weight of the
+   existing `.file-list-tab-count` chip (small pill, subtle blue)
+   so the badge feels like part of the established badge family.
+   Sits between the file name and the remove (×) button. */
+.file-list-tab-item-badge {
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0 6px;
+  line-height: 14px;
+  flex: 0 0 auto;
+  user-select: none;
+}
+
+.file-list-tab-item-badge-template {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+}
+
 .file-list-tab-item:hover .file-list-tab-item-remove {
   opacity: 1;
 }

@@ -616,6 +616,13 @@ export interface Messages {
   readonly 'stencil.error.serializeFailed': string;
   readonly 'stencil.error.unknownFamily': string;
   readonly 'stencil.error.gateBlocked': string; // {count}
+  // v1.8.0 K Stencil Task 10 — "Template" badge shown in FileListTab
+  // next to any .arxml that was loaded via File → Open (per KISS,
+  // every opened .arxml is a template). The badge signals to the
+  // user that the file can be re-saved as a different filename /
+  // location.
+  readonly 'stencil.badge.template': string;
+  readonly 'stencil.badge.templateAria': string; // {name}
 
   // --- v1.6.0 Cluster W — Onboarding tour (W spec §3.5) ---
   // 20 onboarding keys (welcome card + 5 step title/body + 4 controls + progress)
@@ -1103,6 +1110,8 @@ export const MessagesZhCN: Messages = {
   'stencil.error.serializeFailed': 'ARXML 序列化失败',
   'stencil.error.unknownFamily': '未知的模块族',
   'stencil.error.gateBlocked': 'SWS 校验发现 {count} 项错误，已阻止生成',
+  'stencil.badge.template': '模板',
+  'stencil.badge.templateAria': '{name} 是模板文件',
 
   // --- v1.6.0 Cluster W — Onboarding tour ---
   'onboarding.welcome.title': '欢迎使用 AutosarCfg',
@@ -1595,6 +1604,8 @@ export const MessagesEn: Messages = {
   'stencil.error.serializeFailed': 'ARXML serialization failed',
   'stencil.error.unknownFamily': 'Unknown module family',
   'stencil.error.gateBlocked': 'SWS validation found {count} error(s); generation blocked',
+  'stencil.badge.template': 'Template',
+  'stencil.badge.templateAria': '{name} is a template file',
 
   // --- v1.6.0 Cluster W — Onboarding tour (en) ---
   'onboarding.welcome.title': 'Welcome to AutosarCfg',

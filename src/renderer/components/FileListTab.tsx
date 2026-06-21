@@ -39,6 +39,11 @@ export function FileListTab(): JSX.Element {
   const setViewMode = useArxmlStore((s) => s.setViewMode);
   const removeDocument = useArxmlStore((s) => s.removeDocument);
   const locale = useArxmlStore((s) => s.locale);
+  // v1.8.0 K Stencil Task 10 — set of filePaths marked as templates
+  // (any .arxml loaded via File → Open). Drives the "Template" badge
+  // rendered next to each opened doc row. See useArxmlStore.addDocument
+  // and the templatePaths slice in the ecuc slice.
+  const templatePaths = useArxmlStore((s) => s.templatePaths);
 
   const isProjectOpen = project !== null;
 
@@ -131,6 +136,25 @@ export function FileListTab(): JSX.Element {
                   <span className="file-list-tab-item-name" title={p}>
                     {basename(p)}
                   </span>
+                  {/* v1.8.0 K Stencil Task 10 — "Template" badge shown
+                      next to any .arxml loaded via File → Open. Per the
+                      KISS design there is no separate "template"
+                      concept; every opened file IS a template, so the
+                      badge is purely informational. Newly created
+                      docs (Stencil Wizard output, blank docs) do NOT
+                      show the badge. */}
+                  {templatePaths.has(p) && (
+                    <span
+                      className="file-list-tab-item-badge file-list-tab-item-badge-template"
+                      data-testid={`file-list-tab-arxml-badge-template-${p}`}
+                      aria-label={t(locale, 'stencil.badge.templateAria', {
+                        name: basename(p),
+                      })}
+                      title={t(locale, 'stencil.badge.template')}
+                    >
+                      {t(locale, 'stencil.badge.template')}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="file-list-tab-item-remove"
