@@ -1,16 +1,29 @@
-// Mutate command handler (v1.6.0 A+C-3).
+// Mutate command handler (v1.6.1 — A+C-3 follow-up).
 //
 // Reads a PatchDocument (file or stdin), dispatches each step to the
-// appropriate core mutation API (via the existing `applyMutation`
-// function from v1.5.1 PR(4)), writes atomically, and returns a
-// MutateResult envelope.
+// renderer-agnostic `applyPatchSteps` engine in
+// `src/core/mutation/applyPatchSteps.ts`, serializes the mutated
+// ARXML back to the source path via the atomic-write helper, and
+// returns a `MutateResult` envelope.
 //
-// PR(A+C-3) is the minimal end-to-end implementation; the patch parser
-// is fleshed out in `patch-parser.ts` (sibling module).
+// Two execution modes:
+//   - dry-run  → mutate in memory, surface a preview string, no write
+//   - real     → mutate in memory, serialize via `serializeArxml`,
+//                write to the source file via `writeAtomic`
+//
+// Loose-mode input: a single ARXML file. Manifest-mode input
+// (`.autosarcfg.json`) is not yet supported in v1.6.1 — the CLI
+// only handles the single-file path because the renderer-agnostic
+// engine in `core/mutation/applyPatchSteps.ts` is single-doc. The
+// multi-doc manifest path lands in v1.7.0 (per A+C spec §5.2).
 
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, rename } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
+import { parseArxml } from '../../core/arxml/parser.js';
+import { serializeArxml } from '../../core/arxml/serializer.js';
+import { applyPatchSteps } from '../../core/mutation/applyPatchSteps.js';
 import type {
   HeadlessError,
   MutateArgs,
@@ -27,7 +40,6 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
   // 1. Parse patch file (or stdin).
   let raw: string;
   if (args.patch === '-') {
-    // Read stdin synchronously up to a cap.
     raw = await readStdin();
   } else {
     if (!existsSync(args.patch)) {
@@ -61,34 +73,124 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
     throw new Error('unreachable');
   }
   const doc = parsed.doc;
-
-  // 2. Apply each step. For PR(A+C-3) we emit a successful no-op apply
-  //    unless the patch includes a real JSON Patch step — full mutation
-  //    wiring happens via `applyMutation` (v1.5.1) in PR(A+C-5) once the
-  //    integration tests demand it. Dry-run mode skips the write.
   const stepsTotal = doc.steps.length;
-  const warnings: ReadonlyArray<{ stepIndex: number; message: string }> = [];
-  const errors: MutationStepError[] = [];
 
-  // Stub: emit a 0-step apply for now. Future PR wires real applyMutation.
-  const stepsApplied = args.dryRun ? 0 : 0;
+  // 2. Open the project (loose ARXML mode for v1.6.1). Manifest
+  //    mode is deferred to v1.7.0.
+  const projectPath = resolve(args.projectPath);
+  if (!existsSync(projectPath)) {
+    failWith({ kind: 'file-not-found', path: projectPath }, 1);
+  }
+  let xml: string;
+  try {
+    xml = await readFile(projectPath, 'utf-8');
+  } catch (err) {
+    failWith(
+      { kind: 'file-not-found', path: projectPath },
+      1,
+      [`[autosarcfg] cannot read project: ${err instanceof Error ? err.message : String(err)}`],
+    );
+    throw new Error('unreachable');
+  }
+  const parsedDoc = parseArxml(xml);
+  if (!parsedDoc.ok) {
+    const message = 'message' in parsedDoc.error ? parsedDoc.error.message : parsedDoc.error.kind;
+    failWith(
+      { kind: 'parse-error', path: projectPath, message },
+      1,
+      [`[autosarcfg] parse failed: ${message}`],
+    );
+    throw new Error('unreachable');
+  }
+  const arxmlDoc = { ...parsedDoc.value, path: projectPath };
+
+  // 3. Apply each step via the renderer-agnostic engine.
+  const warnings: ReadonlyArray<{ stepIndex: number; message: string }> = [];
+  const result = applyPatchSteps(arxmlDoc, doc.steps);
+  const errors: MutationStepError[] = result.errors.map((e) => ({
+    stepIndex: e.stepIndex,
+    kind: e.kind,
+    message: e.message,
+  }));
 
   if (errors.length > 0) {
     failWith({ kind: 'mutation-failed', planId: patchId, errors }, 1);
     throw new Error('unreachable');
   }
 
+  // 4. Serialize + (atomic) write unless dry-run.
+  if (!args.dryRun) {
+    const serialized = serializeArxml(result.doc);
+    if (!serialized.ok) {
+      failWith(
+        { kind: 'write-failed', path: projectPath, message: serialized.error.message },
+        1,
+        [`[autosarcfg] serialize failed: ${serialized.error.message}`],
+      );
+      throw new Error('unreachable');
+    }
+    try {
+      await writeAtomic(projectPath, serialized.value);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      failWith(
+        { kind: 'write-failed', path: projectPath, message },
+        1,
+        [`[autosarcfg] write failed: ${message}`],
+      );
+      throw new Error('unreachable');
+    }
+  }
+
   return {
     ok: true,
     command: 'mutate',
-    projectPath: args.projectPath,
+    projectPath,
     patchId,
-    stepsApplied,
+    // Dry-run reports `stepsApplied: 0` (no commit landed) per the
+    // A+C spec's "no commit on dry-run" contract. The preview
+    // string carries the engine's reported would-apply count so
+    // CI can spot unexpected no-ops (e.g. a 1-step patch that the
+    // engine rejected silently).
+    stepsApplied: args.dryRun ? 0 : result.applied,
     stepsTotal,
     warnings,
     durationMs: Date.now() - start,
-    ...(args.dryRun ? { dryRunPreview: `[dry-run] would apply ${stepsTotal} step(s)` } : {}),
+    ...(args.dryRun
+      ? {
+          dryRunPreview: buildDryRunPreview(doc.steps.length, result.applied, projectPath),
+        }
+      : {}),
   };
+}
+
+/**
+ * Atomic write: write to `<file>.tmp-<pid>-<ts>` then `rename()`.
+ * On failure the temp file is cleaned up; the original file is
+ * preserved. This is the Node-only cousin of the v1.5.1 main-side
+ * `writeAtomic` helper (which lives in `src/main/ipc/projectSaveHandler.ts`
+ * and is unavailable to the standalone CLI process).
+ */
+async function writeAtomic(target: string, content: string): Promise<void> {
+  const tmpPath = `${target}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await writeFile(tmpPath, content, 'utf-8');
+    await rename(tmpPath, target);
+  } catch (err) {
+    // Best-effort cleanup; ignore secondary failure to keep the
+    // original error envelope intact.
+    try {
+      const fs = await import('node:fs/promises');
+      await fs.unlink(tmpPath);
+    } catch {
+      // ignore
+    }
+    throw err;
+  }
+}
+
+function buildDryRunPreview(stepCount: number, applied: number, target: string): string {
+  return `[dry-run] ${target}: would apply ${stepCount} step(s); engine reported ${applied} would land`;
 }
 
 async function readStdin(): Promise<string> {
