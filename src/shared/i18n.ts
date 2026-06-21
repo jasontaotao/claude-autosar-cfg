@@ -237,6 +237,36 @@ export interface Messages {
   readonly 'validation.violation': string; // {count}
   readonly 'validation.violations': string; // {count}
 
+  // --- v1.6.0 Cluster G — SWS Validator (G spec §2 G9) ---
+  // Each starter rule gets at least 2 keys: a short message for inline
+  // use (panel rows) and a long message for tooltips / CLI stdout.
+  // Naming: `swsValidator.<RULE_ID>.<variant>` per G spec §2 G9.
+  readonly 'swsValidator.SWS_COM_PDUID_UNIQUE.short': string; // {pduName}
+  readonly 'swsValidator.SWS_COM_PDUID_UNIQUE.long': string; // {pduName} {pduId} {configName}
+  readonly 'swsValidator.SWS_PDUR_ROUTING_COMPLETE.short': string; // {pathName}
+  readonly 'swsValidator.SWS_PDUR_ROUTING_COMPLETE.long': string; // {pathName} {missing}
+  readonly 'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short': string; // {containerName}
+  readonly 'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long': string; // {containerName} {actual} {min}
+  readonly 'swsValidator.SWS_BSWMD_DEPS_PRESENT.short': string; // {moduleName}
+  readonly 'swsValidator.SWS_BSWMD_DEPS_PRESENT.long': string; // {moduleName} {missingDep}
+  readonly 'swsValidator.runtimeError': string; // {ruleId} {message}
+  readonly 'swsValidator.timedOut': string; // {ruleId}
+  // GUI ValidationPanel (PR(G4))
+  readonly 'swsValidator.panel.title': string;
+  readonly 'swsValidator.panel.empty': string;
+  readonly 'swsValidator.panel.running': string;
+  readonly 'swsValidator.panel.paused': string;
+  readonly 'swsValidator.panel.disabled': string;
+  readonly 'swsValidator.panel.errorBadge': string; // {count}
+  readonly 'swsValidator.panel.warningBadge': string; // {count}
+  readonly 'swsValidator.panel.severity.error': string;
+  readonly 'swsValidator.panel.severity.warning': string;
+  readonly 'swsValidator.panel.severity.info': string;
+  readonly 'swsValidator.panel.toggleAria': string;
+  readonly 'swsValidator.panel.filter.all': string;
+  readonly 'swsValidator.panel.filter.error': string;
+  readonly 'swsValidator.panel.filter.warning': string;
+
   // --- param editor ---
   readonly 'editor.noSelection': string;
   readonly 'editor.invalidValue': string;
@@ -451,6 +481,27 @@ export interface Messages {
   readonly 'error.applyMutation.reference-cycle': string; // {from} {to}
   readonly 'error.applyMutation.multiplicity-violation': string; // {path} {required} {actual}
   readonly 'error.applyMutation.concurrent-mutation': string; // {planId} {conflictingPlanId}
+  // v1.6.0 A+C — Headless CLI error envelope i18n keys (17 keys × 2 locales
+  // including the original `strictModeWarning`). Per A+C spec §9.1-9.3
+  // message-key table; consumed by the CLI's `--format summary` human-readable
+  // error output.
+  readonly 'headless.error.projectNotFound': string; // {path}
+  readonly 'headless.error.parseFailed': string; // {path} {message}
+  readonly 'headless.error.bswmdParseFailed': string; // {message}
+  readonly 'headless.error.patchNotFound': string; // {path}
+  readonly 'headless.error.permissionDenied': string; // {path}
+  readonly 'headless.error.diskFull': string; // {path}
+  readonly 'headless.error.pathTraversal': string; // {path}
+  readonly 'headless.error.patchMissingVersion': string;
+  readonly 'headless.error.unsupportedPatchVersion': string; // {version}
+  readonly 'headless.error.patchInvalidStep': string; // {reason}
+  readonly 'headless.error.patchInvalidValue': string;
+  readonly 'headless.error.patchParseFailed': string; // {reason}
+  readonly 'headless.error.mutationPathNotFound': string;
+  readonly 'headless.error.mutationMultiplicity': string;
+  readonly 'headless.error.mutationCycle': string;
+  readonly 'headless.error.fileLocked': string; // {path}
+  readonly 'headless.error.strictModeWarning': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -616,6 +667,32 @@ export const MessagesZhCN: Messages = {
   'validation.subtitle': '已应用 ECUC 子集架构。修改参数可重新校验。',
   'validation.violation': '{count} 项违规',
   'validation.violations': '{count} 项违规',
+
+  // v1.6.0 Cluster G — SWS Validator
+  'swsValidator.SWS_COM_PDUID_UNIQUE.short': 'Com PduId 重复: {pduName}',
+  'swsValidator.SWS_COM_PDUID_UNIQUE.long': 'ComConfig {configName} 内 ComPdu {pduName} 的 ComPduId {pduId} 重复。',
+  'swsValidator.SWS_PDUR_ROUTING_COMPLETE.short': 'PduR 路由路径不完整: {pathName}',
+  'swsValidator.SWS_PDUR_ROUTING_COMPLETE.long': 'PduRRoutingPath {pathName} 缺少 {missing}。',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short': '容器实例数不足: {containerName}',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long': '容器 {containerName} 实际 {actual} 个实例，少于 lowerMultiplicity {min}。',
+  'swsValidator.SWS_BSWMD_DEPS_PRESENT.short': 'BSWMD 模块依赖缺失: {moduleName}',
+  'swsValidator.SWS_BSWMD_DEPS_PRESENT.long': '模块 {moduleName} 引用了未定义的模块 {missingDep}。',
+  'swsValidator.runtimeError': '规则 {ruleId} 运行失败: {message}',
+  'swsValidator.timedOut': '规则 {ruleId} 执行超时',
+  'swsValidator.panel.title': 'SWS 校验',
+  'swsValidator.panel.empty': '无校验结果。',
+  'swsValidator.panel.running': '校验中...',
+  'swsValidator.panel.paused': '引导中，已暂停校验',
+  'swsValidator.panel.disabled': 'SWS 校验已关闭（experimental.swsValidator）',
+  'swsValidator.panel.errorBadge': '{count} 项错误',
+  'swsValidator.panel.warningBadge': '{count} 项警告',
+  'swsValidator.panel.severity.error': '错误',
+  'swsValidator.panel.severity.warning': '警告',
+  'swsValidator.panel.severity.info': '提示',
+  'swsValidator.panel.toggleAria': '切换 SWS 校验面板',
+  'swsValidator.panel.filter.all': '全部',
+  'swsValidator.panel.filter.error': '错误',
+  'swsValidator.panel.filter.warning': '警告',
 
   // editor
   'editor.noSelection': '请从树中选择一个元素',
@@ -937,6 +1014,32 @@ export const MessagesEn: Messages = {
   'validation.subtitle': 'ECUC subset schema applied. Edit a param to revalidate.',
   'validation.violation': '{count} violation',
   'validation.violations': '{count} violations',
+
+  // v1.6.0 Cluster G — SWS Validator
+  'swsValidator.SWS_COM_PDUID_UNIQUE.short': 'Duplicate Com PduId: {pduName}',
+  'swsValidator.SWS_COM_PDUID_UNIQUE.long': 'ComConfig {configName} has ComPdu {pduName} with duplicate ComPduId {pduId}.',
+  'swsValidator.SWS_PDUR_ROUTING_COMPLETE.short': 'PduR routing path incomplete: {pathName}',
+  'swsValidator.SWS_PDUR_ROUTING_COMPLETE.long': 'PduRRoutingPath {pathName} is missing {missing}.',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.short': 'Container instance count below minimum: {containerName}',
+  'swsValidator.SWS_ECUC_MULTIPLICITY_MIN.long': 'Container {containerName} has {actual} instances, below lowerMultiplicity {min}.',
+  'swsValidator.SWS_BSWMD_DEPS_PRESENT.short': 'BSWMD module dependency missing: {moduleName}',
+  'swsValidator.SWS_BSWMD_DEPS_PRESENT.long': 'Module {moduleName} references undefined module {missingDep}.',
+  'swsValidator.runtimeError': 'Rule {ruleId} failed: {message}',
+  'swsValidator.timedOut': 'Rule {ruleId} timed out',
+  'swsValidator.panel.title': 'SWS Validation',
+  'swsValidator.panel.empty': 'No validation results.',
+  'swsValidator.panel.running': 'Validating...',
+  'swsValidator.panel.paused': 'Tour running, validation paused',
+  'swsValidator.panel.disabled': 'SWS Validation disabled (experimental.swsValidator)',
+  'swsValidator.panel.errorBadge': '{count} errors',
+  'swsValidator.panel.warningBadge': '{count} warnings',
+  'swsValidator.panel.severity.error': 'Error',
+  'swsValidator.panel.severity.warning': 'Warning',
+  'swsValidator.panel.severity.info': 'Info',
+  'swsValidator.panel.toggleAria': 'Toggle SWS validation panel',
+  'swsValidator.panel.filter.all': 'All',
+  'swsValidator.panel.filter.error': 'Errors',
+  'swsValidator.panel.filter.warning': 'Warnings',
 
   // editor
   'editor.noSelection': 'Open an ARXML file and select a node in the tree to edit its parameters.',

@@ -87,6 +87,39 @@ export const IPC_CHANNELS = {
   SCRIPT_DELETE: 'script:delete',
   SCRIPT_RUN: 'script:run',
   SCRIPT_PROGRESS: 'script:progress',
+  // v1.6.0 Cluster G — SWS Validator (G spec §4.5).
+  // Channels use `:v1` suffix per A+C spec §6 IPC versioning policy
+  // (channels frozen at v1.6.0 tag; v1.7.0 introduces `:v2` for breaking changes).
+  // Renderer ↔ Main for ValidationPanel + IPC handler. CLI integration
+  // is direct (no IPC) per A+C spec NEW-Q-B; these channels exist
+  // purely for the GUI ↔ main boundary.
+  SWS_VALIDATE: 'sws-validator:run:v1',
+  SWS_VALIDATE_CANCEL: 'sws-validator:cancel:v1',
+  // v1.6.0 A+C — Headless Config Engine IPC contract (PR(A+C-2)).
+  //
+  // Path split (by design, clarified Round 3 2026-06-21):
+  //   - Wire types (ValidatorResult / HeadlessCommand / HeadlessResult /
+  //     HeadlessError / PatchDocument) live in
+  //     `src/shared/headless/ipc-contract.ts` (single source of truth for
+  //     G / W / U consumers).
+  //   - Channel name constants live here, alongside the existing 32 +
+  //     2 G channels. Both files are co-owned by A+C.
+  //
+  // Three new channels (per A+C spec §6 "IPC Contract Reference"):
+  //   - HEADLESS_RUN_COMMAND       (R→M invoke; carries HeadlessCommand)
+  //   - HEADLESS_MUTATE_APPLIED    (M→R push;   notify GUI to refresh tree)
+  //   - HEADLESS_VALIDATE_RESULT   (M→R push;   Cluster G will subscribe)
+  //
+  // All three use the `:v1` suffix per v1.5.0 convention. They MUST NOT
+  // be modified after v1.6.0 tag — breaking changes introduce `:v2`
+  // channels (parallel existence; renderer chooses).
+  //
+  // The CLI binary itself does NOT use IPC in v1.6.0 (it is a
+  // standalone Node process). These channels are reserved for the future
+  // GUI bridge (v1.7.0+ Cluster U "Run CLI" affordance).
+  HEADLESS_RUN_COMMAND: 'headless:run-command:v1',
+  HEADLESS_MUTATE_APPLIED: 'headless:mutate-applied:v1',
+  HEADLESS_VALIDATE_RESULT: 'headless:validate-result:v1',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
@@ -96,5 +129,12 @@ export const IPC_CHANNELS = {
 // derived type below stays exhaustive.
 export const PROJECT_WRITE_ARXML_BATCH = IPC_CHANNELS.PROJECT_WRITE_ARXML_BATCH;
 export const PROJECT_DELETE_ARXML = IPC_CHANNELS.PROJECT_DELETE_ARXML;
+// v1.6.0 A+C — re-exports for the 3 new headless IPC channels. Top-level
+// aliases (call sites can use either `IPC_CHANNELS.HEADLESS_RUN_COMMAND` or
+// `HEADLESS_RUN_COMMAND`; both compile to the same string). Canonical SoT
+// remains `IPC_CHANNELS` so `IpcChannel` derived type stays exhaustive.
+export const HEADLESS_RUN_COMMAND = IPC_CHANNELS.HEADLESS_RUN_COMMAND;
+export const HEADLESS_MUTATE_APPLIED = IPC_CHANNELS.HEADLESS_MUTATE_APPLIED;
+export const HEADLESS_VALIDATE_RESULT = IPC_CHANNELS.HEADLESS_VALIDATE_RESULT;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
