@@ -7,6 +7,7 @@ import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest } from '../../core/project/manifest.js';
 import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
+import { isPathInside } from '../../shared/paths/isPathInside.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -439,21 +440,6 @@ export function registerIpcHandlers(): void {
 // ---------------------------------------------------------------------------
 // Helpers (file-local)
 // ---------------------------------------------------------------------------
-
-/**
- * Path-containment check. `child` must resolve to a path strictly inside
- * `parent` (not equal to `parent` itself, not above it on any platform).
- *
- * Implemented with `path.relative` so Windows drive boundaries and mixed
- * separators are handled correctly. Used by PROJECT_OPEN to refuse a
- * hostile manifest listing paths like `../../etc/passwd`.
- */
-function isPathInside(child: string, parent: string): boolean {
-  const rel = path.relative(parent, child);
-  // On different drives (Windows), path.relative returns an absolute path.
-  // An empty rel means child === parent (we want strictly inside).
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
-}
 
 /**
  * Render a `ManifestError` as a single human-readable line. Used in
