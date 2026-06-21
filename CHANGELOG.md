@@ -5,6 +5,32 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.7.2] - 2026-06-21 — S4 Optional Container Visibility + pre-existing TS2322 hotfix
+
+PATCH bump: **2 commits since v1.7.1**, 2028 → 2033 tests (+5). Closes the S4 sub-sprint of the v1.7.1 plan (Optional Container Visibility UI) and pays down 3 pre-existing TypeScript errors that blocked `pnpm verify` from exiting 0. No new capability surface; pure renderer-side composition + typing tightening.
+
+> **Why PATCH not MINOR?** S4 is a renderer-only completeness feature (no new mutation surface, no new IPC, no new store actions) and the TS2322 hotfix is a typing-tightening patch. Existing v1.7.1 consumers see no behavior break except the documented S4 visibility change.
+
+### Added
+
+- **S4 — Optional Container Visibility** (`9eb90b3`): Tree now subscribes to `bswmdSchemas` and computes the missing optional siblings per expanded container — `ContainerDef[]` whose `lowerMultiplicity === 0` and whose `shortName` is not already present in the value tree. Each missing child becomes a muted `OptionalAddPlaceholder` row with a `+` button that invokes the existing `addContainer(parentPath, shortName)` mutation (shipped in v1.5.1 PR(4); both single-mode and combined-mode supported via the existing slice surface). Renderer-side composition only — no new mutation, no new IPC, no new store actions. New `findMissingOptionalSiblings` helper at `src/renderer/components/tree/optionalContainers.ts`. 5 tests covering: lower-0 absent, lower-0 present (dedup), lower-1 absent (never surfaces), `+` button invokes `addContainer`, no-BSWMD graceful fallback.
+- **i18n additions**: 2 new keys (`tree.addOptionalContainer`, `tree.optionalContainerHint`) × 2 locales (en + zh-CN). The `addOptionalContainer` key uses `{{name}}` interpolation so the button aria-label is e.g. "Add DemoRef" / "添加 DemoRef".
+
+### Fixed
+
+- **3 pre-existing TS2322 in `removeBswmd.fullFlow.test.tsx`** (`ece646a`): the `AutosarApiStub` test interface declared fields as `ReturnType<typeof vi.fn>` (defaults to `Mock<any[], unknown>`) but `installApiStub()`'s inline `vi.fn(async () => ({...} satisfies X))` produces `Mock<[], Promise<{...}>>` — more specific than the interface field, hence TS2322 at lines 95, 96, 296. Switched to explicit `Mock<any[], any>` import from vitest (matches the established test-stub pattern in `useRemoveEcucFiles.test.tsx` and friends). No production code touched.
+
+### Out of scope (deferred)
+
+- **Optional container description tooltip** — `desc` field is already on `ContainerDef` (v1.7.1 S3); UI rendering follows when needed.
+- **`D:/claude_proj2/...` hardcoded fixture path in 5 integration tests** — pre-existing v1.6.0 pattern; refactor to portable helper when CI moves to Linux.
+- **§3b submodule migration for `@dbc-forge/core`** — network now reachable (200, 76ms ping 2026-06-21), but bumped to v1.7.3 to keep v1.7.2 a focused PATCH.
+
+### Test count
+
+- v1.7.1: 2028 pass + 1 skip
+- v1.7.2: **2033 pass + 1 skip** (+5)
+
 ## [1.7.1] - 2026-06-21 — Skeleton defaults fill + choice marker + description carry-through
 
 PATCH bump: **4 commits since v1.7.0**, 2017 → 2029 tests (+12). Fixes 3 platform-level Skeleton generation defects found in code-review (P1-P3 from `docs/superpowers/plans/2026-06-21-skeleton-defaults-fill-and-choice-marker.md`). No new capability surface; existing features get richer output.
