@@ -82,7 +82,7 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
   const removeDocument = useArxmlStore((s) => s.removeDocument);
   const errors = useArxmlStore((s) => s.validationErrors);
   const lastValidatedAt = useArxmlStore((s) => s.lastValidatedAt);
-  const { addBswmdFromDialog, removeBswmdWithGuard } = useProjectActions();
+  const { addBswmdFromDialog, removeBswmdWithFullFlow } = useProjectActions();
 
   const isProjectOpen = project !== null && projectPath !== null;
 
@@ -140,7 +140,7 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
                 onClose={closeProject}
                 onRemoveArxml={removeDocument}
                 onAddBswmd={() => void addBswmdFromDialog()}
-                onRemoveBswmd={(path) => void removeBswmdWithGuard(path)}
+                onRemoveBswmd={(path) => void removeBswmdWithFullFlow(path)}
                 // Sprint 14 / Task 11 — both the "+" button and the
                 // `📋 N/M` chip open the same picker but with different
                 // pre-selection semantics. App.tsx ignores the chip-vs-
