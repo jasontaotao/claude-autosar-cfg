@@ -67,7 +67,7 @@ export function ErrorBanner(_props: ErrorBannerProps = {}): JSX.Element | null {
 
   if (toast === null) return null;
 
-  const { kind, message, autoDismissMs } = toast;
+  const { kind, message, autoDismissMs, action } = toast;
   // Local rename keeps the existing JSX readable; `message` and
   // `error` are semantically the same string.
   const error = message;
@@ -153,6 +153,19 @@ export function ErrorBanner(_props: ErrorBannerProps = {}): JSX.Element | null {
           >
             {t(locale, 'app.error.copy')}
           </button>
+          {/* Sprint 17 PATCH — optional action button (Undo etc). Renders
+              only when toast.action is set. Click invokes the caller's
+              onActivate; the caller is responsible for dismissToast. */}
+          {action !== undefined && (
+            <button
+              type="button"
+              className="error-banner-btn error-banner-action"
+              onClick={action.onActivate}
+              data-testid="error-banner-action"
+            >
+              {action.label}
+            </button>
+          )}
           <button
             type="button"
             className="error-banner-btn error-banner-dismiss"

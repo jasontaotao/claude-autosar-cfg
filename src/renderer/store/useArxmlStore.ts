@@ -78,6 +78,16 @@ export interface ToastState {
    * because errors demand explicit acknowledgment.
    */
   readonly autoDismissMs?: number;
+  /**
+   * Sprint 17 PATCH — optional action button (Undo etc). The
+   * ErrorBanner renders a button next to copy / dismiss when this
+   * is set. Clicking the button invokes `onActivate`; the caller
+   * is responsible for clearing the toast (typically by calling
+   * `dismissToast` from inside the callback). The button itself
+   * does NOT auto-dismiss — preserves the caller's option to run
+   * a state mutation first and then dismiss in one flow.
+   */
+  readonly action?: { readonly label: string; readonly onActivate: () => void };
 }
 
 /**

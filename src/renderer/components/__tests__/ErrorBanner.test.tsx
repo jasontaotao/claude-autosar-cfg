@@ -249,3 +249,81 @@ describe('ErrorBanner auto-dismiss (Sprint 17b T6)', () => {
     expect(useArxmlStore.getState().error).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sprint 17 PATCH — optional toast action button (Undo etc).
+//
+// Extends ToastState with `action?: { label, onActivate }`. ErrorBanner
+// renders a button next to copy / dismiss when `toast.action` is set.
+// Click invokes onActivate; the caller is responsible for dismissToast
+// (no auto-dismiss on click — keeps the undo flow atomic).
+// ---------------------------------------------------------------------------
+
+describe('ErrorBanner (Sprint 17 PATCH — Toast action button)', () => {
+  it('renders the action button when toast.action is set', () => {
+    const onActivate = vi.fn();
+    act(() => {
+      useArxmlStore.setState({
+        error: null,
+        toast: {
+          kind: 'success',
+          message: '已移除 BSWMD "Adc.arxml"',
+          autoDismissMs: 8000,
+          action: { label: '撤销', onActivate },
+        },
+      });
+    });
+    render(<ErrorBanner />);
+    const actionBtn = screen.getByTestId('error-banner-action');
+    expect(actionBtn).toBeInTheDocument();
+    expect(actionBtn).toHaveTextContent('撤销');
+  });
+
+  it('does NOT render the action button when toast.action is absent', () => {
+    act(() => {
+      useArxmlStore.setState({
+        error: null,
+        toast: { kind: 'info', message: 'no action here', autoDismissMs: 3000 },
+      });
+    });
+    render(<ErrorBanner />);
+    expect(screen.queryByTestId('error-banner-action')).not.toBeInTheDocument();
+  });
+
+  it('clicking the action button calls onActivate exactly once', () => {
+    const onActivate = vi.fn();
+    act(() => {
+      useArxmlStore.setState({
+        error: null,
+        toast: {
+          kind: 'success',
+          message: 'done',
+          action: { label: '撤销', onActivate },
+        },
+      });
+    });
+    render(<ErrorBanner />);
+    fireEvent.click(screen.getByTestId('error-banner-action'));
+    expect(onActivate).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking the action button does NOT auto-dismiss the toast (caller decides)', () => {
+    const onActivate = vi.fn();
+    act(() => {
+      useArxmlStore.setState({
+        error: null,
+        toast: {
+          kind: 'success',
+          message: 'still here',
+          action: { label: '撤销', onActivate },
+        },
+      });
+    });
+    render(<ErrorBanner />);
+    fireEvent.click(screen.getByTestId('error-banner-action'));
+    // Toast is STILL in the store — the action button only invokes
+    // onActivate. The caller's onActivate (Task 3) is responsible
+    // for calling dismissToast.
+    expect(useArxmlStore.getState().toast).not.toBeNull();
+  });
+});
