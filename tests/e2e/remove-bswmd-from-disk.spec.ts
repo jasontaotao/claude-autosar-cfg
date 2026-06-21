@@ -38,11 +38,12 @@
 //     `useArxmlStore.removeBswmdFromDisk.test.ts` (P1 unit test) and
 //     the integration test `removeBswmd.fullFlow.test.tsx` (P4 T4.1).
 
-import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import type { Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 /** Dynamic import path to the renderer store. Vite serves the renderer
  *  source tree from `/` (root = `src/renderer`), so the relative path
