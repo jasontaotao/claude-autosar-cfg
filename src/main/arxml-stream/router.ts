@@ -13,7 +13,7 @@
 // miss → parse → fire-and-forget `cacheSet`.
 
 import { parseArxml, type ParseError } from '../../core/arxml/parser.js';
-import type { Result, ArxmlVersion } from '../../core/arxml/types.js';
+import type { Result } from '../../core/arxml/types.js';
 import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import type { NormalizedDocument } from '../../shared/normalized-document.js';
 
@@ -30,9 +30,6 @@ export interface RouterResult {
 
 export interface RouterOptions {
   readonly streamingThresholdBytes?: number;
-  /** Override the version emitted when the parser falls back to a
-   *  generic value because the input lacked a detectable version. */
-  readonly defaultVersion?: ArxmlVersion;
 }
 
 export type RouterError =
@@ -40,7 +37,6 @@ export type RouterError =
   | { readonly kind: 'empty-input' };
 
 const DEFAULT_THRESHOLD_BYTES = 2 * 1024 * 1024; // 2 MiB
-const DEFAULT_VERSION = '6.x' as ArxmlVersion;
 
 /**
  * Read + normalize an ARXML payload. Accepts either an in-memory string
@@ -73,12 +69,12 @@ export async function routeArxmlReader(
 
   // 2. Small file: always use DOM (fastest, no streaming overhead).
   if (sizeBytes < threshold) {
-    return parseDom(content, opts.defaultVersion ?? DEFAULT_VERSION);
+    return parseDom(content);
   }
 
   // 3. Large file: streaming when flag is on, otherwise DOM.
   if (!streamingOn) {
-    return parseDom(content, opts.defaultVersion ?? DEFAULT_VERSION);
+    return parseDom(content);
   }
 
   // 4. Stream with DOM fallback.
@@ -92,7 +88,7 @@ export async function routeArxmlReader(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     // Fallback to DOM.
-    const domResult = parseDom(content, opts.defaultVersion ?? DEFAULT_VERSION);
+    const domResult = parseDom(content);
     if (!domResult.ok) {
       return {
         ok: false,
@@ -110,14 +106,12 @@ export async function routeArxmlReader(
   }
 }
 
-function parseDom(content: string, version: ArxmlVersion): Result<RouterResult, RouterError> {
+function parseDom(content: string): Result<RouterResult, RouterError> {
   const parsed = parseArxml(content);
   if (!parsed.ok) {
     return { ok: false, error: { kind: 'parse-error', message: parseErrorMessage(parsed.error) } };
   }
   const doc = fromArxmlDocument(parsed.value, 'dom');
-  // Normalize the version field — fromArxmlDocument uses parsed.value.version.
-  void version;
   return { ok: true, value: { document: doc, path: 'dom' } };
 }
 
