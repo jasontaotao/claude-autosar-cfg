@@ -5,6 +5,24 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.7.3] - 2026-06-21 — Renderer build fix
+
+PATCH bump: **1 commit since v1.7.2**, 2033 → 2033 tests (no test count delta). Fixes the renderer build regression introduced in v1.6.1 (commit `24e13e9`) where `core/sws-validator/feature-flag.ts` statically imported `node:fs` / `node:path` — Vite externalized the imports but Rollup errored on `join()` reference. Every release from v1.6.1 through v1.7.2 shipped with `pnpm build:renderer` broken; this patch makes `pnpm verify` exit 0 across all 7 stages.
+
+> **Why PATCH not MINOR?** Pure build-system fix; no behavior change for users. Renderer's `isSwsValidatorEnabled()` was already returning `false` (default) because the broken build never shipped.
+
+### Fixed
+
+- **`pnpm build:renderer` regression since v1.6.1** (`e9da7d3`): Converted `core/sws-validator/feature-flag.ts` from static `import { existsSync, readFileSync } from 'node:fs'` + `import { join } from 'node:path'` to dynamic `await import(...)` inside `loadFromSettingsFile()`. Vite externalizes dynamic imports at the bundle level without failing the build; the function catches the runtime error and falls back to `{ experimental: { swsValidator: false } }` when `node:*` is unavailable (renderer context). New `loadSwsValidatorFlag()` async helper for main-process boot. Sync API surface (`isSwsValidatorEnabled`, `setFlagForTest`, `_resetFlagCache`, `_setSettingsPathForTest`) unchanged.
+
+### Verification
+
+- **2033 tests pass + 1 skip** (unchanged from v1.7.2)
+- **0 type errors** (`npx tsc --noEmit` × 2 configs)
+- **0 lint errors** (`--max-warnings 0`)
+- `pnpm verify` **all 7 stages pass** for the first time since v1.6.1:
+  - format / lint / type-check / test / coverage / **build (renderer 828.93 kB, main 167.85 kB, preload 2.25 kB)** / import-regression
+
 ## [1.7.2] - 2026-06-21 — S4 Optional Container Visibility + pre-existing TS2322 hotfix
 
 PATCH bump: **2 commits since v1.7.1**, 2028 → 2033 tests (+5). Closes the S4 sub-sprint of the v1.7.1 plan (Optional Container Visibility UI) and pays down 3 pre-existing TypeScript errors that blocked `pnpm verify` from exiting 0. No new capability surface; pure renderer-side composition + typing tightening.
