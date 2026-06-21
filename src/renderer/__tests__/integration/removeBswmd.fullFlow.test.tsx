@@ -29,6 +29,7 @@
 
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import type { BswModuleDef, BswmdDocument } from '@core/project/bswmd.js';
 
@@ -84,8 +85,10 @@ function makeDependentDoc(): {
 // ---------------------------------------------------------------------------
 
 interface AutosarApiStub {
-  readonly deleteArxml: ReturnType<typeof vi.fn>;
-  readonly deleteBswmd: ReturnType<typeof vi.fn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly deleteArxml: Mock<any[], any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly deleteBswmd: Mock<any[], any>;
 }
 
 let originalAutosarApi: unknown;
