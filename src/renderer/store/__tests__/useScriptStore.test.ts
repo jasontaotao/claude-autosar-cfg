@@ -22,7 +22,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
 import type { ScriptRunResult, ScriptSummary } from '@main/script/types';
+import type { ProjectSaveRequest, ProjectSaveResult } from '@shared/types';
 
+import { writeAtomic } from '../../../main/ipc/projectSaveHandler.js';
 import { useArxmlStore } from '../useArxmlStore';
 import { useScriptStore } from '../useScriptStore';
 
@@ -64,6 +66,16 @@ function makeApi(overrides: MockApiOverride = {}): MockApiOverride {
       mutations: [],
       durationMs: 10,
     })),
+    // Default `projectSave` mock mirrors the main-side behavior:
+    // route each file through `writeAtomic` so the test exercises
+    // the real atomic-write code path. Individual tests can override
+    // (e.g. to return `write-failed` for the failure branch).
+    projectSave: vi.fn(async (req: ProjectSaveRequest): Promise<ProjectSaveResult> => {
+      for (const f of req.files) {
+        await writeAtomic(f.path, f.content);
+      }
+      return { kind: 'saved', path: req.files[0]?.path ?? req.manifestPath };
+    }),
   };
   // Spread overrides on top; TS struggles with the union of vi.fn()
   // overloads, so we cast at the merge boundary.
@@ -452,6 +464,28 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
   beforeEach(async () => {
     useArxmlStore.getState().clear();
     useScriptStore.getState().reset();
+    // The clear() above wipes `project` / `projectPath`, but
+    // `applyMutation`'s `project:save` IPC path requires a loaded
+    // project (loose mode is not supported — see useScriptStore.ts).
+    // Re-seed the minimal manifest from the outer beforeEach so the
+    // happy-path write can resolve its IPC call.
+    useArxmlStore.setState({
+      project: {
+        id: 'proj-1',
+        name: 'Test',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+        schemaVersion: '1',
+      },
+      projectPath: '/tmp/proj.autosarcfg.json',
+    });
+    // Install a fresh `window.autosarApi` mock that includes a
+    // working `projectSave` (default delegates to the real
+    // `writeAtomic` for the happy-path). The earlier PR(4) test did
+    // not need this — it imported `writeAtomic` directly via
+    // dynamic import — but the post-fix code crosses the IPC
+    // boundary, so the api must be installed.
+    installApi(makeApi());
   });
 
   it('applies a set-param mutation to the active doc and atomic-writes to disk', async () => {
@@ -532,16 +566,25 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
   });
 
   it('records a write error and leaves dirty=true when disk write fails', async () => {
-    // The unit test for the write-failure branch. We mock the
-    // `projectSaveHandler` module so `writeAtomic` throws a
-    // deterministic error — this pins the contract that the in-memory
-    // mutation still applies and the run's `errorMessage` reflects
-    // the write failure. (The `writeAtomic` helper itself is
-    // exercised end-to-end in `projectSaveHandler.atomic.test.ts`.)
-    const writeAtomicModule = await import('../../../main/ipc/projectSaveHandler.js');
-    const writeAtomicSpy = vi
-      .spyOn(writeAtomicModule, 'writeAtomic')
-      .mockRejectedValueOnce(new Error('disk full'));
+    // The unit test for the write-failure branch. We override the
+    // `projectSave` IPC mock to return a `write-failed` result — this
+    // pins the contract that the in-memory mutation still applies and
+    // the run's `errorMessage` reflects the write failure. The
+    // `writeAtomic` helper itself is exercised end-to-end in
+    // `projectSaveHandler.atomic.test.ts`.
+    //
+    // We replace `projectSave` on the api object directly (rather than
+    // using `vi.spyOn`) because the test installs the api via a plain
+    // object literal and `spyOn` cannot bind a spy onto the
+    // already-replaced property reliably.
+    const api = (
+      globalThis as { window: { autosarApi: { projectSave: (...args: unknown[]) => unknown } } }
+    ).window.autosarApi;
+    const originalProjectSave = api.projectSave;
+    const projectSaveSpy = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: 'write-failed', message: 'disk full' });
+    api.projectSave = projectSaveSpy;
 
     try {
       const doc = makeDocWithParam(1);
@@ -582,10 +625,10 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
       expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/disk full/);
       // `dirty` flips to true so the MutationPanel can prompt for retry.
       expect(useScriptStore.getState().dirty).toBe(true);
-      // And writeAtomic was actually called (the dispatcher ran).
-      expect(writeAtomicSpy).toHaveBeenCalledOnce();
+      // And projectSave IPC was actually called (the dispatcher ran).
+      expect(projectSaveSpy).toHaveBeenCalledOnce();
     } finally {
-      writeAtomicSpy.mockRestore();
+      api.projectSave = originalProjectSave;
     }
   });
 

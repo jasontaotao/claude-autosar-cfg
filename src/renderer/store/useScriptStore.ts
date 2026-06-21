@@ -299,9 +299,15 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
   // replayer dispatches each `ScriptMutation` to the existing
   // `useArxmlStore` actions (so the in-memory doc, dirty tracking, and
   // validation pipeline stay in sync), then serializes the doc and
-  // atomic-writes it back to the active file path via `writeAtomic`
-  // (PR(4) helper, same trust-sprint invariant as the v1.4.0 save
-  // path).
+  // persists it back to the active file path via the `project:save`
+  // IPC channel. The main-side handler routes each file through the
+  // same `writeAtomic` helper that PR(4) extracted (same trust-sprint
+  // invariant: write-to-temp + fsync + rename).
+  //
+  // Renderer→main boundary: this function never imports main-process
+  // modules directly (Vite's renderer build externalizes `node:fs` and
+  // `node:path`, breaking the bundle). All disk writes cross the
+  // `window.autosarApi.projectSave` IPC channel.
   //
   // Closes the Sprint 14 #2 follow-up.
   applyMutation: async (): Promise<void> => {
@@ -312,8 +318,15 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     // module load time. The store is consumed both by the renderer
     // (real) and by these tests (jsdom); dynamic import keeps the
     // test module graph stable.
+    //
+    // NOTE: do NOT dynamic-import any main-process module from here
+    // (e.g. `../../main/ipc/projectSaveHandler.js`) — Vite's renderer
+    // build will externalize `node:fs`/`node:path` and the bundle
+    // fails with "promises is not exported by __vite-browser-external".
+    // The disk write must cross the IPC boundary via
+    // `window.autosarApi.projectSave` (which itself uses `writeAtomic`
+    // on the main side).
     const { useArxmlStore } = await import('./useArxmlStore.js');
-    const { writeAtomic } = await import('../../main/ipc/projectSaveHandler.js');
     const { serializeArxml } = await import('../../core/arxml/serializer.js');
 
     const arxmlState = useArxmlStore.getState();
@@ -420,20 +433,40 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     // without applying any script), where the order is meaningful.
     try {
       const latest = useArxmlStore.getState();
-      if (latest.doc !== null) {
+      // Loose mode (no project manifest) cannot persist via the
+      // `project:save` IPC channel — surface a clear error and leave
+      // the in-memory mutation applied so the user can save manually.
+      // Scripts are usually run inside a project; this is a
+      // defensive branch.
+      if (latest.project === null || latest.projectPath === null) {
+        writeErrors.push(
+          'project save skipped: script commit requires a loaded project (loose mode not supported)',
+        );
+      } else if (latest.doc !== null) {
         const result2 = serializeArxml(latest.doc);
         if (result2.ok) {
-          await writeAtomic(filePath, result2.value);
+          // Cross the IPC boundary to the main process. The main-side
+          // `project:save` handler routes each file through the same
+          // `writeAtomic` helper that PR(4) extracted (same trust-
+          // sprint invariant: write-to-temp + fsync + rename).
+          const saveResult = await window.autosarApi.projectSave({
+            manifestPath: latest.projectPath,
+            manifest: latest.project,
+            files: [{ path: filePath, content: result2.value }],
+          });
+          if (saveResult.kind === 'write-failed') {
+            writeErrors.push(`projectSave: ${saveResult.message}`);
+          }
         } else {
           writeErrors.push(`serialize: ${result2.error.message}`);
         }
       }
     } catch (e) {
       // Atomic-write failure → user data is intact on disk (the
-      // temp file was cleaned up by `writeAtomic`). Surface the
-      // error in the run log so the user can see why the commit
-      // didn't land. We do NOT undo the in-memory mutation — the
-      // user might still be able to re-save manually.
+      // temp file was cleaned up by `writeAtomic` on the main side).
+      // Surface the error in the run log so the user can see why
+      // the commit didn't land. We do NOT undo the in-memory
+      // mutation — the user might still be able to re-save manually.
       writeErrors.push(e instanceof Error ? e.message : String(e));
     }
 
