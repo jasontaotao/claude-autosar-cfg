@@ -29,7 +29,7 @@
     "package": "pnpm build && electron-builder --win",
     "package:dir": "pnpm build && electron-builder --win --dir",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
-    "autosarcfg": "node bin/autosarcfg.mjs"
+    "autosarcfg": "node --experimental-strip-types bin/autosarcfg.mjs"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",
