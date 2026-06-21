@@ -1,0 +1,493 @@
+// src/renderer/store/helpers/combinedDoc.ts
+// Sprint 13 Stage 3.5 — Combined Tree View helpers + the exported
+// `resolveContainerTarget` helper used by BswmdPickerDialog and tests.
+// Pure — no store closure. Extracted from useArxmlStore.ts in PR(5).
+
+import { findByPathMultiDoc } from '@core/arxml/path';
+import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types';
+
+export interface ResolvedContainerTarget {
+  readonly doc: ArxmlDocument;
+  readonly filePath: string;
+  readonly innerPath: string;
+}
+
+/**
+ * Resolve a container path to its source document + filePath + innerPath.
+ *
+ * - 'combined' mode: routes via `findByPathMultiDoc` (path may carry a
+ *   source file's basename as a prefix; the inner path is identical to
+ *   the input because the per-doc lookup inside `findByPathMultiDoc`
+ *   already strips the prefix when needed).
+ * - 'single' mode: returns the active document; innerPath equals the
+ *   input path verbatim.
+ * - Returns `null` when the combined-mode lookup misses or the
+ *   single-mode store has no active document — callers treat null as
+ *   a 'path-not-found' error.
+ *
+ * The `state` parameter accepts the structural minimum — every field
+ * used is read by name, so any object matching this shape (including
+ * the full ArxmlState) is accepted. Defined this way to avoid a
+ * circular import between useArxmlStore.ts and this helper module.
+ */
+export function resolveContainerTarget(
+  state: ResolveContainerTargetState,
+  containerPath: string,
+): ResolvedContainerTarget | null {
+  if (state.viewMode === 'combined') {
+    const hit = findByPathMultiDoc(state.documents, state.documentPaths, containerPath);
+    if (hit === null) return null;
+    return { doc: hit.doc, filePath: hit.filePath, innerPath: containerPath };
+  }
+  if (state.doc === null) return null;
+  return { doc: state.doc, filePath: state.filePath ?? '', innerPath: containerPath };
+}
+
+/**
+ * Structural minimum that `resolveContainerTarget` reads. The full
+ * `ArxmlState` satisfies this trivially; tests that build a fake state
+ * only need to supply these fields.
+ */
+export interface ResolveContainerTargetState {
+  readonly viewMode: 'single' | 'combined' | 'import-merged';
+  readonly documents: readonly ArxmlDocument[];
+  readonly documentPaths: readonly string[];
+  readonly doc: ArxmlDocument | null;
+  readonly filePath: string | null;
+}
+
+/**
+ * Compute `displayDoc` based on the current viewMode and document set.
+ * Pure helper extracted so every mutator can recompute consistently
+ * without inline branching. In 'single' mode it returns the active
+ * `doc`; in 'combined' mode it returns a freshly synthesised virtual
+ * document (or null when no docs are loaded).
+ */
+export function computeDisplayDoc(
+  mode: 'single' | 'combined' | 'import-merged',
+  activeDoc: ArxmlDocument | null,
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): CombinedDocumentResult | null {
+  if (mode === 'single' || mode === 'import-merged') {
+    // Single / import-merged mode passes through the active doc
+    // unchanged; the import-merged view synthesises its own tree
+    // in the ModuleSelectionPanel / DiffTable components, so the
+    // legacy Tree continues to show the active doc behind the
+    // import slice. The result is wrapped in a
+    // `CombinedDocumentResult` for type uniformity with the
+    // combined-mode branch — the empty warnings array is
+    // intentional. `doc` may be null when no source documents are
+    // loaded; callers treat that as "no display content".
+    return { doc: activeDoc, warnings: [] };
+  }
+  if (documents.length === 0) return null;
+  return buildCombinedDocument(documents, filePaths);
+}
+
+export type CombinedDocumentWarning = {
+  readonly kind: 'duplicate-root-conflict';
+  readonly shortName: string;
+  /** File path of the document whose root was kept. */
+  readonly keptFrom: string;
+};
+
+export interface CombinedDocumentResult {
+  readonly doc: ArxmlDocument | null;
+  readonly warnings: readonly CombinedDocumentWarning[];
+}
+
+/**
+ * Last segment of a file path (after the last `/` or `\`). Mirrors
+ * `@shared/path#basename` but kept inline so the store has no shared
+ * dependency (the store is consumed in the renderer; this also keeps
+ * the `core/` import graph one-way).
+ */
+function lastSegment(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p;
+}
+
+/**
+ * Sprint 13 Stage 3.5 — Combined Tree View. Synthesise a virtual
+ * ArxmlDocument whose top-level packages are the per-file basenames of
+ * the loaded documents, and whose child paths are prefixed with the
+ * source file's basename (or `[doc:N]` for same-basename duplicates).
+ * Used as the `displayDoc` value when `viewMode === 'combined'`. The
+ * Tree component reads `displayDoc` instead of `doc` and renders one
+ * branch per loaded file.
+ *
+ * Wrapping is shallow: each package is a fresh object with its
+ * `shortName` / `path` rewritten, but the original `elements` array
+ * is reused. Mutation through `updateParam` reaches the source
+ * document because it routes via `findByPathMultiDoc` rather than
+ * mutating the wrapped packages.
+ */
+function buildCombinedDocument(
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): CombinedDocumentResult {
+  // Sprint 16 — smart basename wrapper skip. When no collision exists
+  // (basenames all unique AND module shortNames don't overlap across
+  // docs), synthesise a flat displayDoc by concatenating the docs'
+  // root packages directly. The Tree then renders the docs' own
+  // module hierarchy at the top level — no ' package'
+  // wrapper. findByPathMultiDoc falls back to per-doc lookup for
+  // unprefixed paths (see core/arxml/path.ts).
+  //
+  // Sprint 17c T10 — root-package dedup runs BEFORE the
+  // flat/collision branch, so the result is consistent: a root
+  // package with the same `<SHORT-NAME>` is deduped to 1 entry
+  // (silent if content matches, kept-first + warning if not).
+  // In flat mode this prevents the "two EAS" UX regression
+  // (the original bug). In collision mode the wrap step
+  // disambiguates the source doc via the basename prefix; the
+  // dedup removes the second copy (the one that would have
+  // been wrapped under `[doc:1]`), and the warning tells the
+  // user why the second file's content didn't make it into the
+  // tree.
+  const allPackages: { readonly pkg: ArxmlPackage; readonly filePath: string }[] = [];
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    for (const pkg of documents[i]?.packages ?? []) {
+      allPackages.push({ pkg, filePath });
+    }
+  }
+  const { dedupedPackages, warnings: dedupWarnings } = dedupRootPackages(allPackages);
+
+  if (!detectCombinedCollision(documents, filePaths)) {
+    return {
+      doc: {
+        path: '[Combined]',
+        version: '4.6',
+        packages: dedupedPackages,
+      },
+      warnings: dedupWarnings,
+    };
+  }
+
+  // Collision path — wrap each file's packages under its basename
+  // (or [doc:N] for disambiguation). Disambiguate basenames that
+  // collide across files. The first file keeps its literal basename;
+  // subsequent collisions fall back to `[doc:N]`. This is the inverse
+  // of `findByPathMultiDoc`'s index parsing, so a round-trip
+  // `select(path)` then `updateParam(path)` resolves back to the
+  // same source.
+  //
+  // Sprint 17c T10 — the dedup pass already ran on the raw
+  // packages. Iterate the deduped list and pick the packages
+  // whose source file is the current iteration's. Reference
+  // equality is the contract: dedup keeps the FIRST occurrence's
+  // reference, and the source docs own those references.
+  const basenameSeen = new Map<string, number>();
+  const combinedPackages: ArxmlPackage[] = [];
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    const base = lastSegment(filePath);
+    const seen = basenameSeen.get(base) ?? 0;
+    basenameSeen.set(base, seen + 1);
+    const segmentName = seen === 0 ? base : `[doc:${i}]`;
+    for (const pkg of dedupedPackages) {
+      let isFromThisFile = false;
+      for (const p of documents[i]?.packages ?? []) {
+        if (p === pkg) {
+          isFromThisFile = true;
+          break;
+        }
+      }
+      if (!isFromThisFile) continue;
+      combinedPackages.push(wrapPackageUnderSegment(pkg, segmentName));
+    }
+  }
+  return {
+    doc: {
+      path: '[Combined]',
+      // Combined docs share the version of the most-recently-added
+      // source — Tree doesn't render the version so this only matters
+      // for `app.docVersion` in ArxmlPanel. The footer uses the last
+      // loaded doc; carrying a placeholder here is acceptable.
+      version: '4.6',
+      packages: combinedPackages,
+    },
+    // Sprint 17c T10 — the dedup pass emitted `dedupWarnings` on
+    // the raw packages; surface them in the result so the store's
+    // `warnings` slice reflects the dedup outcome even in collision
+    // mode.
+    warnings: dedupWarnings,
+  };
+}
+
+/**
+ * Sprint 17c T10 — deduplicate root packages across the loaded
+ * document set. The combined view used to render BOTH packages
+ * when two docs shared a root `<SHORT-NAME>` (e.g. two `EAS`
+ * roots from two BSWMD-derived ARXML files) — a "two EAS" UX
+ * regression documented in `sprint-16-shipped.md`.
+ *
+ * Algorithm:
+ *   1. Group packages by `shortName` (preserves insertion order).
+ *   2. For each group with 2+ entries:
+ *      - Compare pairwise against the FIRST entry using
+ *        `packagesDeepEqual` (recursive: same shortName, same
+ *        elements + nested packages, same param values).
+ *      - If all entries equal the first → keep first only
+ *        (silent dedup, no warning).
+ *      - If any entry differs from the first → keep first only +
+ *        emit ONE `duplicate-root-conflict` warning with the
+ *        first entry's source filePath as `keptFrom`.
+ *   3. For singletons, keep as-is.
+ *
+ * Pure: produces a new `dedupedPackages` array. The dedup
+ * preserves the first occurrence's object reference; only the
+ * surrounding list shape is rebuilt.
+ */
+function dedupRootPackages(
+  entries: readonly { readonly pkg: ArxmlPackage; readonly filePath: string }[],
+): {
+  readonly dedupedPackages: readonly ArxmlPackage[];
+  readonly warnings: readonly CombinedDocumentWarning[];
+} {
+  const deduped: ArxmlPackage[] = [];
+  const warnings: CombinedDocumentWarning[] = [];
+  // Track first-occurrence (package + filePath) keyed by shortName
+  // so subsequent occurrences can be compared against the keeper.
+  const firstByShortName = new Map<string, { pkg: ArxmlPackage; filePath: string }>();
+  for (const entry of entries) {
+    const existing = firstByShortName.get(entry.pkg.shortName);
+    if (existing === undefined) {
+      firstByShortName.set(entry.pkg.shortName, entry);
+      deduped.push(entry.pkg);
+      continue;
+    }
+    // Subsequent occurrence of a shortName we've already seen.
+    // If the content matches the first, silent dedup; otherwise
+    // emit a conflict warning (only once per shortName).
+    if (packagesDeepEqual(existing.pkg, entry.pkg)) {
+      // Silent dedup — keep the first (already in `deduped`),
+      // drop the duplicate. No warning.
+      continue;
+    }
+    // Content differs — emit a conflict warning. The warning
+    // shape is keyed by shortName; suppress duplicates so 3+ docs
+    // with the same conflict shortName produce ONE warning, not
+    // N-1.
+    if (
+      !warnings.some(
+        (w) => w.kind === 'duplicate-root-conflict' && w.shortName === entry.pkg.shortName,
+      )
+    ) {
+      warnings.push({
+        kind: 'duplicate-root-conflict',
+        shortName: entry.pkg.shortName,
+        keptFrom: existing.filePath,
+      });
+    }
+  }
+  return { dedupedPackages: deduped, warnings };
+}
+
+/**
+ * Sprint 17c T10 — recursive deep-equality on two
+ * ArxmlPackage trees. Two packages are "equal" if:
+ *   - same `shortName` and `path`
+ *   - same `elements` (each element compared via `elementsEqual`)
+ *   - same nested `packages` (each compared via recursion)
+ *
+ * Element comparison: same `kind`, same `shortName`, same
+ * `params` (via JSON key-by-key), same `children`, same
+ * `references` (modules only), same `value` (references).
+ *
+ * Pure / allocation-free on the happy path. JSON.stringify on
+ * the params dict is acceptable for the dedup use case (small
+ * counts — typically 1-2 root packages per doc).
+ */
+function packagesDeepEqual(a: ArxmlPackage, b: ArxmlPackage): boolean {
+  if (a.shortName !== b.shortName) return false;
+  if (a.path !== b.path) return false;
+  if (a.longName !== b.longName) return false;
+  if (a.elements.length !== b.elements.length) return false;
+  for (let i = 0; i < a.elements.length; i += 1) {
+    const ea = a.elements[i];
+    const eb = b.elements[i];
+    if (ea === undefined || eb === undefined) return false;
+    if (!elementsEqual(ea, eb)) return false;
+  }
+  const aNested = a.packages ?? [];
+  const bNested = b.packages ?? [];
+  if (aNested.length !== bNested.length) return false;
+  for (let i = 0; i < aNested.length; i += 1) {
+    const na = aNested[i];
+    const nb = bNested[i];
+    if (na === undefined || nb === undefined) return false;
+    if (!packagesDeepEqual(na, nb)) return false;
+  }
+  return true;
+}
+
+function elementsEqual(a: ArxmlElement, b: ArxmlElement): boolean {
+  if (a.kind !== b.kind) return false;
+  // v1.4.0 trust sprint — 17c. Unknown elements are identified by
+  // tagName (no SHORT-NAME). Compare the captured `parsed` payload
+  // verbatim so any structural drift in the re-emitted XML is detected.
+  if (a.kind === 'unknown' && b.kind === 'unknown') {
+    return JSON.stringify(a.parsed) === JSON.stringify(b.parsed);
+  }
+  if (a.kind === 'reference' && b.kind === 'reference') {
+    if (a.shortName !== b.shortName) return false;
+    if (a.value !== b.value) return false;
+    if (a.dest !== b.dest) return false;
+    return true;
+  }
+  if (
+    (a.kind === 'module' || a.kind === 'container') &&
+    (b.kind === 'module' || b.kind === 'container')
+  ) {
+    if (a.shortName !== b.shortName) return false;
+    if (a.tagName !== b.tagName) return false;
+    if (!paramsDeepEqual(a.params, b.params)) return false;
+    if (a.children.length !== b.children.length) return false;
+    for (let i = 0; i < a.children.length; i += 1) {
+      const ca = a.children[i];
+      const cb = b.children[i];
+      if (ca === undefined || cb === undefined) return false;
+      if (!elementsEqual(ca, cb)) return false;
+    }
+    if (a.kind === 'module' && b.kind === 'module') {
+      if (a.references.length !== b.references.length) return false;
+      for (let i = 0; i < a.references.length; i += 1) {
+        if (a.references[i] !== b.references[i]) return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function paramsDeepEqual(
+  a: Readonly<Record<string, unknown>>,
+  b: Readonly<Record<string, unknown>>,
+): boolean {
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (!Object.prototype.hasOwnProperty.call(b, k)) return false;
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * Sprint 16 — collision detection for the combined Tree View.
+ *
+ * Returns true when the per-file basename wrapper is required to
+ * disambiguate paths in the combined view. Two collision sources:
+ *
+ *   1. **Basename collision** — two files share the same basename
+ *      (e.g. `/a/Can.arxml` and `/b/Can.arxml`). The wrapper uses
+ *      `[doc:N]` for later occurrences, so prefix → source mapping
+ *      is unambiguous. Without the wrapper, two source docs would
+ *      both contribute identical unprefixed paths.
+ *
+ *   2. **Module shortName collision** — two files declare a module
+ *      with the same `<SHORT-NAME>` (e.g. `Can` from two BSWMDs).
+ *      Without the wrapper, both files contribute `…/Can/…` paths
+ *      that can't be told apart.
+ *
+ * When neither collision exists the wrapper is pure noise and
+ * `buildCombinedDocument` returns a flat displayDoc.
+ */
+function detectCombinedCollision(
+  documents: readonly ArxmlDocument[],
+  filePaths: readonly string[],
+): boolean {
+  // Module shortName collision: track which filePath owns each module.
+  const moduleOwners = new Map<string, string>();
+  for (let i = 0; i < documents.length; i += 1) {
+    const filePath = filePaths[i] ?? '';
+    for (const pkg of documents[i]?.packages ?? []) {
+      for (const el of pkg.elements) {
+        if (el.kind !== 'module') continue;
+        const owner = moduleOwners.get(el.shortName);
+        if (owner !== undefined && owner !== filePath) return true;
+        moduleOwners.set(el.shortName, filePath);
+      }
+    }
+  }
+  // Basename collision.
+  const basenameSeen = new Set<string>();
+  for (const fp of filePaths) {
+    const base = lastSegment(fp);
+    if (basenameSeen.has(base)) return true;
+    basenameSeen.add(base);
+  }
+  return false;
+}
+
+/**
+ * Return a new ArxmlPackage whose `shortName` and `path` are prefixed
+ * with the basename segment, with `elements` / nested `packages`
+ * shallowly re-wrapped so every descendant path carries the prefix.
+ * The original element/param objects are reused (immutable contract);
+ * only path-bearing objects are re-created.
+ */
+function wrapPackageUnderSegment(pkg: ArxmlPackage, segment: string): ArxmlPackage {
+  const newPath = `/${segment}${pkg.path}`;
+  return {
+    ...pkg,
+    shortName: segment,
+    path: newPath,
+    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    elements: pkg.elements.map((el) => wrapElement(el, newPath)),
+  };
+}
+
+function wrapNestedPackage(pkg: ArxmlPackage, segment: string): ArxmlPackage {
+  const newPath = `/${segment}${pkg.path}`;
+  return {
+    ...pkg,
+    path: newPath,
+    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    elements: pkg.elements.map((el) => wrapElement(el, newPath)),
+  };
+}
+
+function wrapElement(el: ArxmlElement, parentPath: string): ArxmlElement {
+  // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME and
+  // no children to recurse into; pass them through with the parent path
+  // attached for downstream debugging (the renderer still sees them via
+  // the package's `elements` list).
+  if (el.kind === 'unknown') return { ...el };
+  const childPath = `${parentPath}/${el.shortName}`;
+  if (el.kind === 'reference') return { ...el };
+  return {
+    ...el,
+    children: el.children.map((c) => wrapElement(c, childPath)),
+  };
+}
+
+/**
+ * Strip the basename / `[doc:N]` prefix from a combined-mode path so
+ * the inner path can be passed to `applyParamUpdate` (which expects a
+ * regular path inside the source document). Mirrors
+ * `findByPathMultiDoc`'s prefix-parsing logic.
+ *
+ * Sprint 16 — flat-mode passthrough: when the head segment doesn't
+ * match the source file's basename and isn't a `[doc:N]` index, the
+ * combined view is using the flat (no-wrapper) shape. Return the
+ * path verbatim so `applyParamUpdate` receives the inner path it
+ * expects. Returns null only when the path is too short to be a
+ * valid inner path (< 2 segments).
+ */
+export function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): string | null {
+  const segments = combinedPath.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const [head, ...rest] = segments;
+  if (head === undefined) return null;
+  // Accept either the literal basename or the [doc:N] index form.
+  if (head === lastSegment(sourceFilePath) || /^\[doc:\d+\]$/.test(head)) {
+    return `/${rest.join('/')}`;
+  }
+  // Flat mode: no wrapper in the combined view — the path is already
+  // an inner path. Return verbatim.
+  return combinedPath;
+}

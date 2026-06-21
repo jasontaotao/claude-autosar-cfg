@@ -1,0 +1,140 @@
+// src/renderer/store/helpers/mutationErrors.ts
+// Mutation error/result helpers used by addContainer / deleteContainer /
+// addParameter / addReference / deleteParameter / confirmDeleteContainer.
+// Pure — no store closure. Extracted from useArxmlStore.ts in PR(5).
+
+import type { MutationError } from '@core/arxml/mutation.js';
+import type { ArxmlDocument } from '@core/arxml/types';
+import { validateProjectForRenderer } from '@core/validation';
+import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n';
+
+import type { ArxmlState } from '../useArxmlStore.js';
+
+import { computeDisplayDoc } from './combinedDoc.js';
+import type { CombinedDocumentWarning } from './combinedDoc.js';
+import { addToDirty } from './dirty.js';
+
+
+/**
+ * Translate a `MutationError` into a localized message via the i18n
+ * bundle. The 6 kinds map 1:1 onto the `mutation.error.<kind>` keys
+ * (see `i18n.ts` § Sprint 15). The function is pure and synchronous
+ * — callers always feed it the current `locale` from the store
+ * state so the message reflects the user's chosen language.
+ */
+export function mutationErrorToI18n(locale: Locale, error: MutationError): string {
+  switch (error.kind) {
+    case 'path-not-found':
+      return t(locale, 'mutation.error.path-not-found');
+    case 'name-conflict':
+      return t(locale, 'mutation.error.name-conflict', { shortName: error.shortName });
+    case 'multiplicity-exceeded':
+      return t(locale, 'mutation.error.multiplicity-exceeded', {
+        current: error.current,
+        max: error.upper,
+      });
+    case 'multiplicity-floor':
+      return t(locale, 'mutation.error.multiplicity-floor', {
+        current: error.current,
+        min: error.lower,
+      });
+    case 'no-bswmd-for-module':
+      return t(locale, 'mutation.error.no-bswmd-for-module');
+    case 'invalid-param-type':
+      return t(locale, 'mutation.error.invalid-param-type', { key: error.key });
+  }
+}
+
+/**
+ * Localised error-set helper used by the addContainer / addParameter /
+ * deleteContainer actions. Centralised here so the action bodies
+ * stay focused on the path-resolution / core-call flow.
+ */
+export function setErrorWithKind(
+  set: (partial: Partial<ArxmlState>) => void,
+  locale: Locale,
+  error: MutationError,
+): void {
+  set({ error: mutationErrorToI18n(locale, error) });
+}
+
+/**
+ * Apply a successful mutation result to a SOURCE document in combined
+ * mode. The source may or may not be the active document; the
+ * `displayDoc` is rebuilt accordingly and the source path is marked
+ * dirty. This is the combined-mode equivalent of
+ * `applyMutationResultToActive` and shares the same reference-
+ * equality short-circuit semantics.
+ */
+export function applyMutationResultToSource(
+  set: (partial: Partial<ArxmlState>) => void,
+  state: ArxmlState,
+  sourceIdx: number,
+  nextSourceDoc: ArxmlDocument,
+  sourceFilePath: string,
+): void {
+  if (state.documents[sourceIdx] === nextSourceDoc) return;
+  const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
+  const nextActiveDoc = state.activeDocumentPath === sourceFilePath ? nextSourceDoc : state.doc;
+  const nextDisplayResult = computeDisplayDoc(
+    state.viewMode,
+    nextActiveDoc,
+    nextDocuments,
+    state.documentPaths,
+  );
+  if (nextDisplayResult === null) return;
+  const nextWarnings: readonly CombinedDocumentWarning[] =
+    state.viewMode === 'combined' && nextDisplayResult !== null
+      ? nextDisplayResult.warnings
+      : state.warnings;
+  set({
+    documents: nextDocuments,
+    doc: nextActiveDoc,
+    displayDoc: nextDisplayResult?.doc ?? null,
+    dirtyPaths: addToDirty(state.dirtyPaths, sourceFilePath),
+    validationErrors: validateProjectForRenderer(nextDocuments),
+    lastValidatedAt: Date.now(),
+    // Sprint 17c T10 — refresh warnings in combined mode.
+    warnings: nextWarnings,
+  });
+}
+
+/**
+ * Apply a successful mutation result to the ACTIVE document in
+ * single mode. Mirrors the post-mutation block of `updateParam`:
+ * update the documents array, derive the back-compat `doc` alias,
+ * recompute `displayDoc`, mark the active path dirty, and re-run
+ * validation.
+ */
+export function applyMutationResultToActive(
+  set: (partial: Partial<ArxmlState>) => void,
+  state: ArxmlState,
+  activeIdx: number,
+  nextActiveDoc: ArxmlDocument,
+  activeFilePath: string,
+): void {
+  if (state.documents[activeIdx] === nextActiveDoc) return;
+  const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
+  const nextDisplayResult = computeDisplayDoc(
+    state.viewMode,
+    nextActiveDoc,
+    nextDocuments,
+    state.documentPaths,
+  );
+  if (nextDisplayResult === null) return;
+  const nextWarnings: readonly CombinedDocumentWarning[] =
+    state.viewMode === 'combined' && nextDisplayResult !== null
+      ? nextDisplayResult.warnings
+      : state.warnings;
+  set({
+    documents: nextDocuments,
+    doc: nextActiveDoc,
+    displayDoc: nextDisplayResult?.doc ?? null,
+    dirtyPaths: addToDirty(state.dirtyPaths, activeFilePath),
+    validationErrors: validateProjectForRenderer(nextDocuments),
+    lastValidatedAt: Date.now(),
+    // Sprint 17c T10 — refresh warnings in combined mode.
+    warnings: nextWarnings,
+  });
+}
