@@ -745,7 +745,18 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     // separate editor flow, not by the skeleton factory.
   });
 
-  it('does not fill sub-container params (top-layer only per spec)', () => {
+  // ─── S2 (P1) — sub-container default value fill ──────────────────────
+  // v1.7.1 ships a uniform default-fill across all container depths.
+  // Pre-S2 only `buildTopContainer` ran `buildDefaultValue` per
+  // parameter; `buildSubContainerShell` returned `params: {}` literally,
+  // so every pre-created sub-container started empty. S2 extracts a
+  // shared `fillParamsFromBswmd(c)` helper from `buildTopContainer` and
+  // uses it in both builders. Choice shells deliberately stay empty
+  // (branches are user-instanced per AUTOSAR semantics).
+
+  it('S2: sub-container with default integer parameter carries the default value', () => {
+    // Arrange — a sub-container with one integer param with default 5,
+    // nested under a top-level container with no params of its own.
     const sub: ContainerDef = {
       shortName: 'CanSub',
       path: '/Can/CanGeneral/CanSub',
@@ -767,11 +778,208 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
       choices: [],
     };
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
-    const gen = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
-    if (gen.kind !== 'container') throw new Error('guard');
-    const subInst = gen.children[0]!;
-    if (subInst.kind !== 'container') throw new Error('guard');
-    expect(subInst.params['SubParam']).toBeUndefined();
+
+    // Act — descend into the sub-container shell (the child of CanGeneral).
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (canGeneral.kind !== 'container') throw new Error('guard');
+    const canSub = canGeneral.children[0]! as ArxmlContainer;
+    if (canSub.kind !== 'container') throw new Error('guard');
+
+    // Assert — the default flows down to the sub-container, identical
+    // shape to the top-layer default (type + value + definitionRef).
+    expect(canSub.params['SubParam']).toEqual({
+      type: 'integer',
+      value: 5,
+      definitionRef: '/SubParam',
+    });
+  });
+
+  it('S2: deeply nested sub-container (3 levels) inherits default fill', () => {
+    // Arrange — A → B → C nested sub-containers; only C has a parameter.
+    // Verifies the helper recurses correctly and that every level
+    // reaches the same fill-from-default code path.
+    const c: ContainerDef = {
+      shortName: 'C',
+      path: '/Can/A/B/C',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'DeepParam', 42)],
+      references: [],
+      choices: [],
+    };
+    const b: ContainerDef = {
+      shortName: 'B',
+      path: '/Can/A/B',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [c],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const a: ContainerDef = {
+      shortName: 'A',
+      path: '/Can/A',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [b],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(a), 'Can');
+
+    // Act — descend 3 levels.
+    const topA = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    if (topA.kind !== 'container') throw new Error('guard');
+    const midB = topA.children[0]! as ArxmlContainer;
+    if (midB.kind !== 'container') throw new Error('guard');
+    const leafC = midB.children[0]! as ArxmlContainer;
+    if (leafC.kind !== 'container') throw new Error('guard');
+
+    // Assert — defaults reach the leaf even 3 levels deep.
+    expect(leafC.params['DeepParam']).toEqual({
+      type: 'integer',
+      value: 42,
+      definitionRef: '/DeepParam',
+    });
+  });
+
+  it('S2: sub-container with no parameters returns params: {} (not undefined)', () => {
+    // Arrange — sub-container with empty parameters array. After S2, the
+    // helper still runs (returns `{}`) instead of skipping the field
+    // entirely — same shape as a top-container with no params.
+    const sub: ContainerDef = {
+      shortName: 'EmptySub',
+      path: '/Can/Top/EmptySub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const top: ContainerDef = {
+      shortName: 'Top',
+      path: '/Can/Top',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+
+    // Act
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const subEl = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — `params` is the empty object, not undefined.
+    expect(subEl.params).toEqual({});
+  });
+
+  it('S2: choice shell does NOT carry defaults (branches are user-instanced)', () => {
+    // Regression guard — S2 must NOT fill choice shells with branch
+    // defaults. Choice branches are user-instanced at runtime; the
+    // shell is just a placeholder for the picker to descend into.
+    // Mirrors the buildChoiceShell JSDoc contract at skeleton.ts:222+.
+    const branchA: ContainerDef = {
+      shortName: 'BranchA',
+      path: '/Can/Top/ChoiceContainer/BranchA',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'BranchParam', 99)],
+      references: [],
+      choices: [],
+    };
+    const branchB: ContainerDef = {
+      shortName: 'BranchB',
+      path: '/Can/Top/ChoiceContainer/BranchB',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('string', 'BranchString', 'hi')],
+      references: [],
+      choices: [],
+    };
+    const choice: ContainerDef = {
+      shortName: 'ChoiceContainer',
+      path: '/Can/Top/ChoiceContainer',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'ChoiceOwnParam', 7)],
+      references: [],
+      choices: [branchA, branchB],
+    };
+    const top: ContainerDef = {
+      shortName: 'Top',
+      path: '/Can/Top',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [choice],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+
+    // Act — find the choice shell (a direct child of Top, marked by S1).
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const choiceShell = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — choice shell's own `params` stays `{}` (S2 must not
+    // delegate fillParamsFromBswmd here; AUTOSAR semantic is the user
+    // picks one branch, the shell carries no defaults).
+    expect(choiceShell.params).toEqual({});
+  });
+
+  it('S2: Sprint 16 invariant — definitionRef carried on sub-container default', () => {
+    // The Sprint 16 invariant "every default-filled param carries the
+    // BSWMD-side definition path on `definitionRef`" must hold at every
+    // depth, not just the top layer. This test pins that contract for
+    // sub-container fills.
+    const sub: ContainerDef = {
+      shortName: 'CanSub',
+      path: '/Can/CanGeneral/CanSub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [
+        {
+          ...mkParam('integer', 'SubParam', 5),
+          path: '/AUTOSAR/EcucDefs/Can/CanGeneral/CanSub/SubParam',
+        },
+      ],
+      references: [],
+      choices: [],
+    };
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+
+    // Act
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canSub = canGeneral.children[0]! as ArxmlContainer;
+
+    // Assert — the real BSWMD path is carried, not the legacy
+    // `/__synthesized__/<shortName>` placeholder.
+    expect(canSub.params['SubParam']).toEqual({
+      type: 'integer',
+      value: 5,
+      definitionRef: '/AUTOSAR/EcucDefs/Can/CanGeneral/CanSub/SubParam',
+    });
   });
 });
 

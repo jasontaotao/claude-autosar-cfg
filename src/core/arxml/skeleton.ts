@@ -115,34 +115,6 @@ function buildModule(mod: BswModuleDef): ArxmlModule {
 }
 
 function buildTopContainer(c: ContainerDef): ArxmlContainer {
-  // Top-layer fill: BSWMD `defaultValue` -> typed `ParamValue`. Null
-  // defaults are skipped per the `buildDefaultValue` contract EXCEPT for
-  // text-shaped params (enumeration / string / function-name), which the
-  // skeleton intentionally materializes as an empty-string placeholder so
-  // the user gets an editable cell in the ParamEditor. This fallback lives
-  // here, not in `buildDefaultValue`, because mutation.addParameter
-  // deliberately surfaces `invalid-param-type` for the same input — the
-  // two layers diverge intentionally (skeleton = "give the user a cell to
-  // fill"; mutation = "reject an unusable default").
-  //
-  // Sprint 16 — every default-filled (or text-shape fallback) param
-  // carries the BSWMD-side definition path on `definitionRef`. The
-  // serializer prefers this over the legacy `/__synthesized__/<shortName>`
-  // placeholder so vendor tools can resolve the DEFINITION-REF.
-  const params: Record<string, ParamValue> = {};
-  for (const p of c.parameters) {
-    const v = buildDefaultValue(p);
-    if (v !== null) {
-      params[p.shortName] = { ...v, definitionRef: p.path };
-      continue;
-    }
-    if (p.kind === 'enumeration') {
-      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
-    } else if (p.kind === 'string' || p.kind === 'function-name') {
-      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
-    }
-    // integer / float / boolean / reference null defaults stay skipped.
-  }
   return {
     kind: 'container',
     // Bug 2a (v1.4.1) — value-side containers must use the value-side tag
@@ -154,7 +126,7 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
     // producing inconsistent XML.
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
-    params,
+    params: fillParamsFromBswmd(c),
     // Both `subContainers` (plain ECUC-PARAM-CONF-CONTAINER-DEF) and
     // `choices` (ECUC-CHOICE-CONTAINER-DEF) get pre-created shells.
     // Choice branches themselves are user-instanced — see the spec at
@@ -172,6 +144,46 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
   };
 }
 
+/**
+ * v1.7.1 S2 — translate a BSWMD container's declared parameter defaults
+ * into typed `ParamValue` cells. Shared between `buildTopContainer` and
+ * `buildSubContainerShell` so default-fill behaviour is uniform across
+ * every depth (replaces the pre-S2 "top-layer only" decision).
+ *
+ * Semantics (preserved from the original inline code at
+ * `buildTopContainer` lines 132-145):
+ *
+ *   - Non-null defaults are converted via `buildDefaultValue` and
+ *     tagged with the BSWMD-side `definitionRef` (Sprint 16 invariant).
+ *   - Null defaults on text-shaped params (enumeration / string /
+ *     function-name) get an empty-string placeholder so the user gets
+ *     an editable cell in the ParamEditor. Other kinds with null
+ *     defaults (integer / float / boolean / reference) stay skipped.
+ *   - Reference params are NOT filled here; they're handled by a
+ *     separate `addReference` flow.
+ *
+ * Choice shells do NOT call this helper — `buildChoiceShell` keeps
+ * `params: {}` literally because choice branches are user-instanced at
+ * runtime and the shell is just a placeholder.
+ */
+function fillParamsFromBswmd(c: ContainerDef): Record<string, ParamValue> {
+  const params: Record<string, ParamValue> = {};
+  for (const p of c.parameters) {
+    const v = buildDefaultValue(p);
+    if (v !== null) {
+      params[p.shortName] = { ...v, definitionRef: p.path };
+      continue;
+    }
+    if (p.kind === 'enumeration') {
+      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
+    } else if (p.kind === 'string' || p.kind === 'function-name') {
+      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
+    }
+    // integer / float / boolean / reference null defaults stay skipped.
+  }
+  return params;
+}
+
 function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // Bug 2b (v1.4.1) — only pre-create a shell when the BSWMD declares
   // `lowerMultiplicity > 0`. Optional containers (lower=0, upper=1) were
@@ -184,13 +196,17 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // Returning an array (not a single container or null) lets the caller
   // use `flatMap(buildSubContainerShell)` — optional children produce
   // an empty array which `flatMap` drops automatically.
+  //
+  // v1.7.1 S2 — params are now filled uniformly via
+  // `fillParamsFromBswmd(c)` so every pre-created sub-container starts
+  // with its declared defaults. Pre-S2 the field was hardcoded to `{}`.
   if (c.lowerMultiplicity <= 0) return [];
   return [
     {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
-      params: {},
+      params: fillParamsFromBswmd(c),
       // Same `choices` traversal as `buildTopContainer` — required
       // choice branches must be reachable from any depth, not only
       // from the top-level module containers.
