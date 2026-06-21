@@ -1,7 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
+import { describe, expect, it } from 'vitest';
+
+import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
 import type { ArxmlDocument } from '../types.js';
+
+const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
 
 describe('serializeArxml', () => {
   it('serializes minimal ArxmlDocument with module + container + 2 params', () => {
@@ -480,6 +486,270 @@ describe('serializeArxml', () => {
         '<DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Com/ComConfig/ComPduIdRef</DEFINITION-REF>',
       );
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.5.1 PR(2) — preserveSourceOrder mode
+// ---------------------------------------------------------------------------
+//
+// When `sourceArxml` is supplied, the serializer must emit packages and
+// elements in the same order they appeared in the source XML. This closes
+// the documented v1.4.0 limitation that sibling order was determined by
+// model iteration order rather than source order.
+//
+// Behavior contract:
+// - Without `sourceArxml`: identical to v1.5.0 (no behavioral change).
+// - With `sourceArxml`: container emission order matches source XML.
+// - Newly-added containers (absent from source) follow the existing ones.
+// - Only AR-PACKAGE / ELEMENT / MODULE container order is preserved; inner
+//   param/attribute order is unchanged (Q5 B tolerance rules).
+
+// Extract the order of <AR-PACKAGE><SHORT-NAME> pairs in document order.
+// Fixtures use a single AR-PACKAGE per file; this still validates order
+// when multiple nested packages exist (sibling + nested <AR-PACKAGES>).
+function extractPackageShortNames(xml: string): string[] {
+  const out: string[] = [];
+  // Match SHORT-NAME direct children of AR-PACKAGE blocks.
+  const re = /<AR-PACKAGE>\s*<SHORT-NAME>([^<]+)<\/SHORT-NAME>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    out.push(m[1]!);
+  }
+  return out;
+}
+
+// Extract the order of SHORT-NAME-bearing DIRECT children of every
+// <ELEMENTS> block. We walk the inner body character-by-character to
+// avoid matching nested SHORT-NAMEs that live inside <CONTAINERS>,
+// <SUB-CONTAINERS>, or <PARAMETER-VALUES>. Only the first-level
+// children count.
+function extractElementOrder(xml: string): Array<{ tag: string; name: string }> {
+  const out: Array<{ tag: string; name: string }> = [];
+  const re = /<ELEMENTS>([\s\S]*?)<\/ELEMENTS>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    out.push(...extractDirectChildren(m[1]!));
+  }
+  return out;
+}
+
+/**
+ * Walk `inner` and return the SHORT-NAME-bearing direct children of
+ * the surrounding <ELEMENTS> wrapper. Depth-counting is used to skip
+ * nested wrappers (<CONTAINERS>, <SUB-CONTAINERS>, <PARAMETER-VALUES>,
+ * <REFERENCE-VALUES>).
+ */
+function extractDirectChildren(inner: string): Array<{ tag: string; name: string }> {
+  const out: Array<{ tag: string; name: string }> = [];
+  let depth = 0;
+  let i = 0;
+  while (i < inner.length) {
+    // Skip whitespace
+    while (i < inner.length && /\s/.test(inner[i]!)) i++;
+    if (i >= inner.length) break;
+    if (inner[i] !== '<') {
+      i++;
+      continue;
+    }
+    // Parse a tag
+    const closeIdx = inner.indexOf('>', i);
+    if (closeIdx === -1) break;
+    const tagText = inner.slice(i + 1, closeIdx);
+    const isClose = tagText.startsWith('/');
+    const isSelfClose = tagText.endsWith('/');
+    const tagName = isClose
+      ? tagText.slice(1).trim()
+      : (isSelfClose ? tagText.slice(0, -1).trim() : tagText.trim()).split(/\s/)[0]!;
+    if (isClose) {
+      depth--;
+      i = closeIdx + 1;
+      continue;
+    }
+    if (isSelfClose) {
+      // Self-closing tag — never carries a SHORT-NAME child.
+      i = closeIdx + 1;
+      continue;
+    }
+    if (depth === 0) {
+      // Direct child — look for an immediate <SHORT-NAME>...</SHORT-NAME>.
+      const after = inner.slice(closeIdx + 1);
+      const snMatch = /^\s*<SHORT-NAME>([^<]+)<\/SHORT-NAME>/.exec(after);
+      if (snMatch) {
+        out.push({ tag: tagName, name: snMatch[1]! });
+      }
+    }
+    depth++;
+    i = closeIdx + 1;
+  }
+  return out;
+}
+
+describe('serializeArxml — preserveSourceOrder mode (PR(2))', () => {
+  it('preserves <AR-PACKAGE> and <ELEMENT> order from sourceArxml (EcuC_EcuC)', async () => {
+    const source = await readFile(join(FIXTURE_DIR, 'EcuC_EcuC.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    const result = serializeArxml(parsed.value, { sourceArxml: source });
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+    expect(extractPackageShortNames(result.value)).toEqual(
+      extractPackageShortNames(source),
+    );
+    expect(extractElementOrder(result.value)).toEqual(extractElementOrder(source));
+  });
+
+  it('preserves element order for vendor /EAS/ namespace fixture (vendor-extension.arxml)', async () => {
+    // vendor-extension.arxml contains a deliberate mix of unknown
+    // (SERVICE-NEEDS, EXCLUSIVE-AREA, EAS-CUSTOM-DATA) and known
+    // (ECUC-MODULE-CONFIGURATION-VALUES) siblings. Source order must
+    // round-trip exactly when sourceArxml is supplied.
+    const source = await readFile(join(FIXTURE_DIR, 'vendor-extension.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    const result = serializeArxml(parsed.value, { sourceArxml: source });
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+    expect(extractElementOrder(result.value)).toEqual(extractElementOrder(source));
+  });
+
+  it('preserves element order for vector CDD-style fixture (Com_Com.arxml)', async () => {
+    // Com_Com.arxml is the largest fixture (~122 KB) — exercises the
+    // order-preservation path at scale where reordering would visibly
+    // diverge from source.
+    const source = await readFile(join(FIXTURE_DIR, 'Com_Com.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    const result = serializeArxml(parsed.value, { sourceArxml: source });
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+    expect(extractElementOrder(result.value)).toEqual(extractElementOrder(source));
+  });
+
+  it('ignores sourceArxml when not provided (backward-compatible baseline)', async () => {
+    // Without sourceArxml the serializer falls back to model iteration
+    // order. This test pins that the no-sourceArxml path still works
+    // and produces a successful (ok) result. Order is intentionally NOT
+    // asserted here because the v1.5.0 behavior may differ across
+    // input shapes; PR(2) only adds the new opt-in mode.
+    const source = await readFile(join(FIXTURE_DIR, 'EcuC_EcuC.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    const result = serializeArxml(parsed.value);
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+    expect(result.value).toContain('<AR-PACKAGE>');
+    expect(result.value).toContain('<SHORT-NAME>EcucDefs</SHORT-NAME>');
+  });
+
+  it('reorders output to match a reordered sourceArxml', async () => {
+    // Manually swap the order of two TOP-LEVEL elements inside a
+    // package and verify the output follows the source. PR(2) only
+    // reorders top-level ELEMENTS siblings (per plan Q5 B tolerance),
+    // not module/container children — those are preserved by the
+    // parser's natural order-keeping.
+    const source = await readFile(join(FIXTURE_DIR, 'PduR_PduR.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    const doc = parsed.value;
+    const pkg = doc.packages[0]!;
+    // PduR_PduR.arxml has 2 top-level elements: AUTOSARParameterDefinition
+    // (ECUC-DEFINITION-COLLECTION) and PduR (ECUC-MODULE-CONFIGURATION-VALUES).
+    if (pkg.elements.length < 2) {
+      throw new Error('PduR_PduR.arxml: expected ≥2 top-level elements to reorder');
+    }
+    const a = pkg.elements[0]!;
+    const b = pkg.elements[1]!;
+    // PduR_PduR.arxml's top-level elements are both container/module
+    // kinds with a typed shortName. Narrow to those kinds so TS accepts
+    // the `.shortName` access.
+    if (a.kind === 'unknown' || b.kind === 'unknown') {
+      throw new Error('PduR_PduR.arxml: top-level elements are not unknown');
+    }
+    const aName = a.shortName;
+    const bName = b.shortName;
+    if (aName === undefined || bName === undefined) {
+      throw new Error('PduR_PduR.arxml: top-level elements must have shortName');
+    }
+    // Swap the two so the in-memory model has b before a.
+    const swapped = {
+      ...doc,
+      packages: [
+        {
+          ...pkg,
+          elements: [b, a, ...pkg.elements.slice(2)],
+        },
+      ],
+    };
+
+    const result = serializeArxml(swapped, { sourceArxml: source });
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+
+    // Anchor on the top-level <ELEMENTS> block (the one inside the
+    // package's <AR-PACKAGE>) so we look only at the package's direct
+    // element SHORT-NAMEs, not module-level DEFINITION-REFs that might
+    // reference the same paths.
+    const elementsStart = result.value.indexOf('<ELEMENTS>');
+    expect(elementsStart).toBeGreaterThan(-1);
+    const tail = result.value.slice(elementsStart);
+    const aIdx = tail.indexOf(`<SHORT-NAME>${aName}</SHORT-NAME>`);
+    const bIdx = tail.indexOf(`<SHORT-NAME>${bName}</SHORT-NAME>`);
+    expect(aIdx).toBeGreaterThan(-1);
+    expect(bIdx).toBeGreaterThan(-1);
+
+    // sourceArxml has `a` before `b`. The in-memory model has `b` before
+    // `a` (we swapped them above). The serializer must follow
+    // sourceArxml and emit `a` before `b` — i.e. aIdx < bIdx.
+    expect(aIdx).toBeLessThan(bIdx);
+  });
+
+  it('tolerates in-memory packages missing from source (deletion case)', async () => {
+    // Code-review HIGH-fix coverage: when the in-memory model has fewer
+    // packages than the source (e.g. user deleted one), the reorder
+    // must look up source counterparts by shortName rather than by
+    // index. Otherwise a positional misalignment would reorder C's
+    // children against B's source elements and produce nonsensical
+    // output.
+    const source = await readFile(join(FIXTURE_DIR, 'vendor-extension.arxml'), 'utf-8');
+    const parsed = parseArxml(source);
+    if (!parsed.ok) throw new Error(`parse failed: ${parsed.error.kind}`);
+
+    // Build a synthetic source with 3 named packages in canonical order
+    // A, B, C. The in-memory model only carries A and C (B deleted).
+    const syntheticSource = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-2-2.xsd">',
+      '<AR-PACKAGES>',
+      '  <AR-PACKAGE><SHORT-NAME>A</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>MA</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE>',
+      '  <AR-PACKAGE><SHORT-NAME>B</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>MB</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE>',
+      '  <AR-PACKAGE><SHORT-NAME>C</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>MC</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE>',
+      '</AR-PACKAGES>',
+      '</AUTOSAR>',
+    ].join('\n');
+    const syntheticParsed = parseArxml(syntheticSource);
+    if (!syntheticParsed.ok) throw new Error('synthetic parse failed');
+
+    // Keep only A and C in-memory (B deleted).
+    const inMemory: ArxmlDocument = {
+      ...syntheticParsed.value,
+      packages: [
+        syntheticParsed.value.packages[0]!, // A
+        syntheticParsed.value.packages[2]!, // C (B removed)
+      ],
+    };
+
+    const result = serializeArxml(inMemory, { sourceArxml: syntheticSource });
+    if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
+
+    // Order should match source: A before C.
+    const aIdx = result.value.indexOf('<SHORT-NAME>A</SHORT-NAME>');
+    const cIdx = result.value.indexOf('<SHORT-NAME>C</SHORT-NAME>');
+    const bIdx = result.value.indexOf('<SHORT-NAME>B</SHORT-NAME>');
+    expect(aIdx).toBeGreaterThan(-1);
+    expect(cIdx).toBeGreaterThan(-1);
+    expect(bIdx).toBe(-1); // B was deleted, must not appear in output.
+    expect(aIdx).toBeLessThan(cIdx);
   });
 });
 

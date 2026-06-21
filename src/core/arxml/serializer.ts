@@ -3,6 +3,7 @@
 
 import { XMLBuilder } from 'fast-xml-parser';
 
+import { parseArxml } from './parser.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -24,6 +25,16 @@ export interface SerializeOptions {
   readonly indent?: number;
   readonly xmlDeclaration?: boolean;
   readonly version?: ArxmlVersion;
+  /**
+   * v1.5.1 PR(2) — when provided, the serializer reorders packages,
+   * elements, and child containers to match the SHORT-NAME order found
+   * in the source XML. Newly-added items (absent from source) follow the
+   * existing items in their original order. Tolerance rules (Q5 B):
+   * namespace prefix order, whitespace, comments, and attribute order
+   * are NOT preserved — only AR-PACKAGE / ELEMENT / MODULE container
+   * order. When omitted, behavior is identical to v1.5.0.
+   */
+  readonly sourceArxml?: string;
 }
 
 export type SerializeError = {
@@ -45,6 +56,12 @@ export function serializeArxml(
   doc: ArxmlDocument,
   opts: SerializeOptions = {},
 ): Result<string, SerializeError> {
+  // v1.5.1 PR(2) — when `sourceArxml` is supplied, reorder containers to
+  // match the source XML's emission order. Parse source once to derive
+  // the canonical SHORT-NAME sequence at each nesting level.
+  const effectiveDoc =
+    opts.sourceArxml !== undefined ? reorderBySource(doc, opts.sourceArxml) : doc;
+
   const indent = opts.indent ?? 2;
   const xmlDecl = opts.xmlDeclaration ?? true;
   const version = opts.version ?? doc.version;
@@ -65,11 +82,11 @@ export function serializeArxml(
       '@_xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
       '@_xsi:schemaLocation': buildSchemaLocation(version),
       'AR-PACKAGES':
-        doc.packages.length > 0
+        effectiveDoc.packages.length > 0
           ? // fast-xml-parser requires an explicit wrapper key for array-of-object
             // values; otherwise it serializes inner keys as direct children of
             // <AR-PACKAGES> instead of wrapping each in <AR-PACKAGE>.
-            { 'AR-PACKAGE': doc.packages.map(renderPackage) }
+            { 'AR-PACKAGE': effectiveDoc.packages.map(renderPackage) }
           : // Empty packages → emit <AR-PACKAGES></AR-PACKAGES> instead of letting
             // fast-xml-parser suppress the node entirely (suppressEmptyNode would
             // otherwise drop it). The #text empty marker yields a paired open/close.
@@ -346,4 +363,112 @@ function renderReferenceParam(defName: string, value: ParamValue): Record<string
       'VALUE-REF': valueRef,
     },
   };
+}
+
+// -----------------------------------------------------------------------------
+// v1.5.1 PR(2) — preserveSourceOrder helpers
+// -----------------------------------------------------------------------------
+//
+// Scope: reorder top-level AR-PACKAGE siblings and each AR-PACKAGE's
+// direct ELEMENTS children to match the source XML emission order.
+// Inner module/container children are NOT reordered — the parser
+// already preserves source order for them, so re-serializing produces
+// source-aligned output without intervention. We only need to override
+// the in-memory order when the model was mutated (e.g. user reordered
+// packages or added a new container at index 0).
+//
+// Matching key: container `shortName`. `ArxmlUnknown` siblings (no
+// shortName — SERVICE-NEEDS, EAS-CUSTOM-DATA, /EAS/ namespaces) are
+// treated as "not in source" and pinned to the tail of their parent
+// in original in-memory order. The plan's Q5 B tolerance rules
+// (namespace, whitespace, comments, attribute order are not preserved)
+// apply here: only the order of named containers matters.
+
+function reorderBySource(doc: ArxmlDocument, sourceArxml: string): ArxmlDocument {
+  const parsed = parseArxml(sourceArxml);
+  // Source couldn't be parsed — fall back to the in-memory order so the
+  // caller still gets a usable result rather than a hard error. The
+  // contract is "preserve order when source is available"; a malformed
+  // source shouldn't block serialization.
+  if (!parsed.ok) return doc;
+  const sourceDoc = parsed.value;
+  // Index source packages by shortName so lookups tolerate the in-memory
+  // model missing packages that exist in source (e.g. user deleted one).
+  // The previous positional `.map((pkg, i) => ...)` would mis-align when
+  // counts diverged — C would be reordered against B's children. Map
+  // lookup pins each in-memory package to its own source counterpart.
+  const sourceByName = new Map(sourceDoc.packages.map((p) => [p.shortName, p]));
+  return {
+    ...doc,
+    packages: stableSortByOrder(
+      doc.packages,
+      [...sourceByName.keys()],
+      (p) => p.shortName,
+    ).map((pkg) => reorderPackageElements(pkg, sourceByName.get(pkg.shortName))),
+  };
+}
+
+function reorderPackageElements(pkg: ArxmlPackage, sourcePkg: ArxmlPackage | undefined): ArxmlPackage {
+  if (sourcePkg === undefined) return pkg;
+  // Reorder ELEMENTS by the source's element order. `ArxmlUnknown`
+  // elements can carry a SHORT-NAME inside `parsed` (e.g. EXCLUSIVE-AREA
+  // has `<SHORT-NAME>DetExclusiveArea0</SHORT-NAME>`); fall back to that
+  // when the top-level `shortName` field is undefined. Items without
+  // any SHORT-NAME (SERVICE-NEEDS, EAS-CUSTOM-DATA) stay at the tail in
+  // their original order.
+  const elementOrder = sourcePkg.elements
+    .map(elementShortName)
+    .filter((n): n is string => n !== undefined);
+  return {
+    ...pkg,
+    elements: stableSortByOrder(pkg.elements, elementOrder, elementShortName),
+  };
+}
+
+/**
+ * Resolve an element's identifying shortName. For known kinds
+ * (`module`, `container`, `reference`) the typed field is authoritative
+ * when defined. For `ArxmlUnknown` the parser does not promote the
+ * SHORT-NAME — we fall back to `parsed['SHORT-NAME']` when present so
+ * vendor elements that carry one (e.g. EXCLUSIVE-AREA) participate in
+ * source-order matching.
+ */
+function elementShortName(el: ArxmlElement): string | undefined {
+  if (el.kind !== 'unknown' && el.shortName !== undefined) return el.shortName;
+  if (el.kind === 'unknown') {
+    const sn = el.parsed['SHORT-NAME'];
+    if (typeof sn === 'string') return sn;
+  }
+  return undefined;
+}
+
+/**
+ * Stable sort: items whose key appears in `order` are placed at the
+ * corresponding index (preserving source order). Items whose key is
+ * absent (newly added, or unknown elements with no shortName) follow
+ * in their original relative order at the tail.
+ *
+ * Implementation uses `.sort()` on a copy. JavaScript's
+ * `Array.prototype.sort` is stable since ES2019 (Node ≥12); we rely on
+ * that contract.
+ */
+function stableSortByOrder<T>(
+  items: readonly T[],
+  order: readonly string[],
+  keyOf: (item: T) => string | undefined,
+): T[] {
+  const indexOf = new Map<string, number>();
+  order.forEach((name, i) => {
+    if (!indexOf.has(name)) indexOf.set(name, i);
+  });
+  return [...items].sort((a, b) => {
+    const ak = keyOf(a);
+    const bk = keyOf(b);
+    const ai = ak !== undefined ? indexOf.get(ak) : undefined;
+    const bi = bk !== undefined ? indexOf.get(bk) : undefined;
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return 0;
+  });
 }
