@@ -502,6 +502,115 @@ export interface Messages {
   readonly 'headless.error.mutationCycle': string;
   readonly 'headless.error.fileLocked': string; // {path}
   readonly 'headless.error.strictModeWarning': string;
+
+  // --- v1.6.0 Cluster U — Keyboard-First Power User (Cmd-K palette,
+  //     50+ shortcuts, cheat sheet). U spec §12 i18n plan.
+  // Palette UI: dialog title, input placeholder, empty-state message.
+  readonly 'commandPalette.title': string;
+  readonly 'commandPalette.placeholder': string;
+  readonly 'commandPalette.noResults': string;
+  // Cheat sheet UI.
+  readonly 'cheatSheet.title': string;
+  readonly 'cheatSheet.searchPlaceholder': string;
+  readonly 'cheatSheet.closeAria': string;
+  readonly 'cheatSheet.bindingHint': string;
+  // Shortcut category labels.
+  readonly 'shortcut.category.file': string;
+  readonly 'shortcut.category.edit': string;
+  readonly 'shortcut.category.view': string;
+  readonly 'shortcut.category.navigate': string;
+  readonly 'shortcut.category.selection': string;
+  readonly 'shortcut.category.tree': string;
+  readonly 'shortcut.category.script': string;
+  readonly 'shortcut.category.ecuc': string;
+  readonly 'shortcut.category.window': string;
+  readonly 'shortcut.category.help': string;
+  readonly 'shortcut.category.palette': string;
+  readonly 'shortcut.category.validation': string;
+  // Per-command labels.
+  readonly 'shortcut.file.open': string;
+  readonly 'shortcut.file.save': string;
+  readonly 'shortcut.file.saveAs': string;
+  readonly 'shortcut.file.close': string;
+  readonly 'shortcut.file.recent': string;
+  readonly 'shortcut.edit.undo': string;
+  readonly 'shortcut.edit.redo': string;
+  readonly 'shortcut.edit.cut': string;
+  readonly 'shortcut.edit.copy': string;
+  readonly 'shortcut.edit.paste': string;
+  readonly 'shortcut.edit.find': string;
+  readonly 'shortcut.edit.replace': string;
+  readonly 'shortcut.view.toggleLeft': string;
+  readonly 'shortcut.view.toggleRight': string;
+  readonly 'shortcut.view.zoomIn': string;
+  readonly 'shortcut.view.zoomOut': string;
+  readonly 'shortcut.view.zoomReset': string;
+  readonly 'shortcut.navigate.goToDefinition': string;
+  readonly 'shortcut.navigate.goToReference': string;
+  readonly 'shortcut.navigate.focusSearch': string;
+  readonly 'shortcut.selection.selectAll': string;
+  readonly 'shortcut.selection.expand': string;
+  readonly 'shortcut.selection.shrink': string;
+  readonly 'shortcut.tree.revealActive': string;
+  readonly 'shortcut.tree.collapseAll': string;
+  readonly 'shortcut.tree.expandAll': string;
+  readonly 'shortcut.tree.jumpParent': string;
+  readonly 'shortcut.tree.jumpChild': string;
+  readonly 'shortcut.script.openEditor': string;
+  readonly 'shortcut.script.run': string;
+  readonly 'shortcut.script.save': string;
+  readonly 'shortcut.script.format': string;
+  readonly 'shortcut.ecuc.addContainer': string;
+  readonly 'shortcut.ecuc.deleteContainer': string;
+  readonly 'shortcut.ecuc.duplicateContainer': string;
+  readonly 'shortcut.ecuc.addParameter': string;
+  readonly 'shortcut.ecuc.editParameter': string;
+  readonly 'shortcut.window.newWindow': string;
+  readonly 'shortcut.window.closeWindow': string;
+  readonly 'shortcut.window.focusPanel': string;
+  readonly 'shortcut.help.showCheatSheet': string;
+  readonly 'shortcut.help.showDocs': string;
+  readonly 'shortcut.help.resetOnboarding': string;
+  readonly 'help.menu.resetOnboarding': string;
+  readonly 'shortcut.palette.toggle': string;
+  readonly 'shortcut.validation.nextError': string;
+  readonly 'shortcut.validation.prevError': string;
+  readonly 'shortcut.validation.togglePanel': string;
+  readonly 'shortcut.validation.focusPanel': string;
+  // Modifier labels (for cheat sheet display).
+  readonly 'shortcut.modifier.cmd': string;
+  readonly 'shortcut.modifier.ctrl': string;
+  readonly 'shortcut.modifier.shift': string;
+  readonly 'shortcut.modifier.alt': string;
+
+  // --- v1.6.0 Cluster W — Onboarding tour (W spec §3.5) ---
+  // 20 onboarding keys (welcome card + 5 step title/body + 4 controls + progress)
+  // + 2 tour-coordination keys (paused-validator banner)
+  // + 2 flags-keyboardFirst keys (U mirror)
+  readonly 'onboarding.welcome.title': string;
+  readonly 'onboarding.welcome.body': string;
+  readonly 'onboarding.welcome.ctaTour': string;
+  readonly 'onboarding.welcome.ctaDemo': string;
+  readonly 'onboarding.welcome.ctaSkip': string;
+  readonly 'onboarding.step1.title': string;
+  readonly 'onboarding.step1.body': string;
+  readonly 'onboarding.step2.title': string;
+  readonly 'onboarding.step2.body': string;
+  readonly 'onboarding.step3.title': string;
+  readonly 'onboarding.step3.body': string;
+  readonly 'onboarding.step4.title': string;
+  readonly 'onboarding.step4.body': string;
+  readonly 'onboarding.step5.title': string;
+  readonly 'onboarding.step5.body': string;
+  readonly 'onboarding.controls.next': string;
+  readonly 'onboarding.controls.back': string;
+  readonly 'onboarding.controls.skip': string;
+  readonly 'onboarding.controls.finish': string;
+  readonly 'onboarding.progress.label': string; // {current} {total}
+  readonly 'tour.coordination.validationPaused.title': string;
+  readonly 'tour.coordination.validationPaused.message': string;
+  readonly 'flags.keyboardFirst.label': string;
+  readonly 'flags.keyboardFirst.description': string;
 }
 
 export type MessageKey = keyof Messages;
@@ -847,6 +956,97 @@ export const MessagesZhCN: Messages = {
   'error.applyMutation.multiplicity-violation':
     '{path} 处多重性违规: 期望 {required}，实际 {actual}',
   'error.applyMutation.concurrent-mutation': '检测到并发变更: {planId} 与 {conflictingPlanId} 冲突',
+  'headless.error.projectNotFound': '项目文件不存在: {path}',
+  'headless.error.parseFailed': '解析 ARXML 失败 ({path}): {message}',
+  'headless.error.bswmdParseFailed': '解析 BSWMD 失败: {message}',
+  'headless.error.patchNotFound': '补丁文件不存在: {path}',
+  'headless.error.permissionDenied': '权限被拒绝: {path}',
+  'headless.error.diskFull': '磁盘空间已满: {path}',
+  'headless.error.pathTraversal': '检测到父目录遍历，已拒绝: {path}',
+  'headless.error.patchMissingVersion': '补丁文件缺少 autosarcfgPatchVersion 字段',
+  'headless.error.unsupportedPatchVersion': '不支持的补丁版本: {version}',
+  'headless.error.patchInvalidStep': '补丁步骤无效: {reason}',
+  'headless.error.patchInvalidValue': '步骤 value 类型不匹配',
+  'headless.error.patchParseFailed': '补丁文件解析失败: {reason}',
+  'headless.error.mutationPathNotFound': '变更路径不存在',
+  'headless.error.mutationMultiplicity': '多重性违规',
+  'headless.error.mutationCycle': '检测到引用循环',
+  'headless.error.fileLocked': '文件被占用: {path}',
+  'headless.error.strictModeWarning': '严格模式下警告升级为错误',
+
+  // --- v1.6.0 Cluster U — Keyboard-First Power User ---
+  'commandPalette.title': '命令面板',
+  'commandPalette.placeholder': '输入命令…',
+  'commandPalette.noResults': '没有匹配的命令',
+  'cheatSheet.title': '键盘快捷键',
+  'cheatSheet.searchPlaceholder': '搜索快捷键…',
+  'cheatSheet.closeAria': '关闭快捷键面板',
+  'cheatSheet.bindingHint': '按 ? 键随时打开',
+  'shortcut.category.file': '文件',
+  'shortcut.category.edit': '编辑',
+  'shortcut.category.view': '视图',
+  'shortcut.category.navigate': '导航',
+  'shortcut.category.selection': '选择',
+  'shortcut.category.tree': '树',
+  'shortcut.category.script': '脚本',
+  'shortcut.category.ecuc': 'ECUC',
+  'shortcut.category.window': '窗口',
+  'shortcut.category.help': '帮助',
+  'shortcut.category.palette': '面板',
+  'shortcut.category.validation': '校验',
+  'shortcut.file.open': '打开项目',
+  'shortcut.file.save': '保存',
+  'shortcut.file.saveAs': '另存为',
+  'shortcut.file.close': '关闭项目',
+  'shortcut.file.recent': '最近项目',
+  'shortcut.edit.undo': '撤销',
+  'shortcut.edit.redo': '重做',
+  'shortcut.edit.cut': '剪切',
+  'shortcut.edit.copy': '复制',
+  'shortcut.edit.paste': '粘贴',
+  'shortcut.edit.find': '查找',
+  'shortcut.edit.replace': '替换',
+  'shortcut.view.toggleLeft': '切换左侧面板',
+  'shortcut.view.toggleRight': '切换右侧面板',
+  'shortcut.view.zoomIn': '放大',
+  'shortcut.view.zoomOut': '缩小',
+  'shortcut.view.zoomReset': '重置缩放',
+  'shortcut.navigate.goToDefinition': '转到定义',
+  'shortcut.navigate.goToReference': '转到引用',
+  'shortcut.navigate.focusSearch': '聚焦搜索',
+  'shortcut.selection.selectAll': '全选',
+  'shortcut.selection.expand': '扩大选区',
+  'shortcut.selection.shrink': '缩小选区',
+  'shortcut.tree.revealActive': '在树中定位当前项',
+  'shortcut.tree.collapseAll': '全部折叠',
+  'shortcut.tree.expandAll': '全部展开',
+  'shortcut.tree.jumpParent': '跳到父节点',
+  'shortcut.tree.jumpChild': '跳到第一个子节点',
+  'shortcut.script.openEditor': '打开脚本编辑器',
+  'shortcut.script.run': '运行脚本',
+  'shortcut.script.save': '保存脚本',
+  'shortcut.script.format': '格式化脚本',
+  'shortcut.ecuc.addContainer': '添加子容器',
+  'shortcut.ecuc.deleteContainer': '删除容器',
+  'shortcut.ecuc.duplicateContainer': '复制容器',
+  'shortcut.ecuc.addParameter': '添加参数',
+  'shortcut.ecuc.editParameter': '编辑参数',
+  'shortcut.window.newWindow': '新建窗口',
+  'shortcut.window.closeWindow': '关闭窗口',
+  'shortcut.window.focusPanel': '聚焦面板',
+  'shortcut.help.showCheatSheet': '显示快捷键',
+  'shortcut.help.showDocs': '显示文档',
+  'shortcut.help.resetOnboarding': '重置引导教程',
+  'help.menu.resetOnboarding': '帮助 → 重置引导',
+  'shortcut.palette.toggle': '切换命令面板',
+  'shortcut.validation.nextError': '下一条校验错误',
+  'shortcut.validation.prevError': '上一条校验错误',
+  'shortcut.validation.togglePanel': '切换校验面板',
+  'shortcut.validation.focusPanel': '聚焦校验面板',
+  'shortcut.modifier.cmd': 'Cmd',
+  'shortcut.modifier.ctrl': 'Ctrl',
+  'shortcut.modifier.shift': 'Shift',
+  'shortcut.modifier.alt': 'Alt',
 };
 
 // ---------------------------------------------------------------------------
@@ -1196,6 +1396,97 @@ export const MessagesEn: Messages = {
     'Multiplicity violation at {path}: expected {required}, got {actual}',
   'error.applyMutation.concurrent-mutation':
     'Concurrent mutation detected: {planId} vs {conflictingPlanId}',
+  'headless.error.projectNotFound': 'Project file not found: {path}',
+  'headless.error.parseFailed': 'Failed to parse ARXML ({path}): {message}',
+  'headless.error.bswmdParseFailed': 'Failed to parse BSWMD: {message}',
+  'headless.error.patchNotFound': 'Patch file not found: {path}',
+  'headless.error.permissionDenied': 'Permission denied: {path}',
+  'headless.error.diskFull': 'Disk full: {path}',
+  'headless.error.pathTraversal': 'Parent traversal detected, rejected: {path}',
+  'headless.error.patchMissingVersion': 'Patch file missing autosarcfgPatchVersion field',
+  'headless.error.unsupportedPatchVersion': 'Unsupported patch version: {version}',
+  'headless.error.patchInvalidStep': 'Patch step invalid: {reason}',
+  'headless.error.patchInvalidValue': 'Step value type mismatch',
+  'headless.error.patchParseFailed': 'Patch file parse failed: {reason}',
+  'headless.error.mutationPathNotFound': 'Mutation path not found',
+  'headless.error.mutationMultiplicity': 'Multiplicity violation',
+  'headless.error.mutationCycle': 'Reference cycle detected',
+  'headless.error.fileLocked': 'File is locked: {path}',
+  'headless.error.strictModeWarning': 'Strict mode elevated warning to error',
+
+  // --- v1.6.0 Cluster U — Keyboard-First Power User ---
+  'commandPalette.title': 'Command Palette',
+  'commandPalette.placeholder': 'Type a command…',
+  'commandPalette.noResults': 'No matching commands',
+  'cheatSheet.title': 'Keyboard Shortcuts',
+  'cheatSheet.searchPlaceholder': 'Search shortcuts…',
+  'cheatSheet.closeAria': 'Close shortcut sheet',
+  'cheatSheet.bindingHint': 'Press ? at any time to open',
+  'shortcut.category.file': 'File',
+  'shortcut.category.edit': 'Edit',
+  'shortcut.category.view': 'View',
+  'shortcut.category.navigate': 'Navigate',
+  'shortcut.category.selection': 'Selection',
+  'shortcut.category.tree': 'Tree',
+  'shortcut.category.script': 'Script',
+  'shortcut.category.ecuc': 'ECUC',
+  'shortcut.category.window': 'Window',
+  'shortcut.category.help': 'Help',
+  'shortcut.category.palette': 'Palette',
+  'shortcut.category.validation': 'Validation',
+  'shortcut.file.open': 'Open Project',
+  'shortcut.file.save': 'Save',
+  'shortcut.file.saveAs': 'Save As',
+  'shortcut.file.close': 'Close Project',
+  'shortcut.file.recent': 'Recent Projects',
+  'shortcut.edit.undo': 'Undo',
+  'shortcut.edit.redo': 'Redo',
+  'shortcut.edit.cut': 'Cut',
+  'shortcut.edit.copy': 'Copy',
+  'shortcut.edit.paste': 'Paste',
+  'shortcut.edit.find': 'Find',
+  'shortcut.edit.replace': 'Replace',
+  'shortcut.view.toggleLeft': 'Toggle Left Panel',
+  'shortcut.view.toggleRight': 'Toggle Right Panel',
+  'shortcut.view.zoomIn': 'Zoom In',
+  'shortcut.view.zoomOut': 'Zoom Out',
+  'shortcut.view.zoomReset': 'Reset Zoom',
+  'shortcut.navigate.goToDefinition': 'Go to Definition',
+  'shortcut.navigate.goToReference': 'Go to Reference',
+  'shortcut.navigate.focusSearch': 'Focus Search',
+  'shortcut.selection.selectAll': 'Select All',
+  'shortcut.selection.expand': 'Expand Selection',
+  'shortcut.selection.shrink': 'Shrink Selection',
+  'shortcut.tree.revealActive': 'Reveal Active',
+  'shortcut.tree.collapseAll': 'Collapse All',
+  'shortcut.tree.expandAll': 'Expand All',
+  'shortcut.tree.jumpParent': 'Jump to Parent',
+  'shortcut.tree.jumpChild': 'Jump to First Child',
+  'shortcut.script.openEditor': 'Open Script Editor',
+  'shortcut.script.run': 'Run Script',
+  'shortcut.script.save': 'Save Script',
+  'shortcut.script.format': 'Format Script',
+  'shortcut.ecuc.addContainer': 'Add Container',
+  'shortcut.ecuc.deleteContainer': 'Delete Container',
+  'shortcut.ecuc.duplicateContainer': 'Duplicate Container',
+  'shortcut.ecuc.addParameter': 'Add Parameter',
+  'shortcut.ecuc.editParameter': 'Edit Parameter',
+  'shortcut.window.newWindow': 'New Window',
+  'shortcut.window.closeWindow': 'Close Window',
+  'shortcut.window.focusPanel': 'Focus Panel',
+  'shortcut.help.showCheatSheet': 'Show Shortcuts',
+  'shortcut.help.showDocs': 'Show Docs',
+  'shortcut.help.resetOnboarding': 'Reset Onboarding',
+  'help.menu.resetOnboarding': 'Help → Reset Onboarding',
+  'shortcut.palette.toggle': 'Toggle Command Palette',
+  'shortcut.validation.nextError': 'Next Validation Error',
+  'shortcut.validation.prevError': 'Previous Validation Error',
+  'shortcut.validation.togglePanel': 'Toggle Validation Panel',
+  'shortcut.validation.focusPanel': 'Focus Validation Panel',
+  'shortcut.modifier.cmd': 'Cmd',
+  'shortcut.modifier.ctrl': 'Ctrl',
+  'shortcut.modifier.shift': 'Shift',
+  'shortcut.modifier.alt': 'Alt',
 };
 
 // ---------------------------------------------------------------------------
