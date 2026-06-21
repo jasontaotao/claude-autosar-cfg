@@ -329,6 +329,14 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     for (const m of result.mutations) {
       const before = useArxmlStore.getState();
       if (before.doc === null) continue;
+      // Snapshot the diagnostics the store uses to surface action
+      // failures. Comparing before/after lets us detect when an
+      // action took the failure branch (e.g. BSWMD missing,
+      // references exist for cascade-delete) without conflating
+      // pre-existing state. The diff is cleared in the catch
+      // block below so the next mutation starts clean.
+      const errBefore = before.error;
+      const pendingDeleteBefore = before.pendingDelete;
       switch (m.kind) {
         case 'set-param': {
           // Map the script ParamValue to a typed core ParamValue.
@@ -337,8 +345,10 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
           // type tag mirroring whatever the user wrote.
           const existing = findParamInDoc(before.doc, m.containerPath, m.paramName);
           if (existing === null) {
-            // Path not found — skip silently (the store will surface
-            // a separate error if the user persists). Don't throw.
+            // Path not found — record it as a mutation error so the
+            // user sees the failure instead of a silent no-op
+            // (code-review H1).
+            writeErrors.push(`set-param: path not found ${m.containerPath}/${m.paramName}`);
             continue;
           }
           const newValue = scriptParamValueToCore(existing.type, m.newValue);
@@ -347,36 +357,46 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
         }
         case 'add-child': {
           // `addContainer` requires a BSWMD-derived `childDef`; the
-          // script engine does not have one. We round-trip through
-          // the public action which looks up the def internally and
-          // surfaces a localized error on failure. The script user
-          // does not see the dialog (it runs as a side effect of
-          // commit), so the error is captured in `arxmlState.error`
-          // for the next render — acceptable for Phase D.
+          // script engine does not have one. The action writes a
+          // localized error to `useArxmlStore.error` on failure —
+          // we diff that and forward into `writeErrors` so the
+          // script run reports a real status (code-review H1).
           before.addContainer(m.containerPath, m.newShortName);
           break;
         }
         case 'remove-child': {
-          // `deleteContainer` opens the cascade dialog if references
-          // point at the target; scripts want a non-interactive
-          // replay. Bypass the dialog by calling the core helper
-          // directly via a special-case action — for Phase D we use
-          // `deleteContainer` and accept the dialog short-circuit
-          // when refs exist (the action stores the pending delete
-          // rather than mutating). The renderer's existing UI flow
-          // handles the dialog separately.
-          //
-          // Future improvement: introduce a `removeWithCascade` action
-          // on the store that bypasses the dialog. Out of scope for
-          // this PR.
+          // `deleteContainer` opens the cascade dialog (sets
+          // `pendingDelete`) when references point at the target —
+          // the doc is NOT mutated in that branch. We detect the
+          // cascade short-circuit and surface a clear error so
+          // the script run does not silently claim success
+          // (code-review H2).
           before.deleteContainer(m.containerPath);
           break;
         }
       }
+      // Capture any new arxmlStore-level error / pending-delete
+      // surfaced by the action, then clear it so the next iteration
+      // starts from a clean slate. The user's view of the action
+      // failure lives in `runResult.errorMessage` (script run), not
+      // in the unrelated `useArxmlStore.error` toast.
+      const after = useArxmlStore.getState();
+      if (after.error !== null && after.error !== errBefore) {
+        writeErrors.push(`${m.kind} ${m.containerPath}: ${after.error}`);
+        useArxmlStore.setState({ error: null });
+      }
+      if (after.pendingDelete !== null && after.pendingDelete !== pendingDeleteBefore) {
+        // Cascade dialog would normally pop up here; for a script
+        // commit we abort the dialog and surface the reason.
+        writeErrors.push(
+          `remove-child ${m.containerPath}: cascade confirmation needed (${after.pendingDelete.references.length} inbound reference(s)) — script commits cannot present the dialog; rerun via the UI or pre-resolve the references`,
+        );
+        useArxmlStore.setState({ pendingDelete: null });
+      }
       // Only count a mutation as applied when the doc reference
       // actually changed (the store's no-op contract returns the same
       // `ArxmlDocument` reference when a path can't be resolved).
-      if (useArxmlStore.getState().doc !== before.doc) {
+      if (after.doc !== before.doc) {
         applied += 1;
       }
     }

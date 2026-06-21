@@ -593,6 +593,117 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
     });
     expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
   });
+
+  // --- Code-review HIGH issues: surface silent failure surfaces ---
+
+  it('set-param against a non-existent path is surfaced as an error (H1)', async () => {
+    const doc = makeDocWithParam(1);
+    useArxmlStore.getState().setDoc(doc, '/tmp/missing-path.arxml');
+    useScriptStore.setState({
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [
+          {
+            kind: 'set-param',
+            containerPath: '/EAS/EcuC/DoesNotExist',
+            paramName: 'X',
+            newValue: 1,
+          },
+        ],
+        durationMs: 0,
+      },
+    });
+    await useScriptStore.getState().applyMutation();
+    // The script run reports the path-not-found failure.
+    expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/path not found/);
+    expect(useScriptStore.getState().dirty).toBe(true);
+    // The doc is unchanged.
+    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+      | ArxmlModule
+      | undefined;
+    const general = ecuc?.children[0] as ArxmlContainer | undefined;
+    expect(general?.params.ConfigConsistencyRequired).toEqual({
+      type: 'integer',
+      value: 1,
+    });
+  });
+
+  it('remove-child on a path with active references is surfaced (H2)', async () => {
+    // Build a doc that has a container referenced by a `<REFERENCE>`
+    // param elsewhere. `deleteContainer` will short-circuit to the
+    // cascade dialog (sets `pendingDelete`); `applyMutation` should
+    // clear the dialog state and surface a "cascade confirmation
+    // needed" message instead of silently claiming success.
+    const referenced: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'RefdContainer',
+      params: {},
+      children: [],
+    };
+    const referencing: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'Referencer',
+      params: {
+        Ref: { type: 'reference', value: '/EAS/EcuC/RefdContainer' },
+      },
+      children: [],
+    };
+    const doc: ArxmlDocument = {
+      path: '/tmp/cascade.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'EAS',
+          path: '/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'EcuC',
+              params: {},
+              children: [referenced, referencing],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+    useArxmlStore.getState().setDoc(doc, '/tmp/cascade.arxml');
+    useScriptStore.setState({
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [
+          {
+            kind: 'remove-child',
+            containerPath: '/EAS/EcuC/RefdContainer',
+            shortName: 'RefdContainer',
+          },
+        ],
+        durationMs: 0,
+      },
+    });
+    await useScriptStore.getState().applyMutation();
+    // The script run reports the cascade short-circuit.
+    expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/cascade confirmation/);
+    // The doc is unchanged (deleteContainer took the pending branch).
+    const next = useArxmlStore.getState();
+    const ecuc = next.doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
+    expect(ecuc?.children.map((c) => (c as ArxmlContainer).shortName)).toEqual([
+      'RefdContainer',
+      'Referencer',
+    ]);
+    // The pending delete state was cleared (so the UI doesn't pop the
+    // dialog after the script run completes).
+    expect(next.pendingDelete).toBeNull();
+  });
 });
 
 describe('useScriptStore — appendProgress + getSelected + reset', () => {

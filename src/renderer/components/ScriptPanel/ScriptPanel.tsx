@@ -134,8 +134,14 @@ export function ScriptPanel({ onCommitMutation }: ScriptPanelProps = {}): JSX.El
     });
   };
 
-  const handleCommit = (): void => {
-    applyMutation();
+  const handleCommit = async (): Promise<void> => {
+    // Sprint v1.5.1 PR(4) — `applyMutation` is now async and
+    // performs an atomic disk write. We MUST await the call so
+    // `onCommitMutation` (which may close the panel / navigate
+    // away) runs only after the in-memory mutation and disk
+    // write have settled. A fire-and-forget call would race the
+    // user's next action against the write (code-review H3).
+    await applyMutation();
     onCommitMutation?.();
   };
 
