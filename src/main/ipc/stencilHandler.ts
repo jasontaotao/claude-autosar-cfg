@@ -1,7 +1,8 @@
-// v1.8.0 K Stencil Wizard — Task 4 + Task 8 IPC handler.
+// v1.8.0 K Stencil Wizard — Task 4 + Task 8 + Task 9 IPC handler.
 //
 // Wires the renderer-callable `stencil:generate:v1` IPC channel to the
-// BSWMD-free builder dispatcher (`buildStencil`) and the core ARXML
+// BSWMD-free builder dispatcher (`buildStencil`), the with-BSWMD
+// wrapper (`buildWithBswmd`, Task 9), and the core ARXML
 // serializer. The handler is intentionally split into a pure function
 // (`handleStencilGenerate`) and a thin registration shim
 // (`registerStencilHandler`) so the unit tests exercise the pure path
@@ -17,10 +18,13 @@
 // and infos do not block.
 //
 // `with-bswmd` mode intentionally skips the gate here — Task 9 owns
-// that path's BSWMD merge + its own validation hook.
+// that path's BSWMD merge via the v1.5.1 A+C `applyPatchSteps`
+// engine, which validates the merged tree inline. Running the SWS
+// gate on top would re-walk the same doc with `schemaLayer: null`
+// (the gate's call site doesn't see `req.bswmds`) and add no signal.
 //
 // CLI parity is deferred to v1.9.0+. See
-// `docs/superpowers/plans/2026-06-21-v1-8-0-k-stencil.md` Tasks 4 + 8.
+// `docs/superpowers/plans/2026-06-21-v1-8-0-k-stencil.md` Tasks 4 + 8 + 9.
 
 import { ipcMain } from 'electron';
 
@@ -35,6 +39,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import { buildStencil } from '../stencil/builder.js';
 import type { StencilFamily, StencilRequest, StencilResponse } from '../stencil/types.js';
+import { buildWithBswmd } from '../stencil/with-bswmd.js';
 
 /**
  * Suggested filename per family. Mirrors the AUTOSAR SWS convention
@@ -109,12 +114,33 @@ export async function handleStencilGenerate(req: StencilRequest): Promise<Stenci
   // merged result — a false negative is worse than running the
   // validator twice, so we defer entirely.
   //
-  // Per Task 9 scope, with-bswmd is currently served by the same
-  // free-mode path until Task 9 lands; we just skip the gate for it.
+  // Task 9 decision: skip the gate for `with-bswmd` mode. Rationale:
+  // `buildWithBswmd` already routes the merge through the v1.5.1 A+C
+  // `applyPatchSteps` engine, which validates the merged tree
+  // inline (per-step error aggregation in `ApplyResult.errors[]`).
+  // Running the SWS gate on top would re-walk the same doc with the
+  // same engine inputs but no extra BSWMD context (the gate sees
+  // `schemaLayer: null` in the BSWMD-free path; for `with-bswmd` it
+  // would still be null because the gate's `schemaLayer` is sourced
+  // from the G engine's call site, not from `req.bswmds`). The
+  // merged doc is already validated; the gate would add no signal
+  // and could only produce false positives from the missing
+  // schemaLayer context.
   const shouldGate = req.gate === true && req.mode === 'free';
 
   try {
-    const doc = buildStencil(req.family);
+    // Task 9 dispatch: `with-bswmd` mode merges the user BSWMDs
+    // (sourced from `useArxmlStore.bswmdSchemas` via the renderer)
+    // into the skeleton via the v1.5.1 A+C `applyPatchSteps` engine.
+    // `free` mode keeps the original BSWMD-free path. The renderer
+    // sends `bswmds: useArxmlStore.getState().bswmdSchemas` in the
+    // request when the user picks `with-bswmd`; `buildWithBswmd`
+    // tolerates an empty list (the engine is idempotent on empty
+    // steps per `core/mutation/__tests__/applyPatchSteps.test.ts`).
+    const doc =
+      req.mode === 'with-bswmd'
+        ? buildWithBswmd(req.family, req.bswmds ?? [])
+        : buildStencil(req.family);
     const serialized = serializeArxml(doc);
     if (!serialized.ok) {
       // serializeArxml returns a typed SerializeError. Surface it as a
