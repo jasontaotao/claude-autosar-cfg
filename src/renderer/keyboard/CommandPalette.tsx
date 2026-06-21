@@ -18,9 +18,8 @@ import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
 import { t } from '@shared/i18n';
 
-import { trapFocus } from './a11y/focusTrap.js';
-import { bindingToAriaKeyshortcuts } from './a11y/ariaKeyshortcuts.js';
 import type { CommandCategory } from './ShortcutRegistry.js';
+import { trapFocus } from './a11y/focusTrap.js';
 
 export interface PaletteCommand {
   readonly id: string;
@@ -78,9 +77,10 @@ export function CommandPalette({
     const dialog = document.querySelector('.command-palette-panel');
     if (dialog instanceof HTMLElement) {
       const handle = trapFocus(dialog);
+      const opener = previouslyFocused.current;
       return () => {
         handle.release();
-        previouslyFocused.current?.focus();
+        opener?.focus();
       };
     }
     return undefined;

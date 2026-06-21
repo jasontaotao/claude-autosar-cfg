@@ -26,7 +26,6 @@ import {
   initialTourState,
   reduceTour,
 } from '../../onboarding/tourState.js';
-
 import type { ArxmlState } from '../useArxmlStore.js';
 
 export interface TourSlice {

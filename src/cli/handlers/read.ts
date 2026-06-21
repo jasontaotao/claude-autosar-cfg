@@ -12,10 +12,9 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { parseArxml } from '../../core/arxml/parser.js';
-import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import { loadManifest } from '../../core/project/manifest.js';
-
 import type { ReadArgs, ReadResult } from '../../shared/headless/ipc-contract.js';
+import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import { failWith } from '../command-dispatcher.js';
 
 export async function readHeadlessProject(args: ReadArgs): Promise<ReadResult> {

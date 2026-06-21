@@ -36,4 +36,3 @@ export {
   modToken,
   bindingsEqual,
 } from './normalizeKey.js';
-export type { SyntheticKeyEvent } from './normalizeKey.js';

@@ -10,15 +10,15 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { NormalizedDocument } from '../../../shared/normalized-document.js';
 import { reduceTour } from '../../../renderer/onboarding/tourState.js';
 import { useArxmlStore } from '../../../renderer/store/useArxmlStore.js';
+import type { NormalizedDocument } from '../../../shared/normalized-document.js';
 import type { SchemaLayer } from '../../validation/runtimeSchema.js';
+import { RuleRegistry } from '../RuleRegistry.js';
 import {
   installTourSubscription,
   runValidation,
 } from '../engine.js';
-import { RuleRegistry } from '../RuleRegistry.js';
 import type { ValidatorRule } from '../types.js';
 
 const EMPTY_DOC: NormalizedDocument = {

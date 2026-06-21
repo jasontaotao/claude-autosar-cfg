@@ -14,12 +14,12 @@ import { describe, expect, it } from 'vitest';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
 import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import type { EcucContainerSchemaEntry } from '../../validation/types.js';
-import { runValidation } from '../engine.js';
 import { RuleRegistry } from '../RuleRegistry.js';
-import { rule as c1 } from '../starter/SWS_COM_PDUID_UNIQUE.js';
-import { rule as c3 } from '../starter/SWS_PDUR_ROUTING_COMPLETE.js';
-import { rule as c4 } from '../starter/SWS_ECUC_MULTIPLICITY_MIN.js';
+import { runValidation } from '../engine.js';
 import { rule as c5 } from '../starter/SWS_BSWMD_DEPS_PRESENT.js';
+import { rule as c1 } from '../starter/SWS_COM_PDUID_UNIQUE.js';
+import { rule as c4 } from '../starter/SWS_ECUC_MULTIPLICITY_MIN.js';
+import { rule as c3 } from '../starter/SWS_PDUR_ROUTING_COMPLETE.js';
 
 function buildFixtureDocument(): NormalizedDocument {
   const pduChildren = [

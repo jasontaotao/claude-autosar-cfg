@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
-import { t } from '@shared/i18n';
+import { t, type MessageKey } from '@shared/i18n';
 
 import type { CommandCategory } from './ShortcutRegistry.js';
 
@@ -27,7 +27,7 @@ export interface CheatSheetEntry {
 
 export interface CheatSheetSection {
   readonly category: CommandCategory;
-  readonly categoryLabelKey: string;
+  readonly categoryLabelKey: MessageKey;
   readonly items: readonly CheatSheetEntry[];
 }
 

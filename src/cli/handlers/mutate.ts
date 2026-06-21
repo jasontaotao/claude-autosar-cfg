@@ -11,9 +11,14 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
-import type { MutateArgs, MutateResult, MutationStepError } from '../../shared/headless/ipc-contract.js';
-import { parsePatchDocument } from '../patch-parser.js';
+import type {
+  HeadlessError,
+  MutateArgs,
+  MutateResult,
+  MutationStepError,
+} from '../../shared/headless/ipc-contract.js';
 import { failWith } from '../command-dispatcher.js';
+import { parsePatchDocument } from '../patch-parser.js';
 
 export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateResult> {
   const start = Date.now();
@@ -48,7 +53,7 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
       failWith({ kind: 'unsupported-patch-version', version: parsed.version }, 3);
       throw new Error('unreachable');
     }
-    const error: import('../../shared/headless/ipc-contract.js').HeadlessError =
+    const error: HeadlessError =
       parsed.line !== undefined
         ? { kind: 'patch-invalid', reason: parsed.reason, line: parsed.line }
         : { kind: 'patch-invalid', reason: parsed.reason };

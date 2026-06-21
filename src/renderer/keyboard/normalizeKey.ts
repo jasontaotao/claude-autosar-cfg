@@ -67,10 +67,12 @@ function modifiersFromEvent(e: KeyboardEvent | SyntheticKeyEvent): readonly Modi
   // platform so a single registry entry handles both ecosystems.
   if ((e.ctrlKey === true && mod === 'Mod') || (e.metaKey === true && mod === 'Mod')) {
     mods.push('Mod');
-  } else if (e.ctrlKey === true) {
-    mods.push('Ctrl');
-  } else if (e.metaKey === true) {
-    mods.push('Meta');
+  } else {
+    // Fallback path emits the raw OS-level token (not part of the
+    // canonical `ModifierToken` set) — used only when callers pass a
+    // synthetic event without a `mod` alias.
+    if (e.ctrlKey === true) mods.push('Mod');
+    if (e.metaKey === true) mods.push('Mod');
   }
   if (e.altKey === true) mods.push('Alt');
   if (e.shiftKey === true) mods.push('Shift');

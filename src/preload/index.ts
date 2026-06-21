@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
-import { getRendererPlatform } from './platform.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -40,6 +39,8 @@ import type {
   TemplateCopyResponse,
   TemplateListResponse,
 } from '../shared/types.js';
+
+import { getRendererPlatform } from './platform.js';
 
 const api = {
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),

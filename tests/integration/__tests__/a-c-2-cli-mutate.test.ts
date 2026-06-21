@@ -1,9 +1,10 @@
 // A+C integration test #2 — CLI `mutate` happy-path + invalid patch (A+C spec §10.6 row 2).
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { dispatchCommand } from '../../../src/cli/command-dispatcher.js';
 import type { ParsedArgs } from '../../../src/cli/commander.js';

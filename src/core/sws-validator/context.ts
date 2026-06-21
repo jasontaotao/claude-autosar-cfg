@@ -12,6 +12,7 @@ import type {
   NormalizedModule,
 } from '../../shared/normalized-document.js';
 import type { SchemaLayer } from '../validation/runtimeSchema.js';
+
 import type { ValidationContext } from './types.js';
 
 /**

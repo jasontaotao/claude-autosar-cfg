@@ -11,8 +11,8 @@
 
 import type { ReactNode } from 'react';
 
-import type { TourState } from './tourState.js';
 import { TourOverlay } from './TourOverlay.js';
+import type { TourState } from './tourState.js';
 
 type Props = {
   /** Tour state from the slice; provider does not subscribe to the store itself. */

@@ -6,7 +6,7 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // @vitest-environment jsdom
 
@@ -129,9 +129,3 @@ describe('CommandPalette (v1.6.0 U)', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
-
-// Lightweight vi.fn polyfill — vitest exports it via the global
-// namespace in the jsdom env, but referencing the explicit import
-// keeps the file portable when imported by tools that don't auto-
-// expose globals (e.g. isolated TS type-checks).
-import { vi } from 'vitest';

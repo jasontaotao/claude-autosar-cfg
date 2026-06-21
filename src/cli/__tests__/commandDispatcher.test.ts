@@ -10,8 +10,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { dispatchCommand, HeadlessFailureError } from '../command-dispatcher.js';
-import { EXIT_SUCCESS, EXIT_FATAL, EXIT_INVALID_INPUT, EXIT_WARNING } from '../exitCodes.js';
 import type { ParsedArgs } from '../commander.js';
+import { EXIT_SUCCESS, EXIT_FATAL, EXIT_INVALID_INPUT, EXIT_WARNING } from '../exitCodes.js';
 
 const COM_ARXML = 'D:/claude_proj2/claude-AutosarCfg/tests/fixtures/arxml/Com_Com.arxml';
 

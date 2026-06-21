@@ -7,6 +7,7 @@
 
 import type { ValidateArgs, ValidateResult } from '../../shared/headless/ipc-contract.js';
 import { HEADLESS_VALIDATE_RESULT } from '../../shared/headless/ipc-contract.js';
+
 import { readHeadlessProject } from './read.js';
 
 export async function validateHeadlessProject(args: ValidateArgs): Promise<ValidateResult> {
@@ -40,8 +41,7 @@ export async function validateHeadlessProject(args: ValidateArgs): Promise<Valid
  * via the `useArxmlStore` subscribe hook (per A+C spec §6 Channel 3).
  */
 function emitValidateResult(result: ValidateResult): void {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[autosarcfg] (stub) ${HEADLESS_VALIDATE_RESULT} — ${result.results.length} result(s)`,
+  process.stderr.write(
+    `[autosarcfg] (stub) ${HEADLESS_VALIDATE_RESULT} — ${result.results.length} result(s)\n`,
   );
 }

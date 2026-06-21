@@ -17,10 +17,10 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { SchemaLayer } from '../../../src/core/validation/runtimeSchema.js';
-import type { NormalizedDocument } from '../../../src/shared/normalized-document.js';
 import { buildValidationContext } from '../../../src/core/sws-validator/context.js';
 import { InMemoryLogSink, runRuleInSandbox } from '../../../src/core/sws-validator/sandbox/vm-runner.js';
+import type { SchemaLayer } from '../../../src/core/validation/runtimeSchema.js';
+import type { NormalizedDocument } from '../../../src/shared/normalized-document.js';
 
 const SCRIPT_VM_RUNNER = resolve(
   __dirname,

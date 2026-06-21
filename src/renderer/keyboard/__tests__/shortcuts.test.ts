@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { ShortcutRegistry } from '../ShortcutRegistry.js';
-
 import { allCommands } from '../shortcuts/index.js';
 
 describe('shortcut registry integration (v1.6.0 U)', () => {

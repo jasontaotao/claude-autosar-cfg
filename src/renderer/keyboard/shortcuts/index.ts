@@ -5,10 +5,14 @@
 // Callers iterate it to build the ShortcutRegistry, palette entries,
 // and cheat sheet sections.
 
-import type { Command } from '../ShortcutRegistry.js';
+import type { MessageKey } from '@shared/i18n';
 
-import { editCommands } from './edit.js';
+import type { Command } from '../ShortcutRegistry.js';
+import type { CommandCategory } from '../types.js';
+
+
 import { ecucCommands } from './ecuc.js';
+import { editCommands } from './edit.js';
 import { fileCommands } from './file.js';
 import { helpCommands } from './help.js';
 import { navigateCommands } from './navigate.js';
@@ -39,7 +43,7 @@ export const allCommands: readonly Command[] = [
 
 /** Map a command category to its i18n label key (used by the cheat
  *  sheet section header). The keys are flat to keep the lookup O(1). */
-export const CATEGORY_LABEL_KEYS: Readonly<Record<string, string>> = {
+export const CATEGORY_LABEL_KEYS: Readonly<Record<CommandCategory, MessageKey>> = {
   file: 'shortcut.category.file',
   edit: 'shortcut.category.edit',
   view: 'shortcut.category.view',

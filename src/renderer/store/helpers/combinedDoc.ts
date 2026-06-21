@@ -432,21 +432,23 @@ function detectCombinedCollision(
  */
 function wrapPackageUnderSegment(pkg: ArxmlPackage, segment: string): ArxmlPackage {
   const newPath = `/${segment}${pkg.path}`;
+  const wrappedPackages = pkg.packages?.map((sp) => wrapNestedPackage(sp, segment));
   return {
     ...pkg,
     shortName: segment,
     path: newPath,
-    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    ...(wrappedPackages !== undefined ? { packages: wrappedPackages } : {}),
     elements: pkg.elements.map((el) => wrapElement(el, newPath)),
   };
 }
 
 function wrapNestedPackage(pkg: ArxmlPackage, segment: string): ArxmlPackage {
   const newPath = `/${segment}${pkg.path}`;
+  const wrappedPackages = pkg.packages?.map((sp) => wrapNestedPackage(sp, segment));
   return {
     ...pkg,
     path: newPath,
-    packages: pkg.packages?.map((sp) => wrapNestedPackage(sp, segment)),
+    ...(wrappedPackages !== undefined ? { packages: wrappedPackages } : {}),
     elements: pkg.elements.map((el) => wrapElement(el, newPath)),
   };
 }

@@ -12,9 +12,10 @@
 
 import { DEFAULT_LOCALE, t } from '../../shared/i18n.js';
 import type { Locale } from '../../shared/i18n.js';
+
+import type { RuleRegistry } from './RuleRegistry.js';
 import { buildValidationContext } from './context.js';
 import { subscribeToValidationPaused } from './hooks/useTourState.js';
-import type { RuleRegistry } from './RuleRegistry.js';
 import type {
   InternalValidatorResult,
   RunInput,
@@ -106,7 +107,7 @@ export async function runValidation(
   const results: InternalValidatorResult[] = [];
   const timedOut: string[] = [];
   let rulesRun = 0;
-  let rulesSkipped = allRules.length - rules.length;
+  const rulesSkipped = allRules.length - rules.length;
 
   for (const rule of rules) {
     const ruleStart = Date.now();

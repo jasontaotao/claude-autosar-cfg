@@ -33,7 +33,7 @@ export function TourOverlay({
   onSkip,
   onFinish,
 }: Props): JSX.Element {
-  const step: TourStepDef = TOUR_STEPS[currentStep];
+  const step: TourStepDef = TOUR_STEPS[currentStep]!;
   const [rect, setRect] = useState<DOMRect | null>(() => resolveTourTarget(step.targetId));
 
   // Re-resolve on window resize so the spotlight tracks layout changes.

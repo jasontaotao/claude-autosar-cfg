@@ -8,10 +8,11 @@
 // Demo ECU integration test (W-3 / W-5) once W cluster ships
 // `samples/arxml/demo-ecu/demo.autosarcfg.json`.
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { writeFile, mkdtemp, rm, mkdir, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { dispatchCommand } from '../../../src/cli/command-dispatcher.js';
 import type { ParsedArgs } from '../../../src/cli/commander.js';

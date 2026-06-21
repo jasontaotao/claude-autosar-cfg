@@ -10,6 +10,7 @@
 
 import type { ValidatorResult } from '../../shared/headless/ipc-contract.js';
 import { t, type Locale } from '../../shared/i18n.js';
+
 import type { InternalValidatorResult, Severity } from './types.js';
 
 /**

@@ -11,11 +11,11 @@
 // at the dispatcher level → emit + exit code). Keeps handlers testable.
 
 import type { HeadlessResult, HeadlessFailure, HeadlessError } from '../shared/headless/ipc-contract.js';
-import { EXIT_SUCCESS, EXIT_FATAL, EXIT_WARNING, type HeadlessExitCode } from './exitCodes.js';
-import type { ParsedArgs } from './commander.js';
 
-import { readHeadlessProject } from './handlers/read.js';
+import type { ParsedArgs } from './commander.js';
+import { EXIT_SUCCESS, EXIT_FATAL, EXIT_WARNING, type HeadlessExitCode } from './exitCodes.js';
 import { mutateHeadlessProject } from './handlers/mutate.js';
+import { readHeadlessProject } from './handlers/read.js';
 import { validateHeadlessProject } from './handlers/validate.js';
 
 /** Thrown by handlers to short-circuit with a structured failure. */

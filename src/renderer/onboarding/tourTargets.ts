@@ -7,13 +7,15 @@
 //   - resolveTourTarget 返回 DOMRect 或 null (centered fallback)
 //   - 业务注释中文, 技术 API 注释英文
 
+import type { MessageKey } from '@shared/i18n';
+
 export type TourStepPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center';
 
 export interface TourStepDef {
   readonly index: 0 | 1 | 2 | 3 | 4;
   readonly targetId: string;
-  readonly titleKey: string;
-  readonly bodyKey: string;
+  readonly titleKey: MessageKey;
+  readonly bodyKey: MessageKey;
   readonly placement: TourStepPlacement;
 }
 

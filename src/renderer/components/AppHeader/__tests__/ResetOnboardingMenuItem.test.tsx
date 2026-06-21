@@ -11,11 +11,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 // @vitest-environment jsdom
 
-import { ResetOnboardingMenuItem } from '../ResetOnboardingMenuItem.js';
 import {
   createStubTourIpcContract,
   type TourIpcContract,
 } from '../../../lib/TourIpcContract.js';
+import { ResetOnboardingMenuItem } from '../ResetOnboardingMenuItem.js';
 
 describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
   it('renders the menu item when project is open', () => {

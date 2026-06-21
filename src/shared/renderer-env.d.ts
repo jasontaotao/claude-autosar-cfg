@@ -1,4 +1,4 @@
-import type { AutosarApi } from '../preload/index';
+import type { AutosarApi } from '../preload/index.js';
 
 declare global {
   interface Window {
