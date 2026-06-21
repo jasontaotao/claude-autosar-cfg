@@ -30,6 +30,8 @@ import type { ProjectManifest } from '@shared/project';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 
+import { openContextMenu } from './ContextMenu';
+
 import './ProjectPanel.css';
 
 interface FileListProps {
@@ -41,6 +43,18 @@ interface FileListProps {
   readonly addLabel?: string;
   readonly addAriaLabel?: string;
   readonly onRemove?: (path: string) => void;
+  /**
+   * Sprint 17 P3 T3.1 — optional row-level right-click handler. When set,
+   * FileList attaches an `onContextMenu` to each `<li>` that calls
+   * `openContextMenu` with `{path, kind, shortName}` so the global
+   * ContextMenu opens with the right target. P3 only enables this for
+   * the BSWMD row section (the kind discriminator is `'bswmd'`); ARXML
+   * rows keep their existing click-only behavior.
+   */
+  readonly onContextMenuRow?: (
+    path: string,
+    e: { readonly clientX: number; readonly clientY: number },
+  ) => void;
   /**
    * Sprint 14 / Task 11 — optional row-trailing render prop. When set,
    * FileList renders the returned nodes after the row's remove button
@@ -63,6 +77,7 @@ function FileList({
   addLabel,
   addAriaLabel,
   onRemove,
+  onContextMenuRow,
   renderTrailing,
 }: FileListProps): JSX.Element {
   // Read locale on demand so re-renders track the store-level flip
@@ -89,7 +104,25 @@ function FileList({
       ) : (
         <ul className="project-panel-list" data-testid={`${testIdPrefix}-list`}>
           {paths.map((p, idx) => (
-            <li key={p} className="project-panel-list-item">
+            <li
+              key={p}
+              className="project-panel-list-item"
+              // Sprint 17 P3 T3.1 — row-level right-click handler. We
+              // preventDefault so the browser's native context menu
+              // does not also appear (same UX pattern as the Tree's
+              // TreeNode onContextMenu in Sprint 15). The host
+              // (ProjectPanelInfo) wires onContextMenuRow only for
+              // the BSWMD section; the ARXML section leaves the prop
+              // undefined so this handler no-ops.
+              onContextMenu={
+                onContextMenuRow === undefined
+                  ? undefined
+                  : (e) => {
+                      e.preventDefault();
+                      onContextMenuRow(p, { clientX: e.clientX, clientY: e.clientY });
+                    }
+              }
+            >
               <span className="project-panel-list-name" title={p}>
                 {basename(p)}
               </span>
@@ -271,6 +304,19 @@ export function ProjectPanelInfo({
         addLabel={t(locale, 'projectPanel.bswmd.add')}
         addAriaLabel={t(locale, 'projectPanel.bswmd.addAria', { name: '' })}
         onRemove={onRemoveBswmd}
+        // Sprint 17 P3 T3.1 — wire right-click on the BSWMD row to
+        // open the global ContextMenu with `kind: 'bswmd'`. The menu
+        // renders the "Remove module" item (added in T3.3) which
+        // dispatches `removeBswmdWithFullFlow(path)`. The ARXML row
+        // does NOT get this wiring — ARXML removal is handled by
+        // the existing × button + the ECUC add/delete flow.
+        onContextMenuRow={(p, e) => {
+          openContextMenu(
+            { path: p, kind: 'bswmd', shortName: basename(p) },
+            e.clientX,
+            e.clientY,
+          );
+        }}
         // Sprint 14 / Task 11 — trailing widgets per BSWMD row. Each
         // row gets:
         //   - 📋 N/M chip — uses `getActiveModules` (T4) to surface

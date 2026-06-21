@@ -289,8 +289,13 @@ export function App(): JSX.Element {
   // we can read clientX / clientY for menu positioning. The
   // closure here is intentionally thin — all routing logic lives in
   // `handleContextMenuAction` below.
+  //
+  // Sprint 17 P3 — `kind` is widened to include `'bswmd'` so a
+  // Tree module-kind right-click can also route through this host.
+  // The Tree-level wiring (T3.2) re-computes the kind from
+  // `documents[].sourceBswmdPath` so the menu item set is correct.
   const handleContextMenu = useCallback(
-    (path: string, kind: 'module' | 'container' | 'reference', e: ReactMouseEvent): void => {
+    (path: string, kind: 'module' | 'container' | 'reference' | 'bswmd', e: ReactMouseEvent): void => {
       // Extract `shortName` from the path's last segment so the
       // menu's delete label can show what is being deleted.
       const shortName = path.split('/').filter(Boolean).pop() ?? '';

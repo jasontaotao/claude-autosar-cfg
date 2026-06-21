@@ -67,7 +67,7 @@ export interface LeftPanelProps {
    */
   readonly onContextMenu?: (
     path: string,
-    kind: 'module' | 'container' | 'reference',
+    kind: 'module' | 'container' | 'reference' | 'bswmd',
     e: ReactMouseEvent,
   ) => void;
 }

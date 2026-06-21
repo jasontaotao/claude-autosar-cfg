@@ -39,10 +39,14 @@ import './ContextMenu.css';
 
 /** The "target" of a right-click: the path of the TreeNode the user
  *  clicked, its discriminator kind, and its shortName (used in the
- *  delete label so the user can confirm what they're about to remove). */
+ *  delete label so the user can confirm what they're about to remove).
+ *  Sprint 17 P3 T3.3 adds `'bswmd'` for the BSWMD row right-click
+ *  (ProjectPanel `<li>` + Tree module-kind). The kind discriminator
+ *  is widened here so the P3 wiring (T3.1 + T3.2) compiles against
+ *  the same union before T3.3 ships the matching menu item. */
 export type ContextMenuTarget = {
   readonly path: string;
-  readonly kind: 'module' | 'container' | 'reference';
+  readonly kind: 'module' | 'container' | 'reference' | 'bswmd';
   readonly shortName: string;
 };
 

@@ -13,8 +13,11 @@ import { useCallback, type KeyboardEvent, type MouseEvent, type ReactNode } from
 
 /** Discriminator for the visual kind indicator (replaces the previous
  *  text subtitle on element rows). Packages use the text "package" badge
- *  instead — they do not have a `kind` field. */
-type TreeKind = 'module' | 'container' | 'reference';
+ *  instead — they do not have a `kind` field. Sprint 17 P3 T3.2 adds
+ *  `'bswmd'` so the Tree module-kind right-click can route through
+ *  the same ContextMenu plumbing (the kind is recomputed in the host
+ *  before forwarding to `openContextMenu`). */
+type TreeKind = 'module' | 'container' | 'reference' | 'bswmd';
 
 interface TreeNodeProps {
   label: string;

@@ -23,7 +23,7 @@ import { TreeNode } from './TreeNode.js';
 // separate TreeNode import just for the onContextMenu callback type.
 // `TreeKind` is declared inside TreeNode.tsx as a non-exported type
 // alias; mirror it here for the public type surface.
-type TreeKind = 'module' | 'container' | 'reference';
+type TreeKind = 'module' | 'container' | 'reference' | 'bswmd';
 
 export interface ArxmlStoreSlice {
   // Sprint 13 Stage 3.5 — Tree reads `displayDoc` (the synthesised
