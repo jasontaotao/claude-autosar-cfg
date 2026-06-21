@@ -53,7 +53,7 @@ export function ArxmlPanel(): JSX.Element | null {
       : activeDocumentPath !== null && dirtyPaths.has(activeDocumentPath);
 
   return (
-    <footer className="status-footer" data-testid="status-footer">
+    <footer className="status-footer" data-testid="status-footer" data-tour-id="arxml-panel">
       {viewMode === 'combined' && (
         <>
           <span className="status-item">

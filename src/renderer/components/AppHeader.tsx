@@ -372,7 +372,7 @@ export function AppHeader({
   const canSaveProject = project !== null && !state.busy && projectDirtyCount === 0;
 
   return (
-    <header className="app-header" data-testid="app-header">
+    <header className="app-header" data-testid="app-header" data-tour-id="app-header">
       <div className="app-header-left">
         <span className="app-logo" aria-hidden="true">
           ⊟
@@ -506,6 +506,7 @@ export function AppHeader({
           disabled={!canSaveProject}
           className="app-btn app-btn-save"
           data-testid="btn-project-save"
+          data-tour-id="app-save"
           title={
             projectDirtyCount > 0
               ? t(locale, 'app.project.saveBlockedDirty', {

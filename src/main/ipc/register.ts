@@ -41,6 +41,7 @@ import type {
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
+import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
@@ -399,6 +400,15 @@ export function registerIpcHandlers(): void {
       return bswmdDeleteHandler(req);
     },
   );
+
+  // v1.6.0 U — `feature-flags:get` handler. Returns the current
+  // experimental flag set (all OFF by default; enabling a flag
+  // requires a future change to read the value from a config file).
+  // Renderer-side fallback (per W spec §5.3) defaults to all-OFF
+  // when the channel is missing; this handler is the real source.
+  // Channel name matches `TOUR_CHANNELS.FEATURE_FLAGS_GET` in
+  // `src/shared/ipc/tourReset.ts`.
+  ipcMain.handle('feature-flags:get', async () => featureFlagsGetHandler());
 
   // Sprint 14 #1 — script engine IPC. The 4 invoke handlers are
   // wired to the dedicated `script-handler.ts` module so they can be

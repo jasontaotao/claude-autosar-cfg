@@ -13,17 +13,9 @@
 // zero-overhead when OFF).
 
 import type { Locale } from '../../shared/i18n.js';
+import type { FeatureFlags } from '../../shared/ipc/featureFlags.js';
 
-export interface FeatureFlagsResponse {
-  readonly experimental: {
-    readonly onboarding: boolean;
-    readonly streaming: boolean;
-    readonly indexedDb: boolean;
-    readonly headlessCli: boolean;
-    readonly swsValidator: boolean;
-    readonly keyboardFirst: boolean;
-  };
-}
+export type FeatureFlagsResponse = FeatureFlags;
 
 interface AutosarApiLike {
   getFeatureFlags?: () => Promise<FeatureFlagsResponse>;

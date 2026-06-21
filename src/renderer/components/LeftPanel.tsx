@@ -96,7 +96,7 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
   const errorCount = lastValidatedAt !== null ? errors.length : 0;
 
   return (
-    <div className="left-panel">
+    <div className="left-panel" data-tour-id="left-panel">
       {/* Tab bar */}
       <div className="left-panel-tabs" role="tablist">
         {TABS.map((tab) => {

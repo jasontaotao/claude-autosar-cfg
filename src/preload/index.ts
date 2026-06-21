@@ -131,6 +131,21 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
     return () => ipcRenderer.off(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
   },
+  // v1.6.0 U — feature flags. Renderer reads flags via
+  // `autosarApi.getFeatureFlags()` (see
+  // `src/renderer/config/featureFlags.ts`). The main-process handler
+  // is registered in `src/main/ipc/register.ts` and returns
+  // all-OFF by default; enabling a flag is a future change.
+  getFeatureFlags: (): Promise<{
+    experimental: {
+      onboarding: boolean;
+      streaming: boolean;
+      indexedDb: boolean;
+      headlessCli: boolean;
+      swsValidator: boolean;
+      keyboardFirst: boolean;
+    };
+  }> => ipcRenderer.invoke('feature-flags:get'),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

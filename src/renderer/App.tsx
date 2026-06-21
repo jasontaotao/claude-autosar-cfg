@@ -64,6 +64,7 @@ import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useProjectActions } from './hooks/useProjectActions';
 import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
+import { TourProvider } from './onboarding/TourProvider.js';
 import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
@@ -348,8 +349,38 @@ export function App(): JSX.Element {
     setScriptPanelOpen((v) => !v);
   }, []);
 
+  // Sprint 16 v1.6.0 W — Onboarding tour wiring. The host reads
+  // the tour state + locale from the store and dispatches advance/
+  // back/skip/finish actions. The TourProvider renders the overlay
+  // inline when `tour.kind === 'running'`. The tour never blocks
+  // project work — the overlay's z-index sits above the workspace
+  // but below the dialog hosts (PromptRoot / ConfirmRoot).
+  const tourState = useArxmlStore((s) => s.tour);
+  const dispatchTour = useArxmlStore((s) => s.dispatchTour);
+  const tourLocale = useArxmlStore((s) => s.locale);
+  const onTourAdvance = useCallback((): void => {
+    dispatchTour({ type: 'advance' });
+  }, [dispatchTour]);
+  const onTourBack = useCallback((): void => {
+    dispatchTour({ type: 'back' });
+  }, [dispatchTour]);
+  const onTourSkip = useCallback((): void => {
+    dispatchTour({ type: 'skip' });
+  }, [dispatchTour]);
+  const onTourFinish = useCallback((): void => {
+    dispatchTour({ type: 'reset' });
+  }, [dispatchTour]);
+
   return (
-    <div className="app-shell">
+    <TourProvider
+      tourState={tourState}
+      locale={tourLocale}
+      onAdvance={onTourAdvance}
+      onBack={onTourBack}
+      onSkip={onTourSkip}
+      onFinish={onTourFinish}
+    >
+      <div className="app-shell">
       <AppHeader
         onEcucModuleSelect={handleMenuSelectEcucModule}
         canSelectEcucModule={canSelectEcucModule}
@@ -394,7 +425,7 @@ export function App(): JSX.Element {
             )}
           </Panel>
           <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
-          <Panel id="workspace-right">
+          <Panel id="workspace-right" data-tour-id="right-pane-content">
             <ParamEditor />
           </Panel>
         </Group>
@@ -468,6 +499,7 @@ export function App(): JSX.Element {
           component decoupled from the other's update path. */}
       <BswmdPickerRoot />
       <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
-    </div>
+      </div>
+    </TourProvider>
   );
 }
