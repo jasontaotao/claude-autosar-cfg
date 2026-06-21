@@ -21,9 +21,7 @@ const sections: readonly CheatSheetSection[] = [
   {
     category: 'edit',
     categoryLabelKey: 'shortcut.category.edit',
-    items: [
-      { commandId: 'edit.undo', label: 'Undo', bindingsDisplay: ['Ctrl+Z'] },
-    ],
+    items: [{ commandId: 'edit.undo', label: 'Undo', bindingsDisplay: ['Ctrl+Z'] }],
   },
 ];
 
@@ -40,9 +38,7 @@ describe('CheatSheet (v1.6.0 U)', () => {
   });
 
   it('renders every section heading and item when open', () => {
-    render(
-      <CheatSheet open={true} sections={sections} locale="en" onClose={() => undefined} />,
-    );
+    render(<CheatSheet open={true} sections={sections} locale="en" onClose={() => undefined} />);
     expect(screen.getByText('Open Project')).toBeInTheDocument();
     expect(screen.getByText('Save')).toBeInTheDocument();
     expect(screen.getByText('Undo')).toBeInTheDocument();
@@ -53,9 +49,7 @@ describe('CheatSheet (v1.6.0 U)', () => {
 
   it('closes when the close button is clicked', () => {
     const onClose = vi.fn();
-    render(
-      <CheatSheet open={true} sections={sections} locale="en" onClose={onClose} />,
-    );
+    render(<CheatSheet open={true} sections={sections} locale="en" onClose={onClose} />);
     act(() => {
       fireEvent.click(screen.getByTestId('cheat-sheet-close'));
     });
@@ -63,9 +57,7 @@ describe('CheatSheet (v1.6.0 U)', () => {
   });
 
   it('filters items by the search input', () => {
-    render(
-      <CheatSheet open={true} sections={sections} locale="en" onClose={() => undefined} />,
-    );
+    render(<CheatSheet open={true} sections={sections} locale="en" onClose={() => undefined} />);
     const input = screen.getByTestId('cheat-sheet-search');
     act(() => {
       fireEvent.change(input, { target: { value: 'save' } });

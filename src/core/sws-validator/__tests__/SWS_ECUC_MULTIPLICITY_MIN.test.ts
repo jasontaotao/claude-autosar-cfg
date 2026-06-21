@@ -48,10 +48,7 @@ function docWithContainer(
   };
 }
 
-function layerWithContainerMultiplicity(
-  containerPath: string,
-  lower: number,
-): SchemaLayer {
+function layerWithContainerMultiplicity(containerPath: string, lower: number): SchemaLayer {
   const entry: EcucContainerSchemaEntry = {
     path: containerPath,
     lower,

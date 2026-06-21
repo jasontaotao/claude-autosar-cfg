@@ -20,7 +20,9 @@ export const rule: ValidatorRule = {
   targetModule: 'PduR',
   check(ctx: ValidationContext): readonly InternalValidatorResult[] {
     const results: InternalValidatorResult[] = [];
-    for (const container of ctx.findAll((el) => el.kind === 'container' && el.shortName === ROUTING_PATHS_NAME)) {
+    for (const container of ctx.findAll(
+      (el) => el.kind === 'container' && el.shortName === ROUTING_PATHS_NAME,
+    )) {
       if (container.kind !== 'container') continue;
       for (const child of container.children) {
         if (child.kind !== 'container') continue;

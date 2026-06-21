@@ -53,19 +53,43 @@ describe('CommandPalette (v1.6.0 U)', () => {
   });
 
   it('does not render anything when closed', () => {
-    const { container } = render(<CommandPalette open={false} commands={commands} locale="zh-CN" onExecute={() => undefined} onClose={() => undefined} />);
+    const { container } = render(
+      <CommandPalette
+        open={false}
+        commands={commands}
+        locale="zh-CN"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it('renders the dialog with input + list when open', () => {
-    render(<CommandPalette open={true} commands={commands} locale="zh-CN" onExecute={() => undefined} onClose={() => undefined} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="zh-CN"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/输入命令|Type a command/i)).toBeInTheDocument();
   });
 
   it('lists every command when query is empty', () => {
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={() => undefined} onClose={() => undefined} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     expect(screen.getByText('Open Project')).toBeInTheDocument();
     expect(screen.getByText('Save')).toBeInTheDocument();
     expect(screen.getByText('Undo')).toBeInTheDocument();
@@ -73,7 +97,15 @@ describe('CommandPalette (v1.6.0 U)', () => {
   });
 
   it('filters commands by case-insensitive substring match', () => {
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={() => undefined} onClose={() => undefined} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     const input = screen.getByPlaceholderText(/Type a command/i);
     act(() => {
       fireEvent.change(input, { target: { value: 'save' } });
@@ -84,7 +116,15 @@ describe('CommandPalette (v1.6.0 U)', () => {
   });
 
   it('renders an empty-state message when nothing matches', () => {
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={() => undefined} onClose={() => undefined} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     const input = screen.getByPlaceholderText(/Type a command/i);
     act(() => {
       fireEvent.change(input, { target: { value: 'nonexistent-xyz' } });
@@ -95,7 +135,15 @@ describe('CommandPalette (v1.6.0 U)', () => {
   it('calls onExecute with the selected command id and closes palette', () => {
     const onExecute = vi.fn();
     const onClose = vi.fn();
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={onExecute} onClose={onClose} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={onExecute}
+        onClose={onClose}
+      />,
+    );
     const input = screen.getByPlaceholderText(/Type a command/i);
     act(() => {
       fireEvent.change(input, { target: { value: 'undo' } });
@@ -108,7 +156,15 @@ describe('CommandPalette (v1.6.0 U)', () => {
   });
 
   it('arrow-down moves the highlight to the next item', () => {
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={() => undefined} onClose={() => undefined} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
     const input = screen.getByPlaceholderText(/Type a command/i);
     act(() => {
       fireEvent.keyDown(input, { key: 'ArrowDown' });
@@ -121,7 +177,15 @@ describe('CommandPalette (v1.6.0 U)', () => {
 
   it('Escape closes the palette via onClose', () => {
     const onClose = vi.fn();
-    render(<CommandPalette open={true} commands={commands} locale="en" onExecute={() => undefined} onClose={onClose} />);
+    render(
+      <CommandPalette
+        open={true}
+        commands={commands}
+        locale="en"
+        onExecute={() => undefined}
+        onClose={onClose}
+      />,
+    );
     const input = screen.getByPlaceholderText(/Type a command/i);
     act(() => {
       fireEvent.keyDown(input, { key: 'Escape' });

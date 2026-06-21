@@ -39,7 +39,10 @@ const KEY_TO_ARIA: Record<string, string> = {
 };
 
 export function bindingToAriaKeyshortcuts(binding: string): string {
-  const parts = binding.split('+').map((s) => s.trim()).filter((s) => s.length > 0);
+  const parts = binding
+    .split('+')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
   if (parts.length === 0) return '';
   const key = parts[parts.length - 1] ?? '';
   const mods = parts.slice(0, -1);

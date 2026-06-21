@@ -128,7 +128,9 @@ describe('runValidation', () => {
 
   it('silently returns [] when tourState.validationPaused === true (G spec §3.9)', async () => {
     const reg = new RuleRegistry();
-    reg.register(fakeRule('R1', [{ ruleId: 'R1', severity: 'error', messageKey: 'k', path: '/p' }]));
+    reg.register(
+      fakeRule('R1', [{ ruleId: 'R1', severity: 'error', messageKey: 'k', path: '/p' }]),
+    );
     const r = await runValidation(reg, RUN_INPUT, {
       tourState: { validationPaused: true },
     });

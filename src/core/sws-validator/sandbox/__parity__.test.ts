@@ -16,10 +16,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-const SCRIPT_VM_RUNNER = resolve(
-  __dirname,
-  '../../../main/script/vm-runner.ts',
-);
+const SCRIPT_VM_RUNNER = resolve(__dirname, '../../../main/script/vm-runner.ts');
 const G_VM_RUNNER = resolve(__dirname, './vm-runner.ts');
 
 /**

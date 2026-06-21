@@ -11,10 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 // @vitest-environment jsdom
 
-import {
-  createStubTourIpcContract,
-  type TourIpcContract,
-} from '../../../lib/TourIpcContract.js';
+import { createStubTourIpcContract, type TourIpcContract } from '../../../lib/TourIpcContract.js';
 import { ResetOnboardingMenuItem } from '../ResetOnboardingMenuItem.js';
 
 describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
@@ -22,11 +19,7 @@ describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
     const tourIpc = createStubTourIpcContract();
     render(
       <ul>
-        <ResetOnboardingMenuItem
-          tourIpc={tourIpc}
-          hasOpenProject={true}
-          locale="en"
-        />
+        <ResetOnboardingMenuItem tourIpc={tourIpc} hasOpenProject={true} locale="en" />
       </ul>,
     );
     expect(screen.getByText(/reset onboarding/i)).toBeInTheDocument();
@@ -36,11 +29,7 @@ describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
     const tourIpc = createStubTourIpcContract();
     const { container } = render(
       <ul>
-        <ResetOnboardingMenuItem
-          tourIpc={tourIpc}
-          hasOpenProject={false}
-          locale="en"
-        />
+        <ResetOnboardingMenuItem tourIpc={tourIpc} hasOpenProject={false} locale="en" />
       </ul>,
     );
     expect(container.querySelector('[data-testid="menu-reset-onboarding"]')).toBeNull();
@@ -53,11 +42,7 @@ describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
     };
     render(
       <ul>
-        <ResetOnboardingMenuItem
-          tourIpc={tourIpc}
-          hasOpenProject={true}
-          locale="en"
-        />
+        <ResetOnboardingMenuItem tourIpc={tourIpc} hasOpenProject={true} locale="en" />
       </ul>,
     );
     fireEvent.click(screen.getByTestId('menu-reset-onboarding'));
@@ -72,11 +57,7 @@ describe('ResetOnboardingMenuItem (v1.6.0 U)', () => {
     };
     render(
       <ul>
-        <ResetOnboardingMenuItem
-          tourIpc={tourIpc}
-          hasOpenProject={true}
-          locale="en"
-        />
+        <ResetOnboardingMenuItem tourIpc={tourIpc} hasOpenProject={true} locale="en" />
       </ul>,
     );
     fireEvent.click(screen.getByTestId('menu-reset-onboarding'));

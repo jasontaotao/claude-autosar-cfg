@@ -13,26 +13,27 @@
 
 Closes the final sub-sprint of the v1.7.1 skeleton-defaults plan (`docs/superpowers/plans/2026-06-21-skeleton-defaults-fill-and-choice-marker.md` L171-209, "Defer option" line 209).
 
-| What | Why |
-| --- | --- |
-| Tree subscribes to `bswmdSchemas` | Same field that powers the BswmdPickerDialog and the validator — no new store surface |
-| `findMissingOptionalSiblings` helper (new) | Walks the BSWMD-side parent container, returns `ContainerDef[]` where `lowerMultiplicity === 0` AND shortName absent from value tree |
-| `OptionalAddPlaceholder` sub-component (new) | Same `role="treeitem"` shape as `TreeNode`, muted styling, `+` button invoking existing `addContainer` mutation |
-| 2 i18n keys (`tree.addOptionalContainer`, `tree.optionalContainerHint`) | Localized button aria-label + placeholder hint, en + zh-CN parity |
+| What                                                                    | Why                                                                                                                                  |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Tree subscribes to `bswmdSchemas`                                       | Same field that powers the BswmdPickerDialog and the validator — no new store surface                                                |
+| `findMissingOptionalSiblings` helper (new)                              | Walks the BSWMD-side parent container, returns `ContainerDef[]` where `lowerMultiplicity === 0` AND shortName absent from value tree |
+| `OptionalAddPlaceholder` sub-component (new)                            | Same `role="treeitem"` shape as `TreeNode`, muted styling, `+` button invoking existing `addContainer` mutation                      |
+| 2 i18n keys (`tree.addOptionalContainer`, `tree.optionalContainerHint`) | Localized button aria-label + placeholder hint, en + zh-CN parity                                                                    |
 
 ### Hotfix — 3 pre-existing TS2322 errors
 
-| What | Why |
-| --- | --- |
+| What                                                                             | Why                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AutosarApiStub` test interface: `ReturnType<typeof vi.fn>` → `Mock<any[], any>` | Variance mismatch with inline `vi.fn(async () => ({...} satisfies X))` produced `Mock<[], Promise<{...}>>` — more specific than the interface field |
-| Existing pattern reused | Matches `useRemoveEcucFiles.test.tsx` + `App.test.tsx` test-stub idiom |
+| Existing pattern reused                                                          | Matches `useRemoveEcucFiles.test.tsx` + `App.test.tsx` test-stub idiom                                                                              |
 
 ## Quality bar
 
 - **2033 tests pass + 1 skipped** (2028 → 2033, +5 from S4 + 0 from TS2322 hotfix)
 - **0 type errors** (`npx tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json`)
 - **0 lint errors, 0 warnings** (`npx eslint . --ext .ts,.tsx --max-warnings 0`)
-- Full `pnpm verify` (7 stages) passes end-to-end
+- `pnpm verify` stages 1-5 pass (format / lint / type-check / test / coverage)
+- **`pnpm build` renderer stage fails** — see "Known limitations" below
 
 ## Files changed
 
@@ -49,7 +50,11 @@ Closes the final sub-sprint of the v1.7.1 skeleton-defaults plan (`docs/superpow
 
 S4 is renderer-only composition on top of already-shipped `addContainer` mutation. No new IPC channels, no new feature flags, no new store actions. The TS2322 hotfix is pure typing-tightening. Existing v1.7.1 consumers see no behavior break except the documented S4 visibility change.
 
-## Next: v1.7.3 §3b + brainstorm v1.8.0
+## Known limitations
 
-- v1.7.3: submodule migration for `@dbc-forge/core` (MINOR bump, dep reorg)
+- **`pnpm build:renderer` fails since v1.6.1 (commit `24e13e9`)** — `useSwsValidatorRunner` hook imports `isSwsValidatorEnabled` from `src/core/sws-validator/feature-flag.ts`, which uses `node:fs` / `node:path`. Vite externalizes these for browser compatibility, then Rollup errors when the renderer actually calls `join()`. Same root cause as the v1.5.1 T12-pre fix (`fcd7aef`), reintroduced in v1.6.1. Confirmed broken on `v1.7.0` and `v1.7.1` tags — pre-existing, NOT introduced by v1.7.2. `pnpm build:main` and `pnpm build:preload` still pass; only the renderer bundle is affected. Fix in v1.7.3: route through the existing `feature-flags:get` IPC + revert `feature-flag.ts` to main-process-only.
+
+## Next: v1.7.3 + brainstorm v1.8.0
+
+- v1.7.3: (a) renderer build fix (IPC refactor for `sws-validator/feature-flag.ts`), (b) submodule migration for `@dbc-forge/core` (MINOR bump)
 - v1.8.0+: real DBC↔ARXML bridging logic, Cluster 3 K Stencil Wizard, Cluster B Variants, Cluster J UDS (park research/uds-doip)

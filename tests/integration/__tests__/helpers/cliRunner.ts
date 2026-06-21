@@ -22,7 +22,10 @@ export interface CliRunnerOptions {
   readonly timeoutMs?: number;
 }
 
-export async function runCli(args: readonly string[], options: CliRunnerOptions = {}): Promise<CliResult> {
+export async function runCli(
+  args: readonly string[],
+  options: CliRunnerOptions = {},
+): Promise<CliResult> {
   const start = Date.now();
   const timeoutMs = options.timeoutMs ?? 15_000;
 

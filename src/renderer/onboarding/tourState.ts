@@ -22,7 +22,11 @@
  */
 export type TourState =
   | { readonly kind: 'idle'; readonly validationPaused: false }
-  | { readonly kind: 'running'; readonly currentStep: 0 | 1 | 2 | 3 | 4; readonly validationPaused: true }
+  | {
+      readonly kind: 'running';
+      readonly currentStep: 0 | 1 | 2 | 3 | 4;
+      readonly validationPaused: true;
+    }
   | { readonly kind: 'completed'; readonly validationPaused: false }
   | { readonly kind: 'dismissed'; readonly validationPaused: false }
   | { readonly kind: 'suppressed'; readonly validationPaused: false };

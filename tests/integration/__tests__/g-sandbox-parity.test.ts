@@ -18,18 +18,15 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { buildValidationContext } from '../../../src/core/sws-validator/context.js';
-import { InMemoryLogSink, runRuleInSandbox } from '../../../src/core/sws-validator/sandbox/vm-runner.js';
+import {
+  InMemoryLogSink,
+  runRuleInSandbox,
+} from '../../../src/core/sws-validator/sandbox/vm-runner.js';
 import type { SchemaLayer } from '../../../src/core/validation/runtimeSchema.js';
 import type { NormalizedDocument } from '../../../src/shared/normalized-document.js';
 
-const SCRIPT_VM_RUNNER = resolve(
-  __dirname,
-  '../../../src/main/script/vm-runner.ts',
-);
-const G_VM_RUNNER = resolve(
-  __dirname,
-  '../../../src/core/sws-validator/sandbox/vm-runner.ts',
-);
+const SCRIPT_VM_RUNNER = resolve(__dirname, '../../../src/main/script/vm-runner.ts');
+const G_VM_RUNNER = resolve(__dirname, '../../../src/core/sws-validator/sandbox/vm-runner.ts');
 
 function extractBlockedGlobals(source: string): readonly string[] {
   const m = /vmCtx\s*:\s*Record<string,\s*unknown>\s*=\s*\{([\s\S]*?)\}/.exec(source);

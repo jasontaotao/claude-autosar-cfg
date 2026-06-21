@@ -29,7 +29,9 @@ interface CapturedOut {
   readonly writes: string[];
 }
 
-async function captureStdout(fn: () => Promise<number>): Promise<{ code: number; out: CapturedOut }> {
+async function captureStdout(
+  fn: () => Promise<number>,
+): Promise<{ code: number; out: CapturedOut }> {
   const writes: string[] = [];
   const origOut = process.stdout.write.bind(process.stdout);
   process.stdout.write = ((chunk: string | Uint8Array): boolean => {

@@ -4,25 +4,25 @@
 
 ## Status
 
-| Field | Value |
-| --- | --- |
-| **Date** | 2026-06-21 |
-| **Owner** | Claude Fable 5 (this session) |
-| **Branch baseline** | `6c4f5bc` (v1.7.0 Cluster 3 I LOCAL SHIPPED) |
-| **Predecessor** | v1.6.1 LOCAL READY + v1.7.0 I (sibling-repo `@dbc-forge/core` file: dep) |
-| **Goal** | Fix 4 platform-level Skeleton generation defects (P1-P4 from code review). P5 = no change. |
-| **Type** | Feature: defaults fill + choice marker + description carry-through + optional visibility |
+| Field                         | Value                                                                                                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                      | 2026-06-21                                                                                                                                               |
+| **Owner**                     | Claude Fable 5 (this session)                                                                                                                            |
+| **Branch baseline**           | `6c4f5bc` (v1.7.0 Cluster 3 I LOCAL SHIPPED)                                                                                                             |
+| **Predecessor**               | v1.6.1 LOCAL READY + v1.7.0 I (sibling-repo `@dbc-forge/core` file: dep)                                                                                 |
+| **Goal**                      | Fix 4 platform-level Skeleton generation defects (P1-P4 from code review). P5 = no change.                                                               |
+| **Type**                      | Feature: defaults fill + choice marker + description carry-through + optional visibility                                                                 |
 | **Verification already done** | P1-P5 claims cross-referenced against code at `src/core/arxml/skeleton.ts:117-238`, `src/core/arxml/types.ts:60-66`, `src/core/project/bswmd.ts:81-126`. |
 
 ## Decision Summary
 
-| # | Issue | Status | Decision |
-| --- | --- | --- | --- |
-| P1 | 子容器参数默认值不填充 | HIGH | **FIX in S2** |
-| P2 | ArxmlContainer 缺 description | MEDIUM | **FIX in S3** (chain through parser → types → skeleton) |
-| P3 | Choice 容器无结构标识 | MEDIUM | **FIX in S1** (mark + branch list) |
-| P4 | lower=0 可选容器不可见 | LOW | **FIX in S4** (UI placeholder row) |
-| P5 | 死节点引用 | LOW | **NO CHANGE** (current behavior correct) |
+| #   | Issue                         | Status | Decision                                                |
+| --- | ----------------------------- | ------ | ------------------------------------------------------- |
+| P1  | 子容器参数默认值不填充        | HIGH   | **FIX in S2**                                           |
+| P2  | ArxmlContainer 缺 description | MEDIUM | **FIX in S3** (chain through parser → types → skeleton) |
+| P3  | Choice 容器无结构标识         | MEDIUM | **FIX in S1** (mark + branch list)                      |
+| P4  | lower=0 可选容器不可见        | LOW    | **FIX in S4** (UI placeholder row)                      |
+| P5  | 死节点引用                    | LOW    | **NO CHANGE** (current behavior correct)                |
 
 ## Architecture
 
@@ -31,18 +31,18 @@
 ```
 S1 (P3 choice marker) ─┐
                         ├─→ S3 (P2 description chain) ─→ release v1.7.1
-S2 (P1 default fill)  ─┘                                  
+S2 (P1 default fill)  ─┘
 S4 (P4 optional visibility) ─── parallel to all above ────┘
 ```
 
 ## Sub-Sprint Sequencing
 
-| Sub-sprint | Scope | Files touched | Commits | Tests added |
-| --- | --- | --- | --- | --- |
-| **S1** | P3: `ArxmlContainer.isChoiceContainer` + `choiceBranches` + skeleton flags + UI test | `src/core/arxml/types.ts`, `src/core/arxml/skeleton.ts`, `src/core/arxml/__tests__/skeleton.test.ts` | 1 | 3-5 |
-| **S2** | P1: extract `fillParamsFromBswmd()`, share between top + sub | `src/core/arxml/skeleton.ts`, `src/core/arxml/__tests__/skeleton.test.ts` | 1 | 4-6 |
-| **S3** | P2: BSWMD parser reads `<DESC>` + ParamDef/ContainerDef.desc + ArxmlContainer.description + skeleton carry | `src/core/project/bswmd.ts`, `src/core/project/bswmdParser.ts`, `src/core/arxml/types.ts`, `src/core/arxml/skeleton.ts`, tests for each layer | 2-3 | 8-12 |
-| **S4** | P4: TreeNode renders lower=0 placeholder rows + Add button | `src/renderer/components/tree/TreeNode.tsx`, `src/shared/i18n.ts`, tests + i18n keys (zh + en) | 1-2 | 3-5 |
+| Sub-sprint | Scope                                                                                                      | Files touched                                                                                                                                 | Commits | Tests added |
+| ---------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- |
+| **S1**     | P3: `ArxmlContainer.isChoiceContainer` + `choiceBranches` + skeleton flags + UI test                       | `src/core/arxml/types.ts`, `src/core/arxml/skeleton.ts`, `src/core/arxml/__tests__/skeleton.test.ts`                                          | 1       | 3-5         |
+| **S2**     | P1: extract `fillParamsFromBswmd()`, share between top + sub                                               | `src/core/arxml/skeleton.ts`, `src/core/arxml/__tests__/skeleton.test.ts`                                                                     | 1       | 4-6         |
+| **S3**     | P2: BSWMD parser reads `<DESC>` + ParamDef/ContainerDef.desc + ArxmlContainer.description + skeleton carry | `src/core/project/bswmd.ts`, `src/core/project/bswmdParser.ts`, `src/core/arxml/types.ts`, `src/core/arxml/skeleton.ts`, tests for each layer | 2-3     | 8-12        |
+| **S4**     | P4: TreeNode renders lower=0 placeholder rows + Add button                                                 | `src/renderer/components/tree/TreeNode.tsx`, `src/shared/i18n.ts`, tests + i18n keys (zh + en)                                                | 1-2     | 3-5         |
 
 **Release plan**: v1.7.1 ships after S1 + S2 + S3. S4 ships in v1.7.2 (UI scope, can be deferred without blocking skeleton defaults).
 
@@ -57,12 +57,15 @@ Mark choice containers in `ArxmlContainer` so the UI can distinguish them from p
 ### Files
 
 **Modify**: `src/core/arxml/types.ts` (add 2 fields)
+
 - `ArxmlContainer` gets `readonly isChoiceContainer?: boolean` + `readonly choiceBranches?: readonly string[]`
 
 **Modify**: `src/core/arxml/skeleton.ts` (set the markers)
+
 - `buildChoiceShell`: pass `isChoiceContainer: true` + populate `choiceBranches` by traversing `c.choices[].subContainers[].shortName` (the branches are nested under choice's `subContainers` per `buildChoiceContainer` in `src/core/project/bswmd.ts:864-880`)
 
 **Modify**: `src/core/arxml/__tests__/skeleton.test.ts`
+
 - Existing tests at line 202-232 (choice container coverage) verify the new markers
 - New test: "choice shell carries isChoiceContainer: true + choiceBranches list"
 - New test: "sub-container shell does NOT carry isChoiceContainer"
@@ -92,12 +95,14 @@ Fill default values into sub-container shells (second-level and deeper). Current
 ### Files
 
 **Modify**: `src/core/arxml/skeleton.ts` (extract + share)
+
 - New local function `fillParamsFromBswmd(c: ContainerDef): Record<string, ParamValue>` (lines 132-145 from `buildTopContainer` extracted verbatim)
 - `buildTopContainer`: replace inline loop with `fillParamsFromBswmd(c)`
 - `buildSubContainerShell`: replace `params: {}` with `params: fillParamsFromBswmd(c)`
 - `buildChoiceShell`: **deliberately does NOT change** — choice branches are user-instanced; the shell is just a placeholder, not an instance with defaults (matches AUTOSAR semantics + the existing comment at skeleton.ts:230-234)
 
 **Modify**: `src/core/arxml/__tests__/skeleton.test.ts`
+
 - Existing tests should already pass (fill-from-defaults is now uniform across depths)
 - New test: "sub-container with default parameter carries the default value"
 - New test: "deeply nested sub-container (3 levels) inherits default fill"
@@ -130,23 +135,28 @@ End-to-end `<DESC>` text flow: BSWMD parser extracts → `ContainerDef.desc` + `
 ### Files
 
 **Modify**: `src/core/project/bswmd.ts` (2 type additions)
+
 - `ContainerDef` gets `readonly desc?: string`
 - `ParamDef` gets `readonly desc?: string`
 
 **Modify**: `src/core/project/bswmdParser.ts` (2 read sites)
+
 - `buildContainer`: extract `<DESC>` text content into `desc`
 - `buildParam`: extract `<DESC>` text content into `desc`
 - Existing `readShortName` / `readNumber` helpers — add `readDesc(item)` that returns the `<DESC>` text or undefined
 
 **Modify**: `src/core/arxml/types.ts`
+
 - `ArxmlContainer` gets `readonly description?: string`
 
 **Modify**: `src/core/arxml/skeleton.ts` (carry the description)
+
 - `buildTopContainer`: `description: c.desc`
 - `buildSubContainerShell`: `description: c.desc`
 - `buildChoiceShell`: `description: c.desc` (carries the choice container's own description; branches carry their own)
 
 **Modify tests**:
+
 - `src/core/project/__tests__/bswmd.test.ts` (or equivalent): add `<DESC>` extraction tests
 - `src/core/arxml/__tests__/skeleton.test.ts`: add "skeleton carries ContainerDef.desc into ArxmlContainer.description"
 
@@ -177,14 +187,17 @@ Surface `lowerMultiplicity = 0` containers in the tree so users know optional su
 ### Files
 
 **TBD after UI survey** — exact files depend on which tree component renders the container tree. Likely candidates:
+
 - `src/renderer/components/tree/TreeNode.tsx` (or the parent tree renderer)
 - `src/renderer/components/LeftPanel.tsx` (if rendering is left-panel responsibility)
 - New helper hook: `useOptionalChildContainers(parentPath)` that returns the lower=0 children from the active BSWMD's `ContainerDef`
 
 **Modify**: `src/shared/i18n.ts` (i18n keys)
+
 - `tree.addOptionalContainer` / `tree.optionalContainerHint` (zh + en)
 
 **Modify tests**:
+
 - New tree rendering test: "optional container with lower=0 shows a placeholder row with + button"
 - New test: "clicking + on optional placeholder invokes addContainer"
 - New i18n key test
@@ -212,12 +225,12 @@ S4 is the largest UI scope. If v1.7.1 is time-boxed, ship S1+S2+S3 in v1.7.1 and
 
 ## Risks
 
-| # | Risk | Likelihood | Impact | Mitigation |
-| --- | --- | --- | --- | --- |
-| R1 | S2 default-fill changes CDD skeleton shape — downstream integration tests assert on specific value | Low | Medium | Run full `pnpm verify` after S2; if any test breaks, pin that BSWMD fixture in the skip list with a follow-up task |
-| R2 | S3 `<DESC>` extraction introduces multi-line / encoding edge cases (XML entities, CDATA) | Medium | Low | Use existing `getText` / `readText` helpers; add a test for `&amp;` + multi-line DESC |
-| R3 | S4 UI scope balloons into a tree-rewrite task | Medium | Medium | Scope-limit S4 to "show placeholder row + + button" — no auto-pick, no fancy grouping |
-| R4 | S1 choice marker breaks UI consumers expecting exact `ArxmlContainer` shape | Low | Medium | Markers are optional fields; existing consumers ignoring `isChoiceContainer`/`choiceBranches` continue to work |
+| #   | Risk                                                                                               | Likelihood | Impact | Mitigation                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| R1  | S2 default-fill changes CDD skeleton shape — downstream integration tests assert on specific value | Low        | Medium | Run full `pnpm verify` after S2; if any test breaks, pin that BSWMD fixture in the skip list with a follow-up task |
+| R2  | S3 `<DESC>` extraction introduces multi-line / encoding edge cases (XML entities, CDATA)           | Medium     | Low    | Use existing `getText` / `readText` helpers; add a test for `&amp;` + multi-line DESC                              |
+| R3  | S4 UI scope balloons into a tree-rewrite task                                                      | Medium     | Medium | Scope-limit S4 to "show placeholder row + + button" — no auto-pick, no fancy grouping                              |
+| R4  | S1 choice marker breaks UI consumers expecting exact `ArxmlContainer` shape                        | Low        | Medium | Markers are optional fields; existing consumers ignoring `isChoiceContainer`/`choiceBranches` continue to work     |
 
 ## Out of Scope (P5 — confirmed no change)
 

@@ -295,7 +295,11 @@ export function App(): JSX.Element {
   // The Tree-level wiring (T3.2) re-computes the kind from
   // `documents[].sourceBswmdPath` so the menu item set is correct.
   const handleContextMenu = useCallback(
-    (path: string, kind: 'module' | 'container' | 'reference' | 'bswmd', e: ReactMouseEvent): void => {
+    (
+      path: string,
+      kind: 'module' | 'container' | 'reference' | 'bswmd',
+      e: ReactMouseEvent,
+    ): void => {
       // Extract `shortName` from the path's last segment so the
       // menu's delete label can show what is being deleted.
       const shortName = path.split('/').filter(Boolean).pop() ?? '';
@@ -408,19 +412,19 @@ export function App(): JSX.Element {
       onFinish={onTourFinish}
     >
       <div className="app-shell">
-      <AppHeader
-        onEcucModuleSelect={handleMenuSelectEcucModule}
-        canSelectEcucModule={canSelectEcucModule}
-        scriptPanelOpen={scriptPanelOpen}
-        onToggleScriptPanel={toggleScriptPanel}
-      />
-      {/* Sprint 13+ — full-width error strip below the header. Reads
+        <AppHeader
+          onEcucModuleSelect={handleMenuSelectEcucModule}
+          canSelectEcucModule={canSelectEcucModule}
+          scriptPanelOpen={scriptPanelOpen}
+          onToggleScriptPanel={toggleScriptPanel}
+        />
+        {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
           span. Clicking the message opens <ErrorViewerModal /> for
           the "view 窗口" affordance when the banner itself overflows. */}
-      <ErrorBanner />
-      <main className="workspace">
-        {/* Sprint 13+ Stage 4 Q1 — resizable left/right column.
+        <ErrorBanner />
+        <main className="workspace">
+          {/* Sprint 13+ Stage 4 Q1 — resizable left/right column.
             `react-resizable-panels` replaces the previous fixed
             `minmax(280px, 30%) 1fr` grid in styles.css with a PanelGroup
             whose column widths the user can drag. Persistence is
@@ -429,88 +433,88 @@ export function App(): JSX.Element {
             is the drag handle — it carries the
             `data-testid="workspace-resize-h"` selector the workspace
             tests target. */}
-        <Group
-          orientation="horizontal"
-          id="workspace"
-          defaultLayout={defaultLayout ?? fallbackLayout}
-          onLayoutChanged={onLayoutChanged}
-        >
-          <Panel id="workspace-left" minSize="20%" defaultSize="30%">
-            {isImportMerged ? (
-              <div className="app-import-merged-column" data-testid="app-import-merged-column">
-                <ModuleSelectionPanel />
-                <DiffTable />
-              </div>
-            ) : (
-              // Sprint A X2 — wire handleContextMenu so a right-click
-              // on a Tree row opens the global ContextMenu, which in
-              // turn routes back through handleContextMenuAction.
-              <LeftPanel
-                onAddEcucFromBswmd={handleAddEcucFromBswmd}
-                onContextMenu={handleContextMenu}
-              />
-            )}
-          </Panel>
-          <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
-          <Panel id="workspace-right" data-tour-id="right-pane-content">
-            <ParamEditor />
-          </Panel>
-        </Group>
-      </main>
-      {scriptPanelOpen && (
-        // Sprint 14 / Phase C (T14) — ScriptPanel sits below the
-        // resizable workspace as a fixed-height strip; lazy-rendered
-        // so CodeMirror is only loaded when the user explicitly opens
-        // the panel (the panel toggle is in AppHeader).
-        <div className="app-script-panel-host" data-testid="app-script-panel-host">
-          <ScriptPanel />
-        </div>
-      )}
-      <ArxmlPanel />
+          <Group
+            orientation="horizontal"
+            id="workspace"
+            defaultLayout={defaultLayout ?? fallbackLayout}
+            onLayoutChanged={onLayoutChanged}
+          >
+            <Panel id="workspace-left" minSize="20%" defaultSize="30%">
+              {isImportMerged ? (
+                <div className="app-import-merged-column" data-testid="app-import-merged-column">
+                  <ModuleSelectionPanel />
+                  <DiffTable />
+                </div>
+              ) : (
+                // Sprint A X2 — wire handleContextMenu so a right-click
+                // on a Tree row opens the global ContextMenu, which in
+                // turn routes back through handleContextMenuAction.
+                <LeftPanel
+                  onAddEcucFromBswmd={handleAddEcucFromBswmd}
+                  onContextMenu={handleContextMenu}
+                />
+              )}
+            </Panel>
+            <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
+            <Panel id="workspace-right" data-tour-id="right-pane-content">
+              <ParamEditor />
+            </Panel>
+          </Group>
+        </main>
+        {scriptPanelOpen && (
+          // Sprint 14 / Phase C (T14) — ScriptPanel sits below the
+          // resizable workspace as a fixed-height strip; lazy-rendered
+          // so CodeMirror is only loaded when the user explicitly opens
+          // the panel (the panel toggle is in AppHeader).
+          <div className="app-script-panel-host" data-testid="app-script-panel-host">
+            <ScriptPanel />
+          </div>
+        )}
+        <ArxmlPanel />
 
-      {/* Dialog hosts (Sprint 12 #2 + Sprint 12 #3). Mounted at the
+        {/* Dialog hosts (Sprint 12 #2 + Sprint 12 #3). Mounted at the
           root so their portals (rendering into document.body) sit on
           top of every workspace layer. */}
-      <PromptRoot />
-      {/* ConfirmRoot BEFORE NewProjectDialog: ConfirmRoot installs the
+        <PromptRoot />
+        {/* ConfirmRoot BEFORE NewProjectDialog: ConfirmRoot installs the
           module-level externalSetState handle used by `confirm()`;
           submitNewProject (Task 5) calls `confirm()` from inside
           NewProjectDialog.onSubmit, so ConfirmRoot must mount first. */}
-      <ConfirmRoot />
-      {/* Sprint 15 / Phase 3.3 — CascadeConfirmRoot hosts the 3-option
+        <ConfirmRoot />
+        {/* Sprint 15 / Phase 3.3 — CascadeConfirmRoot hosts the 3-option
           cascade confirm dialog shown when the user requests a
           delete-container on a node with 1+ incoming references. It
           installs its own module-level `externalSetState` handle used
           by `confirmCascade()` (called from useArxmlStore.deleteContainer
           — see Phase 2). Mounted last because it depends on no other
           dialog; no cross-mount ordering requirement. */}
-      <CascadeConfirmRoot />
-      {/* Sprint 17 P2 — RemoveModuleConfirmRoot hosts the 4-option
+        <CascadeConfirmRoot />
+        {/* Sprint 17 P2 — RemoveModuleConfirmRoot hosts the 4-option
           BSWMD-remove confirm dialog (cancel / only / cascade /
           cascade-and-unlink). The 4th option unlinks the BSWMD file
           from disk on top of cascade — fired by
           `confirmRemoveBswmd()` from `useProjectActions.removeBswmdWithFullFlow`.
           Distinct from CascadeConfirmDialog (3-option) because the
           4th option's semantics have no ECUC analog. */}
-      <RemoveModuleConfirmRoot />
-      <NewProjectDialog onSubmit={handleNewProjectSubmit} />
-      {/* Sprint 14 / Task 11 — ECUC picker. Hosted at App.tsx so any
+        <RemoveModuleConfirmRoot />
+        <NewProjectDialog onSubmit={handleNewProjectSubmit} />
+        {/* Sprint 14 / Task 11 — ECUC picker. Hosted at App.tsx so any
           sibling entry point (AppHeader menu / ProjectPanel row chip)
           can flip its `open` flag. Renders into document.body via
           its own portal (z-index 9994) so it sits above the workspace
           but below the confirm dialogs. The picker reads BSWMD state
           from the store; we only own open/close + pre-selection. */}
-      <ModuleFromBswmdPicker
-        open={ecucPickerOpen}
-        projectDir={(() => {
-          const pp = useArxmlStore.getState().projectPath;
-          return pp !== null ? pp.replace(/[\\/][^\\/]+$/, '') : '';
-        })()}
-        preSelectedBswmdPath={preSelectedBswmdPath}
-        onConfirm={handleConfirmEcucPicker}
-        onClose={handleCloseEcucPicker}
-      />
-      {/* Sprint A X2 — P0-3 wiring. Mount the two dialog hosts that
+        <ModuleFromBswmdPicker
+          open={ecucPickerOpen}
+          projectDir={(() => {
+            const pp = useArxmlStore.getState().projectPath;
+            return pp !== null ? pp.replace(/[\\/][^\\/]+$/, '') : '';
+          })()}
+          preSelectedBswmdPath={preSelectedBswmdPath}
+          onConfirm={handleConfirmEcucPicker}
+          onClose={handleCloseEcucPicker}
+        />
+        {/* Sprint A X2 — P0-3 wiring. Mount the two dialog hosts that
           back the Tree right-click flow:
             - <BswmdPickerRoot /> (z-index 9995): subscribes to
               useArxmlStore.bswmdPicker; opens when the menu emits an
@@ -524,8 +528,8 @@ export function App(): JSX.Element {
           The two hosts share no internal state; App.tsx is the single
           router between them (handleContextMenuAction), keeping each
           component decoupled from the other's update path. */}
-      <BswmdPickerRoot />
-      <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
+        <BswmdPickerRoot />
+        <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
       </div>
     </TourProvider>
   );

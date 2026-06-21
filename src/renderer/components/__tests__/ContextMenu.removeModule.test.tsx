@@ -62,11 +62,7 @@ describe('ContextMenu (Sprint 17 P3 T3.3 — Remove module item)', () => {
 
   it('renders the "Remove module" item when opened with kind:bswmd', () => {
     act(() => {
-      openContextMenu(
-        { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
-        100,
-        100,
-      );
+      openContextMenu({ path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' }, 100, 100);
     });
     const menu = screen.getByRole('menu');
     expect(menu).toBeInTheDocument();
@@ -105,11 +101,7 @@ describe('ContextMenu (Sprint 17 P3 T3.3 — Remove module item)', () => {
       await Promise.resolve();
     });
     act(() => {
-      openContextMenu(
-        { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
-        100,
-        100,
-      );
+      openContextMenu({ path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' }, 100, 100);
     });
     expect(screen.getByText(/Remove module/i)).toBeInTheDocument();
     await waitFor(() => screen.getByTestId('context-menu-item-remove-module'));

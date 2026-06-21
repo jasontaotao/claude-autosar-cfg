@@ -11,15 +11,15 @@
 
 ### Sprint 17 P3 + P4 — BSWMD remove-from-disk UI complete
 
-| Phase | What | Why |
-| --- | --- | --- |
-| **P3 T3.1** | ProjectPanel `<li>` right-click context menu | Per-row entry point for the 4-option dialog (matches the existing cascade-delete UX). |
-| **P3 T3.2** | Tree `kind:'module'` forwarding | Same right-click flow for module nodes in the left-panel tree. |
-| **P3 T3.3** | ContextMenu "Remove module" item + App.tsx router + i18n | Single action type `'remove-module'` plumbed through the existing Sprint 16 router. |
-| **P3 T3.4** | LeftPanel `×` button rewire | `removeBswmdWithGuard` (pre-Sprint-17 silent removal) → `removeBswmdWithFullFlow` (4-option dialog). Single source of truth across UI entry points. |
-| **P4 T4.1** | `removeBswmd.fullFlow.test.tsx` integration test | 6 tests drive the hook against the mounted `RemoveModuleConfirmRoot`: all 4 dispatch paths + partial-failure + undo round-trip. |
-| **P4 T4.2** | `remove-bswmd.spec.ts` Playwright E2E | Add BSWMD → right-click → cascade. |
-| **P4 T4.3** | `remove-bswmd-from-disk.spec.ts` Playwright E2E | cascade-and-unlink disk verification via `fs.stat`. |
+| Phase       | What                                                     | Why                                                                                                                                                 |
+| ----------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P3 T3.1** | ProjectPanel `<li>` right-click context menu             | Per-row entry point for the 4-option dialog (matches the existing cascade-delete UX).                                                               |
+| **P3 T3.2** | Tree `kind:'module'` forwarding                          | Same right-click flow for module nodes in the left-panel tree.                                                                                      |
+| **P3 T3.3** | ContextMenu "Remove module" item + App.tsx router + i18n | Single action type `'remove-module'` plumbed through the existing Sprint 16 router.                                                                 |
+| **P3 T3.4** | LeftPanel `×` button rewire                              | `removeBswmdWithGuard` (pre-Sprint-17 silent removal) → `removeBswmdWithFullFlow` (4-option dialog). Single source of truth across UI entry points. |
+| **P4 T4.1** | `removeBswmd.fullFlow.test.tsx` integration test         | 6 tests drive the hook against the mounted `RemoveModuleConfirmRoot`: all 4 dispatch paths + partial-failure + undo round-trip.                     |
+| **P4 T4.2** | `remove-bswmd.spec.ts` Playwright E2E                    | Add BSWMD → right-click → cascade.                                                                                                                  |
+| **P4 T4.3** | `remove-bswmd-from-disk.spec.ts` Playwright E2E          | cascade-and-unlink disk verification via `fs.stat`.                                                                                                 |
 
 ### v1.6.0 deferred #1 — SWS Validator runner hook
 
@@ -29,11 +29,11 @@
 
 New renderer-agnostic core engine `src/core/mutation/applyPatchSteps.ts` (533 lines). Maps the A+C patch wire format to existing mutation primitives:
 
-| Wire op | Backend |
-| --- | --- |
-| `set-param` | `setParamInDocument` (Sprint 14-era in-place; pre/post value snapshots detect "did anything change?") |
-| `add-child` | `coreAddContainer` + BSWMD multiplicity check (requires `moduleDef` in `ApplyContext`) |
-| `remove-with-cascade` | `coreRemoveWithCascade` (refuses `cascade: false` with `cascade-required` error — CLI has no dialog) |
+| Wire op                                        | Backend                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `set-param`                                    | `setParamInDocument` (Sprint 14-era in-place; pre/post value snapshots detect "did anything change?")                     |
+| `add-child`                                    | `coreAddContainer` + BSWMD multiplicity check (requires `moduleDef` in `ApplyContext`)                                    |
+| `remove-with-cascade`                          | `coreRemoveWithCascade` (refuses `cascade: false` with `cascade-required` error — CLI has no dialog)                      |
 | `add` / `remove` / `replace` (RFC 6902 subset) | `add` delegates to `add-child`; `remove` delegates to `coreRemoveWithCascade`; `replace` finds the param + sets the value |
 
 **Code-reviewer found a CRITICAL bug in the initial ship**: `add` was a silent no-op (returned `{doc, error: null}` without mutating), causing the dispatcher to count `applied: 1` for a step that did nothing. Fixed in `101335b` — now delegates to `add-child` (extracts `shortName` / `SHORT-NAME` from `value`, returns `patch-invalid` for malformed payloads).

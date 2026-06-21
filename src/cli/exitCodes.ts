@@ -24,7 +24,12 @@ export type HeadlessExitCode = (typeof ALL_EXIT_CODES)[number];
 
 /** Type guard — narrows an arbitrary number to the exit-code union. */
 export function isValidExitCode(code: number): code is HeadlessExitCode {
-  return code === EXIT_SUCCESS || code === EXIT_FATAL || code === EXIT_WARNING || code === EXIT_INVALID_INPUT;
+  return (
+    code === EXIT_SUCCESS ||
+    code === EXIT_FATAL ||
+    code === EXIT_WARNING ||
+    code === EXIT_INVALID_INPUT
+  );
 }
 
 /**

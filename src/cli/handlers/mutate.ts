@@ -49,11 +49,9 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
     try {
       buf = await readFile(args.patch, 'utf-8');
     } catch (err) {
-      failWith(
-        { kind: 'file-not-found', path: args.patch },
-        1,
-        [`[autosarcfg] cannot read patch: ${err instanceof Error ? err.message : String(err)}`],
-      );
+      failWith({ kind: 'file-not-found', path: args.patch }, 1, [
+        `[autosarcfg] cannot read patch: ${err instanceof Error ? err.message : String(err)}`,
+      ]);
       throw new Error('unreachable');
     }
     raw = buf;
@@ -85,21 +83,17 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
   try {
     xml = await readFile(projectPath, 'utf-8');
   } catch (err) {
-    failWith(
-      { kind: 'file-not-found', path: projectPath },
-      1,
-      [`[autosarcfg] cannot read project: ${err instanceof Error ? err.message : String(err)}`],
-    );
+    failWith({ kind: 'file-not-found', path: projectPath }, 1, [
+      `[autosarcfg] cannot read project: ${err instanceof Error ? err.message : String(err)}`,
+    ]);
     throw new Error('unreachable');
   }
   const parsedDoc = parseArxml(xml);
   if (!parsedDoc.ok) {
     const message = 'message' in parsedDoc.error ? parsedDoc.error.message : parsedDoc.error.kind;
-    failWith(
-      { kind: 'parse-error', path: projectPath, message },
-      1,
-      [`[autosarcfg] parse failed: ${message}`],
-    );
+    failWith({ kind: 'parse-error', path: projectPath, message }, 1, [
+      `[autosarcfg] parse failed: ${message}`,
+    ]);
     throw new Error('unreachable');
   }
   const arxmlDoc = { ...parsedDoc.value, path: projectPath };
@@ -122,22 +116,18 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
   if (!args.dryRun) {
     const serialized = serializeArxml(result.doc);
     if (!serialized.ok) {
-      failWith(
-        { kind: 'write-failed', path: projectPath, message: serialized.error.message },
-        1,
-        [`[autosarcfg] serialize failed: ${serialized.error.message}`],
-      );
+      failWith({ kind: 'write-failed', path: projectPath, message: serialized.error.message }, 1, [
+        `[autosarcfg] serialize failed: ${serialized.error.message}`,
+      ]);
       throw new Error('unreachable');
     }
     try {
       await writeAtomic(projectPath, serialized.value);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      failWith(
-        { kind: 'write-failed', path: projectPath, message },
-        1,
-        [`[autosarcfg] write failed: ${message}`],
-      );
+      failWith({ kind: 'write-failed', path: projectPath, message }, 1, [
+        `[autosarcfg] write failed: ${message}`,
+      ]);
       throw new Error('unreachable');
     }
   }

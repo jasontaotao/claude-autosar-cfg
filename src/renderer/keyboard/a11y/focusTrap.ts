@@ -73,9 +73,7 @@ export function trapFocus(container: HTMLElement): FocusTrapHandle {
 }
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
-  const nodes = Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS),
-  );
+  const nodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS));
   return nodes.filter((el) => {
     if (el.hasAttribute('disabled')) return false;
     if (el.getAttribute('aria-hidden') === 'true') return false;

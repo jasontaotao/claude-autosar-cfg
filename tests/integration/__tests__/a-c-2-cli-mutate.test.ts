@@ -110,7 +110,12 @@ describe('a-c-2: CLI mutate', () => {
     try {
       const code = await dispatchCommand(parsed);
       expect(code).toBe(0);
-      const out = JSON.parse(writes.join('')) as { ok: boolean; command: string; stepsTotal: number; dryRunPreview?: string };
+      const out = JSON.parse(writes.join('')) as {
+        ok: boolean;
+        command: string;
+        stepsTotal: number;
+        dryRunPreview?: string;
+      };
       expect(out.ok).toBe(true);
       expect(out.command).toBe('mutate');
       expect(out.stepsTotal).toBe(0);

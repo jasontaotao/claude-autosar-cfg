@@ -33,7 +33,11 @@ export function resolvePlatformFromContext(): NodeJS.Platform {
   if (platformOverride !== null) return platformOverride;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w: any = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
-  if (w !== undefined && w.autosarApi !== undefined && typeof w.autosarApi.getPlatform === 'function') {
+  if (
+    w !== undefined &&
+    w.autosarApi !== undefined &&
+    typeof w.autosarApi.getPlatform === 'function'
+  ) {
     return w.autosarApi.getPlatform() as NodeJS.Platform;
   }
   if (w !== undefined && typeof w.process?.platform === 'string') {
@@ -106,13 +110,7 @@ export function eventToBinding(e: KeyboardEvent | SyntheticKeyEvent): string {
 function normalizeKey(raw: string): string {
   if (raw === '') return '';
   // Pure modifier keys: ignore.
-  if (
-    raw === 'Control' ||
-    raw === 'Shift' ||
-    raw === 'Alt' ||
-    raw === 'Meta' ||
-    raw === 'OS'
-  ) {
+  if (raw === 'Control' || raw === 'Shift' || raw === 'Alt' || raw === 'Meta' || raw === 'OS') {
     return '';
   }
   // F-keys: pass through.

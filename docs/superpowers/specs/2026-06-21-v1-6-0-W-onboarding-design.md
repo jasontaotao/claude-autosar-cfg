@@ -117,18 +117,18 @@ references it but does not implement).
 
 ### 2.2 Module responsibilities
 
-| Module                                                | Responsibility                                                                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `src/renderer/onboarding/TourRoot.tsx`                | Portal'd overlay host. Reads `useTourStore`; renders nothing in `idle` / `suppressed` / `dismissed` / `completed` states. |
-| `src/renderer/onboarding/TourSpotlight.tsx`           | Single-step card: target element rect (via `data-tour-id` selector), bubble with title + body + prev/next/skip, dimmed backdrop. |
-| `src/renderer/onboarding/WelcomeCard.tsx`             | First-launch card in AppHeader area. Two CTAs: "Take tour" + "Load Demo ECU". Auto-hides on first state transition. |
-| `src/renderer/onboarding/useTourStore.ts`             | Zustand slice (`tourSlice`) added to existing `useArxmlStore` via PR(5)-style composition.                      |
-| `src/renderer/onboarding/tourSteps.ts`                | Static step definitions (5 entries × i18n key × target selector). Pure data.                                     |
-| `src/renderer/onboarding/DemoEcuLoader.ts`            | Hook wrapping existing NewProjectDialog submit with the `demo-ecu` template pre-selected.                         |
-| `src/main/ipc/tourHandlers.ts`                        | IPC: `tour:reset`, `tour:state-get`, `tour:state-set`. Persists `tourState` + `tourDismissedAt` to `userData/tour.json`. |
-| `samples/arxml/demo-ecu/` (template directory)        | 1 `template.json` + 1-2 value-side ARXML + 1 BSWMD. Discovered by existing `discoverBuiltinTemplates`.           |
-| `src/shared/i18n.ts` (extend)                         | 12 new keys (5 step titles + 5 step bodies + 2 buttons). Parity test enforces EN + ZH.                            |
-| `config/featureFlags.ts` (NEW — see §2.3)             | Renderer-side flag lookup, mirrors `arxml-stream/feature-flag.ts` pattern.                                     |
+| Module                                         | Responsibility                                                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `src/renderer/onboarding/TourRoot.tsx`         | Portal'd overlay host. Reads `useTourStore`; renders nothing in `idle` / `suppressed` / `dismissed` / `completed` states.        |
+| `src/renderer/onboarding/TourSpotlight.tsx`    | Single-step card: target element rect (via `data-tour-id` selector), bubble with title + body + prev/next/skip, dimmed backdrop. |
+| `src/renderer/onboarding/WelcomeCard.tsx`      | First-launch card in AppHeader area. Two CTAs: "Take tour" + "Load Demo ECU". Auto-hides on first state transition.              |
+| `src/renderer/onboarding/useTourStore.ts`      | Zustand slice (`tourSlice`) added to existing `useArxmlStore` via PR(5)-style composition.                                       |
+| `src/renderer/onboarding/tourSteps.ts`         | Static step definitions (5 entries × i18n key × target selector). Pure data.                                                     |
+| `src/renderer/onboarding/DemoEcuLoader.ts`     | Hook wrapping existing NewProjectDialog submit with the `demo-ecu` template pre-selected.                                        |
+| `src/main/ipc/tourHandlers.ts`                 | IPC: `tour:reset`, `tour:state-get`, `tour:state-set`. Persists `tourState` + `tourDismissedAt` to `userData/tour.json`.         |
+| `samples/arxml/demo-ecu/` (template directory) | 1 `template.json` + 1-2 value-side ARXML + 1 BSWMD. Discovered by existing `discoverBuiltinTemplates`.                           |
+| `src/shared/i18n.ts` (extend)                  | 12 new keys (5 step titles + 5 step bodies + 2 buttons). Parity test enforces EN + ZH.                                           |
+| `config/featureFlags.ts` (NEW — see §2.3)      | Renderer-side flag lookup, mirrors `arxml-stream/feature-flag.ts` pattern.                                                       |
 
 ### 2.3 Feature flag
 
@@ -148,15 +148,16 @@ export function readFeatureFlags(): Promise<FeatureFlags>;
 ```ts
 interface FeatureFlags {
   readonly experimental: {
-    readonly onboarding: boolean;     // v1.6.0 W
-    readonly streaming: boolean;      // passthrough from main (v1.5.1)
-    readonly indexedDb: boolean;     // passthrough from main (v1.5.1)
+    readonly onboarding: boolean; // v1.6.0 W
+    readonly streaming: boolean; // passthrough from main (v1.5.1)
+    readonly indexedDb: boolean; // passthrough from main (v1.5.1)
   };
-  readonly keyboardFirst: boolean;    // mirrors experimental.keyboardFirst; v1.6.0 U
+  readonly keyboardFirst: boolean; // mirrors experimental.keyboardFirst; v1.6.0 U
 }
 ```
 
 **Default**: `experimental.onboarding = false`. To opt in:
+
 ```jsonc
 // <APPDATA>/claude-autosarcfg/settings.json
 { "experimental": { "onboarding": true, "keyboardFirst": true } }
@@ -176,14 +177,14 @@ flat field; the IPC passthrough to main still uses the nested
 Each pane already has stable React root elements. W adds a minimal
 `data-tour-id` attribute scheme (no DOM changes beyond attributes):
 
-| `data-tour-id`   | Wired by                              | Used in step |
-| ---------------- | ------------------------------------- | ------------ |
-| `app-header`     | `AppHeader.tsx` root                 | Step 1 (intro) |
-| `left-panel`     | `LeftPanel.tsx` root                  | Step 2 (project panel) |
-| `arxml-panel`    | `ArxmlPanel.tsx` root                 | Step 3 (ECUC editor) |
-| `right-pane-content` | (new wrapper on the right pane body; NOT G's bottom-docked `ValidationPanel`; see §2.4 Note) | Step 4 (right pane) |
-| `app-save`       | `AppHeader` save button (existing)   | Step 5 (Save flow) |
-| `app-export`     | new dropdown entry (Save As → ARXML) | Step 5 (Export) |
+| `data-tour-id`       | Wired by                                                                                     | Used in step           |
+| -------------------- | -------------------------------------------------------------------------------------------- | ---------------------- |
+| `app-header`         | `AppHeader.tsx` root                                                                         | Step 1 (intro)         |
+| `left-panel`         | `LeftPanel.tsx` root                                                                         | Step 2 (project panel) |
+| `arxml-panel`        | `ArxmlPanel.tsx` root                                                                        | Step 3 (ECUC editor)   |
+| `right-pane-content` | (new wrapper on the right pane body; NOT G's bottom-docked `ValidationPanel`; see §2.4 Note) | Step 4 (right pane)    |
+| `app-save`           | `AppHeader` save button (existing)                                                           | Step 5 (Save flow)     |
+| `app-export`         | new dropdown entry (Save As → ARXML)                                                         | Step 5 (Export)        |
 
 Selector resolution uses `document.querySelector('[data-tour-id="..."]')`.
 If selector misses (e.g., user in a workspace variant without the
@@ -281,15 +282,15 @@ synthesizer report §8.
 
 **Transitions** (every arrow is an explicit action; no implicit):
 
-| From       | Event          | To          | Side effect                                              |
-| ---------- | -------------- | ----------- | -------------------------------------------------------- |
-| `idle`     | `start()`      | `running`   | `currentStep = 0`, render TourRoot                       |
-| `running`  | `advance()`    | `running` or `completed` | If last step: `completed`; else `currentStep++`     |
-| `running`  | `back()`       | `running`   | `currentStep--` (clamped at 0)                            |
-| `running`  | `skip()`       | `dismissed` | Persist `dismissedAt = Date.now()`; hide TourRoot        |
-| `completed`| (none)         | `completed` | Persist `completedAt`; mark `tourCompleted: true`        |
-| any        | `reset()` (IPC)| `idle`      | Clear persisted state                                    |
-| any        | 7-day timer    | `suppressed`| Compute on boot: `now - dismissedAt > 7 days`            |
+| From        | Event           | To                       | Side effect                                       |
+| ----------- | --------------- | ------------------------ | ------------------------------------------------- |
+| `idle`      | `start()`       | `running`                | `currentStep = 0`, render TourRoot                |
+| `running`   | `advance()`     | `running` or `completed` | If last step: `completed`; else `currentStep++`   |
+| `running`   | `back()`        | `running`                | `currentStep--` (clamped at 0)                    |
+| `running`   | `skip()`        | `dismissed`              | Persist `dismissedAt = Date.now()`; hide TourRoot |
+| `completed` | (none)          | `completed`              | Persist `completedAt`; mark `tourCompleted: true` |
+| any         | `reset()` (IPC) | `idle`                   | Clear persisted state                             |
+| any         | 7-day timer     | `suppressed`             | Compute on boot: `now - dismissedAt > 7 days`     |
 
 **Terminal states**: `completed`, `dismissed`, `suppressed`. None can
 transition out except via explicit `reset()` (Settings menu, not in W
@@ -319,11 +320,17 @@ export interface TourSlice {
   readonly backTour: () => void;
   readonly skipTour: () => void;
   readonly resetTour: () => Promise<void>;
-  readonly shouldShowWelcome: () => boolean;  // selector
+  readonly shouldShowWelcome: () => boolean; // selector
 }
 
 export type TourState =
-  | { kind: 'idle'; currentStep: 0; dismissedAt: number | null; completedAt: number | null; validationPaused: boolean }
+  | {
+      kind: 'idle';
+      currentStep: 0;
+      dismissedAt: number | null;
+      completedAt: number | null;
+      validationPaused: boolean;
+    }
   | { kind: 'running'; currentStep: 0 | 1 | 2 | 3 | 4; validationPaused: boolean }
   | { kind: 'completed'; validationPaused: boolean }
   | { kind: 'dismissed'; validationPaused: boolean }
@@ -331,9 +338,9 @@ export type TourState =
 
 // Persisted across launches:
 export interface TourPersistedState {
-  readonly dismissedAt: number | null;       // epoch ms
-  readonly completedAt: number | null;       // epoch ms
-  readonly lastShownVersion: string | null;  // '1.6.0' — bumps re-arm if changed
+  readonly dismissedAt: number | null; // epoch ms
+  readonly completedAt: number | null; // epoch ms
+  readonly lastShownVersion: string | null; // '1.6.0' — bumps re-arm if changed
 }
 ```
 
@@ -345,7 +352,7 @@ export interface DemoEcuManifest {
   readonly displayName: string;
   readonly bswmdPaths: readonly string[];
   readonly valueArxmlPaths: readonly string[];
-  readonly estimatedLoadMs: number;  // measured at startup; surfaced in welcome card
+  readonly estimatedLoadMs: number; // measured at startup; surfaced in welcome card
 }
 ```
 
@@ -368,11 +375,12 @@ schema, locked 2026-06-21 per synthesizer H2:
  */
 export interface DemoEcuManifestFile {
   readonly manifestVersion: '1';
-  readonly bswmds: ReadonlyArray<string>;        // relative paths to bswmd/*.arxml
-  readonly valueArxmls: ReadonlyArray<string>;   // relative paths to *.arxml value-side
-  readonly intentionalViolations: ReadonlyArray<{  // surfaces visible SWS errors in tour
-    readonly ruleId: string;        // e.g. 'SWS_COM_PDUID_UNIQUE'
-    readonly path: string;          // ECUC path within project (e.g. '/Com/ComConfig/ComIPdu/...')
+  readonly bswmds: ReadonlyArray<string>; // relative paths to bswmd/*.arxml
+  readonly valueArxmls: ReadonlyArray<string>; // relative paths to *.arxml value-side
+  readonly intentionalViolations: ReadonlyArray<{
+    // surfaces visible SWS errors in tour
+    readonly ruleId: string; // e.g. 'SWS_COM_PDUID_UNIQUE'
+    readonly path: string; // ECUC path within project (e.g. '/Com/ComConfig/ComIPdu/...')
   }>;
 }
 ```
@@ -412,32 +420,32 @@ tests", not a manifest cross-reference).
 
 12 new keys (parity test enforces EN + ZH):
 
-| Key                                       | EN                                                  | ZH                              |
-| ----------------------------------------- | --------------------------------------------------- | ------------------------------- |
-| `onboarding.welcome.title`                | "Welcome to AutosarCfg"                             | "欢迎使用 AutosarCfg"            |
-| `onboarding.welcome.body`                 | "Take a quick tour or load a sample project."       | "快速浏览或加载示例工程。"        |
-| `onboarding.welcome.ctaTour`              | "Take tour"                                         | "开始引导"                       |
-| `onboarding.welcome.ctaDemo`              | "Load Demo ECU"                                     | "加载 Demo ECU"                  |
-| `onboarding.welcome.ctaSkip`              | "Skip"                                              | "跳过"                           |
-| `onboarding.step1.title`                  | "This is your project header"                       | "这是项目顶栏"                   |
-| `onboarding.step1.body`                   | "Open, save, and switch language from here."        | "在此打开、保存、切换语言。"      |
-| `onboarding.step2.title`                  | "Project panel on the left"                         | "左侧是项目面板"                 |
-| `onboarding.step2.body`                   | "Manage BSWMDs and ECUC files here."                | "在此管理 BSWMD 与 ECUC 文件。"  |
-| `onboarding.step3.title`                  | "ECUC editor in the middle"                         | "中间是 ECUC 编辑器"             |
-| `onboarding.step3.body`                   | "Browse the parameter tree and edit values."        | "浏览参数树并编辑数值。"          |
-| `onboarding.step4.title`                  | "Properties on the right"                           | "右侧是属性面板"                 |
-| `onboarding.step4.body`                   | "Inspect and edit the selected parameter."          | "查看与编辑选中参数。"            |
-| `onboarding.step5.title`                  | "Save and export"                                   | "保存与导出"                     |
-| `onboarding.step5.body`                   | "Save your project; export ARXML for your toolchain."| "保存工程；为工具链导出 ARXML。"  |
-| `onboarding.controls.next`                | "Next"                                              | "下一步"                         |
-| `onboarding.controls.back`                | "Back"                                              | "上一步"                         |
-| `onboarding.controls.skip`                | "Skip tour"                                         | "跳过引导"                       |
-| `onboarding.controls.finish`              | "Finish"                                            | "完成"                           |
-| `onboarding.progress.label`               | "Step {current} of {total}"                         | "第 {current} / {total} 步"      |
-| `tour.coordination.validationPaused.title`  | "Validation paused during tour"                  | "引导期间暂停校验"               |
-| `tour.coordination.validationPaused.message` | "Background validation is paused while the tour is running. It resumes after you finish or skip the tour." | "引导运行期间后台校验已暂停；完成或跳过引导后恢复。" |
-| `flags.keyboardFirst.label`               | "Keyboard-first mode"                            | "键盘优先模式"                    |
-| `flags.keyboardFirst.description`          | "Enable U cluster's keyboard navigation palette (experimental). Mirrors `experimental.keyboardFirst`." | "启用 U 集群的键盘导航面板（实验性）。镜像 `experimental.keyboardFirst`。" |
+| Key                                          | EN                                                                                                         | ZH                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `onboarding.welcome.title`                   | "Welcome to AutosarCfg"                                                                                    | "欢迎使用 AutosarCfg"                                                      |
+| `onboarding.welcome.body`                    | "Take a quick tour or load a sample project."                                                              | "快速浏览或加载示例工程。"                                                 |
+| `onboarding.welcome.ctaTour`                 | "Take tour"                                                                                                | "开始引导"                                                                 |
+| `onboarding.welcome.ctaDemo`                 | "Load Demo ECU"                                                                                            | "加载 Demo ECU"                                                            |
+| `onboarding.welcome.ctaSkip`                 | "Skip"                                                                                                     | "跳过"                                                                     |
+| `onboarding.step1.title`                     | "This is your project header"                                                                              | "这是项目顶栏"                                                             |
+| `onboarding.step1.body`                      | "Open, save, and switch language from here."                                                               | "在此打开、保存、切换语言。"                                               |
+| `onboarding.step2.title`                     | "Project panel on the left"                                                                                | "左侧是项目面板"                                                           |
+| `onboarding.step2.body`                      | "Manage BSWMDs and ECUC files here."                                                                       | "在此管理 BSWMD 与 ECUC 文件。"                                            |
+| `onboarding.step3.title`                     | "ECUC editor in the middle"                                                                                | "中间是 ECUC 编辑器"                                                       |
+| `onboarding.step3.body`                      | "Browse the parameter tree and edit values."                                                               | "浏览参数树并编辑数值。"                                                   |
+| `onboarding.step4.title`                     | "Properties on the right"                                                                                  | "右侧是属性面板"                                                           |
+| `onboarding.step4.body`                      | "Inspect and edit the selected parameter."                                                                 | "查看与编辑选中参数。"                                                     |
+| `onboarding.step5.title`                     | "Save and export"                                                                                          | "保存与导出"                                                               |
+| `onboarding.step5.body`                      | "Save your project; export ARXML for your toolchain."                                                      | "保存工程；为工具链导出 ARXML。"                                           |
+| `onboarding.controls.next`                   | "Next"                                                                                                     | "下一步"                                                                   |
+| `onboarding.controls.back`                   | "Back"                                                                                                     | "上一步"                                                                   |
+| `onboarding.controls.skip`                   | "Skip tour"                                                                                                | "跳过引导"                                                                 |
+| `onboarding.controls.finish`                 | "Finish"                                                                                                   | "完成"                                                                     |
+| `onboarding.progress.label`                  | "Step {current} of {total}"                                                                                | "第 {current} / {total} 步"                                                |
+| `tour.coordination.validationPaused.title`   | "Validation paused during tour"                                                                            | "引导期间暂停校验"                                                         |
+| `tour.coordination.validationPaused.message` | "Background validation is paused while the tour is running. It resumes after you finish or skip the tour." | "引导运行期间后台校验已暂停；完成或跳过引导后恢复。"                       |
+| `flags.keyboardFirst.label`                  | "Keyboard-first mode"                                                                                      | "键盘优先模式"                                                             |
+| `flags.keyboardFirst.description`            | "Enable U cluster's keyboard navigation palette (experimental). Mirrors `experimental.keyboardFirst`."     | "启用 U 集群的键盘导航面板（实验性）。镜像 `experimental.keyboardFirst`。" |
 
 (24 keys total — 20 onboarding + 2 tour-coordination + 2 flags-keyboardFirst; exceeds the 12 minimum.)
 
@@ -486,6 +494,7 @@ step3.body), G fires background validation runs that:
    IPC channel added in v1.6.0** — both consumers (G validator debounce
    gate + A+C integration test observer) subscribe within the renderer
    process; headless CLI does not observe tour state (no tour in CLI).
+
 4. **G debounce handler**: G's `ValidationEngine.run()` debounce
    callback (300ms after edit) MUST early-return when
    `useSwsValidatorStore.getState().paused === true`. Spec wording for
@@ -519,7 +528,7 @@ interface TourPersistenceFile {
   readonly version: 1;
   readonly dismissedAt: number | null;
   readonly completedAt: number | null;
-  readonly lastShownVersion: string | null;  // semver
+  readonly lastShownVersion: string | null; // semver
 }
 ```
 
@@ -548,18 +557,48 @@ agent corrected the path back to the real export site.)
 // Step definitions — pure data, no runtime side effects
 export interface TourStepDef {
   readonly index: 0 | 1 | 2 | 3 | 4;
-  readonly targetId: string;        // matches data-tour-id attribute
-  readonly titleKey: string;        // i18n key
-  readonly bodyKey: string;         // i18n key
+  readonly targetId: string; // matches data-tour-id attribute
+  readonly titleKey: string; // i18n key
+  readonly bodyKey: string; // i18n key
   readonly placement: 'top' | 'bottom' | 'left' | 'right' | 'center';
 }
 
 export const TOUR_STEPS: readonly TourStepDef[] = [
-  { index: 0, targetId: 'app-header',        titleKey: 'onboarding.step1.title', bodyKey: 'onboarding.step1.body', placement: 'bottom' },
-  { index: 1, targetId: 'left-panel',        titleKey: 'onboarding.step2.title', bodyKey: 'onboarding.step2.body', placement: 'right' },
-  { index: 2, targetId: 'arxml-panel',       titleKey: 'onboarding.step3.title', bodyKey: 'onboarding.step3.body', placement: 'left' },
-  { index: 3, targetId: 'right-pane-content',  titleKey: 'onboarding.step4.title', bodyKey: 'onboarding.step4.body', placement: 'left' },
-  { index: 4, targetId: 'app-save',          titleKey: 'onboarding.step5.title', bodyKey: 'onboarding.step5.body', placement: 'bottom' },
+  {
+    index: 0,
+    targetId: 'app-header',
+    titleKey: 'onboarding.step1.title',
+    bodyKey: 'onboarding.step1.body',
+    placement: 'bottom',
+  },
+  {
+    index: 1,
+    targetId: 'left-panel',
+    titleKey: 'onboarding.step2.title',
+    bodyKey: 'onboarding.step2.body',
+    placement: 'right',
+  },
+  {
+    index: 2,
+    targetId: 'arxml-panel',
+    titleKey: 'onboarding.step3.title',
+    bodyKey: 'onboarding.step3.body',
+    placement: 'left',
+  },
+  {
+    index: 3,
+    targetId: 'right-pane-content',
+    titleKey: 'onboarding.step4.title',
+    bodyKey: 'onboarding.step4.body',
+    placement: 'left',
+  },
+  {
+    index: 4,
+    targetId: 'app-save',
+    titleKey: 'onboarding.step5.title',
+    bodyKey: 'onboarding.step5.body',
+    placement: 'bottom',
+  },
 ] as const;
 ```
 
@@ -675,28 +714,28 @@ If user clicks "Reset" in AppHeader menu (U spec) while tour is running:
 
 ### 6.1 Unit tests (Vitest)
 
-| Module                               | Cases | Notes                                                          |
-| ------------------------------------ | ----- | -------------------------------------------------------------- |
-| `useTourStore` (slice)               | 8     | All 7 transitions × state machine coverage; reset clears persistence |
-| `tourSteps.ts` (data)                | 3     | Index/key parity; 5 entries; placement values valid              |
-| `tourPersistence.ts` (main IPC)      | 5     | Atomic write; corrupted JSON recovery; missing file → defaults |
-| `featureFlags.ts` (renderer)         | 4     | Flag OFF → suppressed; flag ON → idle; passthrough for streaming/indexedDb |
-| `WelcomeCard.tsx`                    | 5     | Visible when idle; hidden when dismissed/completed/suppressed; CTAs call correct handlers |
-| `TourSpotlight.tsx`                  | 6     | Renders target selector; missing target → centered fallback; prev/next/skip buttons functional |
-| `DemoEcuLoader.ts`                   | 3     | Calls existing `submitNewProject({ templateId: 'demo-ecu' })`; failure path disables button |
-| `project-manifest.ts` (NEW shared)   | 5     | Validates `demo.autosarcfg.json` per §3.4.1 schema: missing fields reject, duplicate paths dedupe, `..` traversal rejects, parse ≤ 50 ms, intentional-violations path literal-match against `InternalValidatorResult.path` |
+| Module                             | Cases | Notes                                                                                                                                                                                                                      |
+| ---------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTourStore` (slice)             | 8     | All 7 transitions × state machine coverage; reset clears persistence                                                                                                                                                       |
+| `tourSteps.ts` (data)              | 3     | Index/key parity; 5 entries; placement values valid                                                                                                                                                                        |
+| `tourPersistence.ts` (main IPC)    | 5     | Atomic write; corrupted JSON recovery; missing file → defaults                                                                                                                                                             |
+| `featureFlags.ts` (renderer)       | 4     | Flag OFF → suppressed; flag ON → idle; passthrough for streaming/indexedDb                                                                                                                                                 |
+| `WelcomeCard.tsx`                  | 5     | Visible when idle; hidden when dismissed/completed/suppressed; CTAs call correct handlers                                                                                                                                  |
+| `TourSpotlight.tsx`                | 6     | Renders target selector; missing target → centered fallback; prev/next/skip buttons functional                                                                                                                             |
+| `DemoEcuLoader.ts`                 | 3     | Calls existing `submitNewProject({ templateId: 'demo-ecu' })`; failure path disables button                                                                                                                                |
+| `project-manifest.ts` (NEW shared) | 5     | Validates `demo.autosarcfg.json` per §3.4.1 schema: missing fields reject, duplicate paths dedupe, `..` traversal rejects, parse ≤ 50 ms, intentional-violations path literal-match against `InternalValidatorResult.path` |
 
 **Total new unit tests**: ~34
 
 ### 6.2 Integration tests (Vitest + Testing Library)
 
-| Test                                            | Verifies                                                       |
-| ----------------------------------------------- | -------------------------------------------------------------- |
-| `TourRoot.integration.test.tsx`                 | Mount with App shell → 5 steps render → end → state `completed` |
-| `WelcomeCard.flow.test.tsx`                     | Boot → idle → click "Take tour" → `running` → first step visible |
-| `featureFlag.suppress.test.tsx`                 | Flag OFF → TourRoot renders null → WelcomeCard not in tree     |
-| `persistence.roundtrip.test.tsx`                | Dismiss tour → reload (mock IPC) → state persists → 7-day timer advances via clock mock |
-| `demoEcu.template-discovery.test.ts`            | `samples/arxml/demo-ecu/template.json` exists → discovered     |
+| Test                                 | Verifies                                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `TourRoot.integration.test.tsx`      | Mount with App shell → 5 steps render → end → state `completed`                         |
+| `WelcomeCard.flow.test.tsx`          | Boot → idle → click "Take tour" → `running` → first step visible                        |
+| `featureFlag.suppress.test.tsx`      | Flag OFF → TourRoot renders null → WelcomeCard not in tree                              |
+| `persistence.roundtrip.test.tsx`     | Dismiss tour → reload (mock IPC) → state persists → 7-day timer advances via clock mock |
+| `demoEcu.template-discovery.test.ts` | `samples/arxml/demo-ecu/template.json` exists → discovered                              |
 
 **Total new integration tests**: ~5
 
@@ -704,27 +743,27 @@ If user clicks "Reset" in AppHeader menu (U spec) while tour is running:
 
 `tests/e2e/onboarding.spec.ts`:
 
-| Test                                          | Verifies                                                          |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| `first-run shows welcome card`                | Fresh app boot → welcome card visible in 5 s                     |
-| `take tour advances 5 steps`                  | Click "Take tour" → step 1-5 → "Finish" → card gone               |
-| `skip tour persists for 7 days`               | Click "Skip" → reload → card stays hidden; clock advance 7 d → card reappears on reset only |
-| `demo ecu loads in under 500ms`               | Click "Load Demo ECU" → project open with bswmd + value arxml within 500 ms |
-| `feature flag off hides everything`           | settings.json `{ experimental: { onboarding: false } }` → no tour UI ever |
-| `right-pane-content missing falls back`         | Mock missing target → step 4 renders centered bubble → advance still works |
-| `keyboard escape skips tour`                  | Press Esc on any step → tour dismisses (handled by U spec; W test verifies hook exists) |
+| Test                                    | Verifies                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `first-run shows welcome card`          | Fresh app boot → welcome card visible in 5 s                                                |
+| `take tour advances 5 steps`            | Click "Take tour" → step 1-5 → "Finish" → card gone                                         |
+| `skip tour persists for 7 days`         | Click "Skip" → reload → card stays hidden; clock advance 7 d → card reappears on reset only |
+| `demo ecu loads in under 500ms`         | Click "Load Demo ECU" → project open with bswmd + value arxml within 500 ms                 |
+| `feature flag off hides everything`     | settings.json `{ experimental: { onboarding: false } }` → no tour UI ever                   |
+| `right-pane-content missing falls back` | Mock missing target → step 4 renders centered bubble → advance still works                  |
+| `keyboard escape skips tour`            | Press Esc on any step → tour dismisses (handled by U spec; W test verifies hook exists)     |
 
 **Total new E2E tests**: ~7
 
 ### 6.4 Coverage gate
 
-| Type                | Threshold                                  |
-| ------------------- | ------------------------------------------ |
+| Type                      | Threshold                                                     |
+| ------------------------- | ------------------------------------------------------------- |
 | New slice + state machine | 100% stmts / 100% branches (per ECC common testing.md spirit) |
-| New IPC handlers    | ≥ 90% stmts / ≥ 80% branches               |
-| New components      | ≥ 85% stmts / ≥ 75% branches               |
-| New i18n keys       | Parity test (existing pattern)             |
-| **Total project**   | **≥ 95.5% stmts / ≥ 87% branches** (hold v1.5.1 bar) |
+| New IPC handlers          | ≥ 90% stmts / ≥ 80% branches                                  |
+| New components            | ≥ 85% stmts / ≥ 75% branches                                  |
+| New i18n keys             | Parity test (existing pattern)                                |
+| **Total project**         | **≥ 95.5% stmts / ≥ 87% branches** (hold v1.5.1 bar)          |
 
 ### 6.5 TDD workflow
 
@@ -781,16 +820,16 @@ No schema change to `settings.json`.
 
 ### 8.1 Risks (registered with mitigations)
 
-| #  | Risk                                                       | Likelihood | Impact | Mitigation                                                                                          |
-| -- | ---------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------- |
-| R1 | **Demo ECU domain choice** (Com/ComM/CanIf/EcuC+PduR vs single) | M          | M      | Lock to **mixed (Com+ComM+CanIf+EcuC+PduR)** — covers 80% of users' first question; PduR added so G's C3 rule has fixture coverage. See NEW-Q-A. |
-| R2 | **Bundled asset size** (Demo ECU ≈ 150 KB total)           | M          | L      | 150 KB is acceptable; templates/ already enabled via `extraResources` in package.json.              |
-| R3 | **Tour spotlight jank** on workspace variants              | M          | M      | Centered-fallback bubble when target missing (see §5.1); tested in E2E.                              |
-| R4 | **Skip button position** (top-right vs bottom)             | L          | L      | A/B not justified at v1.6.0; pick **bottom-right of bubble** (consistent with existing dialogs).    |
-| R5 | **7-day suppress window** may feel too short / too long    | M          | L      | Configurable via future settings; v1.6.0 hardcoded. Document in release notes.                       |
-| R6 | **Tour fires on every new install** (no per-machine ID)   | L          | L      | `userData` is per-OS-user; per-install is acceptable for v1.6.0. Future telemetry hook (U spec) can persist a stable ID. |
-| R7 | **Demo ECU load hides IPC failures** (silent fallback)     | L          | M      | Welcome card tooltip surfaces load failure; existing `ErrorBanner` (v1.4.0) shows parse errors.       |
-| R-NEW | **Cross-cluster tour-validator coordination** (event-subscription between W `tourSlice` and G `swsValidatorSlice`) | L | M | Explicit event subscription on `tour:state-changed` keeps slice module graph one-directional (G does not import W; W does not import G). Mitigation documented in §3.7. v1.7.0+ may replace with unified orchestrator. |
+| #     | Risk                                                                                                               | Likelihood | Impact | Mitigation                                                                                                                                                                                                             |
+| ----- | ------------------------------------------------------------------------------------------------------------------ | ---------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1    | **Demo ECU domain choice** (Com/ComM/CanIf/EcuC+PduR vs single)                                                    | M          | M      | Lock to **mixed (Com+ComM+CanIf+EcuC+PduR)** — covers 80% of users' first question; PduR added so G's C3 rule has fixture coverage. See NEW-Q-A.                                                                       |
+| R2    | **Bundled asset size** (Demo ECU ≈ 150 KB total)                                                                   | M          | L      | 150 KB is acceptable; templates/ already enabled via `extraResources` in package.json.                                                                                                                                 |
+| R3    | **Tour spotlight jank** on workspace variants                                                                      | M          | M      | Centered-fallback bubble when target missing (see §5.1); tested in E2E.                                                                                                                                                |
+| R4    | **Skip button position** (top-right vs bottom)                                                                     | L          | L      | A/B not justified at v1.6.0; pick **bottom-right of bubble** (consistent with existing dialogs).                                                                                                                       |
+| R5    | **7-day suppress window** may feel too short / too long                                                            | M          | L      | Configurable via future settings; v1.6.0 hardcoded. Document in release notes.                                                                                                                                         |
+| R6    | **Tour fires on every new install** (no per-machine ID)                                                            | L          | L      | `userData` is per-OS-user; per-install is acceptable for v1.6.0. Future telemetry hook (U spec) can persist a stable ID.                                                                                               |
+| R7    | **Demo ECU load hides IPC failures** (silent fallback)                                                             | L          | M      | Welcome card tooltip surfaces load failure; existing `ErrorBanner` (v1.4.0) shows parse errors.                                                                                                                        |
+| R-NEW | **Cross-cluster tour-validator coordination** (event-subscription between W `tourSlice` and G `swsValidatorSlice`) | L          | M      | Explicit event subscription on `tour:state-changed` keeps slice module graph one-directional (G does not import W; W does not import G). Mitigation documented in §3.7. v1.7.0+ may replace with unified orchestrator. |
 
 ### 8.2 Open questions for user (lock before plan)
 
@@ -814,34 +853,34 @@ No schema change to `settings.json`.
 
 ### 9.1 BLOCK (must all pass to ship v1.6.0 W)
 
-| #   | Item                                                                  | Verification                                  |
-| --- | --------------------------------------------------------------------- | --------------------------------------------- |
-| 1   | Feature flag `experimental.onboarding` defined, default `false`        | `grep config/featureFlags.ts`                  |
-| 2   | When flag OFF: TourRoot renders null, WelcomeCard not mounted          | `featureFlag.suppress.test.tsx`               |
-| 3   | 5 tour steps render in correct order on first launch (flag ON)         | `TourRoot.integration.test.tsx` + E2E         |
-| 4   | Skip persists across reload (within 7-day window)                      | E2E `skip tour persists for 7 days`           |
-| 5   | Demo ECU template auto-discovered by `discoverBuiltinTemplates`        | `demoEcu.template-discovery.test.ts`          |
-| 5b  | **NEW (H2)**: `samples/arxml/demo-ecu/demo.autosarcfg.json` exists, validates per §3.4.1 schema, parse ≤ 50 ms | `project-manifest.test.ts` + A+C CLI smoke |
-| 6   | Demo ECU loads + opens project in ≤ 500 ms                            | E2E `demo ecu loads in under 500ms`           |
-| 7   | 20 i18n keys present × 2 locales (EN + ZH)                             | `pnpm test:i18n` parity test                  |
-| 7b  | **NEW (H3)**: 22 i18n keys present × 2 locales (EN + ZH; includes 2 `tour.coordination.validationPaused.*` keys) | `pnpm test:i18n` parity test |
+| #   | Item                                                                                                                                    | Verification                                          |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1   | Feature flag `experimental.onboarding` defined, default `false`                                                                         | `grep config/featureFlags.ts`                         |
+| 2   | When flag OFF: TourRoot renders null, WelcomeCard not mounted                                                                           | `featureFlag.suppress.test.tsx`                       |
+| 3   | 5 tour steps render in correct order on first launch (flag ON)                                                                          | `TourRoot.integration.test.tsx` + E2E                 |
+| 4   | Skip persists across reload (within 7-day window)                                                                                       | E2E `skip tour persists for 7 days`                   |
+| 5   | Demo ECU template auto-discovered by `discoverBuiltinTemplates`                                                                         | `demoEcu.template-discovery.test.ts`                  |
+| 5b  | **NEW (H2)**: `samples/arxml/demo-ecu/demo.autosarcfg.json` exists, validates per §3.4.1 schema, parse ≤ 50 ms                          | `project-manifest.test.ts` + A+C CLI smoke            |
+| 6   | Demo ECU loads + opens project in ≤ 500 ms                                                                                              | E2E `demo ecu loads in under 500ms`                   |
+| 7   | 20 i18n keys present × 2 locales (EN + ZH)                                                                                              | `pnpm test:i18n` parity test                          |
+| 7b  | **NEW (H3)**: 22 i18n keys present × 2 locales (EN + ZH; includes 2 `tour.coordination.validationPaused.*` keys)                        | `pnpm test:i18n` parity test                          |
 | 7c  | **NEW (H3)**: Tour running → G ValidationPanel 0 hits / CPU profile stable (debounce gate early-returns when `tour.kind === 'running'`) | `tour-validation-coordination.test.tsx` + CPU profile |
-| 8   | Tour state machine: 7 transitions covered                             | 8 unit tests on `useTourStore`                 |
-| 9   | All existing 1692 tests still pass                                    | `pnpm test`                                   |
-| 10  | 0 type errors, 0 lint errors                                          | `pnpm type-check && pnpm lint`                |
-| 11  | Coverage: new code ≥ 90/80; total ≥ 95.5/87                            | `pnpm test:coverage`                          |
-| 12  | Bundle size delta ≤ 30 KB gzipped when flag OFF                        | `pnpm build` size diff                        |
-| 13  | `<userData>/tour.json` atomic write (temp + rename)                    | `tourPersistence.test.ts`                     |
-| 14  | code-reviewer 0 C / ≤ 2 H / ≤ 5 M                                     | per-PR review                                 |
-| 15  | Persistence corruption recovers silently                              | `tourPersistence.test.ts`                     |
+| 8   | Tour state machine: 7 transitions covered                                                                                               | 8 unit tests on `useTourStore`                        |
+| 9   | All existing 1692 tests still pass                                                                                                      | `pnpm test`                                           |
+| 10  | 0 type errors, 0 lint errors                                                                                                            | `pnpm type-check && pnpm lint`                        |
+| 11  | Coverage: new code ≥ 90/80; total ≥ 95.5/87                                                                                             | `pnpm test:coverage`                                  |
+| 12  | Bundle size delta ≤ 30 KB gzipped when flag OFF                                                                                         | `pnpm build` size diff                                |
+| 13  | `<userData>/tour.json` atomic write (temp + rename)                                                                                     | `tourPersistence.test.ts`                             |
+| 14  | code-reviewer 0 C / ≤ 2 H / ≤ 5 M                                                                                                       | per-PR review                                         |
+| 15  | Persistence corruption recovers silently                                                                                                | `tourPersistence.test.ts`                             |
 
 ### 9.2 WARN (should pass, ship if minor miss)
 
-| #   | Item                                                                 | Verification          |
-| --- | -------------------------------------------------------------------- | --------------------- |
-| 16  | Right-pane-content target fallback (centered bubble) works             | E2E `right-pane-content missing falls back` |
-| 17  | Escape key skips tour                                                | E2E `keyboard escape skips tour` |
-| 18  | Demo ECU is recognizable to `parseBswmd` (no vendor extension)      | manual round-trip     |
+| #   | Item                                                           | Verification                                |
+| --- | -------------------------------------------------------------- | ------------------------------------------- |
+| 16  | Right-pane-content target fallback (centered bubble) works     | E2E `right-pane-content missing falls back` |
+| 17  | Escape key skips tour                                          | E2E `keyboard escape skips tour`            |
+| 18  | Demo ECU is recognizable to `parseBswmd` (no vendor extension) | manual round-trip                           |
 
 ### 9.3 OUT of scope (v1.6.0 W explicitly does NOT deliver)
 

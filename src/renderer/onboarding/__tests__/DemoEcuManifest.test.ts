@@ -15,10 +15,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  parseDemoEcuManifest,
-  DEMO_ECU_MANIFEST_RELATIVE_PATH,
-} from '../DemoEcuManifest.js';
+import { parseDemoEcuManifest, DEMO_ECU_MANIFEST_RELATIVE_PATH } from '../DemoEcuManifest.js';
 
 const SAMPLE = JSON.stringify({
   manifestVersion: '1',
@@ -55,13 +52,22 @@ describe('parseDemoEcuManifest (v1.6.0 W)', () => {
 
   it('rejects unknown manifestVersion', () => {
     expect(() =>
-      parseDemoEcuManifest(JSON.stringify({ manifestVersion: '2', bswmds: [], valueArxmls: [], intentionalViolations: [] })),
+      parseDemoEcuManifest(
+        JSON.stringify({
+          manifestVersion: '2',
+          bswmds: [],
+          valueArxmls: [],
+          intentionalViolations: [],
+        }),
+      ),
     ).toThrow(/manifestVersion/);
   });
 
   it('rejects missing manifestVersion', () => {
     expect(() =>
-      parseDemoEcuManifest(JSON.stringify({ bswmds: [], valueArxmls: [], intentionalViolations: [] })),
+      parseDemoEcuManifest(
+        JSON.stringify({ bswmds: [], valueArxmls: [], intentionalViolations: [] }),
+      ),
     ).toThrow(/manifestVersion/);
   });
 
@@ -126,7 +132,12 @@ describe('parseDemoEcuManifest (v1.6.0 W)', () => {
 
   it('accepts an empty intentionalViolations array', () => {
     const m = parseDemoEcuManifest(
-      JSON.stringify({ manifestVersion: '1', bswmds: [], valueArxmls: [], intentionalViolations: [] }),
+      JSON.stringify({
+        manifestVersion: '1',
+        bswmds: [],
+        valueArxmls: [],
+        intentionalViolations: [],
+      }),
     );
     expect(m.intentionalViolations).toEqual([]);
   });

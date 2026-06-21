@@ -16,7 +16,12 @@ import type { PatchDocument, PatchStep } from '../shared/headless/ipc-contract.j
 export type ParsePatchResult =
   | { readonly ok: true; readonly doc: PatchDocument }
   | { readonly ok: false; readonly kind: 'unsupported-version'; readonly version: string }
-  | { readonly ok: false; readonly kind: 'invalid'; readonly reason: string; readonly line?: number };
+  | {
+      readonly ok: false;
+      readonly kind: 'invalid';
+      readonly reason: string;
+      readonly line?: number;
+    };
 
 /** Parse a JSON string into a PatchDocument. Pure (no I/O). */
 export function parsePatchJson(raw: string): ParsePatchResult {
@@ -129,7 +134,12 @@ function parseStep(raw: unknown, index: number): { ok: true; value: PatchStep } 
           reason: `step[${index}] set-param requires containerPath + paramName`,
         };
       }
-      if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean' && value !== null) {
+      if (
+        typeof value !== 'string' &&
+        typeof value !== 'number' &&
+        typeof value !== 'boolean' &&
+        value !== null
+      ) {
         return {
           ok: false,
           kind: 'invalid',
@@ -172,7 +182,11 @@ function parseStep(raw: unknown, index: number): { ok: true; value: PatchStep } 
       return { ok: true, value: { op: 'remove-with-cascade', containerPath, cascade } };
     }
     default:
-      return { ok: false, kind: 'invalid', reason: `step[${index}].op="${op}" is not a recognised op` };
+      return {
+        ok: false,
+        kind: 'invalid',
+        reason: `step[${index}].op="${op}" is not a recognised op`,
+      };
   }
 }
 

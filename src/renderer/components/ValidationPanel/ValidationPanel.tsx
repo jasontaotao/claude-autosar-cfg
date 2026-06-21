@@ -39,13 +39,8 @@ export function SwsValidationPanel({ locale }: Props): JSX.Element {
 
   if (!enabled) {
     return (
-      <div
-        className="sws-panel sws-panel-disabled"
-        data-testid="sws-panel-disabled"
-      >
-        <span className="sws-panel-disabled-label">
-          {t(locale, 'swsValidator.panel.disabled')}
-        </span>
+      <div className="sws-panel sws-panel-disabled" data-testid="sws-panel-disabled">
+        <span className="sws-panel-disabled-label">{t(locale, 'swsValidator.panel.disabled')}</span>
       </div>
     );
   }
@@ -107,9 +102,7 @@ export function SwsValidationPanel({ locale }: Props): JSX.Element {
               type="button"
               key={f}
               className={
-                severityFilter === f
-                  ? 'sws-filter-btn sws-filter-btn-active'
-                  : 'sws-filter-btn'
+                severityFilter === f ? 'sws-filter-btn sws-filter-btn-active' : 'sws-filter-btn'
               }
               onClick={() => setSeverityFilter(f)}
               data-testid={`sws-filter-${f}`}
@@ -137,18 +130,10 @@ export function SwsValidationPanel({ locale }: Props): JSX.Element {
           visible.map((r, i) => (
             <li
               key={`${r.ruleId}-${r.path}-${i}`}
-              className={
-                focused === r
-                  ? 'sws-panel-row sws-panel-row-focused'
-                  : 'sws-panel-row'
-              }
+              className={focused === r ? 'sws-panel-row sws-panel-row-focused' : 'sws-panel-row'}
               data-testid={`sws-panel-row-${i}`}
             >
-              <button
-                type="button"
-                onClick={() => select(r.path)}
-                className="sws-panel-row-button"
-              >
+              <button type="button" onClick={() => select(r.path)} className="sws-panel-row-button">
                 <span className={`sws-severity sws-severity-${r.severity}`}>
                   {t(locale, `swsValidator.panel.severity.${r.severity}`)}
                 </span>
@@ -158,7 +143,9 @@ export function SwsValidationPanel({ locale }: Props): JSX.Element {
                   {t(
                     locale,
                     r.messageKey as Parameters<typeof t>[1],
-                    r.messageVars as Readonly<Record<string, string | number | boolean>> | undefined,
+                    r.messageVars as
+                      | Readonly<Record<string, string | number | boolean>>
+                      | undefined,
                   )}
                 </span>
               </button>

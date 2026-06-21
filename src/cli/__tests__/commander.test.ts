@@ -7,7 +7,13 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { parseCliArgs, GLOBAL_FLAG_NAMES, READ_FLAG_NAMES, MUTATE_FLAG_NAMES, VALIDATE_FLAG_NAMES } from '../commander.js';
+import {
+  parseCliArgs,
+  GLOBAL_FLAG_NAMES,
+  READ_FLAG_NAMES,
+  MUTATE_FLAG_NAMES,
+  VALIDATE_FLAG_NAMES,
+} from '../commander.js';
 
 describe('commander — global flag catalog', () => {
   it('exposes all 7 global flag names', () => {
@@ -30,7 +36,15 @@ describe('commander — read sub-command flags', () => {
   });
 
   it('parses --project and --format for read', () => {
-    const parsed = parseCliArgs(['node', 'autosarcfg', 'read', '--project', '/tmp/p.json', '--format', 'json']);
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'read',
+      '--project',
+      '/tmp/p.json',
+      '--format',
+      'json',
+    ]);
     expect(parsed.kind).toBe('read');
     if (parsed.kind === 'read') {
       expect(parsed.input.projectPath).toBe('/tmp/p.json');

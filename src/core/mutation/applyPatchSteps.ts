@@ -160,7 +160,12 @@ function applyOneStep(
 
 function applySetParam(
   doc: ArxmlDocument,
-  step: { readonly op: 'set-param'; readonly containerPath: string; readonly paramName: string; readonly value: string | number | boolean | null },
+  step: {
+    readonly op: 'set-param';
+    readonly containerPath: string;
+    readonly paramName: string;
+    readonly value: string | number | boolean | null;
+  },
   index: number,
 ): OneStepResult {
   // Resolve the target container first so we can return a precise
@@ -169,7 +174,11 @@ function applySetParam(
   if (target === null) {
     return {
       doc,
-      error: { stepIndex: index, kind: 'path-not-found', message: `container not found: ${step.containerPath}` },
+      error: {
+        stepIndex: index,
+        kind: 'path-not-found',
+        message: `container not found: ${step.containerPath}`,
+      },
     };
   }
   const existing = target.params[step.paramName];
@@ -238,7 +247,12 @@ function applyAddChild(
   // tail OR (when omitted) by matching the parent's first
   // subContainer — a permissive fallback for callers that omit
   // the hint.
-  const childDef = findChildDefForAdd(ctx.moduleDef, step.parentPath, step.definitionRef, step.shortName);
+  const childDef = findChildDefForAdd(
+    ctx.moduleDef,
+    step.parentPath,
+    step.definitionRef,
+    step.shortName,
+  );
   if (childDef === null) {
     return {
       doc,
@@ -265,7 +279,11 @@ function applyAddChild(
 
 function applyRemoveWithCascade(
   doc: ArxmlDocument,
-  step: { readonly op: 'remove-with-cascade'; readonly containerPath: string; readonly cascade: boolean },
+  step: {
+    readonly op: 'remove-with-cascade';
+    readonly containerPath: string;
+    readonly cascade: boolean;
+  },
   index: number,
 ): OneStepResult {
   // `cascade: false` is reserved for the store's pendingDelete flow
@@ -411,11 +429,15 @@ function applyJsonPatchStep(
           },
         };
       }
-      const defRef =
-        typeof rawDefRef === 'string' && rawDefRef.length > 0 ? rawDefRef : undefined;
+      const defRef = typeof rawDefRef === 'string' && rawDefRef.length > 0 ? rawDefRef : undefined;
       return applyAddChild(
         doc,
-        { op: 'add-child', parentPath: step.path, shortName: rawShortName, ...(defRef !== undefined ? { definitionRef: defRef } : {}) },
+        {
+          op: 'add-child',
+          parentPath: step.path,
+          shortName: rawShortName,
+          ...(defRef !== undefined ? { definitionRef: defRef } : {}),
+        },
         index,
         ctx,
       );
@@ -531,10 +553,7 @@ function findChildDefForAdd(
   return null;
 }
 
-function findParentContainerDef(
-  moduleDef: BswModuleDef,
-  parentPath: string,
-): ContainerDef | null {
+function findParentContainerDef(moduleDef: BswModuleDef, parentPath: string): ContainerDef | null {
   const segments = parentPath.split('/').filter((s) => s.length > 0);
   if (segments.length < 2) return null;
   let subSegments: string[] = [];

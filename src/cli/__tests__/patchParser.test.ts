@@ -24,9 +24,22 @@ describe('parsePatchJson — happy path', () => {
         { op: 'add', path: '/foo', value: 1 },
         { op: 'remove', path: '/foo' },
         { op: 'replace', path: '/foo', value: 2 },
-        { op: 'set-param', containerPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet', paramName: 'ComBusWakeupTimeout', value: 200 },
-        { op: 'add-child', parentPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet', shortName: 'ComIPdu_0' },
-        { op: 'remove-with-cascade', containerPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet/ComIPdu_0', cascade: true },
+        {
+          op: 'set-param',
+          containerPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet',
+          paramName: 'ComBusWakeupTimeout',
+          value: 200,
+        },
+        {
+          op: 'add-child',
+          parentPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet',
+          shortName: 'ComIPdu_0',
+        },
+        {
+          op: 'remove-with-cascade',
+          containerPath: '/AUTOSAR/EcucDefs/Com/ComConfigSet/ComIPdu_0',
+          cascade: true,
+        },
       ],
     });
     const out = parsePatchJson(raw);
@@ -83,7 +96,9 @@ describe('parsePatchJson — error paths', () => {
   });
 
   it('rejects unknown op', () => {
-    const out = parsePatchJson('{"autosarcfgPatchVersion":"1","steps":[{"op":"frobnicate","path":"/foo"}]}');
+    const out = parsePatchJson(
+      '{"autosarcfgPatchVersion":"1","steps":[{"op":"frobnicate","path":"/foo"}]}',
+    );
     expect(out.ok).toBe(false);
     if (!out.ok && out.kind === 'invalid') {
       expect(out.reason).toContain('frobnicate');

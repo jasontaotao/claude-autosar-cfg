@@ -24,9 +24,7 @@ export interface RuleCtx {
   readonly project: ValidationContext;
   readonly log: RuleLog;
   /** Build a result. Helper to enforce the contract shape. */
-  result(
-    partial: Omit<InternalValidatorResult, 'ruleId'>,
-  ): InternalValidatorResult;
+  result(partial: Omit<InternalValidatorResult, 'ruleId'>): InternalValidatorResult;
 }
 
 export interface RuleLogSink {

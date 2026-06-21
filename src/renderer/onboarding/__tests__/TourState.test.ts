@@ -13,12 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  initialTourState,
-  reduceTour,
-  type TourAction,
-  type TourState,
-} from '../tourState.js';
+import { initialTourState, reduceTour, type TourAction, type TourState } from '../tourState.js';
 
 describe('TourState (v1.6.0 W)', () => {
   describe('initial state', () => {

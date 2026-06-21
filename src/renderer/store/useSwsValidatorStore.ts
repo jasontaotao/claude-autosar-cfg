@@ -20,10 +20,7 @@ import { rule as c5 } from '../../core/sws-validator/starter/SWS_BSWMD_DEPS_PRES
 import { rule as c1 } from '../../core/sws-validator/starter/SWS_COM_PDUID_UNIQUE.js';
 import { rule as c4 } from '../../core/sws-validator/starter/SWS_ECUC_MULTIPLICITY_MIN.js';
 import { rule as c3 } from '../../core/sws-validator/starter/SWS_PDUR_ROUTING_COMPLETE.js';
-import type {
-  InternalValidatorResult,
-  RunInput,
-} from '../../core/sws-validator/types.js';
+import type { InternalValidatorResult, RunInput } from '../../core/sws-validator/types.js';
 
 export type SeverityFilter = 'all' | 'error' | 'warning';
 
@@ -113,8 +110,7 @@ export const useSwsValidatorStore = create<SwsValidatorState>()((set, get) => ({
     const { focusedErrorIndex, results } = get();
     if (results.length === 0) return;
     set({
-      focusedErrorIndex:
-        (focusedErrorIndex - 1 + results.length) % results.length,
+      focusedErrorIndex: (focusedErrorIndex - 1 + results.length) % results.length,
     });
   },
 

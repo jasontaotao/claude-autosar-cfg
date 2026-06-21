@@ -16,11 +16,7 @@ export {
   type KeyToken,
 } from './ShortcutRegistry.js';
 
-export {
-  CommandPalette,
-  type PaletteCommand,
-  type CommandPaletteProps,
-} from './CommandPalette.js';
+export { CommandPalette, type PaletteCommand, type CommandPaletteProps } from './CommandPalette.js';
 
 export {
   CheatSheet,

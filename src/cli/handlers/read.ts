@@ -37,22 +37,18 @@ async function readSingleArxml(filePath: string, start: number): Promise<ReadRes
   try {
     xml = await readFile(filePath, 'utf-8');
   } catch (err) {
-    failWith(
-      { kind: 'file-not-found', path: filePath },
-      1,
-      [`[autosarcfg] cannot read ${filePath}: ${err instanceof Error ? err.message : String(err)}`],
-    );
+    failWith({ kind: 'file-not-found', path: filePath }, 1, [
+      `[autosarcfg] cannot read ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+    ]);
     throw new Error('unreachable'); // satisfies TS — failWith is `never` but TS sometimes loses that across async boundaries
   }
 
   const parsed = parseArxml(xml);
   if (!parsed.ok) {
     const message = 'message' in parsed.error ? parsed.error.message : parsed.error.kind;
-    failWith(
-      { kind: 'parse-error', path: filePath, message },
-      1,
-      [`[autosarcfg] parse failed: ${message}`],
-    );
+    failWith({ kind: 'parse-error', path: filePath, message }, 1, [
+      `[autosarcfg] parse failed: ${message}`,
+    ]);
     throw new Error('unreachable');
   }
 
@@ -73,22 +69,18 @@ async function readProjectManifest(manifestPath: string, start: number): Promise
   try {
     json = await readFile(manifestPath, 'utf-8');
   } catch (err) {
-    failWith(
-      { kind: 'file-not-found', path: manifestPath },
-      1,
-      [`[autosarcfg] cannot read manifest: ${err instanceof Error ? err.message : String(err)}`],
-    );
+    failWith({ kind: 'file-not-found', path: manifestPath }, 1, [
+      `[autosarcfg] cannot read manifest: ${err instanceof Error ? err.message : String(err)}`,
+    ]);
     throw new Error('unreachable');
   }
 
   const loaded = loadManifest(json, manifestDir);
   if (!loaded.ok) {
     const message = 'message' in loaded.error ? loaded.error.message : String(loaded.error.kind);
-    failWith(
-      { kind: 'parse-error', path: manifestPath, message },
-      1,
-      [`[autosarcfg] manifest invalid: ${message}`],
-    );
+    failWith({ kind: 'parse-error', path: manifestPath, message }, 1, [
+      `[autosarcfg] manifest invalid: ${message}`,
+    ]);
     throw new Error('unreachable');
   }
 
@@ -132,7 +124,9 @@ async function readProjectManifest(manifestPath: string, start: number): Promise
 // Summary helpers (pure, easy to test in isolation if needed)
 // ---------------------------------------------------------------------------
 
-function summarize(doc: { packages: ReadonlyArray<{ elements: ReadonlyArray<NormalizedElementLite> }> }): {
+function summarize(doc: {
+  packages: ReadonlyArray<{ elements: ReadonlyArray<NormalizedElementLite> }>;
+}): {
   arxmlVersion: string;
   moduleCount: number;
   containerCount: number;
@@ -149,7 +143,13 @@ function summarize(doc: { packages: ReadonlyArray<{ elements: ReadonlyArray<Norm
     refs += countByKind(pkg.elements, 'reference');
     params += countParams(pkg.elements);
   }
-  return { arxmlVersion: 'unknown', moduleCount: modules, containerCount: containers, parameterCount: params, referenceCount: refs };
+  return {
+    arxmlVersion: 'unknown',
+    moduleCount: modules,
+    containerCount: containers,
+    parameterCount: params,
+    referenceCount: refs,
+  };
 }
 
 interface NormalizedElementLite {
@@ -158,7 +158,10 @@ interface NormalizedElementLite {
   readonly children?: ReadonlyArray<NormalizedElementLite>;
 }
 
-function countByKind(elements: ReadonlyArray<NormalizedElementLite>, kind: NormalizedElementLite['kind']): number {
+function countByKind(
+  elements: ReadonlyArray<NormalizedElementLite>,
+  kind: NormalizedElementLite['kind'],
+): number {
   let n = 0;
   for (const e of elements) {
     if (e.kind === kind) n++;

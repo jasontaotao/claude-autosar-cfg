@@ -96,15 +96,7 @@ async function resetStore(page: Page): Promise<void> {
 /** Seed an open project + one BSWMD + one dependent ECUC doc. */
 async function seedProjectWithDep(page: Page): Promise<void> {
   await page.evaluate(
-    async ({
-      path,
-      bswmdPath,
-      docPath,
-    }: {
-      path: string;
-      bswmdPath: string;
-      docPath: string;
-    }) => {
+    async ({ path, bswmdPath, docPath }: { path: string; bswmdPath: string; docPath: string }) => {
       const mod = await import(/* @vite-ignore */ path);
       const { useArxmlStore } = mod;
       useArxmlStore.setState({
@@ -240,7 +232,15 @@ test.describe('Sprint 17 P4 T4.2 — BSWMD remove (add + remove cascade)', () =>
     // do via deleteArxml + removeDocument. The headless harness has
     // no Electron IPC, so we drive it through the same store API.
     await page.evaluate(
-      async ({ path, bswmdPath: b, docPath: d }: { path: string; bswmdPath: string; docPath: string }) => {
+      async ({
+        path,
+        bswmdPath: b,
+        docPath: d,
+      }: {
+        path: string;
+        bswmdPath: string;
+        docPath: string;
+      }) => {
         const mod = await import(/* @vite-ignore */ path);
         const { useArxmlStore } = mod;
         useArxmlStore.getState().removeDocument(d);

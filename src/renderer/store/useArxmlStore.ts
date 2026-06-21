@@ -106,7 +106,15 @@ export interface BswmdRemoveSnapshot {
 // ---------------------------------------------------------------------------
 
 export interface ArxmlState
-  extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice, TourSlice {
+  extends
+    EcucSlice,
+    BswmdSlice,
+    ProjectSlice,
+    I18nSlice,
+    UiSlice,
+    ImportSlice,
+    MutationSlice,
+    TourSlice {
   // Every field is declared on its owning slice interface above; this
   // type is the public intersection. The body is intentionally empty.
 }
@@ -128,4 +136,13 @@ export const useArxmlStore = create<ArxmlState>()((...a) => ({
 
 // Re-export slice types so downstream consumers can pick a slice's
 // shape without importing the slice file directly.
-export type { EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice, TourSlice };
+export type {
+  EcucSlice,
+  BswmdSlice,
+  ProjectSlice,
+  I18nSlice,
+  UiSlice,
+  ImportSlice,
+  MutationSlice,
+  TourSlice,
+};

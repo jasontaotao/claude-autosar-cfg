@@ -62,7 +62,11 @@ describe('dispatchCommand — read path', () => {
 
     const code = await dispatchCommand(parsed);
     expect(code).toBe(EXIT_SUCCESS);
-    const out = JSON.parse(cap.stdout.join('')) as { ok: boolean; command: string; summary: { moduleCount: number } };
+    const out = JSON.parse(cap.stdout.join('')) as {
+      ok: boolean;
+      command: string;
+      summary: { moduleCount: number };
+    };
     expect(out.ok).toBe(true);
     expect(out.command).toBe('read');
     expect(out.summary.moduleCount).toBeGreaterThanOrEqual(0);
@@ -71,7 +75,12 @@ describe('dispatchCommand — read path', () => {
   it('exits 1 (fatal) when --project points at a missing file', async () => {
     const parsed: ParsedArgs = {
       kind: 'read',
-      global: { projectPath: '/nonexistent/file.arxml', verbose: false, quiet: false, noColor: false },
+      global: {
+        projectPath: '/nonexistent/file.arxml',
+        verbose: false,
+        quiet: false,
+        noColor: false,
+      },
       input: { projectPath: '/nonexistent/file.arxml', format: 'json' },
     };
 

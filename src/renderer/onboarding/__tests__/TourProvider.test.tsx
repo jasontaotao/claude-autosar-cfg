@@ -21,7 +21,9 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-function renderWith(tourState: Parameters<typeof TourProvider>[0]['tourState']): ReturnType<typeof render> {
+function renderWith(
+  tourState: Parameters<typeof TourProvider>[0]['tourState'],
+): ReturnType<typeof render> {
   return render(
     <TourProvider
       tourState={tourState}

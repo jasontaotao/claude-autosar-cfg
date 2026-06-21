@@ -85,32 +85,32 @@ AUTOSAR Specification of Software (SWS) module constraint validator. Plugin arch
 
 9-scenario cross-spec integration test matrix (A+C spec §10.6, 22/22 tests pass):
 
-| # | Scenario | Owner cluster | File |
-|---|---|---|---|
-| 1 | CLI read ARXML | A+C | `tests/integration/a-c-1-cli-read.test.ts` |
-| 2 | CLI mutate + write | A+C | `tests/integration/a-c-2-cli-mutate.test.ts` |
-| 3 | CLI `--validate` stub emit `headless:validate-result:v1` | A+C | `tests/integration/a-c-3-cli-validate.test.ts` |
-| 4 | W Demo ECU loaded via CLI | A+C + W | `tests/integration/a-c-4-w-demo-ecu.test.ts` + `tests/integration/w-demo-ecu-cli.test.ts` |
-| 5 | G validation result → CLI stdout | A+C + G | `tests/integration/g-result-cli.test.ts` (pending G-5 wire-up) |
-| 6 | U command palette "Run Script" → v1.3.0 `applyScript` IPC | U | `tests/integration/u-run-script.test.ts` |
-| 7 | U Cmd-S triggers A+C save path (GUI bridge) | U + A+C | **defer v1.7.0** (no GUI bridge in v1.6.0) |
-| 8 | W tour validation paused → G skip | W + G | `tests/integration/tour-pause-validator.test.ts` |
-| 9 | G sandbox parity vs v1.3.0 Script Engine | G | `src/core/sws-validator/sandbox/__parity__.test.ts` |
+| #   | Scenario                                                  | Owner cluster | File                                                                                      |
+| --- | --------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| 1   | CLI read ARXML                                            | A+C           | `tests/integration/a-c-1-cli-read.test.ts`                                                |
+| 2   | CLI mutate + write                                        | A+C           | `tests/integration/a-c-2-cli-mutate.test.ts`                                              |
+| 3   | CLI `--validate` stub emit `headless:validate-result:v1`  | A+C           | `tests/integration/a-c-3-cli-validate.test.ts`                                            |
+| 4   | W Demo ECU loaded via CLI                                 | A+C + W       | `tests/integration/a-c-4-w-demo-ecu.test.ts` + `tests/integration/w-demo-ecu-cli.test.ts` |
+| 5   | G validation result → CLI stdout                          | A+C + G       | `tests/integration/g-result-cli.test.ts` (pending G-5 wire-up)                            |
+| 6   | U command palette "Run Script" → v1.3.0 `applyScript` IPC | U             | `tests/integration/u-run-script.test.ts`                                                  |
+| 7   | U Cmd-S triggers A+C save path (GUI bridge)               | U + A+C       | **defer v1.7.0** (no GUI bridge in v1.6.0)                                                |
+| 8   | W tour validation paused → G skip                         | W + G         | `tests/integration/tour-pause-validator.test.ts`                                          |
+| 9   | G sandbox parity vs v1.3.0 Script Engine                  | G             | `src/core/sws-validator/sandbox/__parity__.test.ts`                                       |
 
 ## Stats
 
-| Metric | v1.5.1 | v1.6.0 | Delta |
-|---|---|---|---|
-| Commits since last tag | — | **26** | +26 |
-| Tests passing | 1692 | **1972** | +280 |
-| Tests skipped | 1 | 1 | 0 |
-| Type errors | 0 | 0 | 0 |
-| Lint errors | 0 | 0 | 0 |
-| Coverage (stmt) | 96.31% | **96.61%** | +0.30% |
-| Coverage (branch) | 87.96% | **87.72%** | -0.24% (still above target) |
-| New IPC channels | — | 4 (`headless:run-command:v1` / `headless:mutate-applied:v1` / `headless:validate-result:v1` / `feature-flags:get`) | +4 |
-| New i18n keys | — | 124 × 2 locales | +248 entries |
-| New dependencies | — | 0 (commander.js already in v1.5.1 deps) | 0 |
+| Metric                 | v1.5.1 | v1.6.0                                                                                                             | Delta                       |
+| ---------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| Commits since last tag | —      | **26**                                                                                                             | +26                         |
+| Tests passing          | 1692   | **1972**                                                                                                           | +280                        |
+| Tests skipped          | 1      | 1                                                                                                                  | 0                           |
+| Type errors            | 0      | 0                                                                                                                  | 0                           |
+| Lint errors            | 0      | 0                                                                                                                  | 0                           |
+| Coverage (stmt)        | 96.31% | **96.61%**                                                                                                         | +0.30%                      |
+| Coverage (branch)      | 87.96% | **87.72%**                                                                                                         | -0.24% (still above target) |
+| New IPC channels       | —      | 4 (`headless:run-command:v1` / `headless:mutate-applied:v1` / `headless:validate-result:v1` / `feature-flags:get`) | +4                          |
+| New i18n keys          | —      | 124 × 2 locales                                                                                                    | +248 entries                |
+| New dependencies       | —      | 0 (commander.js already in v1.5.1 deps)                                                                            | 0                           |
 
 ## Cross-cluster concerns closed (Round 3 micro-edit + final fix)
 
@@ -139,6 +139,7 @@ AUTOSAR Specification of Software (SWS) module constraint validator. Plugin arch
 ## Acknowledgements
 
 This release ships 4 new features developed in parallel via 17 subagent dispatches (4 spec writers + 5 review agents + 1 synthesizer + 3 spec editors + 1 re-review + 4 spec editors R2 + 1 re-review R2 + 1 micro-edit + 4 implementers + 1 final fix). All 4 cluster canonical SoT paths locked:
+
 - `writeAtomic` in `src/main/ipc/projectSaveHandler.ts:50` (v1.5.1 PR(4))
 - Demo ECU manifest in `samples/arxml/demo-ecu/demo.autosarcfg.json` + `src/renderer/onboarding/DemoEcuManifest.ts`
 - Canonical wire-shape in `src/shared/headless/ipc-contract.ts` (extend, don't fork v1.5.1's `src/shared/ipc-contract.ts`)

@@ -22,7 +22,11 @@ const ctx: CommandContext = {
   focusedArea: 'other',
 };
 
-const echoCommand = (id: string, binding: string, when?: (c: CommandContext) => boolean): Command => ({
+const echoCommand = (
+  id: string,
+  binding: string,
+  when?: (c: CommandContext) => boolean,
+): Command => ({
   id,
   labelKey: `cmd.${id}`,
   category: 'file',
@@ -181,7 +185,10 @@ describe('ShortcutRegistry (v1.6.0 U)', () => {
   });
 });
 
-function makeKeyEvent(key: string, mods: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}): KeyboardEvent {
+function makeKeyEvent(
+  key: string,
+  mods: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {},
+): KeyboardEvent {
   // jsdom doesn't expose KeyboardEvent constructor in every test env;
   // fall back to a plain object that satisfies the structural type.
   if (typeof KeyboardEvent !== 'undefined') {

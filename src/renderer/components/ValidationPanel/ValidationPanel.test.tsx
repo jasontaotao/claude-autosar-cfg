@@ -5,10 +5,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  setFlagForTest,
-  _resetFlagCache,
-} from '@core/sws-validator/feature-flag.js';
+import { setFlagForTest, _resetFlagCache } from '@core/sws-validator/feature-flag.js';
 import type { InternalValidatorResult } from '@core/sws-validator/types.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';

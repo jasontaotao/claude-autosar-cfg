@@ -311,11 +311,7 @@ export function ProjectPanelInfo({
         // does NOT get this wiring — ARXML removal is handled by
         // the existing × button + the ECUC add/delete flow.
         onContextMenuRow={(p, e) => {
-          openContextMenu(
-            { path: p, kind: 'bswmd', shortName: basename(p) },
-            e.clientX,
-            e.clientY,
-          );
+          openContextMenu({ path: p, kind: 'bswmd', shortName: basename(p) }, e.clientX, e.clientY);
         }}
         // Sprint 14 / Task 11 — trailing widgets per BSWMD row. Each
         // row gets:

@@ -13,10 +13,7 @@
 //   - `detectConflicts()` returns the full conflict list for the
 //     cheat-sheet UI / dev-mode console warnings.
 
-import {
-  bindingsEqual,
-  eventToBinding,
-} from './normalizeKey.js';
+import { bindingsEqual, eventToBinding } from './normalizeKey.js';
 import type {
   Command,
   CommandCategory,
@@ -71,9 +68,7 @@ export class ShortcutRegistry {
    *  `detectConflicts()` afterwards to surface them. */
   register(command: Command): ShortcutRegistry {
     if (this.commands.some((c) => c.id === command.id)) {
-      throw new Error(
-        `ShortcutRegistry: command id "${command.id}" is already registered`,
-      );
+      throw new Error(`ShortcutRegistry: command id "${command.id}" is already registered`);
     }
     return this.registerAll([command]);
   }
@@ -85,9 +80,7 @@ export class ShortcutRegistry {
     const seen = new Set<string>();
     for (const c of commands) {
       if (seen.has(c.id)) {
-        throw new Error(
-          `ShortcutRegistry: duplicate command id in batch: "${c.id}"`,
-        );
+        throw new Error(`ShortcutRegistry: duplicate command id in batch: "${c.id}"`);
       }
       seen.add(c.id);
     }

@@ -16,7 +16,10 @@ import { describe, expect, it } from 'vitest';
 
 import { ShortcutRegistry, type CommandContext } from '../ShortcutRegistry.js';
 
-const ctx = (focusedArea: CommandContext['focusedArea'], hasOpenProject = true): CommandContext => ({
+const ctx = (
+  focusedArea: CommandContext['focusedArea'],
+  hasOpenProject = true,
+): CommandContext => ({
   activeElement: null,
   focusedArea,
   hasOpenProject,
@@ -63,7 +66,7 @@ describe('Mod+Shift+E disambiguation (v1.6.0 U)', () => {
     expect(cmd?.id).toBe('validation.focusPanel');
   });
 
-  it('returns null when neither command\'s `when` matches (e.g. no project open)', () => {
+  it("returns null when neither command's `when` matches (e.g. no project open)", () => {
     const cmd = r.lookup(
       makeKeyEvent('e', { metaKey: true, shiftKey: true }),
       ctx('editor', false),
@@ -74,6 +77,9 @@ describe('Mod+Shift+E disambiguation (v1.6.0 U)', () => {
   });
 });
 
-function makeKeyEvent(key: string, mods: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}): KeyboardEvent {
+function makeKeyEvent(
+  key: string,
+  mods: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {},
+): KeyboardEvent {
   return new KeyboardEvent('keydown', { key, ...mods });
 }

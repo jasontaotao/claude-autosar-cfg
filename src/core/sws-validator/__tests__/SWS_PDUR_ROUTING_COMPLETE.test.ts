@@ -62,9 +62,7 @@ describe('SWS_PDUR_ROUTING_COMPLETE', () => {
   });
 
   it('fails when a RoutingPath has empty src', () => {
-    const doc = docWithRoutingPaths([
-      { name: 'Path_BAD__SRC___DEST_Com', src: '', dest: 'Com' },
-    ]);
+    const doc = docWithRoutingPaths([{ name: 'Path_BAD__SRC___DEST_Com', src: '', dest: 'Com' }]);
     const ctx = buildValidationContext({ document: doc, schemaLayer: EMPTY_LAYER, locale: 'en' });
     const results = rule.check(ctx);
     expect(results.length).toBeGreaterThan(0);

@@ -77,6 +77,7 @@ D:/claude_proj2/
 **Option A (git submodule + file: dep)** for v1.7.0.
 
 Reasons:
+
 - dbc-forge is NOT on npm yet; Option C requires a release step outside our scope.
 - Option B is too much repo surgery for what we need (we only consume `@dbc-forge/core`, not modify it).
 - Option A keeps both repos independently releasable while letting local dev work via file: protocol. CI change is a 1-line addition to the install step.
@@ -92,12 +93,13 @@ Implemented during v1.6.1 close-out session. Actual implementation diverges from
 - **What this means**:
   - ✅ Local install works (3.7s, 36 packages added, no errors)
   - ✅ Smoke test passes (3/3, round-trip preserves network byte-for-byte)
-  - ⚠️  CI / new contributors need the sibling repo at the exact relative path `../dbc-forge`. The submodule-based spec §4 has been deferred; documented in "Future cleanup" below.
-  - ⚠️  No `.gitmodules` / no submodule init step in CI — needs to be added when network returns.
+  - ⚠️ CI / new contributors need the sibling repo at the exact relative path `../dbc-forge`. The submodule-based spec §4 has been deferred; documented in "Future cleanup" below.
+  - ⚠️ No `.gitmodules` / no submodule init step in CI — needs to be added when network returns.
 
 ## 3b. Implementation summary
 
 **Files changed** (3):
+
 - `package.json` — `+@dbc-forge/core: file:..\dbc-forge\packages\core` in dependencies
 - `pnpm-lock.yaml` — resolves `@dbc-forge/core 0.0.0` via file: protocol (36 transitive packages)
 - `src/__tests__/dbcForgeBridge.smoke.test.ts` (new, 73 lines, 3 tests)
@@ -105,6 +107,7 @@ Implemented during v1.6.1 close-out session. Actual implementation diverges from
 **Test count delta**: 2010 → 2013 (+3).
 
 **Future cleanup** (when network returns):
+
 1. `git submodule add https://github.com/jasontaotao/dbc-forge.git vendor/dbc-forge`
 2. `cd vendor/dbc-forge && git checkout v0.1.0`
 3. Update `package.json`: `file:..\dbc-forge\packages\core` → `file:./vendor/dbc-forge/packages/core`
@@ -128,13 +131,13 @@ Per the recommendation:
 
 ## 5. Decisions to Lock
 
-| # | Decision | Default proposal |
-|---|----------|------------------|
-| D1 | Layout option | A (submodule + file:) |
-| D2 | Submodule pin | v0.1.0 tag (current released) |
-| D3 | Vendored path | `vendor/dbc-forge/` |
-| D4 | Smoke test scope | 1-frame round-trip only |
-| D5 | Update frequency | Manual `git submodule update --remote` (no auto-tracking) |
+| #   | Decision         | Default proposal                                          |
+| --- | ---------------- | --------------------------------------------------------- |
+| D1  | Layout option    | A (submodule + file:)                                     |
+| D2  | Submodule pin    | v0.1.0 tag (current released)                             |
+| D3  | Vendored path    | `vendor/dbc-forge/`                                       |
+| D4  | Smoke test scope | 1-frame round-trip only                                   |
+| D5  | Update frequency | Manual `git submodule update --remote` (no auto-tracking) |
 
 ## 6. Out of Scope (deferred)
 

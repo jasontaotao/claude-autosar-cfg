@@ -10,7 +10,12 @@
 
 import { Command } from 'commander';
 
-import type { HeadlessCommand, ReadArgs, MutateArgs, ValidateArgs } from '../shared/headless/ipc-contract.js';
+import type {
+  HeadlessCommand,
+  ReadArgs,
+  MutateArgs,
+  ValidateArgs,
+} from '../shared/headless/ipc-contract.js';
 
 /** Flag catalog — exported so commander.test.ts pins the surface. */
 export const GLOBAL_FLAG_NAMES = [
@@ -42,7 +47,11 @@ export interface GlobalFlags {
 /** Discriminated union of all 3 sub-command inputs + global flags. */
 export type ParsedArgs =
   | { readonly kind: 'read'; readonly global: GlobalFlags; readonly input: ReadArgs }
-  | { readonly kind: 'mutate'; readonly global: GlobalFlags; readonly input: MutateArgs & { strict: boolean; backup: boolean } }
+  | {
+      readonly kind: 'mutate';
+      readonly global: GlobalFlags;
+      readonly input: MutateArgs & { strict: boolean; backup: boolean };
+    }
   | { readonly kind: 'validate'; readonly global: GlobalFlags; readonly input: ValidateArgs };
 
 /**
@@ -72,7 +81,12 @@ export function buildCommand(): Command {
   root
     .command('read')
     .description('Dump project as JSON / arxml summary')
-    .option('--paths <glob>', 'Restrict to specific paths (POSIX extended-glob; repeatable)', collectPaths, [] as string[])
+    .option(
+      '--paths <glob>',
+      'Restrict to specific paths (POSIX extended-glob; repeatable)',
+      collectPaths,
+      [] as string[],
+    )
     .option('--summary-only', 'Emit only the summary object, not the full document', false)
     .action(function (this: Command) {
       // Action is a no-op; the dispatcher reads opts via .opts().
@@ -94,7 +108,12 @@ export function buildCommand(): Command {
   root
     .command('validate')
     .description('Run validators against the project (stub in v1.6.0)')
-    .option('--rules <id>', 'Restrict to specific rule IDs (reserved for G cluster)', collectPaths, [] as string[])
+    .option(
+      '--rules <id>',
+      'Restrict to specific rule IDs (reserved for G cluster)',
+      collectPaths,
+      [] as string[],
+    )
     .option('--severity <s>', 'Filter output by severity: error | warning | info', 'all')
     .action(function (this: Command) {
       // No-op action; dispatcher handles execution.

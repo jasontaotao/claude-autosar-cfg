@@ -16,18 +16,18 @@
 
 ## 3. Spec Section Checklist (10/10)
 
-| #   | Section                       | Status | Notes                                                              |
-| --- | ----------------------------- | ------ | ------------------------------------------------------------------ |
-| 1   | Overview & Goals              | DONE   | Brainstorm 引用 + out-of-scope (vim mode / emacs mode / mouse gesture) 明确 |
-| 2   | User Stories                  | DONE   | 3 个: 老 AUTOSAR 工程师 / NVDA screen reader / power user macro     |
-| 3   | Architecture & Components     | DONE   | 新增模块图 (CommandPalette / ShortcutRegistry / KeymapProvider / CheatSheet) + v1.3.0 复用边界 |
-| 4   | API/Interface Contract        | DONE   | Shortcut schema / CommandPalette API / IPC 集成 (复用 runScript) / CheatSheet 数据源 |
-| 5   | Data Model                    | DONE   | Command / CommandContext / ShortcutBinding / PaletteEntry / CheatSheetSection |
-| 6   | Error Handling                | DONE   | Shortcut 冲突 (warn 不 block) / palette 无结果 (aria-live) / script 复用 v1.3.0 / feature flag 早期 return / focus trap |
-| 7   | Testing Strategy              | DONE   | 53 unit + 15 integration + 10+ e2e (Playwright + axe-core) / ≥ 95.5/87 覆盖目标 |
-| 8   | Migration / Backward Compat   | DONE   | 完全 parallel / 不改 v1.3.0 / 不改 v1.5.1 / feature flag OFF = 0 开销 |
-| 9   | Risks & Open Questions        | DONE   | 9 条 user 拍板 + 4 条技术风险                                     |
-| 10  | Acceptance Criteria           | DONE   | 13 BLOCK (含 measurable: ≤100ms / 50+ shortcut / 0 conflict 误报 / axe 0 violation) + 3 WARN + 7 OUT |
+| #   | Section                     | Status | Notes                                                                                                                   |
+| --- | --------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 1   | Overview & Goals            | DONE   | Brainstorm 引用 + out-of-scope (vim mode / emacs mode / mouse gesture) 明确                                             |
+| 2   | User Stories                | DONE   | 3 个: 老 AUTOSAR 工程师 / NVDA screen reader / power user macro                                                         |
+| 3   | Architecture & Components   | DONE   | 新增模块图 (CommandPalette / ShortcutRegistry / KeymapProvider / CheatSheet) + v1.3.0 复用边界                          |
+| 4   | API/Interface Contract      | DONE   | Shortcut schema / CommandPalette API / IPC 集成 (复用 runScript) / CheatSheet 数据源                                    |
+| 5   | Data Model                  | DONE   | Command / CommandContext / ShortcutBinding / PaletteEntry / CheatSheetSection                                           |
+| 6   | Error Handling              | DONE   | Shortcut 冲突 (warn 不 block) / palette 无结果 (aria-live) / script 复用 v1.3.0 / feature flag 早期 return / focus trap |
+| 7   | Testing Strategy            | DONE   | 53 unit + 15 integration + 10+ e2e (Playwright + axe-core) / ≥ 95.5/87 覆盖目标                                         |
+| 8   | Migration / Backward Compat | DONE   | 完全 parallel / 不改 v1.3.0 / 不改 v1.5.1 / feature flag OFF = 0 开销                                                   |
+| 9   | Risks & Open Questions      | DONE   | 9 条 user 拍板 + 4 条技术风险                                                                                           |
+| 10  | Acceptance Criteria         | DONE   | 13 BLOCK (含 measurable: ≤100ms / 50+ shortcut / 0 conflict 误报 / axe 0 violation) + 3 WARN + 7 OUT                    |
 
 ## 4. Self-Review Checklist (12/12 PASS)
 
@@ -54,22 +54,23 @@
 
 ## 6. 50+ Shortcut 候选清单 (47 → plan 阶段补 3+)
 
-| Category | Count | Examples |
-|---|---:|---|
-| File | 5 | `Mod+O` Open · `Mod+S` Save · `Mod+Shift+S` Save As · `Mod+W` Close · `Mod+R` Recent |
-| Edit | 7 | `Mod+Z` Undo · `Mod+Shift+Z` Redo · `Mod+X/C/V` Cut/Copy/Paste · `Mod+F` Find · `Mod+H` Replace |
-| View | 5 | `Mod+B` Toggle Left · `Mod+J` Toggle Right · `Mod+=/-/0` Zoom |
-| Navigate | 5 | `F12` Go to Def · `Shift+F12` Go to Ref · `F8/Shift+F8` Next/Prev Error · `Mod+P` Quick Open |
-| Selection | 5 | `Mod+A` Select All · Expand/Shrink · Multi-cursor Above/Below |
-| Tree | 5 | `Mod+Shift+E` Reveal · Collapse/Expand All · Jump Parent/Child |
-| Script | 4 | `Mod+Shift+P` Open Editor · Run (via Cmd-K) · `Mod+S` (in panel) · `Shift+Alt+F` Format |
-| ECUC | 5 | `Mod+I` Add Container · `Mod+Backspace` Delete · `Mod+D` Duplicate · Add Param · Edit Param |
-| Window | 3 | `Mod+Shift+N` New · `Mod+Shift+W` Close · `Mod+1/2/3` Focus |
-| Help | 2 | `?` Cheat Sheet · `F1` Docs |
-| Palette | 1 | `Mod+K` Toggle |
-| **TOTAL** | **47** | (需 plan 阶段补 `Mod+/` Toggle Comment / `Mod+T` New Tab / 1 个到 50+) |
+| Category  |  Count | Examples                                                                                        |
+| --------- | -----: | ----------------------------------------------------------------------------------------------- |
+| File      |      5 | `Mod+O` Open · `Mod+S` Save · `Mod+Shift+S` Save As · `Mod+W` Close · `Mod+R` Recent            |
+| Edit      |      7 | `Mod+Z` Undo · `Mod+Shift+Z` Redo · `Mod+X/C/V` Cut/Copy/Paste · `Mod+F` Find · `Mod+H` Replace |
+| View      |      5 | `Mod+B` Toggle Left · `Mod+J` Toggle Right · `Mod+=/-/0` Zoom                                   |
+| Navigate  |      5 | `F12` Go to Def · `Shift+F12` Go to Ref · `F8/Shift+F8` Next/Prev Error · `Mod+P` Quick Open    |
+| Selection |      5 | `Mod+A` Select All · Expand/Shrink · Multi-cursor Above/Below                                   |
+| Tree      |      5 | `Mod+Shift+E` Reveal · Collapse/Expand All · Jump Parent/Child                                  |
+| Script    |      4 | `Mod+Shift+P` Open Editor · Run (via Cmd-K) · `Mod+S` (in panel) · `Shift+Alt+F` Format         |
+| ECUC      |      5 | `Mod+I` Add Container · `Mod+Backspace` Delete · `Mod+D` Duplicate · Add Param · Edit Param     |
+| Window    |      3 | `Mod+Shift+N` New · `Mod+Shift+W` Close · `Mod+1/2/3` Focus                                     |
+| Help      |      2 | `?` Cheat Sheet · `F1` Docs                                                                     |
+| Palette   |      1 | `Mod+K` Toggle                                                                                  |
+| **TOTAL** | **47** | (需 plan 阶段补 `Mod+/` Toggle Comment / `Mod+T` New Tab / 1 个到 50+)                          |
 
 **Conflict 预检** (Q3 决策 = warn not block):
+
 - `Mod+Shift+P` 绑到 Script Editor + Add Parameter → plan 阶段拆分 (改 Add Parameter 到 `Mod+Shift+I`)
 - `Mod+S` 主窗口 = Save Project, ScriptPanel 内 = Save Script → 用 `when: ctx => ctx.focusedArea === 'script'` 区分
 

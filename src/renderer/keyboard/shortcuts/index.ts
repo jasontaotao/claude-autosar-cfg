@@ -10,7 +10,6 @@ import type { MessageKey } from '@shared/i18n';
 import type { Command } from '../ShortcutRegistry.js';
 import type { CommandCategory } from '../types.js';
 
-
 import { ecucCommands } from './ecuc.js';
 import { editCommands } from './edit.js';
 import { fileCommands } from './file.js';

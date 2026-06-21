@@ -51,10 +51,7 @@ function narrowSeverity(s: Severity): 'error' | 'warning' {
  * For v1.6.0 we drop `fix` (it doesn't exist on `InternalValidatorResult`)
  * and do NOT carry it on the wire.
  */
-export function toWireResult(
-  internal: InternalValidatorResult,
-  locale: Locale,
-): ValidatorResult {
+export function toWireResult(internal: InternalValidatorResult, locale: Locale): ValidatorResult {
   return {
     ruleId: internal.ruleId,
     severity: narrowSeverity(internal.severity),

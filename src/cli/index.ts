@@ -5,7 +5,14 @@
 // Callers can `import { dispatchCommand, parseCliArgs } from 'src/cli/index.js'`
 // without touching the internal sub-paths.
 
-export { parseCliArgs, buildCommand, GLOBAL_FLAG_NAMES, READ_FLAG_NAMES, MUTATE_FLAG_NAMES, VALIDATE_FLAG_NAMES } from './commander.js';
+export {
+  parseCliArgs,
+  buildCommand,
+  GLOBAL_FLAG_NAMES,
+  READ_FLAG_NAMES,
+  MUTATE_FLAG_NAMES,
+  VALIDATE_FLAG_NAMES,
+} from './commander.js';
 export type { ParsedArgs, GlobalFlags } from './commander.js';
 export {
   EXIT_SUCCESS,

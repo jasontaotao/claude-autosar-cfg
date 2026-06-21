@@ -53,7 +53,17 @@ describe('a-c-1: CLI read against existing fixture', () => {
     try {
       const code = await dispatchCommand(parsed);
       expect(code).toBe(0);
-      const out = JSON.parse(cap.stdout.join('')) as { ok: boolean; command: string; summary: { moduleCount: number; containerCount: number; parameterCount: number; referenceCount: number }; durationMs: number };
+      const out = JSON.parse(cap.stdout.join('')) as {
+        ok: boolean;
+        command: string;
+        summary: {
+          moduleCount: number;
+          containerCount: number;
+          parameterCount: number;
+          referenceCount: number;
+        };
+        durationMs: number;
+      };
       expect(out.ok).toBe(true);
       expect(out.command).toBe('read');
       expect(out.summary.moduleCount).toBeGreaterThanOrEqual(0);
@@ -67,7 +77,12 @@ describe('a-c-1: CLI read against existing fixture', () => {
   it('exits 1 (fatal) for missing file with file-not-found envelope', async () => {
     const parsed: ParsedArgs = {
       kind: 'read',
-      global: { projectPath: '/nonexistent/foo.arxml', verbose: false, quiet: false, noColor: false },
+      global: {
+        projectPath: '/nonexistent/foo.arxml',
+        verbose: false,
+        quiet: false,
+        noColor: false,
+      },
       input: { projectPath: '/nonexistent/foo.arxml', format: 'json' },
     };
     const cap = captureStd();

@@ -12,7 +12,10 @@ import { buildValidationContext } from '../context.js';
 import { rule } from '../starter/SWS_COM_PDUID_UNIQUE.js';
 
 /** Build a synthetic document with N ComPdu children inside a ComConfig. */
-function docWithComConfig(comConfigPath: string, pdus: { name: string; pduId: number }[]): NormalizedDocument {
+function docWithComConfig(
+  comConfigPath: string,
+  pdus: { name: string; pduId: number }[],
+): NormalizedDocument {
   const children: {
     readonly kind: 'container';
     readonly shortName: string;

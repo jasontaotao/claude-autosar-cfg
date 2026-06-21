@@ -62,10 +62,7 @@ function makeParam(name: string, type: ParamValue['type'], value: ParamValue['va
   };
 }
 
-function makeParamValue(
-  type: ParamValue['type'],
-  value: ParamValue['value'],
-): ParamValue {
+function makeParamValue(type: ParamValue['type'], value: ParamValue['value']): ParamValue {
   return { type, value } as ParamValue;
 }
 
@@ -97,12 +94,17 @@ function makeComModule(): BswModuleDef {
         makeParam('ComVersionInfoApi', 'boolean', false),
         makeParam('ComCancellationSupport', 'boolean', true),
       ]),
-      makeContainerDef('ComConfig', [], [
-        makeContainerDef('ComIPdu', [], [
-          makeContainerDef('ComTxIPdu'),
-          makeContainerDef('ComRxIPdu'),
-        ]),
-      ]),
+      makeContainerDef(
+        'ComConfig',
+        [],
+        [
+          makeContainerDef(
+            'ComIPdu',
+            [],
+            [makeContainerDef('ComTxIPdu'), makeContainerDef('ComRxIPdu')],
+          ),
+        ],
+      ),
     ],
     providedEntries: [],
     lowerMultiplicity: 0,

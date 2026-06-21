@@ -780,7 +780,8 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
 
     // Act — descend into the sub-container shell (the child of CanGeneral).
-    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule)
+      .children[0]! as ArxmlContainer;
     if (canGeneral.kind !== 'container') throw new Error('guard');
     const canSub = canGeneral.children[0]! as ArxmlContainer;
     if (canSub.kind !== 'container') throw new Error('guard');
@@ -970,7 +971,8 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
 
     // Act
-    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule)
+      .children[0]! as ArxmlContainer;
     const canSub = canGeneral.children[0]! as ArxmlContainer;
 
     // Assert — the real BSWMD path is carried, not the legacy
@@ -1006,7 +1008,8 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
 
     // Act
-    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule)
+      .children[0]! as ArxmlContainer;
 
     // Assert — the description is carried verbatim onto the
     // value-side ArxmlContainer.description field.
@@ -1039,7 +1042,8 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
 
     // Act
-    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule)
+      .children[0]! as ArxmlContainer;
     const canSub = canGeneral.children[0]! as ArxmlContainer;
 
     // Assert — the description reaches the sub-container shell. The

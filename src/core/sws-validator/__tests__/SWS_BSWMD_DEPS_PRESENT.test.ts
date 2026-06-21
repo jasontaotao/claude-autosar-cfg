@@ -11,7 +11,9 @@ import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import { buildValidationContext } from '../context.js';
 import { rule } from '../starter/SWS_BSWMD_DEPS_PRESENT.js';
 
-function docWithModules(modules: { shortName: string; path: string; definitionRef: string }[]): NormalizedDocument {
+function docWithModules(
+  modules: { shortName: string; path: string; definitionRef: string }[],
+): NormalizedDocument {
   return {
     version: '4.2',
     packages: [
@@ -46,9 +48,7 @@ const EMPTY_LAYER: SchemaLayer = {
 
 describe('SWS_BSWMD_DEPS_PRESENT', () => {
   it('passes when module has no referenced dependencies', () => {
-    const doc = docWithModules([
-      { shortName: 'Com', path: '/Pkg/Com', definitionRef: '' },
-    ]);
+    const doc = docWithModules([{ shortName: 'Com', path: '/Pkg/Com', definitionRef: '' }]);
     const ctx = buildValidationContext({ document: doc, schemaLayer: EMPTY_LAYER, locale: 'en' });
     expect(rule.check(ctx)).toEqual([]);
   });

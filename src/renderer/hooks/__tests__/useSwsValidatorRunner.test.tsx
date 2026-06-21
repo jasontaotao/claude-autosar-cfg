@@ -19,10 +19,7 @@ import { renderHook, act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument } from '@core/arxml/types';
-import {
-  setFlagForTest,
-  _resetFlagCache,
-} from '@core/sws-validator/feature-flag.js';
+import { setFlagForTest, _resetFlagCache } from '@core/sws-validator/feature-flag.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { useSwsValidatorStore } from '../../store/useSwsValidatorStore.js';

@@ -22,18 +22,18 @@ Spec written end-to-end; 10 mandatory sections present; self-review 8/8 passed. 
 
 ## 3. Section checklist
 
-| §   | Title                                            | Status |
-| --- | ------------------------------------------------ | ------ |
-| 0   | Why W (overview + out-of-scope)                  | ✅     |
-| 1   | User Stories (3)                                 | ✅     |
-| 2   | Architecture & Components (module diagram, 9 modules) | ✅ |
-| 3   | API / Interface Contract (state machine, IPC, i18n, types) | ✅ |
-| 4   | Data Model (persisted + in-memory + reused)      | ✅     |
-| 5   | Error Handling (6 paths)                         | ✅     |
-| 6   | Testing Strategy (unit / integration / E2E / coverage / TDD) | ✅ |
-| 7   | Migration / Backward Compatibility (5 dimensions) | ✅    |
-| 8   | Risks & Open Questions (7 risks + 5 user questions + non-goals) | ✅ |
-| 9   | Acceptance Criteria (15 BLOCK + 3 WARN + 7 OUT)  | ✅     |
+| §   | Title                                                           | Status |
+| --- | --------------------------------------------------------------- | ------ |
+| 0   | Why W (overview + out-of-scope)                                 | ✅     |
+| 1   | User Stories (3)                                                | ✅     |
+| 2   | Architecture & Components (module diagram, 9 modules)           | ✅     |
+| 3   | API / Interface Contract (state machine, IPC, i18n, types)      | ✅     |
+| 4   | Data Model (persisted + in-memory + reused)                     | ✅     |
+| 5   | Error Handling (6 paths)                                        | ✅     |
+| 6   | Testing Strategy (unit / integration / E2E / coverage / TDD)    | ✅     |
+| 7   | Migration / Backward Compatibility (5 dimensions)               | ✅     |
+| 8   | Risks & Open Questions (7 risks + 5 user questions + non-goals) | ✅     |
+| 9   | Acceptance Criteria (15 BLOCK + 3 WARN + 7 OUT)                 | ✅     |
 
 All 10 mandatory sections present.
 
@@ -41,16 +41,16 @@ All 10 mandatory sections present.
 
 ## 4. Self-review checklist (8 items)
 
-| #   | Check                                                            | Verdict |
-| --- | ---------------------------------------------------------------- | ------- |
-| 1   | Scope matches brainstorm W (no schema editor / Script tour)      | ✅ PASS  |
-| 2   | Style consistent with v1.5.1 spec (section shape, depth, table density) | ✅ PASS |
-| 3   | Tour state machine complete (5 states + 7 transitions listed)    | ✅ PASS  |
-| 4   | Demo ECU asset source + path explicit (`samples/arxml/demo-ecu/`) | ✅ PASS |
-| 5   | i18n keys planned (20 keys, exceeds 12 minimum; EN+ZH)           | ✅ PASS  |
+| #   | Check                                                                                                           | Verdict |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------- |
+| 1   | Scope matches brainstorm W (no schema editor / Script tour)                                                     | ✅ PASS |
+| 2   | Style consistent with v1.5.1 spec (section shape, depth, table density)                                         | ✅ PASS |
+| 3   | Tour state machine complete (5 states + 7 transitions listed)                                                   | ✅ PASS |
+| 4   | Demo ECU asset source + path explicit (`samples/arxml/demo-ecu/`)                                               | ✅ PASS |
+| 5   | i18n keys planned (20 keys, exceeds 12 minimum; EN+ZH)                                                          | ✅ PASS |
 | 6   | Feature flag explicit (`V16_ONBOARDING` → `experimental.onboarding`, default OFF, new `config/featureFlags.ts`) | ✅ PASS |
-| 7   | ≥3 risks + open questions clear (7 risks + 5 user questions)     | ✅ PASS  |
-| 8   | Acceptance criteria measurable (numbers, times, paths, pnpm cmds) | ✅ PASS  |
+| 7   | ≥3 risks + open questions clear (7 risks + 5 user questions)                                                    | ✅ PASS |
+| 8   | Acceptance criteria measurable (numbers, times, paths, pnpm cmds)                                               | ✅ PASS |
 
 8/8 passed.
 

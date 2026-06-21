@@ -15,10 +15,7 @@ import { useArxmlStore } from '../../../renderer/store/useArxmlStore.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
 import type { SchemaLayer } from '../../validation/runtimeSchema.js';
 import { RuleRegistry } from '../RuleRegistry.js';
-import {
-  installTourSubscription,
-  runValidation,
-} from '../engine.js';
+import { installTourSubscription, runValidation } from '../engine.js';
 import type { ValidatorRule } from '../types.js';
 
 const EMPTY_DOC: NormalizedDocument = {
@@ -40,7 +37,9 @@ const NO_OP_RULE: ValidatorRule = {
   id: 'NO_OP',
   defaultSeverity: 'info',
   messageKey: 'swsValidator.runtimeError',
-  check: () => [{ ruleId: 'NO_OP', severity: 'info', messageKey: 'swsValidator.runtimeError', path: '' }],
+  check: () => [
+    { ruleId: 'NO_OP', severity: 'info', messageKey: 'swsValidator.runtimeError', path: '' },
+  ],
 };
 
 describe('G engine + W tour coordination', () => {

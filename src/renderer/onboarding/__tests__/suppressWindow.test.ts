@@ -13,11 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  SUPPRESS_WINDOW_DAYS,
-  SUPPRESS_WINDOW_MS,
-  shouldSuppress,
-} from '../suppressWindow.js';
+import { SUPPRESS_WINDOW_DAYS, SUPPRESS_WINDOW_MS, shouldSuppress } from '../suppressWindow.js';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 

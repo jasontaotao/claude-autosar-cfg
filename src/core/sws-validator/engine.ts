@@ -76,8 +76,7 @@ export async function runValidation(
   //   1. opts.tourState (explicit, e.g. test fixture)
   //   2. inProcessValidationPaused (set by installTourSubscription())
   // Either one being true returns [].
-  const tourPaused =
-    opts.tourState?.validationPaused === true || inProcessValidationPaused;
+  const tourPaused = opts.tourState?.validationPaused === true || inProcessValidationPaused;
   if (tourPaused) {
     return {
       results: [],

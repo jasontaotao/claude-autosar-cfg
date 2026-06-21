@@ -24,7 +24,9 @@ export const rule: ValidatorRule = {
   targetModule: 'Com',
   check(ctx: ValidationContext): readonly InternalValidatorResult[] {
     const results: InternalValidatorResult[] = [];
-    for (const comConfig of ctx.findAll((el) => el.kind === 'container' && el.shortName === COM_CONFIG_NAME)) {
+    for (const comConfig of ctx.findAll(
+      (el) => el.kind === 'container' && el.shortName === COM_CONFIG_NAME,
+    )) {
       const groups = new Map<number, string[]>();
       if (comConfig.kind !== 'container') continue;
       for (const child of comConfig.children) {

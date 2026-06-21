@@ -26,11 +26,41 @@ export interface TourStepDef {
  * tests #4 + #8.
  */
 export const TOUR_STEPS: readonly TourStepDef[] = [
-  { index: 0, targetId: 'app-header', titleKey: 'onboarding.step1.title', bodyKey: 'onboarding.step1.body', placement: 'bottom' },
-  { index: 1, targetId: 'left-panel', titleKey: 'onboarding.step2.title', bodyKey: 'onboarding.step2.body', placement: 'right' },
-  { index: 2, targetId: 'arxml-panel', titleKey: 'onboarding.step3.title', bodyKey: 'onboarding.step3.body', placement: 'left' },
-  { index: 3, targetId: 'right-pane-content', titleKey: 'onboarding.step4.title', bodyKey: 'onboarding.step4.body', placement: 'left' },
-  { index: 4, targetId: 'app-save', titleKey: 'onboarding.step5.title', bodyKey: 'onboarding.step5.body', placement: 'bottom' },
+  {
+    index: 0,
+    targetId: 'app-header',
+    titleKey: 'onboarding.step1.title',
+    bodyKey: 'onboarding.step1.body',
+    placement: 'bottom',
+  },
+  {
+    index: 1,
+    targetId: 'left-panel',
+    titleKey: 'onboarding.step2.title',
+    bodyKey: 'onboarding.step2.body',
+    placement: 'right',
+  },
+  {
+    index: 2,
+    targetId: 'arxml-panel',
+    titleKey: 'onboarding.step3.title',
+    bodyKey: 'onboarding.step3.body',
+    placement: 'left',
+  },
+  {
+    index: 3,
+    targetId: 'right-pane-content',
+    titleKey: 'onboarding.step4.title',
+    bodyKey: 'onboarding.step4.body',
+    placement: 'left',
+  },
+  {
+    index: 4,
+    targetId: 'app-save',
+    titleKey: 'onboarding.step5.title',
+    bodyKey: 'onboarding.step5.body',
+    placement: 'bottom',
+  },
 ] as const;
 
 /**

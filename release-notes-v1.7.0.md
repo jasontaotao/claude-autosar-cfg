@@ -13,14 +13,15 @@
 
 This release brings `dbc-forge` (Excel↔DBC↔Network TypeScript library, v0.1.0 PUBLISHED) into claude-AutosarCfg as a transitive dependency. **Plumbing only** — no production code uses dbc-forge yet. Real ARXML↔DBC bridging is v1.8.0+ scope.
 
-| Change | Detail |
-| --- | --- |
-| `package.json` | `+@dbc-forge/core: file:..\dbc-forge\packages\core` in dependencies |
-| `pnpm-lock.yaml` | Resolves `@dbc-forge/core 0.0.0` via file: protocol (36 transitive packages, no errors) |
-| `src/__tests__/dbcForgeBridge.smoke.test.ts` | New, 73 lines, 3 tests |
-| `docs/superpowers/specs/2026-06-21-v1-7-0-dbc-forge-integration-design.md` | Updated with implementation delta (§3a) and Future cleanup (§3b) |
+| Change                                                                     | Detail                                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `package.json`                                                             | `+@dbc-forge/core: file:..\dbc-forge\packages\core` in dependencies                     |
+| `pnpm-lock.yaml`                                                           | Resolves `@dbc-forge/core 0.0.0` via file: protocol (36 transitive packages, no errors) |
+| `src/__tests__/dbcForgeBridge.smoke.test.ts`                               | New, 73 lines, 3 tests                                                                  |
+| `docs/superpowers/specs/2026-06-21-v1-7-0-dbc-forge-integration-design.md` | Updated with implementation delta (§3a) and Future cleanup (§3b)                        |
 
 **Smoke test asserts**:
+
 1. `@dbc-forge/core` exports the expected public API surface (`parseDbc` / `writeDbc` / `deepEqualNetwork`)
 2. Parses a minimal 1-frame DBC string
 3. Round-trips `parseDbc → writeDbc → parseDbc` and asserts `deepEqualNetwork` true
@@ -36,8 +37,8 @@ This release brings `dbc-forge` (Excel↔DBC↔Network TypeScript library, v0.1.
 ## Implications
 
 - ✅ Local dev works (sibling repo at `D:/claude_proj2/dbc-forge/`)
-- ⚠️  New contributors need to clone dbc-forge at exactly `../dbc-forge` relative path — fragile
-- ⚠️  No `.gitmodules` / no CI submodule init step — need to add when network returns
+- ⚠️ New contributors need to clone dbc-forge at exactly `../dbc-forge` relative path — fragile
+- ⚠️ No `.gitmodules` / no CI submodule init step — need to add when network returns
 
 ## Future cleanup (when github.com network stable)
 

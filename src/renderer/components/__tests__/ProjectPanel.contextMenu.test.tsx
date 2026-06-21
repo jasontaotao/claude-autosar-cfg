@@ -68,9 +68,7 @@ describe('ProjectPanelInfo (Sprint 17 P3 T3.1 — BSWMD row onContextMenu)', () 
     const manifest = makeManifest({
       bswmdPaths: ['/p/EcucDefs/EcuC.arxml'],
     });
-    const { getByTestId } = render(
-      <ProjectPanelInfo {...baseProps} manifest={manifest} />,
-    );
+    const { getByTestId } = render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
     // The FileList renders each row with a data-testid like
     // `project-panel-bswmd-list-item-<path>` when no remove button
     // is wired — but with remove (default for our test), the test
@@ -102,9 +100,7 @@ describe('ProjectPanelInfo (Sprint 17 P3 T3.1 — BSWMD row onContextMenu)', () 
     const manifest = makeManifest({
       valueArxmlPaths: ['/p/EcuC.arxml'],
     });
-    const { getByTestId } = render(
-      <ProjectPanelInfo {...baseProps} manifest={manifest} />,
-    );
+    const { getByTestId } = render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
     const removeBtn = getByTestId('project-panel-arxml-remove-/p/EcuC.arxml');
     const li = removeBtn.parentElement as HTMLElement | null;
     expect(li).not.toBeNull();

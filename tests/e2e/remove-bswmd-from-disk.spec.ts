@@ -266,21 +266,30 @@ test.describe('Sprint 17 P4 T4.3 — cascade-and-unlink BSWMD', () => {
         await fs.promises.unlink(b).catch(() => {
           // ignore — the assertion below checks ENOENT
         });
-        useArxmlStore.setState((prev: { bswmdPaths: string[]; bswmdSchemas: unknown[]; documentPaths: string[]; documents: { filePath: string }[] }) => {
-          const nextPaths: string[] = prev.bswmdPaths.filter((p: string) => p !== b);
-          const nextSchemas: unknown[] = prev.bswmdSchemas.filter((_: unknown, i: number) => i !== idx);
-          return {
-            bswmdPaths: nextPaths,
-            bswmdSchemas: nextSchemas,
-            documentPaths: prev.documentPaths.filter((p: string) => p !== d),
-            documents: prev.documents.filter((doc: { filePath: string }) => doc.filePath !== d),
-            lastRemoveSnapshot: {
-              path: b,
-              schema,
-              timestamp: Date.now(),
-            },
-          };
-        });
+        useArxmlStore.setState(
+          (prev: {
+            bswmdPaths: string[];
+            bswmdSchemas: unknown[];
+            documentPaths: string[];
+            documents: { filePath: string }[];
+          }) => {
+            const nextPaths: string[] = prev.bswmdPaths.filter((p: string) => p !== b);
+            const nextSchemas: unknown[] = prev.bswmdSchemas.filter(
+              (_: unknown, i: number) => i !== idx,
+            );
+            return {
+              bswmdPaths: nextPaths,
+              bswmdSchemas: nextSchemas,
+              documentPaths: prev.documentPaths.filter((p: string) => p !== d),
+              documents: prev.documents.filter((doc: { filePath: string }) => doc.filePath !== d),
+              lastRemoveSnapshot: {
+                path: b,
+                schema,
+                timestamp: Date.now(),
+              },
+            };
+          },
+        );
       },
       { path: STORE_MODULE_PATH, bswmdPath, docPath },
     );

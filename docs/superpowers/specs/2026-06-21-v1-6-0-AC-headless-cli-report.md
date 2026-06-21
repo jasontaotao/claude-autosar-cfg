@@ -7,49 +7,51 @@
 ---
 
 ## 1. Status
+
 **DONE_WITH_CONCERNS** — Spec written end-to-end (17 sections, ~960 lines). 7 open questions for user in §17 (none block spec approval, all are policy defaults worth confirming before implementation plan).
 
 ## 2. Spec Path
+
 `D:\claude_proj2\claude-AutosarCfg\docs\superpowers\specs\2026-06-21-v1-6-0-AC-headless-cli-design.md`
 
 ## 3. Section Inventory (10 required + 7 supplementary)
 
-| §  | Section                          | Required | Present |
-| --- | -------------------------------- | -------- | ------- |
-| 0   | Why A+C                          | (context) | ✅ |
-| 1   | Scope (in/out)                   | (1)      | ✅ |
-| 2   | Decisions Locked (Q1–Q12)        | (bonus)  | ✅ |
-| 3   | Build Approach (5-PR layered)    | (bonus)  | ✅ |
-| 4   | Architecture & Components        | (3)      | ✅ |
-| 5   | Data Flow                        | (bonus)  | ✅ |
-| 6   | **IPC Contract Reference**       | (key)    | ✅ (3 channels: `headless:run-command:v1`, `headless:mutate-applied:v1`, `headless:validate-result:v1`) |
-| 7   | CLI Reference (flags, exit codes)| (4)      | ✅ (global flags + read/mutate/validate, 4 exit codes) |
-| 8   | Patch Format Spec (RFC 6902 + 3 AUTOSAR extensions) | (4, partial) | ✅ |
-| 9   | Error Handling                   | (6)      | ✅ (16 error kinds × 2 locales = 32 i18n keys, all 4 exit codes covered) |
-| 10  | Testing Strategy                 | (7)      | ✅ (+39 tests: unit + integration + e2e; 95.5%/87% bar) |
-| 11  | Acceptance Criteria              | (10)     | ✅ (12 BLOCK + 4 WARN, measurable: 2s for 5MB load, 1s for 10-step patch) |
-| 12  | Ship Mechanics                   | (bonus)  | ✅ |
-| 13  | Risk Register                    | (9, partial) | ✅ (10 risks) |
-| 14  | Migration / Backward Compat      | (8)      | ✅ (no GUI/store/IPC breakage; additive `:v1` channels only) |
-| 15  | Dependencies                     | (bonus)  | ✅ (1 new prod dep: `commander` ^12) |
-| 16  | References                       | (bonus)  | ✅ |
-| 17  | Open Questions for User          | (9)      | ✅ (7 decisions) |
+| §   | Section                                             | Required     | Present                                                                                                 |
+| --- | --------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| 0   | Why A+C                                             | (context)    | ✅                                                                                                      |
+| 1   | Scope (in/out)                                      | (1)          | ✅                                                                                                      |
+| 2   | Decisions Locked (Q1–Q12)                           | (bonus)      | ✅                                                                                                      |
+| 3   | Build Approach (5-PR layered)                       | (bonus)      | ✅                                                                                                      |
+| 4   | Architecture & Components                           | (3)          | ✅                                                                                                      |
+| 5   | Data Flow                                           | (bonus)      | ✅                                                                                                      |
+| 6   | **IPC Contract Reference**                          | (key)        | ✅ (3 channels: `headless:run-command:v1`, `headless:mutate-applied:v1`, `headless:validate-result:v1`) |
+| 7   | CLI Reference (flags, exit codes)                   | (4)          | ✅ (global flags + read/mutate/validate, 4 exit codes)                                                  |
+| 8   | Patch Format Spec (RFC 6902 + 3 AUTOSAR extensions) | (4, partial) | ✅                                                                                                      |
+| 9   | Error Handling                                      | (6)          | ✅ (16 error kinds × 2 locales = 32 i18n keys, all 4 exit codes covered)                                |
+| 10  | Testing Strategy                                    | (7)          | ✅ (+39 tests: unit + integration + e2e; 95.5%/87% bar)                                                 |
+| 11  | Acceptance Criteria                                 | (10)         | ✅ (12 BLOCK + 4 WARN, measurable: 2s for 5MB load, 1s for 10-step patch)                               |
+| 12  | Ship Mechanics                                      | (bonus)      | ✅                                                                                                      |
+| 13  | Risk Register                                       | (9, partial) | ✅ (10 risks)                                                                                           |
+| 14  | Migration / Backward Compat                         | (8)          | ✅ (no GUI/store/IPC breakage; additive `:v1` channels only)                                            |
+| 15  | Dependencies                                        | (bonus)      | ✅ (1 new prod dep: `commander` ^12)                                                                    |
+| 16  | References                                          | (bonus)      | ✅                                                                                                      |
+| 17  | Open Questions for User                             | (9)          | ✅ (7 decisions)                                                                                        |
 
 ## 4. Self-Review Checklist (11 items)
 
-| #   | Item                                                                | Pass? |
-| --- | ------------------------------------------------------------------- | ----- |
-| 1   | IPC contract defined to implementable granularity (channel + payload + error code)? | ✅ 3 channels with full TS interfaces + 4 exit codes |
-| 2   | CLI flags complete (≥8)?                                            | ✅ 7 global + 3 read + 4 mutate + 2 validate = 16 flags |
-| 3   | Exit codes cover all failure modes (≥4)?                            | ✅ 0/1/2/3 with explicit mapping per scenario |
-| 4   | Patch format explicit (subset RFC 6902 + custom)?                   | ✅ 3 RFC 6902 ops + 3 AUTOSAR extensions, schema-versioned "1" |
-| 5   | Consistent with brainstorm A+C scope, no scope creep?               | ✅ no remote/RPC, no GUI button, no watch mode — all deferred correctly |
-| 6   | Consistent with v1.5.1 spec style?                                  | ✅ same section ordering (Why / Scope / Decisions / Architecture / DataFlow / IPC / Errors / Tests / Acceptance / Risks / Migration) |
-| 7   | i18n policy explicit (CLI errors via `t()`)?                        | ✅ 16 keys × EN+ZH = 32 strings; CLI logs English-only |
-| 8   | Feature flag defined (`V16_HEADLESS_CLI` / `experimental.headlessCli` default OFF)? | ✅ matches v1.5.1 dual-track pattern (Q6 A) |
-| 9   | Risks + user-decisions listed (≥5)?                                 | ✅ 10 risks + 7 user-decisions |
-| 10  | Acceptance criteria measurable (numbers / times / paths)?           | ✅ "5MB load < 2s", "10-step patch < 1s", "16 error kinds × 2 locales", exact paths |
-| 11  | Dedicated "IPC Contract Reference" section for G/W/U to import?     | ✅ §6 is 60+ lines of channel names + TS payloads + versioning policy |
+| #   | Item                                                                                | Pass?                                                                                                                                |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | IPC contract defined to implementable granularity (channel + payload + error code)? | ✅ 3 channels with full TS interfaces + 4 exit codes                                                                                 |
+| 2   | CLI flags complete (≥8)?                                                            | ✅ 7 global + 3 read + 4 mutate + 2 validate = 16 flags                                                                              |
+| 3   | Exit codes cover all failure modes (≥4)?                                            | ✅ 0/1/2/3 with explicit mapping per scenario                                                                                        |
+| 4   | Patch format explicit (subset RFC 6902 + custom)?                                   | ✅ 3 RFC 6902 ops + 3 AUTOSAR extensions, schema-versioned "1"                                                                       |
+| 5   | Consistent with brainstorm A+C scope, no scope creep?                               | ✅ no remote/RPC, no GUI button, no watch mode — all deferred correctly                                                              |
+| 6   | Consistent with v1.5.1 spec style?                                                  | ✅ same section ordering (Why / Scope / Decisions / Architecture / DataFlow / IPC / Errors / Tests / Acceptance / Risks / Migration) |
+| 7   | i18n policy explicit (CLI errors via `t()`)?                                        | ✅ 16 keys × EN+ZH = 32 strings; CLI logs English-only                                                                               |
+| 8   | Feature flag defined (`V16_HEADLESS_CLI` / `experimental.headlessCli` default OFF)? | ✅ matches v1.5.1 dual-track pattern (Q6 A)                                                                                          |
+| 9   | Risks + user-decisions listed (≥5)?                                                 | ✅ 10 risks + 7 user-decisions                                                                                                       |
+| 10  | Acceptance criteria measurable (numbers / times / paths)?                           | ✅ "5MB load < 2s", "10-step patch < 1s", "16 error kinds × 2 locales", exact paths                                                  |
+| 11  | Dedicated "IPC Contract Reference" section for G/W/U to import?                     | ✅ §6 is 60+ lines of channel names + TS payloads + versioning policy                                                                |
 
 ## 5. Key Decisions Locked
 
@@ -64,6 +66,7 @@
 ## 6. IPC Contract Reference (for G / W / U cluster specs)
 
 ### Channel 1 — `headless:run-command:v1` (R→M, invoke)
+
 **Purpose**: GUI forwards `HeadlessCommand` to main (v1.7.0+ "Run CLI" button). v1.6.0: registered but unused.
 
 ```ts
@@ -85,6 +88,7 @@ export type HeadlessCommand =
 ```
 
 ### Channel 2 — `headless:mutate-applied:v1` (M→R, push event)
+
 **Purpose**: After mutate completes, main pushes so GUI can refresh tree + dirty flag. v1.6.0: emitted by CLI; subscribes deferred to v1.7.0 U.
 
 ```ts
@@ -97,6 +101,7 @@ export interface HeadlessMutateAppliedEvent {
 ```
 
 ### Channel 3 — `headless:validate-result:v1` (M→R, push event)
+
 **Purpose**: Cluster G SWS Validator pushes violations to GUI Issues panel.
 
 ```ts
@@ -116,11 +121,13 @@ export interface ValidatorResult {
 ```
 
 ### Versioning policy (frozen at v1.6.0 tag)
+
 - All channels use `:v1` suffix.
 - Breaking changes → parallel `:v2` channels (renderer picks).
 - Additive payload fields are back-compat within `:v1` (no version bump).
 
 ### Shared error envelope
+
 All three channels use the `HeadlessError` union (16 kinds: `file-not-found`, `permission-denied`, `parse-error`, `patch-invalid`, `unsupported-patch-version`, `mutation-failed`, `write-failed`, `i18n-key-missing`, `internal-error`, ...). `error.message` is **pre-localized** via `t(locale, key, params)` before being placed on the wire — no post-hoc translation in the renderer.
 
 ## 7. Concerns / Open Questions for User
@@ -136,6 +143,7 @@ Listed in §17 of the spec. None block spec approval; all are policy defaults wo
 7. **Cluster G contract alignment**: `ValidatorResult` shape locked here. **G spec MUST import verbatim** (no drift) — request user confirmation that G spec writer will pin to this shape.
 
 ## 8. Files Touched
+
 - ✅ Created: `docs/superpowers/specs/2026-06-21-v1-6-0-AC-headless-cli-design.md` (~960 lines)
 - ✅ Created: `docs/superpowers/specs/2026-06-21-v1-6-0-AC-headless-cli-report.md` (this file)
 - ❌ Did NOT touch any `src/`, `package.json`, IPC channels, store slices, or existing spec files
@@ -143,6 +151,7 @@ Listed in §17 of the spec. None block spec approval; all are policy defaults wo
 - ❌ Did NOT create any implementation plan (Phase 3) — waits for user approval per spec workflow
 
 ## 9. Next Steps (per parent agent)
+
 1. User reviews spec + answers 7 open questions in §17.
 2. After approval: parent agent dispatches implementation-plan-writer to produce `docs/superpowers/plans/2026-06-21-v1-6-0-AC-headless-cli.md` (5-PR layered atomic).
 3. Cluster G / W / U spec writers should import §6 (IPC Contract Reference) verbatim — confirm before G/U/W specs ship.

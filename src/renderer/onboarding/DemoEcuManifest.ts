@@ -22,8 +22,7 @@
  * to the app; in dev / tests the same path is resolved relative to
  * the repo root.
  */
-export const DEMO_ECU_MANIFEST_RELATIVE_PATH =
-  'samples/arxml/demo-ecu/demo.autosarcfg.json';
+export const DEMO_ECU_MANIFEST_RELATIVE_PATH = 'samples/arxml/demo-ecu/demo.autosarcfg.json';
 
 /**
  * Canonical Demo ECU manifest shape. Schema version `1` is locked for
@@ -73,9 +72,7 @@ export function parseDemoEcuManifest(raw: string): DemoEcuManifestFile {
   if (!Array.isArray(valueArxmlsRaw)) {
     throw new Error('manifest: valueArxmls must be an array');
   }
-  const valueArxmls = dedupePaths(
-    valueArxmlsRaw.map(String).map(validateRelativePath),
-  );
+  const valueArxmls = dedupePaths(valueArxmlsRaw.map(String).map(validateRelativePath));
 
   const ivRaw = parsed['intentionalViolations'];
   if (!Array.isArray(ivRaw)) {

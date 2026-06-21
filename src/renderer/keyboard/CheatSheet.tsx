@@ -126,10 +126,7 @@ export function CheatSheet({
                 className="cheat-sheet-section"
                 aria-labelledby={`cheat-sheet-${section.category}`}
               >
-                <h3
-                  id={`cheat-sheet-${section.category}`}
-                  className="cheat-sheet-section-title"
-                >
+                <h3 id={`cheat-sheet-${section.category}`} className="cheat-sheet-section-title">
                   {t(locale, section.categoryLabelKey)}
                 </h3>
                 <ul className="cheat-sheet-list">

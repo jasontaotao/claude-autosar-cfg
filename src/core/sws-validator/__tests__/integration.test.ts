@@ -23,9 +23,24 @@ import { rule as c3 } from '../starter/SWS_PDUR_ROUTING_COMPLETE.js';
 
 function buildFixtureDocument(): NormalizedDocument {
   const pduChildren = [
-    { kind: 'container' as const, shortName: 'Pdu_1_A', path: '/Pkg/Com/ComConfig/Pdu_1_A', children: [] },
-    { kind: 'container' as const, shortName: 'Pdu_1_B', path: '/Pkg/Com/ComConfig/Pdu_1_B', children: [] }, // dup
-    { kind: 'container' as const, shortName: 'Pdu_2_C', path: '/Pkg/Com/ComConfig/Pdu_2_C', children: [] },
+    {
+      kind: 'container' as const,
+      shortName: 'Pdu_1_A',
+      path: '/Pkg/Com/ComConfig/Pdu_1_A',
+      children: [],
+    },
+    {
+      kind: 'container' as const,
+      shortName: 'Pdu_1_B',
+      path: '/Pkg/Com/ComConfig/Pdu_1_B',
+      children: [],
+    }, // dup
+    {
+      kind: 'container' as const,
+      shortName: 'Pdu_2_C',
+      path: '/Pkg/Com/ComConfig/Pdu_2_C',
+      children: [],
+    },
   ];
   const routingChildren = [
     {
@@ -122,7 +137,11 @@ describe('SWS Validator — all-rules integration', () => {
     reg.register(c3);
     reg.register(c4);
     reg.register(c5);
-    const result = await runValidation(reg, { document: doc, schemaLayer: layer }, { locale: 'en' });
+    const result = await runValidation(
+      reg,
+      { document: doc, schemaLayer: layer },
+      { locale: 'en' },
+    );
     expect(result.rulesRun).toBe(4);
     const byRule = new Map<string, number>();
     for (const r of result.results) {

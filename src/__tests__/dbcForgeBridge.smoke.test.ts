@@ -15,7 +15,6 @@
 import { parseDbc, writeDbc, deepEqualNetwork } from '@dbc-forge/core';
 import { describe, it, expect } from 'vitest';
 
-
 describe('@dbc-forge/core smoke test (v1.7.0 Cluster 3 I)', () => {
   it('exports the expected public API surface', () => {
     expect(typeof parseDbc).toBe('function');

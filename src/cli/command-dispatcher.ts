@@ -10,7 +10,11 @@
 // a `HeadlessResult` (success) or throw a `HeadlessFailureError` (catch
 // at the dispatcher level → emit + exit code). Keeps handlers testable.
 
-import type { HeadlessResult, HeadlessFailure, HeadlessError } from '../shared/headless/ipc-contract.js';
+import type {
+  HeadlessResult,
+  HeadlessFailure,
+  HeadlessError,
+} from '../shared/headless/ipc-contract.js';
 
 import type { ParsedArgs } from './commander.js';
 import { EXIT_SUCCESS, EXIT_FATAL, EXIT_WARNING, type HeadlessExitCode } from './exitCodes.js';
@@ -90,7 +94,11 @@ function emitFailure(failure: HeadlessFailure): void {
 }
 
 // Internal helper for handler modules to emit a typed failure.
-export function failWith(error: HeadlessError, code: HeadlessExitCode, stderr: readonly string[] = []): never {
+export function failWith(
+  error: HeadlessError,
+  code: HeadlessExitCode,
+  stderr: readonly string[] = [],
+): never {
   throw new HeadlessFailureError({
     ok: false,
     code: code === EXIT_SUCCESS ? EXIT_FATAL : code,

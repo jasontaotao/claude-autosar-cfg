@@ -25,7 +25,11 @@ const EMPTY_LAYER: SchemaLayer = {
 
 describe('runRuleInSandbox', () => {
   it('executes a simple rule and returns ctx.result() output', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,
@@ -40,7 +44,11 @@ describe('runRuleInSandbox', () => {
   });
 
   it('routes log calls through the log sink', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,
@@ -53,7 +61,11 @@ describe('runRuleInSandbox', () => {
   });
 
   it('returns syntax-error status when source has a syntax error', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,
@@ -66,7 +78,11 @@ describe('runRuleInSandbox', () => {
   });
 
   it('returns runtime-error status when rule throws', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,
@@ -79,7 +95,11 @@ describe('runRuleInSandbox', () => {
   });
 
   it('blocks fs/require/process/globalThis access', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,
@@ -93,7 +113,11 @@ describe('runRuleInSandbox', () => {
   });
 
   it('returns timeout status when rule exceeds timeoutMs', () => {
-    const ctx = buildValidationContext({ document: EMPTY_DOC, schemaLayer: EMPTY_LAYER, locale: 'en' });
+    const ctx = buildValidationContext({
+      document: EMPTY_DOC,
+      schemaLayer: EMPTY_LAYER,
+      locale: 'en',
+    });
     const sink = new InMemoryLogSink();
     const r = runRuleInSandbox({
       context: ctx,

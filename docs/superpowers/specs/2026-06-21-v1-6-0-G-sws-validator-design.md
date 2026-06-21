@@ -93,18 +93,18 @@ A+C's IPC stub to be present so G can swap the implementation.
 
 ## 2. Decisions Locked
 
-| #   | Question                                                | Answer                                                                                                                                  |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| G1  | Where do validators live in code?                       | **A — `src/core/sws-validator/`** parallel to existing `src/core/validation/`. Reuse `ValidationError` / `ValidationContext` types where shapes match. |
-| G2  | Rule file format                                        | **C — TypeScript ESM `.validator.ts`** (matches project ESM-only rule, matches v1.3.0 Script Engine user-script shape).                  |
-| G3  | Sandbox mechanism                                       | **B — `node:vm` reuse** from Sprint 14 Script Engine `vm-runner.ts`. Same whitelisted ctx API (no `fs`, no `process`, read-only project).  |
-| G4  | Rule loader directory                                   | **D — dual**: `<projectDir>/.sws-validators/` + user-global `~/.claude-AutosarCfg/validators/`. Both load order: user-global first.       |
-| G5  | Feature flag                                            | **A — `experimental.swsValidator` default OFF**, follows v1.5.1 PR(6) pattern (`src/main/arxml-stream/feature-flag.ts`).                |
-| G6  | Starter rule count                                      | **4 rules locked**: C1 `SWS_COM_PDUID_UNIQUE` + C3 `SWS_PDUR_ROUTING_COMPLETE` + C4 `SWS_ECUC_MULTIPLICITY_MIN` + C5 `SWS_BSWMD_DEPS_PRESENT`. C2 `SWS_COMM_CHANNEL_PDUR_ALIGN` deferred to v1.7.0 (alignment warning is subjective; high false-positive risk per G reviewer).                              |
-| G7  | GUI integration                                         | **B — dedicated `ValidationPanel` component** docked at the bottom of the window (parallel to Issues panel), toggleable via toolbar.    |
-| G8  | CLI integration                                         | **A — replace A+C `--validate` stub** with full `ValidatorEngine.run` + machine-readable JSON output.                                   |
-| G9  | i18n key shape                                          | **A — `swsValidator.<ruleId>.<variant>`** with at least 2 keys per starter rule (short + long variant).                                  |
-| G10 | Where does `validate` IPC channel live?                 | **A — `IPC_CHANNELS` in `src/shared/ipc-contract.ts`** as new keys `SWS_VALIDATE: 'sws-validator:run:v1'` + `SWS_VALIDATE_CANCEL: 'sws-validator:cancel:v1'`. Adopt `:v1` suffix per A+C §6 IPC versioning policy (channels frozen at v1.6.0 tag; v1.7.0 introduces `:v2` for breaking changes). (CLI uses main-process invocation, not IPC, but the GUI↔main boundary still needs a channel for `runValidation`.) |
+| #   | Question                                | Answer                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| G1  | Where do validators live in code?       | **A — `src/core/sws-validator/`** parallel to existing `src/core/validation/`. Reuse `ValidationError` / `ValidationContext` types where shapes match.                                                                                                                                                                                                                                                             |
+| G2  | Rule file format                        | **C — TypeScript ESM `.validator.ts`** (matches project ESM-only rule, matches v1.3.0 Script Engine user-script shape).                                                                                                                                                                                                                                                                                            |
+| G3  | Sandbox mechanism                       | **B — `node:vm` reuse** from Sprint 14 Script Engine `vm-runner.ts`. Same whitelisted ctx API (no `fs`, no `process`, read-only project).                                                                                                                                                                                                                                                                          |
+| G4  | Rule loader directory                   | **D — dual**: `<projectDir>/.sws-validators/` + user-global `~/.claude-AutosarCfg/validators/`. Both load order: user-global first.                                                                                                                                                                                                                                                                                |
+| G5  | Feature flag                            | **A — `experimental.swsValidator` default OFF**, follows v1.5.1 PR(6) pattern (`src/main/arxml-stream/feature-flag.ts`).                                                                                                                                                                                                                                                                                           |
+| G6  | Starter rule count                      | **4 rules locked**: C1 `SWS_COM_PDUID_UNIQUE` + C3 `SWS_PDUR_ROUTING_COMPLETE` + C4 `SWS_ECUC_MULTIPLICITY_MIN` + C5 `SWS_BSWMD_DEPS_PRESENT`. C2 `SWS_COMM_CHANNEL_PDUR_ALIGN` deferred to v1.7.0 (alignment warning is subjective; high false-positive risk per G reviewer).                                                                                                                                     |
+| G7  | GUI integration                         | **B — dedicated `ValidationPanel` component** docked at the bottom of the window (parallel to Issues panel), toggleable via toolbar.                                                                                                                                                                                                                                                                               |
+| G8  | CLI integration                         | **A — replace A+C `--validate` stub** with full `ValidatorEngine.run` + machine-readable JSON output.                                                                                                                                                                                                                                                                                                              |
+| G9  | i18n key shape                          | **A — `swsValidator.<ruleId>.<variant>`** with at least 2 keys per starter rule (short + long variant).                                                                                                                                                                                                                                                                                                            |
+| G10 | Where does `validate` IPC channel live? | **A — `IPC_CHANNELS` in `src/shared/ipc-contract.ts`** as new keys `SWS_VALIDATE: 'sws-validator:run:v1'` + `SWS_VALIDATE_CANCEL: 'sws-validator:cancel:v1'`. Adopt `:v1` suffix per A+C §6 IPC versioning policy (channels frozen at v1.6.0 tag; v1.7.0 introduces `:v2` for breaking changes). (CLI uses main-process invocation, not IPC, but the GUI↔main boundary still needs a channel for `runValidation`.) |
 
 ### Decisions pending user review (locked by user, not by spec)
 
@@ -331,17 +331,17 @@ src/core/sws-validator/adapter.ts          ← NEW: toWireResult() translator (C
 
 ### 4.3 Component responsibilities
 
-| Component              | Responsibility                                                                                          | Layer   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- | ------- |
-| `ValidatorEngine`      | Orchestrates: build context → for each rule call `check(ctx)` → aggregate → enforce timeout.            | core    |
-| `RuleRegistry`         | Owns the rule set. `register(rule)` at startup; `getAll()` returns snapshot.                            | core    |
-| `RuleLoader`           | Reads `.validator.ts` files, evaluates them in the sandbox, registers returned rules.                   | core    |
-| `ValidationContext`    | Read-only view over project state. Each `check(ctx)` call receives a fresh context.                     | core    |
-| `Starter rules`        | 3–5 hardcoded rules in `core/sws-validator/starter/`. Each is a 50–100 line pure function.               | core    |
-| `sws-validator-handler` | IPC handler: `ipcMain.handle('sws-validator:run:v1', ...)`. Bridge between renderer and main.                | main    |
-| `ValidationPanel`      | React component. Lists results, severity filter, click-to-navigate.                                     | renderer |
-| `swsValidatorSlice`    | Zustand slice. Holds `results`, `running`, `lastRunAt`, `enabled`. Calls engine via IPC.                 | renderer |
-| Feature flag           | `experimental.swsValidator` default OFF. Both GUI panel mount and CLI `--validate` check this.          | main    |
+| Component               | Responsibility                                                                                 | Layer    |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | -------- |
+| `ValidatorEngine`       | Orchestrates: build context → for each rule call `check(ctx)` → aggregate → enforce timeout.   | core     |
+| `RuleRegistry`          | Owns the rule set. `register(rule)` at startup; `getAll()` returns snapshot.                   | core     |
+| `RuleLoader`            | Reads `.validator.ts` files, evaluates them in the sandbox, registers returned rules.          | core     |
+| `ValidationContext`     | Read-only view over project state. Each `check(ctx)` call receives a fresh context.            | core     |
+| `Starter rules`         | 3–5 hardcoded rules in `core/sws-validator/starter/`. Each is a 50–100 line pure function.     | core     |
+| `sws-validator-handler` | IPC handler: `ipcMain.handle('sws-validator:run:v1', ...)`. Bridge between renderer and main.  | main     |
+| `ValidationPanel`       | React component. Lists results, severity filter, click-to-navigate.                            | renderer |
+| `swsValidatorSlice`     | Zustand slice. Holds `results`, `running`, `lastRunAt`, `enabled`. Calls engine via IPC.       | renderer |
+| Feature flag            | `experimental.swsValidator` default OFF. Both GUI panel mount and CLI `--validate` check this. | main     |
 
 ### 4.4 Data flow
 
@@ -476,13 +476,13 @@ severity, and a one-line description. The 4 selected land in
 as the **deferred-to-v1.7.0** backlog (alignment warning is subjective;
 high false-positive risk per G reviewer).
 
-| #   | Rule id                  | Module | Severity | Description                                                                                                | SWS reference | v1.6.0 status |
-| --- | ------------------------ | ------ | -------- | ---------------------------------------------------------------------------------------------------------- | ------------- | ------------- |
-| C1  | `SWS_COM_PDUID_UNIQUE`   | Com    | error    | ComPduId values within a ComConfig must be unique; PduId collisions are SWS-conformance violations.       | SWS_Com §6.x ComPduId | **SHIPS** (PR(G2)) |
-| C2  | `SWS_COMM_CHANNEL_PDUR_ALIGN` | ComM | warning | Each user-requested ComMChannel must be referenced by exactly one PduRRoutingPath in the project's PduR config. | SWS_ComM §7.x | **DEFERRED** to v1.7.0 (subjective; false-positive risk) |
-| C3  | `SWS_PDUR_ROUTING_COMPLETE` | PduR  | error    | Every PduRRoutingPath must specify a complete source→destination path (no empty src or dest).              | SWS_PduR §7.x | **SHIPS** (PR(G2)) |
-| C4  | `SWS_ECUC_MULTIPLICITY_MIN` | EcuC  | error    | For each EcucContainerDef, the actual child-instance count must be ≥ `lowerMultiplicity`.                  | SWS_EcuC §9.x | **SHIPS** (PR(G2)) |
-| C5  | `SWS_BSWMD_DEPS_PRESENT` | cross  | error    | Every BSWMD-declared module dependency (referenced `<ECUC-MODULE-DEF-REF>`) must be defined by some loaded BSWMD file. | SWS_General (cross-cutting) | **SHIPS** (PR(G2)) |
+| #   | Rule id                       | Module | Severity | Description                                                                                                            | SWS reference               | v1.6.0 status                                            |
+| --- | ----------------------------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------- |
+| C1  | `SWS_COM_PDUID_UNIQUE`        | Com    | error    | ComPduId values within a ComConfig must be unique; PduId collisions are SWS-conformance violations.                    | SWS_Com §6.x ComPduId       | **SHIPS** (PR(G2))                                       |
+| C2  | `SWS_COMM_CHANNEL_PDUR_ALIGN` | ComM   | warning  | Each user-requested ComMChannel must be referenced by exactly one PduRRoutingPath in the project's PduR config.        | SWS_ComM §7.x               | **DEFERRED** to v1.7.0 (subjective; false-positive risk) |
+| C3  | `SWS_PDUR_ROUTING_COMPLETE`   | PduR   | error    | Every PduRRoutingPath must specify a complete source→destination path (no empty src or dest).                          | SWS_PduR §7.x               | **SHIPS** (PR(G2))                                       |
+| C4  | `SWS_ECUC_MULTIPLICITY_MIN`   | EcuC   | error    | For each EcucContainerDef, the actual child-instance count must be ≥ `lowerMultiplicity`.                              | SWS_EcuC §9.x               | **SHIPS** (PR(G2))                                       |
+| C5  | `SWS_BSWMD_DEPS_PRESENT`      | cross  | error    | Every BSWMD-declared module dependency (referenced `<ECUC-MODULE-DEF-REF>`) must be defined by some loaded BSWMD file. | SWS_General (cross-cutting) | **SHIPS** (PR(G2))                                       |
 
 ### 4.7 Example rule skeleton (illustrative, NOT implementation code)
 
@@ -649,10 +649,7 @@ import type { InternalValidatorResult } from './types.js';
  * to include the new field via a discriminated union — silent drop
  * is a wire bug. Tracked in §10 v1.7.0 handoff #2.
  */
-export function toWireResult(
-  internal: InternalValidatorResult,
-  locale: Locale,
-): ValidatorResult {
+export function toWireResult(internal: InternalValidatorResult, locale: Locale): ValidatorResult {
   return {
     ruleId: internal.ruleId,
     severity: internal.severity === 'info' ? 'warning' : internal.severity,
@@ -669,9 +666,9 @@ export function toWireResult(
 // src/core/sws-validator/engine.ts
 export interface RunOptions {
   readonly ruleIds?: readonly string[]; // undefined = all registered
-  readonly severityFloor?: Severity;    // default: 'info' (everything)
-  readonly timeoutMsPerRule?: number;   // default: 5000
-  readonly locale?: Locale;             // default: DEFAULT_LOCALE
+  readonly severityFloor?: Severity; // default: 'info' (everything)
+  readonly timeoutMsPerRule?: number; // default: 5000
+  readonly locale?: Locale; // default: DEFAULT_LOCALE
 }
 
 export interface RunResult {
@@ -693,9 +690,9 @@ export function runValidation(
 ```ts
 // src/core/sws-validator/loader.ts
 export interface LoaderOptions {
-  readonly projectDir?: string;            // enables project-local rules
-  readonly userGlobalDir?: string;        // defaults to ~/.claude-AutosarCfg/validators/
-  readonly sandbox?: 'vm' | 'none';        // default: 'vm' for untrusted dirs
+  readonly projectDir?: string; // enables project-local rules
+  readonly userGlobalDir?: string; // defaults to ~/.claude-AutosarCfg/validators/
+  readonly sandbox?: 'vm' | 'none'; // default: 'vm' for untrusted dirs
 }
 
 export async function loadRules(opts?: LoaderOptions): Promise<readonly ValidatorRule[]>;
@@ -772,27 +769,27 @@ claude-AutosarCfg --validate [--format json|sarif] [--severity error|warning|inf
 
 ## 6. Data Model Summary
 
-| Type                    | Where defined                 | Lifetime                                |
-| ----------------------- | ----------------------------- | --------------------------------------- |
-| `NormalizedDocument`    | `src/shared/normalized-document.ts` (v1.5.1) | Per project load                  |
-| `SchemaLayer`           | `src/core/validation/runtimeSchema.ts` | Per project load                        |
-| `ValidationContext`     | `src/core/sws-validator/types.ts`        | Per `runValidation` call         |
-| `InternalValidatorResult` | `src/core/sws-validator/types.ts`        | Per `runValidation` call         |
-| `ValidatorResult` (wire)  | `src/shared/headless/ipc-contract.ts` (A+C) | Per `runValidation` call (translated via `toWireResult()`) |
-| `RunResult`             | `src/core/sws-validator/engine.ts`       | Per `runValidation` call         |
-| `toWireResult()`        | `src/core/sws-validator/adapter.ts` (NEW, per C1 fix) | Per `runValidation` call (boundary translation) |
-| `SwsValidateResponse`   | `src/shared/ipc-contract.ts`             | Per GUI panel refresh            |
-| `swsValidatorSlice`     | `src/renderer/store/slices/swsValidatorSlice.ts` | Persistent across navigation     |
+| Type                      | Where defined                                         | Lifetime                                                   |
+| ------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- |
+| `NormalizedDocument`      | `src/shared/normalized-document.ts` (v1.5.1)          | Per project load                                           |
+| `SchemaLayer`             | `src/core/validation/runtimeSchema.ts`                | Per project load                                           |
+| `ValidationContext`       | `src/core/sws-validator/types.ts`                     | Per `runValidation` call                                   |
+| `InternalValidatorResult` | `src/core/sws-validator/types.ts`                     | Per `runValidation` call                                   |
+| `ValidatorResult` (wire)  | `src/shared/headless/ipc-contract.ts` (A+C)           | Per `runValidation` call (translated via `toWireResult()`) |
+| `RunResult`               | `src/core/sws-validator/engine.ts`                    | Per `runValidation` call                                   |
+| `toWireResult()`          | `src/core/sws-validator/adapter.ts` (NEW, per C1 fix) | Per `runValidation` call (boundary translation)            |
+| `SwsValidateResponse`     | `src/shared/ipc-contract.ts`                          | Per GUI panel refresh                                      |
+| `swsValidatorSlice`       | `src/renderer/store/slices/swsValidatorSlice.ts`      | Persistent across navigation                               |
 
 ## 7. Error Handling
 
 ### 7.1 Rule execution errors
 
-| Scenario                       | Behavior                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Rule exceeds `timeoutMsPerRule` | Run continues; `timedOut: [ruleId, ...]` in `RunResult`. UI marks the rule with a "timed out" badge.   |
-| Rule throws                    | Caught at the engine boundary. Emit one synthetic `error` result with `messageKey: 'swsValidator.runtimeError'` and `path: ''`. Continue with remaining rules. |
-| Rule returns malformed shape   | Validator at registration time; runtime check at call site (defensive). Skip + log.                     |
+| Scenario                        | Behavior                                                                                                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rule exceeds `timeoutMsPerRule` | Run continues; `timedOut: [ruleId, ...]` in `RunResult`. UI marks the rule with a "timed out" badge.                                                           |
+| Rule throws                     | Caught at the engine boundary. Emit one synthetic `error` result with `messageKey: 'swsValidator.runtimeError'` and `path: ''`. Continue with remaining rules. |
+| Rule returns malformed shape    | Validator at registration time; runtime check at call site (defensive). Skip + log.                                                                            |
 
 ```ts
 export type SwsValidatorError =
@@ -822,7 +819,7 @@ export type SwsValidatorError =
 ### 7.4 Feature flag fallback
 
 - Flag OFF → GUI panel not mounted; CLI `--validate` exits with code 3
-  + message "experimental.swsValidator is disabled".
+  - message "experimental.swsValidator is disabled".
 - Flag OFF → IPC `sws-validator:run:v1` returns `{ ok: false, error: 'feature-disabled' }`.
 
 ### 7.5 Tour validation-paused silent skip (per §3.9, locked 2026-06-21; Round 3 in-process fix)
@@ -852,21 +849,21 @@ When W's tour is running and publishes `tour:state-changed` with
 
 ### 8.1 Per-PR unit tests
 
-| PR    | Coverage target                                                          | New tests (est.) |
-| ----- | ------------------------------------------------------------------------ | ---------------- |
-| G1    | engine (single rule, multi-rule, timeout, throw, severity floor)          | 8                |
-| G1    | ValidationContext (readAt, findAll, findModules edge cases)              | 6                |
-| G1    | types / i18n-key registration check                                      | 3                |
-| G2    | each starter rule × ≥ 4 scenarios (pass / fail / edge / missing BSWMD)   | 4 × 4 = 16       |
-| G3    | RuleLoader (project dir / user-global / malformed / sandbox violation)  | 8                |
-| G3    | vm-runner.ts (whitelist enforcement)                                     | 6                |
-| G3    | **vm-runner parity test** (blocked-module list + env-vars + globalThis + eval/Function match v1.3.0 Script Engine source) | **1** (~30 LOC, H1 mitigation per §3.8) |
-| G4    | ValidationPanel render (empty / results / severity filter / navigate)    | 6                |
-| G4    | swsValidatorSlice (run / cancel / clear / error handling)                | 4                |
-| G5    | CLI JSON output (golden file)                                            | 4                |
-| G5    | CLI SARIF output (golden file)                                           | 4                |
-| G5    | IPC handler (success / timeout / feature-disabled)                       | 3                |
-| **Total** |                                                                      | **~68**          |
+| PR        | Coverage target                                                                                                           | New tests (est.)                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| G1        | engine (single rule, multi-rule, timeout, throw, severity floor)                                                          | 8                                       |
+| G1        | ValidationContext (readAt, findAll, findModules edge cases)                                                               | 6                                       |
+| G1        | types / i18n-key registration check                                                                                       | 3                                       |
+| G2        | each starter rule × ≥ 4 scenarios (pass / fail / edge / missing BSWMD)                                                    | 4 × 4 = 16                              |
+| G3        | RuleLoader (project dir / user-global / malformed / sandbox violation)                                                    | 8                                       |
+| G3        | vm-runner.ts (whitelist enforcement)                                                                                      | 6                                       |
+| G3        | **vm-runner parity test** (blocked-module list + env-vars + globalThis + eval/Function match v1.3.0 Script Engine source) | **1** (~30 LOC, H1 mitigation per §3.8) |
+| G4        | ValidationPanel render (empty / results / severity filter / navigate)                                                     | 6                                       |
+| G4        | swsValidatorSlice (run / cancel / clear / error handling)                                                                 | 4                                       |
+| G5        | CLI JSON output (golden file)                                                                                             | 4                                       |
+| G5        | CLI SARIF output (golden file)                                                                                            | 4                                       |
+| G5        | IPC handler (success / timeout / feature-disabled)                                                                        | 3                                       |
+| **Total** |                                                                                                                           | **~68**                                 |
 
 Final target: project total grows from ~1692 (v1.5.1) to **~1760**
 (+68). Per `common/testing.md`, 80% floor; automotive-specific rules
@@ -888,11 +885,11 @@ do not apply (no ASIL claim for an IDE tool).
 Reference A+C spec **§10.6** 9-scenario cross-spec integration
 matrix (locked 2026-06-21). G cluster owns the following scenarios:
 
-| Scenario # | Description | Test file | Owner PR |
-|---|---|---|---|
-| **#5** | G validation result → A+C CLI stdout via `toWireResult()` translator (after C1 fix; integration smoke test) | `tests/integration/v1-6-0/g-result-cli.test.ts` (NEW) | **G-5** (PR(G5)) |
-| **#8** | W tour `validationPaused: true` → G debounce early-returns `[]` (per §3.9 + §7.5; e2e with real W + G + IPC) | `tests/integration/v1-6-0/tour-pause-validator.test.ts` (NEW) | **G-4** (PR(G4)) |
-| **#9** | G sandbox parity vs v1.3.0 Script Engine `vm-runner` (per §3.8 / §8.1 G3 row + H1 mitigation; unit-level) | `src/core/sws-validator/sandbox/__parity__.test.ts` (NEW, ~30 LOC) | **G-3** (PR(G3)) |
+| Scenario # | Description                                                                                                  | Test file                                                          | Owner PR         |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ---------------- |
+| **#5**     | G validation result → A+C CLI stdout via `toWireResult()` translator (after C1 fix; integration smoke test)  | `tests/integration/v1-6-0/g-result-cli.test.ts` (NEW)              | **G-5** (PR(G5)) |
+| **#8**     | W tour `validationPaused: true` → G debounce early-returns `[]` (per §3.9 + §7.5; e2e with real W + G + IPC) | `tests/integration/v1-6-0/tour-pause-validator.test.ts` (NEW)      | **G-4** (PR(G4)) |
+| **#9**     | G sandbox parity vs v1.3.0 Script Engine `vm-runner` (per §3.8 / §8.1 G3 row + H1 mitigation; unit-level)    | `src/core/sws-validator/sandbox/__parity__.test.ts` (NEW, ~30 LOC) | **G-3** (PR(G3)) |
 
 **Acceptance**: All 3 G-owned scenarios pass = G cluster ready for
 v1.6.0 ship. The other 6 A+C §10.6 scenarios are owned by A+C / W / U
@@ -911,18 +908,18 @@ task must wire this before PR(G4) merges.
 - **GUI flow**: load project → wait for panel → click error → verify
   navigation. Skip if `experimental.swsValidator` OFF.
 - **CLI flow**: `pnpm exec claude-AutosarCfg --validate
-  tests/fixtures/arxml/eb-master-12mb.arxml --format json` exits 1,
+tests/fixtures/arxml/eb-master-12mb.arxml --format json` exits 1,
   JSON validates against schema.
 
 ### 8.4 Coverage gate
 
-| Type                  | Threshold                                          |
-| --------------------- | -------------------------------------------------- |
-| Pure refactor (none)  | n/a                                                |
-| New core (G1, G2, G3) | ≥ 90% stmts / ≥ 80% branches                       |
-| New renderer (G4)     | ≥ 85% stmts / ≥ 75% branches (component heavy)    |
-| New CLI (G5)          | ≥ 90% stmts / ≥ 80% branches                       |
-| **Total**             | **≥ 95.5% stmts / ≥ 87% branches** (Q4 D parity)  |
+| Type                  | Threshold                                        |
+| --------------------- | ------------------------------------------------ |
+| Pure refactor (none)  | n/a                                              |
+| New core (G1, G2, G3) | ≥ 90% stmts / ≥ 80% branches                     |
+| New renderer (G4)     | ≥ 85% stmts / ≥ 75% branches (component heavy)   |
+| New CLI (G5)          | ≥ 90% stmts / ≥ 80% branches                     |
+| **Total**             | **≥ 95.5% stmts / ≥ 87% branches** (Q4 D parity) |
 
 ### 8.5 Performance budget
 
@@ -972,49 +969,49 @@ What G leaves ready for v1.7.0+:
 
 ## 11. Risks & Open Questions
 
-| #   | Risk / Question                                                                                            | Likelihood | Impact | Owner / Mitigation                                                                  |
-| --- | ---------------------------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------- |
-| R1  | ~~**PENDING AC IPC CONTRACT** — G5 assumes A+C's `--validate` channel shape; A+C spec writer may pick a different signature.~~ | M         | P1     | **RESOLVED 2026-06-21 (synthesizer C1 + C3 fixes)**: A+C spec `2026-06-21-v1-6-0-AC-headless-cli-design.md` ships canonical `ValidatorResult` + 3 IPC channels (see A+C §6 IPC Contract Reference). G adopts via §5.1 (`InternalValidatorResult` engine + `toWireResult()` adapter translating to A+C `ValidatorResult`) and §4.5 (channels renamed to `sws-validator:run:v1` / `sws-validator:cancel:v1` per A+C §6 versioning policy). PR(G5) is unblocked. |
-| R2  | **Sandbox reuse risk** — Sprint 14 Script Engine's `vm-runner.ts` is single-process; G might want worker threads for big projects. | L         | P2     | PR(G3) reuses vm-runner as-is; v1.7.0 swap to worker_threads if perf budget missed.  |
-| H1  | **Sandbox copy drift** — G copies `vm-runner.ts` per §3.8 (different ctx API); if Script Engine updates its whitelist, G silently drifts. | M         | P1     | **RESOLVED 2026-06-21** (synthesizer H1): §3.8 declares v1.6.0 copy + v1.7.0 shared extraction plan + §8.1 G3 parity test (1 file, ~30 LOC, asserts blocked-module list + env-vars + globalThis + eval/Function match v1.3.0 source verbatim). A+C §13 R2 cross-references the bundle-check assertion (A+C `--validate` stub tree-shakes sandbox in v1.6.0; v1.7.0 PR(G5) bundle-check asserts no vm-runner reference in v1.6.0 CLI binary). |
-| R3  | ~~Starter rule selection — 3 vs 4 vs 5 starter rules.~~ | M         | P2     | **RESOLVED 2026-06-21**: 4 starter rules locked (C1 + C3 + C4 + C5); C2 `SWS_COMM_CHANNEL_PDUR_ALIGN` deferred to v1.7.0 (alignment warning subjective; false-positive risk per G reviewer). |
-| R4  | **Incremental vs full re-validation** — GUI debounce after every keystroke is wasteful; full re-run on save is too sparse. | M         | P2     | Spec choice: 300ms debounce, run on idle. Plan-stage confirmation needed. Alternative: re-run only rules tagged with the edited path's module. |
-| H3  | **G 300ms debounce vs W tour running** — if a user edits mid-tour, G fires background validation runs that stutter the tour. | M         | P1     | **RESOLVED 2026-06-21** (synthesizer H3, Round 3 in-process refinement): §3.9 declares W-owned `validationPaused: boolean` field on `TourState` + `tour:state-changed` propagation via **in-process zustand subscription** (`useArxmlStore.subscribe`, no new IPC channel per W §3.7 canonical); §5.1 adds `tourState: { validationPaused: boolean }` to `ValidationContext`; §7.5 documents silent-skip policy; engine.ts debounce early-returns `[]` when `validationPaused === true`. Cross-spec acceptance: A+C §10.6 integration test #8 (`integration/tour-pause-validator.test.ts`; renderer-process observer via Vitest + jsdom). W spec §3.7 owns the `validationPaused` field + event emission; G only subscribes. |
-| R5  | **i18n key cardinality** — 3–5 rules × ≥ 2 keys each = 6–10 new entries in 2 locales. Manageable but invites drift. | L         | P2     | Plan stage adds an i18n-key lint test that fails if a starter rule's `messageKey` is missing. |
-| R6  | ~~SARIF coverage — SARIF 2.1.0 is rich; G's emitter might miss locations / code flows.~~ | L         | P2     | **RESOLVED 2026-06-21 (G8-CLI-format decision)**: SARIF deferred to v1.7.0. v1.6.0 ships JSON-only output. Risk closes with scope reduction. |
-| R7  | **Module shortName casing** — BSWMD module names are case-sensitive; rule filters must match exactly.        | L         | P1     | Plan-stage test: every starter rule's `targetModule` matches a known fixture BSWMD shortName. |
-| R8  | **Cross-BSWMD deps rule (C5) is the most expensive** — O(N²) on large projects. May need indexing.           | M         | P2     | Plan stage: profile on `eb-master-12mb.arxml`. If > 500ms, add a project-wide module index built once per `runValidation`. |
-| R9  | **GUI panel mount cost** — bottom panel always mounted adds idle overhead even when flag OFF.                 | L         | P3     | Plan stage: mount only when flag is ON. Render placeholder when OFF.                  |
-| R10 | **What happens if user-defined rule id collides with built-in**?                                              | M         | P1     | Loader rejects user rule if `id` already registered. Log warning, skip rule.         |
+| #   | Risk / Question                                                                                                                           | Likelihood | Impact | Owner / Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | ~~**PENDING AC IPC CONTRACT** — G5 assumes A+C's `--validate` channel shape; A+C spec writer may pick a different signature.~~            | M          | P1     | **RESOLVED 2026-06-21 (synthesizer C1 + C3 fixes)**: A+C spec `2026-06-21-v1-6-0-AC-headless-cli-design.md` ships canonical `ValidatorResult` + 3 IPC channels (see A+C §6 IPC Contract Reference). G adopts via §5.1 (`InternalValidatorResult` engine + `toWireResult()` adapter translating to A+C `ValidatorResult`) and §4.5 (channels renamed to `sws-validator:run:v1` / `sws-validator:cancel:v1` per A+C §6 versioning policy). PR(G5) is unblocked.                                                                                                                                                                                                                                                                |
+| R2  | **Sandbox reuse risk** — Sprint 14 Script Engine's `vm-runner.ts` is single-process; G might want worker threads for big projects.        | L          | P2     | PR(G3) reuses vm-runner as-is; v1.7.0 swap to worker_threads if perf budget missed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| H1  | **Sandbox copy drift** — G copies `vm-runner.ts` per §3.8 (different ctx API); if Script Engine updates its whitelist, G silently drifts. | M          | P1     | **RESOLVED 2026-06-21** (synthesizer H1): §3.8 declares v1.6.0 copy + v1.7.0 shared extraction plan + §8.1 G3 parity test (1 file, ~30 LOC, asserts blocked-module list + env-vars + globalThis + eval/Function match v1.3.0 source verbatim). A+C §13 R2 cross-references the bundle-check assertion (A+C `--validate` stub tree-shakes sandbox in v1.6.0; v1.7.0 PR(G5) bundle-check asserts no vm-runner reference in v1.6.0 CLI binary).                                                                                                                                                                                                                                                                                 |
+| R3  | ~~Starter rule selection — 3 vs 4 vs 5 starter rules.~~                                                                                   | M          | P2     | **RESOLVED 2026-06-21**: 4 starter rules locked (C1 + C3 + C4 + C5); C2 `SWS_COMM_CHANNEL_PDUR_ALIGN` deferred to v1.7.0 (alignment warning subjective; false-positive risk per G reviewer).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| R4  | **Incremental vs full re-validation** — GUI debounce after every keystroke is wasteful; full re-run on save is too sparse.                | M          | P2     | Spec choice: 300ms debounce, run on idle. Plan-stage confirmation needed. Alternative: re-run only rules tagged with the edited path's module.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| H3  | **G 300ms debounce vs W tour running** — if a user edits mid-tour, G fires background validation runs that stutter the tour.              | M          | P1     | **RESOLVED 2026-06-21** (synthesizer H3, Round 3 in-process refinement): §3.9 declares W-owned `validationPaused: boolean` field on `TourState` + `tour:state-changed` propagation via **in-process zustand subscription** (`useArxmlStore.subscribe`, no new IPC channel per W §3.7 canonical); §5.1 adds `tourState: { validationPaused: boolean }` to `ValidationContext`; §7.5 documents silent-skip policy; engine.ts debounce early-returns `[]` when `validationPaused === true`. Cross-spec acceptance: A+C §10.6 integration test #8 (`integration/tour-pause-validator.test.ts`; renderer-process observer via Vitest + jsdom). W spec §3.7 owns the `validationPaused` field + event emission; G only subscribes. |
+| R5  | **i18n key cardinality** — 3–5 rules × ≥ 2 keys each = 6–10 new entries in 2 locales. Manageable but invites drift.                       | L          | P2     | Plan stage adds an i18n-key lint test that fails if a starter rule's `messageKey` is missing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| R6  | ~~SARIF coverage — SARIF 2.1.0 is rich; G's emitter might miss locations / code flows.~~                                                  | L          | P2     | **RESOLVED 2026-06-21 (G8-CLI-format decision)**: SARIF deferred to v1.7.0. v1.6.0 ships JSON-only output. Risk closes with scope reduction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| R7  | **Module shortName casing** — BSWMD module names are case-sensitive; rule filters must match exactly.                                     | L          | P1     | Plan-stage test: every starter rule's `targetModule` matches a known fixture BSWMD shortName.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| R8  | **Cross-BSWMD deps rule (C5) is the most expensive** — O(N²) on large projects. May need indexing.                                        | M          | P2     | Plan stage: profile on `eb-master-12mb.arxml`. If > 500ms, add a project-wide module index built once per `runValidation`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| R9  | **GUI panel mount cost** — bottom panel always mounted adds idle overhead even when flag OFF.                                             | L          | P3     | Plan stage: mount only when flag is ON. Render placeholder when OFF.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| R10 | **What happens if user-defined rule id collides with built-in**?                                                                          | M          | P1     | Loader rejects user rule if `id` already registered. Log warning, skip rule.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## 12. Acceptance Criteria
 
 ### BLOCK (must all pass to ship v1.6.0)
 
-| #   | Item                                                                                         | Verification                                  |
-| --- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 1   | All 5 G PRs merged to `main`                                                                 | `git log --oneline ^v1.5.1..HEAD --grep='^feat(sws'` |
-| 2   | Tests pass                                                                                   | `pnpm test` — 1692 → ~1764                    |
-| 3   | Coverage gate                                                                                | `pnpm test:coverage` ≥ 95.5 / ≥ 87            |
-| 4   | All 4 locked starter rules (C1, C3, C4, C5) have ≥ 2 i18n keys in zh-CN and en                  | `pnpm test:i18n` — new `swsValidator.*` keys  |
-| 4b  | **vm-runner parity test passes** (blocked-module list + env-vars + globalThis-write + eval/Function match v1.3.0 Script Engine source verbatim, per §3.8 / §8.1 G3 row) | `pnpm test src/core/sws-validator/sandbox/__parity__.test.ts` |
-| 4c  | **Tour running 期间 G validator 0 调用** (W `validationPaused: true` → G `engine.ts` debounce early-returns `[]`; per §3.9 / §7.5) | e2e + A+C §10.6 integration test #8 (`integration/tour-pause-validator.test.ts`) |
-| 5   | Loader rejects malformed / sandbox-violating rules                                           | unit test                                     |
-| 6   | `--validate` CLI returns correct exit code (0/1/2)                                            | e2e shell test                                |
-| 7   | 0 type errors, 0 lint errors                                                                | `pnpm typecheck && pnpm lint`                 |
-| 8   | Build success; bundle ≤ 850 kB                                                               | `pnpm build`                                  |
-| 9   | `experimental.swsValidator` default OFF                                                      | grep feature-flag.ts                          |
-| 10  | GUI panel hidden when flag OFF                                                               | manual smoke + render test                    |
-| 11  | No existing IPC / i18n key / store action broken                                             | 1692 existing tests as fuse                   |
+| #   | Item                                                                                                                                                                    | Verification                                                                     |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1   | All 5 G PRs merged to `main`                                                                                                                                            | `git log --oneline ^v1.5.1..HEAD --grep='^feat(sws'`                             |
+| 2   | Tests pass                                                                                                                                                              | `pnpm test` — 1692 → ~1764                                                       |
+| 3   | Coverage gate                                                                                                                                                           | `pnpm test:coverage` ≥ 95.5 / ≥ 87                                               |
+| 4   | All 4 locked starter rules (C1, C3, C4, C5) have ≥ 2 i18n keys in zh-CN and en                                                                                          | `pnpm test:i18n` — new `swsValidator.*` keys                                     |
+| 4b  | **vm-runner parity test passes** (blocked-module list + env-vars + globalThis-write + eval/Function match v1.3.0 Script Engine source verbatim, per §3.8 / §8.1 G3 row) | `pnpm test src/core/sws-validator/sandbox/__parity__.test.ts`                    |
+| 4c  | **Tour running 期间 G validator 0 调用** (W `validationPaused: true` → G `engine.ts` debounce early-returns `[]`; per §3.9 / §7.5)                                      | e2e + A+C §10.6 integration test #8 (`integration/tour-pause-validator.test.ts`) |
+| 5   | Loader rejects malformed / sandbox-violating rules                                                                                                                      | unit test                                                                        |
+| 6   | `--validate` CLI returns correct exit code (0/1/2)                                                                                                                      | e2e shell test                                                                   |
+| 7   | 0 type errors, 0 lint errors                                                                                                                                            | `pnpm typecheck && pnpm lint`                                                    |
+| 8   | Build success; bundle ≤ 850 kB                                                                                                                                          | `pnpm build`                                                                     |
+| 9   | `experimental.swsValidator` default OFF                                                                                                                                 | grep feature-flag.ts                                                             |
+| 10  | GUI panel hidden when flag OFF                                                                                                                                          | manual smoke + render test                                                       |
+| 11  | No existing IPC / i18n key / store action broken                                                                                                                        | 1692 existing tests as fuse                                                      |
 
 ### WARN (should pass, ship if minor miss)
 
-| #   | Item                                                                                         | Verification     |
-| --- | -------------------------------------------------------------------------------------------- | ---------------- |
-| 12  | 1000-node project validation ≤ 500ms                                                         | perf benchmark   |
-| 13  | All 4 starter rules cover ≥ 80% of common AUTOSAR SWS errors in the BSWMD corpus              | coverage matrix  |
-| 14  | Drop-in rule example documented in `docs/validators-example.md`                              | docs review      |
-| 15  | code-reviewer 0 C / ≤ 2 H / ≤ 5 M                                                            | per-PR review    |
+| #   | Item                                                                             | Verification    |
+| --- | -------------------------------------------------------------------------------- | --------------- |
+| 12  | 1000-node project validation ≤ 500ms                                             | perf benchmark  |
+| 13  | All 4 starter rules cover ≥ 80% of common AUTOSAR SWS errors in the BSWMD corpus | coverage matrix |
+| 14  | Drop-in rule example documented in `docs/validators-example.md`                  | docs review     |
+| 15  | code-reviewer 0 C / ≤ 2 H / ≤ 5 M                                                | per-PR review   |
 
 ### OUT of scope (v1.6.0 explicitly does NOT deliver)
 

@@ -149,12 +149,7 @@ export function CommandPalette({
           data-testid="command-palette-input"
         />
         {filtered.length === 0 ? (
-          <div
-            id={noResultsId}
-            className="command-palette-empty"
-            role="status"
-            aria-live="polite"
-          >
+          <div id={noResultsId} className="command-palette-empty" role="status" aria-live="polite">
             {t(locale, 'commandPalette.noResults')}
           </div>
         ) : (
@@ -178,9 +173,7 @@ export function CommandPalette({
                 >
                   <span className="command-palette-item-label">{cmd.label}</span>
                   <span className="command-palette-item-desc">{cmd.description}</span>
-                  <span className="command-palette-item-bindings">
-                    {cmd.bindings.join(' · ')}
-                  </span>
+                  <span className="command-palette-item-bindings">{cmd.bindings.join(' · ')}</span>
                 </li>
               );
             })}

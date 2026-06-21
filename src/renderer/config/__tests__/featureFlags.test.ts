@@ -48,7 +48,9 @@ describe('renderer feature flags (v1.6.0 U)', () => {
   });
 
   it('returns true when the IPC reply sets experimental.keyboardFirst=true', async () => {
-    const win = globalThis as unknown as { window: { autosarApi: { getFeatureFlags: () => Promise<unknown> } } };
+    const win = globalThis as unknown as {
+      window: { autosarApi: { getFeatureFlags: () => Promise<unknown> } };
+    };
     win.window.autosarApi.getFeatureFlags = async () => ({
       experimental: {
         onboarding: false,
