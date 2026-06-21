@@ -55,6 +55,7 @@ import {
   scriptRunHandler,
   scriptSaveHandler,
 } from './script-handler.js';
+import { registerStencilHandler } from './stencilHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
 
 /**
@@ -441,6 +442,11 @@ export function registerIpcHandlers(): void {
       return projectSaveHandler(req);
     },
   );
+
+  // v1.8.0 K — Stencil Wizard IPC. Generates a minimal valid ECUC
+  // module skeleton (.arxml) for one of 4 families. Gate logic (SWS
+  // Validator opt-in) is added in Task 8; CLI parity in v1.9.0+.
+  registerStencilHandler();
 }
 
 // ---------------------------------------------------------------------------
