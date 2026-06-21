@@ -981,6 +981,153 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
       definitionRef: '/AUTOSAR/EcucDefs/Can/CanGeneral/CanSub/SubParam',
     });
   });
+
+  // ─── S3 (P2) — container description carry-through ──────────────────
+  // v1.7.1 ships end-to-end <DESC> text flow: BSWMD parser
+  // (src/core/project/bswmd.ts) extracts <DESC> body into
+  // ContainerDef.desc / ParamDef.desc; the skeleton carries that into
+  // ArxmlContainer.description for top containers, sub-containers, and
+  // choice shells. Pre-S3 the parser did not read <DESC> at all so the
+  // value-side UI had no way to surface BSWMD-side documentation.
+
+  it('S3: top-container description carried from ContainerDef.desc', () => {
+    // Arrange — top container with desc; no sub-containers, no params.
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+      desc: 'General CAN driver configuration.',
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+
+    // Act
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+
+    // Assert — the description is carried verbatim onto the
+    // value-side ArxmlContainer.description field.
+    expect(canGeneral.description).toBe('General CAN driver configuration.');
+  });
+
+  it('S3: sub-container description carried from ContainerDef.desc', () => {
+    // Arrange — top container has no desc; sub-container carries one.
+    const sub: ContainerDef = {
+      shortName: 'CanSub',
+      path: '/Can/CanGeneral/CanSub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+      desc: 'Sub-container with its own description.',
+    };
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+
+    // Act
+    const canGeneral = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const canSub = canGeneral.children[0]! as ArxmlContainer;
+
+    // Assert — the description reaches the sub-container shell. The
+    // top container without desc has description === undefined.
+    expect(canGeneral.description).toBeUndefined();
+    expect(canSub.description).toBe('Sub-container with its own description.');
+  });
+
+  it('S3: choice shell description carried', () => {
+    // Arrange — a choice container with desc; branches are nested in
+    // `choices`. The skeleton emits a single shell carrying the
+    // choice container's own description.
+    const branchA: ContainerDef = {
+      shortName: 'BranchA',
+      path: '/Can/Top/ChoiceContainer/BranchA',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const branchB: ContainerDef = {
+      shortName: 'BranchB',
+      path: '/Can/Top/ChoiceContainer/BranchB',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const choice: ContainerDef = {
+      shortName: 'ChoiceContainer',
+      path: '/Can/Top/ChoiceContainer',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [branchA, branchB],
+      desc: 'Pick exactly one of the two branches below.',
+    };
+    const top: ContainerDef = {
+      shortName: 'Top',
+      path: '/Can/Top',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [choice],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+
+    // Act — find the choice shell under Top.
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const choiceShell = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — the choice shell carries the choice container's own
+    // description, distinct from any branch's description.
+    expect(choiceShell.isChoiceContainer).toBe(true);
+    expect(choiceShell.description).toBe('Pick exactly one of the two branches below.');
+  });
+
+  it('S3: container without desc leaves ArxmlContainer.description undefined', () => {
+    // Arrange — no desc anywhere. Regression guard that the field is
+    // genuinely omitted (not "" or null) when the BSWMD has no
+    // <DESC>. Matches the existing pre-S3 behaviour for fields like
+    // isChoiceContainer.
+    const cont: ContainerDef = {
+      shortName: 'Plain',
+      path: '/Can/Plain',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+
+    // Act
+    const plainEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+
+    // Assert
+    expect(plainEl.description).toBeUndefined();
+  });
 });
 
 describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {

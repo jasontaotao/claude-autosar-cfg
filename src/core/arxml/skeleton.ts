@@ -127,6 +127,10 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
     params: fillParamsFromBswmd(c),
+    // v1.7.1 S3 — carry the BSWMD <DESC> text through to the value
+    // side so the UI can surface it as a tooltip / helper text next
+    // to the container shortName.
+    description: c.desc,
     // Both `subContainers` (plain ECUC-PARAM-CONF-CONTAINER-DEF) and
     // `choices` (ECUC-CHOICE-CONTAINER-DEF) get pre-created shells.
     // Choice branches themselves are user-instanced — see the spec at
@@ -207,6 +211,9 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
       params: fillParamsFromBswmd(c),
+      // v1.7.1 S3 — carry the BSWMD <DESC> text through (uniform with
+      // top containers).
+      description: c.desc,
       // Same `choices` traversal as `buildTopContainer` — required
       // choice branches must be reachable from any depth, not only
       // from the top-level module containers.
@@ -253,6 +260,11 @@ function buildChoiceShell(c: ContainerDef): ArxmlContainer[] {
       // the comment on `children: []` below.
       isChoiceContainer: true,
       choiceBranches: c.choices.map((b) => b.shortName),
+      // v1.7.1 S3 — carry the choice container's own <DESC> (e.g.
+      // "Pick exactly one of the two branches below") onto the shell.
+      // Each branch's own desc stays on its own ContainerDef — branches
+      // are user-instanced and aren't pre-created as children.
+      description: c.desc,
       // A choice container in BSWMD exposes its alternatives under
       // `c.choices` (not `c.subContainers`) — see
       // bswmd.ts::buildChoiceContainer. We do NOT pre-create the

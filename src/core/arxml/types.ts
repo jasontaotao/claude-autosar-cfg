@@ -79,6 +79,14 @@ export interface ArxmlContainer {
    * source order, so the UI picker renders branches in the same order).
    */
   readonly choiceBranches?: readonly string[];
+  /**
+   * v1.7.1 S3 — human-readable documentation carried over from the
+   * BSWMD-side `ContainerDef.desc` (the text body of `<DESC>`). The
+   * skeleton carry-through is uniform for top containers, sub-containers,
+   * and choice shells. `undefined` when the BSWMD omits `<DESC>` or
+   * declares an empty `<DESC></DESC>`.
+   */
+  readonly description?: string;
 }
 
 export interface ArxmlReference {

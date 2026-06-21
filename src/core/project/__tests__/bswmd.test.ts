@@ -1401,3 +1401,139 @@ describe('listContainerChildren', () => {
     expect(children.references).toEqual([]);
   });
 });
+
+// ─── S3 (P2) — <DESC> extraction ─────────────────────────────────────
+// v1.7.1 ships end-to-end <DESC> text flow: BSWMD parser extracts the
+// text content of <DESC> elements on containers and parameters into
+// ContainerDef.desc / ParamDef.desc, which the skeleton then carries
+// into ArxmlContainer.description. Previously the parser did NOT read
+// <DESC> at all (zero matches in src/ pre-S3), so the BSWMD-side
+// documentation never reached the value-side UI.
+
+describe('parseBswmd — <DESC> extraction (v1.7.1 S3)', () => {
+  const BSWMD_WITH_DESC = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-0-3.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <ELEMENTS>
+            <ECUC-MODULE-DEF>
+              <SHORT-NAME>Can</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <CONTAINERS>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanGeneral</SHORT-NAME>
+                  <DESC>General CAN driver configuration.</DESC>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <PARAMETERS>
+                    <ECUC-INTEGER-PARAM-DEF>
+                      <SHORT-NAME>CanDevErrorDetect</SHORT-NAME>
+                      <DESC>Enable development error detection.</DESC>
+                      <MIN>0</MIN>
+                      <MAX>1</MAX>
+                      <DEFAULT-VALUE>1</DEFAULT-VALUE>
+                    </ECUC-INTEGER-PARAM-DEF>
+                  </PARAMETERS>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </CONTAINERS>
+            </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+  it('extracts <DESC> text into ContainerDef.desc', () => {
+    // Arrange + Act
+    const r = parseBswmd(BSWMD_WITH_DESC);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Assert — the container's <DESC> body is reachable on the parsed
+    // ContainerDef.desc field. UI code can surface this as a tooltip
+    // next to the container shortName in the tree.
+    const c = r.value.modules[0]!.containers[0]!;
+    expect(c.shortName).toBe('CanGeneral');
+    expect(c.desc).toBe('General CAN driver configuration.');
+  });
+
+  it('extracts <DESC> text into ParamDef.desc', () => {
+    // Arrange + Act
+    const r = parseBswmd(BSWMD_WITH_DESC);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Assert — the parameter's <DESC> body is reachable on the parsed
+    // ParamDef.desc field. The renderer / ParamEditor uses this as the
+    // per-param tooltip / helper text.
+    const param = r.value.modules[0]!.containers[0]!.parameters[0]!;
+    expect(param.shortName).toBe('CanDevErrorDetect');
+    expect(param.desc).toBe('Enable development error detection.');
+  });
+
+  it('leaves desc undefined when the container has no <DESC>', () => {
+    // Arrange + Act — AUTOSAR_MINIMAL has no <DESC> anywhere.
+    const r = parseBswmd(AUTOSAR_MINIMAL);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Assert — `desc` is `undefined` (not the empty string), so the
+    // UI can distinguish "no description declared" from "explicitly
+    // empty description" if we ever want to.
+    const c = r.value.modules[0]!.containers[0]!;
+    expect(c.desc).toBeUndefined();
+  });
+
+  it('leaves desc undefined when <DESC></DESC> is present but empty', () => {
+    // Arrange — minimal BSWMD with an explicitly empty <DESC>. Empty
+    // string and "missing" must collapse to the same value
+    // (undefined) so downstream code doesn't have to check both.
+    const EMPTY_DESC = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-0-3.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucDefs</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>Can</SHORT-NAME>
+          <ELEMENTS>
+            <ECUC-MODULE-DEF>
+              <SHORT-NAME>Can</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <CONTAINERS>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>CanGeneral</SHORT-NAME>
+                  <DESC></DESC>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </CONTAINERS>
+            </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+    const r = parseBswmd(EMPTY_DESC);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+
+    // Assert — empty <DESC></DESC> must NOT become an empty string;
+    // the field stays undefined so the UI doesn't show an empty
+    // tooltip box.
+    const c = r.value.modules[0]!.containers[0]!;
+    expect(c.desc).toBeUndefined();
+  });
+});

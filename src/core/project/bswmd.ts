@@ -88,6 +88,15 @@ export interface ContainerDef {
   readonly references: readonly ReferenceDef[];
   readonly choices: readonly ContainerDef[];
   /**
+   * v1.7.1 S3 — human-readable documentation text from the BSWMD
+   * `<DESC>` element on `<ECUC-PARAM-CONF-CONTAINER-DEF>` /
+   * `<ECUC-CHOICE-CONTAINER-DEF>` / `<ECUC-CHOICE-ORIENTED-STRUCTURE-DEF>`.
+   * `undefined` when the BSWMD omits `<DESC>` or declares an empty
+   * `<DESC></DESC>` (the two cases collapse so downstream UI code does
+   * not have to distinguish them).
+   */
+  readonly desc?: string;
+  /**
    * v1.4.1 — BSWMD `<MULTIPLICITY-CONFIG-CLASSES>` block from the
    * `<ECUC-PARAM-CONF-CONTAINER-DEF>`. Each entry pins the container
    * multiplicity to a particular `(CONFIG-CLASS, CONFIG-VARIANT)` pair
@@ -123,6 +132,12 @@ export interface ParamDef {
   readonly minLength: number | null;
   readonly maxLength: number | null;
   readonly enumerationLiterals: readonly string[];
+  /**
+   * v1.7.1 S3 — human-readable documentation text from the BSWMD
+   * `<DESC>` element on the parameter definition. `undefined` when
+   * the BSWMD omits `<DESC>` or declares an empty `<DESC></DESC>`.
+   */
+  readonly desc?: string;
 }
 
 export interface ReferenceDef {
@@ -728,6 +743,23 @@ function readElementText(node: unknown): string {
   return '';
 }
 
+/**
+ * v1.7.1 S3 — read the `<DESC>` element body from a BSWMD node.
+ *
+ * Returns `undefined` when the field is absent OR present but empty
+ * (e.g. `<DESC></DESC>`) — the two cases collapse to the same value
+ * so downstream UI code does not have to distinguish "no
+ * description declared" from "explicitly empty description".
+ *
+ * Reuses `readElementText` so the same string-extraction rules apply
+ * (handles attribute-bearing elements and `<DESC>` with mixed
+ * whitespace / line breaks).
+ */
+function readDesc(item: Record<string, unknown>): string | undefined {
+  const text = readElementText(item['DESC']);
+  return text === '' ? undefined : text;
+}
+
 /** Read the `@_DEST` attribute from an element node (or empty string). */
 function readDestAttr(node: unknown): string {
   if (typeof node !== 'object' || node === null) return '';
@@ -945,6 +977,7 @@ function buildContainer(
         parameters: [],
         references: [],
         choices: [],
+        desc: readDesc(item),
         multiplicityConfigClasses: readMultiplicityConfigClasses(item),
       };
     }
@@ -975,6 +1008,7 @@ function buildContainer(
     parameters,
     references,
     choices: [],
+    desc: readDesc(item),
     multiplicityConfigClasses: readMultiplicityConfigClasses(item),
   };
   if (guard !== undefined) {
@@ -1017,6 +1051,7 @@ function buildChoiceContainer(
         parameters: [],
         references: [],
         choices: [],
+        desc: readDesc(item),
         multiplicityConfigClasses: readMultiplicityConfigClasses(item),
       };
     }
@@ -1037,6 +1072,7 @@ function buildChoiceContainer(
     parameters: [],
     references: [],
     choices,
+    desc: readDesc(item),
     multiplicityConfigClasses: readMultiplicityConfigClasses(item),
   };
   if (guard !== undefined) {
@@ -1117,6 +1153,7 @@ function buildParam(item: Record<string, unknown>, parentPath: string, kind: Par
     minLength,
     maxLength,
     enumerationLiterals,
+    desc: readDesc(item),
   };
 }
 
