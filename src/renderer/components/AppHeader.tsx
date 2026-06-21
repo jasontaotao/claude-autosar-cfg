@@ -39,7 +39,10 @@ import { t, type Locale } from '../../shared/i18n.js';
 import { basename } from '../../shared/path.js';
 import type { ParseArxmlResponse, ParseError } from '../../shared/types.js';
 import { useProjectActions } from '../hooks/useProjectActions';
+import { refreshStencilFlag as refreshStencilFlagCache } from '../keyboard/shortcuts/palette.js';
 import { useArxmlStore } from '../store/useArxmlStore';
+
+import { StencilWizard } from './StencilWizard/StencilWizard.js';
 
 interface AppHeaderState {
   readonly busy: boolean;
@@ -104,6 +107,46 @@ export function AppHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // v1.8.0 K — Stencil Wizard (Task 7). AppHeader owns the open/close
+  // state so the File menu entry, the Cmd-K palette command, and any
+  // future trigger (e.g. toolbar button) share a single entry point.
+  // The flag check below gates the menu + palette — when the flag is
+  // OFF, the entry is rendered with `hidden` so the layout collapses
+  // to the existing two-entry `fileOps` group. The flag defaults to
+  // OFF (per Task 1 + main-side `stencil/feature-flag.ts`).
+  const [stencilOpen, setStencilOpen] = useState(false);
+  const [stencilFlagOn, setStencilFlagOn] = useState(false);
+  useEffect(() => {
+    refreshStencilFlagCache();
+    const api = (globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } })
+      .window?.autosarApi;
+    if (api === undefined || typeof api.getFeatureFlags !== 'function') return;
+    let cancelled = false;
+    void api
+      .getFeatureFlags()
+      .then((reply) => {
+        if (cancelled) return;
+        const flag = (reply as { experimental?: { stencilWizard?: boolean } } | undefined)?.experimental
+          ?.stencilWizard;
+        setStencilFlagOn(flag === true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStencilFlagOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // The Cmd-K palette command dispatches a `stencil:open` CustomEvent
+  // on `window`; we listen here so the wizard has a single owner.
+  useEffect(() => {
+    const handler = (): void => {
+      setStencilOpen(true);
+    };
+    window.addEventListener('stencil:open', handler);
+    return () => window.removeEventListener('stencil:open', handler);
+  }, []);
   const doc = useArxmlStore((s) => s.doc);
   const filePath = useArxmlStore((s) => s.filePath);
   // isActiveDirty: derived from per-path Set (Sprint 10 #2 dirty refactor).
@@ -493,6 +536,32 @@ export function AppHeader({
                 </span>
                 {t(locale, 'ecuc.fromBswmd.menu')}
               </button>
+              {/* v1.8.0 K — Stencil Wizard (Task 7). Hidden when the
+                  `experimental.stencilWizard` flag is OFF so stale
+                  triggers (menu + Cmd-K palette) cannot open a wizard
+                  that main will reject. The `hidden` attribute collapses
+                  the row without disturbing the dropdown layout
+                  (mirrors the W-cluster `ResetOnboardingMenuItem`
+                  pattern). The label reuses the i18n key already used
+                  by the modal title (`stencil.title`) so the menu and
+                  modal agree on the wording across en + zh-CN. */}
+              {stencilFlagOn && (
+                <button
+                  type="button"
+                  className="app-dropdown-item"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setStencilOpen(true);
+                  }}
+                  data-testid="btn-stencil-new"
+                >
+                  <span className="app-dropdown-icon" aria-hidden="true">
+                    🧩
+                  </span>
+                  {t(locale, 'stencil.title')}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -609,6 +678,14 @@ export function AppHeader({
           {t(locale, 'app.versionLabel', { version: appVersion })}
         </span>
       </div>
+      {/* v1.8.0 K — Stencil Wizard (Task 7). The modal portals into
+          `document.body` from inside `<StencilWizard />` so the
+          layout here is unchanged. The `onClose` handler flips our
+          `stencilOpen` flag, which removes the modal on the next
+          render. The flag-gate at the menu entry is the *only* gate
+          (the modal itself is not gated) so manual invocations from
+          devtools / future triggers still work in test mode. */}
+      {stencilOpen && <StencilWizard onClose={() => setStencilOpen(false)} />}
     </header>
   );
 }

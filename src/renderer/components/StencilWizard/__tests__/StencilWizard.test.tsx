@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
-// StencilWizard (v1.8.0 K Stencil Wizard — Task 6) — renderer modal
-// for generating minimal valid ECUC module skeletons.
+// StencilWizard (v1.8.0 K Stencil Wizard — Task 6 + Task 7) — renderer
+// modal for generating minimal valid ECUC module skeletons.
 //
 // Tests pin:
 //   1. Renders the title + the 3 sub-components (family picker,
@@ -13,7 +13,7 @@
 //   5. Clicking Generate invokes the IPC channel with the current
 //      family/mode/gate and on success calls `onClose`.
 //
-// We do NOT test the actual file-save dialog here — Task 6 just
+// We do NOT test the actual file-save dialog here — Task 6/7 just
 // generates the XML string and shows a toast; the OS save dialog
 // flow is a later polish task.
 
@@ -26,48 +26,61 @@ import { useArxmlStore } from '../../../store/useArxmlStore.js';
 import { StencilWizard } from '../StencilWizard.js';
 
 // ---------------------------------------------------------------------------
-// IPC stub — Task 6 doesn't add a preload wrapper, so the modal
-// invokes `window.electron.ipcRenderer.invoke` directly. Tests install a
-// minimal stub before mounting.
+// IPC stub — Task 7 replaces the Task 6 defensive `window.electron`
+// shim with the production preload wrapper
+// `window.autosarApi.stencilGenerate(req)`. Tests install a minimal
+// stub for that one method (matches the surface in
+// `src/preload/index.ts`).
 // ---------------------------------------------------------------------------
 
-interface IpcStub {
-  readonly ipcRenderer: { readonly invoke: ReturnType<typeof vi.fn> };
+interface AutosarApiStub {
+  readonly stencilGenerate: ReturnType<typeof vi.fn>;
 }
 
-let originalElectron: unknown;
+let originalStencilGenerate: unknown;
 
-function installIpc(result: { ok: boolean; xml?: string; suggestedFilename?: string } | Error): IpcStub {
-  const invoke = vi.fn().mockImplementation(() => {
+function installStencilApi(
+  result: { ok: boolean; xml?: string; suggestedFilename?: string } | Error,
+): AutosarApiStub {
+  const stencilGenerate = vi.fn().mockImplementation(() => {
     if (result instanceof Error) {
       return Promise.reject(result);
     }
     return Promise.resolve(result);
   });
-  const stub = { ipcRenderer: { invoke } };
+  const api = (globalThis as { window?: { autosarApi?: unknown } }).window?.autosarApi;
+  const previous =
+    api !== undefined && typeof (api as { stencilGenerate?: unknown }).stencilGenerate !== 'undefined'
+      ? (api as { stencilGenerate: unknown }).stencilGenerate
+      : undefined;
+  const next = {
+    ...((api as Record<string, unknown> | undefined) ?? {}),
+    stencilGenerate,
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).window.electron = stub;
-  return stub;
+  (globalThis as any).window.autosarApi = next;
+  originalStencilGenerate = previous;
+  return { stencilGenerate };
 }
 
 beforeEach(() => {
-  originalElectron = (globalThis as { window?: { electron?: unknown } }).window?.electron;
   useArxmlStore.getState().clear();
   useArxmlStore.getState().setLocale('en');
 });
 
 afterEach(() => {
-  if (originalElectron === undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).window.electron;
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).window.electron = originalElectron;
+  const api = (globalThis as { window?: { autosarApi?: Record<string, unknown> } }).window?.autosarApi;
+  if (api !== undefined) {
+    if (originalStencilGenerate === undefined) {
+      delete api.stencilGenerate;
+    } else {
+      api.stencilGenerate = originalStencilGenerate;
+    }
   }
   cleanup();
 });
 
-describe('StencilWizard (Task 6)', () => {
+describe('StencilWizard (Task 6 + Task 7)', () => {
   it('renders the title and the 3 sub-components (family / mode / gate)', () => {
     render(<StencilWizard onClose={() => {}} />);
 
@@ -132,12 +145,16 @@ describe('StencilWizard (Task 6)', () => {
 
   it('clicking Generate invokes the stencil IPC channel and closes on success', async () => {
     const onClose = vi.fn();
-    const ipc = installIpc({ ok: true, xml: '<AR-PACKAGE>...</AR-PACKAGE>', suggestedFilename: 'Com.arxml' });
+    const api = installStencilApi({
+      ok: true,
+      xml: '<AR-PACKAGE>...</AR-PACKAGE>',
+      suggestedFilename: 'Com.arxml',
+    });
     render(<StencilWizard onClose={onClose} />);
     fireEvent.click(screen.getByTestId('stencil-generate'));
-    await waitFor(() => expect(ipc.ipcRenderer.invoke).toHaveBeenCalledTimes(1));
-    // The IPC channel name is 'stencil:generate:v1' (matches IPC_CHANNELS.STENCIL_GENERATE_V1).
-    expect(ipc.ipcRenderer.invoke).toHaveBeenCalledWith('stencil:generate:v1', {
+    await waitFor(() => expect(api.stencilGenerate).toHaveBeenCalledTimes(1));
+    // The payload matches StencilRequest.
+    expect(api.stencilGenerate).toHaveBeenCalledWith({
       family: 'com',
       mode: 'free',
       gate: false,
@@ -155,7 +172,7 @@ describe('StencilWizard (Task 6)', () => {
 
   it('does NOT close when the IPC call fails — surfaces an error toast instead', async () => {
     const onClose = vi.fn();
-    installIpc(new Error('boom'));
+    installStencilApi(new Error('boom'));
     render(<StencilWizard onClose={onClose} />);
     fireEvent.click(screen.getByTestId('stencil-generate'));
     await waitFor(() => expect(screen.getByTestId('stencil-error')).toBeInTheDocument());

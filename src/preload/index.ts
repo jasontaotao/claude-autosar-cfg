@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import type { StencilRequest, StencilResponse } from '../main/stencil/types.js';
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
   OpenArxmlMultiResult,
@@ -131,6 +132,17 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
     return () => ipcRenderer.off(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
   },
+  // v1.8.0 K — Stencil Wizard (Task 7). Renderer invokes
+  // `window.autosarApi.stencilGenerate(req)` to ask main to build a
+  // minimal valid ECUC module skeleton (.arxml) for one of 4 families
+  // (com / comm / pdur / ecuc). Main returns a discriminated
+  // `StencilResponse` so the modal can render the suggested filename
+  // (ok path) or the localized error (gate / build-failed path). Gated
+  // by the `experimental.stencilWizard` feature flag on the main
+  // side; the renderer mirrors the gate by hiding the menu entry +
+  // Cmd-K palette command when the flag is OFF (per Task 7 plan).
+  stencilGenerate: (req: StencilRequest): Promise<StencilResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.STENCIL_GENERATE_V1, req),
   // v1.6.0 U — feature flags. Renderer reads flags via
   // `autosarApi.getFeatureFlags()` (see
   // `src/renderer/config/featureFlags.ts`). The main-process handler

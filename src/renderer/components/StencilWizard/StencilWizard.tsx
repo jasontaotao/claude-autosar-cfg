@@ -1,19 +1,17 @@
-// StencilWizard (v1.8.0 K Stencil Wizard — Task 6).
+// StencilWizard (v1.8.0 K Stencil Wizard — Task 6 + Task 7).
 //
 // Renderer modal that lets the user invoke the wizard from the UI.
 // Lifts local state for `family` / `mode` / `gate`, composes the
 // three sub-components, and on Generate invokes the IPC channel
 // `stencil:generate:v1`. The actual save-to-disk flow lives in a
-// later polish task (Task 12) — Task 6 just generates the XML
-// string and shows a toast so the wiring is testable end-to-end.
+// later polish task (Task 12) — Task 6/7 just generates the XML
+// string and shows a toast so the wiring is visible end-to-end.
 //
-// IPC: this modal calls `window.electron.ipcRenderer.invoke` directly
-// because Task 6 explicitly does not modify the preload bridge. The
-// production renderer must install a thin preload wrapper that
-// exposes `stencilGenerate(req)` via `window.autosarApi` (planned
-// for Task 7). Until then the modal is reachable from tests
-// (where the stub is installed in beforeEach) but a real
-// user-facing trigger has not been wired.
+// IPC: Task 7 replaces the defensive `window.electron.ipcRenderer`
+// shim (Task 6) with the production preload wrapper
+// `window.autosarApi.stencilGenerate(req)`. The wrapper is defined
+// in `src/preload/index.ts` and forwards to
+// `ipcRenderer.invoke(IPC_CHANNELS.STENCIL_GENERATE_V1, req)`.
 //
 // Accessibility: mirrors `NewProjectDialog`'s modal shell —
 // `role="dialog"` + `aria-modal="true"` + `aria-labelledby` on the
@@ -29,7 +27,6 @@ import type { Locale } from '@shared/i18n';
 import { t } from '@shared/i18n';
 
 import type { StencilFamily, StencilMode, StencilRequest, StencilResponse } from '../../../main/stencil/types.js';
-import { IPC_CHANNELS } from '../../../shared/ipc-contract.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 
 import { FamilyPicker } from './FamilyPicker.js';
@@ -38,25 +35,6 @@ import { ModeToggle } from './ModeToggle.js';
 
 interface StencilWizardProps {
   readonly onClose: () => void;
-}
-
-/**
- * Type-narrowed read of the renderer's IPC bridge. The production
- * preload (`src/preload/index.ts`) exposes only `window.autosarApi`;
- * Task 6 deliberately does not modify that file, so the wizard
- * uses a non-standard `window.electron.ipcRenderer.invoke` path.
- * A future Task 7 will add a typed `window.autosarApi.stencilGenerate(req)`
- * wrapper and switch this component to it.
- */
-interface ElectronLike {
-  readonly ipcRenderer: {
-    readonly invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
-  };
-}
-
-function getElectron(): ElectronLike | null {
-  const w = (globalThis as { window?: { electron?: ElectronLike } }).window;
-  return w?.electron ?? null;
 }
 
 export function StencilWizard({ onClose }: StencilWizardProps): JSX.Element {
@@ -89,21 +67,10 @@ export function StencilWizard({ onClose }: StencilWizardProps): JSX.Element {
 
   const handleGenerate = async (): Promise<void> => {
     if (busy) return;
-    const electron = getElectron();
-    if (electron === null) {
-      // Bridge not installed yet (Task 7 is the wiring task). Surface
-      // a localized error rather than silently no-op'ing — a silent
-      // no-op is the silent-failure-hunter's worst nightmare.
-      setError(t(locale, 'stencil.error.buildFailed'));
-      return;
-    }
     setBusy(true);
     const req: StencilRequest = { family, mode, gate };
     try {
-      const result = (await electron.ipcRenderer.invoke(
-        IPC_CHANNELS.STENCIL_GENERATE_V1,
-        req,
-      )) as StencilResponse;
+      const result: StencilResponse = await window.autosarApi.stencilGenerate(req);
       if (result.ok) {
         // Task 12 will wire the OS save dialog. For now just toast
         // the suggested filename so the wiring is visible end-to-end.

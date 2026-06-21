@@ -2,6 +2,10 @@
 // v1.6.0 Cluster U — integration test: 51 shortcuts register + the
 // 4 G-coupled shortcuts are present (per U spec §5.2 "Validation
 // category 集成细节").
+// v1.8.0 K — Task 7 bumps the count by 1 to accommodate
+// `palette.stencilNew` (the Cmd-K entry that opens the Stencil
+// Wizard modal). 51 → 52. The "no bindings" assertion is unchanged
+// because the new command is bound to `Mod+Shift+N`.
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,13 +13,13 @@ import { ShortcutRegistry } from '../ShortcutRegistry.js';
 import { allCommands } from '../shortcuts/index.js';
 
 describe('shortcut registry integration (v1.6.0 U)', () => {
-  it('ships exactly 51 shortcuts from allCommands', () => {
-    expect(allCommands).toHaveLength(51);
+  it('ships exactly 52 shortcuts from allCommands (v1.6.0 51 + v1.8.0 K palette.stencilNew)', () => {
+    expect(allCommands).toHaveLength(52);
   });
 
-  it('registers all 51 into a ShortcutRegistry without throwing', () => {
+  it('registers all 52 into a ShortcutRegistry without throwing', () => {
     const r = new ShortcutRegistry().registerAll(allCommands);
-    expect(r.all()).toHaveLength(51);
+    expect(r.all()).toHaveLength(52);
   });
 
   it('covers every category in CATEGORY_LABEL_KEYS', () => {
