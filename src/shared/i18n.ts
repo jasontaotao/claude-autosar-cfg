@@ -596,6 +596,27 @@ export interface Messages {
   readonly 'shortcut.modifier.shift': string;
   readonly 'shortcut.modifier.alt': string;
 
+  // --- v1.8.0 K Stencil Wizard (Task 5 i18n) ---
+  // 13 keys: dialog title, 4 module family labels, 2 mode toggle labels,
+  // gate toggle label, 2 button labels, and 4 typed error envelopes
+  // surfaced via the `stencil:generate:v1` IPC handler. `error.gateBlocked`
+  // is wired by Task 8 (gate integration) but added here for parity so
+  // the i18n catalog stays a one-shot deliverable.
+  readonly 'stencil.title': string;
+  readonly 'stencil.family.com': string;
+  readonly 'stencil.family.comm': string;
+  readonly 'stencil.family.pdur': string;
+  readonly 'stencil.family.ecuc': string;
+  readonly 'stencil.mode.free': string;
+  readonly 'stencil.mode.withBswmd': string;
+  readonly 'stencil.gate.label': string;
+  readonly 'stencil.generate': string;
+  readonly 'stencil.cancel': string;
+  readonly 'stencil.error.buildFailed': string;
+  readonly 'stencil.error.serializeFailed': string;
+  readonly 'stencil.error.unknownFamily': string;
+  readonly 'stencil.error.gateBlocked': string; // {count}
+
   // --- v1.6.0 Cluster W — Onboarding tour (W spec §3.5) ---
   // 20 onboarding keys (welcome card + 5 step title/body + 4 controls + progress)
   // + 2 tour-coordination keys (paused-validator banner)
@@ -1066,6 +1087,22 @@ export const MessagesZhCN: Messages = {
   'shortcut.modifier.ctrl': 'Ctrl',
   'shortcut.modifier.shift': 'Shift',
   'shortcut.modifier.alt': 'Alt',
+
+  // --- v1.8.0 K Stencil Wizard (Task 5 i18n) ---
+  'stencil.title': '从模板新建',
+  'stencil.family.com': 'Com (AUTOSAR COM)',
+  'stencil.family.comm': 'ComM (AUTOSAR Communication Manager)',
+  'stencil.family.pdur': 'PduR (AUTOSAR PDU Router)',
+  'stencil.family.ecuc': 'EcuC (ECU Configuration)',
+  'stencil.mode.free': '纯模板（不依赖 BSWMD）',
+  'stencil.mode.withBswmd': '按 BSWMD 校验后再生成',
+  'stencil.gate.label': '生成前运行 SWS 校验',
+  'stencil.generate': '生成',
+  'stencil.cancel': '取消',
+  'stencil.error.buildFailed': '模板生成失败',
+  'stencil.error.serializeFailed': 'ARXML 序列化失败',
+  'stencil.error.unknownFamily': '未知的模块族',
+  'stencil.error.gateBlocked': 'SWS 校验发现 {count} 项错误，已阻止生成',
 
   // --- v1.6.0 Cluster W — Onboarding tour ---
   'onboarding.welcome.title': '欢迎使用 AutosarCfg',
@@ -1542,6 +1579,22 @@ export const MessagesEn: Messages = {
   'shortcut.modifier.ctrl': 'Ctrl',
   'shortcut.modifier.shift': 'Shift',
   'shortcut.modifier.alt': 'Alt',
+
+  // --- v1.8.0 K Stencil Wizard (Task 5 i18n, en) ---
+  'stencil.title': 'New from Stencil',
+  'stencil.family.com': 'Com (AUTOSAR COM)',
+  'stencil.family.comm': 'ComM (AUTOSAR Communication Manager)',
+  'stencil.family.pdur': 'PduR (AUTOSAR PDU Router)',
+  'stencil.family.ecuc': 'EcuC (ECU Configuration)',
+  'stencil.mode.free': 'Free-form (no BSWMD dependency)',
+  'stencil.mode.withBswmd': 'Validate against BSWMD first',
+  'stencil.gate.label': 'Run SWS validation before generating',
+  'stencil.generate': 'Generate',
+  'stencil.cancel': 'Cancel',
+  'stencil.error.buildFailed': 'Stencil generation failed',
+  'stencil.error.serializeFailed': 'ARXML serialization failed',
+  'stencil.error.unknownFamily': 'Unknown module family',
+  'stencil.error.gateBlocked': 'SWS validation found {count} error(s); generation blocked',
 
   // --- v1.6.0 Cluster W — Onboarding tour (en) ---
   'onboarding.welcome.title': 'Welcome to AutosarCfg',
