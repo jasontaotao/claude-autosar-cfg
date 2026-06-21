@@ -200,7 +200,9 @@ describe('addContainer', () => {
     // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
     expect(
       canController.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).toEqual(['BaudRate']);
   });
@@ -298,7 +300,9 @@ describe('removeContainer', () => {
     // v1.4.0 trust sprint — 17c. Filter to known kinds.
     expect(
       rootModule.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).toEqual(['CanConfigSet']);
   });
@@ -323,7 +327,9 @@ describe('removeContainer', () => {
     // v1.4.0 trust sprint — 17c. Filter to known kinds.
     expect(
       canConfigSet.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).toEqual(['CanControllerConfig']);
   });
@@ -941,7 +947,9 @@ describe('removeWithCascade', () => {
     // Target is gone.
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
     const childShortNames = (rootModule.children as readonly ArxmlElement[])
-      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .filter(
+        (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+      )
       .map((c) => c.shortName);
     expect(childShortNames).not.toContain('EcucGeneral');
   });
@@ -979,7 +987,9 @@ describe('removeWithCascade', () => {
     // Target is gone.
     expect(
       rootModule.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).toEqual(['ReferencingContainer']);
     // Reference param was also dropped.
@@ -1094,7 +1104,9 @@ describe('removeWithCascade', () => {
     // A is gone, B is still there, B's ref to A is now dangling but
     // that's the chosen policy.
     const childShortNames = (rootMod.children as readonly ArxmlElement[])
-      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .filter(
+        (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+      )
       .map((c) => c.shortName);
     expect(childShortNames).toEqual(['B']);
   });

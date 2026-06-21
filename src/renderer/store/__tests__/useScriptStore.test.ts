@@ -164,7 +164,14 @@ describe('useScriptStore — selectScript', () => {
     installApi(makeApi());
     await useScriptStore.getState().loadScripts();
     useScriptStore.setState({
-      runResult: { runId: 'r0', status: 'ok', logs: [], violations: [], mutations: [], durationMs: 0 },
+      runResult: {
+        runId: 'r0',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [],
+        durationMs: 0,
+      },
       runProgress: [{ runId: 'r0', level: 'info', message: 'x', ts: 1 }],
     });
     useScriptStore.getState().selectScript('a');
@@ -247,7 +254,10 @@ describe('useScriptStore — saveScript', () => {
       kind: 'validator',
       source: '// v2',
     });
-    const call = (api.saveScript as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] as Record<string, unknown>;
+    const call = (api.saveScript as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
     expect(call.id).toBe('a');
   });
 });
@@ -291,7 +301,9 @@ describe('useScriptStore — runScript', () => {
         status: 'ok' as const,
         logs: [{ level: 'info' as const, message: 'ok', ts: 1 }],
         violations: [],
-        mutations: [{ kind: 'set-param' as const, containerPath: '/p', paramName: 'q', newValue: 1 }],
+        mutations: [
+          { kind: 'set-param' as const, containerPath: '/p', paramName: 'q', newValue: 1 },
+        ],
         durationMs: 12,
       })),
     });
@@ -322,7 +334,14 @@ describe('useScriptStore — runScript', () => {
     installApi(api);
     await useScriptStore.getState().loadScripts();
     useScriptStore.setState({
-      runResult: { runId: 'prev', status: 'ok', logs: [], violations: [], mutations: [], durationMs: 0 },
+      runResult: {
+        runId: 'prev',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [],
+        durationMs: 0,
+      },
       runProgress: [{ runId: 'prev', level: 'info', message: 'old', ts: 0 }],
     });
     await useScriptStore.getState().runScript('a');
@@ -365,7 +384,14 @@ describe('useScriptStore — applyMutation / discardMutation / clearOutput', () 
 
   it('clearOutput drops runResult + runProgress', () => {
     useScriptStore.setState({
-      runResult: { runId: 'r1', status: 'ok', logs: [], violations: [], mutations: [], durationMs: 0 },
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [],
+        durationMs: 0,
+      },
       runProgress: [{ runId: 'r1', level: 'info', message: 'x', ts: 1 }],
     });
     useScriptStore.getState().clearOutput();
@@ -468,7 +494,9 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
       // The atomic-write landed on disk. If it didn't, the error
       // message in `runResult.errorMessage` tells us why.
       if (useScriptStore.getState().runResult?.errorMessage !== undefined) {
-        throw new Error(`applyMutation error: ${useScriptStore.getState().runResult?.errorMessage}`);
+        throw new Error(
+          `applyMutation error: ${useScriptStore.getState().runResult?.errorMessage}`,
+        );
       }
       const onDisk = await fsPromises.readFile(tmpFile, 'utf-8');
       expect(onDisk).toContain('ConfigConsistencyRequired');
@@ -583,9 +611,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
     });
     useScriptStore.getState().discardMutation();
     // Doc unchanged.
-    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
-      | ArxmlModule
-      | undefined;
+    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
     const general = ecuc?.children[0] as ArxmlContainer | undefined;
     expect(general?.params.ConfigConsistencyRequired).toEqual({
       type: 'integer',
@@ -621,9 +647,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
     expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/path not found/);
     expect(useScriptStore.getState().dirty).toBe(true);
     // The doc is unchanged.
-    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
-      | ArxmlModule
-      | undefined;
+    const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
     const general = ecuc?.children[0] as ArxmlContainer | undefined;
     expect(general?.params.ConfigConsistencyRequired).toEqual({
       type: 'integer',

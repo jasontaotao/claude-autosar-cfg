@@ -12,7 +12,8 @@
 
 **Root cause**: `src/core/project/bswmd.ts` 解析器从来没读这个块。`ContainerDef` / `BswModuleDef` interface 也没字段。
 
-**Fix**: 
+**Fix**:
+
 - 新增 `MultiplicityConfigClass` interface
 - `ContainerDef` / `BswModuleDef` 加 `multiplicityConfigClasses?: readonly MultiplicityConfigClass[]` 可选字段
 - 新增 `readMultiplicityConfigClasses()` helper
@@ -38,7 +39,8 @@
 
 **Constraint**: 用户明确说"无法实现4段" — UI 不能 emit 4-segment，fix 必须在 core。
 
-**Fix**: 
+**Fix**:
+
 - `src/core/arxml/path.ts` `findByPath` 加 3-segment fallback：先试 canonical 4-segment，失败时 iterate `pkg.elements` 找 module 短名 + 第一个子容器 shortName 匹配 `rest[0]`
 - 提取共享 `walkFrom` helper
 - `src/core/arxml/mutation.ts` `locateParent` 现在委托 `findByPath`
@@ -68,6 +70,7 @@ const storeIdx = bswmdPathsInStore.indexOf(bswmdPath);
 `bswmdPath` 来自 `manifest.bswmdPaths`（manifest 里**相对 forward-slash** 路径如 `bswmd/JWQ3399_bswmd.arxml`），但 `bswmdPathsInStore` 来自 `state.bswmdPaths`（**绝对 backslash** 路径如 `C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\bswmd\JWQ3399_bswmd.arxml`）。`indexOf` 严格字符串比较 → 三项里没有一项相同 → 永不命中 → schema 永远 undefined → chip 永远 0/0。
 
 **Fix**:
+
 - `src/shared/path.ts` 新增 `bswmdKeyFor(path: string): string` helper — 小写 + `\` → `/` + 取最后 2 段（保证同 subdir 内的同 basename 不冲突）
 - `ProjectPanel.tsx` 用 `useMemo` 派生 `bswmdKeyToSchema: Map<bswmdKey, BswmdDocument>`，renderTrailing 改 `bswmdKeyToSchema.get(bswmdKeyFor(bswmdPath))` O(1) 查询
 - `ModuleFromBswmdPicker.tsx` 同步改同样的 key map
@@ -86,6 +89,7 @@ openProject: ({ manifestPath, manifest, docs }) => { ... }
 main 进程 IPC `project:open` handler (`src/main/ipc/register.ts:261-278`) 实际返回 `{ manifest, docs, bswmds: { rel, path, content }[] }`，**但 renderer `openProject` 签名不收 bswmds 字段**，TypeScript 类型把 bswmds 静默丢弃，循环 `parseBswmd` push 到 store 这步永远不发生。
 
 **Fix**:
+
 - `useArxmlStore.openProject` 签名扩 `bswmds?: readonly { rel: string; path: string; content: string }[]`
 - 循环 parse 每个 bswmd entry，push 到 `bswmdSchemas` / `bswmdPaths`（用 `entry.path` 绝对路径，跟 dialog 加的形态一致）
 - 失败的走 `t(locale, 'app.error.parseBswmdFailed', { message })` 错误模板 + 跳过坏 entry（best-effort）
@@ -140,6 +144,7 @@ cae3d74 chore: fix import/order in v1.4.1 bug-repro tests
 ### Verification on user's JWQ3399 fixture
 
 End-to-end:
+
 1. Open `C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\test1.autosarcfg.json` → chip 跳到 `📋 1/1`（JWQ3399 那个 module），`+` 按钮 enabled
 2. Click `+` → `ModuleFromBswmdPicker` 弹，JWQ3399 预勾选
 3. Confirm → `ecuc/JWQ3399_EcucValues_EcucValues.arxml` 写入（但因为 ECUC file 已存在 — 走 round-trip 不重写）

@@ -72,10 +72,7 @@ export interface LeftPanelProps {
   ) => void;
 }
 
-export function LeftPanel({
-  onAddEcucFromBswmd,
-  onContextMenu,
-}: LeftPanelProps = {}): JSX.Element {
+export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps = {}): JSX.Element {
   const leftTab = useArxmlStore((s) => s.leftTab);
   const setLeftTab = useArxmlStore((s) => s.setLeftTab);
   const locale = useArxmlStore((s) => s.locale);

@@ -71,10 +71,7 @@ function makeSelection(overrides: Partial<ModuleSelection> = {}): ModuleSelectio
   };
 }
 
-function makeResolution(
-  mergedModulePath: string,
-  resolution: ImportResolution,
-): ModuleResolution {
+function makeResolution(mergedModulePath: string, resolution: ImportResolution): ModuleResolution {
   return { mergedModulePath, resolution };
 }
 
@@ -351,7 +348,9 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     };
     // First apply seeds a Dup module
     const seeded = applyPatchesToDocument(doc, [op]);
-    expect(seeded.packages[0]?.elements.some((e) => e.kind === 'module' && e.shortName === 'Dup')).toBe(true);
+    expect(
+      seeded.packages[0]?.elements.some((e) => e.kind === 'module' && e.shortName === 'Dup'),
+    ).toBe(true);
     // Re-applying the same op must throw so commit can roll back.
     expect(() => applyPatchesToDocument(seeded, [op])).toThrow();
   });
@@ -369,7 +368,9 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     };
     // First apply succeeds
     const seeded = applyPatchesToDocument(doc, [op]);
-    expect(seeded.packages[0]?.elements.some((e) => e.kind === 'module' && e.shortName === 'Dup')).toBe(true);
+    expect(
+      seeded.packages[0]?.elements.some((e) => e.kind === 'module' && e.shortName === 'Dup'),
+    ).toBe(true);
     // Re-applying the same op must throw
     expect(() => applyPatchesToDocument(seeded, [op])).toThrow();
   });
@@ -395,9 +396,7 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     const mod = makeModule('Can', [outer]);
 
     // Act
-    const next = applyPatchesToDocument(doc, [
-      { kind: 'add-module', module: mod },
-    ]);
+    const next = applyPatchesToDocument(doc, [{ kind: 'add-module', module: mod }]);
 
     // Assert
     const added = next.packages[0]?.elements.find(
@@ -444,7 +443,9 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     // Assert
     expect(patches).toHaveLength(1);
     const ops = patches[0]?.ops ?? [];
-    expect(ops.some((o) => o.kind === 'merge-into-module' || o.kind === 'overwrite-module')).toBe(true);
+    expect(ops.some((o) => o.kind === 'merge-into-module' || o.kind === 'overwrite-module')).toBe(
+      true,
+    );
   });
 
   it('import-paths integration: add-module against existing doc preserves other modules', () => {

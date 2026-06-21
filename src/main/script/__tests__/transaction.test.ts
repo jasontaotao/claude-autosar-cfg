@@ -89,7 +89,8 @@ beforeAll(() => {
       `fixture does not contain a ComTxIPdu with ComTxIPduUnusedAreasDefault (debug: totalTxIpdus=${totalTxIpdus} totalWithParam=${totalWithParam})`,
     );
   }
-  if (!firstTxPath) throw new Error('fixture does not contain a ComTxIPdu with ComTxIPduUnusedAreasDefault');
+  if (!firstTxPath)
+    throw new Error('fixture does not contain a ComTxIPdu with ComTxIPduUnusedAreasDefault');
 });
 
 describe('createTransaction', () => {
@@ -146,10 +147,7 @@ describe('commitTransaction', () => {
     // The setter splices the parent chain, so any prior `el` reference
     // is stale — we must look up by current tree.
     type El = (typeof project)['packages'][number]['elements'][number];
-    function findParam(
-      elements: readonly El[],
-      pkgPath: string,
-    ): number | null {
+    function findParam(elements: readonly El[], pkgPath: string): number | null {
       for (const el of elements) {
         if (el.kind === 'module' || el.kind === 'container') {
           const myPath = `${pkgPath}/${el.shortName}`;

@@ -127,10 +127,7 @@ describe('useArxmlStore — openProject with bswmds (Sprint A / P0-A2)', () => {
     // not with the relative manifest entries.
     const after = useArxmlStore.getState();
     expect(after.bswmdSchemas).toHaveLength(2);
-    expect(after.bswmdPaths).toEqual([
-      'D:/proj/bswmd/Can.arxml',
-      'D:/proj/bswmd/EcuC.arxml',
-    ]);
+    expect(after.bswmdPaths).toEqual(['D:/proj/bswmd/Can.arxml', 'D:/proj/bswmd/EcuC.arxml']);
     // The schema index 0 corresponds to Can module.
     const firstSchema = after.bswmdSchemas[0] as BswmdDocument;
     expect(firstSchema.modules.map((m) => m.shortName)).toEqual(['Can']);
@@ -148,9 +145,7 @@ describe('useArxmlStore — openProject with bswmds (Sprint A / P0-A2)', () => {
       manifestPath: 'D:/proj/P.autosarcfg.json',
       manifest: sampleManifest({ bswmdPaths: ['bswmd/Can.arxml'] }),
       docs: [],
-      bswmds: [
-        { rel: 'bswmd/Can.arxml', path: 'D:/proj/bswmd/Can.arxml', content: MIN_BSWMD_CAN },
-      ],
+      bswmds: [{ rel: 'bswmd/Can.arxml', path: 'D:/proj/bswmd/Can.arxml', content: MIN_BSWMD_CAN }],
     });
 
     // Assert — only the new project's schema is present.

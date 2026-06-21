@@ -35,12 +35,7 @@ import type {
 } from '../../shared/types.js';
 import { classScriptError, validateShortName, ScriptError } from '../script/errors.js';
 import { resolveImports } from '../script/import-resolver.js';
-import type {
-  ScriptEntry,
-  ScriptLog,
-  ScriptMutation,
-  ScriptViolation,
-} from '../script/types.js';
+import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptViolation } from '../script/types.js';
 import { runInSandbox } from '../script/vm-runner.js';
 
 // Test-injection slot. In V0.1 the IPC handler is driven directly from
@@ -119,7 +114,8 @@ function loadCurrentManifest(): LoadedManifest {
 }
 
 function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
-  if (_manifestPath === null) throw classScriptError('no-project', 'script handler: no project open');
+  if (_manifestPath === null)
+    throw classScriptError('no-project', 'script handler: no project open');
   assertSafeManifestPath(_manifestPath);
   // Round-trip through loadManifest to retain any future fields the
   // runtime knows about. We can't pass the full saved manifest here
@@ -128,7 +124,10 @@ function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
   const json = readFileSync(_manifestPath, 'utf8');
   const cur = loadManifest(json);
   if (!cur.ok) {
-    throw classScriptError('manifest-read', `script handler: re-read manifest failed: ${cur.error}`);
+    throw classScriptError(
+      'manifest-read',
+      `script handler: re-read manifest failed: ${cur.error}`,
+    );
   }
   const updated = { ...cur.value, scripts: scripts.slice() };
   writeFileSync(_manifestPath, saveManifest(updated));
@@ -164,11 +163,14 @@ function extractDeclaredImports(source: string): ReadonlyArray<{ from: string; n
   const out: Array<{ from: string; names: string[] }> = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
-    const names = m[1]!.split(',').map((s) => {
-      const trimmed = s.trim();
-      const aliased = trimmed.split(/\s+as\s+/)[0];
-      return aliased ? aliased.trim() : '';
-    }).filter((s) => s.length > 0);
+    const names = m[1]!
+      .split(',')
+      .map((s) => {
+        const trimmed = s.trim();
+        const aliased = trimmed.split(/\s+as\s+/)[0];
+        return aliased ? aliased.trim() : '';
+      })
+      .filter((s) => s.length > 0);
     out.push({ from: m[2]!, names });
   }
   return out;

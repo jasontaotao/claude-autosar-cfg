@@ -2,7 +2,13 @@
 // Immutable param update helpers. Pure — no store closure, no I/O.
 // Extracted from useArxmlStore.ts in PR(5) — pure refactor.
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule, ParamValue } from '@core/arxml/types';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ParamValue,
+} from '@core/arxml/types';
 
 /**
  * Sprint 16 — return `incoming` merged with `current.definitionRef` when

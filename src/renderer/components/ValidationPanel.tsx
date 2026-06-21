@@ -74,19 +74,16 @@ export function ValidationPanel({ embedded = false }: { embedded?: boolean }): J
   // group can attach to every state (empty / valid / invalid).
   const validatorScripts = useScriptStore((s) => s.scripts.filter((x) => x.kind === 'validator'));
   const scriptRunResult = useScriptStore((s) => s.runResult);
-  const hasScriptGroup = validatorScripts.length > 0 && scriptRunResult !== null && scriptRunResult.violations.length > 0;
+  const hasScriptGroup =
+    validatorScripts.length > 0 &&
+    scriptRunResult !== null &&
+    scriptRunResult.violations.length > 0;
   const scriptGroupBlock = hasScriptGroup ? (
-    <details
-      className="validation-script-group"
-      data-testid="validation-script-group"
-      open
-    >
+    <details className="validation-script-group" data-testid="validation-script-group" open>
       <summary className="validation-script-group-summary">
         <span className="kind-badge kind-script-violation">script:*</span>
         <span className="kind-count">{scriptRunResult?.violations.length ?? 0}</span>
-        <span className="validation-script-group-label">
-          {t(locale, 'script.violation.group')}
-        </span>
+        <span className="validation-script-group-label">{t(locale, 'script.violation.group')}</span>
       </summary>
       <ul className="error-list">
         {scriptRunResult?.violations.map((v, i) => (

@@ -13,7 +13,11 @@
 import { XMLParser } from 'fast-xml-parser';
 
 export type SaxEvent =
-  | { readonly kind: 'open'; readonly tagName: string; readonly attributes: Readonly<Record<string, string>> }
+  | {
+      readonly kind: 'open';
+      readonly tagName: string;
+      readonly attributes: Readonly<Record<string, string>>;
+    }
   | { readonly kind: 'text'; readonly value: string }
   | { readonly kind: 'close'; readonly tagName: string };
 

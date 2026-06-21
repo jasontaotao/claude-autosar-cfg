@@ -23,12 +23,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlModule,
-  ParamValue,
-} from '@core/arxml/types';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
 import type { ImportResolution } from '@core/import/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
@@ -83,9 +78,7 @@ describe('DiffTable (Sprint 14 / T12)', () => {
   });
 
   it('renders three columns (existing | incoming | decision) when activeModuleForDiff is set', () => {
-    const target = makeDoc('/proj/Target.arxml', [
-      makeModule('Can', [makeContainer('CanConfig')]),
-    ]);
+    const target = makeDoc('/proj/Target.arxml', [makeModule('Can', [makeContainer('CanConfig')])]);
     useArxmlStore.getState().setDoc(target, '/proj/Target.arxml');
     const incoming = makeDoc('/in/Can.arxml', [makeModule('Can', [makeContainer('CanConfig')])]);
     useArxmlStore.getState().startImport([incoming], ['/in/Can.arxml']);
@@ -106,9 +99,7 @@ describe('DiffTable (Sprint 14 / T12)', () => {
   });
 
   it('default resolution for an incoming-only row is "overwrite"', async () => {
-    const target = makeDoc('/proj/Target.arxml', [
-      makeModule('Adc', [makeContainer('AdcConfig')]),
-    ]);
+    const target = makeDoc('/proj/Target.arxml', [makeModule('Adc', [makeContainer('AdcConfig')])]);
     useArxmlStore.getState().setDoc(target, '/proj/Target.arxml');
     const incoming = makeDoc('/in/Can.arxml', [
       makeModule('Can', [makeContainer('CanConfig', { x: { type: 'integer', value: 1 } })]),
@@ -119,16 +110,18 @@ describe('DiffTable (Sprint 14 / T12)', () => {
 
     const { container, getByTestId } = render(<DiffTable />);
     await waitFor(() => {
-      expect(container.querySelector('[data-testid^="diff-table-row-incoming-only-"]')).not.toBeNull();
+      expect(
+        container.querySelector('[data-testid^="diff-table-row-incoming-only-"]'),
+      ).not.toBeNull();
     });
-    const radio = getByTestId('diff-table-row-incoming-only-Can-CanConfig-decision-overwrite') as HTMLInputElement;
+    const radio = getByTestId(
+      'diff-table-row-incoming-only-Can-CanConfig-decision-overwrite',
+    ) as HTMLInputElement;
     expect(radio).toBeChecked();
   });
 
   it('changing a row radio dispatches store.resolveModule with the new resolution', async () => {
-    const target = makeDoc('/proj/Target.arxml', [
-      makeModule('Adc', [makeContainer('AdcConfig')]),
-    ]);
+    const target = makeDoc('/proj/Target.arxml', [makeModule('Adc', [makeContainer('AdcConfig')])]);
     useArxmlStore.getState().setDoc(target, '/proj/Target.arxml');
     const incoming = makeDoc('/in/Can.arxml', [
       makeModule('Can', [makeContainer('CanConfig', { x: { type: 'integer', value: 1 } })]),
@@ -139,9 +132,13 @@ describe('DiffTable (Sprint 14 / T12)', () => {
 
     const { container, getByTestId } = render(<DiffTable />);
     await waitFor(() => {
-      expect(container.querySelector('[data-testid^="diff-table-row-incoming-only-"]')).not.toBeNull();
+      expect(
+        container.querySelector('[data-testid^="diff-table-row-incoming-only-"]'),
+      ).not.toBeNull();
     });
-    fireEvent.click(getByTestId('diff-table-row-incoming-only-Can-CanConfig-decision-keep-existing'));
+    fireEvent.click(
+      getByTestId('diff-table-row-incoming-only-Can-CanConfig-decision-keep-existing'),
+    );
     const resolutions = useArxmlStore.getState().importSession!.resolutions;
     const matching = resolutions.find((r) => r.mergedModulePath === path);
     expect(matching?.resolution).toBe<ImportResolution>('keep-existing');

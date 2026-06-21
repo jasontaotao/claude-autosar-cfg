@@ -15,11 +15,7 @@
 import type { Result } from '../../../core/arxml/types.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
 
-import {
-  CACHE_DB_NAME,
-  CACHE_SCHEMA_VERSION,
-  CACHE_STORE_NAME,
-} from './schema-version.js';
+import { CACHE_DB_NAME, CACHE_SCHEMA_VERSION, CACHE_STORE_NAME } from './schema-version.js';
 
 export interface CacheRecord {
   readonly key: string;
@@ -48,7 +44,12 @@ interface IdbRequestLike<T> {
 
 interface IdbObjectStoreLike {
   get(key: string): IdbRequestLike<unknown>;
-  put(value: { key: string; doc: NormalizedDocument; storedAt: number; schemaVersion: number }): IdbRequestLike<string>;
+  put(value: {
+    key: string;
+    doc: NormalizedDocument;
+    storedAt: number;
+    schemaVersion: number;
+  }): IdbRequestLike<string>;
   delete(key: string): IdbRequestLike<void>;
   clear(): IdbRequestLike<void>;
 }

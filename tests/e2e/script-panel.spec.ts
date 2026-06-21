@@ -111,31 +111,32 @@ test.describe('S14 — Script Panel E2E happy path', () => {
     // 2. Inject `window.autosarApi` BEFORE the React tree mounts. The
     //    script store's loadScripts + runScript call into this bridge,
     //    so we must stub it before any code path reads it.
-    await page.addInitScript(({ fixture, source }) => {
-      const api = {
-        listScripts: async () => ({ scripts: [fixture] }),
-        runScript: async (_id: string) => ({
-          runId: 'run-1',
-          status: 'ok',
-          logs: [
-            { level: 'info', message: 'hello from pduid-uniqueness', ts: Date.now() },
-          ],
-          violations: [],
-          mutations: [],
-          durationMs: 12,
-        }),
-        saveScript: async () => ({ id: fixture.id, updatedAt: '2026-06-19T00:00:00Z' }),
-        deleteScript: async () => ({ ok: true }),
-        onScriptProgress: (_cb: (event: unknown) => void) => () => undefined,
-      };
-      // Expose to the renderer; the store reads from `window.autosarApi`.
-      (globalThis as unknown as { autosarApi: unknown }).autosarApi = api;
-      // Also stash the source on globalThis so we can seed the editor
-      // directly through the store (the run pipeline does not need
-      // the source — it was already saved — but selecting a row must
-      // populate the editor).
-      (globalThis as unknown as { __scriptFixtureSource: string }).__scriptFixtureSource = source;
-    }, { fixture: FIXTURE_SCRIPT, source: FIXTURE_SOURCE });
+    await page.addInitScript(
+      ({ fixture, source }) => {
+        const api = {
+          listScripts: async () => ({ scripts: [fixture] }),
+          runScript: async (_id: string) => ({
+            runId: 'run-1',
+            status: 'ok',
+            logs: [{ level: 'info', message: 'hello from pduid-uniqueness', ts: Date.now() }],
+            violations: [],
+            mutations: [],
+            durationMs: 12,
+          }),
+          saveScript: async () => ({ id: fixture.id, updatedAt: '2026-06-19T00:00:00Z' }),
+          deleteScript: async () => ({ ok: true }),
+          onScriptProgress: (_cb: (event: unknown) => void) => () => undefined,
+        };
+        // Expose to the renderer; the store reads from `window.autosarApi`.
+        (globalThis as unknown as { autosarApi: unknown }).autosarApi = api;
+        // Also stash the source on globalThis so we can seed the editor
+        // directly through the store (the run pipeline does not need
+        // the source — it was already saved — but selecting a row must
+        // populate the editor).
+        (globalThis as unknown as { __scriptFixtureSource: string }).__scriptFixtureSource = source;
+      },
+      { fixture: FIXTURE_SCRIPT, source: FIXTURE_SOURCE },
+    );
 
     // Reload to apply addInitScript — the previous goto already ran
     // without the bridge. addInitScript only takes effect on the NEXT

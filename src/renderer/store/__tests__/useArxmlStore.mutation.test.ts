@@ -569,7 +569,9 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     // AdcConfig removed, AdcConfigSet still has the reference param.
     // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
     const shortNames = mod.children
-      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .filter(
+        (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+      )
       .map((c) => c.shortName);
     expect(shortNames).toEqual(['AdcConfigSet']);
     const configSet = mod.children[0]!;
@@ -596,7 +598,9 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     // AdcConfigSet, not AdcConfigSet itself.
     // v1.4.0 trust sprint — 17c. Filter to known kinds.
     const shortNames = mod.children
-      .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+      .filter(
+        (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+      )
       .map((c) => c.shortName);
     expect(shortNames).toEqual(['AdcConfigSet']);
     const configSet = mod.children[0]!;

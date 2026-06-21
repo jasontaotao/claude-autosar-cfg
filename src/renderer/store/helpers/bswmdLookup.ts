@@ -2,7 +2,13 @@
 // BSWMD lookup helpers used by the mutation actions. Pure — no store
 // closure, no I/O. Extracted from useArxmlStore.ts in PR(5).
 
-import type { BswModuleDef, BswmdDocument, ContainerDef, ParamDef, ReferenceDef } from '@core/project/bswmd.js';
+import type {
+  BswModuleDef,
+  BswmdDocument,
+  ContainerDef,
+  ParamDef,
+  ReferenceDef,
+} from '@core/project/bswmd.js';
 
 /**
  * Sprint 15 HIGH-2 — find the BswModuleDef whose shortName appears in
@@ -150,7 +156,10 @@ export function resolveReferenceDefForPath(
  * core/project/bswmd.ts but is inlined here to avoid widening the
  * store's import surface with a one-off helper.
  */
-export function resolveContainerDefBySubPath(mod: BswModuleDef, subPath: string): ContainerDef | null {
+export function resolveContainerDefBySubPath(
+  mod: BswModuleDef,
+  subPath: string,
+): ContainerDef | null {
   const segments = subPath.split('/').filter((s) => s.length > 0);
   if (segments.length === 0) return null;
   const [head, ...tail] = segments;

@@ -36,7 +36,10 @@ describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
     const mcc = hwUnit.multiplicityConfigClasses ?? [];
     expect(mcc).toHaveLength(2);
     expect(mcc).toContainEqual({ configClass: 'PRE-COMPILE', configVariant: 'VARIANT-POST-BUILD' });
-    expect(mcc).toContainEqual({ configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' });
+    expect(mcc).toContainEqual({
+      configClass: 'PRE-COMPILE',
+      configVariant: 'VARIANT-PRE-COMPILE',
+    });
   });
 
   it('Bug 1 fix: BswModuleDef exposes MULTIPLICITY-CONFIG-CLASSES from BSWMD', () => {
@@ -50,11 +53,15 @@ describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
   it('Bug 2b: skeleton pre-creates required containers (lower>=1), skips optional (lower=0)', () => {
     const skeleton = generateEcucSkeleton(doc, 'Adc');
     const mod = skeleton.packages[0]!.elements[0]! as ArxmlModule;
-    const cfgSet = mod.children.find((c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'AdcConfigSet');
+    const cfgSet = mod.children.find(
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'AdcConfigSet',
+    );
     expect(cfgSet).toBeDefined();
     if (cfgSet === undefined) return;
     // AdcHwUnit has lower=1, upper=infinite → exactly one shell pre-built.
-    const hwUnitShells = cfgSet.children.filter((c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'AdcHwUnit');
+    const hwUnitShells = cfgSet.children.filter(
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'AdcHwUnit',
+    );
     expect(hwUnitShells).toHaveLength(1);
   });
 

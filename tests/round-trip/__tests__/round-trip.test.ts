@@ -87,14 +87,16 @@ describe('Round-trip — DOM 1-pass (ArxmlDocument semantic equality)', () => {
     it(`${fixture} DOM round-trip preserves modeled structure`, () => {
       const content = readFileSync(join(FIXTURE_DIR, fixture), 'utf-8');
       const parsedSrc = parseArxml(content);
-      expect(parsedSrc.ok, parsedSrc.ok ? '' : `parse failed: ${JSON.stringify(parsedSrc.error)}`).toBe(
-        true,
-      );
+      expect(
+        parsedSrc.ok,
+        parsedSrc.ok ? '' : `parse failed: ${JSON.stringify(parsedSrc.error)}`,
+      ).toBe(true);
       if (!parsedSrc.ok) return;
       const serialized = serializeArxml(parsedSrc.value, { sourceArxml: content });
-      expect(serialized.ok, serialized.ok ? '' : `serialize failed: ${serialized.error.message}`).toBe(
-        true,
-      );
+      expect(
+        serialized.ok,
+        serialized.ok ? '' : `serialize failed: ${serialized.error.message}`,
+      ).toBe(true);
       if (!serialized.ok) return;
       // Re-parse the serialized output. Whatever elements the model didn't
       // represent in the source (vendor siblings) will be missing in both
@@ -134,9 +136,10 @@ describe('Round-trip — DOM 2-pass (XML-string stability under tolerance)', () 
       // Second pass: parse the serialized output and serialize again. If
       // the serializer emits something the parser can't ingest, this fails.
       const parsed2 = parseArxml(ser1.value);
-      expect(parsed2.ok, parsed2.ok ? '' : `re-parse failed: ${JSON.stringify(parsed2.error)}`).toBe(
-        true,
-      );
+      expect(
+        parsed2.ok,
+        parsed2.ok ? '' : `re-parse failed: ${JSON.stringify(parsed2.error)}`,
+      ).toBe(true);
       if (!parsed2.ok) return;
       const ser2 = serializeArxml(parsed2.value, { sourceArxml: ser1.value });
       expect(ser2.ok).toBe(true);
@@ -234,44 +237,47 @@ function diffUnderTolerance(a: string, b: string): string | null {
  * equality under tolerance, only key order).
  */
 function sortAttributesWithinElements(xml: string): string {
-  return xml.replace(/<([\w][\w-]*)([^>]*?)(\/?)>/g, (_match, tag: string, attrs: string, slash: string) => {
-    if (attrs.trim().length === 0) return `<${tag}${attrs}${slash}>`;
-    const tokens: { key: string; literal: string }[] = [];
-    let i = 0;
-    const n = attrs.length;
-    while (i < n) {
-      // Skip whitespace between attributes.
-      while (i < n && /\s/.test(attrs[i]!)) i += 1;
-      if (i >= n) break;
-      // Read attribute name.
-      const nameStart = i;
-      while (i < n && /[^\s=]/.test(attrs[i]!)) i += 1;
-      const name = attrs.slice(nameStart, i);
-      // If the next char is '=', capture the quoted value.
-      let literal = attrs.slice(nameStart, i);
-      if (i < n && attrs[i] === '=') {
-        i += 1;
-        const quote = attrs[i];
-        if (quote === '"' || quote === "'") {
+  return xml.replace(
+    /<([\w][\w-]*)([^>]*?)(\/?)>/g,
+    (_match, tag: string, attrs: string, slash: string) => {
+      if (attrs.trim().length === 0) return `<${tag}${attrs}${slash}>`;
+      const tokens: { key: string; literal: string }[] = [];
+      let i = 0;
+      const n = attrs.length;
+      while (i < n) {
+        // Skip whitespace between attributes.
+        while (i < n && /\s/.test(attrs[i]!)) i += 1;
+        if (i >= n) break;
+        // Read attribute name.
+        const nameStart = i;
+        while (i < n && /[^\s=]/.test(attrs[i]!)) i += 1;
+        const name = attrs.slice(nameStart, i);
+        // If the next char is '=', capture the quoted value.
+        let literal = attrs.slice(nameStart, i);
+        if (i < n && attrs[i] === '=') {
           i += 1;
-          while (i < n && attrs[i] !== quote) i += 1;
-          if (i < n) i += 1; // consume closing quote
-          literal = attrs.slice(nameStart, i);
-        } else {
-          // Unquoted value (rare in serialized ARXML, but be safe).
-          while (i < n && /\S/.test(attrs[i]!)) i += 1;
-          literal = attrs.slice(nameStart, i);
+          const quote = attrs[i];
+          if (quote === '"' || quote === "'") {
+            i += 1;
+            while (i < n && attrs[i] !== quote) i += 1;
+            if (i < n) i += 1; // consume closing quote
+            literal = attrs.slice(nameStart, i);
+          } else {
+            // Unquoted value (rare in serialized ARXML, but be safe).
+            while (i < n && /\S/.test(attrs[i]!)) i += 1;
+            literal = attrs.slice(nameStart, i);
+          }
         }
+        tokens.push({ key: name, literal });
       }
-      tokens.push({ key: name, literal });
-    }
-    const sorted = tokens
-      .slice()
-      .sort((a, b) => a.key.localeCompare(b.key))
-      .map((t) => t.literal)
-      .join(' ');
-    return `<${tag} ${sorted}${slash}>`;
-  });
+      const sorted = tokens
+        .slice()
+        .sort((a, b) => a.key.localeCompare(b.key))
+        .map((t) => t.literal)
+        .join(' ');
+      return `<${tag} ${sorted}${slash}>`;
+    },
+  );
 }
 
 /**

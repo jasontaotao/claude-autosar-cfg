@@ -14,16 +14,16 @@ MINOR bump (no breaking API changes; the v1.3.0 → v1.4.0 migration is transpar
 
 ### Fixed
 
-| ID | Issue | Fix |
-|---|---|---|
-| P0-1 | `classifyElement` drops unknown tags (SERVICE-NEEDS, EXCLUSIVE-AREA, vendor extensions) | New 4th `ArxmlUnknown` variant on the `ArxmlElement` union; `classifyElement` fallback returns it instead of `null`; `renderElement` re-emits the original fast-xml-parser node verbatim via `{ [tagName]: parsed }` |
-| P0-1 (second-order) | `renderModule` only emitted `m.references[0]`, silently dropping all other DEFINITION-REFs | All `m.references` are now emitted as top-level `<DEFINITION-REF>` siblings, matching the parser's `asArray` contract at `parser.ts:500` |
-| H8 | No `..` parent-traversal check in main-process write paths | `path.normalize(p).includes('..')` pre-flight check in PROJECT_SAVE, saveArxmlHandler, and script-handler |
+| ID                  | Issue                                                                                      | Fix                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0-1                | `classifyElement` drops unknown tags (SERVICE-NEEDS, EXCLUSIVE-AREA, vendor extensions)    | New 4th `ArxmlUnknown` variant on the `ArxmlElement` union; `classifyElement` fallback returns it instead of `null`; `renderElement` re-emits the original fast-xml-parser node verbatim via `{ [tagName]: parsed }` |
+| P0-1 (second-order) | `renderModule` only emitted `m.references[0]`, silently dropping all other DEFINITION-REFs | All `m.references` are now emitted as top-level `<DEFINITION-REF>` siblings, matching the parser's `asArray` contract at `parser.ts:500`                                                                             |
+| H8                  | No `..` parent-traversal check in main-process write paths                                 | `path.normalize(p).includes('..')` pre-flight check in PROJECT_SAVE, saveArxmlHandler, and script-handler                                                                                                            |
 
 ### Changed
 
-| ID | Issue | Fix |
-|---|---|---|
+| ID      | Issue                                                  | Fix                                                                                                                                                      |
+| ------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | H6 → P0 | 9 hardcoded user-facing strings in 4 Dialog components | All replaced with `t(locale, key)` lookups. 7 new i18n keys added. `ImportEntry.tsx:64` migrated from `window.confirm` to the app's 3-state `confirm()`. |
 
 ## Known limitations (deliberate, deferred to v1.5+)
@@ -35,12 +35,12 @@ MINOR bump (no breaking API changes; the v1.3.0 → v1.4.0 migration is transpar
 
 ## Test summary
 
-| Metric | Before (v1.3.0) | After (v1.4.0) | Delta |
-|---|---|---|---|
-| Test count | 1493 + 1 skipped | 1511 + 1 skipped | +18 |
-| Type errors | 0 | 0 | — |
-| Lint errors | 0 | 0 | — |
-| Build | success | success | — |
+| Metric      | Before (v1.3.0)  | After (v1.4.0)   | Delta |
+| ----------- | ---------------- | ---------------- | ----- |
+| Test count  | 1493 + 1 skipped | 1511 + 1 skipped | +18   |
+| Type errors | 0                | 0                | —     |
+| Lint errors | 0                | 0                | —     |
+| Build       | success          | success          | —     |
 
 ## Files touched
 

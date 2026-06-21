@@ -59,7 +59,11 @@ function makeBswModule(
   };
 }
 
-function makeBswmd(modules: readonly BswModuleDef[]): { modules: readonly BswModuleDef[]; warnings: readonly string[]; version: string } {
+function makeBswmd(modules: readonly BswModuleDef[]): {
+  modules: readonly BswModuleDef[];
+  warnings: readonly string[];
+  version: string;
+} {
   return { modules, warnings: [], version: '4.6' };
 }
 
@@ -121,7 +125,8 @@ describe('Bug 2a + 2b fixes — skeleton', () => {
       const parent = makeBswContainer('Parent', { lower: 1, upper: 1, sub: [optional] });
       const mod = makeBswModule('M', [parent]);
       const ar = generateEcucSkeleton(makeBswmd([mod]), 'M');
-      const parentVal = (ar.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+      const parentVal = (ar.packages[0]!.elements[0]! as ArxmlModule)
+        .children[0]! as ArxmlContainer;
       expect(parentVal.children).toHaveLength(0);
     });
 
@@ -130,7 +135,8 @@ describe('Bug 2a + 2b fixes — skeleton', () => {
       const parent = makeBswContainer('Parent', { lower: 1, upper: 1, sub: [many] });
       const mod = makeBswModule('M', [parent]);
       const ar = generateEcucSkeleton(makeBswmd([mod]), 'M');
-      const parentVal = (ar.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+      const parentVal = (ar.packages[0]!.elements[0]! as ArxmlModule)
+        .children[0]! as ArxmlContainer;
       expect(parentVal.children).toHaveLength(1);
       const manyVal = parentVal.children[0]! as ArxmlContainer;
       expect(manyVal.shortName).toBe('Many');

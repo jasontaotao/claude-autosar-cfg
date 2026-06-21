@@ -57,13 +57,14 @@ export function commitTransaction(tx: Transaction): CommitResult {
     switch (m.kind) {
       case 'set-param':
         setParamInDocument(tx.project, m.containerPath, m.paramName, {
-          type: typeof m.newValue === 'number'
-            ? 'integer'
-            : typeof m.newValue === 'boolean'
-              ? 'boolean'
-              : typeof m.newValue === 'string'
-                ? 'string'
-                : 'reference',
+          type:
+            typeof m.newValue === 'number'
+              ? 'integer'
+              : typeof m.newValue === 'boolean'
+                ? 'boolean'
+                : typeof m.newValue === 'string'
+                  ? 'string'
+                  : 'reference',
           value: m.newValue as never,
         });
         break;

@@ -31,11 +31,7 @@ import { createPortal } from 'react-dom';
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import type { AllowedSubElement, MutationError } from '@core/arxml/mutation.js';
 import { findByPath } from '@core/arxml/path.js';
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlModule,
-} from '@core/arxml/types';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
 import { getContainerDefByPath } from '@core/project/bswmd.js';
 import type { BswModuleDef } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n.js';
@@ -188,8 +184,7 @@ function resolveModuleAndParentContainerLocal(
         if (mod.shortName !== moduleShortName) continue;
         const subSegments = segments.slice(2);
         const subPath = subSegments.join('/');
-        const parentContainerDef =
-          subPath === '' ? null : getContainerDefByPath(mod, subPath);
+        const parentContainerDef = subPath === '' ? null : getContainerDefByPath(mod, subPath);
         if (parentContainerDef !== null || subPath === '') {
           return { moduleDef: mod, parentContainerDef };
         }

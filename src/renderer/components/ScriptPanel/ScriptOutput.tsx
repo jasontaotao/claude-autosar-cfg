@@ -118,11 +118,7 @@ export function ScriptOutput({
         ) : (
           <ul className="script-mutation-list">
             {result.mutations.map((m, i) => (
-              <li
-                key={`m-${i}`}
-                className="script-mutation"
-                data-testid={`script-mutation-${i}`}
-              >
+              <li key={`m-${i}`} className="script-mutation" data-testid={`script-mutation-${i}`}>
                 <code>{m.kind}</code> <span className="muted">{describeMutation(m)}</span>
               </li>
             ))}
@@ -153,9 +149,7 @@ export function ScriptOutput({
   );
 }
 
-function describeMutation(
-  m: ScriptRunResult['mutations'][number],
-): string {
+function describeMutation(m: ScriptRunResult['mutations'][number]): string {
   switch (m.kind) {
     case 'set-param':
       return `${m.containerPath} ${m.paramName} = ${String(m.newValue)}`;

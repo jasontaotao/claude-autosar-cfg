@@ -15,14 +15,7 @@ export default defineConfig({
       // handler (script-handler.ts) use node:vm + node:crypto. These
       // are main-process-only; we externalize them so rollup doesn't
       // try to bundle them into the main-process entry.
-      external: [
-        'electron',
-        'node:path',
-        'node:url',
-        'node:fs',
-        'node:vm',
-        'node:crypto',
-      ],
+      external: ['electron', 'node:path', 'node:url', 'node:fs', 'node:vm', 'node:crypto'],
     },
     sourcemap: true,
     emptyOutDir: true,

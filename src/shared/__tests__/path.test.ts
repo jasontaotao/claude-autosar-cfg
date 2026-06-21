@@ -163,7 +163,9 @@ describe('shared/path.bswmdKeyFor', () => {
   });
 
   it('returns the same key for mixed-separator and pure-backslash forms', () => {
-    expect(bswmdKeyFor('D:/proj/bswmd\\EcuC.arxml')).toBe(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'));
+    expect(bswmdKeyFor('D:/proj/bswmd\\EcuC.arxml')).toBe(
+      bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'),
+    );
   });
 
   it('is case-insensitive across the whole path (Windows paths are case-insensitive on disk)', () => {
@@ -173,7 +175,9 @@ describe('shared/path.bswmdKeyFor', () => {
 
   it('strips trailing separators before keying', () => {
     expect(bswmdKeyFor('/proj/bswmd/EcuC.arxml/')).toBe(bswmdKeyFor('/proj/bswmd/EcuC.arxml'));
-    expect(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml\\')).toBe(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'));
+    expect(bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml\\')).toBe(
+      bswmdKeyFor('D:\\proj\\bswmd\\EcuC.arxml'),
+    );
   });
 
   it('returns just the basename for a top-level file (no parent dir)', () => {

@@ -473,12 +473,8 @@ describe('i18n — Sprint 14 ECUC ARXML Import (18 keys, spec §7.5)', () => {
   });
 
   it('renders app.import.diff.title with {shortName} (zh-CN + en)', () => {
-    expect(t('zh-CN', 'app.import.diff.title', { shortName: 'CanIf' })).toBe(
-      '模块冲突：CanIf',
-    );
-    expect(t('en', 'app.import.diff.title', { shortName: 'CanIf' })).toBe(
-      'Module conflict: CanIf',
-    );
+    expect(t('zh-CN', 'app.import.diff.title', { shortName: 'CanIf' })).toBe('模块冲突：CanIf');
+    expect(t('en', 'app.import.diff.title', { shortName: 'CanIf' })).toBe('Module conflict: CanIf');
   });
 
   it('renders 4 resolution labels (zh-CN + en)', () => {
@@ -502,24 +498,24 @@ describe('i18n — Sprint 14 ECUC ARXML Import (18 keys, spec §7.5)', () => {
   });
 
   it('renders app.import.error.readFailed / parseFailed / patchFailed (zh-CN + en)', () => {
-    expect(
-      t('zh-CN', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' }),
-    ).toBe('无法读取 /x.arxml：ENOENT');
-    expect(
-      t('en', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' }),
-    ).toBe('Cannot read /x.arxml: ENOENT');
+    expect(t('zh-CN', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' })).toBe(
+      '无法读取 /x.arxml：ENOENT',
+    );
+    expect(t('en', 'app.import.error.readFailed', { path: '/x.arxml', message: 'ENOENT' })).toBe(
+      'Cannot read /x.arxml: ENOENT',
+    );
     expect(
       t('zh-CN', 'app.import.error.parseFailed', { path: '/y.arxml', message: 'malformed' }),
     ).toBe('解析 /y.arxml 失败：malformed');
     expect(
       t('en', 'app.import.error.parseFailed', { path: '/y.arxml', message: 'malformed' }),
     ).toBe('Parse /y.arxml failed: malformed');
-    expect(
-      t('zh-CN', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' }),
-    ).toBe('合并到 /z.arxml 失败：oops');
-    expect(
-      t('en', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' }),
-    ).toBe('Merge into /z.arxml failed: oops');
+    expect(t('zh-CN', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' })).toBe(
+      '合并到 /z.arxml 失败：oops',
+    );
+    expect(t('en', 'app.import.error.patchFailed', { path: '/z.arxml', message: 'oops' })).toBe(
+      'Merge into /z.arxml failed: oops',
+    );
   });
 
   it('renders app.import.error.noModulesSelected / viewModeLocked (zh-CN + en)', () => {

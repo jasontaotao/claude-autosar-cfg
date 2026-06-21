@@ -99,4 +99,8 @@ export type ParamSnapshot = {
 };
 
 /** Shape of a parameter `value` as user scripts see it. */
-export type ParamValue = number | string | boolean | { readonly value: string; readonly dest?: string };
+export type ParamValue =
+  | number
+  | string
+  | boolean
+  | { readonly value: string; readonly dest?: string };

@@ -19,7 +19,13 @@
 // Pure: no fs, no electron. Callers (transaction.commit) own the
 // rollback policy.
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule, ParamValue } from '../arxml/types.js';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ParamValue,
+} from '../arxml/types.js';
 
 interface ModuleOrContainer {
   readonly kind: 'module' | 'container';
@@ -42,7 +48,10 @@ export function findContainerByPath(
   doc: ArxmlDocument,
   path: string,
 ): ArxmlModule | ArxmlContainer | null {
-  function walk(elements: readonly ArxmlElement[], parentPath: string): ArxmlModule | ArxmlContainer | null {
+  function walk(
+    elements: readonly ArxmlElement[],
+    parentPath: string,
+  ): ArxmlModule | ArxmlContainer | null {
     for (const el of elements) {
       if (el.kind === 'reference') continue;
       // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
@@ -93,7 +102,11 @@ export function setParamInDocument(
   const existing = nextParams[paramName]!;
   if (typeof newValue === 'object' && newValue !== null && 'value' in newValue) {
     const refIn = newValue as { value: string; dest?: string };
-    nextParams[paramName] = { ...existing, value: refIn.value, ...(refIn.dest ? { dest: refIn.dest } : {}) } as ParamValue;
+    nextParams[paramName] = {
+      ...existing,
+      value: refIn.value,
+      ...(refIn.dest ? { dest: refIn.dest } : {}),
+    } as ParamValue;
   } else {
     nextParams[paramName] = { ...existing, value: newValue } as ParamValue;
   }
@@ -113,10 +126,7 @@ export function addChildInDocument(
     target.children.some(
       // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME so
       // they cannot clash by name; skip them in the duplicate check.
-      (c) =>
-        c.kind !== 'reference' &&
-        c.kind !== 'unknown' &&
-        c.shortName === newShortName,
+      (c) => c.kind !== 'reference' && c.kind !== 'unknown' && c.shortName === newShortName,
     )
   ) {
     throw new Error(`addChild: shortName "${newShortName}" already exists at ${containerPath}`);
@@ -165,7 +175,10 @@ function spliceContainer(
     return `${parentPath}/${el.shortName}` === path;
   }
 
-  function rebuild(elements: readonly ArxmlElement[], parentPath: string): readonly ArxmlElement[] | null {
+  function rebuild(
+    elements: readonly ArxmlElement[],
+    parentPath: string,
+  ): readonly ArxmlElement[] | null {
     let changed = false;
     const out: ArxmlElement[] = [];
     for (const el of elements) {
@@ -221,4 +234,3 @@ export const removeChildInProject = removeChildInDocument;
 
 // Internal helper exposed for tests; avoid spreading to the wider API.
 export { findContainerByPath as _findContainerByPath, type ModuleOrContainer };
-

@@ -10,9 +10,20 @@
 // those two. References are surfaced as read-only `params[name].value`
 // via the module/container's `params` record.
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule } from '../../core/arxml/types.js';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+} from '../../core/arxml/types.js';
 
-import type { ParamValue, ParamSnapshot, ScriptLog, ScriptMutation, ScriptViolation } from './types.js';
+import type {
+  ParamValue,
+  ParamSnapshot,
+  ScriptLog,
+  ScriptMutation,
+  ScriptViolation,
+} from './types.js';
 
 export interface ScriptCtxOptions {
   readonly project: ArxmlDocument;
@@ -98,7 +109,14 @@ interface RawParam {
 }
 
 function toScriptType(t: string): ParamSnapshot['type'] {
-  if (t === 'integer' || t === 'float' || t === 'boolean' || t === 'string' || t === 'enum' || t === 'reference') {
+  if (
+    t === 'integer' ||
+    t === 'float' ||
+    t === 'boolean' ||
+    t === 'string' ||
+    t === 'enum' ||
+    t === 'reference'
+  ) {
     return t;
   }
   // Multiline is a UI-only ParamEditMode; persist as 'string' for setValue
@@ -203,10 +221,12 @@ function asModuleOrContainer(el: ArxmlElement): ArxmlModule | ArxmlContainer | n
 export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
   const { project, onLog, onViolation, onMutation } = opts;
 
-  const log = (level: ScriptLog['level']) => (msg: string): void => {
-    if (typeof msg !== 'string') throw new Error('ctx.log.*: message must be a string');
-    onLog({ level, message: msg, ts: Date.now() });
-  };
+  const log =
+    (level: ScriptLog['level']) =>
+    (msg: string): void => {
+      if (typeof msg !== 'string') throw new Error('ctx.log.*: message must be a string');
+      onLog({ level, message: msg, ts: Date.now() });
+    };
 
   // Pre-compute the path index once. Mutations to the underlying doc
   // are NOT picked up — the view is built at ctx-construction time,
@@ -268,7 +288,8 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
           if (typeof v !== 'string') throw new Error(`setValue: expected string for ${p.name}`);
           break;
         case 'enum':
-          if (typeof v !== 'string') throw new Error(`setValue: expected string for enum ${p.name}`);
+          if (typeof v !== 'string')
+            throw new Error(`setValue: expected string for enum ${p.name}`);
           break;
         case 'reference':
           if (
@@ -299,7 +320,11 @@ export function buildScriptCtx(opts: ScriptCtxOptions): ScriptCtx {
       },
       asEnum: () => (typeof p.value === 'string' ? p.value : String(p.value)),
       asReference: () => {
-        if (typeof p.value === 'object' && p.value !== null && 'value' in (p.value as Record<string, unknown>)) {
+        if (
+          typeof p.value === 'object' &&
+          p.value !== null &&
+          'value' in (p.value as Record<string, unknown>)
+        ) {
           return p.value as { value: string; dest?: string };
         }
         throw new Error('not a reference');

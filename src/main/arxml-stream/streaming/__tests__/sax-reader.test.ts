@@ -58,10 +58,7 @@ describe('streamParse — error handling', () => {
 
 describe('streamParse — performance', () => {
   it('parses a 10MB synthetic ARXML in <5s (regression alarm)', async () => {
-    const base = readFileSync(
-      join(FIXTURE_DIR, 'Com_Com.arxml'),
-      'utf-8',
-    );
+    const base = readFileSync(join(FIXTURE_DIR, 'Com_Com.arxml'), 'utf-8');
     // Pad to ~10 MiB using XML comments (skip-safe, byte-counted).
     const padded = base + '<!-- ' + 'x'.repeat(10 * 1024 * 1024) + ' -->';
 

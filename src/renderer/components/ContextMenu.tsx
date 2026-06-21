@@ -158,19 +158,13 @@ function lastPathSegment(p: string): string {
  *  the combined view uses the flat (no-wrapper) shape — the actual
  *  first inner segment. Returns `null` only when the input has fewer
  *  than 2 segments (nothing to strip and nothing inner to use). */
-function stripCombinedPrefix(
-  combinedPath: string,
-  sourceFilePath: string,
-): string | null {
+function stripCombinedPrefix(combinedPath: string, sourceFilePath: string): string | null {
   const segments = combinedPath.split('/').filter(Boolean);
   if (segments.length < 2) return null;
   const [head, ...rest] = segments;
   if (head === undefined) return null;
   // Accept either the literal basename or the [doc:N] index form.
-  if (
-    head === lastPathSegment(sourceFilePath) ||
-    /^\[doc:\d+\]$/.test(head)
-  ) {
+  if (head === lastPathSegment(sourceFilePath) || /^\[doc:\d+\]$/.test(head)) {
     return `/${rest.join('/')}`;
   }
   // Flat mode: no wrapper in the combined view — the path is already

@@ -162,7 +162,9 @@ describe('script:run handler (Sprint 14 #1 T7)', () => {
     // calls ctx.log.info the handler doesn't have to load a doc.
     // The handler builds an empty project fallback when no documents
     // are present so log-only scripts can still execute.
-    const saved = await scriptSaveHandler(saveReq({ shortName: 'log-only', source: 'ctx.log.info("hi")' }));
+    const saved = await scriptSaveHandler(
+      saveReq({ shortName: 'log-only', source: 'ctx.log.info("hi")' }),
+    );
     const r = await scriptRunHandler({ projectId, id: saved.id } as ScriptRunRequest);
     expect(r.status).toBe('ok');
     expect(r.logs.some((l) => l.message === 'hi')).toBe(true);

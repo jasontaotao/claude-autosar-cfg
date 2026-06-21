@@ -20,11 +20,7 @@
 
 import { create } from 'zustand';
 
-import type {
-  ScriptKind,
-  ScriptRunResult,
-  ScriptSummary,
-} from '@main/script/types';
+import type { ScriptKind, ScriptRunResult, ScriptSummary } from '@main/script/types';
 
 import type {
   ArxmlContainer,
@@ -84,8 +80,12 @@ export interface ScriptState {
     readonly shortName: string;
     readonly kind: ScriptKind;
     readonly source: string;
-  }) => Promise<{ readonly ok: true; readonly id: string } | { readonly ok: false; readonly message: string }>;
-  deleteScript: (id: string) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
+  }) => Promise<
+    { readonly ok: true; readonly id: string } | { readonly ok: false; readonly message: string }
+  >;
+  deleteScript: (
+    id: string,
+  ) => Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }>;
   runScript: (id: string, timeoutMs?: number) => Promise<ScriptRunResult | null>;
 
   // -- run output UX ------------------------------------------------------
@@ -144,7 +144,8 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       // Defensive default — a stale IPC mock from a previous test
       // suite may resolve to undefined; in that case keep the
       // previous scripts rather than crash.
-      const scripts = result === undefined || result === null ? get().scripts : (result.scripts ?? []);
+      const scripts =
+        result === undefined || result === null ? get().scripts : (result.scripts ?? []);
       set({ scripts, initialized: true });
     } finally {
       set({ loading: { ...get().loading, list: false } });
@@ -183,7 +184,9 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     set({ dirty: false });
   },
 
-  saveScript: async (input): Promise<
+  saveScript: async (
+    input,
+  ): Promise<
     { readonly ok: true; readonly id: string } | { readonly ok: false; readonly message: string }
   > => {
     set({ loading: { ...get().loading, save: true } });
@@ -216,7 +219,9 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     }
   },
 
-  deleteScript: async (id): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }> => {
+  deleteScript: async (
+    id,
+  ): Promise<{ readonly ok: true } | { readonly ok: false; readonly message: string }> => {
     set({ loading: { ...get().loading, delete: true } });
     try {
       const { useArxmlStore } = await import('./useArxmlStore');
@@ -504,17 +509,11 @@ function starterForKind(kind: ScriptKind): string {
         '',
       ].join('\n');
     case 'report':
-      return [
-        '// report: read-only — emit logs only',
-        'ctx.log.info("report started");',
-        '',
-      ].join('\n');
+      return ['// report: read-only — emit logs only', 'ctx.log.info("report started");', ''].join(
+        '\n',
+      );
     case 'free':
-      return [
-        '// free: do whatever',
-        'ctx.log.info("script started");',
-        '',
-      ].join('\n');
+      return ['// free: do whatever', 'ctx.log.info("script started");', ''].join('\n');
     default: {
       // Exhaustiveness guard for the ScriptKind union.
       const _exhaustive: never = kind;
@@ -585,11 +584,7 @@ function findParamInDoc(
  */
 function scriptParamValueToCore(
   existingType: ParamValue['type'],
-  raw:
-    | number
-    | string
-    | boolean
-    | { readonly value: string; readonly dest?: string },
+  raw: number | string | boolean | { readonly value: string; readonly dest?: string },
 ): ParamValue {
   // Reference params: the script's `{ value, dest? }` shape is the
   // canonical reference value. Forward dest when present, otherwise

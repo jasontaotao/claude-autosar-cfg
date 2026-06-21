@@ -108,9 +108,10 @@ function collectDuplicateTargets(project: ArxmlDocument): string[] {
   return targets;
 }
 
-function injectDuplicate(
-  project: ArxmlDocument,
-): { project: ArxmlDocument; paths: [string, string] } {
+function injectDuplicate(project: ArxmlDocument): {
+  project: ArxmlDocument;
+  paths: [string, string];
+} {
   const targets = collectDuplicateTargets(project);
   if (targets.length < 2) {
     throw new Error(`expected at least 2 ComTxIPdu containers, found ${targets.length}`);

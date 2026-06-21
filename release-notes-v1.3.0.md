@@ -26,7 +26,7 @@ MINOR bump（new feature，零 breaking change）。
   完全一致。
 - **3 个 sample fixtures** (`adbe248`)：`pduid-uniqueness.js` (validator) /
   `wdgif-defaults.js` (transformer) / `utils/path.js` (shared helper)。`node
-  --check` 全过。
+--check` 全过。
 - **Renderer** (`d0286bc` ~ `45e3d7c`)：
   - `useScriptStore` (Zustand singleton) + `useScriptActions` (IPC bridge)
   - `ScriptEditor` with **CodeMirror 6** (`@codemirror/state` +
@@ -52,19 +52,19 @@ MINOR bump（new feature，零 breaking change）。
 
 ### 21 commits — 3 phase + 2 test + 1 build fix + 1 polish
 
-| Phase | Commits | Theme |
-|-------|---------|-------|
-| A (T1-T5) | `14073ff` + `4af4576` + `e89f291` + `1aedd45` + `f50a79d` + `d947e53` | 6 core modules + lint polish |
-| B (T6-T10) | `8227305` + `2ef9917` + `df47e23` + `55c55c8` + `adbe248` | 5 IPC + handler + preload + i18n + fixtures |
-| C (T11-T15) | `d0286bc` + `882acc9` + `0e7b3a3` + `b24d270` + `45e3d7c` | store + CodeMirror 6 editor + Library/Output/Badge + Panel + ValidationPanel Script 校验 |
-| Build fix | `a9fad9d` | vite main externalize `node:vm` + `node:crypto` |
-| D (T16-T17) | `569e710` + `e071dfb` | 5-fixture E2E + Playwright happy path |
+| Phase       | Commits                                                               | Theme                                                                                    |
+| ----------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| A (T1-T5)   | `14073ff` + `4af4576` + `e89f291` + `1aedd45` + `f50a79d` + `d947e53` | 6 core modules + lint polish                                                             |
+| B (T6-T10)  | `8227305` + `2ef9917` + `df47e23` + `55c55c8` + `adbe248`             | 5 IPC + handler + preload + i18n + fixtures                                              |
+| C (T11-T15) | `d0286bc` + `882acc9` + `0e7b3a3` + `b24d270` + `45e3d7c`             | store + CodeMirror 6 editor + Library/Output/Badge + Panel + ValidationPanel Script 校验 |
+| Build fix   | `a9fad9d`                                                             | vite main externalize `node:vm` + `node:crypto`                                          |
+| D (T16-T17) | `569e710` + `e071dfb`                                                 | 5-fixture E2E + Playwright happy path                                                    |
 
 ### Tests
 
 - **1493 tests passing**（v1.2.0: 1309 → v1.3.0: 1493，净增 +184）+ 1 skipped
 - Phase A: 82 new (`types` 14 + `import-resolver` 25 + `ctx` 18 + `transaction` 11
-  + `vm-runner` 14)
+  - `vm-runner` 14)
 - Phase B: 35 new (`script-handler` 10 + preload 4 + i18n 5 + fixtures 3 + types
   smoke 13)
 - Phase C: 32 new (`ScriptKindBadge` 4 + `ScriptLibrary` 6 + `ScriptOutput` 7 +
@@ -119,7 +119,7 @@ MINOR bump（new feature，零 breaking change）。
   - DI-8 manifest backward compat: PASS (`scripts: []` normalized on load)
 - **Acceptance gates (spec §11)**: 10/10 PASS
   (format / lint / type-check / test 1493+1 / coverage / build / i18n parity /
-   no console.log / manifest back-compat / shortName enforcement)
+  no console.log / manifest back-compat / shortName enforcement)
 - **Coverage**: 96.34% stmts / 88.21% branches (≥ v1.2.0 baseline)
 - **Per-finding disposition**:
   - M-1 applyMutation stub → Sprint 14 #2 backlog (NOT a defect; explicit

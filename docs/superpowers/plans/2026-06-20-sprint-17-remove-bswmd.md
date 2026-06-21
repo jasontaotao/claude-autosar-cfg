@@ -10,12 +10,12 @@
 
 ## Status
 
-| Sub-sprint | Scope | Status | Commit | Head |
-|---|---|---|---|---|
-| **P1** | Core IPC + Store + i18n + types + undo | ✅ SHIPPED | `fc2bf75` | ahead main 3 |
-| **P2** | Dialog + hook merge + i18n + S14 cleanup | ✅ SHIPPED | `2128e43` | ahead main 3 |
-| **P3** | UI wiring (ProjectPanel onContextMenu + Tree module kind + App.tsx router) | ⏳ PENDING | — | — |
-| **P4** | Integration tests + Playwright E2E | ⏳ PENDING | — | — |
+| Sub-sprint | Scope                                                                      | Status     | Commit    | Head         |
+| ---------- | -------------------------------------------------------------------------- | ---------- | --------- | ------------ |
+| **P1**     | Core IPC + Store + i18n + types + undo                                     | ✅ SHIPPED | `fc2bf75` | ahead main 3 |
+| **P2**     | Dialog + hook merge + i18n + S14 cleanup                                   | ✅ SHIPPED | `2128e43` | ahead main 3 |
+| **P3**     | UI wiring (ProjectPanel onContextMenu + Tree module kind + App.tsx router) | ⏳ PENDING | —         | —            |
+| **P4**     | Integration tests + Playwright E2E                                         | ⏳ PENDING | —         | —            |
 
 **Branch baseline:** `main` @ `bdb81f6` (v1.5.1, JWQ3399 P0 fix)
 
@@ -28,7 +28,7 @@
 | ESLint `--max-warnings 0` | MUST pass                                                                                | release gate                    |
 | Prettier `--check`        | MUST pass                                                                                | release gate                    |
 | Test runner               | `pnpm test` (Vitest 1)                                                                   | `package.json`                  |
-| Coverage gate             | ≥ 80% lines, ≥ 80% functions, ≥ 70% branches (v1.5.0 baseline ~96.8% stmts)                | release gate                    |
+| Coverage gate             | ≥ 80% lines, ≥ 80% functions, ≥ 70% branches (v1.5.0 baseline ~96.8% stmts)              | release gate                    |
 | Commit format             | Conventional Commits (`feat:` / `fix:` / `refactor:` / `chore:` / `test:`)               | global CLAUDE.md                |
 | Branch policy             | Direct push to `main` allowed (no PR gate)                                               | verified 2026-06-20             |
 | Network workaround        | local `http.proxy=""` + `https.proxy=""` + `credential.helper=manager` (already applied) | [[git-push-network-workaround]] |
@@ -36,75 +36,75 @@
 
 ## Design Decisions (locked at P1 design time)
 
-| # | Decision | Choice | Rationale |
-|---|---|---|---|
-| 1 | Dialog vs. reuse CascadeConfirmDialog | **NEW RemoveModuleConfirmDialog (4-option)** | The 4th option (`cascade-and-unlink`) adds disk-unlink of the BSWMD file on top of cascade — a verb the ECUC case has no analog for. Reusing CascadeConfirmDialog would overload enum semantics. |
-| 2 | dirty-guard + cascade dialog | **MERGE into one function `removeBswmdWithFullFlow`** | P1 design flagged the two-path state-fork risk: cascade dialog already shown but dirty-guard was cancelled. P2 collapses into a single function. |
-| 3 | 'cascade-and-unlink' partial-failure | Accept as documented design trade-off | If disk unlink fails, dependent ARXMLs are already gone (cascade half completed). User has no obvious recovery path. Documented in design; not blocking. |
-| 4 | on-disk file unlink | New `bswmd:delete` IPC (NOT reuse `project:deleteArxml`) | Different channel name keeps the type system honest about which channel flows. Body is byte-for-byte identical to `projectDeleteArxmlHandler`. |
-| 5 | Undo scope | **Single-level, in-memory only** | `undoLastRemoveBswmd` restores the captured `BswmdDocument` from `lastRemoveSnapshot`. The on-disk BSWMD file is NOT restored (gone). Matches `undoLastCommit` constraint. |
-| 6 | cross-BSWMD reference detection | **YAGNI v1 — not implemented** | Today codebase has no tool to enumerate "BSWMD-A module referenced from BSWMD-B". Documented as known limitation. v1 only scans `sourceBswmdPath` chain (Sprint 14 BSWMD-to-ECUC generated dependents). |
-| 7 | UI entry points (P3) | **DUAL**: ProjectPanel `<li>` row right-click + Tree `kind:'module'` node right-click | Reuses Sprint 16's `App.tsx:283-295` `handleContextMenu` + `useArxmlStore.ts:283-295` router pattern. |
+| #   | Decision                              | Choice                                                                                | Rationale                                                                                                                                                                                               |
+| --- | ------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Dialog vs. reuse CascadeConfirmDialog | **NEW RemoveModuleConfirmDialog (4-option)**                                          | The 4th option (`cascade-and-unlink`) adds disk-unlink of the BSWMD file on top of cascade — a verb the ECUC case has no analog for. Reusing CascadeConfirmDialog would overload enum semantics.        |
+| 2   | dirty-guard + cascade dialog          | **MERGE into one function `removeBswmdWithFullFlow`**                                 | P1 design flagged the two-path state-fork risk: cascade dialog already shown but dirty-guard was cancelled. P2 collapses into a single function.                                                        |
+| 3   | 'cascade-and-unlink' partial-failure  | Accept as documented design trade-off                                                 | If disk unlink fails, dependent ARXMLs are already gone (cascade half completed). User has no obvious recovery path. Documented in design; not blocking.                                                |
+| 4   | on-disk file unlink                   | New `bswmd:delete` IPC (NOT reuse `project:deleteArxml`)                              | Different channel name keeps the type system honest about which channel flows. Body is byte-for-byte identical to `projectDeleteArxmlHandler`.                                                          |
+| 5   | Undo scope                            | **Single-level, in-memory only**                                                      | `undoLastRemoveBswmd` restores the captured `BswmdDocument` from `lastRemoveSnapshot`. The on-disk BSWMD file is NOT restored (gone). Matches `undoLastCommit` constraint.                              |
+| 6   | cross-BSWMD reference detection       | **YAGNI v1 — not implemented**                                                        | Today codebase has no tool to enumerate "BSWMD-A module referenced from BSWMD-B". Documented as known limitation. v1 only scans `sourceBswmdPath` chain (Sprint 14 BSWMD-to-ECUC generated dependents). |
+| 7   | UI entry points (P3)                  | **DUAL**: ProjectPanel `<li>` row right-click + Tree `kind:'module'` node right-click | Reuses Sprint 16's `App.tsx:283-295` `handleContextMenu` + `useArxmlStore.ts:283-295` router pattern.                                                                                                   |
 
 ## File Structure
 
 **Created by P1 (✅ SHIPPED):**
 
-| File | Responsibility | Lines |
-|---|---|---|
-| `src/main/ipc/bswmdDeleteHandler.ts` | `bswmd:delete` IPC handler (fs.unlink + ok/not-found/write-failed) | 39 |
-| `src/main/ipc/__tests__/bswmdDeleteHandler.test.ts` | 3 IPC tests (ok / not-found / write-failed) | 92 |
-| `src/renderer/store/__tests__/useArxmlStore.removeBswmdFromDisk.test.ts` | 7 store tests for `removeBswmdFromDisk` + `undoLastRemoveBswmd` | 226 |
+| File                                                                     | Responsibility                                                     | Lines |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ----- |
+| `src/main/ipc/bswmdDeleteHandler.ts`                                     | `bswmd:delete` IPC handler (fs.unlink + ok/not-found/write-failed) | 39    |
+| `src/main/ipc/__tests__/bswmdDeleteHandler.test.ts`                      | 3 IPC tests (ok / not-found / write-failed)                        | 92    |
+| `src/renderer/store/__tests__/useArxmlStore.removeBswmdFromDisk.test.ts` | 7 store tests for `removeBswmdFromDisk` + `undoLastRemoveBswmd`    | 226   |
 
 **Created by P2 (✅ SHIPPED):**
 
-| File | Responsibility | Lines |
-|---|---|---|
-| `src/renderer/components/RemoveModuleConfirmDialog.tsx` | 4-option modal dialog (cancel/only/cascade/cascade-and-unlink) | 242 |
-| `src/renderer/components/RemoveModuleConfirmDialog.css` | Visual shell (z-index 9997) | 163 |
-| `src/renderer/components/__tests__/RemoveModuleConfirmDialog.test.tsx` | 13 dialog tests | 224 |
-| `src/renderer/hooks/__tests__/useProjectActions.removeBswmd.test.ts` | 7 hook tests for `removeBswmdWithFullFlow` | 308 |
+| File                                                                   | Responsibility                                                 | Lines |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------- | ----- |
+| `src/renderer/components/RemoveModuleConfirmDialog.tsx`                | 4-option modal dialog (cancel/only/cascade/cascade-and-unlink) | 242   |
+| `src/renderer/components/RemoveModuleConfirmDialog.css`                | Visual shell (z-index 9997)                                    | 163   |
+| `src/renderer/components/__tests__/RemoveModuleConfirmDialog.test.tsx` | 13 dialog tests                                                | 224   |
+| `src/renderer/hooks/__tests__/useProjectActions.removeBswmd.test.ts`   | 7 hook tests for `removeBswmdWithFullFlow`                     | 308   |
 
 **Modified by P1 (✅ SHIPPED):**
 
-| File | Change |
-|---|---|
-| `src/shared/ipc-contract.ts` | +`BSWMD_DELETE: 'bswmd:delete'` channel constant |
-| `src/shared/types.ts` | +`ProjectDeleteBswmdRequest/Result` (mirror of Arxml versions) |
-| `src/main/ipc/register.ts` | +`bswmdDeleteHandler` import + `ipcMain.handle` registration |
-| `src/preload/index.ts` | +`deleteBswmd({ filePath })` bridge method |
-| `src/shared/i18n.ts` | +`app.error.removeBswmdFromDisk` (zh-CN + en) |
+| File                                  | Change                                                                                                                                                                                                                                                          |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/shared/ipc-contract.ts`          | +`BSWMD_DELETE: 'bswmd:delete'` channel constant                                                                                                                                                                                                                |
+| `src/shared/types.ts`                 | +`ProjectDeleteBswmdRequest/Result` (mirror of Arxml versions)                                                                                                                                                                                                  |
+| `src/main/ipc/register.ts`            | +`bswmdDeleteHandler` import + `ipcMain.handle` registration                                                                                                                                                                                                    |
+| `src/preload/index.ts`                | +`deleteBswmd({ filePath })` bridge method                                                                                                                                                                                                                      |
+| `src/shared/i18n.ts`                  | +`app.error.removeBswmdFromDisk` (zh-CN + en)                                                                                                                                                                                                                   |
 | `src/renderer/store/useArxmlStore.ts` | +`BswmdRemoveSnapshot` type, +`lastRemoveSnapshot` slice, +`removeBswmdFromDisk` action, +`undoLastRemoveBswmd` action, +`clear()` resets new slice, **drive-by fix**: removed pre-existing duplicate `bswmdSchemas/bswmdPaths` block in `openProject` (TS1117) |
-| `.eslintignore` | +`claude-AutosarCfg/` (gitignored local regen scripts) |
+| `.eslintignore`                       | +`claude-AutosarCfg/` (gitignored local regen scripts)                                                                                                                                                                                                          |
 
 **Modified by P2 (✅ SHIPPED):**
 
-| File | Change |
-|---|---|
-| `src/renderer/hooks/useProjectActions.ts` | -`removeBswmdWithCascade`, +`removeBswmdWithFullFlow` (unified dirty-guard + 4-option dispatch), maps P1's `write-failed` → `error` envelope |
-| `src/renderer/App.tsx` | +`<RemoveModuleConfirmRoot />` mount (imported after `PromptDialog` per `import/order`) |
-| `src/shared/i18n.ts` | +`confirm.removeBswmd.{title,message,cancel,only,cascade,cascadeAndUnlink}` (zh-CN + en) |
+| File                                                         | Change                                                                                                                                                                                             |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/renderer/hooks/useProjectActions.ts`                    | -`removeBswmdWithCascade`, +`removeBswmdWithFullFlow` (unified dirty-guard + 4-option dispatch), maps P1's `write-failed` → `error` envelope                                                       |
+| `src/renderer/App.tsx`                                       | +`<RemoveModuleConfirmRoot />` mount (imported after `PromptDialog` per `import/order`)                                                                                                            |
+| `src/shared/i18n.ts`                                         | +`confirm.removeBswmd.{title,message,cancel,only,cascade,cascadeAndUnlink}` (zh-CN + en)                                                                                                           |
 | `src/renderer/hooks/__tests__/useProjectActions.s14.test.ts` | -4 old `removeBswmdWithCascade` behavioral tests (function removed), -unused imports/helpers, kept 1 i18n contract test for `confirm.cascade.*` keys (still consumed by ECUC CascadeConfirmDialog) |
 
 **P3 (⏳ PENDING) — to be created/modified:**
 
-| File | Change |
-|---|---|
-| `src/renderer/components/ProjectPanel.tsx` | +onContextMenu on `<li>` rows in `<FileList>` (BSWMD section), call `openContextMenu({path, kind:'bswmd', shortName: basename(path)}, e.clientX, e.clientY)` |
-| `src/renderer/components/LeftPanel.tsx` | +`removeBswmdWithFullFlow` import, pass to `onRemoveBswmd` callback (replacing `removeBswmdWithGuard`) |
-| `src/renderer/components/tree/TreeNode.tsx` | +resolve `kind:'module'` → look up `sourceBswmdPath` from store, forward to context-menu on right-click |
-| `src/renderer/components/ContextMenu.tsx` | +new action type `'remove-module'`, +new menu item "Remove module" (visible when `kind === 'bswmd'` or resolved module) |
-| `src/renderer/App.tsx` | +case `'remove-module'` in `handleContextMenuAction` (router at `App.tsx:308-343`) — call `useProjectActions.removeBswmdWithFullFlow(path)` |
-| `src/shared/i18n.ts` | +`contextMenu.removeModule` key (zh-CN + en) |
-| `src/renderer/components/__tests__/ContextMenu.test.tsx` (or new test file) | +test "Remove module" menu item shows for BSWMD row right-click + module tree right-click |
+| File                                                                        | Change                                                                                                                                                       |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/renderer/components/ProjectPanel.tsx`                                  | +onContextMenu on `<li>` rows in `<FileList>` (BSWMD section), call `openContextMenu({path, kind:'bswmd', shortName: basename(path)}, e.clientX, e.clientY)` |
+| `src/renderer/components/LeftPanel.tsx`                                     | +`removeBswmdWithFullFlow` import, pass to `onRemoveBswmd` callback (replacing `removeBswmdWithGuard`)                                                       |
+| `src/renderer/components/tree/TreeNode.tsx`                                 | +resolve `kind:'module'` → look up `sourceBswmdPath` from store, forward to context-menu on right-click                                                      |
+| `src/renderer/components/ContextMenu.tsx`                                   | +new action type `'remove-module'`, +new menu item "Remove module" (visible when `kind === 'bswmd'` or resolved module)                                      |
+| `src/renderer/App.tsx`                                                      | +case `'remove-module'` in `handleContextMenuAction` (router at `App.tsx:308-343`) — call `useProjectActions.removeBswmdWithFullFlow(path)`                  |
+| `src/shared/i18n.ts`                                                        | +`contextMenu.removeModule` key (zh-CN + en)                                                                                                                 |
+| `src/renderer/components/__tests__/ContextMenu.test.tsx` (or new test file) | +test "Remove module" menu item shows for BSWMD row right-click + module tree right-click                                                                    |
 
 **P4 (⏳ PENDING) — to be created:**
 
-| File | Change |
-|---|---|
-| `src/renderer/__tests__/integration/removeBswmd.fullFlow.test.tsx` | end-to-end: openProject → addBswmd → useCreateEcucFromBswmd → 4-option dialog (each path) → verify disk + store state |
-| `tests/e2e/remove-bswmd.spec.ts` | Playwright: click × on BSWMD row with dependents → assert cascade dialog → pick each option → verify file gone + UI updated |
-| `tests/e2e/remove-bswmd-from-disk.spec.ts` | Playwright: right-click BSWMD row → "Remove module" → "cascade-and-unlink" → verify file gone from disk |
+| File                                                               | Change                                                                                                                      |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/renderer/__tests__/integration/removeBswmd.fullFlow.test.tsx` | end-to-end: openProject → addBswmd → useCreateEcucFromBswmd → 4-option dialog (each path) → verify disk + store state       |
+| `tests/e2e/remove-bswmd.spec.ts`                                   | Playwright: click × on BSWMD row with dependents → assert cascade dialog → pick each option → verify file gone + UI updated |
+| `tests/e2e/remove-bswmd-from-disk.spec.ts`                         | Playwright: right-click BSWMD row → "Remove module" → "cascade-and-unlink" → verify file gone from disk                     |
 
 ## Sequencing
 
@@ -274,12 +274,12 @@ Release:
 
 ## Post-mortem (post-P2)
 
-| What worked | What didn't |
-|---|---|
+| What worked                                                                                       | What didn't                                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | TDD discipline caught `clear()` missing `lastRemoveSnapshot` reset (one test failure, 1-line fix) | Code review flagged partial-failure UX risk on 'cascade-and-unlink' — should have surfaced during design phase, not code review |
-| Pre-existing `useArxmlStore.s14.test.ts` → 4 tests removed cleanly when function removed | User WIP (validation refactor) overlapped with my commit window; had to be careful about staging |
-| IPC handler byte-for-byte parity with `projectDeleteArxmlHandler` makes the codebase consistent | `RemoveBswmdChoice` kebab-case `'cascade-and-unlink'` vs camelCase `cascadeAndUnlink` i18n key — minor inconsistency |
-| `code-architect` agent's upfront design paid off — 4-phase plan executed cleanly | `App.tsx` import order required re-arranging to add new dialog mount; lint should have caught earlier |
+| Pre-existing `useArxmlStore.s14.test.ts` → 4 tests removed cleanly when function removed          | User WIP (validation refactor) overlapped with my commit window; had to be careful about staging                                |
+| IPC handler byte-for-byte parity with `projectDeleteArxmlHandler` makes the codebase consistent   | `RemoveBswmdChoice` kebab-case `'cascade-and-unlink'` vs camelCase `cascadeAndUnlink` i18n key — minor inconsistency            |
+| `code-architect` agent's upfront design paid off — 4-phase plan executed cleanly                  | `App.tsx` import order required re-arranging to add new dialog mount; lint should have caught earlier                           |
 
 ## References
 

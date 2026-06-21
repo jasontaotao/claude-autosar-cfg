@@ -633,10 +633,7 @@ describe('parseBswmd — happy path', () => {
     expect(choice.shortName).toBe('JWQSpiCsConfig');
     expect(choice.lowerMultiplicity).toBe(1);
     expect(choice.choices).toHaveLength(2);
-    expect(choice.choices.map((c) => c.shortName)).toEqual([
-      'SpiCsViaPher',
-      'SpiCsViaGPIO',
-    ]);
+    expect(choice.choices.map((c) => c.shortName)).toEqual(['SpiCsViaPher', 'SpiCsViaGPIO']);
   });
 
   it('parses REFERENCES via Vector-style ECUC-CHOICE-REFERENCE-DEF (regression: bug — silent drop)', () => {

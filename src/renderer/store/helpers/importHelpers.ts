@@ -10,10 +10,7 @@ import type { ImportPatchOp } from '@core/import/types.js';
  * module (used by `startImport` to enumerate incoming modules for the
  * ModuleSelectionPanel list).
  */
-export function collectModules(
-  el: ArxmlElement,
-  visit: (m: ArxmlModule) => void,
-): void {
+export function collectModules(el: ArxmlElement, visit: (m: ArxmlModule) => void): void {
   if (el.kind === 'module') {
     visit(el);
     return;

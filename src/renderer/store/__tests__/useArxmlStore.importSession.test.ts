@@ -170,9 +170,7 @@ describe('useArxmlStore — ImportSession (Sprint 14 / Phase 3)', () => {
     it('resolveModule accepts an optional containerResolutions map and stores it', () => {
       setupSession();
       const path = useArxmlStore.getState().importSession!.selections[0]!.mergedModulePath;
-      const containerMap = new Map<string, ImportResolution>([
-        ['/EAS/Can/CanConfig', 'keep-both'],
-      ]);
+      const containerMap = new Map<string, ImportResolution>([['/EAS/Can/CanConfig', 'keep-both']]);
       useArxmlStore.getState().resolveModule(path, 'overwrite', containerMap);
       const r = useArxmlStore.getState().importSession!.resolutions[0]!;
       expect(r.containerResolutions).toBe(containerMap);

@@ -90,9 +90,7 @@ describe('PROJECT_SAVE handler (Sprint 17b H8 — path containment)', () => {
     const subdir = join(workDir, 'sub');
     mkdirSync(subdir, { recursive: true });
     const filePath = join(subdir, 'doc.arxml');
-    const r = await projectSaveHandler(
-      makeReq({ files: [{ path: filePath, content: 'ok' }] }),
-    );
+    const r = await projectSaveHandler(makeReq({ files: [{ path: filePath, content: 'ok' }] }));
     expect(r.kind).toBe('saved');
     expect(existsSync(filePath)).toBe(true);
     expect(readFileSync(filePath, 'utf8')).toBe('ok');

@@ -9,9 +9,7 @@ import type { ReferenceHit } from '@core/arxml/mutation.js';
 import type { ArxmlDocument } from '@core/arxml/types';
 import { t } from '@shared/i18n';
 
-import type {
-  CombinedDocumentWarning,
-} from '../helpers/combinedDoc.js';
+import type { CombinedDocumentWarning } from '../helpers/combinedDoc.js';
 import { computeDisplayDoc } from '../helpers/combinedDoc.js';
 import type { ArxmlState, LeftTabId, ToastKind, ToastState } from '../useArxmlStore.js';
 

@@ -25,12 +25,12 @@ change，全部 PATCH 级。
 
 ### 6 commits — 3 sub-sprints
 
-| Sprint | Commits | Theme |
-|--------|---------|-------|
+| Sprint | Commits                                       | Theme                                                      |
+| ------ | --------------------------------------------- | ---------------------------------------------------------- |
 | 17a    | `3c6d0b6` + `6bfff66` + `bbcb693` + `a314c35` | Path 安全 + UI 视觉提示 + lint 清理（pre-existing polish） |
-| 17b    | `c2b2628` + `50adda4` | Toast 体系 + 错误类型化 |
-| 17c    | `912cc7f` + `82ca016` + `32c621b` | 重构 + UX 修正 + 数据正确性 |
-| Review | `77f62a8` | HIGH-1: eslint-disable 注释归位 |
+| 17b    | `c2b2628` + `50adda4`                         | Toast 体系 + 错误类型化                                    |
+| 17c    | `912cc7f` + `82ca016` + `32c621b`             | 重构 + UX 修正 + 数据正确性                                |
+| Review | `77f62a8`                                     | HIGH-1: eslint-disable 注释归位                            |
 
 ### Tests
 
@@ -52,6 +52,7 @@ v1.1.2 起恢复正常。
 ### Sub-sprint Details
 
 **17a (path/UI polish, pre-batch commits):**
+
 - T1 path `..` 拒绝（`3c6d0b6`）
 - T3 Save All `.is-dirty`（`6bfff66`）
 - T4 zh-CN `app.saveAllPartial`（`a314c35` 一部分）
@@ -59,15 +60,18 @@ v1.1.2 起恢复正常。
 - T2 audit 确认无 dead code（no commit）
 
 **17b (toast system + typed errors):**
+
 - T6 ErrorBanner 4-kind + auto-dismiss + toast store slice（`c2b2628`）
 - T7 SaveArxmlError 6-kind + errno threading + renderer dispatch（`50adda4`）
 
 **17c (refactor + UX + correctness):**
+
 - T8 resolveContainerTarget helper（`912cc7f`，零行为变化重构）
 - T9 BswmdPickerDialog stale-seed 修复（`82ca016`）
 - T10 buildCombinedDocument root dedup + warnings（`32c621b`）
 
 **Review-fix:**
+
 - HIGH-1: BswmdPickerDialog eslint-disable 注释位置修正（`77f62a8`）
 
 ### Notable Design Decisions
@@ -80,5 +84,5 @@ v1.1.2 起恢复正常。
   实施时移到 flat/collision branch **之前**，所以 collision mode 也先
   dedup 再做 wrap。Spec 一致性优先于 plan 细节。
 - **resolveContainerTarget single-mode return null** — 当 `state.doc ===
-  null` 时 helper 返回 `null`，与原 inline `if (state.doc === null)
-  return;` 语义一致，零行为变化验证通过 4 个 helper unit test。
+null` 时 helper 返回 `null`，与原 inline `if (state.doc === null)
+return;` 语义一致，零行为变化验证通过 4 个 helper unit test。

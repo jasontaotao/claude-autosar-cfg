@@ -154,9 +154,7 @@ describe('arxml round-trip — v1.4.0 trust sprint (17c)', () => {
     const beforeByTag = new Map(
       unknownElements.map((c) => [c.kind === 'unknown' ? c.tagName : '', c]),
     );
-    const afterByTag = new Map(
-      unknownAfter.map((c) => [c.kind === 'unknown' ? c.tagName : '', c]),
-    );
+    const afterByTag = new Map(unknownAfter.map((c) => [c.kind === 'unknown' ? c.tagName : '', c]));
     const stripText = (o: Readonly<Record<string, unknown>>): Record<string, unknown> => {
       const { '#text': _text, ...rest } = o as Record<string, unknown> & {
         '#text'?: unknown;

@@ -21,6 +21,7 @@ import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
 `LeftPanel.tsx:171` 的 `<Tree store={useArxmlStore} />` **也没传** `onContextMenu` prop — 即使 mount 了也没人 wire。
 
 **Fix**:
+
 - `App.tsx` mount `<BswmdPickerRoot />` + `<ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />`
 - 新写 `handleContextMenu = useCallback((path, kind, e) => { openContextMenu({path, kind, shortName}, e.clientX, e.clientY) }, [])` — Tree 节点右击触发
 - 新写 `handleContextMenuAction = useCallback((action) => { switch ... })` — exhaustively 路由 5 种 `ContextMenuAction`:
@@ -32,6 +33,7 @@ import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
 - `shared/i18n.ts` 新增 `mutation.action.deleteReferenceNotImplemented` key (zh-CN + en)
 
 **端到端效果**：
+
 1. 用户右击 tree 节点 → suppress native menu → 弹 ContextMenu
 2. 点 `+ Add parameter` → handleContextMenuAction switch 命中 'add-parameter' → `openBswmdPicker({parentPath, kind: 'parameter'})`
 3. BswmdPickerRoot (现在 mount 在 App.tsx) 订阅 store，open=true → 弹 picker dialog
@@ -60,6 +62,7 @@ function isModuleCoveredByBswmd(path: string, schemas: readonly BswmdDocument[])
 - **任何** AR-PACKAGE ≠ module 的真实 vendor 数据都会 fail
 
 **Fix**:
+
 - `isModuleCoveredByBswmd` 改用 `lastIndexOf` 算法：从 path 末尾往前 walk segments 找 module.shortName
 - 加 `BswmdCoverageOptions` optional 参数（`viewMode` + `sourceFilePath`）— 处理 combined mode 的 basename / `[doc:N]` 前缀
 - Inlined `stripCombinedPrefix` + `lastPathSegment` 跟 `useArxmlStore.ts` 那份 byte-for-byte 对齐（保持两处同步）
@@ -72,13 +75,14 @@ function isModuleCoveredByBswmd(path: string, schemas: readonly BswmdDocument[])
 **Issue**: `ContextMenu.css` z-index 9995 跟 `BswmdPickerDialog.css` z-index 9995 撞车。`App.tsx` 注释说 ContextMenu 在 9998 跟实际不符。**当前 user flow 不触发**（ContextMenu mousedown handler 在 picker mount 前关掉自己），但 comment drift 误导维护者，future change 容易爆。
 
 **Fix**:
+
 - `ContextMenu.css` z-index 9995 → 9994（sits below picker 9995 + cascade 9996 + confirm 9998，匹配 Sprint 15 CSS file 原始意图）
 - 注释对齐现实
 
 ### Test count
 
-| Before (v1.4.2) | After (v1.5.0) | Delta |
-|---|---|---|
+| Before (v1.4.2)       | After (v1.5.0)        | Delta                                         |
+| --------------------- | --------------------- | --------------------------------------------- |
 | 1537 pass + 1 skipped | 1557 pass + 1 skipped | +20 tests (X2 11 + X3 5 + 4 round-trip drift) |
 
 ### Verification
@@ -123,7 +127,7 @@ d0f3ecf feat(v1.5.0): wire BSWMD picker + context menu + segment-aware BSWMD cov
 
 ### Known limitations (deliberate, deferred to v1.5.1+)
 
-- **LOW 1-5 from code review**: 
+- **LOW 1-5 from code review**:
   - `'message' in result.error` discriminator 改成 `switch (error.kind)` 更 typesafe
   - `lastPathSegment` 在 ContextMenu.tsx inlined，跟 `useArxmlStore.ts` 的 `lastSegment` 重复 — 后续可 export 共享
   - `ContextMenuAction.add-reference` / `delete-reference` 没专门 X2 test (路由跟 `add-parameter` 等同，store 端已有覆盖)

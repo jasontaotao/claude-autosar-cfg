@@ -16,10 +16,7 @@ import { normalize } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { ScriptError } from '../../script/errors.js';
-import {
-  __resetForTest,
-  scriptListHandler,
-} from '../script-handler.js';
+import { __resetForTest, scriptListHandler } from '../script-handler.js';
 
 describe('script-handler path-containment (Sprint 17b H8)', () => {
   afterEach(() => {

@@ -45,11 +45,7 @@ import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { Locale } from '@shared/i18n.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-import {
-  closeContextMenu,
-  ContextMenuRoot,
-  openContextMenu,
-} from '../ContextMenu.js';
+import { closeContextMenu, ContextMenuRoot, openContextMenu } from '../ContextMenu.js';
 
 // ---------------------------------------------------------------------------
 // Test helpers

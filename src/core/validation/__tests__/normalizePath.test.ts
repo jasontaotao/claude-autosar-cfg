@@ -83,9 +83,7 @@ describe('normalizePath AUTOSAR_Rxx namespace', () => {
   it('folds /AUTOSAR_R24-11 (release with hyphen suffix)', () => {
     // Vector / EB may emit release tokens like R24-11; the `\d+`
     // requires at least one digit so this still matches.
-    expect(normalizePath('/AUTOSAR_R24-11/EcucDefs/Com/ComConfig')).toBe(
-      '/EcucDefs/Com/ComConfig',
-    );
+    expect(normalizePath('/AUTOSAR_R24-11/EcucDefs/Com/ComConfig')).toBe('/EcucDefs/Com/ComConfig');
   });
 
   it('does not match non-numeric release token /AUTOSAR_Rxx', () => {
@@ -98,9 +96,7 @@ describe('normalizePath AUTOSAR_Rxx namespace', () => {
     // The release prefix always wraps the value-side `EcucDefs`
     // package; a path that goes straight to a module without
     // `EcucDefs` is not a real BSWMD shape and must not fold.
-    expect(normalizePath('/AUTOSAR_R22/Adc/AdcConfigSet')).toBe(
-      '/AUTOSAR_R22/Adc/AdcConfigSet',
-    );
+    expect(normalizePath('/AUTOSAR_R22/Adc/AdcConfigSet')).toBe('/AUTOSAR_R22/Adc/AdcConfigSet');
   });
 
   it('does not match /AUTOSAR_R (missing release number)', () => {

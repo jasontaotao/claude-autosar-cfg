@@ -116,7 +116,9 @@ export interface BswmdSlice {
    * directly. `kind: 'canceled'` is returned when the path is
    * not in `bswmdPaths` (a stale id from the renderer).
    */
-  removeBswmdFromDisk: (path: string) => Promise<
+  removeBswmdFromDisk: (
+    path: string,
+  ) => Promise<
     | { readonly kind: 'ok' }
     | { readonly kind: 'canceled' }
     | { readonly kind: 'write-failed'; readonly message: string }
@@ -187,9 +189,7 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
     const schemas = get().bswmdSchemas;
     if (schemas !== _bswmdSchemasCacheRef) {
       _bswmdSchemasCacheRef = schemas;
-      _bswmdModulePathsCache = schemas.flatMap((doc) =>
-        doc.modules.map((m) => m.path),
-      );
+      _bswmdModulePathsCache = schemas.flatMap((doc) => doc.modules.map((m) => m.path));
     }
     return _bswmdModulePathsCache;
   },
@@ -306,7 +306,10 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
     // so the renderer can switch on `kind` uniformly regardless of
     // whether the failure was a thrown exception (defensive) or a
     // returned `write-failed` (normal).
-    let ipcResult: { kind: 'ok' } | { kind: 'not-found' } | { kind: 'write-failed'; message: string };
+    let ipcResult:
+      | { kind: 'ok' }
+      | { kind: 'not-found' }
+      | { kind: 'write-failed'; message: string };
     try {
       ipcResult = await window.autosarApi.deleteBswmd({ filePath: path });
     } catch (e) {

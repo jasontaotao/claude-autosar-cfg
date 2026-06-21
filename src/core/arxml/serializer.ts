@@ -400,15 +400,16 @@ function reorderBySource(doc: ArxmlDocument, sourceArxml: string): ArxmlDocument
   const sourceByName = new Map(sourceDoc.packages.map((p) => [p.shortName, p]));
   return {
     ...doc,
-    packages: stableSortByOrder(
-      doc.packages,
-      [...sourceByName.keys()],
-      (p) => p.shortName,
-    ).map((pkg) => reorderPackageElements(pkg, sourceByName.get(pkg.shortName))),
+    packages: stableSortByOrder(doc.packages, [...sourceByName.keys()], (p) => p.shortName).map(
+      (pkg) => reorderPackageElements(pkg, sourceByName.get(pkg.shortName)),
+    ),
   };
 }
 
-function reorderPackageElements(pkg: ArxmlPackage, sourcePkg: ArxmlPackage | undefined): ArxmlPackage {
+function reorderPackageElements(
+  pkg: ArxmlPackage,
+  sourcePkg: ArxmlPackage | undefined,
+): ArxmlPackage {
   if (sourcePkg === undefined) return pkg;
   // Reorder ELEMENTS by the source's element order. `ArxmlUnknown`
   // elements can carry a SHORT-NAME inside `parsed` (e.g. EXCLUSIVE-AREA

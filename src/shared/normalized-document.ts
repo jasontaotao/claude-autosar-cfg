@@ -69,7 +69,12 @@ export type NormalizedElement =
       readonly path: string;
       readonly children: ReadonlyArray<NormalizedElement>;
     }
-  | { readonly kind: 'reference'; readonly shortName: string; readonly path: string; readonly target: string }
+  | {
+      readonly kind: 'reference';
+      readonly shortName: string;
+      readonly path: string;
+      readonly target: string;
+    }
   | { readonly kind: 'unknown'; readonly shortName: string; readonly path: string };
 
 export interface NormalizedModule {

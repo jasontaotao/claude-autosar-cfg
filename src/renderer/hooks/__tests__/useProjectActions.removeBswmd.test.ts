@@ -47,10 +47,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BswModuleDef, BswmdDocument } from '@core/project/bswmd.js';
 
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
-import type {
-  ProjectDeleteArxmlResult,
-  ProjectDeleteBswmdResult,
-} from '../../../shared/types.js';
+import type { ProjectDeleteArxmlResult, ProjectDeleteBswmdResult } from '../../../shared/types.js';
 import * as RemoveModuleConfirmDialogModule from '../../components/RemoveModuleConfirmDialog.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { useProjectActions } from '../useProjectActions.js';

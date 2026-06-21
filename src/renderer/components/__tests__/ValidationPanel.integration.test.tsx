@@ -172,12 +172,10 @@ describe('ValidationPanel integration with store', () => {
     render(<ValidationPanel />);
 
     // Update the param — the store re-validates via updateParam's setState.
-    useArxmlStore
-      .getState()
-      .updateParam('/EcucDefs/EcuC/EcucPduCollection/Pdu', 'PduLength', {
-        type: 'integer',
-        value: 5,
-      });
+    useArxmlStore.getState().updateParam('/EcucDefs/EcuC/EcucPduCollection/Pdu', 'PduLength', {
+      type: 'integer',
+      value: 5,
+    });
 
     // After update, the panel must re-render to show the latest count.
     cleanup();

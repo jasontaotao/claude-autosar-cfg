@@ -55,10 +55,7 @@ function makeSelection(overrides: Partial<ModuleSelection> = {}): ModuleSelectio
   };
 }
 
-function makeResolution(
-  mergedModulePath: string,
-  resolution: ImportResolution,
-): ModuleResolution {
+function makeResolution(mergedModulePath: string, resolution: ImportResolution): ModuleResolution {
   return { mergedModulePath, resolution };
 }
 
@@ -87,9 +84,7 @@ describe('Sprint 14 — merge: buildMergedView', () => {
     const session = makeSession({
       incomingDocs: [makeDoc('/incoming.arxml', [makeModule('Can')])],
       originalPaths: ['/incoming.arxml'],
-      selections: [
-        makeSelection({ mergedModulePath: '/[import:0]/Pkg/Can', selected: false }),
-      ],
+      selections: [makeSelection({ mergedModulePath: '/[import:0]/Pkg/Can', selected: false })],
     });
 
     // Act
@@ -135,8 +130,12 @@ describe('Sprint 14 — merge: buildMergedView', () => {
     const names = view.mergedModules.map((m) => m.shortName).sort();
     expect(names).toEqual(['A', 'B']);
     // The [import:N] prefix is preserved
-    expect(view.mergedModules.some((m) => m.mergedModulePath.startsWith('/[import:0]/'))).toBe(true);
-    expect(view.mergedModules.some((m) => m.mergedModulePath.startsWith('/[import:1]/'))).toBe(true);
+    expect(view.mergedModules.some((m) => m.mergedModulePath.startsWith('/[import:0]/'))).toBe(
+      true,
+    );
+    expect(view.mergedModules.some((m) => m.mergedModulePath.startsWith('/[import:1]/'))).toBe(
+      true,
+    );
   });
 
   it('case 3: collision with resolution=overwrite — incoming takes the slot', () => {

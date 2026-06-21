@@ -43,7 +43,9 @@ function param(overrides: Partial<ParamDef> & Pick<ParamDef, 'shortName' | 'path
   };
 }
 
-function ref(overrides: Partial<ReferenceDef> & Pick<ReferenceDef, 'shortName' | 'path'>): ReferenceDef {
+function ref(
+  overrides: Partial<ReferenceDef> & Pick<ReferenceDef, 'shortName' | 'path'>,
+): ReferenceDef {
   return {
     shortName: overrides.shortName,
     path: overrides.path,
@@ -107,12 +109,38 @@ const det = module({
       shortName: 'DetGeneral',
       path: '/EcucDefs/Det/DetGeneral',
       parameters: [
-        param({ shortName: 'DetDebugLoop', path: '/EcucDefs/Det/DetGeneral/DetDebugLoop', kind: 'boolean' }),
-        param({ shortName: 'DetForwardToDlt', path: '/EcucDefs/Det/DetGeneral/DetForwardToDlt', kind: 'boolean' }),
-        param({ shortName: 'VersionCheck', path: '/EcucDefs/Det/DetGeneral/VersionCheck', kind: 'boolean' }),
-        param({ shortName: 'DetVersionApi', path: '/EcucDefs/Det/DetGeneral/DetVersionApi', kind: 'boolean' }),
-        param({ shortName: 'DetErrorHook', path: '/EcucDefs/Det/DetGeneral/DetErrorHook', kind: 'string', maxLength: 256 }),
-        param({ shortName: 'CddHeaderFile', path: '/EcucDefs/Det/DetGeneral/CddHeaderFile', kind: 'string', maxLength: 256 }),
+        param({
+          shortName: 'DetDebugLoop',
+          path: '/EcucDefs/Det/DetGeneral/DetDebugLoop',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'DetForwardToDlt',
+          path: '/EcucDefs/Det/DetGeneral/DetForwardToDlt',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'VersionCheck',
+          path: '/EcucDefs/Det/DetGeneral/VersionCheck',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'DetVersionApi',
+          path: '/EcucDefs/Det/DetGeneral/DetVersionApi',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'DetErrorHook',
+          path: '/EcucDefs/Det/DetGeneral/DetErrorHook',
+          kind: 'string',
+          maxLength: 256,
+        }),
+        param({
+          shortName: 'CddHeaderFile',
+          path: '/EcucDefs/Det/DetGeneral/CddHeaderFile',
+          kind: 'string',
+          maxLength: 256,
+        }),
       ],
     }),
   ],
@@ -126,8 +154,16 @@ const wdgIf = module({
       shortName: 'WdgIfGeneral',
       path: '/EcucDefs/WdgIf/WdgIfGeneral',
       parameters: [
-        param({ shortName: 'WdgIfDevErrorDetect', path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfDevErrorDetect', kind: 'boolean' }),
-        param({ shortName: 'WdgIfVersionInfoApi', path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfVersionInfoApi', kind: 'boolean' }),
+        param({
+          shortName: 'WdgIfDevErrorDetect',
+          path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfDevErrorDetect',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'WdgIfVersionInfoApi',
+          path: '/EcucDefs/WdgIf/WdgIfGeneral/WdgIfVersionInfoApi',
+          kind: 'boolean',
+        }),
       ],
     }),
     container({
@@ -250,18 +286,42 @@ const pduR = module({
       shortName: 'PduRGeneral',
       path: '/EcucDefs/PduR/PduRGeneral',
       parameters: [
-        param({ shortName: 'CanIfModuleSupport', path: '/EcucDefs/PduR/PduRGeneral/CanIfModuleSupport', kind: 'boolean' }),
-        param({ shortName: 'CanTpModuleSupport', path: '/EcucDefs/PduR/PduRGeneral/CanTpModuleSupport', kind: 'boolean' }),
-        param({ shortName: 'ComModuleSupport', path: '/EcucDefs/PduR/PduRGeneral/ComModuleSupport', kind: 'boolean' }),
-        param({ shortName: 'DcmModuleSupport', path: '/EcucDefs/PduR/PduRGeneral/DcmModuleSupport', kind: 'boolean' }),
+        param({
+          shortName: 'CanIfModuleSupport',
+          path: '/EcucDefs/PduR/PduRGeneral/CanIfModuleSupport',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'CanTpModuleSupport',
+          path: '/EcucDefs/PduR/PduRGeneral/CanTpModuleSupport',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'ComModuleSupport',
+          path: '/EcucDefs/PduR/PduRGeneral/ComModuleSupport',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'DcmModuleSupport',
+          path: '/EcucDefs/PduR/PduRGeneral/DcmModuleSupport',
+          kind: 'boolean',
+        }),
       ],
     }),
     container({
       shortName: 'PduRBswModules',
       path: '/EcucDefs/PduR/PduRBswModules',
       parameters: [
-        param({ shortName: 'PduRUpperModule', path: '/EcucDefs/PduR/PduRBswModules/PduRUpperModule', kind: 'boolean' }),
-        param({ shortName: 'PduRLowerModule', path: '/EcucDefs/PduR/PduRBswModules/PduRLowerModule', kind: 'boolean' }),
+        param({
+          shortName: 'PduRUpperModule',
+          path: '/EcucDefs/PduR/PduRBswModules/PduRUpperModule',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'PduRLowerModule',
+          path: '/EcucDefs/PduR/PduRBswModules/PduRLowerModule',
+          kind: 'boolean',
+        }),
       ],
     }),
     container({
@@ -356,8 +416,16 @@ const com = module({
       shortName: 'ComGeneral',
       path: '/EcucDefs/Com/ComGeneral',
       parameters: [
-        param({ shortName: 'VersionCheck', path: '/EcucDefs/Com/ComGeneral/VersionCheck', kind: 'boolean' }),
-        param({ shortName: 'ComConfigurationUseDet', path: '/EcucDefs/Com/ComGeneral/ComConfigurationUseDet', kind: 'boolean' }),
+        param({
+          shortName: 'VersionCheck',
+          path: '/EcucDefs/Com/ComGeneral/VersionCheck',
+          kind: 'boolean',
+        }),
+        param({
+          shortName: 'ComConfigurationUseDet',
+          path: '/EcucDefs/Com/ComGeneral/ComConfigurationUseDet',
+          kind: 'boolean',
+        }),
         param({
           shortName: 'ComSupportedIPduGroups',
           path: '/EcucDefs/Com/ComGeneral/ComSupportedIPduGroups',

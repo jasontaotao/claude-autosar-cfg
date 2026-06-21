@@ -92,7 +92,10 @@ export async function routeArxmlReader(
     if (!domResult.ok) {
       return {
         ok: false,
-        error: { kind: 'parse-error', message: `stream failed (${message}); dom also failed (${domResult.error.kind})` },
+        error: {
+          kind: 'parse-error',
+          message: `stream failed (${message}); dom also failed (${domResult.error.kind})`,
+        },
       };
     }
     return {

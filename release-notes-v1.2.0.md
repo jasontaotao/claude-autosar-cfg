@@ -13,15 +13,15 @@ change）。
   不被修改**（virtual view 叠加态）。
 - **commit 原子性 + snapshot rollback** (`e3417a5`)：先 snapshot
   `sourceFilesTouched`，然后 immutable apply，任一 patch 抛错 → 立即 rollback
-  + `importSession` 保留供 retry。承诺："documents 部分更新、importSession
-  已清" 的中间态不存在。
+  - `importSession` 保留供 retry。承诺："documents 部分更新、importSession
+    已清" 的中间态不存在。
 - **8 个 store actions + viewMode 三态** (`546b5ab` ~ `098ebbd`)：
   `startImport` / `selectModule` / `resolveModule` / `openDiff` / `closeDiff`
   / `commitImport` / `cancelImport` / `undoLastCommit`。`viewMode` 扩为
   `'single' | 'combined' | 'import-merged'` 三态，互斥 guard 防止误切。
 - **3 个 React UI 组件** (`31c7c78` ~ `d42821b`)：`ImportEntry`（FileListTab
   `[Import…]` 入口）/ `ModuleSelectionPanel`（按 module 列出 + 撞名 badge
-  + Commit 按钮）/ `DiffTable`（三栏 lazy diff + 嵌套展开 + param 高亮）。
+  - Commit 按钮）/ `DiffTable`（三栏 lazy diff + 嵌套展开 + param 高亮）。
 - **4 个纯 TS core 模块** (`506aad0` ~ `e266cb3`)：`core/import/types.ts`
   （4/8/4 kinds unions + 18 类型定义）/ `diff.ts`（`buildModuleDiff`）/
   `merge.ts`（`buildMergedView`）/ `patch.ts`（`compileResolutionToPatches` +
@@ -39,12 +39,12 @@ change）。
 
 ### 17 commits — 3 phase + 1 review fix
 
-| Phase | Commits | Theme |
-|-------|---------|-------|
-| 1+2   | `506aad0` + `7d49e5a` + `31cb402` + `505fc8a` + `e266cb3` + `f9c5ce8` | 4 core modules + i18n + lint cleanup |
-| 3+4   | `546b5ab` + `e9740f8` + `e3417a5` + `098ebbd` + `31c7c78` + `e31ae68` + `d42821b` + `8afe110` | 8 store actions + 3 UI + App routing |
-| 5     | `41941f0` + `ae7d72b` | E2E happy+abort + verify stage 7 |
-| Review | `0291817` | MEDIUM-1: remove dead `'overwrite-module'` branch in patch.ts |
+| Phase  | Commits                                                                                       | Theme                                                         |
+| ------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1+2    | `506aad0` + `7d49e5a` + `31cb402` + `505fc8a` + `e266cb3` + `f9c5ce8`                         | 4 core modules + i18n + lint cleanup                          |
+| 3+4    | `546b5ab` + `e9740f8` + `e3417a5` + `098ebbd` + `31c7c78` + `e31ae68` + `d42821b` + `8afe110` | 8 store actions + 3 UI + App routing                          |
+| 5      | `41941f0` + `ae7d72b`                                                                         | E2E happy+abort + verify stage 7                              |
+| Review | `0291817`                                                                                     | MEDIUM-1: remove dead `'overwrite-module'` branch in patch.ts |
 
 ### Tests
 
@@ -76,7 +76,7 @@ change）。
   - `isDirty()` 含 `importSession` + viewMode 三态 guard
 - **12/12 acceptance gates PASS**（spec §11）
 - MEDIUM-1 已 in-tree fix（commit `0291817`）；2 LOW（silent no-op edge case
-  + 1 处 cosmetic）记录为 Sprint 15+ follow-up
+  - 1 处 cosmetic）记录为 Sprint 15+ follow-up
 
 ### Files
 

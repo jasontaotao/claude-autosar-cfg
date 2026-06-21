@@ -579,8 +579,7 @@ export const MessagesZhCN: Messages = {
     '当前项目 {name} 有未保存的更改。\n添加 BSWMD 将丢失这些更改。',
   'confirm.unsaved.message.removeBswmd':
     '当前项目 {name} 有未保存的更改。\n移除 BSWMD {target} 将丢失这些更改。',
-  'confirm.unsaved.message.import':
-    '当前项目 {name} 有未保存的更改。\n导入 ARXML 将丢失这些更改。',
+  'confirm.unsaved.message.import': '当前项目 {name} 有未保存的更改。\n导入 ARXML 将丢失这些更改。',
   'confirm.unsaved.discard.new': '不保存，新建',
   'confirm.unsaved.discard.open': '不保存，打开',
   'confirm.unsaved.discard.addBswmd': '不保存，添加',
@@ -672,7 +671,8 @@ export const MessagesZhCN: Messages = {
   'mutation.action.addReference': '添加引用',
   'mutation.action.delete': "删除 '{name}'",
   'mutation.action.deleteParameter': '删除参数',
-  'mutation.action.deleteReferenceNotImplemented': '删除引用功能尚未实现（已加入 Sprint A backlog）',
+  'mutation.action.deleteReferenceNotImplemented':
+    '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
   'confirm.cascade.message': "'{name}' 被 {count} 处引用指向：",
   'confirm.cascade.cancel': '取消',
@@ -767,7 +767,8 @@ export const MessagesZhCN: Messages = {
   'script.violation.group': '脚本校验',
   'error.applyMutation.plan-invalid': '无效的变更计划: {violations}',
   'error.applyMutation.reference-cycle': '检测到引用循环: {from} → {to}',
-  'error.applyMutation.multiplicity-violation': '{path} 处多重性违规: 期望 {required}，实际 {actual}',
+  'error.applyMutation.multiplicity-violation':
+    '{path} 处多重性违规: 期望 {required}，实际 {actual}',
   'error.applyMutation.concurrent-mutation': '检测到并发变更: {planId} 与 {conflictingPlanId} 冲突',
 };
 
@@ -991,7 +992,8 @@ export const MessagesEn: Messages = {
   'mutation.action.addReference': 'Add reference',
   'mutation.action.delete': "Delete '{name}'",
   'mutation.action.deleteParameter': 'Delete parameter',
-  'mutation.action.deleteReferenceNotImplemented': 'Deleting references is not yet implemented (tracked in Sprint A backlog)',
+  'mutation.action.deleteReferenceNotImplemented':
+    'Deleting references is not yet implemented (tracked in Sprint A backlog)',
   'confirm.cascade.title': "Delete '{name}'?",
   'confirm.cascade.message': "'{name}' is referenced by {count} places:",
   'confirm.cascade.cancel': 'Cancel',
@@ -1087,8 +1089,10 @@ export const MessagesEn: Messages = {
   'script.violation.group': 'Script validations',
   'error.applyMutation.plan-invalid': 'Invalid mutation plan: {violations}',
   'error.applyMutation.reference-cycle': 'Reference cycle detected: {from} → {to}',
-  'error.applyMutation.multiplicity-violation': 'Multiplicity violation at {path}: expected {required}, got {actual}',
-  'error.applyMutation.concurrent-mutation': 'Concurrent mutation detected: {planId} vs {conflictingPlanId}',
+  'error.applyMutation.multiplicity-violation':
+    'Multiplicity violation at {path}: expected {required}, got {actual}',
+  'error.applyMutation.concurrent-mutation':
+    'Concurrent mutation detected: {planId} vs {conflictingPlanId}',
 };
 
 // ---------------------------------------------------------------------------

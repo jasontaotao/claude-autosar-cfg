@@ -143,10 +143,7 @@ describe('ImportEntry (Sprint 14 / T10)', () => {
           { path: '/in/B.arxml', content: '<b/>' },
         ],
       }),
-      parseArxml: vi
-        .fn()
-        .mockResolvedValueOnce(parsed1)
-        .mockResolvedValueOnce(parsed2),
+      parseArxml: vi.fn().mockResolvedValueOnce(parsed1).mockResolvedValueOnce(parsed2),
     });
     const { getByTestId } = render(<ImportEntry />);
     fireEvent.click(getByTestId('import-entry-button'));

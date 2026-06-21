@@ -593,9 +593,7 @@ describe('serializeArxml — preserveSourceOrder mode (PR(2))', () => {
 
     const result = serializeArxml(parsed.value, { sourceArxml: source });
     if (!result.ok) throw new Error(`serialize failed: ${result.error.kind}`);
-    expect(extractPackageShortNames(result.value)).toEqual(
-      extractPackageShortNames(source),
-    );
+    expect(extractPackageShortNames(result.value)).toEqual(extractPackageShortNames(source));
     expect(extractElementOrder(result.value)).toEqual(extractElementOrder(source));
   });
 

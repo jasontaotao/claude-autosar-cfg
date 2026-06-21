@@ -99,12 +99,7 @@ function DiffRow({
                 data-testid={radioId}
                 onChange={() => onResolutionChange(value)}
               />
-              <span>
-                {t(
-                  useArxmlStore.getState().locale,
-                  resolutionToI18nKey(value),
-                )}
-              </span>
+              <span>{t(useArxmlStore.getState().locale, resolutionToI18nKey(value))}</span>
             </label>
           );
         })}
@@ -114,7 +109,9 @@ function DiffRow({
 }
 
 /** Map ImportResolution → i18n key (full key). */
-function resolutionToI18nKey(r: ImportResolution):
+function resolutionToI18nKey(
+  r: ImportResolution,
+):
   | 'app.import.resolution.keepExisting'
   | 'app.import.resolution.overwrite'
   | 'app.import.resolution.keepBoth'
@@ -223,7 +220,9 @@ export function DiffTable(): JSX.Element | null {
       <section
         className="diff-table diff-table-error"
         data-testid="diff-table-error"
-        aria-label={t(locale, 'app.import.diff.title', { shortName: activeSelection.moduleShortName })}
+        aria-label={t(locale, 'app.import.diff.title', {
+          shortName: activeSelection.moduleShortName,
+        })}
       >
         <header className="diff-table-header">
           <h3 className="diff-table-title">
@@ -245,15 +244,16 @@ export function DiffTable(): JSX.Element | null {
 
   const diff = diffResult.value;
   const moduleResolution =
-    importSession.resolutions.find(
-      (r) => r.mergedModulePath === activeSelection.mergedModulePath,
-    )?.resolution ?? 'overwrite';
+    importSession.resolutions.find((r) => r.mergedModulePath === activeSelection.mergedModulePath)
+      ?.resolution ?? 'overwrite';
 
   return (
     <section
       className="diff-table"
       data-testid="diff-table"
-      aria-label={t(locale, 'app.import.diff.title', { shortName: activeSelection.moduleShortName })}
+      aria-label={t(locale, 'app.import.diff.title', {
+        shortName: activeSelection.moduleShortName,
+      })}
     >
       <header className="diff-table-header">
         <h3 className="diff-table-title">
@@ -290,7 +290,11 @@ export function DiffTable(): JSX.Element | null {
               importSession.resolutions
                 .find((r) => r.mergedModulePath === activeSelection.mergedModulePath)
                 ?.containerResolutions?.get(path) ??
-              (c.existing === null ? 'overwrite' : c.incoming === null ? 'keep-existing' : moduleResolution);
+              (c.existing === null
+                ? 'overwrite'
+                : c.incoming === null
+                  ? 'keep-existing'
+                  : moduleResolution);
             return (
               <DiffRow
                 key={path}
@@ -306,10 +310,8 @@ export function DiffTable(): JSX.Element | null {
           {/* Param override rows. */}
           {diff.paramOverrides.map((p) => {
             const rowResolution = moduleResolution;
-            const existingLabel =
-              p.existingValue === null ? null : String(p.existingValue);
-            const incomingLabel =
-              p.incomingValue === null ? null : String(p.incomingValue);
+            const existingLabel = p.existingValue === null ? null : String(p.existingValue);
+            const incomingLabel = p.incomingValue === null ? null : String(p.incomingValue);
             const isHighlighted = existingLabel !== incomingLabel;
             return (
               <DiffRow

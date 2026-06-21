@@ -156,7 +156,11 @@ export function ScriptPanel({ onCommitMutation }: ScriptPanelProps = {}): JSX.El
   const busy = loading.list || loading.save || loading.run || loading.delete;
 
   return (
-    <section className="script-panel" aria-label={t(locale, 'script.panel.title')} data-testid="script-panel">
+    <section
+      className="script-panel"
+      aria-label={t(locale, 'script.panel.title')}
+      data-testid="script-panel"
+    >
       <header className="script-panel-header">
         <h2>{t(locale, 'script.panel.title')}</h2>
         <div className="script-panel-header-actions">

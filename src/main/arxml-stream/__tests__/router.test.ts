@@ -9,11 +9,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  _resetFlagCache,
-  _setSettingsPathForTest,
-  setFlagForTest,
-} from '../feature-flag.js';
+import { _resetFlagCache, _setSettingsPathForTest, setFlagForTest } from '../feature-flag.js';
 import { routeArxmlReader } from '../router.js';
 
 const DET_FIXTURE = readFileSync(

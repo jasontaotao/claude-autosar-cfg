@@ -188,14 +188,10 @@ describe('Sprint 14 — diff: buildModuleDiff', () => {
       V: makeParamValue('new'),
     });
     const existing = makeModule('Can', [
-      makeContainer('A', '/Can/A', {}, [
-        makeContainer('B', '/Can/A/B', {}, [leafExisting]),
-      ]),
+      makeContainer('A', '/Can/A', {}, [makeContainer('B', '/Can/A/B', {}, [leafExisting])]),
     ]);
     const incoming = makeModule('Can', [
-      makeContainer('A', '/Can/A', {}, [
-        makeContainer('B', '/Can/A/B', {}, [leafIncoming]),
-      ]),
+      makeContainer('A', '/Can/A', {}, [makeContainer('B', '/Can/A/B', {}, [leafIncoming])]),
     ]);
 
     // Act

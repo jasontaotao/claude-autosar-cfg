@@ -100,9 +100,7 @@ export function ImportEntry({ variant = 'inline' }: ImportEntryProps): JSX.Eleme
           }
           // First failure aborts the loop and bails the import.
           const message = saveResult.ok ? 'save canceled by user' : saveResult.error.message;
-          setError(
-            t(locale, 'app.error.saveFailed', { message }),
-          );
+          setError(t(locale, 'app.error.saveFailed', { message }));
           return;
         }
       }
@@ -162,7 +160,8 @@ export function ImportEntry({ variant = 'inline' }: ImportEntryProps): JSX.Eleme
     }
   }, [busy, isDirty, locale, setError, startImport]);
 
-  const className = variant === 'standalone' ? 'import-entry import-entry-standalone' : 'import-entry';
+  const className =
+    variant === 'standalone' ? 'import-entry import-entry-standalone' : 'import-entry';
   return (
     <button
       type="button"

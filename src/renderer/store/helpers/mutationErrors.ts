@@ -15,7 +15,6 @@ import { computeDisplayDoc } from './combinedDoc.js';
 import type { CombinedDocumentWarning } from './combinedDoc.js';
 import { addToDirty } from './dirty.js';
 
-
 /**
  * Translate a `MutationError` into a localized message via the i18n
  * bundle. The 6 kinds map 1:1 onto the `mutation.error.<kind>` keys

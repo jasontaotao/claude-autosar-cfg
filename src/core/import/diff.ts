@@ -25,12 +25,7 @@ import type {
   Result,
 } from '../arxml/types.js';
 
-import type {
-  ContainerDiff,
-  ImportError,
-  ModuleDiff,
-  ParamOverride,
-} from './types.js';
+import type { ContainerDiff, ImportError, ModuleDiff, ParamOverride } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public surface
@@ -63,7 +58,9 @@ export function buildModuleDiff(
 
   // Flatten both modules into path → container maps. Each path can
   // hold 0..N instances; we count them so multiplicity is observable.
-  const existingMap = existing ? flattenContainers(existing, modulePath) : new Map<string, ArxmlContainer[]>();
+  const existingMap = existing
+    ? flattenContainers(existing, modulePath)
+    : new Map<string, ArxmlContainer[]>();
   const incomingMap = flattenContainers(incoming, modulePath);
 
   // 1. Multiplicity check on incoming. The caller controls the cap
@@ -154,10 +151,7 @@ export function buildModuleDiff(
  * map. Paths are absolute (`/Can/Cfg/...`) so they can be diffed
  * between two modules without collision.
  */
-function flattenContainers(
-  module: ArxmlModule,
-  modulePath: string,
-): Map<string, ArxmlContainer[]> {
+function flattenContainers(module: ArxmlModule, modulePath: string): Map<string, ArxmlContainer[]> {
   const out = new Map<string, ArxmlContainer[]>();
   for (const el of module.children) {
     walk(el, modulePath, out);
@@ -165,11 +159,7 @@ function flattenContainers(
   return out;
 }
 
-function walk(
-  el: ArxmlElement,
-  parentPath: string,
-  out: Map<string, ArxmlContainer[]>,
-): void {
+function walk(el: ArxmlElement, parentPath: string, out: Map<string, ArxmlContainer[]>): void {
   if (el.kind !== 'container') return;
   const path = `${parentPath}/${el.shortName}`;
   const list = out.get(path);
@@ -240,14 +230,13 @@ function paramValueEqual(a: ParamValue, b: ParamValue): boolean {
     case 'enum':
       return a.value === (b as typeof a).value;
     case 'reference':
-      return a.value === (b as { value: unknown }).value && a.dest === (b as { dest?: string }).dest;
+      return (
+        a.value === (b as { value: unknown }).value && a.dest === (b as { dest?: string }).dest
+      );
   }
 }
 
-function diffReferences(
-  existing: readonly string[],
-  incoming: readonly string[],
-): string[] {
+function diffReferences(existing: readonly string[], incoming: readonly string[]): string[] {
   const set = new Set<string>([...existing, ...incoming]);
   return [...set].sort();
 }

@@ -13,13 +13,14 @@ import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { dirname as sharedDirname } from '@shared/path';
 
-import { computeDisplayDoc, resolveContainerTarget, stripCombinedPrefix } from '../helpers/combinedDoc.js';
+import {
+  computeDisplayDoc,
+  resolveContainerTarget,
+  stripCombinedPrefix,
+} from '../helpers/combinedDoc.js';
 import { addToDirty, dropFromDirty } from '../helpers/dirty.js';
 import { applyParamUpdate } from '../helpers/paramUpdate.js';
-import {
-  projectSyncAddPath,
-  projectSyncRemovePath,
-} from '../helpers/projectSync.js';
+import { projectSyncAddPath, projectSyncRemovePath } from '../helpers/projectSync.js';
 import type { ArxmlState } from '../useArxmlStore.js';
 
 export interface EcucSlice {

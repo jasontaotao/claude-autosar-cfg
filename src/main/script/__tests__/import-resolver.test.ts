@@ -109,16 +109,12 @@ describe('resolveImports', () => {
     // Each level exports its own symbol; the chain is real: c depends
     // on b (and transitively on a), not just a re-import of a's symbol.
     const a = entry('a', 'export const aSym = 1;', []);
-    const b = entry(
-      'b',
-      `import { aSym } from './a'\nexport const bSym = aSym + 1;`,
-      [{ from: 'a', names: ['aSym'] }],
-    );
-    const c = entry(
-      'c',
-      `import { bSym } from './b'\nexport const cSym = bSym + 1;`,
-      [{ from: 'b', names: ['bSym'] }],
-    );
+    const b = entry('b', `import { aSym } from './a'\nexport const bSym = aSym + 1;`, [
+      { from: 'a', names: ['aSym'] },
+    ]);
+    const c = entry('c', `import { bSym } from './b'\nexport const cSym = bSym + 1;`, [
+      { from: 'b', names: ['bSym'] },
+    ]);
     const order = resolveImports(c, [a, b, c]);
     expect(order.map((e) => e.shortName)).toEqual(['a', 'b', 'c']);
   });
@@ -126,16 +122,12 @@ describe('resolveImports', () => {
   it('orders a diamond (entry depends on two siblings sharing a parent)', () => {
     const root = entry('root', 'export const shared = 1;', []);
     // a and b both re-export `shared` from `root`; main imports from both.
-    const a = entry(
-      'a',
-      `import { shared } from './root'\nexport const aShared = shared;`,
-      [{ from: 'root', names: ['shared'] }],
-    );
-    const b = entry(
-      'b',
-      `import { shared } from './root'\nexport const bShared = shared;`,
-      [{ from: 'root', names: ['shared'] }],
-    );
+    const a = entry('a', `import { shared } from './root'\nexport const aShared = shared;`, [
+      { from: 'root', names: ['shared'] },
+    ]);
+    const b = entry('b', `import { shared } from './root'\nexport const bShared = shared;`, [
+      { from: 'root', names: ['shared'] },
+    ]);
     const main = entry(
       'main',
       `import { aShared } from './a'\nimport { bShared } from './b'\nexport const m = aShared + bShared;`,
@@ -170,16 +162,12 @@ describe('resolveImports', () => {
     // self-referential, so the cycle detector must fire BEFORE the
     // export check (or the export check passes vacuously and the
     // cycle is detected by stack tracking).
-    const a = entry(
-      'a',
-      `import { y } from './b'\nexport const x = 1;`,
-      [{ from: 'b', names: ['y'] }],
-    );
-    const b = entry(
-      'b',
-      `import { x } from './a'\nexport const y = 2;`,
-      [{ from: 'a', names: ['x'] }],
-    );
+    const a = entry('a', `import { y } from './b'\nexport const x = 1;`, [
+      { from: 'b', names: ['y'] },
+    ]);
+    const b = entry('b', `import { x } from './a'\nexport const y = 2;`, [
+      { from: 'a', names: ['x'] },
+    ]);
     expect(() => resolveImports(a, [a, b])).toThrowError(ScriptError);
     expect(() => resolveImports(a, [a, b])).toThrow(/circular/);
   });
@@ -189,21 +177,15 @@ describe('resolveImports', () => {
     // `aSym` from a — forms a cycle (a → b → c → a). Each module
     // exports a real symbol so the hasExport check passes for each
     // named import.
-    const a = entry(
-      'a',
-      `import { bSym } from './b'\nexport const aSym = 1;`,
-      [{ from: 'b', names: ['bSym'] }],
-    );
-    const b = entry(
-      'b',
-      `import { cSym } from './c'\nexport const bSym = 2;`,
-      [{ from: 'c', names: ['cSym'] }],
-    );
-    const c = entry(
-      'c',
-      `import { aSym } from './a'\nexport const cSym = 3;`,
-      [{ from: 'a', names: ['aSym'] }],
-    );
+    const a = entry('a', `import { bSym } from './b'\nexport const aSym = 1;`, [
+      { from: 'b', names: ['bSym'] },
+    ]);
+    const b = entry('b', `import { cSym } from './c'\nexport const bSym = 2;`, [
+      { from: 'c', names: ['cSym'] },
+    ]);
+    const c = entry('c', `import { aSym } from './a'\nexport const cSym = 3;`, [
+      { from: 'a', names: ['aSym'] },
+    ]);
     expect(() => resolveImports(a, [a, b, c])).toThrow(/circular/);
   });
 

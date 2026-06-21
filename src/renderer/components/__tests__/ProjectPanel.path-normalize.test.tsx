@@ -148,10 +148,7 @@ describe('ProjectPanelInfo — BSWMD chip path-normalize (Sprint A / P0-A1)', ()
     // row 0 surfaces Can's count and row 1 surfaces Adc's count.
     useArxmlStore.setState({
       bswmdSchemas: [
-        makeBswmd([
-          makeModule('Can', '/EcucDefs/Can'),
-          makeModule('CanIf', '/EcucDefs/CanIf'),
-        ]),
+        makeBswmd([makeModule('Can', '/EcucDefs/Can'), makeModule('CanIf', '/EcucDefs/CanIf')]),
         makeBswmd([makeModule('Adc', '/EcucDefs/Adc')]),
       ],
       bswmdPaths: ['D:\\proj\\subdir1\\EcuC.arxml', 'D:\\proj\\subdir2\\EcuC.arxml'],

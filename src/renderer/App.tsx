@@ -282,11 +282,7 @@ export function App(): JSX.Element {
   // closure here is intentionally thin — all routing logic lives in
   // `handleContextMenuAction` below.
   const handleContextMenu = useCallback(
-    (
-      path: string,
-      kind: 'module' | 'container' | 'reference',
-      e: ReactMouseEvent,
-    ): void => {
+    (path: string, kind: 'module' | 'container' | 'reference', e: ReactMouseEvent): void => {
       // Extract `shortName` from the path's last segment so the
       // menu's delete label can show what is being deleted.
       const shortName = path.split('/').filter(Boolean).pop() ?? '';
@@ -328,9 +324,7 @@ export function App(): JSX.Element {
           // is supported (the menu exposes the item) but its
           // underlying mutation is not yet implemented — see
           // Sprint A backlog.
-          setInfo(
-            i18nT(locale, 'mutation.action.deleteReferenceNotImplemented'),
-          );
+          setInfo(i18nT(locale, 'mutation.action.deleteReferenceNotImplemented'));
           return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
@@ -385,10 +379,7 @@ export function App(): JSX.Element {
         >
           <Panel id="workspace-left" minSize="20%" defaultSize="30%">
             {isImportMerged ? (
-              <div
-                className="app-import-merged-column"
-                data-testid="app-import-merged-column"
-              >
+              <div className="app-import-merged-column" data-testid="app-import-merged-column">
                 <ModuleSelectionPanel />
                 <DiffTable />
               </div>

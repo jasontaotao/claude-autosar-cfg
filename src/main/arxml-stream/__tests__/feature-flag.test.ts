@@ -59,10 +59,7 @@ describe('feature-flag', () => {
   });
 
   it('defaults missing keys to OFF', () => {
-    writeFileSync(
-      join(tempDir, 'settings.json'),
-      JSON.stringify({ experimental: {} }),
-    );
+    writeFileSync(join(tempDir, 'settings.json'), JSON.stringify({ experimental: {} }));
     _resetFlagCache();
     expect(isStreamingEnabled()).toBe(false);
     expect(isIndexedDbEnabled()).toBe(false);

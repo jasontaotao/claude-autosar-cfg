@@ -30,12 +30,7 @@ import type {
 
 describe('Sprint 14 — types: union constants', () => {
   it('IMPORT_RESOLUTIONS lists exactly 4 kinds', () => {
-    expect(IMPORT_RESOLUTIONS).toEqual([
-      'keep-existing',
-      'overwrite',
-      'keep-both',
-      'skip',
-    ]);
+    expect(IMPORT_RESOLUTIONS).toEqual(['keep-existing', 'overwrite', 'keep-both', 'skip']);
   });
 
   it('IMPORT_PATCH_OP_KINDS lists exactly 4 kinds', () => {
@@ -93,9 +88,7 @@ describe('Sprint 14 — types: isImportPatchOp', () => {
       children: [],
       references: [],
     };
-    expect(
-      isImportPatchOp({ kind: 'add-module', module: mod }),
-    ).toBe(true);
+    expect(isImportPatchOp({ kind: 'add-module', module: mod })).toBe(true);
     expect(
       isImportPatchOp({
         kind: 'merge-into-module',
@@ -131,7 +124,12 @@ describe('Sprint 14 — types: isImportError', () => {
       { kind: 'read-failed', path: '/x.arxml', message: 'enoent' },
       { kind: 'parse-failed', path: '/x.arxml', message: 'malformed' },
       { kind: 'diff-failed', mergedModulePath: '/a', message: 'oops' },
-      { kind: 'patch-apply-failed', sourceFile: '/a.arxml', moduleShortName: 'Can', message: 'oops' },
+      {
+        kind: 'patch-apply-failed',
+        sourceFile: '/a.arxml',
+        moduleShortName: 'Can',
+        message: 'oops',
+      },
       { kind: 'multiplicity-exceeded', sourceFile: '/a.arxml', containerPath: '/a', limit: 1 },
       { kind: 'no-modules-selected' },
       { kind: 'view-mode-locked', currentViewMode: 'import-merged' },
@@ -185,9 +183,7 @@ describe('Sprint 14 — types: readonly invariants', () => {
     const m: ModuleResolution = {
       mergedModulePath: '/[import:0]/Can',
       resolution: 'overwrite',
-      containerResolutions: new Map<string, ImportResolution>([
-        ['/Can/ContainerA', 'overwrite'],
-      ]),
+      containerResolutions: new Map<string, ImportResolution>([['/Can/ContainerA', 'overwrite']]),
     };
     expect(m.containerResolutions?.get('/Can/ContainerA')).toBe('overwrite');
   });

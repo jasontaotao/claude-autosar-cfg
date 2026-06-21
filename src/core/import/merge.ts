@@ -77,10 +77,7 @@ export function buildMergedView(
  *   - 'keep-both'                  → rename to `<shortName>_imported`
  *   - 'skip'                       → return null
  */
-function renderSelection(
-  sel: ModuleSelection,
-  resolution: ImportResolution,
-): MergedModule | null {
+function renderSelection(sel: ModuleSelection, resolution: ImportResolution): MergedModule | null {
   if (resolution === 'skip') return null;
   const shortName =
     resolution === 'keep-both' ? `${sel.moduleShortName}_imported` : sel.moduleShortName;

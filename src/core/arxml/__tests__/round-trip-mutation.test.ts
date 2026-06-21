@@ -132,7 +132,9 @@ describe('round-trip: addContainer survives serialize / re-parse', () => {
     // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
     expect(
       newRoot.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).toContain('Sprint15TestContainer');
   });
@@ -286,7 +288,9 @@ describe('round-trip: removeContainer survives serialize / re-parse', () => {
     // v1.4.0 trust sprint — 17c. Filter to known kinds (unknown has no SHORT-NAME).
     expect(
       newRoot.children
-        .filter((c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container')
+        .filter(
+          (c): c is ArxmlModule | ArxmlContainer => c.kind === 'module' || c.kind === 'container',
+        )
         .map((c) => c.shortName),
     ).not.toContain('Sprint15ToBeRemoved');
   });

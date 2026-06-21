@@ -96,7 +96,10 @@ export function isIndexedDbEnabled(): boolean {
  * returns a Result to make parse / IO failures explicit instead of
  * silently defaulting to OFF (callers can log when needed).
  */
-export function readFlags(): Result<FlagsConfig, { readonly kind: 'io-error'; readonly message: string }> {
+export function readFlags(): Result<
+  FlagsConfig,
+  { readonly kind: 'io-error'; readonly message: string }
+> {
   try {
     return { ok: true, value: applyOverride(loadFlags()) };
   } catch (err) {

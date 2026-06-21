@@ -406,21 +406,17 @@ export function registerIpcHandlers(): void {
   // `SCRIPT_PROGRESS` channel is push-only (main → renderer via
   // webContents.send); it is intentionally NOT registered here
   // (Phase C wires the subscription in the preload bridge).
-  ipcMain.handle(
-    IPC_CHANNELS.SCRIPT_LIST,
-    async (_evt, req: ScriptListRequest) => scriptListHandler(req),
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_LIST, async (_evt, req: ScriptListRequest) =>
+    scriptListHandler(req),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.SCRIPT_SAVE,
-    async (_evt, req: ScriptSaveRequest) => scriptSaveHandler(req),
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_SAVE, async (_evt, req: ScriptSaveRequest) =>
+    scriptSaveHandler(req),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.SCRIPT_DELETE,
-    async (_evt, req: ScriptDeleteRequest) => scriptDeleteHandler(req),
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) =>
+    scriptDeleteHandler(req),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.SCRIPT_RUN,
-    async (_evt, req: ScriptRunRequest) => scriptRunHandler(req),
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_RUN, async (_evt, req: ScriptRunRequest) =>
+    scriptRunHandler(req),
   );
 
   ipcMain.handle(

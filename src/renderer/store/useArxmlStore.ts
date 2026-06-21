@@ -25,11 +25,7 @@ import type {
   ResolvedContainerTarget,
 } from './helpers/combinedDoc.js';
 export { resolveContainerTarget };
-export type {
-  CombinedDocumentResult,
-  CombinedDocumentWarning,
-  ResolvedContainerTarget,
-};
+export type { CombinedDocumentResult, CombinedDocumentWarning, ResolvedContainerTarget };
 import { createBswmdSlice, type BswmdSlice } from './slices/bswmdSlice.js';
 import { createEcucSlice, type EcucSlice } from './slices/ecucSlice.js';
 import { createI18nSlice, type I18nSlice } from './slices/i18nSlice.js';
@@ -108,7 +104,8 @@ export interface BswmdRemoveSnapshot {
 // or destructure via `import type { ArxmlState }`.
 // ---------------------------------------------------------------------------
 
-export interface ArxmlState extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice {
+export interface ArxmlState
+  extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice, ImportSlice, MutationSlice {
   // Every field is declared on its owning slice interface above; this
   // type is the public intersection. The body is intentionally empty.
 }

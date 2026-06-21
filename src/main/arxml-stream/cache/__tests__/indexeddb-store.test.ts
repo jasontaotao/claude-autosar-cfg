@@ -84,7 +84,10 @@ class FakeTransaction {
   oncomplete: (() => void) | null = null;
   onerror: ((err: unknown) => void) | null = null;
   onabort: ((err: unknown) => void) | null = null;
-  constructor(private readonly db: FakeDatabase, public readonly mode: string = 'readonly') {}
+  constructor(
+    private readonly db: FakeDatabase,
+    public readonly mode: string = 'readonly',
+  ) {}
   objectStore(name: string): FakeObjectStore {
     let store = this.db['stores'].get(name);
     if (store === undefined) {
@@ -107,7 +110,10 @@ class FakeDatabase {
     contains: (name: string) => name === CACHE_STORE_NAME,
   };
   private stores = new Map<string, FakeObjectStore>();
-  constructor(public readonly name: string, public readonly version: number) {}
+  constructor(
+    public readonly name: string,
+    public readonly version: number,
+  ) {}
 
   transaction(_names: string | string[], mode?: 'readonly' | 'readwrite'): FakeTransaction {
     const tx = new FakeTransaction(this, mode ?? 'readonly');
@@ -234,11 +240,7 @@ describe('indexeddb-store — happy path', () => {
 
   it('handles concurrent sets without corruption', async () => {
     const key = 'concurrent';
-    await Promise.all([
-      cacheSet(key, MOCK_DOC),
-      cacheSet(key, MOCK_DOC),
-      cacheSet(key, MOCK_DOC),
-    ]);
+    await Promise.all([cacheSet(key, MOCK_DOC), cacheSet(key, MOCK_DOC), cacheSet(key, MOCK_DOC)]);
     const result = await cacheGet(key);
     expect(result.ok).toBe(true);
     if (result.ok && result.value !== null) {
@@ -290,7 +292,9 @@ describe('indexeddb-store — schema-version invalidation', () => {
     await cacheSet(key, MOCK_DOC);
 
     // Tamper with the stored record's schemaVersion to simulate a version bump.
-    const db = (factory as unknown as { dbs: Map<string, FakeDatabase> }).dbs.get(CACHE_DB_NAME) as FakeDatabase;
+    const db = (factory as unknown as { dbs: Map<string, FakeDatabase> }).dbs.get(
+      CACHE_DB_NAME,
+    ) as FakeDatabase;
     const store = db.transaction(CACHE_STORE_NAME).objectStore(CACHE_STORE_NAME);
     const req = store.get(key);
     const record = await new Promise<FakeStoreValue | undefined>((resolve) => {

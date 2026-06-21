@@ -34,12 +34,7 @@ import type {
   ArxmlPackage,
 } from '../arxml/types.js';
 
-import type {
-  ImportPatch,
-  ImportPatchOp,
-  ImportResolution,
-  ImportSession,
-} from './types.js';
+import type { ImportPatch, ImportPatchOp, ImportResolution, ImportSession } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public surface — compile
@@ -184,10 +179,7 @@ export function applyPatchesToDocument(
 // Apply helpers
 // ---------------------------------------------------------------------------
 
-function applyOp(
-  packages: readonly ArxmlPackage[],
-  op: ImportPatchOp,
-): readonly ArxmlPackage[] {
+function applyOp(packages: readonly ArxmlPackage[], op: ImportPatchOp): readonly ArxmlPackage[] {
   switch (op.kind) {
     case 'add-module': {
       // Add a module to the first package. If a module with the same
@@ -224,9 +216,7 @@ function applyOp(
           const existingShortNames = new Set(
             el.children.filter((c) => c.kind === 'container').map((c) => c.shortName),
           );
-          const additions = op.additions.filter(
-            (c) => !existingShortNames.has(c.shortName),
-          );
+          const additions = op.additions.filter((c) => !existingShortNames.has(c.shortName));
           return { ...el, children: [...el.children, ...additions] };
         }),
       }));
@@ -255,10 +245,7 @@ function applyOp(
 // Walk helpers
 // ---------------------------------------------------------------------------
 
-function collectModules(
-  el: ArxmlElement,
-  visit: (m: ArxmlModule) => void,
-): void {
+function collectModules(el: ArxmlElement, visit: (m: ArxmlModule) => void): void {
   if (el.kind === 'module') {
     visit(el);
     return;
@@ -300,10 +287,7 @@ function collectContainers(el: ArxmlElement, out: ArxmlContainer[]): void {
   }
 }
 
-function lookupResolution(
-  session: ImportSession,
-  mergedModulePath: string,
-): ImportResolution {
+function lookupResolution(session: ImportSession, mergedModulePath: string): ImportResolution {
   for (const r of session.resolutions) {
     if (r.mergedModulePath === mergedModulePath) return r.resolution;
   }

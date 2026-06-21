@@ -24,6 +24,7 @@ default OFF). v1.6.0 then has a clean foundation to build on.
 ## 1. Scope
 
 ### In scope (6 atomic PRs)
+
 1. **`isPathInside` hardening** — v1.4.0 Trust Sprint already partial; finish
 2. **`preserveOrder` determinism** — explicit serialization order
 3. **`removeReference` store action** — cascade delete helper
@@ -32,6 +33,7 @@ default OFF). v1.6.0 then has a clean foundation to build on.
 6. **Streaming module + IndexedDB cache** — feature-flagged, default OFF
 
 ### Out of scope (v1.6.0+)
+
 - v1.6.0 features (W Onboarding / A+C Headless CLI / G SWS Validator / U Keyboard)
 - Cross-platform packaging polish (A11y item X)
 - Locale-deep scripting docs (A11y item Y)
@@ -41,14 +43,14 @@ default OFF). v1.6.0 then has a clean foundation to build on.
 
 ## 2. Decisions Locked (Q1–Q6)
 
-| # | Question | Answer | Why |
-|---|----------|--------|-----|
-| Q1 | v1.5.1 scope boundary | **A — Full Foundation** (4 tech-debt + H streaming) | Unlocks 5/10 v1.6.0 items; PATCH is right size for a foundation sprint |
-| Q2 | Streaming approach | **D — Independent module + DOM unchanged** | DOM stays default; new module outputs same `NormalizedDocument` abstraction; gradual migration path |
-| Q3 | File split target | **A — 800-line cap (ECC common rule)** | Follows existing project rule; 4-file decomposition; conservative refactor |
-| Q4 | Test coverage bar | **D — Per-type** (refactor 0 net; new code ≥ 90/80; total ≥ 95.5/87) | Acknowledges streaming/IndexedDB hard to mock; doesn't lower total bar unnecessarily |
-| Q5 | Round-trip acceptance | **B — All fixtures + explicit tolerance rules** | Catches v1.4.2-style P0 regressions; tolerance whitelist is documented (not ad-hoc) |
-| Q6 | Feature flag policy | **A — Dual track** (refactor default ON; new code feature-flagged) | Refactors have 1557 tests as fuse; new code warrants opt-in |
+| #   | Question              | Answer                                                               | Why                                                                                                 |
+| --- | --------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Q1  | v1.5.1 scope boundary | **A — Full Foundation** (4 tech-debt + H streaming)                  | Unlocks 5/10 v1.6.0 items; PATCH is right size for a foundation sprint                              |
+| Q2  | Streaming approach    | **D — Independent module + DOM unchanged**                           | DOM stays default; new module outputs same `NormalizedDocument` abstraction; gradual migration path |
+| Q3  | File split target     | **A — 800-line cap (ECC common rule)**                               | Follows existing project rule; 4-file decomposition; conservative refactor                          |
+| Q4  | Test coverage bar     | **D — Per-type** (refactor 0 net; new code ≥ 90/80; total ≥ 95.5/87) | Acknowledges streaming/IndexedDB hard to mock; doesn't lower total bar unnecessarily                |
+| Q5  | Round-trip acceptance | **B — All fixtures + explicit tolerance rules**                      | Catches v1.4.2-style P0 regressions; tolerance whitelist is documented (not ad-hoc)                 |
+| Q6  | Feature flag policy   | **A — Dual track** (refactor default ON; new code feature-flagged)   | Refactors have 1557 tests as fuse; new code warrants opt-in                                         |
 
 ## 3. Build Approach
 
@@ -74,12 +76,14 @@ Total: 4–6 wks, with 4 work-streams at peak parallelism. Each PR ≤ 500
 lines (except PR(6) ≈ 800 lines, but new package + feature-flagged).
 
 ### Why not Big-Bang (Approach 2)
+
 v1.4.2 taught us: large PRs hide P0 bugs. Two P0 regressions in v1.4.2
 (IPC field drop, chip 0/0 inconsistency) were both visible to code
 review only after the bug-class was understood. Big-Bang would compound
 that risk.
 
 ### Why not Parallel-Streams (Approach 3)
+
 2 parallel branches + 1 release cut = merge conflict risk on shared
 types. v1.5.1 has enough parallelism within Layered Atomic without
 the release-branch complexity.
@@ -101,7 +105,7 @@ src/main/                          src/core/                          src/render
 ```
 
 ★ PR(4) modifies the existing `src/core/arxml/mutation.ts` (885 lines,
-  contains the Sprint 14 #2 stub). Not a new file.
+contains the Sprint 14 #2 stub). Not a new file.
 
 ### Layer B — New infrastructure layer (feature-flagged, default OFF)
 
@@ -134,30 +138,30 @@ streaming paths. New file: `src/shared/normalized-document.ts`.
 
 ```ts
 export interface NormalizedDocument {
-  readonly version: '4.x' | '5.x' | '6.x'
-  readonly packages: ReadonlyArray<ArPackage>
-  readonly modules: ReadonlyArray<EcucModule>
-  readonly references: ReadonlyArray<Reference>
-  readonly sourceOrder: ReadonlyArray<string>     // for preserveOrder
-  readonly origin: 'dom' | 'stream'              // diagnostics
+  readonly version: '4.x' | '5.x' | '6.x';
+  readonly packages: ReadonlyArray<ArPackage>;
+  readonly modules: ReadonlyArray<EcucModule>;
+  readonly references: ReadonlyArray<Reference>;
+  readonly sourceOrder: ReadonlyArray<string>; // for preserveOrder
+  readonly origin: 'dom' | 'stream'; // diagnostics
 }
 
 export interface MutationPlan {
-  readonly id: string
+  readonly id: string;
   readonly operations: ReadonlyArray<
     | { type: 'add'; path: string; value: unknown }
     | { type: 'remove'; path: string; cascade: boolean }
     | { type: 'replace'; path: string; value: unknown }
     | { type: 'reorder'; path: string; newIndex: number }
-  >
+  >;
 }
 
 export interface MutationResult {
-  readonly planId: string
-  readonly newDoc: NormalizedDocument
-  readonly arxmlWritten: string | null           // null = dry-run
-  readonly duration: number
-  readonly warnings: ReadonlyArray<string>
+  readonly planId: string;
+  readonly newDoc: NormalizedDocument;
+  readonly arxmlWritten: string | null; // null = dry-run
+  readonly duration: number;
+  readonly warnings: ReadonlyArray<string>;
 }
 ```
 
@@ -172,6 +176,7 @@ router at load time.
 ## 5. Atomic PR Detail
 
 ### PR(1) — `isPathInside` hardening
+
 - **File**: `src/main/paths/isPathInside.ts` (existing)
 - **Lines**: ~80 (incl. tests)
 - **Tests**: 12 (positive / negative / edge: `..`, case, trailing slash, cross-platform)
@@ -184,6 +189,7 @@ router at load time.
 - **Already partial** from v1.4.0 Trust Sprint; this finishes it
 
 ### PR(2) — `preserveOrder`
+
 - **File**: new `src/main/store/preserveOrder.ts`
 - **Lines**: ~250 (incl. tests)
 - **Tests**: 5 fixtures round-trip
@@ -198,11 +204,12 @@ router at load time.
   ```ts
   export function serializeInSourceOrder(
     ecucValues: NormalizedDocument,
-    sourceArxml: string
-  ): string
+    sourceArxml: string,
+  ): string;
   ```
 
 ### PR(3) — `removeReference` store action
+
 - **File**: new `src/main/store/removeReference.ts` (+ extension to
   existing `src/core/arxml/mutation.ts`)
 - **Lines**: ~150 (incl. tests)
@@ -210,22 +217,21 @@ router at load time.
   defense / undo path / cross-module cascade)
 - **API**:
   ```ts
-  export function removeReference(
-    store: Store,
-    containerPath: string
-  ): MutationPlan   // not direct mutation; outputs plan for PR(4)
+  export function removeReference(store: Store, containerPath: string): MutationPlan; // not direct mutation; outputs plan for PR(4)
   ```
 
 ### PR(4) — `applyMutation` realization
+
 - **File**: `src/core/arxml/mutation.ts` (replaces Sprint 14 #2 stub)
 - **Lines**: ~400 (incl. tests)
 - **Tests**: 8 (reorder / add / delete / cascade / rollback / fsync
   verification / reentrancy defense / concurrency)
 - **API**:
+
   ```ts
   // Before (stub):
   export function applyMutation(plan: MutationPlan): void {
-    throw new Error('not implemented')
+    throw new Error('not implemented');
   }
 
   // After:
@@ -237,6 +243,7 @@ router at load time.
     // 5. Emit store event
   }
   ```
+
 - **Atomic write**:
   - Write to `path.tmp` → `fsync` → `MoveFileEx` (Windows) / `rename(2)`
     (POSIX) with `MOVEFILE_REPLACE_EXISTING`
@@ -244,6 +251,7 @@ router at load time.
   - **Never** partial write
 
 ### PR(5) — Renderer file split
+
 - **File**: `src/renderer/store/useArxmlStore.ts` (3406 lines)
 - **Target**: 4 files, each < 400 lines
   - `useArxmlStore.ts` (root, public API)
@@ -256,6 +264,7 @@ router at load time.
 - **Risk**: low. Pure file refactor; no IPC contract changes
 
 ### PR(6) — Streaming module + IndexedDB
+
 - **File**: new `src/main/arxml-stream/` (sub-path)
 - **Lines**: ~800 (new package)
 - **Tests**:
@@ -264,29 +273,31 @@ router at load time.
   - Integration: 4 (DOM vs streaming equivalence)
   - Perf: 1 benchmark (`10MB parse < 2s`)
 - **API**:
+
   ```ts
   // streaming
-  export async function streamParse(file: Buffer | string): Promise<NormalizedDocument>
+  export async function streamParse(file: Buffer | string): Promise<NormalizedDocument>;
 
   // cache
   export interface CacheKey {
-    filePath: string
-    mtime: number
-    contentHash: string  // SHA-256
+    filePath: string;
+    mtime: number;
+    contentHash: string; // SHA-256
   }
-  export async function cacheGet(key: CacheKey): Promise<NormalizedDocument | null>
-  export async function cacheSet(key: CacheKey, doc: NormalizedDocument): Promise<void>
+  export async function cacheGet(key: CacheKey): Promise<NormalizedDocument | null>;
+  export async function cacheSet(key: CacheKey, doc: NormalizedDocument): Promise<void>;
 
   // feature flag
-  export function isStreamingEnabled(): boolean
-  export function isIndexedDbEnabled(): boolean
+  export function isStreamingEnabled(): boolean;
+  export function isIndexedDbEnabled(): boolean;
   ```
+
 - **Path router** (in main process):
   ```ts
   function routeArxmlReader(file: Buffer | string): Promise<NormalizedDocument> {
-    if (file.byteLength < 2 * 1024 * 1024) return domParse(file)        // always
-    if (isStreamingEnabled()) return streamParse(file)                  // flag
-    return domParse(file)                                                // fallback
+    if (file.byteLength < 2 * 1024 * 1024) return domParse(file); // always
+    if (isStreamingEnabled()) return streamParse(file); // flag
+    return domParse(file); // fallback
   }
   ```
 - **Failure modes** (Q6 A dual track): streaming throws → fallback to
@@ -381,7 +392,7 @@ export type ArxmlParseError =
   | { kind: 'malformed-xml'; line: number; column: number; message: string }
   | { kind: 'schema-violation'; path: string; rule: string; severity: 'error' | 'warning' }
   | { kind: 'unsupported-version'; version: string; supported: string[] }
-  | { kind: 'partial-stream'; completedChunks: number; totalExpected: number }
+  | { kind: 'partial-stream'; completedChunks: number; totalExpected: number };
 ```
 
 - Stop on error; never produce half-baked `NormalizedDocument`
@@ -396,7 +407,7 @@ export type MutationError =
   | { kind: 'reference-cycle'; from: string; to: string }
   | { kind: 'multiplicity-violation'; path: string; actual: number; required: string }
   | { kind: 'path-not-found'; path: string }
-  | { kind: 'concurrent-mutation'; planId: string; conflictingPlanId: string }
+  | { kind: 'concurrent-mutation'; planId: string; conflictingPlanId: string };
 ```
 
 - `applyMutation` **never** silent-swallow (per common/coding-style.md)
@@ -411,7 +422,7 @@ export type PersistenceError =
   | { kind: 'disk-full'; path: string; required: number; available: number }
   | { kind: 'permission-denied'; path: string }
   | { kind: 'temp-rename-failed'; tempPath: string; targetPath: string; reason: string }
-  | { kind: 'fsync-failed'; path: string; reason: string }
+  | { kind: 'fsync-failed'; path: string; reason: string };
 ```
 
 - Windows: `MoveFileEx` + `MOVEFILE_REPLACE_EXISTING`
@@ -420,10 +431,10 @@ export type PersistenceError =
 
 ### 7.4 Feature flag failure semantics
 
-| Flag | Failure | Behavior |
-|------|---------|----------|
-| `experimental.streaming` | SAX throws | Fallback to DOM, console warning, metric |
-| `experimental.indexedDb` | IndexedDB write fails | Silent cache miss, no metric |
+| Flag                     | Failure               | Behavior                                 |
+| ------------------------ | --------------------- | ---------------------------------------- |
+| `experimental.streaming` | SAX throws            | Fallback to DOM, console warning, metric |
+| `experimental.indexedDb` | IndexedDB write fails | Silent cache miss, no metric             |
 
 **Invariants**: feature-flag failures **never** block user load. Flag
 OFF = v1.5.0 behavior, bit-for-bit.
@@ -438,15 +449,15 @@ OFF = v1.5.0 behavior, bit-for-bit.
 
 ### 8.1 Per-PR unit tests
 
-| PR | New unit tests | Notes |
-|----|----------------|-------|
-| (1) isPathInside | 12 | traversal, case, slash, platform |
-| (2) preserveOrder | 5 fixtures round-trip | tolerance whitelist |
-| (3) removeReference | 6 | cascade scenarios |
-| (4) applyMutation | 8 | paths + failures |
-| (5) file split | 0 | 1557 tests as fuse |
-| (6) streaming | 12 SAX + 6 IndexedDB + 4 integration | new package |
-| **Total** | **+53** | **1557 → ~1610 tests** |
+| PR                  | New unit tests                       | Notes                            |
+| ------------------- | ------------------------------------ | -------------------------------- |
+| (1) isPathInside    | 12                                   | traversal, case, slash, platform |
+| (2) preserveOrder   | 5 fixtures round-trip                | tolerance whitelist              |
+| (3) removeReference | 6                                    | cascade scenarios                |
+| (4) applyMutation   | 8                                    | paths + failures                 |
+| (5) file split      | 0                                    | 1557 tests as fuse               |
+| (6) streaming       | 12 SAX + 6 IndexedDB + 4 integration | new package                      |
+| **Total**           | **+53**                              | **1557 → ~1610 tests**           |
 
 ### 8.2 Round-trip integration
 
@@ -466,22 +477,22 @@ Run: `pnpm test:round-trip` — per-PR gate + nightly.
 
 ### 8.3 Coverage gate
 
-| Type | Threshold |
-|------|-----------|
-| Pure refactor (PR 1, 2, 5) | 0 new tests required; existing pass |
-| Contract change (PR 3, 4) | New code ≥ 90% stmts / 80% branches |
-| New module (PR 6) | New code ≥ 90% stmts / 80% branches; critical paths 100% |
-| **Total** | **≥ 95.5% stmts / ≥ 87% branches** |
+| Type                       | Threshold                                                |
+| -------------------------- | -------------------------------------------------------- |
+| Pure refactor (PR 1, 2, 5) | 0 new tests required; existing pass                      |
+| Contract change (PR 3, 4)  | New code ≥ 90% stmts / 80% branches                      |
+| New module (PR 6)          | New code ≥ 90% stmts / 80% branches; critical paths 100% |
+| **Total**                  | **≥ 95.5% stmts / ≥ 87% branches**                       |
 
 ### 8.4 Performance benchmark (PR 6 only)
 
 ```ts
 test('10MB BSWMD parse', async () => {
-  const start = Date.now()
-  const doc = await streamParse(fixture)
-  expect(Date.now() - start).toBeLessThan(2000)  // 2s vs DOM 5s
-  expect(doc.modules.length).toBeGreaterThan(50)
-})
+  const start = Date.now();
+  const doc = await streamParse(fixture);
+  expect(Date.now() - start).toBeLessThan(2000); // 2s vs DOM 5s
+  expect(doc.modules.length).toBeGreaterThan(50);
+});
 ```
 
 Not a merge gate; regression alarm (common/performance.md spirit).
@@ -490,26 +501,26 @@ Not a merge gate; regression alarm (common/performance.md spirit).
 
 ### BLOCK (must all pass to ship)
 
-| # | Item | Verification |
-|---|------|--------------|
-| 1 | All 6 PRs merged to main | `git log --oneline ^v1.5.0..HEAD` |
-| 2 | Tests pass | `pnpm test` — 1557 → ~1610 |
-| 3 | Coverage gate | `pnpm test:coverage` — ≥ 95.5 / ≥ 87 |
-| 4 | Round-trip all fixtures | `pnpm test:round-trip` — 15 cases |
-| 5 | 0 type errors, 0 lint errors | `pnpm typecheck && pnpm lint` |
-| 6 | Build success; bundle ≤ 850 kB | `pnpm build` |
-| 7 | `experimental.streaming` default OFF | grep `settings.json` |
-| 8 | AppHeader i18n EN+ZH pass | `pnpm test:i18n` |
-| 9 | 4 new error kinds × 2 locales | grep error catalog |
+| #   | Item                                 | Verification                         |
+| --- | ------------------------------------ | ------------------------------------ |
+| 1   | All 6 PRs merged to main             | `git log --oneline ^v1.5.0..HEAD`    |
+| 2   | Tests pass                           | `pnpm test` — 1557 → ~1610           |
+| 3   | Coverage gate                        | `pnpm test:coverage` — ≥ 95.5 / ≥ 87 |
+| 4   | Round-trip all fixtures              | `pnpm test:round-trip` — 15 cases    |
+| 5   | 0 type errors, 0 lint errors         | `pnpm typecheck && pnpm lint`        |
+| 6   | Build success; bundle ≤ 850 kB       | `pnpm build`                         |
+| 7   | `experimental.streaming` default OFF | grep `settings.json`                 |
+| 8   | AppHeader i18n EN+ZH pass            | `pnpm test:i18n`                     |
+| 9   | 4 new error kinds × 2 locales        | grep error catalog                   |
 
 ### WARN (should pass, ship if minor miss)
 
-| # | Item | Verification |
-|---|------|--------------|
-| 10 | Streaming 10MB parse < 2s | benchmark |
-| 11 | DOM ≡ streaming NormalizedDocument (5 fixture) | integration |
-| 12 | IndexedDB cache hit < 200ms | benchmark |
-| 13 | code-reviewer 0 C / ≤ 2 H / ≤ 5 M | per-PR review |
+| #   | Item                                           | Verification  |
+| --- | ---------------------------------------------- | ------------- |
+| 10  | Streaming 10MB parse < 2s                      | benchmark     |
+| 11  | DOM ≡ streaming NormalizedDocument (5 fixture) | integration   |
+| 12  | IndexedDB cache hit < 200ms                    | benchmark     |
+| 13  | code-reviewer 0 C / ≤ 2 H / ≤ 5 M              | per-PR review |
 
 ### OUT of scope (v1.5.1 explicitly does NOT deliver)
 
@@ -529,14 +540,14 @@ Not a merge gate; regression alarm (common/performance.md spirit).
 
 ## 11. Risk Register
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| ARXML serialization regression | M | P0 | 6-PR fuse + 1557 tests per PR |
-| streaming perf miss | M | P3 | feature-flag OFF = user unaffected |
-| applyMutation contract change | M | P1 | PR(1)(2)(3) lock deps first |
-| renderer split breaks IPC | L | P1 | pure file move, no contract change |
-| new code coverage drop | M | P2 | per-type gate (Q4 D) |
-| Round-trip tolerance rules miss edge case | M | P1 | explicit whitelist, documented |
+| Risk                                      | Likelihood | Impact | Mitigation                         |
+| ----------------------------------------- | ---------- | ------ | ---------------------------------- |
+| ARXML serialization regression            | M          | P0     | 6-PR fuse + 1557 tests per PR      |
+| streaming perf miss                       | M          | P3     | feature-flag OFF = user unaffected |
+| applyMutation contract change             | M          | P1     | PR(1)(2)(3) lock deps first        |
+| renderer split breaks IPC                 | L          | P1     | pure file move, no contract change |
+| new code coverage drop                    | M          | P2     | per-type gate (Q4 D)               |
+| Round-trip tolerance rules miss edge case | M          | P1     | explicit whitelist, documented     |
 
 ## 12. v1.5.1 → v1.6.0 Interface Contracts
 

@@ -44,10 +44,7 @@ export interface ImportSlice {
   //   so the app-close path treats an in-flight import as unsaved.
   readonly importSession: ImportSession | null;
   readonly lastCommitSnapshot: ReadonlyMap<string, ArxmlDocument> | null;
-  startImport: (
-    incomingDocs: readonly ArxmlDocument[],
-    originalPaths: readonly string[],
-  ) => void;
+  startImport: (incomingDocs: readonly ArxmlDocument[], originalPaths: readonly string[]) => void;
   selectModule: (mergedPath: string, selected: boolean) => void;
   resolveModule: (
     mergedPath: string,
@@ -91,10 +88,7 @@ export const createImportSlice: StateCreator<ArxmlState, [], [], ImportSlice> = 
         for (const el of pkg.elements) {
           collectModules(el, (m) => {
             const mergedPath = `/[import:${docIdx}]${pkg.path}/${m.shortName}`;
-            const targetHit = findTargetModuleForShortName(
-              get().documents,
-              m.shortName,
-            );
+            const targetHit = findTargetModuleForShortName(get().documents, m.shortName);
             selections.push({
               mergedModulePath: mergedPath,
               sourceDocIndex: docIdx,
@@ -172,9 +166,7 @@ export const createImportSlice: StateCreator<ArxmlState, [], [], ImportSlice> = 
     const nextResolutions: ModuleResolution[] =
       existingIdx === -1
         ? [...state.importSession.resolutions, newResolution]
-        : state.importSession.resolutions.map((r, i) =>
-            i === existingIdx ? newResolution : r,
-          );
+        : state.importSession.resolutions.map((r, i) => (i === existingIdx ? newResolution : r));
     set({
       importSession: {
         ...state.importSession,
@@ -267,16 +259,15 @@ export const createImportSlice: StateCreator<ArxmlState, [], [], ImportSlice> = 
       // default so we mirror it here when computing the per-
       // target patch list.
       const resolution =
-        state.importSession.resolutions.find(
-          (r) => r.mergedModulePath === sel.mergedModulePath,
-        )?.resolution ?? 'overwrite';
+        state.importSession.resolutions.find((r) => r.mergedModulePath === sel.mergedModulePath)
+          ?.resolution ?? 'overwrite';
       if (resolution === 'keep-existing' || resolution === 'skip') {
         continue;
       }
       const targetPath =
         sel.targetModulePath !== null
-          ? findOwningTargetPath(state.documents, state.documentPaths, sel.targetModulePath) ??
-            activeTargetPath
+          ? (findOwningTargetPath(state.documents, state.documentPaths, sel.targetModulePath) ??
+            activeTargetPath)
           : activeTargetPath;
       if (targetPath === null) continue;
       const list = patchesByTarget.get(targetPath) ?? [];
@@ -334,7 +325,10 @@ export const createImportSlice: StateCreator<ArxmlState, [], [], ImportSlice> = 
     for (const filePath of sourceFilesTouched) {
       nextDirty = addToDirty(nextDirty, filePath);
     }
-    const { validationErrors, lastValidatedAt } = revalidateWithBswmd(nextDocuments, state.bswmdSchemas);
+    const { validationErrors, lastValidatedAt } = revalidateWithBswmd(
+      nextDocuments,
+      state.bswmdSchemas,
+    );
     set({
       documents: nextDocuments,
       dirtyPaths: nextDirty,
@@ -397,7 +391,10 @@ export const createImportSlice: StateCreator<ArxmlState, [], [], ImportSlice> = 
     for (const filePath of snapshot.keys()) {
       nextDirty = dropFromDirty(nextDirty, filePath);
     }
-    const { validationErrors, lastValidatedAt } = revalidateWithBswmd(nextDocuments, state.bswmdSchemas);
+    const { validationErrors, lastValidatedAt } = revalidateWithBswmd(
+      nextDocuments,
+      state.bswmdSchemas,
+    );
     set({
       documents: nextDocuments,
       dirtyPaths: nextDirty,

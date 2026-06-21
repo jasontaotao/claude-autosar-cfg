@@ -1,4 +1,3 @@
-
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -46,7 +45,13 @@ let project: ArxmlDocument;
 describe('runInSandbox', () => {
   it('runs a simple script and returns ok', () => {
     const c = newCtx(project);
-    const r = runInSandbox(entry(`ctx.log.info('hi')`), c.logs, c.violations, c.mutations, c.options);
+    const r = runInSandbox(
+      entry(`ctx.log.info('hi')`),
+      c.logs,
+      c.violations,
+      c.mutations,
+      c.options,
+    );
     expect(r.status).toBe('ok');
     expect(c.logs).toHaveLength(1);
     expect(c.logs[0]!.message).toBe('hi');
@@ -54,7 +59,13 @@ describe('runInSandbox', () => {
 
   it('captures runtime error with line number', () => {
     const c = newCtx(project);
-    const r = runInSandbox(entry(`throw new Error('boom')`), c.logs, c.violations, c.mutations, c.options);
+    const r = runInSandbox(
+      entry(`throw new Error('boom')`),
+      c.logs,
+      c.violations,
+      c.mutations,
+      c.options,
+    );
     if (r.errorLine === undefined) {
       // Debug aid — V8 stack format may differ across Node versions
       console.log('DEBUG status=', r.status, 'msg=', r.errorMessage);
@@ -97,7 +108,13 @@ describe('runInSandbox', () => {
 
   it('blocks fetch()', () => {
     const c = newCtx(project);
-    const r = runInSandbox(entry(`fetch('http://x')`), c.logs, c.violations, c.mutations, c.options);
+    const r = runInSandbox(
+      entry(`fetch('http://x')`),
+      c.logs,
+      c.violations,
+      c.mutations,
+      c.options,
+    );
     expect(r.status).toBe('runtime-error');
   });
 

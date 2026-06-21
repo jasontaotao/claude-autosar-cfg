@@ -26,12 +26,7 @@ import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '../arxml/types.
  *  - `keep-both`     — both copies retained; incoming gets a `_imported` suffix
  *  - `skip`          — exclude this module from the import (not even a copy)
  */
-export const IMPORT_RESOLUTIONS = [
-  'keep-existing',
-  'overwrite',
-  'keep-both',
-  'skip',
-] as const;
+export const IMPORT_RESOLUTIONS = ['keep-existing', 'overwrite', 'keep-both', 'skip'] as const;
 export type ImportResolution = (typeof IMPORT_RESOLUTIONS)[number];
 
 /**
@@ -242,10 +237,7 @@ export interface MergedModule {
 
 /** Narrow an `unknown` to `ImportResolution`. */
 export function isImportResolution(v: unknown): v is ImportResolution {
-  return (
-    typeof v === 'string' &&
-    (IMPORT_RESOLUTIONS as readonly string[]).includes(v)
-  );
+  return typeof v === 'string' && (IMPORT_RESOLUTIONS as readonly string[]).includes(v);
 }
 
 /**

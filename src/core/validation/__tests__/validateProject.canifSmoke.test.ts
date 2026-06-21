@@ -272,14 +272,12 @@ describe('CanIf/Adc BSWMD end-to-end smoke (Sprint 12 #2)', () => {
     expect(layer.sourcePaths.size).toBeGreaterThanOrEqual(40);
 
     // The AdcChannelRangeSelect enum param is the linchpin of cases A/B;
-// assert it is keyed exactly as the validator expects. Sprint 17d
-// folds `/AUTOSAR_R<NN>/EcucDefs` → `/EcucDefs` at index time so the
-// layer key uses the value-side namespace (matches what
-// `resolveTargetPath` emits on the query side).
+    // assert it is keyed exactly as the validator expects. Sprint 17d
+    // folds `/AUTOSAR_R<NN>/EcucDefs` → `/EcucDefs` at index time so the
+    // layer key uses the value-side namespace (matches what
+    // `resolveTargetPath` emits on the query side).
     expect(
-      layer.params.has(
-        '/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect',
-      ),
+      layer.params.has('/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelRangeSelect'),
     ).toBe(true);
   });
 });

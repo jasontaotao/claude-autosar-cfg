@@ -54,9 +54,7 @@ describe('ScriptEditor — mount / dispose', () => {
 
   it('seeds the editor with the value prop', async () => {
     const onChange = vi.fn();
-    const { container } = render(
-      <ScriptEditor value="ctx.log.info('x');" onChange={onChange} />,
-    );
+    const { container } = render(<ScriptEditor value="ctx.log.info('x');" onChange={onChange} />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -114,9 +112,7 @@ describe('ScriptEditor — read-only mode', () => {
 
   it('readOnly prop is accepted; editor still mounts with the seeded value', async () => {
     const onChange = vi.fn();
-    const { container } = render(
-      <ScriptEditor value="ro-seed" onChange={onChange} readOnly />,
-    );
+    const { container } = render(<ScriptEditor value="ro-seed" onChange={onChange} readOnly />);
     await act(async () => {
       await Promise.resolve();
     });

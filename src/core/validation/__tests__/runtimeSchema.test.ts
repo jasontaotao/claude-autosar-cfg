@@ -475,9 +475,7 @@ const VENDOR_CDD_BSWMD_XML = readFileSync(
 function vendorCddLayer(): { layer: SchemaLayer; moduleRoot: string } {
   const result = parseBswmd(VENDOR_CDD_BSWMD_XML);
   if (!result.ok) {
-    throw new Error(
-      `Failed to parse JWQ3399 fixture: ${result.error.kind}`,
-    );
+    throw new Error(`Failed to parse JWQ3399 fixture: ${result.error.kind}`);
   }
   const layer = buildSchemaLayer([result.value]);
   // BSWMD publishes the JWQ3399 module under the vendor package chain
@@ -575,7 +573,9 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
     // is a required container (lower=1, upper=1) — see the
     // <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY> at line 694 of
     // tests/fixtures/bswmd/JWQ3399_bswmd.arxml.
-    const entry = lookupContainerSchemaAcrossModuleRoots(valueSideContainerPath, layer, [moduleRoot]);
+    const entry = lookupContainerSchemaAcrossModuleRoots(valueSideContainerPath, layer, [
+      moduleRoot,
+    ]);
     expect(entry).not.toBeNull();
     expect(entry!.lower).toBe(1);
     expect(entry!.upper).toBe(1);
@@ -597,11 +597,9 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
   it('returns null when the path is under an unknown module shortName', () => {
     const { layer, moduleRoot } = vendorCddLayer();
     expect(
-      lookupContainerSchemaAcrossModuleRoots(
-        '/JWQ3399/NotARealModule/JWQ3399General',
-        layer,
-        [moduleRoot],
-      ),
+      lookupContainerSchemaAcrossModuleRoots('/JWQ3399/NotARealModule/JWQ3399General', layer, [
+        moduleRoot,
+      ]),
     ).toBeNull();
   });
 

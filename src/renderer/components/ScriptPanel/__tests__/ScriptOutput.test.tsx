@@ -24,9 +24,7 @@ const OK_WITH_MUTATIONS: ScriptRunResult = {
     { level: 'info', message: 'started', ts: 1 },
     { level: 'warn', message: 'careful', ts: 2 },
   ],
-  violations: [
-    { kind: 'script:x', severity: 'warning', message: 'mismatch' },
-  ],
+  violations: [{ kind: 'script:x', severity: 'warning', message: 'mismatch' }],
   mutations: [
     {
       kind: 'set-param',

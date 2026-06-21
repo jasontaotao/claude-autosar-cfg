@@ -46,11 +46,7 @@ import { useArxmlStore } from '../store/useArxmlStore.js';
 
 import './RemoveModuleConfirmDialog.css';
 
-export type RemoveBswmdChoice =
-  | 'cancel'
-  | 'only'
-  | 'cascade'
-  | 'cascade-and-unlink';
+export type RemoveBswmdChoice = 'cancel' | 'only' | 'cascade' | 'cascade-and-unlink';
 
 /**
  * A single value-side ARXML that depends on the BSWMD the user is
@@ -88,9 +84,7 @@ const MAX_DEPS_VISIBLE = 10;
  * — a safe fallback (BSWMD removal is destructive and must not
  * proceed without explicit user consent).
  */
-export function confirmRemoveBswmd(
-  options: RemoveBswmdConfirmOptions,
-): Promise<RemoveBswmdChoice> {
+export function confirmRemoveBswmd(options: RemoveBswmdConfirmOptions): Promise<RemoveBswmdChoice> {
   return new Promise<RemoveBswmdChoice>((resolve) => {
     if (externalSetState === null) {
       resolve('cancel');

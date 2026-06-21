@@ -1,849 +1,1454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<title>BSWMD → ECUC 创建流程 UI Mockup</title>
-<style>
-  /* ============================================================
+  <head>
+    <meta charset="UTF-8" />
+    <title>BSWMD → ECUC 创建流程 UI Mockup</title>
+    <style>
+      /* ============================================================
      Mockup styles — mirroring claude-AutosarCfg slate palette
      ============================================================ */
-  :root {
-    --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
-    --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
-    --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b;
-    --slate-900: #0f172a; --slate-950: #020617;
-    --blue-500: #3b82f6; --blue-600: #2563eb; --blue-700: #1d4ed8;
-    --green-500: #22c55e; --green-600: #16a34a;
-    --amber-500: #f59e0b; --red-500: #ef4444; --red-600: #dc2626;
-    --bg: var(--slate-100); --surface: white; --text: var(--slate-900);
-    --muted: var(--slate-500); --border: var(--slate-300);
-    --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
-    --shadow-lg: 0 12px 32px rgba(15, 23, 42, .25), 0 0 0 1px rgba(15,23,42,.05);
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
-    padding: 24px;
-  }
+      :root {
+        --slate-50: #f8fafc;
+        --slate-100: #f1f5f9;
+        --slate-200: #e2e8f0;
+        --slate-300: #cbd5e1;
+        --slate-400: #94a3b8;
+        --slate-500: #64748b;
+        --slate-600: #475569;
+        --slate-700: #334155;
+        --slate-800: #1e293b;
+        --slate-900: #0f172a;
+        --slate-950: #020617;
+        --blue-500: #3b82f6;
+        --blue-600: #2563eb;
+        --blue-700: #1d4ed8;
+        --green-500: #22c55e;
+        --green-600: #16a34a;
+        --amber-500: #f59e0b;
+        --red-500: #ef4444;
+        --red-600: #dc2626;
+        --bg: var(--slate-100);
+        --surface: white;
+        --text: var(--slate-900);
+        --muted: var(--slate-500);
+        --border: var(--slate-300);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.05);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.5 -apple-system,
+          'Segoe UI',
+          system-ui,
+          sans-serif;
+        padding: 24px;
+      }
 
-  /* ---------- Top bar (AppHeader) ---------- */
-  .app-header {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    height: 56px; display: flex; align-items: center;
-    padding: 0 16px; gap: 16px; position: relative;
-    box-shadow: var(--shadow-sm); margin-bottom: 0;
-  }
-  .app-header-title { font-weight: 600; font-size: 16px; color: var(--slate-800); }
-  .app-menu-trigger { position: relative; }
-  .app-menu-btn {
-    background: transparent; border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 12px; cursor: pointer; font-size: 13px;
-    display: inline-flex; align-items: center; gap: 6px; color: var(--slate-700);
-  }
-  .app-menu-btn.is-open { background: var(--slate-100); border-color: var(--slate-400); }
-  .app-menu-chevron { width: 10px; height: 10px; fill: currentColor; }
-  .app-dropdown {
-    position: absolute; top: calc(100% + 6px); left: 0;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; min-width: 280px; padding: 6px;
-    box-shadow: var(--shadow-lg); z-index: 50;
-  }
-  .app-dropdown-group-label {
-    font-size: 11px; color: var(--muted); text-transform: uppercase;
-    letter-spacing: .04em; padding: 8px 10px 4px; font-weight: 600;
-  }
-  .app-dropdown-item {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    padding: 8px 10px; border: 0; background: transparent; cursor: pointer;
-    border-radius: 4px; font-size: 13px; color: var(--slate-800); text-align: left;
-  }
-  .app-dropdown-item:hover { background: var(--slate-100); }
-  .app-dropdown-item:disabled {
-    color: var(--slate-400); cursor: not-allowed; background: transparent;
-  }
-  .app-dropdown-item .icon { width: 18px; }
-  .app-dropdown-divider {
-    height: 1px; background: var(--border); margin: 4px 8px;
-  }
-  .app-dropdown-item.new-feature {
-    /* subtle highlight for the new entry */
-    background: linear-gradient(to right, rgba(59,130,246,.06), transparent);
-  }
+      /* ---------- Top bar (AppHeader) ---------- */
+      .app-header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        height: 56px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 16px;
+        position: relative;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 0;
+      }
+      .app-header-title {
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--slate-800);
+      }
+      .app-menu-trigger {
+        position: relative;
+      }
+      .app-menu-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--slate-700);
+      }
+      .app-menu-btn.is-open {
+        background: var(--slate-100);
+        border-color: var(--slate-400);
+      }
+      .app-menu-chevron {
+        width: 10px;
+        height: 10px;
+        fill: currentColor;
+      }
+      .app-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        min-width: 280px;
+        padding: 6px;
+        box-shadow: var(--shadow-lg);
+        z-index: 50;
+      }
+      .app-dropdown-group-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 8px 10px 4px;
+        font-weight: 600;
+      }
+      .app-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        color: var(--slate-800);
+        text-align: left;
+      }
+      .app-dropdown-item:hover {
+        background: var(--slate-100);
+      }
+      .app-dropdown-item:disabled {
+        color: var(--slate-400);
+        cursor: not-allowed;
+        background: transparent;
+      }
+      .app-dropdown-item .icon {
+        width: 18px;
+      }
+      .app-dropdown-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 8px;
+      }
+      .app-dropdown-item.new-feature {
+        /* subtle highlight for the new entry */
+        background: linear-gradient(to right, rgba(59, 130, 246, 0.06), transparent);
+      }
 
-  /* ---------- Toast ---------- */
-  .toast {
-    position: fixed; bottom: 24px; right: 24px;
-    background: var(--green-600); color: white; padding: 10px 16px;
-    border-radius: 8px; box-shadow: var(--shadow-lg);
-    display: flex; align-items: center; gap: 8px; font-size: 13px;
-    z-index: 100;
-  }
+      /* ---------- Toast ---------- */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: var(--green-600);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        z-index: 100;
+      }
 
-  /* ---------- Workspace below header ---------- */
-  .workspace {
-    margin-top: 0; padding: 16px; background: var(--bg); min-height: 600px;
-  }
+      /* ---------- Workspace below header ---------- */
+      .workspace {
+        margin-top: 0;
+        padding: 16px;
+        background: var(--bg);
+        min-height: 600px;
+      }
 
-  /* ---------- Project panel (LeftPanel, project tab) ---------- */
-  .project-panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 16px; max-width: 480px;
-    box-shadow: var(--shadow-sm);
-  }
-  .project-panel-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px; padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .project-panel-title { font-weight: 600; color: var(--slate-800); }
-  .project-panel-meta {
-    font-size: 12px; color: var(--muted); line-height: 1.7;
-    margin-bottom: 12px;
-  }
-  .project-panel-section-title {
-    font-size: 12px; text-transform: uppercase; color: var(--muted);
-    letter-spacing: .04em; font-weight: 600; margin: 16px 0 6px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .file-row {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 10px; border-radius: 4px; font-size: 13px;
-    border: 1px solid transparent;
-  }
-  .file-row:hover { background: var(--slate-100); border-color: var(--slate-200); }
-  .file-row .name { flex: 1; font-family: ui-monospace, "SF Mono", monospace; font-size: 12px; }
-  .file-row .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px;
-    background: var(--slate-200); color: var(--slate-700); }
-  .file-row .badge.modules {
-    background: rgba(59,130,246,.12); color: var(--blue-700);
-  }
-  .file-row .badge.warn {
-    background: rgba(245,158,11,.15); color: var(--amber-500);
-  }
-  .add-btn {
-    width: 24px; height: 24px; border-radius: 4px;
-    background: var(--blue-600); color: white; border: 0;
-    font-size: 16px; line-height: 1; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
-  }
-  .add-btn:hover { background: var(--blue-700); }
-  .add-btn:focus-visible { outline: 2px solid var(--blue-500); outline-offset: 2px; }
-  .remove-btn {
-    background: transparent; border: 0; cursor: pointer; color: var(--muted);
-    width: 20px; height: 20px; border-radius: 4px; font-size: 14px;
-  }
-  .remove-btn:hover { background: var(--slate-200); color: var(--red-600); }
+      /* ---------- Project panel (LeftPanel, project tab) ---------- */
+      .project-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 480px;
+        box-shadow: var(--shadow-sm);
+      }
+      .project-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      .project-panel-title {
+        font-weight: 600;
+        color: var(--slate-800);
+      }
+      .project-panel-meta {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.7;
+        margin-bottom: 12px;
+      }
+      .project-panel-section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        font-weight: 600;
+        margin: 16px 0 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .file-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+        border: 1px solid transparent;
+      }
+      .file-row:hover {
+        background: var(--slate-100);
+        border-color: var(--slate-200);
+      }
+      .file-row .name {
+        flex: 1;
+        font-family: ui-monospace, 'SF Mono', monospace;
+        font-size: 12px;
+      }
+      .file-row .badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--slate-200);
+        color: var(--slate-700);
+      }
+      .file-row .badge.modules {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--blue-700);
+      }
+      .file-row .badge.warn {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--amber-500);
+      }
+      .add-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        background: var(--blue-600);
+        color: white;
+        border: 0;
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .add-btn:hover {
+        background: var(--blue-700);
+      }
+      .add-btn:focus-visible {
+        outline: 2px solid var(--blue-500);
+        outline-offset: 2px;
+      }
+      .remove-btn {
+        background: transparent;
+        border: 0;
+        cursor: pointer;
+        color: var(--muted);
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .remove-btn:hover {
+        background: var(--slate-200);
+        color: var(--red-600);
+      }
 
-  /* ---------- Picker modal ---------- */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(15,23,42,.55);
-    display: flex; align-items: center; justify-content: center; z-index: 200;
-    padding: 32px;
-  }
-  .modal {
-    background: var(--surface); border-radius: 12px; width: 880px;
-    max-width: 100%; max-height: calc(100vh - 64px);
-    display: flex; flex-direction: column; box-shadow: var(--shadow-lg);
-    overflow: hidden;
-  }
-  .modal-header {
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .modal-title { font-size: 16px; font-weight: 600; color: var(--slate-900); }
-  .modal-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .modal-body { display: flex; flex: 1; min-height: 0; }
-  .modal-left, .modal-right {
-    padding: 16px; overflow: auto;
-  }
-  .modal-left {
-    flex: 0 0 380px; border-right: 1px solid var(--border);
-    background: var(--slate-50);
-  }
-  .modal-right { flex: 1; background: var(--surface); }
-  .modal-footer {
-    padding: 12px 20px; border-top: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-    background: var(--slate-50);
-  }
+      /* ---------- Picker modal ---------- */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        padding: 32px;
+      }
+      .modal {
+        background: var(--surface);
+        border-radius: 12px;
+        width: 880px;
+        max-width: 100%;
+        max-height: calc(100vh - 64px);
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+      .modal-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--slate-900);
+      }
+      .modal-subtitle {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .modal-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .modal-left,
+      .modal-right {
+        padding: 16px;
+        overflow: auto;
+      }
+      .modal-left {
+        flex: 0 0 380px;
+        border-right: 1px solid var(--border);
+        background: var(--slate-50);
+      }
+      .modal-right {
+        flex: 1;
+        background: var(--surface);
+      }
+      .modal-footer {
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        background: var(--slate-50);
+      }
 
-  /* filter box */
-  .filter-box {
-    width: 100%; padding: 8px 12px; border: 1px solid var(--border);
-    border-radius: 6px; font-size: 13px; background: var(--surface);
-    margin-bottom: 12px;
-  }
-  .filter-box:focus { outline: 2px solid var(--blue-500); border-color: var(--blue-500); }
+      /* filter box */
+      .filter-box {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 13px;
+        background: var(--surface);
+        margin-bottom: 12px;
+      }
+      .filter-box:focus {
+        outline: 2px solid var(--blue-500);
+        border-color: var(--blue-500);
+      }
 
-  /* BSWMD tree */
-  .bswmd-group {
-    margin-bottom: 12px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 6px;
-    overflow: hidden;
-  }
-  .bswmd-group-header {
-    padding: 8px 12px; background: var(--slate-100); cursor: pointer;
-    display: flex; align-items: center; gap: 6px; font-size: 13px;
-    font-weight: 500; color: var(--slate-800);
-  }
-  .bswmd-group-header .chevron {
-    transition: transform .15s; font-size: 10px; color: var(--muted);
-  }
-  .bswmd-group.expanded .bswmd-group-header .chevron { transform: rotate(90deg); }
-  .bswmd-group-filename {
-    font-family: ui-monospace, "SF Mono", monospace; font-size: 11px;
-    color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .module-row {
-    padding: 6px 12px 6px 32px; font-size: 12px; cursor: pointer;
-    display: flex; align-items: center; gap: 8px;
-    border-left: 3px solid transparent;
-  }
-  .module-row:hover { background: var(--slate-50); }
-  .module-row.selected {
-    background: rgba(59,130,246,.10);
-    border-left-color: var(--blue-500);
-    color: var(--blue-700); font-weight: 500;
-  }
-  .module-row.collision {
-    background: rgba(245,158,11,.10);
-    border-left-color: var(--amber-500);
-  }
-  .module-row.collision.selected {
-    background: linear-gradient(to right, rgba(59,130,246,.10), rgba(245,158,11,.10));
-  }
-  .module-row.disabled {
-    color: var(--slate-400); cursor: not-allowed; background: transparent;
-  }
-  .module-row .modname { font-weight: 500; }
-  .module-row .modpath {
-    font-family: ui-monospace, "SF Mono", monospace; font-size: 10px;
-    color: var(--muted); margin-left: 4px;
-  }
+      /* BSWMD tree */
+      .bswmd-group {
+        margin-bottom: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .bswmd-group-header {
+        padding: 8px 12px;
+        background: var(--slate-100);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--slate-800);
+      }
+      .bswmd-group-header .chevron {
+        transition: transform 0.15s;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .bswmd-group.expanded .bswmd-group-header .chevron {
+        transform: rotate(90deg);
+      }
+      .bswmd-group-filename {
+        font-family: ui-monospace, 'SF Mono', monospace;
+        font-size: 11px;
+        color: var(--muted);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .module-row {
+        padding: 6px 12px 6px 32px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-left: 3px solid transparent;
+      }
+      .module-row:hover {
+        background: var(--slate-50);
+      }
+      .module-row.selected {
+        background: rgba(59, 130, 246, 0.1);
+        border-left-color: var(--blue-500);
+        color: var(--blue-700);
+        font-weight: 500;
+      }
+      .module-row.collision {
+        background: rgba(245, 158, 11, 0.1);
+        border-left-color: var(--amber-500);
+      }
+      .module-row.collision.selected {
+        background: linear-gradient(to right, rgba(59, 130, 246, 0.1), rgba(245, 158, 11, 0.1));
+      }
+      .module-row.disabled {
+        color: var(--slate-400);
+        cursor: not-allowed;
+        background: transparent;
+      }
+      .module-row .modname {
+        font-weight: 500;
+      }
+      .module-row .modpath {
+        font-family: ui-monospace, 'SF Mono', monospace;
+        font-size: 10px;
+        color: var(--muted);
+        margin-left: 4px;
+      }
 
-  /* Metadata pane */
-  .meta-empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
-  .meta-section { margin-bottom: 16px; }
-  .meta-section-title {
-    font-size: 11px; text-transform: uppercase; color: var(--muted);
-    letter-spacing: .04em; font-weight: 600; margin-bottom: 6px;
-  }
-  .meta-section-content { font-size: 13px; color: var(--slate-800); }
-  .meta-grid {
-    display: grid; grid-template-columns: 110px 1fr; row-gap: 4px;
-    column-gap: 12px; font-size: 12px;
-  }
-  .meta-grid dt { color: var(--muted); }
-  .meta-grid dd { margin: 0; color: var(--slate-800); }
-  .desc-text { font-size: 12px; color: var(--slate-700); line-height: 1.6; }
+      /* Metadata pane */
+      .meta-empty {
+        color: var(--muted);
+        font-size: 13px;
+        padding: 24px 0;
+        text-align: center;
+      }
+      .meta-section {
+        margin-bottom: 16px;
+      }
+      .meta-section-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .meta-section-content {
+        font-size: 13px;
+        color: var(--slate-800);
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: 110px 1fr;
+        row-gap: 4px;
+        column-gap: 12px;
+        font-size: 12px;
+      }
+      .meta-grid dt {
+        color: var(--muted);
+      }
+      .meta-grid dd {
+        margin: 0;
+        color: var(--slate-800);
+      }
+      .desc-text {
+        font-size: 12px;
+        color: var(--slate-700);
+        line-height: 1.6;
+      }
 
-  /* buttons */
-  .btn {
-    padding: 7px 14px; border-radius: 6px; font-size: 13px;
-    cursor: pointer; border: 1px solid transparent;
-    font-weight: 500;
-  }
-  .btn-primary {
-    background: var(--blue-600); color: white; border-color: var(--blue-600);
-  }
-  .btn-primary:hover { background: var(--blue-700); border-color: var(--blue-700); }
-  .btn-primary:disabled { background: var(--slate-300); border-color: var(--slate-300); cursor: not-allowed; }
-  .btn-ghost {
-    background: transparent; border-color: var(--border); color: var(--slate-700);
-  }
-  .btn-ghost:hover { background: var(--slate-100); }
+      /* buttons */
+      .btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        font-weight: 500;
+      }
+      .btn-primary {
+        background: var(--blue-600);
+        color: white;
+        border-color: var(--blue-600);
+      }
+      .btn-primary:hover {
+        background: var(--blue-700);
+        border-color: var(--blue-700);
+      }
+      .btn-primary:disabled {
+        background: var(--slate-300);
+        border-color: var(--slate-300);
+        cursor: not-allowed;
+      }
+      .btn-ghost {
+        background: transparent;
+        border-color: var(--border);
+        color: var(--slate-700);
+      }
+      .btn-ghost:hover {
+        background: var(--slate-100);
+      }
 
-  /* Section heading for callouts */
-  h2.demo-section {
-    font-size: 18px; color: var(--slate-900); margin: 64px 0 16px;
-    padding-bottom: 6px; border-bottom: 2px solid var(--blue-600);
-    clear: both;
-  }
-  h2.demo-section:first-of-type { margin-top: 16px; }
-  h3.subhead {
-    font-size: 13px; color: var(--slate-700); margin: 32px 0 12px;
-    font-weight: 600;
-  }
-  .demo-note {
-    background: rgba(59,130,246,.06); border-left: 3px solid var(--blue-600);
-    padding: 12px 16px; font-size: 13px; color: var(--slate-700);
-    margin-bottom: 24px; border-radius: 0 6px 6px 0;
-  }
-  .scene-box {
-    position: relative; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--slate-100); padding: 96px 16px 24px;
-    margin-bottom: 48px;
-    /* min-height: room for the AppHeader + dropdown menu (which is
+      /* Section heading for callouts */
+      h2.demo-section {
+        font-size: 18px;
+        color: var(--slate-900);
+        margin: 64px 0 16px;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--blue-600);
+        clear: both;
+      }
+      h2.demo-section:first-of-type {
+        margin-top: 16px;
+      }
+      h3.subhead {
+        font-size: 13px;
+        color: var(--slate-700);
+        margin: 32px 0 12px;
+        font-weight: 600;
+      }
+      .demo-note {
+        background: rgba(59, 130, 246, 0.06);
+        border-left: 3px solid var(--blue-600);
+        padding: 12px 16px;
+        font-size: 13px;
+        color: var(--slate-700);
+        margin-bottom: 24px;
+        border-radius: 0 6px 6px 0;
+      }
+      .scene-box {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--slate-100);
+        padding: 96px 16px 24px;
+        margin-bottom: 48px;
+        /* min-height: room for the AppHeader + dropdown menu (which is
        absolutely positioned below the trigger and extends ~280px
        below the AppHeader's bottom edge). Without this reserve the
        dropdown would render outside the scene-box or get clipped. */
-    min-height: 380px;
-  }
-  .scene-box .app-header-inside {
-    position: absolute; top: 16px; left: 16px; right: 16px; width: auto;
-    border-radius: 8px; z-index: 10;
-  }
-</style>
-</head>
-<body>
+        min-height: 380px;
+      }
+      .scene-box .app-header-inside {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        border-radius: 8px;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 style="margin: 0 0 4px; color: var(--slate-900); font-size: 22px">
+      Sprint 14 — 从 BSWMD 创建 ECUC 模块 UI Mockup
+    </h1>
+    <p style="margin: 0 0 24px; color: var(--muted); font-size: 13px">
+      3 个场景：① 菜单入口 ② 内联 "+" 入口 ③ Picker 对话框 ④ 创建后状态
+    </p>
 
-<h1 style="margin:0 0 4px;color:var(--slate-900);font-size:22px;">
-  Sprint 14 — 从 BSWMD 创建 ECUC 模块 UI Mockup
-</h1>
-<p style="margin:0 0 24px;color:var(--muted);font-size:13px;">
-  3 个场景：① 菜单入口 ② 内联 "+" 入口 ③ Picker 对话框 ④ 创建后状态
-</p>
-
-<!-- ================================================================
+    <!-- ================================================================
      SCENE 1: 菜单入口 (AppHeader dropdown with new item)
      ================================================================ -->
-<h2 class="demo-section">场景 ① — 菜单入口（主路径）</h2>
-<p class="demo-note">
-  AppHeader 下拉菜单的 <code>fileOps</code> 组，新增 <b>"ECUC模块选择..."</b>。
-  当有 BSWMD + 项目时才 enabled；否则 disabled + tooltip。
-</p>
+    <h2 class="demo-section">场景 ① — 菜单入口（主路径）</h2>
+    <p class="demo-note">
+      AppHeader 下拉菜单的 <code>fileOps</code> 组，新增 <b>"ECUC模块选择..."</b>。 当有 BSWMD +
+      项目时才 enabled；否则 disabled + tooltip。
+    </p>
 
-<div class="scene-box">
-  <div class="app-header app-header-inside">
-    <div class="app-header-title">AutosarCfg</div>
-    <div class="app-menu-trigger">
-      <button class="app-menu-btn is-open">
-        项目
-        <svg class="app-menu-chevron" viewBox="0 0 16 16"><path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/></svg>
-      </button>
-      <div class="app-dropdown">
-        <div class="app-dropdown-group-label">项目管理</div>
-        <button class="app-dropdown-item">
-          <span class="icon">📁</span> 新建项目…
-        </button>
-        <button class="app-dropdown-item">
-          <span class="icon">📂</span> 打开项目…
-        </button>
-        <div class="app-dropdown-divider"></div>
-        <div class="app-dropdown-group-label">文件操作</div>
-        <button class="app-dropdown-item">
-          <span class="icon">📄</span> 打开 ARXML…
-        </button>
-        <button class="app-dropdown-item new-feature" data-testid="btn-ecuc-from-bswmd">
-          <span class="icon">✨</span>
-          <span>ECUC模块选择…</span>
-        </button>
+    <div class="scene-box">
+      <div class="app-header app-header-inside">
+        <div class="app-header-title">AutosarCfg</div>
+        <div class="app-menu-trigger">
+          <button class="app-menu-btn is-open">
+            项目
+            <svg class="app-menu-chevron" viewBox="0 0 16 16">
+              <path
+                d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"
+              />
+            </svg>
+          </button>
+          <div class="app-dropdown">
+            <div class="app-dropdown-group-label">项目管理</div>
+            <button class="app-dropdown-item"><span class="icon">📁</span> 新建项目…</button>
+            <button class="app-dropdown-item"><span class="icon">📂</span> 打开项目…</button>
+            <div class="app-dropdown-divider"></div>
+            <div class="app-dropdown-group-label">文件操作</div>
+            <button class="app-dropdown-item"><span class="icon">📄</span> 打开 ARXML…</button>
+            <button class="app-dropdown-item new-feature" data-testid="btn-ecuc-from-bswmd">
+              <span class="icon">✨</span>
+              <span>ECUC模块选择…</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<h3 class="subhead">状态：未加载 BSWMD（菜单项 disabled）</h3>
-<div class="scene-box">
-  <div class="app-header app-header-inside">
-    <div class="app-header-title">AutosarCfg</div>
-    <div class="app-menu-trigger">
-      <button class="app-menu-btn is-open">
-        项目
-        <svg class="app-menu-chevron" viewBox="0 0 16 16"><path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/></svg>
-      </button>
-      <div class="app-dropdown">
-        <div class="app-dropdown-group-label">项目管理</div>
-        <button class="app-dropdown-item"><span class="icon">📁</span> 新建项目…</button>
-        <button class="app-dropdown-item"><span class="icon">📂</span> 打开项目…</button>
-        <div class="app-dropdown-divider"></div>
-        <div class="app-dropdown-group-label">文件操作</div>
-        <button class="app-dropdown-item"><span class="icon">📄</span> 打开 ARXML…</button>
-        <button class="app-dropdown-item" disabled title="请先加载 BSWMD">
-          <span class="icon">✨</span>
-          <span>ECUC模块选择…</span>
-        </button>
+    <h3 class="subhead">状态：未加载 BSWMD（菜单项 disabled）</h3>
+    <div class="scene-box">
+      <div class="app-header app-header-inside">
+        <div class="app-header-title">AutosarCfg</div>
+        <div class="app-menu-trigger">
+          <button class="app-menu-btn is-open">
+            项目
+            <svg class="app-menu-chevron" viewBox="0 0 16 16">
+              <path
+                d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"
+              />
+            </svg>
+          </button>
+          <div class="app-dropdown">
+            <div class="app-dropdown-group-label">项目管理</div>
+            <button class="app-dropdown-item"><span class="icon">📁</span> 新建项目…</button>
+            <button class="app-dropdown-item"><span class="icon">📂</span> 打开项目…</button>
+            <div class="app-dropdown-divider"></div>
+            <div class="app-dropdown-group-label">文件操作</div>
+            <button class="app-dropdown-item"><span class="icon">📄</span> 打开 ARXML…</button>
+            <button class="app-dropdown-item" disabled title="请先加载 BSWMD">
+              <span class="icon">✨</span>
+              <span>ECUC模块选择…</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ================================================================
+    <!-- ================================================================
      SCENE 2: 内联 "+" 入口 (ProjectPanel BSWMD rows)
      ================================================================ -->
-<h2 class="demo-section">场景 ② — ProjectPanel 内联 "+" 入口（快速路径）</h2>
-<p class="demo-note">
-  每个 BSWMD 行右侧加 "+" 按钮（仅 BSWMD 行；ARXML 行不加）。点击后弹出 picker 且 BSWMD 已预选，跳过左侧选择。
-</p>
+    <h2 class="demo-section">场景 ② — ProjectPanel 内联 "+" 入口（快速路径）</h2>
+    <p class="demo-note">
+      每个 BSWMD 行右侧加 "+" 按钮（仅 BSWMD 行；ARXML 行不加）。点击后弹出 picker 且 BSWMD
+      已预选，跳过左侧选择。
+    </p>
 
-<div class="project-panel">
-  <div class="project-panel-header">
-    <div class="project-panel-title">📦 BMS_v1.2</div>
-    <button class="remove-btn" title="关闭项目">×</button>
-  </div>
-  <div class="project-panel-meta">
-    路径: D:/work/BMS_v1.2/BMS_v1.2.autosarcfg.json<br>
-    创建于: 2026-06-15<br>
-    3 个 ARXML · 2 个 BSWMD · 1 个未保存
-  </div>
+    <div class="project-panel">
+      <div class="project-panel-header">
+        <div class="project-panel-title">📦 BMS_v1.2</div>
+        <button class="remove-btn" title="关闭项目">×</button>
+      </div>
+      <div class="project-panel-meta">
+        路径: D:/work/BMS_v1.2/BMS_v1.2.autosarcfg.json<br />
+        创建于: 2026-06-15<br />
+        3 个 ARXML · 2 个 BSWMD · 1 个未保存
+      </div>
 
-  <div class="project-panel-section-title">
-    <span>ARXML</span>
-  </div>
-  <div class="file-row">
-    <span class="name">EcuC_EcuC.arxml</span>
-    <span class="badge">active</span>
-  </div>
-  <div class="file-row">
-    <span class="name">Can_17_McmCan.arxml</span>
-    <span class="badge dirty">●</span>
-  </div>
-  <div class="file-row">
-    <span class="name">Det_Det.arxml</span>
-  </div>
+      <div class="project-panel-section-title">
+        <span>ARXML</span>
+      </div>
+      <div class="file-row">
+        <span class="name">EcuC_EcuC.arxml</span>
+        <span class="badge">active</span>
+      </div>
+      <div class="file-row">
+        <span class="name">Can_17_McmCan.arxml</span>
+        <span class="badge dirty">●</span>
+      </div>
+      <div class="file-row">
+        <span class="name">Det_Det.arxml</span>
+      </div>
 
-  <div class="project-panel-section-title">
-    <span>BSWMD</span>
-  </div>
-  <div class="file-row">
-    <span class="name">Can_bswmd.arxml</span>
-    <span class="badge modules">3 modules</span>
-    <button class="add-btn" data-testid="bswmd-add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
-    <button class="remove-btn" title="移除 BSWMD">×</button>
-  </div>
-  <div class="file-row">
-    <span class="name">Adc_bswmd.arxml</span>
-    <span class="badge modules">2 modules</span>
-    <span class="badge warn" title="有重复定义">⚠</span>
-    <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
-    <button class="remove-btn" title="移除 BSWMD">×</button>
-  </div>
-</div>
+      <div class="project-panel-section-title">
+        <span>BSWMD</span>
+      </div>
+      <div class="file-row">
+        <span class="name">Can_bswmd.arxml</span>
+        <span class="badge modules">3 modules</span>
+        <button class="add-btn" data-testid="bswmd-add-btn" title="从此 BSWMD 新建 ECUC 模块">
+          +
+        </button>
+        <button class="remove-btn" title="移除 BSWMD">×</button>
+      </div>
+      <div class="file-row">
+        <span class="name">Adc_bswmd.arxml</span>
+        <span class="badge modules">2 modules</span>
+        <span class="badge warn" title="有重复定义">⚠</span>
+        <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
+        <button class="remove-btn" title="移除 BSWMD">×</button>
+      </div>
+    </div>
 
-<!-- ================================================================
+    <!-- ================================================================
      SCENE 3: Picker modal (主路径 — user picks module)
      ================================================================ -->
-<h2 class="demo-section">场景 ③ — Picker 对话框</h2>
-<p class="demo-note">
-  单页模态。左侧 BSWMD 树 + 过滤框；右侧选中 module 的元信息。底部 [取消] [下一步]。
-  完全对应 Artop New Element Wizard 模式（不渲染 container hierarchy）。
-</p>
+    <h2 class="demo-section">场景 ③ — Picker 对话框</h2>
+    <p class="demo-note">
+      单页模态。左侧 BSWMD 树 + 过滤框；右侧选中 module 的元信息。底部 [取消] [下一步]。 完全对应
+      Artop New Element Wizard 模式（不渲染 container hierarchy）。
+    </p>
 
-<div class="modal-overlay" style="position:relative;min-height:560px;background:rgba(15,23,42,.04);padding:32px 0;">
-  <div class="modal">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">ECUC模块选择</div>
-        <div class="modal-subtitle">选择一个模块以生成 value-side 配置骨架</div>
-      </div>
-      <button class="remove-btn" title="关闭">×</button>
-    </div>
-
-    <div class="modal-body">
-      <div class="modal-left">
-        <input class="filter-box" placeholder="过滤 (模块名 / vendor 路径)…" value="can">
-
-        <div class="bswmd-group expanded">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Can_bswmd.arxml</span>
-            <span style="margin-left:auto;font-size:10px;color:var(--muted);">3 modules</span>
+    <div
+      class="modal-overlay"
+      style="
+        position: relative;
+        min-height: 560px;
+        background: rgba(15, 23, 42, 0.04);
+        padding: 32px 0;
+      "
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">ECUC模块选择</div>
+            <div class="modal-subtitle">选择一个模块以生成 value-side 配置骨架</div>
           </div>
-          <label class="module-row selected" data-testid="picker-module-row">
-            <input type="checkbox" checked style="margin-right:6px;">
-            <span class="modname">Can</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
-          </label>
-          <label class="module-row selected">
-            <input type="checkbox" checked style="margin-right:6px;">
-            <span class="modname">CanIf</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
-          </label>
-          <label class="module-row">
-            <input type="checkbox" style="margin-right:6px;">
-            <span class="modname">CanTp</span>
-            <span class="modpath">/EAS/CanTp</span>
-          </label>
+          <button class="remove-btn" title="关闭">×</button>
         </div>
 
-        <div class="bswmd-group">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Adc_bswmd.arxml</span>
-            <span style="margin-left:auto;font-size:10px;color:var(--muted);">2 modules</span>
-          </div>
-        </div>
+        <div class="modal-body">
+          <div class="modal-left">
+            <input class="filter-box" placeholder="过滤 (模块名 / vendor 路径)…" value="can" />
 
-        <div style="margin-top:12px;display:flex;gap:6px;">
-          <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;">全选</button>
-          <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;">全不选</button>
-        </div>
-      </div>
+            <div class="bswmd-group expanded">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Can_bswmd.arxml</span>
+                <span style="margin-left: auto; font-size: 10px; color: var(--muted)"
+                  >3 modules</span
+                >
+              </div>
+              <label class="module-row selected" data-testid="picker-module-row">
+                <input type="checkbox" checked style="margin-right: 6px" />
+                <span class="modname">Can</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
+              </label>
+              <label class="module-row selected">
+                <input type="checkbox" checked style="margin-right: 6px" />
+                <span class="modname">CanIf</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
+              </label>
+              <label class="module-row">
+                <input type="checkbox" style="margin-right: 6px" />
+                <span class="modname">CanTp</span>
+                <span class="modpath">/EAS/CanTp</span>
+              </label>
+            </div>
 
-      <div class="modal-right">
-        <div class="meta-section">
-          <div class="meta-section-title" style="font-size:13px;">
-            <b>Selected: 2 modules</b>
-            <span style="margin-left:8px;font-size:11px;color:var(--green-600);">✓ ready to create</span>
-          </div>
-        </div>
-        <div class="meta-section">
-          <div class="meta-section-title">将创建</div>
-          <div style="background:var(--slate-50);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:12px;line-height:1.7;">
-            <div>📄 <b style="color:var(--blue-700);">Can_Cfg.arxml</b> <span style="color:var(--muted);">— from Can_bswmd.arxml</span></div>
-            <div>📄 <b style="color:var(--blue-700);">CanIf_Cfg.arxml</b> <span style="color:var(--muted);">— from Can_bswmd.arxml</span></div>
-          </div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;">
-            目标目录: D:/work/BMS_v1.2/
-          </div>
-        </div>
-      </div>
-    </div>
+            <div class="bswmd-group">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Adc_bswmd.arxml</span>
+                <span style="margin-left: auto; font-size: 10px; color: var(--muted)"
+                  >2 modules</span
+                >
+              </div>
+            </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-ghost">取消</button>
-      <button class="btn btn-primary">创建 2 个 ECUC →</button>
-    </div>
-  </div>
-</div>
-
-<br>
-
-<!-- ================================================================
-     SCENE 3b (NEW): Cross-BSWMD collision handling
-     ================================================================ -->
-<h3 style="font-size:13px;color:var(--slate-700);margin:32px 0 8px;">场景 ③b — 跨 BSWMD 同名 module 冲突（自动加 vendor 后缀）</h3>
-<div class="modal-overlay" style="position:relative;min-height:620px;background:rgba(15,23,42,.04);padding:32px 0;">
-  <div class="modal">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">ECUC模块选择</div>
-        <div class="modal-subtitle">2 个 BSWMD 都声明了 "Can" — 自动加后缀以避免冲突</div>
-      </div>
-      <button class="remove-btn" title="关闭">×</button>
-    </div>
-
-    <div class="modal-body">
-      <div class="modal-left">
-        <input class="filter-box" placeholder="过滤…">
-
-        <div class="bswmd-group expanded">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Can_bswmd.arxml</span>
-            <span style="margin-left:auto;font-size:10px;color:var(--muted);">AUTOSAR std</span>
-          </div>
-          <label class="module-row selected collision" title="与下方 Intewell BSWMD 冲突">
-            <input type="checkbox" checked style="margin-right:6px;">
-            <span class="modname">Can</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
-            <span style="margin-left:auto;color:var(--amber-500);font-size:10px;">⚠ collision</span>
-          </label>
-          <label class="module-row">
-            <input type="checkbox" style="margin-right:6px;">
-            <span class="modname">CanIf</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
-          </label>
-        </div>
-
-        <div class="bswmd-group expanded">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Intewell_Can.arxml</span>
-            <span style="margin-left:auto;font-size:10px;color:var(--muted);">vendor 扩展</span>
-          </div>
-          <label class="module-row selected collision" title="与上方 Can_bswmd 冲突">
-            <input type="checkbox" checked style="margin-right:6px;">
-            <span class="modname">Can</span>
-            <span class="modpath">/EAS/Can</span>
-            <span style="margin-left:auto;color:var(--amber-500);font-size:10px;">⚠ collision</span>
-          </label>
-          <label class="module-row">
-            <input type="checkbox" style="margin-right:6px;">
-            <span class="modname">CanTrcv</span>
-            <span class="modpath">/EAS/CanTrcv</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="modal-right">
-        <div class="meta-section">
-          <div class="meta-section-title" style="font-size:13px;">
-            <b>Selected: 2 modules</b>
-            <span style="margin-left:8px;font-size:11px;color:var(--amber-500);">⚠ 2 个同名 module</span>
-          </div>
-        </div>
-
-        <div class="meta-section">
-          <div class="meta-section-title">将创建（自动加 vendor 后缀）</div>
-          <div style="background:var(--slate-50);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:12px;line-height:1.7;">
-            <div>📄 <b style="color:var(--blue-700);">Can_Cfg.arxml</b> <span style="color:var(--muted);">— from Can_bswmd.arxml</span></div>
-            <div style="background:rgba(245,158,11,.10);margin:4px -12px;padding:4px 12px;border-left:3px solid var(--amber-500);">
-              📄 <b style="color:var(--amber-500);">Can__intewell_Cfg.arxml</b>
-              <span style="color:var(--muted);">— from Intewell_Can.arxml</span>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px;">↑ vendorKey = basename("Intewell_Can.arxml") = "intewell_can"</div>
+            <div style="margin-top: 12px; display: flex; gap: 6px">
+              <button class="btn btn-ghost" style="font-size: 11px; padding: 4px 8px">全选</button>
+              <button class="btn btn-ghost" style="font-size: 11px; padding: 4px 8px">
+                全不选
+              </button>
             </div>
           </div>
-          <div style="margin-top:6px;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;">
-            目标目录: D:/work/BMS_v1.2/
+
+          <div class="modal-right">
+            <div class="meta-section">
+              <div class="meta-section-title" style="font-size: 13px">
+                <b>Selected: 2 modules</b>
+                <span style="margin-left: 8px; font-size: 11px; color: var(--green-600)"
+                  >✓ ready to create</span
+                >
+              </div>
+            </div>
+            <div class="meta-section">
+              <div class="meta-section-title">将创建</div>
+              <div
+                style="
+                  background: var(--slate-50);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  padding: 10px 12px;
+                  font-family: ui-monospace, monospace;
+                  font-size: 12px;
+                  line-height: 1.7;
+                "
+              >
+                <div>
+                  📄 <b style="color: var(--blue-700)">Can_Cfg.arxml</b>
+                  <span style="color: var(--muted)">— from Can_bswmd.arxml</span>
+                </div>
+                <div>
+                  📄 <b style="color: var(--blue-700)">CanIf_Cfg.arxml</b>
+                  <span style="color: var(--muted)">— from Can_bswmd.arxml</span>
+                </div>
+              </div>
+              <div
+                style="
+                  margin-top: 6px;
+                  font-size: 11px;
+                  color: var(--muted);
+                  font-family: ui-monospace, monospace;
+                "
+              >
+                目标目录: D:/work/BMS_v1.2/
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="meta-section" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:10px 12px;">
-          <div style="font-size:12px;color:var(--slate-800);">
-            <b>⚠ 提示</b>: 两个 BSWMD 都声明了 <code style="font-family:ui-monospace,monospace;font-size:11px;">Can</code> module。
-            系统已自动加 <code style="font-family:ui-monospace,monospace;font-size:11px;">__intewell</code> 后缀避免文件名冲突。
-            如需不同命名规则，请取消勾选其中一个 module。
-          </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost">取消</button>
+          <button class="btn btn-primary">创建 2 个 ECUC →</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-ghost">取消</button>
-      <button class="btn btn-primary">创建 2 个 ECUC →</button>
-    </div>
-  </div>
-</div>
+    <br />
 
-<br>
+    <!-- ================================================================
+     SCENE 3b (NEW): Cross-BSWMD collision handling
+     ================================================================ -->
+    <h3 style="font-size: 13px; color: var(--slate-700); margin: 32px 0 8px">
+      场景 ③b — 跨 BSWMD 同名 module 冲突（自动加 vendor 后缀）
+    </h3>
+    <div
+      class="modal-overlay"
+      style="
+        position: relative;
+        min-height: 620px;
+        background: rgba(15, 23, 42, 0.04);
+        padding: 32px 0;
+      "
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">ECUC模块选择</div>
+            <div class="modal-subtitle">2 个 BSWMD 都声明了 "Can" — 自动加后缀以避免冲突</div>
+          </div>
+          <button class="remove-btn" title="关闭">×</button>
+        </div>
 
-<!-- Disabled state — Can module at upper multiplicity -->
-<h3 style="font-size:13px;color:var(--slate-700);margin:24px 0 8px;">状态：模块达 upper multiplicity（行灰显 + tooltip）</h3>
-<div class="modal-overlay" style="position:relative;min-height:280px;background:rgba(15,23,42,.04);padding:32px 0;">
-  <div class="modal" style="width:560px;">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">新建 ECUC 模块 — 已达上限</div>
-      </div>
-    </div>
-    <div class="modal-body" style="display:block;">
-      <div style="padding:16px;">
-        <div class="bswmd-group expanded">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Can_bswmd.arxml</span>
+        <div class="modal-body">
+          <div class="modal-left">
+            <input class="filter-box" placeholder="过滤…" />
+
+            <div class="bswmd-group expanded">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Can_bswmd.arxml</span>
+                <span style="margin-left: auto; font-size: 10px; color: var(--muted)"
+                  >AUTOSAR std</span
+                >
+              </div>
+              <label class="module-row selected collision" title="与下方 Intewell BSWMD 冲突">
+                <input type="checkbox" checked style="margin-right: 6px" />
+                <span class="modname">Can</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
+                <span style="margin-left: auto; color: var(--amber-500); font-size: 10px"
+                  >⚠ collision</span
+                >
+              </label>
+              <label class="module-row">
+                <input type="checkbox" style="margin-right: 6px" />
+                <span class="modname">CanIf</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
+              </label>
+            </div>
+
+            <div class="bswmd-group expanded">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Intewell_Can.arxml</span>
+                <span style="margin-left: auto; font-size: 10px; color: var(--muted)"
+                  >vendor 扩展</span
+                >
+              </div>
+              <label class="module-row selected collision" title="与上方 Can_bswmd 冲突">
+                <input type="checkbox" checked style="margin-right: 6px" />
+                <span class="modname">Can</span>
+                <span class="modpath">/EAS/Can</span>
+                <span style="margin-left: auto; color: var(--amber-500); font-size: 10px"
+                  >⚠ collision</span
+                >
+              </label>
+              <label class="module-row">
+                <input type="checkbox" style="margin-right: 6px" />
+                <span class="modname">CanTrcv</span>
+                <span class="modpath">/EAS/CanTrcv</span>
+              </label>
+            </div>
           </div>
-          <div class="module-row disabled" title="已达实例上限 (1/1)">
-            <span class="modname">Can</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
-            <span class="badge warn" style="margin-left:auto;">1/1</span>
+
+          <div class="modal-right">
+            <div class="meta-section">
+              <div class="meta-section-title" style="font-size: 13px">
+                <b>Selected: 2 modules</b>
+                <span style="margin-left: 8px; font-size: 11px; color: var(--amber-500)"
+                  >⚠ 2 个同名 module</span
+                >
+              </div>
+            </div>
+
+            <div class="meta-section">
+              <div class="meta-section-title">将创建（自动加 vendor 后缀）</div>
+              <div
+                style="
+                  background: var(--slate-50);
+                  border: 1px solid var(--border);
+                  border-radius: 6px;
+                  padding: 10px 12px;
+                  font-family: ui-monospace, monospace;
+                  font-size: 12px;
+                  line-height: 1.7;
+                "
+              >
+                <div>
+                  📄 <b style="color: var(--blue-700)">Can_Cfg.arxml</b>
+                  <span style="color: var(--muted)">— from Can_bswmd.arxml</span>
+                </div>
+                <div
+                  style="
+                    background: rgba(245, 158, 11, 0.1);
+                    margin: 4px -12px;
+                    padding: 4px 12px;
+                    border-left: 3px solid var(--amber-500);
+                  "
+                >
+                  📄 <b style="color: var(--amber-500)">Can__intewell_Cfg.arxml</b>
+                  <span style="color: var(--muted)">— from Intewell_Can.arxml</span>
+                  <div style="font-size: 10px; color: var(--muted); margin-top: 2px">
+                    ↑ vendorKey = basename("Intewell_Can.arxml") = "intewell_can"
+                  </div>
+                </div>
+              </div>
+              <div
+                style="
+                  margin-top: 6px;
+                  font-size: 11px;
+                  color: var(--muted);
+                  font-family: ui-monospace, monospace;
+                "
+              >
+                目标目录: D:/work/BMS_v1.2/
+              </div>
+            </div>
+
+            <div
+              class="meta-section"
+              style="
+                background: rgba(245, 158, 11, 0.08);
+                border: 1px solid rgba(245, 158, 11, 0.3);
+                border-radius: 6px;
+                padding: 10px 12px;
+              "
+            >
+              <div style="font-size: 12px; color: var(--slate-800)">
+                <b>⚠ 提示</b>: 两个 BSWMD 都声明了
+                <code style="font-family: ui-monospace, monospace; font-size: 11px">Can</code>
+                module。 系统已自动加
+                <code style="font-family: ui-monospace, monospace; font-size: 11px"
+                  >__intewell</code
+                >
+                后缀避免文件名冲突。 如需不同命名规则，请取消勾选其中一个 module。
+              </div>
+            </div>
           </div>
-          <div class="module-row">
-            <span class="modname">CanIf</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
-          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost">取消</button>
+          <button class="btn btn-primary">创建 2 个 ECUC →</button>
         </div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost">关闭</button>
-    </div>
-  </div>
-</div>
 
-<!-- ================================================================
+    <br />
+
+    <!-- Disabled state — Can module at upper multiplicity -->
+    <h3 style="font-size: 13px; color: var(--slate-700); margin: 24px 0 8px">
+      状态：模块达 upper multiplicity（行灰显 + tooltip）
+    </h3>
+    <div
+      class="modal-overlay"
+      style="
+        position: relative;
+        min-height: 280px;
+        background: rgba(15, 23, 42, 0.04);
+        padding: 32px 0;
+      "
+    >
+      <div class="modal" style="width: 560px">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">新建 ECUC 模块 — 已达上限</div>
+          </div>
+        </div>
+        <div class="modal-body" style="display: block">
+          <div style="padding: 16px">
+            <div class="bswmd-group expanded">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Can_bswmd.arxml</span>
+              </div>
+              <div class="module-row disabled" title="已达实例上限 (1/1)">
+                <span class="modname">Can</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
+                <span class="badge warn" style="margin-left: auto">1/1</span>
+              </div>
+              <div class="module-row">
+                <span class="modname">CanIf</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
      SCENE 4: ConfirmDialog for file overwrite
      ================================================================ -->
-<h2 class="demo-section">场景 ④ — 文件已存在（ConfirmDialog）</h2>
-<p class="demo-note">
-  若 <code>${projectDir}/${moduleShortName}_Cfg.arxml</code> 已存在，弹 ConfirmDialog 让用户选 覆盖 / 取消。
-  不做 "Save As" 路径选择（所有厂商都不做）。
-</p>
-
-<div style="position:relative;border:1px solid var(--border);border-radius:8px;background:var(--slate-50);padding:48px 16px;min-height:200px;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:440px;margin:0 auto;box-shadow:var(--shadow-lg);">
-    <h3 style="margin:0 0 8px;font-size:15px;color:var(--slate-900);">覆盖现有文件?</h3>
-    <p style="margin:0 0 16px;color:var(--slate-700);font-size:13px;">
-      <code style="font-family:ui-monospace,monospace;font-size:12px;background:var(--slate-100);padding:2px 6px;border-radius:3px;">Can_Cfg.arxml</code>
-      已存在。覆盖后旧内容将丢失，无法撤销。
+    <h2 class="demo-section">场景 ④ — 文件已存在（ConfirmDialog）</h2>
+    <p class="demo-note">
+      若 <code>${projectDir}/${moduleShortName}_Cfg.arxml</code> 已存在，弹 ConfirmDialog 让用户选
+      覆盖 / 取消。 不做 "Save As" 路径选择（所有厂商都不做）。
     </p>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button class="btn btn-ghost">取消</button>
-      <button class="btn btn-primary" style="background:var(--red-600);border-color:var(--red-600);">覆盖</button>
-    </div>
-  </div>
-</div>
 
-<!-- ================================================================
-     SCENE 5: After creation — new file appears in Tree
-     ================================================================ -->
-<h2 class="demo-section">场景 ⑤ — 创建完成（toast + Tree 自动展开）</h2>
-<p class="demo-note">
-  Picker 关闭，新文件立刻出现在 FileListTab + 树视图自动激活该 root 节点。右下角 toast 3s 自动消失。
-</p>
-
-<div style="position:relative;border:1px solid var(--border);border-radius:8px;background:var(--bg);padding:16px;min-height:300px;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:380px;">
-    <div class="project-panel-section-title"><span>ARXML</span></div>
-    <div class="file-row" style="background:rgba(59,130,246,.06);border-color:var(--blue-500);">
-      <span class="name">Can_Cfg.arxml</span>
-      <span class="badge" style="background:var(--blue-600);color:white;">new</span>
-    </div>
-    <div class="file-row"><span class="name">EcuC_EcuC.arxml</span></div>
-    <div class="file-row"><span class="name">Can_17_McmCan.arxml</span></div>
-  </div>
-
-  <div class="toast">
-    <span style="font-size:16px;">✓</span>
-    <span>已新建 Can_Cfg.arxml</span>
-  </div>
-</div>
-
-<!-- ================================================================
-     Footer
-     ================================================================ -->
-<hr style="margin:48px 0 16px;border:0;border-top:1px solid var(--border);">
-<p style="font-size:12px;color:var(--muted);">
-  Mockup 对应设计 spec：<code>docs/superpowers/specs/2026-06-18-bswmd-to-ecuc-design.md</code><br>
-  核心反模式（要避开）：不隐藏而是 disable 已达上限行；不做 Save As；不做多步 wizard 做 instantiation；不在 picker 渲染 container hierarchy。
-</p>
-
-<!-- ================================================================
-     SCENE 6 (NEW): Remove BSWMD with cascade confirm
-     ================================================================ -->
-<h2 class="demo-section">场景 ⑥ — 移除 BSWMD（cascade confirm）</h2>
-<p class="demo-note">
-  反向操作：× BSWMD 时若有 ECUC 依赖，弹 ConfirmDialog 让用户选 仅移除 / 一起删 / 取消。
-  默认聚焦"仅移除"（安全）。
-</p>
-
-<div style="position:relative;border:1px solid var(--border);border-radius:8px;background:var(--slate-50);padding:48px 16px;min-height:240px;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;max-width:520px;margin:0 auto;box-shadow:var(--shadow-lg);">
-    <h3 style="margin:0 0 12px;font-size:15px;color:var(--slate-900);">移除 BSWMD <code style="font-family:ui-monospace,monospace;font-size:13px;background:var(--slate-100);padding:2px 6px;border-radius:3px;">Can_bswmd.arxml</code> ?</h3>
-    <p style="margin:0 0 8px;color:var(--slate-700);font-size:13px;">
-      以下 2 个 ECUC 文件依赖此 BSWMD，移除后它们将失去 schema 校验
-      （容器/参数将显示 <code>schema-unknown</code> 警告）：
-    </p>
-    <ul style="margin:0 0 16px;padding-left:20px;font-family:ui-monospace,monospace;font-size:12px;color:var(--slate-700);">
-      <li>Can_Cfg.arxml</li>
-      <li>CanIf_Cfg.arxml</li>
-    </ul>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button class="btn btn-ghost">取消</button>
-      <button class="btn btn-ghost" autofocus>仅移除 BSWMD</button>
-      <button class="btn btn-primary" style="background:var(--red-600);border-color:var(--red-600);">移除 + 删除依赖</button>
-    </div>
-  </div>
-</div>
-
-<!-- ================================================================
-     SCENE 7 (NEW): Module disable popover (chip + checkbox list)
-     ================================================================ -->
-<h2 class="demo-section">场景 ⑦ — Module 粒度禁用（picker 头部 chip）</h2>
-<p class="demo-note">
-  Picker 头部显示 "Modules (5/12 active)" chip，点击展开行内 checkbox 列表。
-  Disabled module 在左树灰显（与 upper multiplicity 同款 UI），picker 不可选。
-  现有依赖 ECUC 文件保留，由用户负责清理（与 BSWMD remove 默认行为一致）。
-</p>
-
-<div class="modal-overlay" style="position:relative;min-height:680px;background:rgba(15,23,42,.04);padding:32px 0;">
-  <div class="modal">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">
-          ECUC模块选择
-          <button class="bswmd-chip" style="margin-left:12px;padding:4px 10px;border-radius:12px;background:rgba(59,130,246,.10);color:var(--blue-700);border:1px solid rgba(59,130,246,.3);font-size:12px;font-weight:500;cursor:pointer;">
-            📋 Modules (5/12 active)
+    <div
+      style="
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--slate-50);
+        padding: 48px 16px;
+        min-height: 200px;
+      "
+    >
+      <div
+        style="
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 20px;
+          max-width: 440px;
+          margin: 0 auto;
+          box-shadow: var(--shadow-lg);
+        "
+      >
+        <h3 style="margin: 0 0 8px; font-size: 15px; color: var(--slate-900)">覆盖现有文件?</h3>
+        <p style="margin: 0 0 16px; color: var(--slate-700); font-size: 13px">
+          <code
+            style="
+              font-family: ui-monospace, monospace;
+              font-size: 12px;
+              background: var(--slate-100);
+              padding: 2px 6px;
+              border-radius: 3px;
+            "
+            >Can_Cfg.arxml</code
+          >
+          已存在。覆盖后旧内容将丢失，无法撤销。
+        </p>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <button class="btn btn-ghost">取消</button>
+          <button
+            class="btn btn-primary"
+            style="background: var(--red-600); border-color: var(--red-600)"
+          >
+            覆盖
           </button>
         </div>
-        <div class="modal-subtitle">选择一个模块以生成 value-side 配置骨架</div>
-      </div>
-      <button class="remove-btn" title="关闭">×</button>
-    </div>
-
-    <div class="modal-body">
-      <div class="modal-left">
-        <input class="filter-box" placeholder="过滤 (模块名 / vendor 路径)…">
-
-        <div class="bswmd-group expanded">
-          <div class="bswmd-group-header">
-            <span class="chevron">▶</span>
-            <span class="bswmd-group-filename">Can_bswmd.arxml</span>
-          </div>
-          <div class="module-row">
-            <span class="modname">Can</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
-          </div>
-          <div class="module-row selected">
-            <span class="modname">CanIf</span>
-            <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
-          </div>
-          <div class="module-row disabled" title="已手动禁用">
-            <span class="modname">CanTp</span>
-            <span class="modpath">/EAS/CanTp</span>
-            <span class="badge" style="margin-left:auto;background:var(--slate-200);color:var(--slate-500);">disabled</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-right">
-        <!-- Inline module toggle panel -->
-        <div style="background:var(--slate-50);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">
-          <div style="font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em;font-weight:600;margin-bottom:8px;">
-            📋 Configure modules — Can_bswmd.arxml
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;">
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> Can</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> CanIf</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox"> CanTp <span style="color:var(--muted);font-size:10px;">(/EAS)</span></label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> CanSM</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> ComM</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox"> Nm</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> PduR</label>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" checked> CanTrcv</label>
-          </div>
-          <div style="margin-top:8px;display:flex;gap:6px;">
-            <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;">全选</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;">全不选</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;margin-left:auto;">恢复默认</button>
-          </div>
-        </div>
-
-        <div class="meta-section">
-          <div class="meta-section-title">模块元信息</div>
-          <dl class="meta-grid">
-            <dt>Short Name</dt><dd><b>CanIf</b></dd>
-            <dt>Vendor Path</dt><dd><code style="font-family:ui-monospace,monospace;font-size:11px;color:var(--slate-600);">/AUTOSAR/EcucDefs/CanIf</code></dd>
-            <dt>Category</dt><dd>ECUAL</dd>
-          </dl>
-        </div>
       </div>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-ghost">取消</button>
-      <button class="btn btn-primary">下一步 →</button>
+    <!-- ================================================================
+     SCENE 5: After creation — new file appears in Tree
+     ================================================================ -->
+    <h2 class="demo-section">场景 ⑤ — 创建完成（toast + Tree 自动展开）</h2>
+    <p class="demo-note">
+      Picker 关闭，新文件立刻出现在 FileListTab + 树视图自动激活该 root 节点。右下角 toast 3s
+      自动消失。
+    </p>
+
+    <div
+      style="
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        padding: 16px;
+        min-height: 300px;
+      "
+    >
+      <div
+        style="
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 16px;
+          max-width: 380px;
+        "
+      >
+        <div class="project-panel-section-title"><span>ARXML</span></div>
+        <div
+          class="file-row"
+          style="background: rgba(59, 130, 246, 0.06); border-color: var(--blue-500)"
+        >
+          <span class="name">Can_Cfg.arxml</span>
+          <span class="badge" style="background: var(--blue-600); color: white">new</span>
+        </div>
+        <div class="file-row"><span class="name">EcuC_EcuC.arxml</span></div>
+        <div class="file-row"><span class="name">Can_17_McmCan.arxml</span></div>
+      </div>
+
+      <div class="toast">
+        <span style="font-size: 16px">✓</span>
+        <span>已新建 Can_Cfg.arxml</span>
+      </div>
     </div>
-  </div>
-</div>
 
-<br>
+    <!-- ================================================================
+     Footer
+     ================================================================ -->
+    <hr style="margin: 48px 0 16px; border: 0; border-top: 1px solid var(--border)" />
+    <p style="font-size: 12px; color: var(--muted)">
+      Mockup 对应设计 spec：<code>docs/superpowers/specs/2026-06-18-bswmd-to-ecuc-design.md</code
+      ><br />
+      核心反模式（要避开）：不隐藏而是 disable 已达上限行；不做 Save As；不做多步 wizard 做
+      instantiation；不在 picker 渲染 container hierarchy。
+    </p>
 
-<!-- ProjectPanel view with module count + chip on BSWMD row -->
-<h3 style="font-size:13px;color:var(--slate-700);margin:24px 0 8px;">ProjectPanel BSWMD 行（带 📋 chip）</h3>
-<div class="project-panel">
-  <div class="project-panel-header">
-    <div class="project-panel-title">📦 BMS_v1.2</div>
-    <button class="remove-btn">×</button>
-  </div>
-  <div class="project-panel-meta">
-    3 个 ARXML · 2 个 BSWMD · 1 个未保存
-  </div>
+    <!-- ================================================================
+     SCENE 6 (NEW): Remove BSWMD with cascade confirm
+     ================================================================ -->
+    <h2 class="demo-section">场景 ⑥ — 移除 BSWMD（cascade confirm）</h2>
+    <p class="demo-note">
+      反向操作：× BSWMD 时若有 ECUC 依赖，弹 ConfirmDialog 让用户选 仅移除 / 一起删 / 取消。
+      默认聚焦"仅移除"（安全）。
+    </p>
 
-  <div class="project-panel-section-title"><span>BSWMD</span></div>
-  <div class="file-row">
-    <span class="name">Can_bswmd.arxml</span>
-    <span class="badge modules">3 modules</span>
-    <button class="bswmd-chip" style="padding:2px 8px;border-radius:10px;background:rgba(59,130,246,.08);color:var(--blue-700);border:1px solid rgba(59,130,246,.2);font-size:11px;cursor:pointer;" title="配置启用的模块">📋 5/12</button>
-    <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
-    <button class="remove-btn" title="移除 BSWMD">×</button>
-  </div>
-  <div class="file-row">
-    <span class="name">Adc_bswmd.arxml</span>
-    <span class="badge modules">2 modules</span>
-    <span class="badge warn" title="有重复定义">⚠</span>
-    <button class="bswmd-chip" style="padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.08);color:var(--green-600);border:1px solid rgba(34,197,94,.2);font-size:11px;cursor:pointer;" title="配置启用的模块">📋 2/2</button>
-    <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
-    <button class="remove-btn" title="移除 BSWMD">×</button>
-  </div>
-</div>
+    <div
+      style="
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--slate-50);
+        padding: 48px 16px;
+        min-height: 240px;
+      "
+    >
+      <div
+        style="
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 20px;
+          max-width: 520px;
+          margin: 0 auto;
+          box-shadow: var(--shadow-lg);
+        "
+      >
+        <h3 style="margin: 0 0 12px; font-size: 15px; color: var(--slate-900)">
+          移除 BSWMD
+          <code
+            style="
+              font-family: ui-monospace, monospace;
+              font-size: 13px;
+              background: var(--slate-100);
+              padding: 2px 6px;
+              border-radius: 3px;
+            "
+            >Can_bswmd.arxml</code
+          >
+          ?
+        </h3>
+        <p style="margin: 0 0 8px; color: var(--slate-700); font-size: 13px">
+          以下 2 个 ECUC 文件依赖此 BSWMD，移除后它们将失去 schema 校验 （容器/参数将显示
+          <code>schema-unknown</code> 警告）：
+        </p>
+        <ul
+          style="
+            margin: 0 0 16px;
+            padding-left: 20px;
+            font-family: ui-monospace, monospace;
+            font-size: 12px;
+            color: var(--slate-700);
+          "
+        >
+          <li>Can_Cfg.arxml</li>
+          <li>CanIf_Cfg.arxml</li>
+        </ul>
+        <div style="display: flex; gap: 8px; justify-content: flex-end">
+          <button class="btn btn-ghost">取消</button>
+          <button class="btn btn-ghost" autofocus>仅移除 BSWMD</button>
+          <button
+            class="btn btn-primary"
+            style="background: var(--red-600); border-color: var(--red-600)"
+          >
+            移除 + 删除依赖
+          </button>
+        </div>
+      </div>
+    </div>
 
-</body>
-</html>
+    <!-- ================================================================
+     SCENE 7 (NEW): Module disable popover (chip + checkbox list)
+     ================================================================ -->
+    <h2 class="demo-section">场景 ⑦ — Module 粒度禁用（picker 头部 chip）</h2>
+    <p class="demo-note">
+      Picker 头部显示 "Modules (5/12 active)" chip，点击展开行内 checkbox 列表。 Disabled module
+      在左树灰显（与 upper multiplicity 同款 UI），picker 不可选。 现有依赖 ECUC
+      文件保留，由用户负责清理（与 BSWMD remove 默认行为一致）。
+    </p>
 
-</body>
+    <div
+      class="modal-overlay"
+      style="
+        position: relative;
+        min-height: 680px;
+        background: rgba(15, 23, 42, 0.04);
+        padding: 32px 0;
+      "
+    >
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">
+              ECUC模块选择
+              <button
+                class="bswmd-chip"
+                style="
+                  margin-left: 12px;
+                  padding: 4px 10px;
+                  border-radius: 12px;
+                  background: rgba(59, 130, 246, 0.1);
+                  color: var(--blue-700);
+                  border: 1px solid rgba(59, 130, 246, 0.3);
+                  font-size: 12px;
+                  font-weight: 500;
+                  cursor: pointer;
+                "
+              >
+                📋 Modules (5/12 active)
+              </button>
+            </div>
+            <div class="modal-subtitle">选择一个模块以生成 value-side 配置骨架</div>
+          </div>
+          <button class="remove-btn" title="关闭">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="modal-left">
+            <input class="filter-box" placeholder="过滤 (模块名 / vendor 路径)…" />
+
+            <div class="bswmd-group expanded">
+              <div class="bswmd-group-header">
+                <span class="chevron">▶</span>
+                <span class="bswmd-group-filename">Can_bswmd.arxml</span>
+              </div>
+              <div class="module-row">
+                <span class="modname">Can</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/Can</span>
+              </div>
+              <div class="module-row selected">
+                <span class="modname">CanIf</span>
+                <span class="modpath">/AUTOSAR/EcucDefs/CanIf</span>
+              </div>
+              <div class="module-row disabled" title="已手动禁用">
+                <span class="modname">CanTp</span>
+                <span class="modpath">/EAS/CanTp</span>
+                <span
+                  class="badge"
+                  style="margin-left: auto; background: var(--slate-200); color: var(--slate-500)"
+                  >disabled</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-right">
+            <!-- Inline module toggle panel -->
+            <div
+              style="
+                background: var(--slate-50);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 12px;
+                margin-bottom: 16px;
+              "
+            >
+              <div
+                style="
+                  font-size: 11px;
+                  text-transform: uppercase;
+                  color: var(--muted);
+                  letter-spacing: 0.04em;
+                  font-weight: 600;
+                  margin-bottom: 8px;
+                "
+              >
+                📋 Configure modules — Can_bswmd.arxml
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 6px 16px;
+                  font-size: 12px;
+                "
+              >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> Can</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> CanIf</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" /> CanTp
+                  <span style="color: var(--muted); font-size: 10px">(/EAS)</span></label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> CanSM</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> ComM</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" /> Nm</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> PduR</label
+                >
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer"
+                  ><input type="checkbox" checked /> CanTrcv</label
+                >
+              </div>
+              <div style="margin-top: 8px; display: flex; gap: 6px">
+                <button class="btn btn-ghost" style="font-size: 11px; padding: 3px 8px">
+                  全选
+                </button>
+                <button class="btn btn-ghost" style="font-size: 11px; padding: 3px 8px">
+                  全不选
+                </button>
+                <button
+                  class="btn btn-ghost"
+                  style="font-size: 11px; padding: 3px 8px; margin-left: auto"
+                >
+                  恢复默认
+                </button>
+              </div>
+            </div>
+
+            <div class="meta-section">
+              <div class="meta-section-title">模块元信息</div>
+              <dl class="meta-grid">
+                <dt>Short Name</dt>
+                <dd><b>CanIf</b></dd>
+                <dt>Vendor Path</dt>
+                <dd>
+                  <code
+                    style="
+                      font-family: ui-monospace, monospace;
+                      font-size: 11px;
+                      color: var(--slate-600);
+                    "
+                    >/AUTOSAR/EcucDefs/CanIf</code
+                  >
+                </dd>
+                <dt>Category</dt>
+                <dd>ECUAL</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost">取消</button>
+          <button class="btn btn-primary">下一步 →</button>
+        </div>
+      </div>
+    </div>
+
+    <br />
+
+    <!-- ProjectPanel view with module count + chip on BSWMD row -->
+    <h3 style="font-size: 13px; color: var(--slate-700); margin: 24px 0 8px">
+      ProjectPanel BSWMD 行（带 📋 chip）
+    </h3>
+    <div class="project-panel">
+      <div class="project-panel-header">
+        <div class="project-panel-title">📦 BMS_v1.2</div>
+        <button class="remove-btn">×</button>
+      </div>
+      <div class="project-panel-meta">3 个 ARXML · 2 个 BSWMD · 1 个未保存</div>
+
+      <div class="project-panel-section-title"><span>BSWMD</span></div>
+      <div class="file-row">
+        <span class="name">Can_bswmd.arxml</span>
+        <span class="badge modules">3 modules</span>
+        <button
+          class="bswmd-chip"
+          style="
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--blue-700);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            font-size: 11px;
+            cursor: pointer;
+          "
+          title="配置启用的模块"
+        >
+          📋 5/12
+        </button>
+        <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
+        <button class="remove-btn" title="移除 BSWMD">×</button>
+      </div>
+      <div class="file-row">
+        <span class="name">Adc_bswmd.arxml</span>
+        <span class="badge modules">2 modules</span>
+        <span class="badge warn" title="有重复定义">⚠</span>
+        <button
+          class="bswmd-chip"
+          style="
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(34, 197, 94, 0.08);
+            color: var(--green-600);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            font-size: 11px;
+            cursor: pointer;
+          "
+          title="配置启用的模块"
+        >
+          📋 2/2
+        </button>
+        <button class="add-btn" title="从此 BSWMD 新建 ECUC 模块">+</button>
+        <button class="remove-btn" title="移除 BSWMD">×</button>
+      </div>
+    </div>
+  </body>
 </html>
