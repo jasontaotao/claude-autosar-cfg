@@ -207,23 +207,26 @@ describe('addContainer', () => {
     ).toEqual(['BaudRate']);
   });
 
-  it('returns name-conflict when the short name already exists in the parent', () => {
-    // Arrange
+  it('auto-suffixes to `_1` when the short name already exists in the parent (v1.8.4 Bug 2)', () => {
+    // v1.8.4 Bug 2 — containers are no longer rejected on name collision
+    // when the parent def permits multi-instance. The new sibling
+    // takes the next available `_${n}` suffix. The regression test for
+    // multiplicity-ceiling behaviour lives in mutation-multi-instance.test.ts.
     const childDef = makeBswContainer('CanIfRxPduCfg');
     const doc = makeDoc('Can', [makeContainer('CanConfigSet'), makeContainer('CanIfRxPduCfg')]);
     const moduleDef = makeBswModule('Can', [
       makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
     ]);
 
-    // Act
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
 
-    // Assert
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(r.error.kind).toBe('name-conflict');
-    if (r.error.kind === 'name-conflict') {
-      expect(r.error.shortName).toBe('CanIfRxPduCfg');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const added = rootModule.children[rootModule.children.length - 1]!;
+    expect(added.kind).toBe('container');
+    if (added.kind === 'container') {
+      expect(added.shortName).toBe('CanIfRxPduCfg_1');
     }
   });
 
@@ -259,26 +262,28 @@ describe('addContainer', () => {
     expect(r.error.kind).toBe('path-not-found');
   });
 
-  it('preserves reference equality when the new container is not actually added (no-op)', () => {
-    // Arrange — name-conflict short-circuits, doc should be returned unchanged.
-    const childDef = makeBswContainer('CanIfRxPduCfg');
-    const doc = makeDoc('Can', [makeContainer('CanIfRxPduCfg')]);
-    const moduleDef = makeBswModule('Can', [
-      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
-    ]);
+  it('auto-suffixes a single pre-existing sibling to `_1` (v1.8.4 Bug 2 no-op renamed)', () => {
+  // v1.8.4 Bug 2 — what was previously a no-op short-circuit on
+  // name-conflict is now a successful insert with an auto-suffixed
+  // shortName. The `path-not-found` no-op contract is exercised by the
+  // separate test below.
+  const childDef = makeBswContainer('CanIfRxPduCfg');
+  const doc = makeDoc('Can', [makeContainer('CanIfRxPduCfg')]);
+  const moduleDef = makeBswModule('Can', [
+    makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+  ]);
 
-    // Act
-    const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
+  const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
 
-    // Assert
-    expect(r.ok).toBe(false);
-    if (r.ok) return;
-    // On failure the function may either return the same doc or a fresh
-    // reference; the contract we pin here is that on the *happy path* the
-    // no-op case keeps the reference (see next test). For failure paths we
-    // accept any result.
-    expect(r.error.kind).toBe('name-conflict');
-  });
+  expect(r.ok).toBe(true);
+  if (!r.ok) return;
+  const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+  const added = rootModule.children[rootModule.children.length - 1]!;
+  expect(added.kind).toBe('container');
+  if (added.kind === 'container') {
+    expect(added.shortName).toBe('CanIfRxPduCfg_1');
+  }
+});
 });
 
 // ---------------------------------------------------------------------------

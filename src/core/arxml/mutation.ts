@@ -140,17 +140,26 @@ export function addContainer(
     };
   }
 
-  // 3. Reject if the name is already taken (only relevant when there is
-  //    headroom on the multiplicity — otherwise step 2 fired first).
-  if (hasChildWithShortName(parent, shortName)) {
-    return { ok: false, error: { kind: 'name-conflict', shortName } };
+  // 3. v1.8.4 Bug 2 — container shortNames are NOT required to be unique
+  //    when the parent def permits multi-instance; Step 2's
+  //    multiplicity-exceeded check already enforces the ceiling. When
+  //    a sibling with the same shortName already exists, auto-suffix
+  //    the new container with `_${n}` (Vector CANdb++ default naming)
+  //    so the path stays unique without requiring the user to pick a
+  //    unique name in the picker. Parameter uniqueness is preserved by
+  //    `addParameter` (separate code path).
+  let effectiveShortName = shortName;
+  let attempt = 0;
+  while (hasChildWithShortName(parent, effectiveShortName)) {
+    attempt += 1;
+    effectiveShortName = `${shortName}_${attempt}`;
   }
 
   // 4. Build the new container element and insert it.
   const newContainer: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',
-    shortName,
+    shortName: effectiveShortName,
     params: {},
     children: [],
   };
