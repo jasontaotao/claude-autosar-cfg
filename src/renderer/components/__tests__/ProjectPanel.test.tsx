@@ -19,10 +19,11 @@
 // across the zh-CN/en toggle.
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectManifest } from '@shared/project';
 
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { ProjectPanelInfo } from '../ProjectPanel';
 
 const MANIFEST_PATH = 'C:/projects/demo.autosarcfg.json';
@@ -48,6 +49,10 @@ const baseProps = {
 };
 
 describe('ProjectPanelInfo', () => {
+  afterEach(() => {
+    useArxmlStore.getState().setLocale('zh-CN');
+  });
+
   it('renders the project name', () => {
     const manifest = makeManifest({ name: 'Demo' });
     render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
@@ -103,5 +108,23 @@ describe('ProjectPanelInfo', () => {
         (content) => content.includes('尚未加载 BSWMD') || /No BSWMDs/i.test(content),
       ),
     ).toBeTruthy();
+  });
+
+  it('BSWMD row × button uses projectPanel.removeBswmdAria, not removeArxmlAria (zh-CN default)', () => {
+    const manifest = makeManifest({ bswmdPaths: ['/proj/Adc.arxml'] });
+    render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
+    const removeBtn = screen.getByTestId('project-panel-bswmd-remove-/proj/Adc.arxml');
+    expect(removeBtn).toHaveAttribute('aria-label', "移除 BSWMD 'Adc.arxml'");
+    // Negative assertion: must NOT carry the ARXML-string markers.
+    const ariaLabel = removeBtn.getAttribute('aria-label') ?? '';
+    expect(ariaLabel).not.toMatch(/从项目中移除|Remove .* from project/);
+  });
+
+  it('BSWMD row × button aria-label in en locale uses removeBswmdAria', () => {
+    useArxmlStore.getState().setLocale('en');
+    const manifest = makeManifest({ bswmdPaths: ['/proj/Adc.arxml'] });
+    render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
+    const removeBtn = screen.getByTestId('project-panel-bswmd-remove-/proj/Adc.arxml');
+    expect(removeBtn).toHaveAttribute('aria-label', "Remove BSWMD 'Adc.arxml'");
   });
 });

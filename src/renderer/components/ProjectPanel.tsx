@@ -130,7 +130,7 @@ function FileList({
                 <button
                   type="button"
                   className="project-panel-list-remove"
-                  aria-label={t(locale, 'projectPanel.removeArxmlAria', {
+                  aria-label={t(locale, 'projectPanel.removeBswmdAria', {
                     name: basename(p),
                   })}
                   data-testid={`${testIdPrefix}-remove-${p}`}
