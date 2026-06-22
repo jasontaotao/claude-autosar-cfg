@@ -141,6 +141,11 @@ export interface Messages {
   readonly 'projectPanel.bswmd.addAria': string; // {name}
   readonly 'projectPanel.closeAria': string; // {name}
   readonly 'projectPanel.removeArxmlAria': string; // {name}
+  // Sprint 17 PATCH — distinct aria key for the BSWMD row × button.
+  // Replaces the cross-contamination where ProjectPanel.tsx:133
+  // reused the ARXML key (which happens to read sensibly because
+  // the ARXML aria-string is generic).
+  readonly 'projectPanel.removeBswmdAria': string; // {name}
   // Sprint 13 Stage 3.5 — Combined Tree View virtual entry inside the
   // file list. Renders at the top of the ARXML group when at least one
   // document is loaded; clicking it switches the store to combined mode.
@@ -362,6 +367,15 @@ export interface Messages {
   // and routed by App.tsx to useProjectActions.removeBswmdWithFullFlow.
   readonly 'mutation.action.removeModule': string;
   readonly 'mutation.action.removeModuleAria': string; // {name}
+  // Sprint 17 PATCH — Undo affordance. `undo` is the button label
+  // (used in both ErrorBanner's action button and the cascade-and-
+  // unlink success toast). `bswmdRemoved` is the toast message after
+  // a successful cascade-and-unlink. `undoFailed` is the info toast
+  // shown when the Undo button is clicked but the snapshot has been
+  // replaced or cleared (stale-toast defense).
+  readonly 'mutation.action.undo': string;
+  readonly 'mutation.action.bswmdRemoved': string; // {name}
+  readonly 'mutation.action.undoFailed': string;
   // Sprint A X2 — P0-3: context-menu "Delete reference" is exposed
   // but the underlying mutation is not yet implemented (the
   // reference graph has no remove path). Surface a localized info
@@ -746,6 +760,7 @@ export const MessagesZhCN: Messages = {
   'projectPanel.bswmd.addAria': '加载 BSWMD 文件 {name}',
   'projectPanel.closeAria': '关闭项目 {name}',
   'projectPanel.removeArxmlAria': '从项目中移除 {name}',
+  'projectPanel.removeBswmdAria': "移除 BSWMD '{name}'",
   'fileList.combinedView': '合并视图',
   'fileList.combinedViewAria': '切换到合并视图',
   'arxmlPanel.combinedDocs': '合并视图（{count} 个文档）',
@@ -908,6 +923,9 @@ export const MessagesZhCN: Messages = {
   'mutation.action.deleteParameter': '删除参数',
   'mutation.action.removeModule': '移除 BSWMD',
   'mutation.action.removeModuleAria': "移除 BSWMD '{name}'",
+  'mutation.action.undo': '撤销',
+  'mutation.action.bswmdRemoved': "已移除 BSWMD '{name}'",
+  'mutation.action.undoFailed': '撤销失败：BSWMD 已恢复或被替换',
   'mutation.action.deleteReferenceNotImplemented':
     '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
@@ -1233,6 +1251,7 @@ export const MessagesEn: Messages = {
   'projectPanel.bswmd.addAria': 'Load BSWMD file {name}',
   'projectPanel.closeAria': 'Close project {name}',
   'projectPanel.removeArxmlAria': 'Remove {name} from project',
+  'projectPanel.removeBswmdAria': "Remove BSWMD '{name}'",
   'fileList.combinedView': 'Combined view',
   'fileList.combinedViewAria': 'Switch to combined view',
   'arxmlPanel.combinedDocs': 'Combined view ({count} documents)',
@@ -1401,6 +1420,9 @@ export const MessagesEn: Messages = {
   'mutation.action.deleteParameter': 'Delete parameter',
   'mutation.action.removeModule': 'Remove module',
   'mutation.action.removeModuleAria': "Remove BSWMD '{name}'",
+  'mutation.action.undo': 'Undo',
+  'mutation.action.bswmdRemoved': "Removed BSWMD '{name}'",
+  'mutation.action.undoFailed': 'Undo failed: BSWMD already restored or replaced',
   'mutation.action.deleteReferenceNotImplemented':
     'Deleting references is not yet implemented (tracked in Sprint A backlog)',
   'confirm.cascade.title': "Delete '{name}'?",
