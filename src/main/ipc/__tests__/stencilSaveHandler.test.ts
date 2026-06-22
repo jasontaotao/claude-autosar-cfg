@@ -82,11 +82,7 @@ describe('handleStencilSave (v1.8.0 K Task 12)', () => {
     } else {
       throw new Error('expected non-canceled result');
     }
-    expect(mocks.fsWriteFile).toHaveBeenCalledWith(
-      'C:\\tmp\\Com.arxml',
-      '<AR-PACKAGE/>',
-      'utf8',
-    );
+    expect(mocks.fsWriteFile).toHaveBeenCalledWith('C:\\tmp\\Com.arxml', '<AR-PACKAGE/>', 'utf8');
   });
 
   it('user cancels the dialog → ok with canceled:true', async () => {

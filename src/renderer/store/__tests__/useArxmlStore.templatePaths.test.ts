@@ -58,9 +58,7 @@ describe('useArxmlStore — templatePaths (K Stencil Task 10)', () => {
   });
 
   it('addDocument with options.template = true adds the path', () => {
-    useArxmlStore
-      .getState()
-      .addDocument(buildDoc(), '/tmp/opened.arxml', { template: true });
+    useArxmlStore.getState().addDocument(buildDoc(), '/tmp/opened.arxml', { template: true });
     expect(useArxmlStore.getState().templatePaths.has('/tmp/opened.arxml')).toBe(true);
   });
 

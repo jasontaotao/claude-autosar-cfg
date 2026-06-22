@@ -118,16 +118,17 @@ export function AppHeader({
   const [stencilFlagOn, setStencilFlagOn] = useState(false);
   useEffect(() => {
     refreshStencilFlagCache();
-    const api = (globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } })
-      .window?.autosarApi;
+    const api = (
+      globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } }
+    ).window?.autosarApi;
     if (api === undefined || typeof api.getFeatureFlags !== 'function') return;
     let cancelled = false;
     void api
       .getFeatureFlags()
       .then((reply) => {
         if (cancelled) return;
-        const flag = (reply as { experimental?: { stencilWizard?: boolean } } | undefined)?.experimental
-          ?.stencilWizard;
+        const flag = (reply as { experimental?: { stencilWizard?: boolean } } | undefined)
+          ?.experimental?.stencilWizard;
         setStencilFlagOn(flag === true);
       })
       .catch(() => {

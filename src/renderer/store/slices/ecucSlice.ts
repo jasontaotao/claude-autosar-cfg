@@ -62,7 +62,11 @@ export interface EcucSlice {
   readonly templatePaths: ReadonlySet<string>;
 
   // Multi-doc actions (Sprint 10 #2)
-  addDocument: (doc: ArxmlDocument, filePath: string, options?: { readonly template?: boolean }) => void;
+  addDocument: (
+    doc: ArxmlDocument,
+    filePath: string,
+    options?: { readonly template?: boolean },
+  ) => void;
   removeDocument: (filePath: string) => void;
   setActiveDocument: (filePath: string | null) => void;
 

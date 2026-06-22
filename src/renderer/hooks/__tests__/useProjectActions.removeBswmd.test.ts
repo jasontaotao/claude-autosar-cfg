@@ -409,8 +409,6 @@ describe('useProjectActions — cascade-and-unlink Undo toast (Sprint 17 PATCH T
     // The original BSWMD path is still absent (we did NOT accidentally
     // undo Can.arxml). The stale snapshot's path was also not re-added.
     expect(useArxmlStore.getState().bswmdPaths).not.toContain(BSWMD_PATH);
-    expect(useArxmlStore.getState().bswmdPaths).not.toContain(
-      'D:/bswmd/DifferentBswmd.arxml',
-    );
+    expect(useArxmlStore.getState().bswmdPaths).not.toContain('D:/bswmd/DifferentBswmd.arxml');
   });
 });

@@ -705,10 +705,12 @@ export function useProjectActions(): {
                     // Stale snapshot — the info toast REPLACES the
                     // success toast (don't dismiss afterward, or the
                     // user wouldn't see the failure message).
-                    useArxmlStore.getState().setInfo(
-                      t(useArxmlStore.getState().locale, 'mutation.action.undoFailed'),
-                      4000,
-                    );
+                    useArxmlStore
+                      .getState()
+                      .setInfo(
+                        t(useArxmlStore.getState().locale, 'mutation.action.undoFailed'),
+                        4000,
+                      );
                   }
                 },
               },

@@ -19,10 +19,7 @@ import * as path from 'node:path';
 
 import { dialog } from 'electron';
 
-import type {
-  StencilSaveRequest,
-  StencilSaveResponse,
-} from '../stencil/types.js';
+import type { StencilSaveRequest, StencilSaveResponse } from '../stencil/types.js';
 
 const STENCIL_SAVE_MAX_BYTES = 32 * 1024 * 1024;
 

@@ -80,7 +80,10 @@ module.exports = {
           'error',
           {
             paths: [
-              { name: 'electron', message: 'renderer/ must not import electron directly (use preload bridge)' },
+              {
+                name: 'electron',
+                message: 'renderer/ must not import electron directly (use preload bridge)',
+              },
             ],
           },
         ],

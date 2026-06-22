@@ -14,7 +14,11 @@ const STAGES = [
   // vitest.config.ts so `pnpm test` does not pick it up. Uses a
   // dedicated vitest.regression.config.ts that whitelists
   // `tests/regression/**`.
-  { name: 'import-regression', cmd: 'pnpm', args: ['vitest', 'run', '--config', 'vitest.regression.config.ts'] },
+  {
+    name: 'import-regression',
+    cmd: 'pnpm',
+    args: ['vitest', 'run', '--config', 'vitest.regression.config.ts'],
+  },
 ];
 
 let failed = false;

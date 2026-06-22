@@ -17,8 +17,9 @@ interface StencilFlagResponse {
 }
 
 async function isStencilFlagOn(): Promise<boolean> {
-  const api = (globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } })
-    .window?.autosarApi;
+  const api = (
+    globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } }
+  ).window?.autosarApi;
   if (api === undefined || typeof api.getFeatureFlags !== 'function') return false;
   try {
     const reply = (await api.getFeatureFlags()) as StencilFlagResponse;

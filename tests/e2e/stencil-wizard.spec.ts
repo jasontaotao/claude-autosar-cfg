@@ -179,9 +179,7 @@ async function installApiMock(page: Page): Promise<void> {
  * transformed module before we try to import it.
  */
 async function warmupStoreModule(page: Page): Promise<void> {
-  await page.request.get(
-    'http://localhost:5173/src/renderer/store/useArxmlStore.ts',
-  );
+  await page.request.get('http://localhost:5173/src/renderer/store/useArxmlStore.ts');
 }
 
 /**
@@ -309,9 +307,7 @@ test.describe('v1.8.0 K — Stencil Wizard (E2E)', () => {
     //    assert against the optional `projectPath` (the wizard omits
     //    it when no project is open).
     const calls = await page.evaluate(
-      () =>
-        (globalThis as unknown as { __stencilCalls: unknown[] })
-          .__stencilCalls,
+      () => (globalThis as unknown as { __stencilCalls: unknown[] }).__stencilCalls,
     );
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ family: 'com', mode: 'free', gate: false });
@@ -381,9 +377,7 @@ test.describe('v1.8.0 K — Stencil Wizard (E2E)', () => {
 
     const row = page.getByTestId(`file-list-tab-arxml-${TEMPLATE_DOC_PATH}`);
     await expect(row).toBeVisible({ timeout: 5_000 });
-    const badge = page.getByTestId(
-      `file-list-tab-arxml-badge-template-${TEMPLATE_DOC_PATH}`,
-    );
+    const badge = page.getByTestId(`file-list-tab-arxml-badge-template-${TEMPLATE_DOC_PATH}`);
     await expect(badge).toBeVisible();
   });
 

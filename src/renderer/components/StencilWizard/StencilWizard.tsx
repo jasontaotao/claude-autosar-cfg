@@ -217,9 +217,7 @@ export function StencilWizard({ onClose, returnFocusRef }: StencilWizardProps): 
         // cancelation pattern.
         onClose();
       } else {
-        setSuccess(
-          t(locale, 'stencil.success.saved', { name: basename(saveResult.value.path) }),
-        );
+        setSuccess(t(locale, 'stencil.success.saved', { name: basename(saveResult.value.path) }));
         onClose();
       }
     } else {

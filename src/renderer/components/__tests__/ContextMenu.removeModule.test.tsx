@@ -118,7 +118,8 @@ describe('ContextMenu (Sprint 17 P3 T3.3 — Remove module item)', () => {
       act(() => {
         openContextMenu(
           { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
-          100, 100,
+          100,
+          100,
         );
       });
       const item = screen.getByTestId('context-menu-item-remove-module');
@@ -137,10 +138,7 @@ describe('ContextMenu (Sprint 17 P3 T3.3 — Remove module item)', () => {
       await Promise.resolve();
     });
     act(() => {
-      openContextMenu(
-        { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
-        100, 100,
-      );
+      openContextMenu({ path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' }, 100, 100);
     });
     const item = await waitFor(() => screen.getByTestId('context-menu-item-remove-module'));
     expect(item).toHaveAttribute('aria-label', "Remove BSWMD 'Adc.arxml'");

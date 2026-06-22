@@ -62,12 +62,7 @@ const SUGGESTED_FILENAMES: Record<StencilFamily, string> = {
  * families with a typed error envelope rather than letting
  * `BUILDERS[family]` silently yield `undefined()`.
  */
-const KNOWN_FAMILIES: ReadonlySet<StencilFamily> = new Set([
-  'com',
-  'comm',
-  'ecuc',
-  'pdur',
-]);
+const KNOWN_FAMILIES: ReadonlySet<StencilFamily> = new Set(['com', 'comm', 'ecuc', 'pdur']);
 
 /**
  * Built-in rule registry for the gate. Constructed lazily so importing
