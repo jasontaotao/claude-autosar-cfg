@@ -5,6 +5,38 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.8.2] - 2026-06-22 — Repo housekeeping + v1.6.1+ build fix
+
+PATCH bump: **6 commits since v1.8.1** (`8b6dcf5` archive ship + `ca269f1` build fix + `ca0d7c8`/`1c9e8d2` docs moves + `b82b17a` README rewrite + `24bcf28`/`9d36108` format catch-up). 2097 → 2097 tests (no test count delta). Pure housekeeping plus the v1.6.1–v1.8.1 main-process build regression that the v1.8.1 release notes flagged as pre-existing and not a PATCH blocker. Behavior unchanged for end users.
+
+> **Why PATCH not MINOR?** No new feature, no API change, no schema change. The vite.main.config.ts alias addition is the missing piece of the v1.6.1 K-Stencil wiring that the v1.8.0 release notes should have shipped with; the docs moves + README rewrite are pure repo layout. v1.8.1 consumers see no behavior change.
+
+### Fixed
+
+- **`pnpm build:main` regression since v1.6.1** (`ca269f1`): `vite.main.config.ts` was missing `resolve.alias` entries for `@core` and `@shared` that the renderer config and `tsconfig.json` paths both defined. v1.6.0 K-Stencil's `core/sws-validator/engine.ts` transitively pulled `@shared/i18n` into the main bundle and Rollup could not resolve it. Documented in the v1.8.1 release notes as a pre-existing build issue; this PATCH closes it. All 3 Vite build stages now pass (`pnpm build` exit 0; main bundle 358.71 kB).
+
+### Housekeeping
+
+- **Repo layout** (`ca0d7c8`, `1c9e8d2`): 16 `release-notes-v*.md` files (v1.0.0 through v1.8.1) consolidated into a single `docs/release-notes/` directory. `PROGRESS.md` (198 KB internal sprint log) moved into `docs/superpowers/archive/PROGRESS.md` alongside the previously-archived v1.6.0–v1.8.0 specs/plans.
+- **README** (`b82b17a`): full Chinese rewrite replacing the stale v0.8.0 English README. Now documents all v1.0–v1.8 features in milestone groups, the 7-stage verify pipeline, the post-v1.3 `src/` layout, and the `docs/release-notes/` / `docs/superpowers/archive/` doc tree.
+- **Format drift** (`24bcf28`, `9d36108`): 34 source/test files reformatted to current prettier config (whitespace only, 63+/74-); 6 frozen historical docs (release notes + archived specs/plans) added to `.prettierignore` so `pnpm format:check` no longer re-flows the historical record.
+
+### Archive ship (was un-pushed from v1.8.1 cycle)
+
+- `8b6dcf5 docs(archive): ship v1.6.0/v1.6.1/v1.7.x/v1.8.0 plans+specs to archive/`: per-sprint spec + plan docs for v1.6.0 through v1.8.0 moved into `docs/superpowers/archive/specs/` and `docs/superpowers/archive/plans/`. `docs/superpowers/specs/` and `docs/superpowers/plans/` are now empty (no current spec/plan in flight; ready for the next brainstorm).
+
+### Verification
+
+- **2097 tests pass + 1 skip** (unchanged from v1.8.1; the 5 implementation commits touch only build config + docs + format whitespace)
+- **0 type errors** (`npx tsc --noEmit` × 2 configs)
+- **0 lint errors** (`--max-warnings 0`)
+- **`pnpm verify` exit 0** across all 7 stages (format / lint / type-check / test / coverage / build / import-regression) — first time all-green since v1.7.3 (the build stage was the v1.6.1 regression)
+- **Main bundle 358.71 kB** (vs v1.7.3 main 167.85 kB — K Stencil + SWS Validator engine chain now bundles successfully)
+
+## [1.8.1] - 2026-06-22 — Sprint 17 PATCH follow-up
+
+See `docs/release-notes/release-notes-v1.8.1.md` for the full entry. PATCH bump: **7 commits since v1.8.0** (`2b3e21c` → `a37ec91`), 2086 → 2097 tests (+11). Adds the `cascade-and-unlink` Undo toast (8-second window with stale-snapshot defense) and dedicated ARIA labels for BSWMD vs ARXML remove actions.
+
 ## [1.8.0] - 2026-06-22 — K Stencil Wizard
 
 MINOR bump: **12 commits since v1.7.3** (`de27500` → `ee94869`), 2033 → 2086 tests (+53 net). Ships the v1.8.0 K Stencil Wizard — a GUI modal that generates minimal valid ECUC module skeletons (Com / ComM / PduR / EcuC) for use as starting templates. Reuses v1.6.0 G's `sws-validator:run:v1` and v1.5.1 A+C's `applyPatchSteps` verbatim; no reimplementation.
