@@ -5,6 +5,40 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.8.4] - 2026-06-22 — Three correctness bugfixes
+
+PATCH bump: **5 commits since v1.8.3** (HEAD `96eab97`). 2097 → 2114 tests (+17 net). Three focused correctness fixes found by manual review of v1.8.3 SHIPPED code. No new feature, no API change, no schema change.
+
+### Fixed
+
+- **Bug 1 — `generateEcucSkeleton` honors BSWMD `doc.version`** (`b20c141`): `src/core/arxml/skeleton.ts:88` hardcoded `version: '4.6'` regardless of the source BSWMD's declared version. A BSWMD with `xmlns=.../schema/r5.0` or `.../schema/00051` produced a skeleton written with the r4.6 namespace + `AUTOSAR_4-6-0.xsd` `schemaLocation` — invalid for the source. New `mapBswmdVersionToArxml(v: string): ArxmlVersion` at `src/core/arxml/version.ts` passes through every value in the `ArxmlVersion` union; defaults to `'4.6'` for BSWMD-only `'4.0'` and any future vendor / r4.8+ literal (silent fallback preserves v1.8.3 behaviour for the no-direct-match case).
+
+- **Bug 2 — `addContainer` allows multi-instance containers** (`08a8c2e`): `mutation.ts:145-147` rejected 2nd same-named sibling via `name-conflict` even when the BSWMD declared `upperMultiplicity: 'infinite'`. AUTOSAR ECUC spec permits multiple instances of any container with `upper > 1` (e.g. multiple `Pdu` under one `Com`). Dropped the Step 3 name-conflict guard; the core layer now auto-suffixes `Pdu → Pdu_1 → Pdu_2` (Vector CANdb++ default). Step 2's multiplicity-exceeded check still fires first when a finite `upper` is exhausted. User-visible: the picker no longer rejects a 2nd click on the same container row; instead it inserts a sibling with the next-available `_<n>` suffix.
+
+- **Bug 3 — `📋 N/M` chip reflects ECUC-instantiated docs** (`ae4b7fa`): `ProjectPanel.tsx:339-340` derived `activeCount` from `getActiveModules(schema).length` — a BSWMD-side filter on `disabledModules`, unrelated to whether any ECUC doc was generated from this BSWMD. The chip sat next to the `+` button the user clicks to CREATE ECUC docs, so the visual adjacency strongly implied "N ECUC docs already exist from M modules". Old behaviour: loading a 5-module BSWMD showed `📋 5/5` immediately with zero ECUC docs. New derivation: `documents.filter(d => bswmdKeyFor(d.sourceBswmdPath) === bswmdKeyFor(bswmdPath)).length`. `bswmdKeyFor` bridges the manifest-relative POSIX vs store-absolute Windows path-shape mismatch (same approach as `bswmdKeyToSchema`). `+` button disable moved from `activeCount === 0` to `totalCount === 0` (the BSWMD has any modules at all).
+
+### Internal
+
+- `src/core/arxml/version.ts` (new, ~40 lines)
+- `src/core/arxml/mutation.ts`: drop Step 3 + auto-suffix loop
+- `src/renderer/components/ProjectPanel.tsx`: chip count derivation; removed unused `getActiveModules` import
+- 3 new test files: `skeleton-version.test.ts` (9), `mutation-multi-instance.test.ts` (4), `ProjectPanel.chip-count.test.tsx` (5). 3 existing test files updated to drop pinned-buggy-behavior assertions (`mutation.test.ts`, `ProjectPanel.path-normalize.test.tsx`, `useArxmlStore.mutation.test.ts`).
+- code-reviewer APPROVE_WITH_NOTES (0C/0H/1M/3L); MEDIUM and 2 of 3 LOWs addressed in `0c1e36f chore(review)` commit. 1 LOW deferred (test-fixture drift between 2 regression files).
+- `pnpm verify` all 7 stages EXIT=0 (2114 pass + 1 skip / 0 type/lint / build OK).
+
+## [1.8.3] - 2026-06-22 — `@dbc-forge/core` git submodule migration
+
+Closes the v1.7.0 §3b TODO: migrate `@dbc-forge/core` from sibling-repo `file:` dep (broke every consumer that didn't reproduce the sibling layout) to vendored **git submodule** pinned to a release tag. Pinned at v0.1.1 (commit `eb1bc8b`) which includes commit `4f6f300` "fix(writer): dedup CM_ by scope+target+text" — the first tagged release that survives a DBC→Network→DBC round-trip when CM_ uses the Vector data-dictionary idiom of pasting the same long text on 20+ messages.
+
+Plus 3 verify-gap fixes caught before push:
+- **`5e2805c` CI**: `.github/workflows/ci.yml` adds `submodules: recursive` to all 5 jobs (`actions/checkout@v4` doesn't init submodules by default; without this CI gets empty `vendor/dbc-forge/` + pnpm install 404).
+- **`fed0af3` format**: `.prettierignore` adds `vendor/` (mirror the .eslint exclude; prettier --check glob caught 4 .md files inside vendor/dbc-forge).
+- **`2412a42` test**: smoke test fixture switched from non-canonical `BA_ "NodeLayerModules" 5 ECU1;` (network-level string assignment that round-tripped lossily) to canonical `BA_ "NodeLayerModules" BU_ ECU1 5;` (Vector / EB tresos / ETAS form).
+
+8 commits since v1.8.2. 2097 → 2097 tests (smoke test was previously pinned-buggy; the canonical fixture fix is what proves the actual round-trip fidelity — see release notes for full root-cause analysis). pnpm verify all 7 stages green (renderer 779 kB with CodeMirror; main 146 kB; preload 2.25 kB).
+
+**Caveat noted in release notes**: commit `52d64af` claimed v0.1.1 fixes BA_ value-formatting non-lossless behaviour. This was inaccurate — v0.1.1 only adds the CM_ dedup fix from `4f6f300`; the BA_ "fix" was actually the smoke-test fixture correction in `2412a42`. Documented explicitly in `release-notes-v1.8.3.md`.
+
 ## [1.8.2] - 2026-06-22 — Repo housekeeping + v1.6.1+ build fix
 
 PATCH bump: **6 commits since v1.8.1** (`8b6dcf5` archive ship + `ca269f1` build fix + `ca0d7c8`/`1c9e8d2` docs moves + `b82b17a` README rewrite + `24bcf28`/`9d36108` format catch-up). 2097 → 2097 tests (no test count delta). Pure housekeeping plus the v1.6.1–v1.8.1 main-process build regression that the v1.8.1 release notes flagged as pre-existing and not a PATCH blocker. Behavior unchanged for end users.
