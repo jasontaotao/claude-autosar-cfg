@@ -303,3 +303,114 @@ describe('useProjectActions — removeBswmdWithFullFlow (Sprint 17 P2)', () => {
     expect(useArxmlStore.getState().documentPaths).toEqual(['D:/proj/A_EcucValues.arxml']);
   });
 });
+
+// ===========================================================================
+// Section 2 — cascade-and-unlink Undo toast (Sprint 17 PATCH T3)
+// ===========================================================================
+//
+// After a successful cascade-and-unlink the hook should surface a
+// success toast with an Undo action button. Clicking the button with
+// a fresh snapshot re-inserts the BSWMD schema; clicking it with a
+// stale (replaced) snapshot surfaces an undoFailed info toast instead
+// of undoing the wrong BSWMD.
+
+describe('useProjectActions — cascade-and-unlink Undo toast (Sprint 17 PATCH T3)', () => {
+  const BSWMD_PATH = 'D:/bswmd/Can.arxml';
+
+  it('cascade-and-unlink success → sets a success toast with an Undo action button', async () => {
+    installApiStub();
+    vi.spyOn(RemoveModuleConfirmDialogModule, 'confirmRemoveBswmd').mockResolvedValue(
+      'cascade-and-unlink' as never,
+    );
+
+    const { result } = renderHook(() => useProjectActions());
+    let outcome: { kind: string } | undefined;
+    await act(async () => {
+      outcome = await result.current.removeBswmdWithFullFlow(BSWMD_PATH);
+    });
+
+    // Hook reports ok
+    expect(outcome?.kind).toBe('ok');
+    // Toast is a success toast with Undo action attached
+    const toast = useArxmlStore.getState().toast;
+    expect(toast).not.toBeNull();
+    expect(toast?.kind).toBe('success');
+    expect(toast?.autoDismissMs).toBe(8000);
+    expect(toast?.action).toBeDefined();
+    // The button label should match the localized '撤销' / 'Undo' string.
+    // zh-CN default per the file-level beforeEach.
+    expect(toast?.action?.label).toBe('撤销');
+  });
+
+  it('clicking Undo with a fresh snapshot → undoLastRemoveBswmd restores the schema + dismisses toast', async () => {
+    installApiStub();
+    vi.spyOn(RemoveModuleConfirmDialogModule, 'confirmRemoveBswmd').mockResolvedValue(
+      'cascade-and-unlink' as never,
+    );
+
+    const { result } = renderHook(() => useProjectActions());
+    await act(async () => {
+      await result.current.removeBswmdWithFullFlow(BSWMD_PATH);
+    });
+
+    const toast = useArxmlStore.getState().toast;
+    expect(toast?.action).toBeDefined();
+    const snapshotPath = useArxmlStore.getState().lastRemoveSnapshot?.path;
+    expect(snapshotPath).toBe(BSWMD_PATH);
+
+    // Activate the Undo button — snapshot is fresh (path matches).
+    await act(async () => {
+      toast?.action?.onActivate();
+    });
+
+    // Snapshot consumed → null; schema re-inserted; toast dismissed.
+    expect(useArxmlStore.getState().lastRemoveSnapshot).toBeNull();
+    expect(useArxmlStore.getState().bswmdPaths).toContain(BSWMD_PATH);
+    expect(useArxmlStore.getState().toast).toBeNull();
+  });
+
+  it('clicking Undo with a stale snapshot → undoFailed info toast (no wrong undo)', async () => {
+    installApiStub();
+    vi.spyOn(RemoveModuleConfirmDialogModule, 'confirmRemoveBswmd').mockResolvedValue(
+      'cascade-and-unlink' as never,
+    );
+
+    const { result } = renderHook(() => useProjectActions());
+    await act(async () => {
+      await result.current.removeBswmdWithFullFlow(BSWMD_PATH);
+    });
+
+    const toast = useArxmlStore.getState().toast;
+    expect(toast?.action).toBeDefined();
+
+    // Simulate stale snapshot: replace lastRemoveSnapshot with a
+    // different path so the captured closure's snapshot.path no
+    // longer matches the live store state.
+    act(() => {
+      useArxmlStore.setState({
+        lastRemoveSnapshot: {
+          path: 'D:/bswmd/DifferentBswmd.arxml',
+          schema: makeBswmd([]),
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    await act(async () => {
+      toast?.action?.onActivate();
+    });
+
+    // Toast was replaced with the undoFailed info toast.
+    const finalToast = useArxmlStore.getState().toast;
+    expect(finalToast).not.toBeNull();
+    expect(finalToast?.kind).toBe('info');
+    // zh-CN default — should match the localized undoFailed string.
+    expect(finalToast?.message).toBe('撤销失败：BSWMD 已恢复或被替换');
+    // The original BSWMD path is still absent (we did NOT accidentally
+    // undo Can.arxml). The stale snapshot's path was also not re-added.
+    expect(useArxmlStore.getState().bswmdPaths).not.toContain(BSWMD_PATH);
+    expect(useArxmlStore.getState().bswmdPaths).not.toContain(
+      'D:/bswmd/DifferentBswmd.arxml',
+    );
+  });
+});

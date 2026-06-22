@@ -113,7 +113,15 @@ export interface UiSlice {
    */
   setError: (msg: string | null) => void;
   setInfo: (message: string, autoDismissMs?: number) => void;
-  setSuccess: (message: string, autoDismissMs?: number) => void;
+  // Sprint 17 PATCH T3 — optional 3rd `action` arg. Existing callers
+  // (AppHeader save errors, StencilWizard save success) use the
+  // 2-arg form unchanged; only the cascade-and-unlink branch in
+  // `useProjectActions` passes an Undo button.
+  setSuccess: (
+    message: string,
+    autoDismissMs?: number,
+    action?: { readonly label: string; readonly onActivate: () => void },
+  ) => void;
   setWarning: (message: string, autoDismissMs?: number) => void;
   dismissToast: () => void;
 }
@@ -276,8 +284,19 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // the long-standing public surface only ever needs a string.
   setInfo: (message, autoDismissMs = 3000) =>
     set({ error: message, toast: { kind: 'info', message, autoDismissMs } }),
-  setSuccess: (message, autoDismissMs = 3000) =>
-    set({ error: message, toast: { kind: 'success', message, autoDismissMs } }),
+  setSuccess: (message, autoDismissMs = 3000, action) =>
+    // `exactOptionalPropertyTypes` rejects `action: undefined`; spread
+    // the optional key only when it's actually set so the property is
+    // either present or absent (never present-with-undefined).
+    set({
+      error: message,
+      toast: {
+        kind: 'success',
+        message,
+        autoDismissMs,
+        ...(action !== undefined ? { action } : {}),
+      },
+    }),
   setWarning: (message, autoDismissMs = 5000) =>
     set({ error: message, toast: { kind: 'warning', message, autoDismissMs } }),
   dismissToast: () => set({ error: null, toast: null }),

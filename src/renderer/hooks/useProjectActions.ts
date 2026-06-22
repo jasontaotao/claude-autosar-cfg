@@ -674,6 +674,47 @@ export function useProjectActions(): {
         if (r.kind === 'write-failed') {
           return { kind: 'error', message: r.message };
         }
+        // Sprint 17 PATCH T3 — surface a success toast with an Undo
+        // action button. The 8s window gives the user time to react
+        // before auto-dismiss. The snapshot reference is captured
+        // AFTER the unlink so we know the exact path that was
+        // removed. The action's onActivate closure compares the
+        // captured path against the LIVE `lastRemoveSnapshot` on
+        // click — if they don't match (a newer remove replaced the
+        // snapshot, or undo already ran), we surface an undoFailed
+        // info toast instead of undoing the wrong BSWMD. (Stale-
+        // toast defense.)
+        if (r.kind === 'ok') {
+          const snapshot = useArxmlStore.getState().lastRemoveSnapshot;
+          if (snapshot !== null) {
+            const localeNow = useArxmlStore.getState().locale;
+            const storeState = useArxmlStore.getState();
+            storeState.setSuccess(
+              t(localeNow, 'mutation.action.bswmdRemoved', { name: basename(path) }),
+              8000,
+              {
+                label: t(localeNow, 'mutation.action.undo'),
+                onActivate: () => {
+                  const current = useArxmlStore.getState().lastRemoveSnapshot;
+                  if (current !== null && current.path === snapshot.path) {
+                    // Fresh snapshot — restore the BSWMD schema and
+                    // dismiss the success toast in one render.
+                    useArxmlStore.getState().undoLastRemoveBswmd();
+                    useArxmlStore.getState().dismissToast();
+                  } else {
+                    // Stale snapshot — the info toast REPLACES the
+                    // success toast (don't dismiss afterward, or the
+                    // user wouldn't see the failure message).
+                    useArxmlStore.getState().setInfo(
+                      t(useArxmlStore.getState().locale, 'mutation.action.undoFailed'),
+                      4000,
+                    );
+                  }
+                },
+              },
+            );
+          }
+        }
         return { kind: r.kind };
       }
       // Unreachable: the dialog only returns the 4 enum values,
