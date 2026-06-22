@@ -33,6 +33,7 @@ import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd
 
 import { buildDefaultValue } from './defaultValue.js';
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from './types.js';
+import { mapBswmdVersionToArxml } from './version.js';
 
 /**
  * One user pick from the "create ECUC from BSWMD" picker. The shape is the
@@ -85,7 +86,7 @@ export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string
   const moduleEl: ArxmlModule = buildModule(mod);
   return {
     path: '',
-    version: '4.6',
+    version: mapBswmdVersionToArxml(doc.version),
     packages: [
       {
         shortName: mod.shortName,
