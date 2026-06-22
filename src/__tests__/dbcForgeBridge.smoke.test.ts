@@ -37,8 +37,9 @@ describe('@dbc-forge/core smoke test (v1.7.0 Cluster 3 I)', () => {
       '',
       'CM_ SG_ 100 Signal_A "Test signal";',
       '',
-      'BA_DEF_ BU_ "NodeLayerModules" INT 0 100;',
-      'BA_ "NodeLayerModules" 5 ECU1;',
+      'BA_DEF_ BU_  "NodeLayerModules" INT 0 100;',
+      'BA_DEF_DEF_  "NodeLayerModules" 0;',
+      'BA_ "NodeLayerModules" BU_ ECU1 5;',
       '',
     ].join('\n');
     const network = parseDbc(minimal);
@@ -64,8 +65,15 @@ describe('@dbc-forge/core smoke test (v1.7.0 Cluster 3 I)', () => {
       '',
       'CM_ SG_ 100 Signal_A "Test signal";',
       '',
-      'BA_DEF_ BU_ "NodeLayerModules" INT 0 100;',
-      'BA_ "NodeLayerModules" 5 ECU1;',
+      'BA_DEF_ BU_  "NodeLayerModules" INT 0 100;',
+      'BA_DEF_DEF_  "NodeLayerModules" 0;',
+      // Canonical DBC syntax for a node-targeted BA_ value:
+      // `BA_ "<name>" BU_ <node> <value>;`
+      // The bare-token form `BA_ "name" <value> <node>;` is ambiguous —
+      // parseDbc treats it as a network-level string assignment, which
+      // round-trips as `BA_ "name" BU_ "<value> <node>";` (lossy).
+      // dbc-forge follows Vector CANdb++ / EB tresos canonical form.
+      'BA_ "NodeLayerModules" BU_ ECU1 5;',
       '',
     ].join('\n');
     const original = parseDbc(minimal);
