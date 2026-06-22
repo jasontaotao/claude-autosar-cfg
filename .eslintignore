@@ -7,6 +7,9 @@ test-results
 *.config.cjs
 *.config.mjs
 
+# Git submodules — linted by their own projects, not us.
+vendor/
+
 # Local regeneration scripts (one-off per project, gitignored too).
 # See .gitignore: `claude-AutosarCfg/` is a personal regeneration
 # workspace and not part of the repo.

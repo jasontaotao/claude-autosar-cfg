@@ -90,5 +90,5 @@ module.exports = {
       },
     },
   ],
-  ignorePatterns: ['dist/', 'node_modules/', 'coverage/', 'playwright-report/'],
+  ignorePatterns: ['dist/', 'node_modules/', 'coverage/', 'playwright-report/', 'vendor/'],
 };
