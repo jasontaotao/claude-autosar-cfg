@@ -408,6 +408,7 @@ export interface Messages {
   // affordance looks like*.
   readonly 'picker.search.placeholder': string;
   readonly 'picker.tooltip.atMax': string; // {current} / {max}
+  readonly 'picker.tooltip.alreadyAdded': string; // {name}
   readonly 'editor.params.empty': string;
 
   // Sprint 14 — BSWMD-to-ECUC module selection
@@ -942,6 +943,7 @@ export const MessagesZhCN: Messages = {
 
   'picker.search.placeholder': '搜索…',
   'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
+  'picker.tooltip.alreadyAdded': '已添加 "{name}"（参数/引用唯一）',
   'editor.params.empty': '此节点没有参数',
 
   // Sprint 14 — BSWMD-to-ECUC module selection
@@ -1439,6 +1441,8 @@ export const MessagesEn: Messages = {
 
   'picker.search.placeholder': 'Search…',
   'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',
+  'picker.tooltip.alreadyAdded':
+    '"{name}" already added (parameters/references are unique within a container)',
   'editor.params.empty': 'No parameters on this node',
 
   // Sprint 14 — BSWMD-to-ECUC module selection

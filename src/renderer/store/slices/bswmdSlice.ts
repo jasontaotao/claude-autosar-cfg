@@ -12,11 +12,12 @@ import type { ArxmlDocument } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n';
-import { dirname as sharedDirname } from '@shared/path';
+import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 
 import {
   projectSyncAddBswmdPath,
   projectSyncRemoveBswmdPath,
+  projectSyncSetEcucSource,
   revalidateWithBswmd,
 } from '../helpers/projectSync.js';
 import type { ArxmlState, BswmdRemoveSnapshot } from '../useArxmlStore.js';
@@ -439,8 +440,30 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
   // `doc`/`filePath` updates all live there. Keeping the delegation
   // means the cascade flow and the open-ARXML flow end up at exactly
   // the same final state.
+  //
+  // Bug 3 — also record provenance in `project.ecucSources` so the
+  // chip-count round-trips through save / reopen. `addDocument` adds
+  // the new path to `valueArxmlPaths` via `projectSyncAddPath`; we
+  // capture that just-written relative form here to set the source.
+  // Without this, the manifest persists the new ECUC doc but loses
+  // its source BSWMD link, so the ProjectPanel chip reads 0/N after
+  // every restart even though the user just created N ECUC docs.
   addDocumentWithSource: (doc, sourceBswmdPath) => {
     const docWithSource: ArxmlDocument = { ...doc, sourceBswmdPath };
     get().addDocument(docWithSource, doc.path);
+    // After addDocument, `project.valueArxmlPaths` includes the new
+    // doc's relative path. Find it by matching the just-written
+    // absolute `doc.path` (projectSyncAddPath relativises it) and
+    // record the (ecucRel → bswmdRel) provenance.
+    const state = get();
+    if (state.project !== null && state.projectPath !== null) {
+      const manifestDir = sharedDirname(state.projectPath);
+      const ecucRel = toManifestRelative(manifestDir, doc.path) ?? doc.path;
+      const bswmdRel = toManifestRelative(manifestDir, sourceBswmdPath) ?? sourceBswmdPath;
+      const nextProject = projectSyncSetEcucSource(state.project, ecucRel, bswmdRel);
+      if (nextProject !== state.project) {
+        set({ project: nextProject });
+      }
+    }
   },
 });

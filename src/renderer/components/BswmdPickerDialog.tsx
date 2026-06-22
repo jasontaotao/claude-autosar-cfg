@@ -446,7 +446,9 @@ export function BswmdPickerRoot(): JSX.Element | null {
                               current: a.multiplicity.current,
                               max: String(a.multiplicity.upper),
                             })
-                          : 'disabled'
+                          : a.disabledReason === 'already-added'
+                            ? t(locale, 'picker.tooltip.alreadyAdded', { name: a.shortName })
+                            : 'disabled'
                       }
                     >
                       <span className="bspd-row-label">{a.shortName}</span>

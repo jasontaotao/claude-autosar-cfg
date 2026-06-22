@@ -132,6 +132,7 @@ export function serializeArxml(
  * we mirror EB tresos's `r4.0` namespace convention.
  */
 const SCHEMA_LOCATION: Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }> = {
+  '4.0': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_4-0-3.xsd' },
   '4.2': { xmlns: 'http://autosar.org/schema/r4.2', xsd: 'AUTOSAR_4-2-2.xsd' },
   '4.4': { xmlns: 'http://autosar.org/schema/r4.4', xsd: 'AUTOSAR_4-4-0.xsd' },
   '4.6': { xmlns: 'http://autosar.org/schema/r4.6', xsd: 'AUTOSAR_4-6-0.xsd' },

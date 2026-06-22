@@ -19,6 +19,7 @@
 import type { ArxmlVersion } from './types.js';
 
 const ARXML_VERSIONS: ReadonlySet<string> = new Set<ArxmlVersion>([
+  '4.0',
   '4.2',
   '4.4',
   '4.6',

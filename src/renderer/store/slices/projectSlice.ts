@@ -9,6 +9,7 @@ import type { BswmdDocument } from '@core/project/bswmd.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
 import { t } from '@shared/i18n';
+import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
 import { computeDisplayDoc } from '../helpers/combinedDoc.js';
@@ -86,33 +87,6 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
     // IPC response in a future phase; for now this keeps the manifest
     // shape round-tripping through save.
     //
-    // Match by `rel` (the manifest-relative path) — not by basename or
-    // absolute path — so two entries that share a basename (e.g.
-    // `subdir1/EcuC.arxml` + `subdir2/EcuC.arxml`) pair back to the
-    // correct manifest slot. The IPC contract returns the `rel`/`path`
-    // pair explicitly for this reason.
-    const docsByRel = new Map(docs.map((d) => [d.rel, d] as const));
-    const orderedDocuments = [];
-    const orderedPaths: string[] = [];
-    for (const relPath of manifest.valueArxmlPaths) {
-      const entry = docsByRel.get(relPath);
-      if (entry === undefined) continue;
-      const parsed = parseArxmlOrThrow(entry.content);
-      orderedDocuments.push(parsed);
-      orderedPaths.push(entry.path);
-    }
-    // Documents that came back from IPC but aren't in the manifest
-    // (e.g. extra files the user picked alongside) are ignored — the
-    // manifest is the source of truth for what's "in" the project.
-    const activeDoc = orderedDocuments[0] ?? null;
-    const activePath = orderedPaths[0] ?? null;
-    const nextDisplayResult = computeDisplayDoc(
-      get().viewMode,
-      activeDoc,
-      orderedDocuments,
-      orderedPaths,
-    );
-
     // Sprint A (P0-A2) — parse each BSWMD entry from the IPC bundle
     // and push the result onto `bswmdSchemas` / `bswmdPaths`. Mirrors
     // the dialog-driven `addBswmd` path so consumers (`ProjectPanel`,
@@ -128,6 +102,12 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
     // Best-effort: parse failures surface a localized banner and the
     // bad entry is skipped — good entries still register so a single
     // malformed BSWMD doesn't sink the whole project load.
+    //
+    // Bug 3 — this loop runs BEFORE the ARXML doc loop below because
+    // the ECUC `sourceBswmdPath` hydration needs `bswmdPathsOut` as a
+    // lookup target. The order swap is purely local; downstream
+    // `set({ bswmdSchemas, bswmdPaths, ... })` keeps the same payload
+    // shape so consumers are unaffected.
     const locale = get().locale;
     const bswmdSchemasOut: BswmdDocument[] = [];
     const bswmdPathsOut: string[] = [];
@@ -147,6 +127,68 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
         bswmdPathsOut.push(entry.path);
       }
     }
+
+    // Match by `rel` (the manifest-relative path) — not by basename or
+    // absolute path — so two entries that share a basename (e.g.
+    // `subdir1/EcuC.arxml` + `subdir2/EcuC.arxml`) pair back to the
+    // correct manifest slot. The IPC contract returns the `rel`/`path`
+    // pair explicitly for this reason.
+    const docsByRel = new Map(docs.map((d) => [d.rel, d] as const));
+    const orderedDocuments = [];
+    const orderedPaths: string[] = [];
+    // Bug 3 — hydrate each ECUC doc's in-memory `sourceBswmdPath`
+    // from `manifest.ecucSources[relPath]`. Pre-Bug-3 this was always
+    // `undefined` after restart because the field was never
+    // serialised; the ProjectPanel chip filter then reported 0/N
+    // regardless of how many ECUC docs the user had generated from a
+    // BSWMD. The manifest is the source of truth; the in-memory
+    // `sourceBswmdPath` is a cache rebuilt here at every openProject.
+    const ecucSources = manifest.ecucSources ?? {};
+    // The IPC `bswmds` bundle provides absolute paths only (no `rel`
+    // for BSWMDs today). The manifest stores BSWMD paths in their
+    // manifest-relative form (projectSyncSetEcucSource relativises
+    // on write). To rehydrate `sourceBswmdPath` with the absolute
+    // form that downstream consumers expect (e.g. `bswmdKeyFor`
+    // pair-up in ProjectPanel), build a `rel → abs` lookup by
+    // relativising each parsed BSWMD abs path against the manifest
+    // directory. The fallback to `recordedSourceRel` honours the
+    // manifest string verbatim if no match — preserves a hand-edited
+    // manifest where the user stored an absolute source string.
+    const manifestDir = sharedDirname(manifestPath);
+    const bswmdRelToAbs = new Map<string, string>();
+    for (const abs of bswmdPathsOut) {
+      const rel = toManifestRelative(manifestDir, abs) ?? abs;
+      bswmdRelToAbs.set(rel, abs);
+      // Also map the raw abs path so a manifest that stored the
+      // source as absolute still resolves.
+      bswmdRelToAbs.set(abs, abs);
+    }
+    for (const relPath of manifest.valueArxmlPaths) {
+      const entry = docsByRel.get(relPath);
+      if (entry === undefined) continue;
+      const parsed = parseArxmlOrThrow(entry.content);
+      const recordedSourceRel = ecucSources[relPath];
+      let sourceBswmdPath: string | undefined;
+      if (recordedSourceRel !== undefined) {
+        const abs = bswmdRelToAbs.get(recordedSourceRel);
+        sourceBswmdPath = abs ?? recordedSourceRel;
+      }
+      orderedDocuments.push(
+        sourceBswmdPath !== undefined ? { ...parsed, sourceBswmdPath } : parsed,
+      );
+      orderedPaths.push(entry.path);
+    }
+    // Documents that came back from IPC but aren't in the manifest
+    // (e.g. extra files the user picked alongside) are ignored — the
+    // manifest is the source of truth for what's "in" the project.
+    const activeDoc = orderedDocuments[0] ?? null;
+    const activePath = orderedPaths[0] ?? null;
+    const nextDisplayResult = computeDisplayDoc(
+      get().viewMode,
+      activeDoc,
+      orderedDocuments,
+      orderedPaths,
+    );
 
     set({
       documents: orderedDocuments,

@@ -76,7 +76,7 @@ export interface AllowedSubElement {
     readonly current: number;
   };
   readonly disabled: boolean;
-  readonly disabledReason?: 'at-max';
+  readonly disabledReason?: 'at-max' | 'already-added';
 }
 
 /**
@@ -680,23 +680,35 @@ export function listAllowedSubElements(
 
   for (const p of containerDef.parameters) {
     const current = currentContainer.params[p.shortName] !== undefined ? 1 : 0;
+    // AUTOSAR parameters are inherently 1..1 — a second add would hit
+    // `name-conflict` in `addParameter` (the core path is correct per
+    // spec). Mark the picker row disabled with a typed reason so the
+    // UI can surface the constraint up-front instead of letting the
+    // user click through and hit a silent error. Bug 2 follow-up.
+    const alreadyAdded = current >= 1;
     out.push({
       kind: 'parameter',
       shortName: p.shortName,
       displayLabel: p.shortName,
       multiplicity: { lower: 1, upper: 1, current },
-      disabled: false,
+      disabled: alreadyAdded,
+      ...(alreadyAdded ? { disabledReason: 'already-added' as const } : {}),
     });
   }
 
   for (const r of containerDef.references) {
     const current = currentContainer.params[r.shortName] !== undefined ? 1 : 0;
+    // AUTOSAR references are also 1..1 within a parent container.
+    // Same UX fix as parameters above — surface the constraint in the
+    // picker rather than via a silent name-conflict on submit.
+    const alreadyAdded = current >= 1;
     out.push({
       kind: 'reference',
       shortName: r.shortName,
       displayLabel: r.shortName,
       multiplicity: { lower: 1, upper: 1, current },
-      disabled: false,
+      disabled: alreadyAdded,
+      ...(alreadyAdded ? { disabledReason: 'already-added' as const } : {}),
     });
   }
 

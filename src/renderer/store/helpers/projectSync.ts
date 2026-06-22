@@ -108,6 +108,52 @@ export function projectSyncRemoveBswmdPath(
 }
 
 /**
+ * Bug 3 — record provenance for an ECUC doc that was generated from a
+ * BSWMD via the BSWMD-to-ECUC skeleton flow. Returns a new manifest
+ * with `ecucSources[ecucRel] = bswmdRel` set; the unchanged `m` when
+ * `m === null` (loose mode) or the pair is already recorded.
+ *
+ * Both keys are stored in the same manifest-relative POSIX form as
+ * `valueArxmlPaths` / `bswmdPaths`. The caller is responsible for
+ * providing the relativised paths (the IPC flow in
+ * `useCreateEcucFromBswmd` does the relativisation once and then
+ * hands both ends to this helper).
+ */
+export function projectSyncSetEcucSource(
+  m: ProjectManifest | null,
+  ecucRel: string,
+  bswmdRel: string,
+): ProjectManifest | null {
+  if (m === null) return m;
+  const existing = m.ecucSources ?? {};
+  if (existing[ecucRel] === bswmdRel) return m;
+  return {
+    ...m,
+    ecucSources: { ...existing, [ecucRel]: bswmdRel },
+  };
+}
+
+/**
+ * Bug 3 — drop the provenance record for an ECUC doc that has been
+ * removed from the project. Returns a new manifest without the key
+ * when it was present; the unchanged `m` when `m === null` (loose
+ * mode) or the key was already absent. Pure — does not mutate.
+ */
+export function projectSyncRemoveEcucSource(
+  m: ProjectManifest | null,
+  ecucRel: string,
+): ProjectManifest | null {
+  if (m === null) return m;
+  const existing = m.ecucSources ?? {};
+  if (!(ecucRel in existing)) return m;
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(existing)) {
+    if (k !== ecucRel) next[k] = v;
+  }
+  return { ...m, ecucSources: next };
+}
+
+/**
  * Sprint 12 #2 — re-validate the current document set against the given
  * BSWMD schema set. Shared by `addBswmd` (post-add) and `removeBswmd`
  * (post-remove) so the build-layer / dispatch / timestamp trio is

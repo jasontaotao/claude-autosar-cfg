@@ -148,6 +148,12 @@ export function migrateManifestPaths(m: ProjectManifest, manifestDir: string): P
     name: m.name,
     valueArxmlPaths: relativise(m.valueArxmlPaths),
     bswmdPaths: relativise(m.bswmdPaths),
+    // Bug 3 — `ecucSources` keys/values are manifest-relative by
+    // contract (we never store absolutes there). Migrating keys/values
+    // through the relativiser is a no-op in the happy path but the
+    // safety net keeps a hand-edited manifest that snuck an absolute
+    // path through from breaking the round-trip.
+    ecucSources: m.ecucSources ?? {},
     // Sprint 14 #1 — scripts[] does not contain on-disk paths that need
     // migration; pass through unchanged. The candidate may already
     // carry an empty array (legacy) or a real entry list.
@@ -211,6 +217,10 @@ export function createEmptyManifest(name: string): ProjectManifest {
     name,
     valueArxmlPaths: [],
     bswmdPaths: [],
+    // Bug 3 — fresh project starts with no provenance records. The
+    // map is required (not undefined) so consumers don't have to
+    // guard `manifest.ecucSources ?? {}` at every call site.
+    ecucSources: {},
     // Sprint 14 #1 — fresh project starts with an empty script library.
     scripts: [],
   };
@@ -262,6 +272,34 @@ function parseManifestShape(
     }
   }
 
+  // Bug 3 — `ecucSources` is optional (backward compat with pre-Bug-3
+  // manifests). When present, every key must be a known
+  // `valueArxmlPaths` entry and every value must be a known
+  // `bswmdPaths` entry; orphaned entries are dropped silently so a
+  // legacy manifest with stale references still opens (the strict
+  // per-entry check would otherwise break every existing project that
+  // renamed / moved a BSWMD after creating its ECUC docs).
+  const rawEcucSources = obj.ecucSources;
+  let ecucSources: Readonly<Record<string, string>> = {};
+  if (rawEcucSources !== undefined && rawEcucSources !== null) {
+    if (typeof rawEcucSources !== 'object' || Array.isArray(rawEcucSources)) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-shape', message: 'ecucSources must be an object' },
+      };
+    }
+    const valueArxmlPaths = obj.valueArxmlPaths as readonly string[];
+    const bswmdPaths = obj.bswmdPaths as readonly string[];
+    const filtered: Record<string, string> = {};
+    for (const [ecucPath, bswmdPath] of Object.entries(rawEcucSources as Record<string, unknown>)) {
+      if (typeof ecucPath !== 'string' || typeof bswmdPath !== 'string') continue;
+      if (!valueArxmlPaths.includes(ecucPath)) continue;
+      if (!bswmdPaths.includes(bswmdPath)) continue;
+      filtered[ecucPath] = bswmdPath;
+    }
+    ecucSources = filtered;
+  }
+
   // Cheap shape checks before deep validate
   const candidate: ProjectManifest = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
@@ -269,6 +307,7 @@ function parseManifestShape(
     name: obj.name as string,
     valueArxmlPaths: obj.valueArxmlPaths as readonly string[],
     bswmdPaths: obj.bswmdPaths as readonly string[],
+    ecucSources,
     // Sprint 14 #1 — backward compat: legacy manifests (v1.1.x and earlier)
     // have no `scripts` field. Normalise to `[]` so downstream code can
     // safely use `manifest.scripts ?? []` without per-call checks.

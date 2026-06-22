@@ -660,6 +660,78 @@ describe('listAllowedSubElements', () => {
     // Assert
     expect(allowed).toEqual([]);
   });
+
+  it('marks a parameter as disabled with reason already-added when current count is 1', () => {
+    // Bug 2 (UX) — AUTOSAR parameters are inherently 1..1 (one value
+    // per name) so a second add would hit `name-conflict` in the core.
+    // The picker must surface that constraint up-front by disabling
+    // the row + carrying a typed reason so the tooltip can localise
+    // it, instead of letting the user click through and hit a silent
+    // name-conflict error.
+    const paramA = makeBswParam('BaudRate', 'integer', 500000);
+    const containerDef = makeBswContainer('CanConfigSet', { parameters: [paramA] });
+    const currentContainer = makeContainer('CanConfigSet', [], {
+      BaudRate: { type: 'integer', value: 500000 },
+    });
+    const moduleDef = makeBswModule('Can', [containerDef]);
+
+    const allowed = listAllowedSubElements(moduleDef, containerDef, currentContainer);
+
+    const baud = allowed.find((a) => a.shortName === 'BaudRate');
+    expect(baud).toMatchObject({
+      kind: 'parameter',
+      shortName: 'BaudRate',
+      disabled: true,
+      disabledReason: 'already-added',
+    });
+    expect(baud?.multiplicity).toEqual({ lower: 1, upper: 1, current: 1 });
+  });
+
+  it('marks a reference as disabled with reason already-added when current count is 1', () => {
+    // Same UX fix for references: AUTOSAR references are 1..1 within
+    // a container. The core `addReference` rejects duplicates with
+    // name-conflict; the picker must reflect that up-front so the
+    // user does not click through and hit a silent error.
+    const refA: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '/Module/CanIfRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const containerDef = makeBswContainer('CanConfigSet', { references: [refA] });
+    const currentContainer = makeContainer('CanConfigSet', [], {
+      CanIfRef: { type: 'reference', value: '/EAS/CanIf', dest: 'ECUC-PARAM-CONF-CONTAINER-DEF' },
+    });
+    const moduleDef = makeBswModule('Can', [containerDef]);
+
+    const allowed = listAllowedSubElements(moduleDef, containerDef, currentContainer);
+
+    const ref = allowed.find((a) => a.shortName === 'CanIfRef');
+    expect(ref).toMatchObject({
+      kind: 'reference',
+      shortName: 'CanIfRef',
+      disabled: true,
+      disabledReason: 'already-added',
+    });
+    expect(ref?.multiplicity).toEqual({ lower: 1, upper: 1, current: 1 });
+  });
+
+  it('does not disable a parameter when current count is 0', () => {
+    // Sanity check: a parameter that has not been added yet must remain
+    // enabled so the user can pick it. Regression guard for the
+    // already-added logic so it does not over-fire on an empty parent.
+    const paramA = makeBswParam('BaudRate', 'integer', 500000);
+    const containerDef = makeBswContainer('CanConfigSet', { parameters: [paramA] });
+    const currentContainer = makeContainer('CanConfigSet');
+    const moduleDef = makeBswModule('Can', [containerDef]);
+
+    const allowed = listAllowedSubElements(moduleDef, containerDef, currentContainer);
+
+    const baud = allowed.find((a) => a.shortName === 'BaudRate');
+    expect(baud?.disabled).toBe(false);
+    expect(baud?.disabledReason).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

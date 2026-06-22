@@ -3,6 +3,7 @@
 //   https://www.autosar.org/fileadmin/standards/foundation/22-11/AUTOSAR_TPS_StandardizationTemplate.pdf
 
 export type ArxmlVersion =
+  | '4.0'
   | '4.2'
   | '4.4'
   | '4.6'

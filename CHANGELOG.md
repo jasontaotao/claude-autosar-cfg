@@ -28,16 +28,17 @@ PATCH bump: **5 commits since v1.8.3** (HEAD `96eab97`). 2097 → 2114 tests (+1
 
 ## [1.8.3] - 2026-06-22 — `@dbc-forge/core` git submodule migration
 
-Closes the v1.7.0 §3b TODO: migrate `@dbc-forge/core` from sibling-repo `file:` dep (broke every consumer that didn't reproduce the sibling layout) to vendored **git submodule** pinned to a release tag. Pinned at v0.1.1 (commit `eb1bc8b`) which includes commit `4f6f300` "fix(writer): dedup CM_ by scope+target+text" — the first tagged release that survives a DBC→Network→DBC round-trip when CM_ uses the Vector data-dictionary idiom of pasting the same long text on 20+ messages.
+Closes the v1.7.0 §3b TODO: migrate `@dbc-forge/core` from sibling-repo `file:` dep (broke every consumer that didn't reproduce the sibling layout) to vendored **git submodule** pinned to a release tag. Pinned at v0.1.1 (commit `eb1bc8b`) which includes commit `4f6f300` "fix(writer): dedup CM* by scope+target+text" — the first tagged release that survives a DBC→Network→DBC round-trip when CM* uses the Vector data-dictionary idiom of pasting the same long text on 20+ messages.
 
 Plus 3 verify-gap fixes caught before push:
+
 - **`5e2805c` CI**: `.github/workflows/ci.yml` adds `submodules: recursive` to all 5 jobs (`actions/checkout@v4` doesn't init submodules by default; without this CI gets empty `vendor/dbc-forge/` + pnpm install 404).
 - **`fed0af3` format**: `.prettierignore` adds `vendor/` (mirror the .eslint exclude; prettier --check glob caught 4 .md files inside vendor/dbc-forge).
 - **`2412a42` test**: smoke test fixture switched from non-canonical `BA_ "NodeLayerModules" 5 ECU1;` (network-level string assignment that round-tripped lossily) to canonical `BA_ "NodeLayerModules" BU_ ECU1 5;` (Vector / EB tresos / ETAS form).
 
 8 commits since v1.8.2. 2097 → 2097 tests (smoke test was previously pinned-buggy; the canonical fixture fix is what proves the actual round-trip fidelity — see release notes for full root-cause analysis). pnpm verify all 7 stages green (renderer 779 kB with CodeMirror; main 146 kB; preload 2.25 kB).
 
-**Caveat noted in release notes**: commit `52d64af` claimed v0.1.1 fixes BA_ value-formatting non-lossless behaviour. This was inaccurate — v0.1.1 only adds the CM_ dedup fix from `4f6f300`; the BA_ "fix" was actually the smoke-test fixture correction in `2412a42`. Documented explicitly in `release-notes-v1.8.3.md`.
+**Caveat noted in release notes**: commit `52d64af` claimed v0.1.1 fixes BA* value-formatting non-lossless behaviour. This was inaccurate — v0.1.1 only adds the CM* dedup fix from `4f6f300`; the BA\_ "fix" was actually the smoke-test fixture correction in `2412a42`. Documented explicitly in `release-notes-v1.8.3.md`.
 
 ## [1.8.2] - 2026-06-22 — Repo housekeeping + v1.6.1+ build fix
 
