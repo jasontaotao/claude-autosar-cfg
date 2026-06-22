@@ -31,8 +31,8 @@
 
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
 
-import { buildDefaultValue } from './defaultValue.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from './types.js';
+import { fillParamsFromBswmd } from './defaultValue.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from './types.js';
 import { mapBswmdVersionToArxml } from './version.js';
 
 /**
@@ -127,6 +127,12 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
     // producing inconsistent XML.
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
+    // v1.9.0 Sprint X — stamp the BSWMD-side path so the serializer
+    // emits <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/...</DEFINITION-REF>
+    // as a sibling of <SHORT-NAME>. Pre-X the field was omitted and the
+    // serializer fell back to the synthesized /__synthesized__/<shortName>
+    // placeholder, which fails EB tresos / Vector import validation.
+    definitionRef: c.path,
     params: fillParamsFromBswmd(c),
     // v1.7.1 S3 — carry the BSWMD <DESC> text through to the value
     // side so the UI can surface it as a tooltip / helper text next
@@ -150,44 +156,12 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
 }
 
 /**
- * v1.7.1 S2 — translate a BSWMD container's declared parameter defaults
- * into typed `ParamValue` cells. Shared between `buildTopContainer` and
- * `buildSubContainerShell` so default-fill behaviour is uniform across
- * every depth (replaces the pre-S2 "top-layer only" decision).
- *
- * Semantics (preserved from the original inline code at
- * `buildTopContainer` lines 132-145):
- *
- *   - Non-null defaults are converted via `buildDefaultValue` and
- *     tagged with the BSWMD-side `definitionRef` (Sprint 16 invariant).
- *   - Null defaults on text-shaped params (enumeration / string /
- *     function-name) get an empty-string placeholder so the user gets
- *     an editable cell in the ParamEditor. Other kinds with null
- *     defaults (integer / float / boolean / reference) stay skipped.
- *   - Reference params are NOT filled here; they're handled by a
- *     separate `addReference` flow.
- *
- * Choice shells do NOT call this helper — `buildChoiceShell` keeps
- * `params: {}` literally because choice branches are user-instanced at
- * runtime and the shell is just a placeholder.
+ * v1.9.0 Sprint X — `fillParamsFromBswmd` is imported from
+ * `./defaultValue.ts` (shared with `mutation.ts`). The previous
+ * private duplicate was deleted here in Phase 2 so the skeleton and
+ * mutation layer apply identical default-fill semantics from one
+ * implementation.
  */
-function fillParamsFromBswmd(c: ContainerDef): Record<string, ParamValue> {
-  const params: Record<string, ParamValue> = {};
-  for (const p of c.parameters) {
-    const v = buildDefaultValue(p);
-    if (v !== null) {
-      params[p.shortName] = { ...v, definitionRef: p.path };
-      continue;
-    }
-    if (p.kind === 'enumeration') {
-      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
-    } else if (p.kind === 'string' || p.kind === 'function-name') {
-      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
-    }
-    // integer / float / boolean / reference null defaults stay skipped.
-  }
-  return params;
-}
 
 function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // Bug 2b (v1.4.1) — only pre-create a shell when the BSWMD declares
@@ -205,12 +179,16 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // v1.7.1 S2 — params are now filled uniformly via
   // `fillParamsFromBswmd(c)` so every pre-created sub-container starts
   // with its declared defaults. Pre-S2 the field was hardcoded to `{}`.
+  //
+  // v1.9.0 Sprint X — stamp BSWMD-side path on the shell so the
+  // serializer writes <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">.
   if (c.lowerMultiplicity <= 0) return [];
   return [
     {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
+      definitionRef: c.path,
       params: fillParamsFromBswmd(c),
       // v1.7.1 S3 — carry the BSWMD <DESC> text through (uniform with
       // top containers).
@@ -250,6 +228,14 @@ function buildChoiceShell(c: ContainerDef): ArxmlContainer[] {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
+      // v1.9.0 Sprint X — choice shell's definitionRef renders as
+      // <DEFINITION-REF DEST="ECUC-CHOICE-CONTAINER-DEF">...</DEFINITION-REF>
+      // because the BSWMD source is an ECUC-CHOICE-CONTAINER-DEF. The
+      // serializer picks the DEST by inspecting `isChoiceContainer` on
+      // the ArxmlContainer; the path itself is the choice container's
+      // own BSWMD path (not a branch's path — branches are not
+      // pre-created here).
+      definitionRef: c.path,
       params: {},
       // v1.7.1 S1 — mark this shell as a choice container and list its
       // branch shortNames so the UI can distinguish it from a plain

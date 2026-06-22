@@ -1132,6 +1132,158 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
     // Assert
     expect(plainEl.description).toBeUndefined();
   });
+
+  // ─── T3 (Sprint X Phase 2) — top-container DEFINITION-REF stamp ──────
+  // v1.9.0 stamps the BSWMD-side path on every emitted ECUC-CONTAINER-VALUE
+  // (top, sub, choice) so the serializer writes a real
+  // <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">...</DEFINITION-REF>
+  // sibling of <SHORT-NAME>. Pre-T3 the field was omitted and the
+  // serializer fell back to /__synthesized__/<shortName>.
+  it('Sprint X T3: top-container stamps BSWMD path as definitionRef', () => {
+    // Arrange — a top-level container with a non-trivial path (the
+    // vendor-prefix shape `/Vendor/Can/CanConfigSet` is what the
+    // Sprint X project specifically targets, but any non-empty path
+    // exercises the stamp).
+    const cont: ContainerDef = {
+      shortName: 'CanConfigSet',
+      path: '/Vendor/Can/CanConfigSet',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'SomeParam', 0)],
+      references: [],
+      choices: [],
+    };
+
+    // Act
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+
+    // Assert — definitionRef is stamped with the exact BSWMD path,
+    // not the value-side /EAS/Can/CanConfigSet path.
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanConfigSet');
+  });
+
+  it('Sprint X T3: top-container default-fill still applies after definitionRef stamp', () => {
+    // Regression guard — adding the definitionRef stamp must not
+    // regress the v1.7.1 S2 default-fill behaviour. The two changes
+    // touch different fields, but both run in buildTopContainer.
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Vendor/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'CanBusOffProcessing', 0)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanGeneral');
+    expect(topEl.params['CanBusOffProcessing']).toEqual({
+      type: 'integer',
+      value: 0,
+      definitionRef: '/CanBusOffProcessing',
+    });
+  });
+
+  it('Sprint X T3: sub-container (lower>0) stamps BSWMD path as definitionRef', () => {
+    // Arrange — sub-container under a top-level container. The
+    // sub-container shell path comes from the BSWMD ContainerDef.path,
+    // distinct from the parent's path.
+    const sub: ContainerDef = {
+      shortName: 'CanSub',
+      path: '/Vendor/Can/CanGeneral/CanSub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const top: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Vendor/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+
+    // Act
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const subEl = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — both depth levels carry their own BSWMD-side path.
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanGeneral');
+    expect(subEl.definitionRef).toBe('/Vendor/Can/CanGeneral/CanSub');
+  });
+
+  it('Sprint X T3: choice container shell stamps BSWMD path so serializer picks ECUC-CHOICE-CONTAINER-DEF DEST', () => {
+    // Arrange — a required choice container (lower=1, 2 branches).
+    // The shell's definitionRef is the choice container's own BSWMD
+    // path; combined with `isChoiceContainer: true` it signals the
+    // serializer to emit DEST="ECUC-CHOICE-CONTAINER-DEF" instead of
+    // the plain DEST="ECUC-PARAM-CONF-CONTAINER-DEF".
+    const branchA: ContainerDef = {
+      shortName: 'BranchA',
+      path: '/Vendor/Can/Top/ChoiceContainer/BranchA',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const branchB: ContainerDef = {
+      shortName: 'BranchB',
+      path: '/Vendor/Can/Top/ChoiceContainer/BranchB',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const choice: ContainerDef = {
+      shortName: 'ChoiceContainer',
+      path: '/Vendor/Can/Top/ChoiceContainer',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [branchA, branchB],
+    };
+    const top: ContainerDef = {
+      shortName: 'Top',
+      path: '/Vendor/Can/Top',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [choice],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+
+    // Act
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const choiceShell = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — choice marker + branch list + the choice container's
+    // own BSWMD path. The branches themselves are NOT pre-created
+    // (children: []), so their definitionRefs are not stamped by the
+    // skeleton — they get stamped by addContainer when the user picks
+    // a branch via the picker.
+    expect(choiceShell.isChoiceContainer).toBe(true);
+    expect(choiceShell.choiceBranches).toEqual(['BranchA', 'BranchB']);
+    expect(choiceShell.definitionRef).toBe('/Vendor/Can/Top/ChoiceContainer');
+  });
 });
 
 describe('resolveCollisionFilename — ecuc/ subfolder (post-v1.0.0)', () => {

@@ -22,7 +22,7 @@
 import { getContainerDefByPath } from '../project/bswmd.js';
 import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
 
-import { buildDefaultValue } from './defaultValue.js';
+import { buildDefaultValue, fillParamsFromBswmd } from './defaultValue.js';
 import { findByPath } from './path.js';
 import type {
   ArxmlContainer,
@@ -156,11 +156,22 @@ export function addContainer(
   }
 
   // 4. Build the new container element and insert it.
+  //
+  // v1.9.0 Sprint X — stamp BSWMD-side path + description and fill
+  // defaults from the childContainerDef so the serializer emits a
+  // spec-compliant ECUC-CONTAINER-VALUE (with <DEFINITION-REF> +
+  // <PARAMETER-VALUES>) for every added instance, including the
+  // `_1`/`_2`/`_N` multi-instance suffixes from Step 3.
   const newContainer: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: effectiveShortName,
-    params: {},
+    definitionRef: childContainerDef.path,
+    params: fillParamsFromBswmd(childContainerDef),
+    description: childContainerDef.desc,
+    // Multi-instance instances do NOT pre-create sub-containers —
+    // the user adds them individually. Matches the skeleton's
+    // `buildSubContainerShell` decision to skip lower=0 entries.
     children: [],
   };
   const next = insertChild(doc, pkg, parent, newContainer, moduleDef, parentPath);
