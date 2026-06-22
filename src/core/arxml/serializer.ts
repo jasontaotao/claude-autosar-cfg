@@ -242,6 +242,27 @@ function renderContainer(c: ArxmlContainer): Record<string, unknown> {
   const out: Record<string, unknown> = {
     'SHORT-NAME': c.shortName,
   };
+  // v1.9.0 Sprint X — emit <DEFINITION-REF> child pointing at the
+  // BSWMD-side container definition path. Mirrors renderModule's
+  // pattern (serializer.ts:211-218) for module-level references.
+  // c.definitionRef is stamped by skeleton (`buildTopContainer` /
+  // `buildSubContainerShell` / `buildChoiceShell`) and by mutation
+  // (`addContainer`); when undefined (legacy in-memory docs that
+  // pre-date the v1.9.0 stamping), the tag is omitted — the
+  // parser is lenient about its absence so round-trip stays
+  // field-equal for pre-fix fixtures.
+  //
+  // `DEST` distinguishes plain sub-containers from choice shells
+  // so downstream tools can resolve the reference back to the
+  // correct BSWMD element type.
+  if (c.definitionRef !== undefined) {
+    out['DEFINITION-REF'] = {
+      '@_DEST': c.isChoiceContainer === true
+        ? 'ECUC-CHOICE-CONTAINER-DEF'
+        : 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      '#text': c.definitionRef,
+    };
+  }
   const { regular: regularArr, refs: refsArr } = renderParamEntries(c.params);
   if (regularArr.length > 0) {
     out['PARAMETER-VALUES'] = groupByTagName(regularArr);

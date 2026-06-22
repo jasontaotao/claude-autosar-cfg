@@ -94,6 +94,22 @@ export interface ArxmlContainer {
    * property type explicitly allows `undefined`.
    */
   readonly description?: string | undefined;
+  /**
+   * v1.9.0 Sprint X — BSWMD-side path stamped at construction time
+   * (by `buildTopContainer` / `buildSubContainerShell` / `addContainer`).
+   * The serializer renders it as a `<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">`
+   * sibling of `<SHORT-NAME>` (or `ECUC-CHOICE-CONTAINER-DEF` when
+   * `isChoiceContainer` is true). `undefined` when the container was
+   * synthesized without a BSWMD definition (legacy in-memory docs that
+   * pre-date the v1.9.0 stamping) — the serializer omits the
+   * `<DEFINITION-REF>` child in that case so the field-equal round-trip
+   * signature of pre-fix fixtures is preserved.
+   *
+   * Note: declared with explicit `| undefined` for compatibility with the
+   * project's `exactOptionalPropertyTypes: true` setting — mirrors
+   * `description` directly above.
+   */
+  readonly definitionRef?: string | undefined;
 }
 
 export interface ArxmlReference {
