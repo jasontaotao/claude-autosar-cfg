@@ -20,8 +20,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { BswModuleDef, BswmdDocument } from '@core/project/bswmd.js';
 import type { ArxmlDocument } from '@core/arxml/types.js';
+import type { BswModuleDef, BswmdDocument } from '@core/project/bswmd.js';
 import type { ProjectManifest } from '@shared/project';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
@@ -198,10 +198,7 @@ describe('ProjectPanelInfo chip count reflects ECUC-instantiated docs (v1.8.4 Bu
     // it should be tied to totalCount (i.e. the BSWMD has any modules).
     useArxmlStore.setState({
       bswmdSchemas: [
-        makeBswmd([
-          makeModule('Can', '/EcucDefs/Can'),
-          makeModule('CanIf', '/EcucDefs/CanIf'),
-        ]),
+        makeBswmd([makeModule('Can', '/EcucDefs/Can'), makeModule('CanIf', '/EcucDefs/CanIf')]),
       ],
       bswmdPaths: ['D:\\proj\\bswmd\\EcuC.arxml'],
       documents: [],

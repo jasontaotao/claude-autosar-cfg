@@ -20,16 +20,9 @@
 
 import { describe, it, expect } from 'vitest';
 
-import {
-  addContainer,
-} from '../mutation.js';
 import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../../project/bswmd.js';
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlModule,
-  ParamValue,
-} from '../types.js';
+import { addContainer } from '../mutation.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Hand-built fixtures (mirror the helpers in mutation.test.ts but
@@ -91,10 +84,7 @@ function makeBswContainer(
   };
 }
 
-function makeBswModule(
-  shortName: string,
-  containers: readonly ContainerDef[] = [],
-): BswModuleDef {
+function makeBswModule(shortName: string, containers: readonly ContainerDef[] = []): BswModuleDef {
   return {
     shortName,
     path: `/${shortName}`,
@@ -117,9 +107,7 @@ describe('addContainer multi-instance (v1.8.4 Bug 2 fix)', () => {
     // Arrange
     const childDef = makeBswContainer('Pdu');
     const doc = makeDoc('Com', [makeContainer('Pdu')]);
-    const moduleDef = makeBswModule('Com', [
-      makeBswContainer('Pdu'),
-    ]);
+    const moduleDef = makeBswModule('Com', [makeBswContainer('Pdu')]);
 
     // Act
     const r = addContainer(doc, '/EAS/Com', 'Pdu', moduleDef, childDef);
@@ -128,9 +116,7 @@ describe('addContainer multi-instance (v1.8.4 Bug 2 fix)', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
-    const children = rootModule.children.filter(
-      (c): c is ArxmlContainer => c.kind === 'container',
-    );
+    const children = rootModule.children.filter((c): c is ArxmlContainer => c.kind === 'container');
     expect(children.map((c) => c.shortName)).toEqual(['Pdu', 'Pdu_1']);
   });
 
@@ -147,9 +133,7 @@ describe('addContainer multi-instance (v1.8.4 Bug 2 fix)', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
-    const children = rootModule.children.filter(
-      (c): c is ArxmlContainer => c.kind === 'container',
-    );
+    const children = rootModule.children.filter((c): c is ArxmlContainer => c.kind === 'container');
     expect(children.map((c) => c.shortName)).toEqual(['Pdu', 'Pdu_1', 'Pdu_2']);
   });
 
@@ -179,9 +163,9 @@ describe('addContainer multi-instance (v1.8.4 Bug 2 fix)', () => {
     // not throw — the core layer guarantees a unique path via suffix.
     const childDef = makeBswContainer('CanIfRxPduCfg');
     const doc = makeDoc('Can', [makeContainer('CanConfigSet'), makeContainer('CanIfRxPduCfg')]);
-    const moduleDef = makeBswModule('Can', [
-      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
-    ]);
+    // Module declares CanIfRxPduCfg as an allowed top-level container;
+    // CanConfigSet sibling is unrelated to the add target.
+    const moduleDef = makeBswModule('Can', [makeBswContainer('CanIfRxPduCfg')]);
 
     const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
 

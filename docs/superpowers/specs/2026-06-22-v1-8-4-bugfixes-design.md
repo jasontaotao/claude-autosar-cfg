@@ -42,21 +42,21 @@ skeleton factory.
    ```
 
    Maps the BSWMD accept set (`'4.0' | '4.2' | '4.4' | '4.6' | '4.7' |
-   '5.0' | '00005' | '00006' | '00046' | '00051'`) to the ARXML emit
+'5.0' | '00005' | '00006' | '00046' | '00051'`) to the ARXML emit
    set (`ArxmlVersion`). The two sets overlap but are not identical:
 
-   | BSWMD `doc.version` | ARXML `ArxmlVersion` | Notes |
-   |---|---|---|
-   | `'4.0'` | `'4.2'` (closest supported, with warning) | BSWMD allows 4.0; ARXML serializer doesn't yet |
-   | `'4.2'` | `'4.2'` | exact match |
-   | `'4.4'` | `'4.4'` | exact match |
-   | `'4.6'` | `'4.6'` | exact match |
-   | `'4.7'` | `'4.7'` | exact match |
-   | `'5.0'` | `'5.0'` | exact match |
-   | `'00005'` | `'00005'` | numeric form, R5.0 |
-   | `'00006'` | `'00006'` | numeric form, R6.0 |
-   | `'00046'` | `'00046'` | numeric form, R4.6 |
-   | `'00051'` | `'00051'` | numeric form, R22-11 |
+   | BSWMD `doc.version` | ARXML `ArxmlVersion`                      | Notes                                          |
+   | ------------------- | ----------------------------------------- | ---------------------------------------------- |
+   | `'4.0'`             | `'4.2'` (closest supported, with warning) | BSWMD allows 4.0; ARXML serializer doesn't yet |
+   | `'4.2'`             | `'4.2'`                                   | exact match                                    |
+   | `'4.4'`             | `'4.4'`                                   | exact match                                    |
+   | `'4.6'`             | `'4.6'`                                   | exact match                                    |
+   | `'4.7'`             | `'4.7'`                                   | exact match                                    |
+   | `'5.0'`             | `'5.0'`                                   | exact match                                    |
+   | `'00005'`           | `'00005'`                                 | numeric form, R5.0                             |
+   | `'00006'`           | `'00006'`                                 | numeric form, R6.0                             |
+   | `'00046'`           | `'00046'`                                 | numeric form, R4.6                             |
+   | `'00051'`           | `'00051'`                                 | numeric form, R22-11                           |
 
    `'4.0'` is the only BSWMD value without a direct ARXML match.
    Strategy: fall back to `'4.2'` (closest supported minor) and emit a
@@ -101,7 +101,7 @@ skeleton factory.
   `src/renderer/store/slices/bswmdSlice.ts:442-445` (forward warnings
   into `state.warnings` on commit)
 - `src/shared/i18n.ts:1559` add `'ecuc.warning.bswmdVersionFallback':
-  'BSWMD is r4.0; skeleton generated at r4.2 (closest supported).'`
+'BSWMD is r4.0; skeleton generated at r4.2 (closest supported).'`
   (zh-CN + en-US)
 
 ### Acceptance gates
@@ -373,6 +373,7 @@ any shared module paths.
 
 This is a real design defect acknowledged in the source. The fix
 requires:
+
 - A per-version schema layer (separate `params`/`containers` maps per
   detected version) OR an explicit provenance map on every entry.
 - A UI surface for the user to choose which version wins on conflict

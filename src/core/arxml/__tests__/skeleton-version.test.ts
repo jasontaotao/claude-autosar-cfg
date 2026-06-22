@@ -13,9 +13,9 @@
 
 import { describe, it, expect } from 'vitest';
 
+import type { BswmdDocument, BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 import { generateEcucSkeleton } from '../skeleton.js';
 import { mapBswmdVersionToArxml } from '../version.js';
-import type { BswmdDocument, BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 
 function makeBswModule(shortName: string): BswModuleDef {
   return {
@@ -60,6 +60,16 @@ describe('mapBswmdVersionToArxml (v1.8.4 Bug 1 helper)', () => {
 
   it("defaults BSWMD-only '4.0' to '4.6' (closest supported minor)", () => {
     expect(mapBswmdVersionToArxml('4.0')).toBe('4.6');
+  });
+
+  it('defaults unknown future versions (e.g. r4.8) to 4.6 — pin the silent fallback contract', () => {
+    // If a future BSWMD carries a vendor-only or r4.8+ version literal
+    // not yet in ArxmlVersion, skeleton generation falls back to '4.6'
+    // (the v1.8.3 behaviour). Pin this so a future tightening of the
+    // helper into an explicit table doesn't silently regress.
+    expect(mapBswmdVersionToArxml('4.8')).toBe('4.6');
+    expect(mapBswmdVersionToArxml('AUTOSAR_4-8-0.xsd')).toBe('4.6');
+    expect(mapBswmdVersionToArxml('')).toBe('4.6');
   });
 });
 

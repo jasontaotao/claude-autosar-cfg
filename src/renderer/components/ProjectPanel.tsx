@@ -223,19 +223,6 @@ export function ProjectPanelInfo({
   // ECUC-instantiated docs (filtered by sourceBswmdPath in the render
   // callback below). Selector-scoped to keep re-renders targeted.
   const documents = useArxmlStore((s) => s.documents);
-  // Precompute the canonical-key set of every document's sourceBswmdPath
-  // so the render callback can do an O(1) `Set.has(bswmdKeyFor(...))`
-  // match against the manifest-side bswmdPath (same shape-mismatch
-  // problem the bswmdKeyToSchema map above solves for schemas).
-  const instantiatedKeys = useMemo<ReadonlySet<string>>(() => {
-    const out = new Set<string>();
-    for (const d of documents) {
-      if (d.sourceBswmdPath !== undefined) {
-        out.add(bswmdKeyFor(d.sourceBswmdPath));
-      }
-    }
-    return out;
-  }, [documents]);
 
   // Sprint A (P0-A1) — derive a `bswmdKey → schema` lookup so the
   // trailing chip can pair a manifest row (relative POSIX path) to
@@ -353,19 +340,22 @@ export function ProjectPanelInfo({
           const schema = bswmdKeyToSchema.get(bswmdKeyFor(bswmdPath));
           const totalCount = schema !== undefined ? schema.modules.length : 0;
           // v1.8.4 Bug 3 — the chip count must reflect ECUC-instantiated
-          // docs (derived from `documents` whose `sourceBswmdPath` matches
-          // this row's BSWMD), not BSWMD-side module enable/disable state.
-          // The old `getActiveModules` reading gave a misleading "100/100"
-          // on load because it counts non-disabled BSWMD modules, which has
-          // nothing to do with whether any ECUC doc was generated.
-          // Match via the canonical `bswmdKeyFor` to bridge the
-          // manifest-relative POSIX vs store-absolute Windows shape mismatch
-          // (same approach as `bswmdKeyToSchema` above).
-          const instantiatedCount = Array.from(documents).filter(
-            (d) =>
-              d.sourceBswmdPath !== undefined &&
-              bswmdKeyFor(d.sourceBswmdPath) === bswmdKeyFor(bswmdPath),
-          ).length;
+          // docs (filtered by sourceBswmdPath match), not BSWMD-side
+          // module enable/disable state. The pre-Bug-3 reading derived
+          // activeCount from `getActiveModules(schema).length` which
+          // counted non-disabled BSWMD modules — that gave a misleading
+          // "100/100" on load because it had nothing to do with whether
+          // any ECUC doc was generated. Match via the canonical
+          // `bswmdKeyFor` to bridge the manifest-relative POSIX vs
+          // store-absolute Windows shape mismatch (same approach as
+          // `bswmdKeyToSchema` above).
+          const targetKey = bswmdKeyFor(bswmdPath);
+          let instantiatedCount = 0;
+          for (const d of documents) {
+            if (d.sourceBswmdPath !== undefined && bswmdKeyFor(d.sourceBswmdPath) === targetKey) {
+              instantiatedCount += 1;
+            }
+          }
           return (
             <>
               <button

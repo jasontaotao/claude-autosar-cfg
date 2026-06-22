@@ -263,27 +263,27 @@ describe('addContainer', () => {
   });
 
   it('auto-suffixes a single pre-existing sibling to `_1` (v1.8.4 Bug 2 no-op renamed)', () => {
-  // v1.8.4 Bug 2 — what was previously a no-op short-circuit on
-  // name-conflict is now a successful insert with an auto-suffixed
-  // shortName. The `path-not-found` no-op contract is exercised by the
-  // separate test below.
-  const childDef = makeBswContainer('CanIfRxPduCfg');
-  const doc = makeDoc('Can', [makeContainer('CanIfRxPduCfg')]);
-  const moduleDef = makeBswModule('Can', [
-    makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
-  ]);
+    // v1.8.4 Bug 2 — what was previously a no-op short-circuit on
+    // name-conflict is now a successful insert with an auto-suffixed
+    // shortName. The `path-not-found` no-op contract is exercised by the
+    // separate test below.
+    const childDef = makeBswContainer('CanIfRxPduCfg');
+    const doc = makeDoc('Can', [makeContainer('CanIfRxPduCfg')]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { subContainers: [childDef] }),
+    ]);
 
-  const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
+    const r = addContainer(doc, '/EAS/Can', 'CanIfRxPduCfg', moduleDef, childDef);
 
-  expect(r.ok).toBe(true);
-  if (!r.ok) return;
-  const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
-  const added = rootModule.children[rootModule.children.length - 1]!;
-  expect(added.kind).toBe('container');
-  if (added.kind === 'container') {
-    expect(added.shortName).toBe('CanIfRxPduCfg_1');
-  }
-});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const added = rootModule.children[rootModule.children.length - 1]!;
+    expect(added.kind).toBe('container');
+    if (added.kind === 'container') {
+      expect(added.shortName).toBe('CanIfRxPduCfg_1');
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
