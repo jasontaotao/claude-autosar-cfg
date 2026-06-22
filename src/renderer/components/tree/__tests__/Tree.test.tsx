@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseArxml } from '@core/arxml/parser.js';
-import type { ArxmlDocument } from '@core/arxml/types.js';
+import type { ArxmlDocument, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { Locale } from '@shared/i18n.js';
 
@@ -496,6 +496,54 @@ describe('Tree (nested AR-PACKAGES)', () => {
     const tree = screen.getByRole('tree');
     expect(within(tree).getByRole('treeitem', { name: /EAS/ })).toBeInTheDocument();
     expect(within(tree).getByRole('treeitem', { name: /Com/ })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sprint X T7 — vendor-prefix fold. The Tree reads `displayDoc` (already
+// folded by `computeDisplayDoc` in the store layer). When the user opens
+// `test.autosarcfg.json` (which carries the 3-segment chain
+// /JWQ_CDD_PACK/JWQ_Packet/JWQ3399 from the Intewell BSWMD), the
+// displayDoc carries only `JWQ3399` and the Tree must show exactly that.
+// This test injects the post-fold displayDoc shape directly so the Tree
+// integration is decoupled from the store-layer fold logic (covered by
+// combinedDoc.test.ts).
+// ---------------------------------------------------------------------------
+describe('Tree (vendor-prefix fold, Sprint X T7)', () => {
+  function makeFoldedDisplayDoc(moduleName: string): ArxmlDocument {
+    const pkg: ArxmlPackage = {
+      shortName: moduleName,
+      path: `/${moduleName}`,
+      elements: [],
+    };
+    return {
+      path: '/test',
+      version: '4.6',
+      packages: [pkg],
+    };
+  }
+
+  it('renders only JWQ3399 when displayDoc was folded from a 3-level vendor chain', () => {
+    const displayDoc = makeFoldedDisplayDoc('JWQ3399');
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    // Only the deepest package is visible — vendor wrappers are gone.
+    expect(within(tree).getByRole('treeitem', { name: /JWQ3399/ })).toBeInTheDocument();
+    expect(within(tree).queryByRole('treeitem', { name: /JWQ_CDD_PACK/ })).toBeNull();
+    expect(within(tree).queryByRole('treeitem', { name: /JWQ_Packet/ })).toBeNull();
+  });
+
+  it('vendor-folded path matches the post-collapse package path', () => {
+    // After the fold, the package's path is `/JWQ3399`. The Tree
+    // mirrors that into its `label-` testid so ContextMenu /
+    // ParamEditor can resolve the path against the post-fold shape.
+    const displayDoc = makeFoldedDisplayDoc('JWQ3399');
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    expect(screen.getByTestId('label-/JWQ3399')).toBeInTheDocument();
   });
 });
 

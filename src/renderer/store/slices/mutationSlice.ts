@@ -471,6 +471,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
       nextActiveDoc,
       nextDocuments,
       state.documentPaths,
+      get().bswmdSchemas,
     );
     set({
       documents: nextDocuments,

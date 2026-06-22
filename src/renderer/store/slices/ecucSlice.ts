@@ -127,7 +127,13 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
     const nextPaths = state.documentPaths.includes(filePath)
       ? state.documentPaths
       : [...state.documentPaths, filePath];
-    const nextDisplayResult = computeDisplayDoc(state.viewMode, doc, nextDocuments, nextPaths);
+    const nextDisplayResult = computeDisplayDoc(
+      state.viewMode,
+      doc,
+      nextDocuments,
+      nextPaths,
+      get().bswmdSchemas,
+    );
     set({
       documents: nextDocuments,
       documentPaths: nextPaths,
@@ -200,6 +206,7 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
       nextActiveDoc,
       nextDocuments,
       nextPaths,
+      get().bswmdSchemas,
     );
     set({
       documents: nextDocuments,
@@ -243,6 +250,7 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
         null,
         state.documents,
         state.documentPaths,
+        get().bswmdSchemas,
       );
       if (nextDisplayResult === null) return;
       set({
@@ -266,6 +274,7 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
       nextDoc,
       state.documents,
       state.documentPaths,
+      get().bswmdSchemas,
     );
     set({
       activeDocumentPath: filePath,
@@ -315,6 +324,7 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
         nextActiveDoc,
         nextDocuments,
         state.documentPaths,
+        get().bswmdSchemas,
       );
       if (nextDisplayResult === null) return;
       set({
@@ -348,6 +358,7 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
       nextActiveDoc,
       nextDocuments,
       state.documentPaths,
+      get().bswmdSchemas,
     );
     set({
       documents: nextDocuments,

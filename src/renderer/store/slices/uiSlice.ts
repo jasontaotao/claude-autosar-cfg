@@ -207,6 +207,7 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
       state.doc,
       state.documents,
       state.documentPaths,
+      get().bswmdSchemas,
     );
     // Sprint 17c T10 — when entering combined mode, populate the
     // warnings slice from the fresh build. When leaving combined

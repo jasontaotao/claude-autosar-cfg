@@ -188,6 +188,7 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       activeDoc,
       orderedDocuments,
       orderedPaths,
+      get().bswmdSchemas,
     );
 
     set({

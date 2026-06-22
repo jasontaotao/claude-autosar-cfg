@@ -5,6 +5,7 @@
 
 import { findByPathMultiDoc } from '@core/arxml/path';
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 
 export interface ResolvedContainerTarget {
   readonly doc: ArxmlDocument;
@@ -62,27 +63,37 @@ export interface ResolveContainerTargetState {
  * without inline branching. In 'single' mode it returns the active
  * `doc`; in 'combined' mode it returns a freshly synthesised virtual
  * document (or null when no docs are loaded).
+ *
+ * v1.9.0 Sprint X T7 — added optional `bswmdSchemas` so the vendor-
+ * prefix fold has up-to-date module coverage. Both single-mode and
+ * combined-mode now run `foldVendorPackages` so the Tree shows only
+ * the deepest AR-PACKAGE (vendor-private wrappers are hidden).
  */
 export function computeDisplayDoc(
   mode: 'single' | 'combined' | 'import-merged',
   activeDoc: ArxmlDocument | null,
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
+  bswmdSchemas?: readonly BswmdDocument[],
 ): CombinedDocumentResult | null {
   if (mode === 'single' || mode === 'import-merged') {
-    // Single / import-merged mode passes through the active doc
-    // unchanged; the import-merged view synthesises its own tree
-    // in the ModuleSelectionPanel / DiffTable components, so the
-    // legacy Tree continues to show the active doc behind the
-    // import slice. The result is wrapped in a
-    // `CombinedDocumentResult` for type uniformity with the
-    // combined-mode branch — the empty warnings array is
-    // intentional. `doc` may be null when no source documents are
-    // loaded; callers treat that as "no display content".
-    return { doc: activeDoc, warnings: [] };
+    // Single / import-merged mode passes the active doc through the
+    // vendor fold so the Tree shows only the deepest AR-PACKAGE
+    // (matches user's mental model: vendor-private wrapper layers
+    // are hidden). `activeDoc` may be null when no source documents
+    // are loaded; callers treat that as "no display content".
+    if (activeDoc === null) return { doc: null, warnings: [] };
+    return {
+      doc: foldVendorPackages(activeDoc, bswmdSchemas ?? []),
+      warnings: [],
+    };
   }
   if (documents.length === 0) return null;
-  return buildCombinedDocument(documents, filePaths);
+  const built = buildCombinedDocument(documents, filePaths);
+  return {
+    doc: built.doc === null ? null : foldVendorPackages(built.doc, bswmdSchemas ?? []),
+    warnings: built.warnings,
+  };
 }
 
 export type CombinedDocumentWarning = {
@@ -492,4 +503,156 @@ export function stripCombinedPrefix(combinedPath: string, sourceFilePath: string
   // Flat mode: no wrapper in the combined view — the path is already
   // an inner path. Return verbatim.
   return combinedPath;
+}
+
+// ---------------------------------------------------------------------------
+// v1.9.0 Sprint X — vendor-prefix package fold (T7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Heuristic: a top-level AR-PACKAGE chain `/A/B/C` where C is a BSWMD
+ * module shortName (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` with
+ * C=JWQ3399 loaded from a BSWMD) should be visually flattened so the
+ * UI shows only C. Vendor-private wrapper layers (JWQ_CDD_PACK,
+ * JWQ_Packet) collapse into C; the serialised arxml keeps the full
+ * 3-layer shape so it remains AUTOSAR-tooling-compatible
+ * (skeleton.ts emits the full chain; this is displayDoc-only).
+ *
+ * Detection rule (depth-first, top-down):
+ *   1. If a top-level package P has exactly one nested package P1
+ *      (and P1 has no `elements` of its own — vendor wrappers carry
+ *      elements=[]), AND either:
+ *      a. P1.shortName matches any shortName in
+ *         `bswmdSchemas[*].modules[*]`, OR
+ *      b. P.shortName or P1.shortName matches a known vendor prefix
+ *         whitelist (JWQ_*_PACK, /EAS/, /EcucDefs/, AUTOSAR_*),
+ *      then collapse: hoist P1 to the top, preserving P1.shortName /
+ *      path / elements / packages, and continue the fold recursively
+ *      into P1.
+ *   2. Otherwise, leave the package as-is (and recurse into its
+ *      children).
+ *
+ * Path rewriting: the hoisted package's path is rewritten to drop the
+ * vendor wrapper prefix so the post-fold path is the deepest segment
+ * alone (e.g. `/JWQ3399` instead of `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`).
+ * This keeps `selectedPath` consistent across the fold — ParamEditor /
+ * ContextMenu consume the post-fold paths and `findByPath` on the
+ * source `doc` still resolves them via the fold-aware lookup paths.
+ *
+ * Pure: no I/O, no React, no Zustand. Returns a new ArxmlDocument
+ * when at least one package was folded; returns the same reference
+ * otherwise (so `useMemo` callers skip re-render).
+ */
+function foldVendorPackages(
+  doc: ArxmlDocument,
+  bswmdSchemas: readonly BswmdDocument[],
+): ArxmlDocument {
+  const bswmdModuleNames = new Set<string>();
+  for (const schema of bswmdSchemas) {
+    for (const mod of schema.modules) {
+      bswmdModuleNames.add(mod.shortName);
+    }
+  }
+  const VENDOR_PREFIX_RE = /^(JWQ_.*_PACK|EAS|EcucDefs|AUTOSAR(_.*)?)$/;
+
+  const foldedPackages = doc.packages
+    .map((p) => foldPackage(p, '', bswmdModuleNames, VENDOR_PREFIX_RE))
+    .filter((p): p is ArxmlPackage => p !== null);
+
+  // Reference-equal fast path: if no package was actually folded,
+  // return the same ArxmlDocument reference so downstream `useMemo`
+  // callers (Tree.tsx) skip re-render.
+  if (
+    foldedPackages.length === doc.packages.length &&
+    foldedPackages.every((p, i) => p === doc.packages[i])
+  ) {
+    return doc;
+  }
+  return { ...doc, packages: foldedPackages };
+}
+
+/**
+ * Recursively fold a single package. Returns the same package
+ * reference when no fold is needed (preserves ref equality for the
+ * fast path).
+ *
+ * Algorithm: walk DOWN the wrapper chain collapsing each layer that
+ * satisfies the fold condition. The deepest leaf stays put; every
+ * intermediate wrapper collapses into it. This handles chains of
+ * arbitrary depth (1, 2, 3+ segments) with the same code path.
+ *
+ * @param pkg          The package to fold.
+ * @param prefix       The path prefix accumulated by parent hoists
+ *                     (always '' at the top level; non-empty when
+ *                     this pkg is itself inside a parent chain).
+ * @param bswmdNames   Module shortNames loaded from any BSWMD
+ *                     schema.
+ * @param vendorRe     Heuristic prefix regex.
+ */
+function foldPackage(
+  pkg: ArxmlPackage,
+  prefix: string,
+  bswmdNames: ReadonlySet<string>,
+  vendorRe: RegExp,
+): ArxmlPackage {
+  const nested = pkg.packages;
+
+  // Foldable? A package is foldable when:
+  //   - it has EXACTLY ONE nested package (vendor wrappers don't
+  //     carry siblings)
+  //   - it carries no `elements` of its own (vendor wrappers are
+  //     pass-through)
+  //   - either its nested child's shortName matches a loaded BSWMD
+  //     module shortName (gold path) OR either shortName hits the
+  //     vendor prefix whitelist.
+  //
+  // This check applies at ANY level — top-level wrappers and
+  // intermediate wrappers alike. Recursion walks down the chain
+  // until we find a non-foldable package (the leaf).
+  const isFoldableHere =
+    nested !== undefined &&
+    nested.length === 1 &&
+    pkg.elements.length === 0 &&
+    (bswmdNames.has(nested[0]!.shortName) ||
+      vendorRe.test(pkg.shortName) ||
+      vendorRe.test(nested[0]!.shortName));
+
+  if (!isFoldableHere) {
+    // Not foldable. If nested exists, recurse into it first to
+    // collapse any inner wrappers; only allocate a new pkg if the
+    // nested array actually changed.
+    if (nested === undefined || nested.length === 0) {
+      // No nested → return ref-equal.
+      return pkg;
+    }
+    const mapped = nested.map((sp) =>
+      foldPackage(sp, joinPath(prefix, pkg.shortName), bswmdNames, vendorRe),
+    );
+    const changed = mapped.some((m, i) => m !== nested[i]);
+    if (!changed) return pkg;
+    return {
+      ...pkg,
+      packages: mapped,
+    };
+  }
+
+  // Foldable: recurse into the only nested child, then hoist the
+  // (now fully folded) child to take our place.
+  const child = nested[0]!;
+  const foldedChild = foldPackage(child, joinPath(prefix, pkg.shortName), bswmdNames, vendorRe);
+  // The hoisted package takes the deepest shortName (already
+  // collapsed recursively). Path is rewritten to drop the entire
+  // wrapper prefix.
+  const hoistedPackages = foldedChild.packages;
+  return {
+    ...foldedChild,
+    path: `/${foldedChild.shortName}`,
+    ...(hoistedPackages !== undefined ? { packages: hoistedPackages } : {}),
+    elements: foldedChild.elements,
+  };
+}
+
+function joinPath(prefix: string, segment: string): string {
+  if (prefix === '') return `/${segment}`;
+  return `${prefix}/${segment}`;
 }
