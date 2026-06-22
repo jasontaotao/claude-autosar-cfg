@@ -121,10 +121,14 @@ describe('ProjectPanelInfo — BSWMD chip path-normalize (Sprint A / P0-A1)', ()
     // Act
     render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
 
-    // Assert — chip shows the real active count, not 0/0.
+    // Assert — v1.8.4 Bug 3 changed the chip count semantics: it
+    // counts ECUC-instantiated docs (filtered by sourceBswmdPath),
+    // not BSWMD-enabled modules. With no documents loaded the chip
+    // shows 0/N (the misleading "100/100" was the bug we fixed).
     const chip = screen.getByTestId('project-panel-bswmd-chip-0');
-    expect(chip).toHaveTextContent('3/3');
-    // The + button is enabled now (activeCount > 0).
+    expect(chip).toHaveTextContent('0/3');
+    // The + button is enabled when totalCount > 0 (the BSWMD has any
+    // modules available), not when activeCount > 0.
     const addBtn = screen.getByTestId('project-panel-bswmd-add-ecuc-0');
     expect(addBtn).not.toBeDisabled();
   });
@@ -138,14 +142,16 @@ describe('ProjectPanelInfo — BSWMD chip path-normalize (Sprint A / P0-A1)', ()
     const manifest = makeManifest({ bswmdPaths: ['bswmd/Adc.arxml'] });
     render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
 
+    // v1.8.4 Bug 3 — chip shows 0/1 (no ECUC docs yet), not 1/1.
     const chip = screen.getByTestId('project-panel-bswmd-chip-0');
-    expect(chip).toHaveTextContent('1/1');
+    expect(chip).toHaveTextContent('0/1');
   });
 
   it('pairs each manifest row to its OWN schema when two BSWMDs live in different sub-folders', () => {
     // Sprint 16 collision-safety: the same key scheme must distinguish
     // `subdir1/EcuC.arxml` from `subdir2/EcuC.arxml` so the chip on
     // row 0 surfaces Can's count and row 1 surfaces Adc's count.
+    // v1.8.4 Bug 3 — both rows show 0/N (no docs loaded yet).
     useArxmlStore.setState({
       bswmdSchemas: [
         makeBswmd([makeModule('Can', '/EcucDefs/Can'), makeModule('CanIf', '/EcucDefs/CanIf')]),
@@ -159,8 +165,8 @@ describe('ProjectPanelInfo — BSWMD chip path-normalize (Sprint A / P0-A1)', ()
     });
     render(<ProjectPanelInfo {...baseProps} manifest={manifest} />);
 
-    expect(screen.getByTestId('project-panel-bswmd-chip-0')).toHaveTextContent('2/2');
-    expect(screen.getByTestId('project-panel-bswmd-chip-1')).toHaveTextContent('1/1');
+    expect(screen.getByTestId('project-panel-bswmd-chip-0')).toHaveTextContent('0/2');
+    expect(screen.getByTestId('project-panel-bswmd-chip-1')).toHaveTextContent('0/1');
   });
 
   it('renders 0/0 chip + disabled + button when manifest lists a BSWMD the store has no schema for', () => {

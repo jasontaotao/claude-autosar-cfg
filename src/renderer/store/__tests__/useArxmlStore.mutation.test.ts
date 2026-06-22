@@ -255,7 +255,10 @@ describe('useArxmlStore — addContainer (Sprint 15)', () => {
     expect(after.dirtyPaths.size).toBe(0);
   });
 
-  it('name-conflict: parent already has a child with that shortName → setError', () => {
+  it('multi-instance: parent has a child with the same shortName → auto-suffix to `_1`', () => {
+    // v1.8.4 Bug 2 — name-conflict no longer fires for containers. The
+    // store action delegates to core addContainer which auto-suffixes
+    // `AdcChannel` → `AdcChannel_1` and appends a second sibling.
     // Arrange — doc already has AdcChannel as a child of AdcConfig.
     const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
     useArxmlStore.getState().addDocument(doc, '/tmp/Adc.arxml');
@@ -301,14 +304,19 @@ describe('useArxmlStore — addContainer (Sprint 15)', () => {
     });
     const before = useArxmlStore.getState().documents[0]!;
 
-    // Act — try to add AdcChannel again
+    // Act — add AdcChannel again; auto-suffix inserts AdcChannel_1
     useArxmlStore.getState().addContainer('/EAS/Adc/AdcConfig', 'AdcChannel');
 
-    // Assert
+    // Assert — error stays null; the new container is appended with `_1`.
     const after = useArxmlStore.getState();
-    expect(after.documents[0]).toBe(before); // ref equality preserved
-    expect(after.error).not.toBeNull();
-    expect(after.error).toContain('AdcChannel');
+    expect(after.error).toBeNull();
+    expect(after.documents[0]).not.toBe(before); // new doc ref (mutation applied)
+    const adcModule = after.documents[0]!.packages[0]!.elements[0] as ArxmlModule;
+    const adcConfigAfter = adcModule.children[0]! as ArxmlContainer;
+    const channelChildren = adcConfigAfter.children.filter(
+      (c): c is ArxmlContainer => c.kind === 'container',
+    );
+    expect(channelChildren.map((c) => c.shortName)).toEqual(['AdcChannel', 'AdcChannel_1']);
   });
 
   it('path-not-found: invalid path → setError', () => {

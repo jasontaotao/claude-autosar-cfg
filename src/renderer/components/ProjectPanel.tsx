@@ -21,7 +21,6 @@
 import type { JSX, ReactNode } from 'react';
 import { useMemo } from 'react';
 
-import { getActiveModules } from '@core/project/bswmd.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
@@ -220,6 +219,23 @@ export function ProjectPanelInfo({
   // lands.
   const bswmdSchemas = useArxmlStore((s) => s.bswmdSchemas);
   const bswmdPathsInStore = useArxmlStore((s) => s.bswmdPaths);
+  // v1.8.4 Bug 3 — subscribe to documents so the chip count tracks
+  // ECUC-instantiated docs (filtered by sourceBswmdPath in the render
+  // callback below). Selector-scoped to keep re-renders targeted.
+  const documents = useArxmlStore((s) => s.documents);
+  // Precompute the canonical-key set of every document's sourceBswmdPath
+  // so the render callback can do an O(1) `Set.has(bswmdKeyFor(...))`
+  // match against the manifest-side bswmdPath (same shape-mismatch
+  // problem the bswmdKeyToSchema map above solves for schemas).
+  const instantiatedKeys = useMemo<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    for (const d of documents) {
+      if (d.sourceBswmdPath !== undefined) {
+        out.add(bswmdKeyFor(d.sourceBswmdPath));
+      }
+    }
+    return out;
+  }, [documents]);
 
   // Sprint A (P0-A1) — derive a `bswmdKey → schema` lookup so the
   // trailing chip can pair a manifest row (relative POSIX path) to
@@ -336,8 +352,20 @@ export function ProjectPanelInfo({
         renderTrailing={(bswmdPath, idx) => {
           const schema = bswmdKeyToSchema.get(bswmdKeyFor(bswmdPath));
           const totalCount = schema !== undefined ? schema.modules.length : 0;
-          const activeModules = schema !== undefined ? getActiveModules(schema) : [];
-          const activeCount = activeModules.length;
+          // v1.8.4 Bug 3 — the chip count must reflect ECUC-instantiated
+          // docs (derived from `documents` whose `sourceBswmdPath` matches
+          // this row's BSWMD), not BSWMD-side module enable/disable state.
+          // The old `getActiveModules` reading gave a misleading "100/100"
+          // on load because it counts non-disabled BSWMD modules, which has
+          // nothing to do with whether any ECUC doc was generated.
+          // Match via the canonical `bswmdKeyFor` to bridge the
+          // manifest-relative POSIX vs store-absolute Windows shape mismatch
+          // (same approach as `bswmdKeyToSchema` above).
+          const instantiatedCount = Array.from(documents).filter(
+            (d) =>
+              d.sourceBswmdPath !== undefined &&
+              bswmdKeyFor(d.sourceBswmdPath) === bswmdKeyFor(bswmdPath),
+          ).length;
           return (
             <>
               <button
@@ -345,12 +373,12 @@ export function ProjectPanelInfo({
                 className="project-panel-bswmd-chip"
                 onClick={() => onConfigureModules?.(bswmdPath)}
                 title={t(locale, 'ecuc.fromBswmd.modulesActive', {
-                  active: activeCount,
+                  active: instantiatedCount,
                   total: totalCount,
                 })}
                 data-testid={`project-panel-bswmd-chip-${idx}`}
               >
-                <span aria-hidden="true">📋</span> {activeCount}/{totalCount}
+                <span aria-hidden="true">📋</span> {instantiatedCount}/{totalCount}
               </button>
               <button
                 type="button"
@@ -359,7 +387,7 @@ export function ProjectPanelInfo({
                 title={t(locale, 'ecuc.fromBswmd.menu')}
                 data-testid={`project-panel-bswmd-add-ecuc-${idx}`}
                 aria-label={t(locale, 'ecuc.fromBswmd.menu')}
-                disabled={schema === undefined || activeCount === 0}
+                disabled={schema === undefined || totalCount === 0}
               >
                 +
               </button>
