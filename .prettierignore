@@ -3,6 +3,9 @@ node_modules
 coverage
 pnpm-lock.yaml
 
+# Git submodules — formatted by their own projects, not us.
+vendor/
+
 # Frozen historical docs (release notes + archived specs/plans).
 # These are immutable records; prettier --check skips them so the
 # verify pipeline stays green without re-flowing the historical text.
