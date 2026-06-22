@@ -9,8 +9,8 @@
 
 ```
 archive/
-├── plans/   18 files — implementation plans, v0.12.0 → v1.6.0
-└── specs/   14 files — design specs,       v0.12.0 → v1.6.0  (+ 1 HTML preview)
+├── plans/   23 files — implementation plans, v0.12.0 → v1.8.0
+└── specs/   26 files — design specs,       v0.12.0 → v1.8.0  (25 .md + 1 HTML preview)
 ```
 
 ## What's here
@@ -39,15 +39,15 @@ archive/
 | **Foundation sprint** — isPathInside + preserveOrder +   | `ad635ed`           | v1.5.1                  |
 | **Vendor-CDD followup** — EnumEditor + moduleRoots +     | `d296a6f`           | v1.5.1                  |
 | **Sprint 14 Final (W + A+C + G + U)** — Onboarding +     | `2907177`           | v1.6.0                  |
+| **Sprint 17** — BSWMD remove-from-disk (4-option dialog | `e8487f3`           | v1.6.1                  |
+| **Cluster 3 I** — dbc-forge reuse plumbing (file: dep)   | `6c4f5bc → f4b57c4` | v1.7.0                  |
+| **Skeleton fixes** — defaults fill + choice marker +    | `1e014ff`           | v1.7.1                  |
+| **Cluster 3 K** — BSWMD-Free Stencil Wizard              | `2b3e21c`           | v1.8.0 (FF-merged into v1.8.1) |
+| v1.6.0 release notes (originally misplaced in `plans/`)  | `2907177`           | v1.6.0                  |
 
 ## Active plans/specs (in `../plans/` and `../specs/`)
 
-| File                                                | Status       | Next action                             |
-| --------------------------------------------------- | ------------ | --------------------------------------- |
-| `../plans/2026-06-20-sprint-17-remove-bswmd.md`     | in-flight    | P3 (UI context-menu) + P4 (E2E) pending |
-| `../plans/release-notes-v1.6.0.md`                  | just-shipped | historical reference for v1.6.0         |
-| `../specs/2026-06-21-v1-6-0-{W,U,AC,G}-*-design.md` | v1.6.0 fresh | keep visible as current context         |
-| `../specs/2026-06-21-v1-6-0-{W,U,AC,G}-*-report.md` | v1.6.0 retro | keep visible as current context         |
+_Empty as of 2026-06-22 — all in-flight plans/specs have shipped (latest: v1.8.1 PATCH). New work goes straight to `docs/superpowers/plans/` and ships via git mv on release._
 
 ## How to recover context if you really need it
 
