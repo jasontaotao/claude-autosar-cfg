@@ -2,3 +2,9 @@ dist
 node_modules
 coverage
 pnpm-lock.yaml
+
+# Frozen historical docs (release notes + archived specs/plans).
+# These are immutable records; prettier --check skips them so the
+# verify pipeline stays green without re-flowing the historical text.
+docs/release-notes/**
+docs/superpowers/archive/
