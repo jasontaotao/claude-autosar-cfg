@@ -238,6 +238,11 @@ interface MenuItemSpec {
   readonly disabledTitle?: string;
   readonly cssClass: string;
   readonly build: (target: ContextMenuTarget) => ContextMenuAction;
+  // Sprint 17 PATCH — optional aria-label for the rendered <li>.
+  // When set, the render path forwards it to the menuitem's
+  // `aria-label` attribute. Falls back to undefined (no attribute)
+  // when omitted — existing menu items are unaffected.
+  readonly ariaLabel?: string;
 }
 
 function buildContainerItems(
@@ -313,6 +318,11 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
     {
       id: 'remove-module',
       label: t(locale, 'mutation.action.removeModule'),
+      // Sprint 17 PATCH — aria-label disambiguates the destructive
+      // item with the BSWMD shortName so screen readers announce
+      // which module will be removed (e.g. "Remove BSWMD 'Adc.arxml'"
+      // vs. just "Remove module").
+      ariaLabel: t(locale, 'mutation.action.removeModuleAria', { name: target.shortName }),
       disabled: false,
       cssClass: 'context-menu-item context-menu-item-delete',
       // `target.path` is the BSWMD file path that the right-click
@@ -503,6 +513,11 @@ export function ContextMenuRoot({
           role="menuitem"
           tabIndex={spec.disabled ? -1 : 0}
           aria-disabled={spec.disabled}
+          // Sprint 17 PATCH — forward the spec's aria-label to the
+          // menuitem. Falls back to undefined (no attribute) when
+          // omitted, so existing menu items keep their default a11y
+          // (announce label text only).
+          aria-label={spec.ariaLabel}
           title={spec.disabledTitle}
           data-idx={idx}
           data-testid={`context-menu-item-${spec.id}`}

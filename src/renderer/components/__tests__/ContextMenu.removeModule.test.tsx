@@ -106,4 +106,43 @@ describe('ContextMenu (Sprint 17 P3 T3.3 — Remove module item)', () => {
     expect(screen.getByText(/Remove module/i)).toBeInTheDocument();
     await waitFor(() => screen.getByTestId('context-menu-item-remove-module'));
   });
+
+  // Sprint 17 PATCH — T4. aria-label disambiguates the destructive
+  // remove-module item so screen readers announce the BSWMD shortName
+  // (e.g. "移除 BSWMD 'Adc.arxml'") instead of just "Remove module".
+  // zh-CN: `mutation.action.removeModuleAria` = "移除 BSWMD '{name}'".
+  it('remove-module item carries aria-label with the BSWMD shortName (zh-CN)', () => {
+    cleanup();
+    const onAction = vi.fn();
+    return mountHost(onAction).then(() => {
+      act(() => {
+        openContextMenu(
+          { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
+          100, 100,
+        );
+      });
+      const item = screen.getByTestId('context-menu-item-remove-module');
+      // aria-label interpolates {name} with the BSWMD shortName
+      // via `mutation.action.removeModuleAria` (zh-CN: "移除 BSWMD '{name}'").
+      expect(item).toHaveAttribute('aria-label', "移除 BSWMD 'Adc.arxml'");
+    });
+  });
+
+  // en: `mutation.action.removeModuleAria` = "Remove BSWMD '{name}'".
+  it('remove-module item carries aria-label with the BSWMD shortName (en)', async () => {
+    cleanup();
+    const onAction = vi.fn();
+    render(<Host onAction={onAction as never} locale="en" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      openContextMenu(
+        { path: '/fake/Adc.arxml', kind: 'bswmd', shortName: 'Adc.arxml' },
+        100, 100,
+      );
+    });
+    const item = await waitFor(() => screen.getByTestId('context-menu-item-remove-module'));
+    expect(item).toHaveAttribute('aria-label', "Remove BSWMD 'Adc.arxml'");
+  });
 });
