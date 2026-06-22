@@ -3,6 +3,22 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // v1.8.0 K Stencil — main process transitively pulls in
+  // `core/sws-validator/engine.ts` (via src/main/ipc/stencilHandler.ts),
+  // which imports `@shared/i18n` for DEFAULT_LOCALE / t(). Without
+  // aliases here, Rollup fails to resolve `@shared/i18n` when
+  // walking the bundle graph (matched in renderer config + tsconfig
+  // paths but not in vite.main.config). The architectural fix (Bug B)
+  // is to stop core/sws-validator/hooks/useTourState.ts from importing
+  // renderer/store/useArxmlStore.ts — then the renderer slice chain
+  // disappears from main's bundle and engine.ts's @shared import is
+  // the only remaining cross-cutting dep.
+  resolve: {
+    alias: {
+      '@core': resolve(__dirname, 'src/core'),
+      '@shared': resolve(__dirname, 'src/shared'),
+    },
+  },
   build: {
     outDir: 'dist/main',
     lib: {
