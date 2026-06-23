@@ -257,9 +257,10 @@ function renderContainer(c: ArxmlContainer): Record<string, unknown> {
   // correct BSWMD element type.
   if (c.definitionRef !== undefined) {
     out['DEFINITION-REF'] = {
-      '@_DEST': c.isChoiceContainer === true
-        ? 'ECUC-CHOICE-CONTAINER-DEF'
-        : 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      '@_DEST':
+        c.isChoiceContainer === true
+          ? 'ECUC-CHOICE-CONTAINER-DEF'
+          : 'ECUC-PARAM-CONF-CONTAINER-DEF',
       '#text': c.definitionRef,
     };
   }

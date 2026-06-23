@@ -77,9 +77,7 @@ describe('parser reads container-level <DEFINITION-REF> (HIGH #2)', () => {
     const cfgSet = findContainerByShortName(innerPkg, 'JWQ3399ConfigSet');
     expect(cfgSet).toBeDefined();
     if (cfgSet === undefined) return;
-    expect(cfgSet.definitionRef).toBe(
-      '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet',
-    );
+    expect(cfgSet.definitionRef).toBe('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet');
   });
 
   it('captures definitionRef on nested sub-container', () => {
@@ -91,9 +89,7 @@ describe('parser reads container-level <DEFINITION-REF> (HIGH #2)', () => {
     const child = findContainerByShortName(innerPkg, 'Child');
     expect(child).toBeDefined();
     if (child === undefined) return;
-    expect(child.definitionRef).toBe(
-      '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/Child',
-    );
+    expect(child.definitionRef).toBe('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/Child');
   });
 
   it('restores isChoiceContainer when DEST is ECUC-CHOICE-CONTAINER-DEF', () => {
@@ -135,8 +131,6 @@ describe('parser reads container-level <DEFINITION-REF> (HIGH #2)', () => {
     // field survives save→reload→save.
     expect(s1.value).toContain('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet');
     expect(s2.value).toContain('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet');
-    expect(s2.value).toContain(
-      '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/Child',
-    );
+    expect(s2.value).toContain('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/Child');
   });
 });

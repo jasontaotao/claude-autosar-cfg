@@ -110,8 +110,7 @@ describe('applyMutationResultToSource threads bswmdSchemas (HIGH #1)', () => {
     // fold (because the helper called computeDisplayDoc without
     // bswmdSchemas). The fix threads `state.bswmdSchemas` through, so
     // the rebuilt displayDoc has the same shape as pre-mutation.
-    const newDisplay = (set.captured.state as { displayDoc?: unknown } | null)
-      ?.displayDoc;
+    const newDisplay = (set.captured.state as { displayDoc?: unknown } | null)?.displayDoc;
     expect(newDisplay).not.toBeNull();
     // v1.9.0 Sprint X Phase 5c — the trusted vendor pack prefix
     // `JWQ_.*_PACK` folds on its own (no BSWMD gate), so the full
@@ -119,7 +118,9 @@ describe('applyMutationResultToSource threads bswmdSchemas (HIGH #1)', () => {
     // helper must thread `state.bswmdSchemas` so post-mutation fold
     // produces the same shape as pre-mutation.
     const topPkg = (
-      newDisplay as { packages: readonly { shortName: string; packages?: readonly { shortName: string }[] }[] } | null
+      newDisplay as {
+        packages: readonly { shortName: string; packages?: readonly { shortName: string }[] }[];
+      } | null
     )?.packages?.[0];
     expect(topPkg?.shortName).toBe('JWQ3399');
   });

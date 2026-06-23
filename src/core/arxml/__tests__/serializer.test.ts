@@ -568,7 +568,9 @@ describe('serializeArxml', () => {
       // The container block must not contain a DEFINITION-REF at all.
       // (Module-level DEFINITION-REFs are unrelated and pre-existing.)
       // Anchor on the container's own block to avoid false positives.
-      const containerBlock = r.value.match(/<ECUC-CONTAINER-VALUE>[\s\S]*?<\/ECUC-CONTAINER-VALUE>/);
+      const containerBlock = r.value.match(
+        /<ECUC-CONTAINER-VALUE>[\s\S]*?<\/ECUC-CONTAINER-VALUE>/,
+      );
       expect(containerBlock).not.toBeNull();
       if (containerBlock) {
         expect(containerBlock[0]).not.toContain('<DEFINITION-REF');
