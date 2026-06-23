@@ -653,6 +653,50 @@ function foldPackage(
   // until we find a non-foldable package (the leaf).
   const innerMatchesBswmd =
     nested !== undefined && nested.length === 1 && bswmdNames.has(nested[0]!.shortName);
+  // 2026-06-23 — EcucDefs tier (tier 4). Fires when the package IS
+  // the standard AUTOSAR `EcucDefs` namespace AND it carries exactly
+  // one `kind: 'module'` element directly (no sub-packages).
+  // No BSWMD gate: a fresh project with no BSWMDs loaded should
+  // still see the EcucDefs layer collapsed, matching the user's
+  // mental model of "EcucDefs is a namespace, not a UI surface".
+  // The `length === 1` + `kind === 'module'` check is the I1 + I2
+  // safety guard — mixed elements (e.g. reference + module) are
+  // preserved unchanged instead of silently dropped.
+  const ecucDefsHasSingleModule =
+    pkg.shortName === 'EcucDefs' &&
+    pkg.packages === undefined &&
+    pkg.elements.length === 1 &&
+    pkg.elements[0]!.kind === 'module';
+
+  // Tier 4 fast path — EcucDefs with a single module element
+  // directly inside (no sub-packages). Distinct from tiers 1-3:
+  // the hoist target is `pkg.elements[0]` (the module element
+  // itself), not a sub-package. Return a synthesised pkg whose
+  // shortName / path match the module element, marked
+  // `isVendorFoldResult: true` so Tree.tsx hoists it past the
+  // vendor namespace the same way it does for the JWQ_*_PACK chain.
+  // Element count is strictly preserved (I1) — we carry the module
+  // element over, no siblings are dropped.
+  if (ecucDefsHasSingleModule) {
+    // Narrow ArxmlElement union — the `kind === 'module'` check in
+    // `ecucDefsHasSingleModule` is not preserved by TS narrowing
+    // across the closure boundary, so re-narrow explicitly.
+    const moduleEl = pkg.elements[0]!;
+    if (moduleEl.kind !== 'module') {
+      // Unreachable given the ecucDefsHasSingleModule gate, but TS
+      // requires the explicit narrow before reading `.shortName`
+      // (ArxmlUnknown has no shortName field).
+      return pkg;
+    }
+    return {
+      shortName: moduleEl.shortName,
+      path: `/${moduleEl.shortName}`,
+      isVendorFoldResult: true,
+      elements: [moduleEl],
+    };
+  }
+
+  // Tiers 1-3: wrapper-style fold (collapse into the only nested package).
   const isFoldableHere =
     nested !== undefined &&
     nested.length === 1 &&
