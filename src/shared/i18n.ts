@@ -952,7 +952,8 @@ export const MessagesZhCN: Messages = {
   'confirm.removeBswmd.cascade': '一并删除依赖文件',
   'confirm.removeBswmd.cascadeAndUnlink': '一并删除 + 从磁盘删除 BSWMD',
   'confirm.closeProject.title': '关闭项目？',
-  'confirm.closeProject.message': '此项目有 {count} 处未保存的修改。关闭后这些修改将被丢弃。是否继续？',
+  'confirm.closeProject.message':
+    '此项目有 {count} 处未保存的修改。关闭后这些修改将被丢弃。是否继续？',
   'confirm.closeProject.cancel': '取消',
   'confirm.closeProject.discard': '放弃所有修改',
   'confirm.closeProject.save': '保存后关闭',
