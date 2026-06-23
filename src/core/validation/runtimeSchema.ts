@@ -275,6 +275,17 @@ export function findModuleForPath(layer: SchemaLayer, paramPath: string): string
  * matches `segments[1]` of the query, it rebuilds the candidate path
  * as `<moduleRoot>/<suffix-from-segment[2]>` and tries again.
  *
+ * **Value-tree structural divergence (Sprint 18 hotfix).** A second
+ * common vendor-CDD shape places the value-tree's container inside an
+ * extra intermediate sub-container not declared by the BSWMD (e.g.
+ * value-side nests `JWQ3399General` under `JWQ3399ConfigSet` while the
+ * BSWMD declares both as siblings directly under the module). The
+ * namespace-fallback above misses this because both sides share the
+ * same `/<pkg>/<module>` prefix. The third fallback (`leadingPrefix +
+ * suffixTrim`) handles it by requiring the query path to start with a
+ * moduleRoot's exact prefix, then trimming leading segments from the
+ * suffix one at a time until a layer key matches.
+ *
  * **Segment-count coverage.** The helper accepts any path with at
  * least 2 non-empty segments — the 4-segment canonical form
  * `/<pkg>/<module>/<container...>/<param>` is the common case
@@ -315,21 +326,76 @@ export function lookupSchemaAcrossModuleRoots(
   if (paramPath === '' || !paramPath.startsWith('/')) return null;
   const segments = paramPath.split('/').filter((s) => s.length > 0);
   if (segments.length < 2) return null;
-  const queryModShortName = segments[1];
-  // Empty `suffix` for the 2-segment case so the candidate lands on
-  // the module root itself (no trailing `/`) and matches the
-  // layer's `containers` / `params` key. The `/<rest>` form is only
-  // used when there's at least one more segment to append.
-  const slice2 = segments.slice(2);
-  const suffix = slice2.length > 0 ? '/' + slice2.join('/') : '';
+  // Sprint 18 hotfix — unified module-root lookup. Three shapes to
+  // cover:
+  //
+  //   1. Canonical 4-segment:        /<pkg>/<module>/<container>/<param>
+  //      BSWMD-side key is /<full-prefix>/<module>/<container>/<param>.
+  //      The module shortName sits at segments[1].
+  //
+  //   2. Vendor-CDD compressed:      /<module>/<module>/<container>/<param>
+  //      BSWMD-side key is /<full-prefix>/<module>/<container>/<param>.
+  //      The module shortName sits at segments[0] AND segments[1]
+  //      (older value files re-declare the module name as the first
+  //      container). Take the FIRST occurrence (segments[0]).
+  //
+  //   3. Post-fold compressed:       /<module>/<container>/<param>
+  //      `foldVendorPackages` (Sprint X T7) collapses the vendor
+  //      wrapper chain so the displayed `pkg.path` is just
+  //      `/<moduleShortName>`. The renderer's `containerPath` then
+  //      starts with the module shortName at segments[0].
+  //
+  //   4. Value-tree wrapper:         /<pkg>/<module>/<extraWrap>/<container>/<param>
+  //      BSWMD-side key drops `<extraWrap>`. The module shortName
+  //      sits at segments[1]; the suffix-trim loop drops `<extraWrap>`
+  //      off the front.
+  //
+  // Algorithm: for each candidate `moduleRoot`, locate the module's
+  // shortName ANYWHERE in the query segments (first occurrence wins),
+  // then build `<moduleRoot>/<suffix-after-module>`. If that misses,
+  // trim leading segments from the suffix one at a time and retry.
   for (const root of moduleRoots) {
     if (root === '' || !root.startsWith('/')) continue;
     const rootSegments = root.split('/').filter((s) => s.length > 0);
     const rootModShortName = rootSegments[rootSegments.length - 1];
-    if (rootModShortName !== queryModShortName) continue;
-    const candidate = root + suffix;
-    const found = layer.params.get(candidate);
-    if (found !== undefined) return found;
+    if (rootModShortName === undefined) continue;
+    let modIdx = -1;
+    for (let i = 0; i < segments.length; i += 1) {
+      if (segments[i] === rootModShortName) {
+        modIdx = i;
+        break;
+      }
+    }
+    if (modIdx === -1) continue;
+    const suffixSegments = segments.slice(modIdx + 1);
+    if (suffixSegments.length === 0) continue;
+    // Suffix-trim loop. trim=0 is the literal "everything after the
+    // module shortName" candidate. trim=N drops the first N leading
+    // segments of the suffix — catches value-tree wrappers and the
+    // vendor-CDD double-module shape (where the duplicate module
+    // shortName occupies segments[0] AND segments[1] and the suffix
+    // starts with the original /container/... payload).
+    for (let trim = 0; trim < suffixSegments.length; trim += 1) {
+      const candidate = root + '/' + suffixSegments.slice(trim).join('/');
+      const found = layer.params.get(candidate);
+      if (found !== undefined) return found;
+    }
+    // Module-root candidate — restricted to the legacy 2-segment
+    // `/<pkg>/<module>` shape where the suffix is a SINGLE segment
+    // equal to `rootModShortName`. This preserves the previous
+    // 2-segment contract for the container helper without
+    // over-matching bogus paths (e.g.
+    // `/JWQ3399/NotARealModule/NotARealContainer` would otherwise
+    // fall through to the module root via this candidate and give
+    // a false positive). For the params helper the root is not in
+    // `layer.params`, so this candidate always misses for params.
+    if (
+      suffixSegments.length === 1 &&
+      suffixSegments[0] === rootModShortName
+    ) {
+      const rootEntry = layer.params.get(root);
+      if (rootEntry !== undefined) return rootEntry;
+    }
   }
   return null;
 }
@@ -345,6 +411,12 @@ export function lookupSchemaAcrossModuleRoots(
  * static-table fallback (the 5-fixture baseline path) should call
  * `lookupContainerSchema(containerPath, layer)` after this helper
  * returns `null`.
+ *
+ * **Sprint 18 hotfix — value-tree structural divergence.** Mirror of
+ * the param-side helper: when the value tree wraps a BSWMD top-level
+ * container in an extra intermediate sub-container, the third
+ * fallback (`leadingPrefix + suffixTrim`) catches it. See
+ * `lookupSchemaAcrossModuleRoots` for the full discussion.
  *
  * **Same limitations as the param version** — 4-segment canonical
  * form only, module shortName uniqueness assumed. See
@@ -371,19 +443,42 @@ export function lookupContainerSchemaAcrossModuleRoots(
   if (containerPath === '' || !containerPath.startsWith('/')) return null;
   const segments = containerPath.split('/').filter((s) => s.length > 0);
   if (segments.length < 2) return null;
-  const queryModShortName = segments[1];
-  // See `lookupSchemaAcrossModuleRoots` for the empty-suffix rationale
-  // (2-segment path → candidate = module root, no trailing `/`).
-  const slice2 = segments.slice(2);
-  const suffix = slice2.length > 0 ? '/' + slice2.join('/') : '';
+  // Sprint 18 hotfix — mirror of `lookupSchemaAcrossModuleRoots`.
+  // Locate the module shortName anywhere in the query segments, then
+  // build `<moduleRoot>/<suffix>` and suffix-trim. See the param-side
+  // helper for the full discussion of the four shapes.
   for (const root of moduleRoots) {
     if (root === '' || !root.startsWith('/')) continue;
     const rootSegments = root.split('/').filter((s) => s.length > 0);
     const rootModShortName = rootSegments[rootSegments.length - 1];
-    if (rootModShortName !== queryModShortName) continue;
-    const candidate = root + suffix;
-    const found = layer.containers.get(candidate);
-    if (found !== undefined) return found;
+    if (rootModShortName === undefined) continue;
+    let modIdx = -1;
+    for (let i = 0; i < segments.length; i += 1) {
+      if (segments[i] === rootModShortName) {
+        modIdx = i;
+        break;
+      }
+    }
+    if (modIdx === -1) continue;
+    const suffixSegments = segments.slice(modIdx + 1);
+    if (suffixSegments.length === 0) continue;
+    for (let trim = 0; trim < suffixSegments.length; trim += 1) {
+      const candidate = root + '/' + suffixSegments.slice(trim).join('/');
+      const found = layer.containers.get(candidate);
+      if (found !== undefined) return found;
+    }
+    // Module-root candidate — same restricted contract as the
+    // param-side helper. Only fires when the suffix is a single
+    // segment equal to `rootModShortName` (legacy `/<pkg>/<module>`
+    // compressed shape). See the param-side helper for the
+    // rationale.
+    if (
+      suffixSegments.length === 1 &&
+      suffixSegments[0] === rootModShortName
+    ) {
+      const rootEntry = layer.containers.get(root);
+      if (rootEntry !== undefined) return rootEntry;
+    }
   }
   return null;
 }

@@ -20,7 +20,7 @@
 // `useArxmlStore.applyParamUpdate`.
 
 import { getContainerDefByPath } from '../project/bswmd.js';
-import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
+import type { BswModuleDef, ContainerDef, ParamDef, ParamKind, ReferenceDef } from '../project/bswmd.js';
 
 import { buildDefaultValue, fillParamsFromBswmd } from './defaultValue.js';
 import { findByPath } from './path.js';
@@ -514,7 +514,19 @@ export function addParameter(
   if (Object.prototype.hasOwnProperty.call(parent.params, paramDef.shortName)) {
     return { ok: false, error: { kind: 'name-conflict', shortName: paramDef.shortName } };
   }
-  const value = buildDefaultValue(paramDef);
+  // Sprint 18 hotfix — fall back to a typed zero-value when the BSWMD
+  // omits `<DEFAULT-VALUE>`. Many vendor CDDs (the user-reported
+  // JWQ3399_bswmd.arxml is one) declare optional params without a
+  // default; `buildDefaultValue` returns `null` for those (its
+  // documented behaviour), which the previous `addParameter` mapped
+  // to `invalid-param-type`. From the renderer's POV the type is
+  // valid — the user just hasn't filled it in yet — so we
+  // synthesise a placeholder and rely on the existing param-editor
+  // UI to surface the empty state (e.g. EnumEditor falls back to a
+  // free-form text input when its literals lookup misses, IntegerEditor
+  // accepts the initial `0`). The placeholder is overwritten on the
+  // first `applyParamUpdate` once the user picks a value.
+  const value = buildDefaultValue(paramDef) ?? zeroValueForKind(paramDef.kind);
   if (value === null) {
     return {
       ok: false,
@@ -652,6 +664,70 @@ export function removeParameter(
       : { ...parent, params: nextParams };
   const next = replaceElement(doc, pkg, parent, nextParent);
   return { ok: true, value: next };
+}
+
+/**
+ * Sprint 18 hotfix — apply a single param edit inside the container
+ * at `containerPath`. Returns the input `doc` reference verbatim
+ * when the path does not resolve (reference equality preserved so
+ * downstream selectors can skip work) or when the new value equals
+ * the existing one (no-op).
+ *
+ * Mirrors `removeParameter`'s location/rewrite pattern. The renderer
+ * calls it from `updateParam` whenever the user toggles a boolean,
+ * types into an integer/float/string input, or picks an enum literal
+ * from the dropdown. The path shape is the post-fold `containerPath`
+ * the Tree emits (see `foldVendorPackages` in `combinedDoc.ts`).
+ *
+ * **Post-fold wrapper handling.** A post-fold package named
+ * `JWQ3399` directly contains the ECUC module also named `JWQ3399`
+ * (the vendor wrappers `JWQ_CDD_PACK > JWQ_Packet` collapse into it
+ * — see `walkFrom` in `path.ts` for the descent rule). The previous
+ * implementation walked `pkg.elements` by shortName and missed the
+ * wrapper, silently no-op'ing every edit for vendor-CDD projects.
+ * This rewrite delegates the location step to `locateParent` (which
+ * uses `findByPath` and inherits the wrapper fallback) and writes
+ * the new value via `replaceElement` (which already handles
+ * non-top-level packages via `replaceAnywhere`).
+ *
+ * **definitionRef preservation.** When the incoming `value` does
+ * not carry a `definitionRef` but the existing param has one, we
+ * merge so the ARXML serializer keeps writing the real BSWMD-side
+ * path instead of regressing to `/__synthesized__/<shortName>`.
+ */
+export function applyParamUpdate(
+  doc: ArxmlDocument,
+  containerPath: string,
+  paramKey: string,
+  value: ParamValue,
+): ArxmlDocument {
+  const located = locateParent(doc, containerPath);
+  if (located === null) return doc;
+  const { parent, pkg } = located;
+  const current = parent.params[paramKey];
+  if (current !== undefined && paramValueEquals(current, value)) return doc;
+  const incoming = withDefinitionRefPreserved(value, current);
+  const nextParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, params: { ...parent.params, [paramKey]: incoming } }
+      : { ...parent, params: { ...parent.params, [paramKey]: incoming } };
+  return replaceElement(doc, pkg, parent, nextParent);
+}
+
+function paramValueEquals(a: ParamValue, b: ParamValue): boolean {
+  if (a.type !== b.type) return false;
+  return a.value === b.value;
+}
+
+function withDefinitionRefPreserved(
+  incoming: ParamValue,
+  current: ParamValue | undefined,
+): ParamValue {
+  if (current === undefined) return incoming;
+  if (incoming.definitionRef !== undefined) return incoming;
+  if (current.definitionRef === undefined) return incoming;
+  if (current.type !== incoming.type) return incoming;
+  return { ...incoming, definitionRef: current.definitionRef } as ParamValue;
 }
 
 /**
@@ -1128,3 +1204,33 @@ function removeInElements(
 // `buildDefaultValue` was extracted post-v1.0.0 to `./defaultValue.ts`
 // so `skeleton.ts` can reuse the same ParamKind→ParamValue coercion
 // without duplicating the mapping logic.
+
+/**
+ * Sprint 18 hotfix — typed zero-value for params whose BSWMD omits
+ * `<DEFAULT-VALUE>`. Used as the `addParameter` fallback when
+ * `buildDefaultValue` returns `null`. The placeholder is overwritten
+ * on the first user edit; the renderer treats an empty enum / string
+ * as "not yet picked" (EnumEditor falls back to a free-form text
+ * input, IntegerEditor accepts the initial `0`, etc.).
+ *
+ * Note: the placeholder for `enumeration` is the empty string
+ * (NOT one of `paramDef.enumerationLiterals`) so we never silently
+ * materialise a value the BSWMD hasn't declared. The validator will
+ * flag the empty-string enum value against the BSWMD's literal set,
+ * which is the correct user-facing signal.
+ */
+function zeroValueForKind(kind: ParamKind): ParamValue | null {
+  switch (kind) {
+    case 'integer':
+      return { type: 'integer', value: 0 };
+    case 'float':
+      return { type: 'float', value: 0 };
+    case 'boolean':
+      return { type: 'boolean', value: false };
+    case 'enumeration':
+      return { type: 'enum', value: '' };
+    case 'string':
+    case 'function-name':
+      return { type: 'string', value: '' };
+  }
+}
