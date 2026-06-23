@@ -15,10 +15,8 @@ import { findByPath } from '@core/arxml/path';
 import type { BswModuleDef, ParamDef } from '@core/project/bswmd';
 import { parseBswmd } from '@core/project/bswmd';
 
-const VALUE_PATH =
-  'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
-const BSWMD_PATH =
-  'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
+const VALUE_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
+const BSWMD_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
 
 interface CycleCase {
   readonly label: string;
@@ -29,11 +27,27 @@ interface CycleCase {
 const CASES: readonly CycleCase[] = [
   { label: 'boolean', containerPath: '/JWQ3399/JWQ3399General', paramKey: 'JWQ3399DevErrorDetect' },
   { label: 'integer', containerPath: '/JWQ3399/JWQ3399General', paramKey: 'JWQ3399ChipNum' },
-  { label: 'float', containerPath: '/JWQ3399/JWQ3399General', paramKey: 'JWQ3399MainFunctionPeriod' },
+  {
+    label: 'float',
+    containerPath: '/JWQ3399/JWQ3399General',
+    paramKey: 'JWQ3399MainFunctionPeriod',
+  },
   { label: 'enum', containerPath: '/JWQ3399/JWQ3399General', paramKey: 'JWQ3399CommArch' },
-  { label: 'integer (sub)', containerPath: '/JWQ3399/JWQ3399ConfigSet/JWQ3399InitConfig', paramKey: 'InitFastSampleCount' },
-  { label: 'boolean (sub)', containerPath: '/JWQ3399/JWQ3399General/JWQ3399GPIOConfig', paramKey: 'JWQ3399_GPIO_I2C_ENABLE' },
-  { label: 'enum (sub)', containerPath: '/JWQ3399/JWQ3399General/JWQ3399CommunicateConfig', paramKey: 'BaudRate' },
+  {
+    label: 'integer (sub)',
+    containerPath: '/JWQ3399/JWQ3399ConfigSet/JWQ3399InitConfig',
+    paramKey: 'InitFastSampleCount',
+  },
+  {
+    label: 'boolean (sub)',
+    containerPath: '/JWQ3399/JWQ3399General/JWQ3399GPIOConfig',
+    paramKey: 'JWQ3399_GPIO_I2C_ENABLE',
+  },
+  {
+    label: 'enum (sub)',
+    containerPath: '/JWQ3399/JWQ3399General/JWQ3399CommunicateConfig',
+    paramKey: 'BaudRate',
+  },
 ];
 
 describe('Sprint 18 — delete + re-add cycle (user follow-up complaint)', () => {
@@ -240,7 +254,9 @@ describe('Sprint 18 — delete + re-add cycle (user follow-up complaint)', () =>
     }
 
     if (failures.length > 0) {
-      throw new Error(`Sprint 18 fix incomplete — ${failures.length} adds failed:\n${failures.join('\n')}`);
+      throw new Error(
+        `Sprint 18 fix incomplete — ${failures.length} adds failed:\n${failures.join('\n')}`,
+      );
     }
 
     // Sanity check: container now has all the original params with

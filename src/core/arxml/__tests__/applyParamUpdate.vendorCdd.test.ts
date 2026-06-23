@@ -26,8 +26,7 @@ import { parseArxml } from '@core/arxml/parser';
 import { findByPath } from '@core/arxml/path';
 import type { ParamValue } from '@core/arxml/types';
 
-const VALUE_PATH =
-  'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
+const VALUE_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
 
 interface EditCase {
   readonly label: string;
@@ -149,9 +148,7 @@ describe('Sprint 18 — applyParamUpdate end-to-end (every param type, post-fold
       const beforeVal = before.element.params[c.paramKey];
       const nextDoc = applyParamUpdate(valueDoc, c.containerPath, c.paramKey, c.newValue);
       if (nextDoc === valueDoc) {
-        failures.push(
-          `  [${c.label}] applyParamUpdate returned the same doc reference (no-op)`,
-        );
+        failures.push(`  [${c.label}] applyParamUpdate returned the same doc reference (no-op)`);
         continue;
       }
       const after = findByPath(nextDoc, c.containerPath);
@@ -175,9 +172,7 @@ describe('Sprint 18 — applyParamUpdate end-to-end (every param type, post-fold
         continue;
       }
       if (afterVal.type !== c.newValue.type) {
-        failures.push(
-          `  [${c.label}] expected type=${c.newValue.type} got ${afterVal.type}`,
-        );
+        failures.push(`  [${c.label}] expected type=${c.newValue.type} got ${afterVal.type}`);
       }
       // Quiet the linter about unused vars.
       void beforeVal;

@@ -680,11 +680,9 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
     expect(entry!.upper).toBe(1);
     // Truly bogus tails still miss.
     expect(
-      lookupContainerSchemaAcrossModuleRoots(
-        '/JWQ3399/NotARealModule/NotARealContainer',
-        layer,
-        [moduleRoot],
-      ),
+      lookupContainerSchemaAcrossModuleRoots('/JWQ3399/NotARealModule/NotARealContainer', layer, [
+        moduleRoot,
+      ]),
     ).toBeNull();
   });
 

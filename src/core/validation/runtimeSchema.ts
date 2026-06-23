@@ -389,10 +389,7 @@ export function lookupSchemaAcrossModuleRoots(
     // fall through to the module root via this candidate and give
     // a false positive). For the params helper the root is not in
     // `layer.params`, so this candidate always misses for params.
-    if (
-      suffixSegments.length === 1 &&
-      suffixSegments[0] === rootModShortName
-    ) {
+    if (suffixSegments.length === 1 && suffixSegments[0] === rootModShortName) {
       const rootEntry = layer.params.get(root);
       if (rootEntry !== undefined) return rootEntry;
     }
@@ -472,10 +469,7 @@ export function lookupContainerSchemaAcrossModuleRoots(
     // segment equal to `rootModShortName` (legacy `/<pkg>/<module>`
     // compressed shape). See the param-side helper for the
     // rationale.
-    if (
-      suffixSegments.length === 1 &&
-      suffixSegments[0] === rootModShortName
-    ) {
+    if (suffixSegments.length === 1 && suffixSegments[0] === rootModShortName) {
       const rootEntry = layer.containers.get(root);
       if (rootEntry !== undefined) return rootEntry;
     }
