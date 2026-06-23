@@ -602,20 +602,31 @@ function foldPackage(
   //     carry siblings)
   //   - it carries no `elements` of its own (vendor wrappers are
   //     pass-through)
-  //   - either its nested child's shortName matches a loaded BSWMD
-  //     module shortName (gold path) OR either shortName hits the
-  //     vendor prefix whitelist.
+  //   - its nested child's shortName matches a loaded BSWMD module
+  //     shortName (the gold path).
+  //
+  // v1.9.0 Sprint X (MEDIUM #2) — the vendor prefix whitelist is now
+  // AND-combined with the BSWMD match. Previously the whitelist alone
+  // could trigger a fold (e.g. `EcucDefs > MyOwnSub` would fold to
+  // `MyOwnSub` even though `MyOwnSub` is not a known BSWMD module).
+  // That silently collapsed user-defined `EcucDefs` packages that
+  // happened to share the well-known prefix. The whitelist is now a
+  // sanity gate — fold is allowed for whitelisted prefixes BUT only
+  // when the inner is positively known to be a BSWMD module. Without
+  // the BSWMD match the user might have a custom `EcucDefs` and we
+  // must keep both layers visible.
   //
   // This check applies at ANY level — top-level wrappers and
   // intermediate wrappers alike. Recursion walks down the chain
   // until we find a non-foldable package (the leaf).
+  const innerMatchesBswmd =
+    nested !== undefined && nested.length === 1 && bswmdNames.has(nested[0]!.shortName);
   const isFoldableHere =
     nested !== undefined &&
     nested.length === 1 &&
     pkg.elements.length === 0 &&
-    (bswmdNames.has(nested[0]!.shortName) ||
-      vendorRe.test(pkg.shortName) ||
-      vendorRe.test(nested[0]!.shortName));
+    (innerMatchesBswmd ||
+      (vendorRe.test(pkg.shortName) && innerMatchesBswmd));
 
   if (!isFoldableHere) {
     // Not foldable. If nested exists, recurse into it first to

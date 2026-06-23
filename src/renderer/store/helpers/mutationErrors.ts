@@ -76,11 +76,20 @@ export function applyMutationResultToSource(
   if (state.documents[sourceIdx] === nextSourceDoc) return;
   const nextDocuments = state.documents.map((d, i) => (i === sourceIdx ? nextSourceDoc : d));
   const nextActiveDoc = state.activeDocumentPath === sourceFilePath ? nextSourceDoc : state.doc;
+  // v1.9.0 Sprint X (HIGH #1) — thread `state.bswmdSchemas` to
+  // computeDisplayDoc so the post-mutation fold uses the same BSWMD
+  // whitelist as pre-mutation. Without this, the fold falls back to
+  // the heuristic prefix-only path and the displayDoc shape drifts
+  // (e.g. a 3-layer vendor prefix that should fold to one shortName
+  // leaves an intermediate wrapper behind) — forcing a Tree re-render
+  // and visually showing the user a layout different from the one
+  // they were editing.
   const nextDisplayResult = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,
     nextDocuments,
     state.documentPaths,
+    state.bswmdSchemas,
   );
   if (nextDisplayResult === null) return;
   const nextWarnings: readonly CombinedDocumentWarning[] =
@@ -115,11 +124,15 @@ export function applyMutationResultToActive(
 ): void {
   if (state.documents[activeIdx] === nextActiveDoc) return;
   const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
+  // v1.9.0 Sprint X (HIGH #1) — see the matching block in
+  // `applyMutationResultToSource`. Threading bswmdSchemas keeps the
+  // post-mutation vendor fold shape stable.
   const nextDisplayResult = computeDisplayDoc(
     state.viewMode,
     nextActiveDoc,
     nextDocuments,
     state.documentPaths,
+    state.bswmdSchemas,
   );
   if (nextDisplayResult === null) return;
   const nextWarnings: readonly CombinedDocumentWarning[] =

@@ -126,8 +126,27 @@ function findRootPackageByShortName(
   pkgs: readonly ArxmlPackage[],
   shortName: string,
 ): ArxmlPackage | null {
+  // Fast path: literal top-level match. The vast majority of paths resolve
+  // here (canonical layout, BSWMD-derived docs that already flatten
+  // AR-PACKAGES).
   for (const p of pkgs) {
     if (p.shortName === shortName) return p;
+  }
+  // v1.9.0 Sprint X — nested fallback for vendor-prefix source docs.
+  // Real vendor arxml files nest the ECUC module package under a
+  // vendor-owned chain (e.g. `JWQ_CDD_PACK > JWQ_Packet > JWQ3399`). The
+  // renderer-side fold (combinedDoc.foldVendorPackages) collapses that
+  // chain back to a single top-level package named after the module, so
+  // the Tree emits paths like `/JWQ3399/...`. The source doc, however,
+  // still has `JWQ_CDD_PACK` at the top — so the literal shortName lookup
+  // misses. Walk the recursive package tree and accept the deepest
+  // match. The walk order is depth-first so the FIRST hit wins, which
+  // matches the (deterministic) iteration order of the source doc.
+  for (const p of pkgs) {
+    if (p.packages !== undefined) {
+      const nested = findRootPackageByShortName(p.packages, shortName);
+      if (nested !== null) return nested;
+    }
   }
   return null;
 }

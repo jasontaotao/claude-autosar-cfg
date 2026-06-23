@@ -5,15 +5,11 @@
 //
 // Sprint X — also exposes `fillParamsFromBswmd`, promoted from
 // `core/arxml/skeleton.ts` (private to that file pre-v1.9.0) so the
-// mutation layer and skeleton share one default-fill path. The
-// skeleton still keeps its local copy in place for now; Phase 2 will
-// switch the skeleton to import this module-level export and delete
-// the duplicate.
+// mutation layer and skeleton share one default-fill path.
 //
 // Pure: no I/O, no React, no Zustand, no electron.
 // Previously private to mutation.ts (commit `e552ac9`); promoted to a
-// shared module so skeleton.ts can call it during skeleton construction
-// (commit TBD).
+// shared module so skeleton.ts can call it during skeleton construction.
 
 import type { ContainerDef, ParamDef } from '../project/bswmd.js';
 
@@ -82,9 +78,7 @@ export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
  *
  * Promoted from `core/arxml/skeleton.ts` (where it was a private
  * helper since v1.7.1 S2) so the mutation layer and the skeleton share
- * a single default-fill implementation. The skeleton still keeps its
- * local copy in place for now; Phase 2 will switch the skeleton to
- * import this module-level export and delete the duplicate.
+ * a single default-fill implementation.
  *
  * Semantics (preserved from the skeleton helper at
  * `buildTopContainer` lines 132-145 of the pre-X version):

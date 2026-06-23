@@ -13,24 +13,12 @@ import { describe, it, expect } from 'vitest';
 
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ArxmlPackage } from '@core/arxml/types.js';
+import type { ArxmlContainer } from '@core/arxml/types.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 
-const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
+import { findDeepestModule } from './__helpers__/findDeepestModule.js';
 
-// v1.9.0 Sprint X — `generateEcucSkeleton` now nests `ArxmlPackage.packages`
-// for vendor-prefix BSWMD paths (e.g. `/AUTOSAR_R22/EcucDefs/Adc` → 3-layer
-// chain). Single-segment paths still emit a single-layer package. Walk the
-// chain to the deepest package and return the module element so existing
-// assertions keep working under both shapes.
-function findDeepestModule(ar: ArxmlDocument): ArxmlModule {
-  let pkg: ArxmlPackage | undefined = ar.packages[0];
-  while (pkg?.packages && pkg.packages.length > 0) {
-    pkg = pkg.packages[0];
-  }
-  if (pkg === undefined) throw new Error('no packages in skeleton');
-  return pkg.elements[0]! as ArxmlModule;
-}
+const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
 
 describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
   const xml = readFileSync(FIXTURE, 'utf-8');
