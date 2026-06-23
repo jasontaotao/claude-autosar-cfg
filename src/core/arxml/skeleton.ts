@@ -83,19 +83,39 @@ export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string
     throw new Error(`BSWMD module "${moduleShortName}" not found in document`);
   }
   const moduleEl: ArxmlModule = buildModule(mod);
-  // v1.9.0 Sprint X — preserve the vendor-prefix AR-PACKAGE hierarchy
-  // from `mod.path`. Standard AUTOSAR modules (`/Can`, 1 segment) keep
-  // the legacy single-layer shape; vendor-prefix modules (e.g.
-  // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`, 3 segments) emit a nested
-  // `ArxmlPackage.packages` chain so the serialised arxml preserves the
-  // full hierarchy (required by EB tresos / Vector / Intewell tooling
-  // that walks <AR-PACKAGES>). The renderer (Phase 3) folds the chain
-  // back to the deepest package via `foldVendorPackages` in
-  // `combinedDoc.ts` so users see a single AR-PACKAGE in the Tree.
+  // v1.9.0 Sprint X — strict 1:1 mirror of BSWMD physical structure.
+  //
+  // BSWMD `ECUC-MODULE-DEF.path` is defined as
+  // `parentPkg.PATH + ownShortName`, so a vendor-prefix module like
+  // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` is the BSWMD-side address of
+  // a single ECUC-MODULE-DEF whose physical container lives under
+  // `/JWQ_CDD_PACK/JWQ_Packet` (the *parent* package). The trailing
+  // `JWQ3399` is the module's own shortName, not a separate AR-PACKAGE
+  // in the BSWMD hierarchy.
+  //
+  // Pre-fix this function walked every segment of `mod.path` as an
+  // AR-PACKAGE layer (4 layers for the JWQ example: `JWQ_CDD_PACK` →
+  // `JWQ_Packet` → `JWQ3399` (mistakenly an AR-PACKAGE) → the ECUC
+  // element). That collided with the ECUC element's own SHORT-NAME
+  // (`JWQ3399`), made segment 3 / segment 4 shortNames identical, and
+  // duplicated the BSWMD-side namespace on disk.
+  //
+  // The fix: only the first `N-1` segments become AR-PACKAGE nodes
+  // (strictly mirroring the BSWMD physical structure — vendor prefixes
+  // stay, the module's own shortName stays as the ECUC element's
+  // SHORT-NAME). Standard AUTOSAR modules (`/Can`, 1 segment) keep
+  // the legacy single-layer shape; vendor-prefix modules with 2+
+  // segments emit one AR-PACKAGE chain matching the prefix depth
+  // (`/EAS/Can` → 2 layers, `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` → 2
+  // layers: `JWQ_CDD_PACK/JWQ_Packet` + ECUC element `JWQ3399`).
+  //
+  // The renderer (Phase 3) folds the chain to the deepest package via
+  // `foldVendorPackages` in `combinedDoc.ts` so users see a single
+  // AR-PACKAGE in the Tree.
   const segments = mod.path.split('/').filter(Boolean);
   if (segments.length <= 1) {
     // Standard AUTOSAR or pathological single-segment path: emit the
-    // existing single-layer shape so the 5 round-trip fixtures stay
+    // existing single-layer shape so the round-trip fixtures stay
     // field-equal. This includes the `mod.path === '/'` edge case
     // (`split('/').filter(Boolean)` drops the lone empty segment).
     return {
@@ -110,20 +130,38 @@ export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string
       ],
     };
   }
-  // Vendor-prefix: build the nested chain bottom-up. The deepest leaf
-  // package carries `elements: [moduleEl]`; intermediate packages are
-  // empty wrappers (`elements: []`, no definitionRef stamp because
-  // vendor wrappers carry no BSWMD definitions). Each package's
-  // `path` is the cumulative `/<seg1>/<seg2>/...` shape so the
-  // serialised XML produces the right <AR-PACKAGE PATH="..."> attrs.
+  // Vendor-prefix: strip the last segment (= `mod.shortName`) and
+  // mirror only the remaining prefix as AR-PACKAGE chain. The leaf
+  // AR-PACKAGE carries `elements: [moduleEl]`; intermediate wrappers
+  // are empty (`elements: []`). Each package's `path` is the
+  // cumulative `/<seg1>/<seg2>/...` shape so the serialised XML
+  // produces the right <AR-PACKAGE PATH="..."> attrs.
+  const pkgSegments = segments.slice(0, -1);
+  // Defensive: `pkgSegments` is non-empty whenever `segments.length > 1`
+  // (the `length <= 1` branch above returns), but if a future caller
+  // bypasses the guard, fall back to the single-layer shape rather
+  // than emit a malformed empty chain.
+  if (pkgSegments.length === 0) {
+    return {
+      path: '',
+      version: mapBswmdVersionToArxml(doc.version),
+      packages: [
+        {
+          shortName: mod.shortName,
+          path: `/${mod.shortName}`,
+          elements: [moduleEl],
+        },
+      ],
+    };
+  }
   let current: ArxmlPackage = {
-    shortName: segments[segments.length - 1]!,
-    path: `/${segments.join('/')}`,
+    shortName: pkgSegments[pkgSegments.length - 1]!,
+    path: `/${pkgSegments.join('/')}`,
     elements: [moduleEl],
   };
-  for (let i = segments.length - 2; i >= 0; i -= 1) {
-    const segment = segments[i]!;
-    const partialPath = `/${segments.slice(0, i + 1).join('/')}`;
+  for (let i = pkgSegments.length - 2; i >= 0; i -= 1) {
+    const segment = pkgSegments[i]!;
+    const partialPath = `/${pkgSegments.slice(0, i + 1).join('/')}`;
     current = {
       shortName: segment,
       path: partialPath,

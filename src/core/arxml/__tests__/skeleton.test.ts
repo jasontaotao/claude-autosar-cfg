@@ -387,14 +387,22 @@ describe('generateEcucSkeleton', () => {
   });
 
   // ─── T4 (Sprint X Phase 4) — vendor-prefix AR-PACKAGE hierarchy ─────
-  // v1.9.0 Sprint X preserves the BSWMD `mod.path` vendor prefix as a
-  // nested `ArxmlPackage.packages` chain so the value-side arxml carries
-  // the full hierarchy (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`) required
-  // by EB tresos / Vector / Intewell tooling. Standard AUTOSAR modules
-  // (`/Can`) keep the existing single-layer shape — backwards-compatible
-  // with all 5 round-trip fixtures. The renderer (Phase 3) folds the
-  // chain to the deepest package via `foldVendorPackages` so users see
-  // a single AR-PACKAGE in the Tree.
+  // v1.9.0 Sprint X mirrors the BSWMD `mod.path` physical structure:
+  // the first `N-1` segments become AR-PACKAGE nodes; the trailing
+  // segment (= `mod.shortName`) is the ECUC element's own SHORT-NAME
+  // and lives directly under the deepest AR-PACKAGE.
+  //
+  // BSWMD `ECUC-MODULE-DEF.path` = `parentPkg.PATH + ownShortName`, so
+  // for `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` the BSWMD-side container is
+  // `/JWQ_CDD_PACK/JWQ_Packet` and `JWQ3399` is the module's own
+  // shortName. Pre-fix the skeleton emitted `JWQ3399` as a third
+  // AR-PACKAGE (colliding with the ECUC element's SHORT-NAME); the
+  // fix emits only the parent package chain so the value-side arxml
+  // mirrors the BSWMD structure 1:1. Standard AUTOSAR modules
+  // (`/Can`) keep the existing single-layer shape — backwards-
+  // compatible with all round-trip fixtures. The renderer (Phase 3)
+  // folds the chain to the deepest package via `foldVendorPackages` so
+  // users see a single AR-PACKAGE in the Tree.
 
   it('T4: single-segment mod.path keeps single-layer package (backwards compat)', () => {
     // Arrange — standard AUTOSAR module `/Can` (1 segment). Existing
@@ -414,10 +422,12 @@ describe('generateEcucSkeleton', () => {
     expect(ar.packages[0]!.packages).toBeUndefined();
   });
 
-  it('T4: 3-segment vendor-prefix mod.path emits 3-layer nested AR-PACKAGE chain', () => {
+  it('T4: 3-segment vendor-prefix mod.path emits 2-layer AR-PACKAGE chain (strip last segment = mod.shortName)', () => {
     // Arrange — vendor-prefix module `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
-    // (3 segments). The deepest leaf package carries the module;
-    // intermediate packages are empty wrappers.
+    // (3 segments). After slicing off the trailing segment (=
+    // `mod.shortName`), only the first 2 segments form the
+    // AR-PACKAGE chain. The ECUC element `JWQ3399` lives directly
+    // under the deepest AR-PACKAGE `JWQ_Packet`.
     const mod: BswModuleDef = {
       shortName: 'JWQ3399',
       path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
@@ -438,7 +448,7 @@ describe('generateEcucSkeleton', () => {
     // Act
     const ar = generateEcucSkeleton(doc, 'JWQ3399');
 
-    // Assert — 3-layer nested chain.
+    // Assert — 2-layer chain (mirror of BSWMD physical structure).
     expect(ar.packages).toHaveLength(1);
     const jwqCddPack = ar.packages[0]!;
     expect(jwqCddPack.shortName).toBe('JWQ_CDD_PACK');
@@ -449,19 +459,21 @@ describe('generateEcucSkeleton', () => {
     const jwqPacket = jwqCddPack.packages![0]!;
     expect(jwqPacket.shortName).toBe('JWQ_Packet');
     expect(jwqPacket.path).toBe('/JWQ_CDD_PACK/JWQ_Packet');
-    expect(jwqPacket.elements).toEqual([]); // vendor wrapper: no elements
-    expect(jwqPacket.packages).toBeDefined();
-
-    const jwq3399 = jwqPacket.packages![0]!;
-    expect(jwq3399.shortName).toBe('JWQ3399');
-    expect(jwq3399.path).toBe('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399');
-    expect(jwq3399.elements).toHaveLength(1); // leaf: carries module
-    expect(jwq3399.packages).toBeUndefined();
-    expect((jwq3399.elements[0]! as ArxmlModule).kind).toBe('module');
+    // Leaf AR-PACKAGE carries the ECUC element directly (no extra
+    // `JWQ3399` AR-PACKAGE wrapper, since `JWQ3399` is the module's
+    // own shortName, not a separate package).
+    expect(jwqPacket.elements).toHaveLength(1);
+    expect(jwqPacket.packages).toBeUndefined();
+    const moduleEl = jwqPacket.elements[0]! as ArxmlModule;
+    expect(moduleEl.kind).toBe('module');
+    expect(moduleEl.shortName).toBe('JWQ3399');
   });
 
-  it('T4: 2-segment vendor-prefix mod.path emits 2-layer nested AR-PACKAGE chain', () => {
-    // Arrange — `/EAS/Can` (2 segments, matches Intewell vendor prefix).
+  it('T4: 2-segment vendor-prefix mod.path emits single-layer AR-PACKAGE chain (strip last segment)', () => {
+    // Arrange — `/EAS/Can` (2 segments, matches Intewell vendor
+    // prefix). After slicing off the trailing segment (= `Can` =
+    // `mod.shortName`), only `EAS` remains as a single AR-PACKAGE.
+    // The ECUC element `Can` lives directly under it.
     const mod: BswModuleDef = {
       shortName: 'Can',
       path: '/EAS/Can',
@@ -482,20 +494,16 @@ describe('generateEcucSkeleton', () => {
     // Act
     const ar = generateEcucSkeleton(doc, 'Can');
 
-    // Assert — 2-layer chain.
+    // Assert — single-layer AR-PACKAGE `EAS` carrying the `Can`
+    // ECUC element directly.
     expect(ar.packages).toHaveLength(1);
     const eas = ar.packages[0]!;
     expect(eas.shortName).toBe('EAS');
     expect(eas.path).toBe('/EAS');
-    expect(eas.elements).toEqual([]);
-    expect(eas.packages).toBeDefined();
-
-    const can = eas.packages![0]!;
-    expect(can.shortName).toBe('Can');
-    expect(can.path).toBe('/EAS/Can');
-    expect(can.elements).toHaveLength(1);
-    expect(can.packages).toBeUndefined();
-    expect((can.elements[0]! as ArxmlModule).shortName).toBe('Can');
+    expect(eas.elements).toHaveLength(1);
+    expect(eas.packages).toBeUndefined();
+    const moduleEl = eas.elements[0]! as ArxmlModule;
+    expect(moduleEl.shortName).toBe('Can');
   });
 
   it('T4: mod.path "/" or empty falls back to single-layer (does not crash)', () => {
@@ -533,10 +541,12 @@ describe('generateEcucSkeleton', () => {
     expect(ar.packages[0]!.packages).toBeUndefined();
   });
 
-  it('T4: serialised vendor-prefix skeleton has 3 nested <AR-PACKAGE> elements', () => {
-    // Round-trip the nested chain through the serializer so we know
-    // the wire format carries the vendor hierarchy (required by
-    // EB tresos / Vector / Intewell tooling that walks <AR-PACKAGES>).
+  it('T4: serialised vendor-prefix skeleton has 2 nested <AR-PACKAGE> elements (ECUC element under the deepest one)', () => {
+    // Round-trip the 2-layer chain through the serializer so we know
+    // the wire format mirrors the BSWMD physical structure: 2
+    // <AR-PACKAGE> elements (vendor prefix chain) with the ECUC
+    // element's SHORT-NAME under the deepest one — no third
+    // <AR-PACKAGE> wrapping the module's own shortName.
     const mod: BswModuleDef = {
       shortName: 'JWQ3399',
       path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
@@ -560,13 +570,17 @@ describe('generateEcucSkeleton', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return; // narrow for typecheck
 
-    // Assert — three <AR-PACKAGE> elements at three nesting levels,
-    // each carrying the right SHORT-NAME.
+    // Assert — exactly 2 <AR-PACKAGE> elements (vendor prefix chain).
+    // `JWQ3399` appears as the ECUC element SHORT-NAME, not as a
+    // third <AR-PACKAGE>.
     const packageCount = (r.value.match(/<AR-PACKAGE>/g) ?? []).length;
-    expect(packageCount).toBe(3);
+    expect(packageCount).toBe(2);
     expect(r.value).toContain('<SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME>');
     expect(r.value).toContain('<SHORT-NAME>JWQ_Packet</SHORT-NAME>');
     expect(r.value).toContain('<SHORT-NAME>JWQ3399</SHORT-NAME>');
+    // Sanity: ECUC-MODULE-CONFIGURATION-VALUES exists with JWQ3399
+    // as its SHORT-NAME.
+    expect(r.value).toContain('ECUC-MODULE-CONFIGURATION-VALUES');
   });
 });
 
