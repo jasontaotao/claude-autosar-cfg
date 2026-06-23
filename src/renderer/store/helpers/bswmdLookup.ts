@@ -97,6 +97,39 @@ export function resolveModuleAndParentContainer(
       }
     }
   }
+  // v1.9.0 (post-c46f4a8) — vendor-prefix pre-fold fallback. Legacy
+  // user docs generated under the pre-c46f4a8 skeleton (or the
+  // skeleton's vendor-prefix branch before the mirror fix) carry the
+  // full 4-segment form:
+  //   /<pkg>/<vendorPkg>/<module>/<container>/...
+  // where `segments[2]` is the module's own shortName. The 4-segment
+  // canonical walker only checks `segments[1]`; the 3-segment
+  // fallback checks `segments[0]`; both miss this shape. Try the
+  // fixed `segments[2]` slot first (the vendor-prefix convention
+  // used by the skeleton's pre-c46f4a8 vendor branch). Only check
+  // `segments[2]` — a wider back-walk would over-match container
+  // shortNames against unrelated module shortNames and regress
+  // other paths (Tree.optionalContainers fixtures use paths like
+  // `/EAS/EcuC/EcuCGeneral/MissingOptional` where a container named
+  // "MissingOptional" would falsely match a module of the same
+  // name if the walk scanned all segments).
+  if (segments.length >= 4) {
+    const vendorModuleShortName = segments[2];
+    if (vendorModuleShortName !== undefined) {
+      for (const schema of schemas) {
+        for (const mod of schema.modules) {
+          if (mod.shortName !== vendorModuleShortName) continue;
+          const subSegments = segments.slice(3);
+          const subPath = subSegments.join('/');
+          const parentContainerDef =
+            subPath === '' ? null : resolveContainerDefBySubPath(mod, subPath);
+          if (parentContainerDef !== null || subPath === '') {
+            return { moduleDef: mod, parentContainerDef };
+          }
+        }
+      }
+    }
+  }
   return null;
 }
 

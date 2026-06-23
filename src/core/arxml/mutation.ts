@@ -949,6 +949,32 @@ function replaceElement(
   target: ArxmlModule | ArxmlContainer,
   replacement: ArxmlModule | ArxmlContainer,
 ): ArxmlDocument {
+  // The `pkg` parameter is the package the caller believes holds the
+  // target. For most calls (post-fold display paths on single-layer
+  // docs) it's correct. For vendor-prefix legacy docs where the
+  // path walker fell through to the ECUC search fallback, the
+  // returned `pkg` is the inner package that directly contains the
+  // ECUC module (e.g. JWQ_Packet), not the top-level package. Without
+  // the descent below, `replaceInElements` would only run against
+  // the top-level package (where the inner pkg's identity is not
+  // found), `changed` would stay false, and the function would
+  // silently return the original doc — every mutation would no-op
+  // with no error.
+  //
+  // Try the fast path first (caller's package matches a top-level
+  // package); if not, walk the recursive tree and replace wherever
+  // the target lives.
+  const fastResult = replaceInTopLevelPackage(doc, pkg, target, replacement);
+  if (fastResult.changed) return fastResult.doc;
+  return replaceAnywhere(doc, target, replacement);
+}
+
+function replaceInTopLevelPackage(
+  doc: ArxmlDocument,
+  pkg: ArxmlPackage,
+  target: ArxmlModule | ArxmlContainer,
+  replacement: ArxmlModule | ArxmlContainer,
+): { readonly changed: boolean; readonly doc: ArxmlDocument } {
   let changed = false;
   const nextPackages = doc.packages.map((p) => {
     if (p !== pkg) return p;
@@ -957,8 +983,44 @@ function replaceElement(
     changed = true;
     return { ...p, elements: nextElements };
   });
+  if (!changed) return { changed: false, doc };
+  return { changed: true, doc: { ...doc, packages: nextPackages } };
+}
+
+function replaceAnywhere(
+  doc: ArxmlDocument,
+  target: ArxmlModule | ArxmlContainer,
+  replacement: ArxmlModule | ArxmlContainer,
+): ArxmlDocument {
+  let changed = false;
+  const nextPackages = mapPackagesDeep(doc.packages, (p) => {
+    const nextElements = replaceInElements(p.elements, target, replacement);
+    if (nextElements === p.elements) return p;
+    changed = true;
+    return { ...p, elements: nextElements };
+  });
   if (!changed) return doc;
   return { ...doc, packages: nextPackages };
+}
+
+function mapPackagesDeep(
+  pkgs: readonly ArxmlPackage[],
+  fn: (p: ArxmlPackage) => ArxmlPackage,
+): readonly ArxmlPackage[] {
+  let changed = false;
+  const out: ArxmlPackage[] = pkgs.map((p) => {
+    const mapped = fn(p);
+    if (mapped !== p) {
+      changed = true;
+      return mapped;
+    }
+    if (p.packages === undefined || p.packages.length === 0) return p;
+    const nextNested = mapPackagesDeep(p.packages, fn);
+    if (nextNested === p.packages) return p;
+    changed = true;
+    return { ...p, packages: nextNested };
+  });
+  return changed ? out : pkgs;
 }
 
 function replaceInElements(

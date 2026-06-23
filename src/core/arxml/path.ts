@@ -71,7 +71,40 @@ export function findByPath(
   if (pkgName === undefined) return null;
   // Locate the root package by shortName (root of the recursive <AR-PACKAGES> tree).
   const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
-  if (rootPkg === null) return null;
+  if (rootPkg === null) {
+    // v1.9.0 (post-c46f4a8) — renderer-fold fallback. Real vendor arxml
+    // files nest the ECUC module under a vendor-owned AR-PACKAGE chain
+    // (e.g. `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` ECUC). The
+    // renderer-side fold (combinedDoc.foldVendorPackages) collapses
+    // that chain back to a single top-level package named after the
+    // module, so the Tree emits paths like `/JWQ3399/...`. The source
+    // doc, however, still has the vendor chain at the top — so the
+    // root-package lookup misses entirely. Search the doc tree for an
+    // ECUC module whose shortName matches the leading segment; if
+    // found, walk the rest of the path from there. The package anchor
+    // we return is the root package that holds the matched ECUC
+    // element (its `elements` list), which is what callers use for
+    // the post-mutation revalidation pass.
+    const moduleHit = findModuleByShortNameAnywhere(doc.packages, pkgName);
+    if (moduleHit !== null) {
+      const { element, anchorPkg } = moduleHit;
+      // `rest[0]` is either the element itself (when `rest` is empty,
+      // i.e. the path is exactly `/JWQ3399` — the ECUC element's
+      // own shortName) or a child of the element.
+      if (rest.length === 0) return { pkg: anchorPkg, element };
+      if (element.kind === 'module' || element.kind === 'container') {
+        const child: ArxmlElement | undefined = element.children.find(
+          (c) => shortNameOf(c) === rest[0],
+        );
+        if (child === undefined) return null;
+        const deeper = walkFrom(child, rest.slice(1));
+        if (deeper === null) return null;
+        return { pkg: anchorPkg, element: deeper };
+      }
+      return null;
+    }
+    return null;
+  }
   // Canonical 4-segment walk: rest[0] is a module/element in pkg.
   const canonical = walkFrom(rootPkg, rest);
   if (canonical !== null) return { pkg: rootPkg, element: canonical };
@@ -216,6 +249,36 @@ function findPackageByShortName(
   if (pkgs === undefined) return null;
   for (const p of pkgs) {
     if (p.shortName === shortName) return p;
+  }
+  return null;
+}
+
+/**
+ * v1.9.0 (post-c46f4a8) — search every package in the doc for an
+ * ECUC module whose shortName matches `shortName`. Returns the
+ * module element and the root package that holds it (the anchor
+ * callers use for the post-mutation revalidation pass). The search
+ * is depth-first across the recursive `<AR-PACKAGES>` tree and
+ * descends into each package's `elements` list to find the module.
+ *
+ * Used by `findByPath` as the fallback when the leading path
+ * segment doesn't match a root package by shortName — the typical
+ * case for vendor-prefix source docs whose renderer-fold
+ * representation puts the module's shortName at the path root.
+ */
+function findModuleByShortNameAnywhere(
+  pkgs: readonly ArxmlPackage[],
+  shortName: string,
+): { element: ArxmlElement; anchorPkg: ArxmlPackage } | null {
+  for (const pkg of pkgs) {
+    const hit = pkg.elements.find(
+      (e) => e.kind === 'module' && e.shortName === shortName,
+    );
+    if (hit !== undefined) return { element: hit, anchorPkg: pkg };
+    if (pkg.packages !== undefined) {
+      const nested = findModuleByShortNameAnywhere(pkg.packages, shortName);
+      if (nested !== null) return nested;
+    }
   }
   return null;
 }
