@@ -170,6 +170,7 @@ export type ParamEditMode =
   | 'multiline';
 
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
+  '4.0',
   '4.2',
   '4.4',
   '4.6',
