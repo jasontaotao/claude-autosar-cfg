@@ -692,11 +692,16 @@ function foldPackage(
   );
   // The hoisted package takes the deepest shortName (already
   // collapsed recursively). Path is rewritten to drop the entire
-  // wrapper prefix.
+  // wrapper prefix. `isVendorFoldResult: true` flags this as a
+  // fold-synthesised wrapper (vs a source-doc package) so the
+  // Tree can hoist the contained module element past the vendor
+  // namespace without confusing it with legacy single-layer or
+  // combined-mode file wrappers.
   const hoistedPackages = foldedChild.packages;
   return {
     ...foldedChild,
     path: `/${foldedChild.shortName}`,
+    isVendorFoldResult: true,
     ...(hoistedPackages !== undefined ? { packages: hoistedPackages } : {}),
     elements: foldedChild.elements,
   };

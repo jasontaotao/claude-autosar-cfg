@@ -45,6 +45,21 @@ export interface ArxmlPackage {
    * field-equal.
    */
   readonly packages?: readonly ArxmlPackage[];
+  /**
+   * v1.9.0 Sprint X — set on the top-level package produced by
+   * `foldVendorPackages` when the collapse created a fresh wrapper
+   * (i.e. the package didn't exist in the source doc, it was
+   * synthesised by the fold). The Tree uses this marker to hoist
+   * the contained module element past the vendor wrapper so users
+   * see the ECUC module as the tree root, not the vendor
+   * namespace. Source packages (untouched by fold) leave this
+   * undefined; legacy single-layer packages (`/EcuC` wrapping an
+   * `EcuC` module) leave this undefined; combined-mode file
+   * wrappers leave this undefined. Only the fold-synthesised
+   * top-level package carries the flag, so the hoisting decision
+   * is unambiguous.
+   */
+  readonly isVendorFoldResult?: boolean;
 }
 
 export type ArxmlElement = ArxmlModule | ArxmlContainer | ArxmlReference | ArxmlUnknown;
