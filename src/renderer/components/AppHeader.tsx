@@ -42,6 +42,7 @@ import { useProjectActions } from '../hooks/useProjectActions';
 import { refreshStencilFlag as refreshStencilFlagCache } from '../keyboard/shortcuts/palette.js';
 import { useArxmlStore } from '../store/useArxmlStore';
 
+import { confirm } from './ConfirmDialog.js';
 import { StencilWizard } from './StencilWizard/StencilWizard.js';
 
 interface AppHeaderState {
@@ -167,7 +168,6 @@ export function AppHeader({
   // Sprint 11 Phase 1 — project state + actions
   const project = useArxmlStore((s) => s.project);
   const projectPath = useArxmlStore((s) => s.projectPath);
-  const closeProject = useArxmlStore((s) => s.closeProject);
   // Sprint 11 Phase 1 (Option A) — i18n
   const locale = useArxmlStore((s) => s.locale);
   const setLocale = useArxmlStore((s) => s.setLocale);
@@ -374,6 +374,92 @@ export function AppHeader({
       );
     }
   };
+
+  // -----------------------------------------------------------------
+  // Project chip × button — close + clear (Sprint X+ T...)
+  // -----------------------------------------------------------------
+  //
+  // User-reported "tree still has content after closing project". The
+  // previous behaviour was `closeProject` only, which preserves
+  // documents for the loose-mode contract; the chip × now dispatches
+  // `closeProjectAndDiscard` so the Tree collapses to its empty-hint
+  // placeholder. When the project has unsaved changes, the click
+  // surfaces a 3-button Save / Discard / Cancel dialog first.
+  //
+  // - No dirty docs  → close immediately
+  // - saveAndProceed → save all dirty ARXML, then close (abort on
+  //                   partial failure so the user can fix and retry)
+  // - discard        → close without saving
+  // - continue       → no-op (user changed their mind)
+  const onCloseProjectClick = useCallback(async (): Promise<void> => {
+    if (state.busy) return;
+    const storeState = useArxmlStore.getState();
+
+    if (storeState.dirtyPaths.size === 0) {
+      storeState.closeProjectAndDiscard();
+      return;
+    }
+
+    const choice = await confirm({
+      title: t(locale, 'confirm.closeProject.title'),
+      message: t(locale, 'confirm.closeProject.message', {
+        count: storeState.dirtyPaths.size,
+      }),
+      continueLabel: t(locale, 'confirm.closeProject.cancel'),
+      discardLabel: t(locale, 'confirm.closeProject.discard'),
+      saveLabel: t(locale, 'confirm.closeProject.save'),
+    });
+
+    switch (choice) {
+      case 'continue':
+        return;
+      case 'discard':
+        storeState.closeProjectAndDiscard();
+        return;
+      case 'saveAndProceed': {
+        setState({ busy: true });
+        setStoreError(null);
+        const dirty = Array.from(storeState.dirtyPaths);
+        let saved = 0;
+        const failed: string[] = [];
+        for (const path of dirty) {
+          // Resolve the path to its ArxmlDocument via the parallel-
+          // array index (mirrors `onSaveAll`).
+          const idx = storeState.documentPaths.indexOf(path);
+          if (idx === -1) continue;
+          const docEntry = storeState.documents[idx];
+          if (docEntry === undefined) continue;
+          const r = await window.autosarApi.saveArxml({
+            doc: docEntry,
+            defaultName: basename(path) || 'untitled.arxml',
+            currentPath: path,
+          });
+          if (r.ok && !r.value.canceled) {
+            useArxmlStore.getState().markSaved(r.value.path ?? path);
+            saved += 1;
+          } else if (!r.ok) {
+            failed.push(r.error.message);
+          }
+        }
+        setState({ busy: false });
+        if (failed.length === 0) {
+          useArxmlStore.getState().closeProjectAndDiscard();
+        } else {
+          // Mirror `onSaveAll` toast format so the user gets a
+          // consistent "Saved N, M failed: firstError" message and
+          // can retry after fixing the underlying error.
+          setStoreError(
+            t(locale, 'app.saveAllPartial', {
+              saved,
+              failed: failed.length,
+              firstError: failed[0] ?? '',
+            }),
+          );
+        }
+        return;
+      }
+    }
+  }, [state.busy, locale, setStoreError]);
 
   // -----------------------------------------------------------------
   // Sprint 11 Phase 1 — project handlers
@@ -641,7 +727,7 @@ export function AppHeader({
               type="button"
               className="app-project-chip-close"
               aria-label={t(locale, 'app.project.closeAria', { name: project.name })}
-              onClick={closeProject}
+              onClick={onCloseProjectClick}
               data-testid="btn-project-close"
             >
               ×

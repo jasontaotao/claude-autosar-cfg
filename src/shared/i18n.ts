@@ -401,6 +401,17 @@ export interface Messages {
   readonly 'confirm.removeBswmd.cascade': string;
   readonly 'confirm.removeBswmd.cascadeAndUnlink': string;
 
+  // Close project with unsaved changes — the project chip × button
+  // gates close + clear behind this 3-button dialog when
+  // `dirtyPaths.size > 0`. The button label set maps 1:1 onto the
+  // existing `ConfirmChoice` union: Cancel=continue, Discard=discard,
+  // Save and close=saveAndProceed.
+  readonly 'confirm.closeProject.title': string;
+  readonly 'confirm.closeProject.message': string; // {count}
+  readonly 'confirm.closeProject.cancel': string;
+  readonly 'confirm.closeProject.discard': string;
+  readonly 'confirm.closeProject.save': string;
+
   // --- Sprint 15 — picker / editor chrome ---
   // BswmdPickerDialog + ParamEditor placeholders. Splitting them off
   // from the action labels keeps the user's mental model clean: actions
@@ -940,6 +951,11 @@ export const MessagesZhCN: Messages = {
   'confirm.removeBswmd.only': '仅移除 BSWMD',
   'confirm.removeBswmd.cascade': '一并删除依赖文件',
   'confirm.removeBswmd.cascadeAndUnlink': '一并删除 + 从磁盘删除 BSWMD',
+  'confirm.closeProject.title': '关闭项目？',
+  'confirm.closeProject.message': '此项目有 {count} 处未保存的修改。关闭后这些修改将被丢弃。是否继续？',
+  'confirm.closeProject.cancel': '取消',
+  'confirm.closeProject.discard': '放弃所有修改',
+  'confirm.closeProject.save': '保存后关闭',
 
   'picker.search.placeholder': '搜索…',
   'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
@@ -1438,6 +1454,12 @@ export const MessagesEn: Messages = {
   'confirm.removeBswmd.only': 'Only remove BSWMD',
   'confirm.removeBswmd.cascade': 'Also delete dependents',
   'confirm.removeBswmd.cascadeAndUnlink': 'Also delete + remove BSWMD from disk',
+  'confirm.closeProject.title': 'Close project?',
+  'confirm.closeProject.message':
+    'This project has {count} unsaved change(s). Closing will discard them. Continue?',
+  'confirm.closeProject.cancel': 'Cancel',
+  'confirm.closeProject.discard': 'Discard all',
+  'confirm.closeProject.save': 'Save and close',
 
   'picker.search.placeholder': 'Search…',
   'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',

@@ -70,9 +70,19 @@ export interface ProjectSlice {
   /**
    * Close the current project. Documents stay in the store (the user
    * might be editing unsaved changes); only `project` and `projectPath`
-   * are cleared. Use `clear()` to also drop documents.
+   * are cleared. Use `closeProjectAndDiscard` (or `clear()`) to also
+   * drop documents.
    */
   closeProject: () => void;
+  /**
+   * Destructive variant of `closeProject` — close the project AND
+   * drop the in-memory document set, so the Tree component renders
+   * its `tree-empty` placeholder. Wired to the project-chip ×
+   * button in AppHeader (Sprint X+ — "fix: closing project must
+   * clear the tree"). The original `closeProject` preserves
+   * documents for the loose-mode contract and stays unchanged.
+   */
+  closeProjectAndDiscard: () => void;
 }
 
 export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> = (set, get) => ({
@@ -240,6 +250,24 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       projectPath: null,
       // Documents and dirty state are intentionally preserved so the
       // user can keep editing in loose mode without losing unsaved
-      // changes. Use `clear()` to also drop documents.
+      // changes. Use `closeProjectAndDiscard` (or `clear()` directly)
+      // when the caller also wants to wipe the in-memory edit session.
     }),
+
+  /**
+   * Close the project AND drop the in-memory document set, so the
+   * Tree component renders its `tree-empty` placeholder. This is the
+   * destructive variant of `closeProject` — the existing loose-mode
+   * contract is preserved on `closeProject` (the legacy test
+   * "preserves documents and dirty state" stays green).
+   *
+   * Wired to the project-chip × button in AppHeader (Sprint X+ —
+   * "fix: closing project must clear the tree"). When the project has
+   * unsaved changes, AppHeader gates this behind a Save / Discard /
+   * Cancel confirm dialog before invoking the action.
+   */
+  closeProjectAndDiscard: () => {
+    get().closeProject();
+    get().clear();
+  },
 });
