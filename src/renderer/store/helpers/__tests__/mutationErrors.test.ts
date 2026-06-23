@@ -7,11 +7,11 @@
 
 import { describe, it, expect } from 'vitest';
 
-import type { BswmdDocument } from '@core/project/bswmd.js';
 import { parseArxml } from '@core/arxml/parser.js';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 
-import { applyMutationResultToSource } from '../mutationErrors.js';
 import type { ArxmlState } from '../../useArxmlStore.js';
+import { applyMutationResultToSource } from '../mutationErrors.js';
 
 function makeBswmd(modulePath: string): BswmdDocument {
   return {
@@ -20,9 +20,12 @@ function makeBswmd(modulePath: string): BswmdDocument {
       {
         path: modulePath,
         shortName: modulePath.split('/').pop() ?? modulePath,
+        dialect: 'ecuc-module-def',
+        moduleId: null,
         containers: [],
-        parameters: [],
-        references: [],
+        providedEntries: [],
+        lowerMultiplicity: 0,
+        upperMultiplicity: 'infinite',
       },
     ],
     warnings: [],

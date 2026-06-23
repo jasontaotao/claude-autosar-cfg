@@ -22,9 +22,9 @@
 import { describe, it, expect } from 'vitest';
 
 import type { BswmdDocument, BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd.js';
+import { serializeArxml } from '../serializer.js';
 import { generateEcucSkeleton, resolveCollisionFilename } from '../skeleton.js';
 import type { PickedModule } from '../skeleton.js';
-import { serializeArxml } from '../serializer.js';
 import type { ArxmlContainer, ArxmlModule } from '../types.js';
 
 // ---------------------------------------------------------------------------

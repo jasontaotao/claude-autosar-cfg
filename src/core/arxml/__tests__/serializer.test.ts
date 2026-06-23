@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
-import type { ArxmlDocument } from '../types.js';
+import type { ArxmlContainer, ArxmlDocument } from '../types.js';
 
 const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
 
@@ -477,7 +477,7 @@ describe('serializeArxml', () => {
                     params: {},
                     children: [],
                     definitionRef: '/AUTOSAR/EcucDefs/Can/CanConfigSet/CanGeneral',
-                  } as import('../types.js').ArxmlContainer,
+                  } as ArxmlContainer,
                 ],
               },
             ],
@@ -517,7 +517,7 @@ describe('serializeArxml', () => {
                     isChoiceContainer: true,
                     choiceBranches: ['CanIfMailbox', 'CanIfRxBuffer'],
                     definitionRef: '/AUTOSAR/EcucDefs/CanIf/CanIfConfigSet/CanIfBufferCfg',
-                  } as import('../types.js').ArxmlContainer,
+                  } as ArxmlContainer,
                 ],
               },
             ],
