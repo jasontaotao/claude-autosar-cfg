@@ -32,7 +32,7 @@
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
 
 import { fillParamsFromBswmd } from './defaultValue.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from './types.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ArxmlPackage } from './types.js';
 import { mapBswmdVersionToArxml } from './version.js';
 
 /**
@@ -82,18 +82,59 @@ export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string
   if (mod === undefined) {
     throw new Error(`BSWMD module "${moduleShortName}" not found in document`);
   }
-  const packagePath = `/${mod.shortName}`;
   const moduleEl: ArxmlModule = buildModule(mod);
+  // v1.9.0 Sprint X — preserve the vendor-prefix AR-PACKAGE hierarchy
+  // from `mod.path`. Standard AUTOSAR modules (`/Can`, 1 segment) keep
+  // the legacy single-layer shape; vendor-prefix modules (e.g.
+  // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`, 3 segments) emit a nested
+  // `ArxmlPackage.packages` chain so the serialised arxml preserves the
+  // full hierarchy (required by EB tresos / Vector / Intewell tooling
+  // that walks <AR-PACKAGES>). The renderer (Phase 3) folds the chain
+  // back to the deepest package via `foldVendorPackages` in
+  // `combinedDoc.ts` so users see a single AR-PACKAGE in the Tree.
+  const segments = mod.path.split('/').filter(Boolean);
+  if (segments.length <= 1) {
+    // Standard AUTOSAR or pathological single-segment path: emit the
+    // existing single-layer shape so the 5 round-trip fixtures stay
+    // field-equal. This includes the `mod.path === '/'` edge case
+    // (`split('/').filter(Boolean)` drops the lone empty segment).
+    return {
+      path: '',
+      version: mapBswmdVersionToArxml(doc.version),
+      packages: [
+        {
+          shortName: mod.shortName,
+          path: `/${mod.shortName}`,
+          elements: [moduleEl],
+        },
+      ],
+    };
+  }
+  // Vendor-prefix: build the nested chain bottom-up. The deepest leaf
+  // package carries `elements: [moduleEl]`; intermediate packages are
+  // empty wrappers (`elements: []`, no definitionRef stamp because
+  // vendor wrappers carry no BSWMD definitions). Each package's
+  // `path` is the cumulative `/<seg1>/<seg2>/...` shape so the
+  // serialised XML produces the right <AR-PACKAGE PATH="..."> attrs.
+  let current: ArxmlPackage = {
+    shortName: segments[segments.length - 1]!,
+    path: `/${segments.join('/')}`,
+    elements: [moduleEl],
+  };
+  for (let i = segments.length - 2; i >= 0; i -= 1) {
+    const segment = segments[i]!;
+    const partialPath = `/${segments.slice(0, i + 1).join('/')}`;
+    current = {
+      shortName: segment,
+      path: partialPath,
+      elements: [],
+      packages: [current],
+    };
+  }
   return {
     path: '',
     version: mapBswmdVersionToArxml(doc.version),
-    packages: [
-      {
-        shortName: mod.shortName,
-        path: packagePath,
-        elements: [moduleEl],
-      },
-    ],
+    packages: [current],
   };
 }
 

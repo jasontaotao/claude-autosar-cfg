@@ -13,10 +13,24 @@ import { describe, it, expect } from 'vitest';
 
 import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import { generateEcucSkeleton } from '@core/arxml/skeleton.js';
-import type { ArxmlContainer, ArxmlModule } from '@core/arxml/types.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ArxmlPackage } from '@core/arxml/types.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 
 const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
+
+// v1.9.0 Sprint X — `generateEcucSkeleton` now nests `ArxmlPackage.packages`
+// for vendor-prefix BSWMD paths (e.g. `/AUTOSAR_R22/EcucDefs/Adc` → 3-layer
+// chain). Single-segment paths still emit a single-layer package. Walk the
+// chain to the deepest package and return the module element so existing
+// assertions keep working under both shapes.
+function findDeepestModule(ar: ArxmlDocument): ArxmlModule {
+  let pkg: ArxmlPackage | undefined = ar.packages[0];
+  while (pkg?.packages && pkg.packages.length > 0) {
+    pkg = pkg.packages[0];
+  }
+  if (pkg === undefined) throw new Error('no packages in skeleton');
+  return pkg.elements[0]! as ArxmlModule;
+}
 
 describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
   const xml = readFileSync(FIXTURE, 'utf-8');
@@ -52,7 +66,7 @@ describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
 
   it('Bug 2b: skeleton pre-creates required containers (lower>=1), skips optional (lower=0)', () => {
     const skeleton = generateEcucSkeleton(doc, 'Adc');
-    const mod = skeleton.packages[0]!.elements[0]! as ArxmlModule;
+    const mod = findDeepestModule(skeleton);
     const cfgSet = mod.children.find(
       (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'AdcConfigSet',
     );
@@ -67,7 +81,7 @@ describe('Bug 1 — BSWMD MULTIPLICITY-CONFIG-CLASSES propagation', () => {
 
   it('listAllowedSubElements works on a fresh skeleton (smoke for path-walker)', () => {
     const skeleton = generateEcucSkeleton(doc, 'Adc');
-    const mod = skeleton.packages[0]!.elements[0]! as ArxmlModule;
+    const mod = findDeepestModule(skeleton);
     const bswmdCfgSet = adc.containers.find((c) => c.shortName === 'AdcConfigSet');
     if (bswmdCfgSet === undefined) throw new Error('bswmd cfgSet not found');
     const allowed = listAllowedSubElements(adc, bswmdCfgSet, mod);

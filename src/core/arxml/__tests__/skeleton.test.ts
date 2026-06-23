@@ -24,6 +24,7 @@ import { describe, it, expect } from 'vitest';
 import type { BswmdDocument, BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd.js';
 import { generateEcucSkeleton, resolveCollisionFilename } from '../skeleton.js';
 import type { PickedModule } from '../skeleton.js';
+import { serializeArxml } from '../serializer.js';
 import type { ArxmlContainer, ArxmlModule } from '../types.js';
 
 // ---------------------------------------------------------------------------
@@ -383,6 +384,189 @@ describe('generateEcucSkeleton', () => {
     expect(subEl.shortName).toBe('PlainSub');
     expect(subEl.isChoiceContainer).toBeUndefined();
     expect(subEl.choiceBranches).toBeUndefined();
+  });
+
+  // ─── T4 (Sprint X Phase 4) — vendor-prefix AR-PACKAGE hierarchy ─────
+  // v1.9.0 Sprint X preserves the BSWMD `mod.path` vendor prefix as a
+  // nested `ArxmlPackage.packages` chain so the value-side arxml carries
+  // the full hierarchy (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`) required
+  // by EB tresos / Vector / Intewell tooling. Standard AUTOSAR modules
+  // (`/Can`) keep the existing single-layer shape — backwards-compatible
+  // with all 5 round-trip fixtures. The renderer (Phase 3) folds the
+  // chain to the deepest package via `foldVendorPackages` so users see
+  // a single AR-PACKAGE in the Tree.
+
+  it('T4: single-segment mod.path keeps single-layer package (backwards compat)', () => {
+    // Arrange — standard AUTOSAR module `/Can` (1 segment). Existing
+    // round-trip fixtures pin this shape; Phase 4 must not regress it.
+    const can = makeBswModule('Can');
+    const doc = makeBswmd([can]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'Can');
+
+    // Assert — single top-level package, no nested packages, full
+    // module lives directly under it.
+    expect(ar.packages).toHaveLength(1);
+    expect(ar.packages[0]!.shortName).toBe('Can');
+    expect(ar.packages[0]!.path).toBe('/Can');
+    expect(ar.packages[0]!.elements).toHaveLength(1);
+    expect(ar.packages[0]!.packages).toBeUndefined();
+  });
+
+  it('T4: 3-segment vendor-prefix mod.path emits 3-layer nested AR-PACKAGE chain', () => {
+    // Arrange — vendor-prefix module `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
+    // (3 segments). The deepest leaf package carries the module;
+    // intermediate packages are empty wrappers.
+    const mod: BswModuleDef = {
+      shortName: 'JWQ3399',
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'JWQ3399');
+
+    // Assert — 3-layer nested chain.
+    expect(ar.packages).toHaveLength(1);
+    const jwqCddPack = ar.packages[0]!;
+    expect(jwqCddPack.shortName).toBe('JWQ_CDD_PACK');
+    expect(jwqCddPack.path).toBe('/JWQ_CDD_PACK');
+    expect(jwqCddPack.elements).toEqual([]); // vendor wrapper: no elements
+    expect(jwqCddPack.packages).toBeDefined();
+
+    const jwqPacket = jwqCddPack.packages![0]!;
+    expect(jwqPacket.shortName).toBe('JWQ_Packet');
+    expect(jwqPacket.path).toBe('/JWQ_CDD_PACK/JWQ_Packet');
+    expect(jwqPacket.elements).toEqual([]); // vendor wrapper: no elements
+    expect(jwqPacket.packages).toBeDefined();
+
+    const jwq3399 = jwqPacket.packages![0]!;
+    expect(jwq3399.shortName).toBe('JWQ3399');
+    expect(jwq3399.path).toBe('/JWQ_CDD_PACK/JWQ_Packet/JWQ3399');
+    expect(jwq3399.elements).toHaveLength(1); // leaf: carries module
+    expect(jwq3399.packages).toBeUndefined();
+    expect((jwq3399.elements[0]! as ArxmlModule).kind).toBe('module');
+  });
+
+  it('T4: 2-segment vendor-prefix mod.path emits 2-layer nested AR-PACKAGE chain', () => {
+    // Arrange — `/EAS/Can` (2 segments, matches Intewell vendor prefix).
+    const mod: BswModuleDef = {
+      shortName: 'Can',
+      path: '/EAS/Can',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'Can');
+
+    // Assert — 2-layer chain.
+    expect(ar.packages).toHaveLength(1);
+    const eas = ar.packages[0]!;
+    expect(eas.shortName).toBe('EAS');
+    expect(eas.path).toBe('/EAS');
+    expect(eas.elements).toEqual([]);
+    expect(eas.packages).toBeDefined();
+
+    const can = eas.packages![0]!;
+    expect(can.shortName).toBe('Can');
+    expect(can.path).toBe('/EAS/Can');
+    expect(can.elements).toHaveLength(1);
+    expect(can.packages).toBeUndefined();
+    expect((can.elements[0]! as ArxmlModule).shortName).toBe('Can');
+  });
+
+  it('T4: mod.path "/" or empty falls back to single-layer (does not crash)', () => {
+    // Arrange — pathological BSWMD with no segments. The skeleton
+    // must not crash; it should fall back to a single-layer package
+    // named after the module shortName so the round-trip path still
+    // resolves.
+    const mod: BswModuleDef = {
+      shortName: 'RootMod',
+      path: '/',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'RootMod');
+
+    // Assert — single-layer fallback: only the module-named package
+    // exists, no nesting (split('/').filter(Boolean) drops the lone
+    // empty segment).
+    expect(ar.packages).toHaveLength(1);
+    expect(ar.packages[0]!.shortName).toBe('RootMod');
+    expect(ar.packages[0]!.path).toBe('/RootMod');
+    expect(ar.packages[0]!.elements).toHaveLength(1);
+    expect(ar.packages[0]!.packages).toBeUndefined();
+  });
+
+  it('T4: serialised vendor-prefix skeleton has 3 nested <AR-PACKAGE> elements', () => {
+    // Round-trip the nested chain through the serializer so we know
+    // the wire format carries the vendor hierarchy (required by
+    // EB tresos / Vector / Intewell tooling that walks <AR-PACKAGES>).
+    const mod: BswModuleDef = {
+      shortName: 'JWQ3399',
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'JWQ3399');
+    const r = serializeArxml(ar);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return; // narrow for typecheck
+
+    // Assert — three <AR-PACKAGE> elements at three nesting levels,
+    // each carrying the right SHORT-NAME.
+    const packageCount = (r.value.match(/<AR-PACKAGE>/g) ?? []).length;
+    expect(packageCount).toBe(3);
+    expect(r.value).toContain('<SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>JWQ_Packet</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>JWQ3399</SHORT-NAME>');
   });
 });
 
