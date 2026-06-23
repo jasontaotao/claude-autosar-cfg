@@ -39,6 +39,7 @@
 import { useCallback, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
+import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t as i18nT } from '@shared/i18n';
 
@@ -201,8 +202,15 @@ export function App(): JSX.Element {
       const existingPicks: PickedModule[] = [];
       for (const doc of state.documents) {
         if (doc.sourceBswmdPath === undefined) continue;
-        const moduleEl = doc.packages[0]?.elements[0];
-        if (moduleEl?.kind !== 'module') continue;
+        // Sprint X — nested-package parity. `doc.packages[0]?.elements[0]`
+        // returns undefined on vendor-prefix source docs whose ECUC module
+        // lives under one or more <AR-PACKAGE> wrappers (e.g. the
+        // user-reported `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` shape from
+        // C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml).
+        // `findFirstEcucModule` walks depth-first across the recursive
+        // <AR-PACKAGES> tree so the picker dedup works on both shapes.
+        const moduleEl = findFirstEcucModule(doc);
+        if (moduleEl === null) continue;
         existingPicks.push({
           bswmdPath: doc.sourceBswmdPath,
           moduleShortName: moduleEl.shortName,

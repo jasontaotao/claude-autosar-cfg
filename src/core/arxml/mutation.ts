@@ -20,7 +20,13 @@
 // `useArxmlStore.applyParamUpdate`.
 
 import { getContainerDefByPath } from '../project/bswmd.js';
-import type { BswModuleDef, ContainerDef, ParamDef, ParamKind, ReferenceDef } from '../project/bswmd.js';
+import type {
+  BswModuleDef,
+  ContainerDef,
+  ParamDef,
+  ParamKind,
+  ReferenceDef,
+} from '../project/bswmd.js';
 
 import { buildDefaultValue, fillParamsFromBswmd } from './defaultValue.js';
 import { findByPath } from './path.js';
@@ -437,34 +443,17 @@ function checkMultiplicityFloor(
  * Walk `doc.packages` recursively to find the element at `segments`
  * (relative to root package). Returns the element (module / container /
  * reference) or `null` if any segment misses.
+ *
+ * v1.9.0 Sprint X — delegate to `path.ts#findByPath`, which already
+ * handles nested AR-PACKAGE chains and the same-name AR-PACKAGE
+ * wrapper fallback. The legacy flat `doc.packages.find(...)` lookup
+ * missed every vendor-prefix source doc whose ECUC module lives
+ * under 2+ <AR-PACKAGE> wrappers (e.g. `JWQ_CDD_PACK > JWQ_Packet >
+ * JWQ3399`) — that broke `checkMultiplicityFloor` on nested docs.
  */
 function findElementByPath(doc: ArxmlDocument, segments: readonly string[]): ArxmlElement | null {
   if (segments.length === 0) return null;
-  const [pkgName, ...rest] = segments;
-  if (pkgName === undefined) return null;
-  const rootPkg = doc.packages.find((p) => p.shortName === pkgName);
-  if (rootPkg === undefined) return null;
-  return findInPackage(rootPkg, rest);
-}
-
-function findInPackage(pkg: ArxmlPackage, segments: readonly string[]): ArxmlElement | null {
-  let cursor: ArxmlElement | ArxmlPackage = pkg;
-  for (const name of segments) {
-    if (isPackage(cursor)) {
-      const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
-      if (child === undefined) return null;
-      cursor = child;
-      continue;
-    }
-    if (cursor.kind === 'module' || cursor.kind === 'container') {
-      const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
-      if (next === undefined) return null;
-      cursor = next;
-      continue;
-    }
-    return null;
-  }
-  return isPackage(cursor) ? null : cursor;
+  return findByPath(doc, `/${segments.join('/')}`)?.element ?? null;
 }
 
 /**
@@ -949,20 +938,6 @@ function locateParent(doc: ArxmlDocument, parentPath: string): LocatedParent | n
   return { parent: element, pkg };
 }
 
-function findRootPackageByShortName(
-  pkgs: readonly ArxmlPackage[],
-  shortName: string,
-): ArxmlPackage | null {
-  for (const p of pkgs) {
-    if (p.shortName === shortName) return p;
-  }
-  return null;
-}
-
-function isPackage(value: ArxmlElement | ArxmlPackage): value is ArxmlPackage {
-  return !('kind' in value);
-}
-
 function shortNameOf(e: ArxmlElement): string {
   if (e.kind === 'reference') return e.shortName ?? e.value;
   // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME;
@@ -1135,66 +1110,57 @@ function sameIdentity(a: ArxmlElement, b: ArxmlModule | ArxmlContainer): boolean
  * Remove the element at `parentPath` (which must be a sub-path under
  * `pkgName`) by walking down `rest` segments and dropping the leaf.
  * Returns `null` if no match is found.
+ *
+ * v1.9.0 Sprint X — nested-package parity. The legacy flat walker only
+ * checked `rootPkg.elements`; vendor-prefix source docs nest the ECUC
+ * module under a chain of <AR-PACKAGE> wrappers (e.g. `JWQ_CDD_PACK >
+ * JWQ_Packet > JWQ3399` — the user-reported shape from
+ * `C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml`).
+ * In that shape `rootPkg.elements` is empty and the target lives in
+ * `rootPkg.packages[i].elements`, so the flat walk returns null and
+ * `removeContainer` silently surfaces `path-not-found` for every
+ * container (including the 0..* placeholders that the user reports
+ * cannot be deleted after being added).
+ *
+ * Delegate to `path.ts#findByPath` (already handles nested packages
+ * + the same-name AR-PACKAGE wrapper fallback) and `replaceElement`
+ * (already handles nested via the top-level + anywhere fallback) so
+ * the remove path inherits the same nested-package support the lookup
+ * paths have had since the v1.9.0 Sprint X 3-layer fix landed.
  */
 function removeElement(
   doc: ArxmlDocument,
   pkgName: string,
   rest: readonly string[],
 ): ArxmlDocument | null {
-  const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
-  if (rootPkg === null) return null;
-  let changed = false;
-  const nextPackages = doc.packages.map((p) => {
-    if (p !== rootPkg) return p;
-    const nextElements = removeInElements(p.elements, rest);
-    if (nextElements === p.elements) return p;
-    changed = true;
-    return { ...p, elements: nextElements };
-  });
-  if (!changed) return null;
-  return { ...doc, packages: nextPackages };
-}
-
-function removeInElements(
-  elements: readonly ArxmlElement[],
-  rest: readonly string[],
-): readonly ArxmlElement[] {
-  if (rest.length === 0) return elements;
-  const [head, ...tail] = rest;
-  if (head === undefined) return elements;
-  let changed = false;
-  const next: ArxmlElement[] = [];
-  for (const el of elements) {
-    if (el.kind === 'reference' || el.kind === 'unknown') {
-      // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
-      // and have no SHORT-NAME match — push through untouched.
-      next.push(el);
-      continue;
-    }
-    if (el.shortName === head) {
-      if (tail.length === 0) {
-        // Drop this element.
-        changed = true;
-        continue;
-      }
-      // Descend and try to remove deeper.
-      const replacedChildren = removeInElements(el.children, tail);
-      if (replacedChildren === el.children) {
-        next.push(el);
-      } else {
-        changed = true;
-        if (el.kind === 'module') {
-          next.push({ ...el, children: replacedChildren });
-        } else {
-          next.push({ ...el, children: replacedChildren });
-        }
-      }
-      continue;
-    }
-    next.push(el);
-  }
-  if (!changed) return elements;
-  return next;
+  const fullPath = `/${[pkgName, ...rest].join('/')}`;
+  const targetHit = findByPath(doc, fullPath);
+  if (targetHit === null) return null;
+  const { element: target, pkg: anchorPkg } = targetHit;
+  if (target.kind === 'reference' || target.kind === 'unknown') return null;
+  // Locate the parent by dropping the trailing segment. The parent
+  // element is the one whose children we re-build without the target.
+  const parentSegments = [pkgName, ...rest].slice(0, -1);
+  if (parentSegments.length === 0) return null;
+  const parentPath = `/${parentSegments.join('/')}`;
+  const parentHit = findByPath(doc, parentPath);
+  if (parentHit === null) return null;
+  const { element: parent } = parentHit;
+  if (parent.kind !== 'module' && parent.kind !== 'container') return null;
+  // Reference-equality removal so multi-instance siblings are
+  // preserved — only the specific target is dropped, not all
+  // siblings sharing the same kind+shortName.
+  const newChildren = parent.children.filter((c) => c !== target);
+  if (newChildren.length === parent.children.length) return null;
+  const newParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, children: newChildren }
+      : { ...parent, children: newChildren };
+  const next = replaceElement(doc, anchorPkg, parent, newParent);
+  // `replaceElement` returns the original doc reference when no
+  // element matched; treat that as a failed removal so callers see
+  // `path-not-found` rather than a silent no-op.
+  return next === doc ? null : next;
 }
 
 // ---------------------------------------------------------------------------

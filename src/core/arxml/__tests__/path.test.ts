@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
 import { parseArxml } from '../parser.js';
-import { packageByPath, findByPath, paramsEqual, findByPathMultiDoc } from '../path.js';
+import {
+  packageByPath,
+  findByPath,
+  paramsEqual,
+  findByPathMultiDoc,
+  findFirstEcucModule,
+  findEcucModuleByShortName,
+} from '../path.js';
 import type { ArxmlDocument } from '../types.js';
 
 const NESTED_XML = `<?xml version="1.0"?>
@@ -507,5 +514,105 @@ describe('path helpers', () => {
     if (jwq?.element.kind === 'module' || jwq?.element.kind === 'container') {
       expect(jwq.element.shortName).toBe('JWQCfg');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findFirstEcucModule / findEcucModuleByShortName — Sprint X nested-package
+// parity for the renderer-side `doc.packages[0]?.elements[0]` shortcut.
+// Regression: on nested docs (e.g. JWQ3399_EcucValues.arxml with
+// `JWQ_CDD_PACK > JWQ_Packet > JWQ3399[ECUC]`) the shortcut returns
+// undefined because the top-level package's `elements` is empty.
+// ---------------------------------------------------------------------------
+
+describe('findFirstEcucModule', () => {
+  it('returns the only module on the canonical flat shape', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>TopPkg</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>TopMod</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    const m = findFirstEcucModule(r.value);
+    expect(m).not.toBeNull();
+    expect(m?.shortName).toBe('TopMod');
+  });
+
+  it('returns the nested module on the user-reported vendor-prefix shape', () => {
+    // JWQ_CDD_PACK > JWQ_Packet > JWQ3399[ECUC-MODULE] — modeled from
+    // C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>JWQ_Packet</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>JWQ3399</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    const m = findFirstEcucModule(r.value);
+    expect(m).not.toBeNull();
+    expect(m?.shortName).toBe('JWQ3399');
+  });
+
+  it('returns null when the doc has no ECUC module', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>Empty</SHORT-NAME></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    expect(findFirstEcucModule(r.value)).toBeNull();
+  });
+
+  it('walks depth-first through nested AR-PACKAGE chains (3+ levels)', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>L1</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>L2</SHORT-NAME><AR-PACKAGES>
+      <AR-PACKAGE><SHORT-NAME>L3</SHORT-NAME><ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>DeepMod</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS></AR-PACKAGE>
+    </AR-PACKAGES></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    const m = findFirstEcucModule(r.value);
+    expect(m?.shortName).toBe('DeepMod');
+  });
+});
+
+describe('findEcucModuleByShortName', () => {
+  it('finds the nested module by shortName on the vendor-prefix shape', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>JWQ_Packet</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>JWQ3399</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    const m = findEcucModuleByShortName(r.value, 'JWQ3399');
+    expect(m?.shortName).toBe('JWQ3399');
+  });
+
+  it('returns null when the shortName is unknown', () => {
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES>
+  <AR-PACKAGE><SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>JWQ_Packet</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>JWQ3399</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE>
+</AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    if (!r.ok) throw new Error(`parse: ${r.error}`);
+    expect(findEcucModuleByShortName(r.value, 'Nonexistent')).toBeNull();
   });
 });

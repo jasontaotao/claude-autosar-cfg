@@ -30,6 +30,7 @@
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 
+import { findFirstEcucModule } from '@core/arxml/path.js';
 import { resolveCollisionFilename } from '@core/arxml/skeleton.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { getActiveModules } from '@core/project/bswmd.js';
@@ -103,8 +104,14 @@ export function ModuleFromBswmdPicker({
     const seeds = new Set<string>();
     for (const doc of documents) {
       if (doc.sourceBswmdPath === undefined) continue;
-      const moduleEl = doc.packages[0]?.elements[0];
-      if (moduleEl?.kind !== 'module') continue;
+      // Sprint X — nested-package parity. The flat `doc.packages[0]
+      // ?.elements[0]` shortcut silently returns undefined on
+      // vendor-prefix source docs (e.g. the user-reported
+      // `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` shape). Use
+      // `findFirstEcucModule` so pre-selected seeds populate on both
+      // the canonical flat shape and the vendor-prefix nested shape.
+      const moduleEl = findFirstEcucModule(doc);
+      if (moduleEl === null) continue;
       seeds.add(pickKey({ bswmdPath: doc.sourceBswmdPath, moduleShortName: moduleEl.shortName }));
     }
     if (preSelectedBswmdPath !== undefined) {
