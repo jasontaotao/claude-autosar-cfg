@@ -107,8 +107,54 @@ function walkFrom(
         continue;
       }
       const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
-      if (child === undefined) return null;
-      cursor = child;
+      if (child !== undefined) {
+        cursor = child;
+        continue;
+      }
+      // v1.9.0 (post-c46f4a8 fix) — same-name AR-PACKAGE wrapper
+      // fallback. AUTOSAR canonical / vendored modules often wrap a
+      // single ECUC element inside an AR-PACKAGE that shares the
+      // module's shortName (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
+      // [AR-PACKAGE] directly holding the `JWQ3399` ECUC element).
+      // The skeleton shape changed in c46f4a8 so NEW docs no longer
+      // emit this wrapper, but EXISTING user docs (v1.9.0 Sprint X
+      // era or pre-c46f4a8 vendor files like the user-reported
+      // `JWQ3399_EcucValues.arxml`) still have it. Without this
+      // fallback, the walker fails on every path into a wrapped
+      // module — `addContainer`, `addParameter`, `addReference`,
+      // `removeContainer` all break because `locateParent` returns
+      // null and the mutation surfaces `path-not-found`.
+      //
+      // The descent rule: when `name` doesn't match a sub-package or
+      // direct child element, look for a child element whose shortName
+      // equals the package's own shortName. The wrapped element is
+      // then the new cursor and the next iteration's `name` re-targets
+      // a child of the wrapped element. (If `name` already equals
+      // cursor.shortName, the caller is targeting the wrapped element
+      // itself — step into it directly.)
+      // Local alias: the isPackage() guard above narrows `cursor` to
+      // ArxmlPackage, but reassignments below widen the union; capture
+      // the package's shortName while the narrowing still holds.
+      const pkgShortName: string = cursor.shortName;
+      const wrapped: ArxmlElement | undefined = cursor.elements.find(
+        (e) => shortNameOf(e) === pkgShortName,
+      );
+      if (wrapped !== undefined) {
+        if (name === pkgShortName) {
+          cursor = wrapped;
+          continue;
+        }
+        if (wrapped.kind === 'module' || wrapped.kind === 'container') {
+          const inner: ArxmlElement | undefined = wrapped.children.find(
+            (c) => shortNameOf(c) === name,
+          );
+          if (inner !== undefined) {
+            cursor = inner;
+            continue;
+          }
+        }
+      }
+      return null;
     } else if (cursor.kind === 'module' || cursor.kind === 'container') {
       const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
       if (next === undefined) return null;
@@ -118,7 +164,19 @@ function walkFrom(
       return null;
     }
   }
-  if (cursor === undefined || isPackage(cursor)) return null;
+  if (cursor === undefined) return null;
+  if (isPackage(cursor)) {
+    // v1.9.0 (post-c46f4a8) — same-name AR-PACKAGE wrapper final-step
+    // unwrap. When the path lands on a package whose shortName matches
+    // a child element's shortName, return the wrapped element instead
+    // of the package. Matches the per-iteration fallback above; needed
+    // when the path itself ends on the wrapped layer (no further
+    // segment to drive the mid-walk unwrap).
+    const pkgShortName = cursor.shortName;
+    const wrapped = cursor.elements.find((e) => shortNameOf(e) === pkgShortName);
+    if (wrapped !== undefined) return wrapped;
+    return null;
+  }
   return cursor;
 }
 

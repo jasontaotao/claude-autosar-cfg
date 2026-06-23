@@ -101,6 +101,47 @@ describe('path helpers', () => {
     expect(found.element.shortName).toBe('CanIfInitCfg');
   });
 
+  // ---------- v1.9.0 (post-c46f4a8) — same-name AR-PACKAGE wrapper ----------
+  // Before c46f4a8, vendor-prefix skeletons emitted an AR-PACKAGE whose
+  // shortName matched the wrapped ECUC element's shortName
+  // (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399 [AR-PACKAGE] > JWQ3399
+  // [ECUC] > JWQ3399ConfigSet`). Existing user docs generated under that
+  // shape are still in the wild — the user reported this as a regression
+  // where `lower=0, upper=infinite` containers (and all add/delete
+  // operations) failed with `path-not-found` because `findByPath`
+  // couldn't bridge the same-name AR-PACKAGE wrap. The walker now
+  // descends into a same-named child element when no sub-package or
+  // direct child matches the segment. New docs use the 2-layer c46f4a8
+  // shape and are unaffected.
+  it('findByPath resolves through a same-name AR-PACKAGE wrapper (vendor-prefix legacy shape)', () => {
+    // Mimics the user-reported JWQ3399 doc:
+    //   JWQ_CDD_PACK (AR-PACKAGE) > JWQ_Packet (AR-PACKAGE) > JWQ3399
+    //   (AR-PACKAGE, shortName matches wrapped ECUC) > JWQ3399 (ECUC
+    //   element) > JWQ3399ConfigSet (container)
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ_Packet</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ3399</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>JWQ3399</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>JWQ3399ConfigSet</SHORT-NAME></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const found = findByPath(r.value, '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet');
+    expect(found).not.toBeNull();
+    expect(found?.element.kind).toBe('container');
+    if (found?.element.kind !== 'container') return;
+    expect(found.element.shortName).toBe('JWQ3399ConfigSet');
+  });
+
+  it('findByPath resolves the wrapped ECUC element itself through a same-name AR-PACKAGE wrapper', () => {
+    // The path /<...>/JWQ3399 targets the ECUC element (which shares the
+    // wrapper's shortName). The walker must step through the wrapper
+    // when the segment equals the package's shortName.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ_Packet</SHORT-NAME><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>JWQ3399</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>JWQ3399</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const found = findByPath(r.value, '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399');
+    expect(found).not.toBeNull();
+    expect(found?.element.kind).toBe('module');
+  });
+
   // ---------- Sprint 13 Stage 3.5 (Combined Tree View) ----------
   // Combined Tree View synthesises a virtual ArxmlDocument whose packages
   // are the per-file basenames, and child paths are prefixed with the
