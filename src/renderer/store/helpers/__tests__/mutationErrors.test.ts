@@ -113,18 +113,14 @@ describe('applyMutationResultToSource threads bswmdSchemas (HIGH #1)', () => {
     const newDisplay = (set.captured.state as { displayDoc?: unknown } | null)
       ?.displayDoc;
     expect(newDisplay).not.toBeNull();
-    // v1.9.0 Sprint X (MEDIUM #2) — the whitelist alone no longer
-    // triggers a full collapse. The outer wrapper `JWQ_CDD_PACK`
-    // stays because its inner `JWQ_Packet` is not in BSWMD. The
-    // inner pair `JWQ_Packet > JWQ3399` collapses (BSWMD match),
-    // so the final shape is 2-level: outer `JWQ_CDD_PACK` with
-    // `JWQ3399` as its child. Without the BSWMD thread, the
-    // post-mutation fold would have stopped at the outer level
-    // (left as `JWQ_CDD_PACK > JWQ_Packet(> JWQ3399)`).
+    // v1.9.0 Sprint X Phase 5c — the trusted vendor pack prefix
+    // `JWQ_.*_PACK` folds on its own (no BSWMD gate), so the full
+    // 3-level chain collapses to a single top-level `JWQ3399`. The
+    // helper must thread `state.bswmdSchemas` so post-mutation fold
+    // produces the same shape as pre-mutation.
     const topPkg = (
       newDisplay as { packages: readonly { shortName: string; packages?: readonly { shortName: string }[] }[] } | null
     )?.packages?.[0];
-    expect(topPkg?.shortName).toBe('JWQ_CDD_PACK');
-    expect(topPkg?.packages?.[0]?.shortName).toBe('JWQ3399');
+    expect(topPkg?.shortName).toBe('JWQ3399');
   });
 });

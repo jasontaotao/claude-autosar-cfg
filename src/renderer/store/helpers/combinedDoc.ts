@@ -523,9 +523,13 @@ export function stripCombinedPrefix(combinedPath: string, sourceFilePath: string
  *      (and P1 has no `elements` of its own — vendor wrappers carry
  *      elements=[]), AND either:
  *      a. P1.shortName matches any shortName in
- *         `bswmdSchemas[*].modules[*]`, OR
- *      b. P.shortName or P1.shortName matches a known vendor prefix
- *         whitelist (JWQ_*_PACK, /EAS/, /EcucDefs/, AUTOSAR_*),
+ *         `bswmdSchemas[*].modules[*]` (gold path — BSWMD match),
+ *      b. P.shortName matches a trusted vendor-pack prefix
+ *         (`JWQ_.*_PACK`, see Phase 5c below), OR
+ *      c. P.shortName matches a generic vendor prefix
+ *         (`EAS`/`EcucDefs`/`AUTOSAR(_.*)?`) AND P1.shortName matches
+ *         a BSWMD module shortName (sanity gate against
+ *         user-defined `EcucDefs`).
  *      then collapse: hoist P1 to the top, preserving P1.shortName /
  *      path / elements / packages, and continue the fold recursively
  *      into P1.
@@ -553,10 +557,26 @@ function foldVendorPackages(
       bswmdModuleNames.add(mod.shortName);
     }
   }
-  const VENDOR_PREFIX_RE = /^(JWQ_.*_PACK|EAS|EcucDefs|AUTOSAR(_.*)?)$/;
+  // v1.9.0 Sprint X Phase 5c — split vendor prefix matching into
+  // two tiers:
+  //   - TRUSTED: `JWQ_.*_PACK` (经纬恒润 Intewell vendor pack
+  //     convention). Specific enough that we trust the fold on
+  //     naming alone — the full chain `JWQ_CDD_PACK > JWQ_Packet >
+  //     JWQ3399` collapses even when `JWQ3399` isn't (yet) loaded
+  //     as a BSWMD module. Restores the user requirement "不在 UI
+  //     里显示 vendor 父层".
+  //   - GENERIC: `EAS` / `EcucDefs` / `AUTOSAR(_.*)?` (AUTOSAR
+  //     standard namespaces). These are short and common enough
+  //     that a user could plausibly name a project-local package
+  //     after them; we keep the BSWMD AND gate for these so the
+  //     fold only triggers when the inner is positively known.
+  const TRUSTED_VENDOR_PACK_RE = /^JWQ_.*_PACK$/;
+  const GENERIC_VENDOR_PREFIX_RE = /^(EAS|EcucDefs|AUTOSAR(_.*)?)$/;
 
   const foldedPackages = doc.packages
-    .map((p) => foldPackage(p, '', bswmdModuleNames, VENDOR_PREFIX_RE))
+    .map((p) =>
+      foldPackage(p, '', bswmdModuleNames, TRUSTED_VENDOR_PACK_RE, GENERIC_VENDOR_PREFIX_RE),
+    )
     .filter((p): p is ArxmlPackage => p !== null);
 
   // Reference-equal fast path: if no package was actually folded,
@@ -581,19 +601,27 @@ function foldVendorPackages(
  * intermediate wrapper collapses into it. This handles chains of
  * arbitrary depth (1, 2, 3+ segments) with the same code path.
  *
- * @param pkg          The package to fold.
- * @param prefix       The path prefix accumulated by parent hoists
- *                     (always '' at the top level; non-empty when
- *                     this pkg is itself inside a parent chain).
- * @param bswmdNames   Module shortNames loaded from any BSWMD
- *                     schema.
- * @param vendorRe     Heuristic prefix regex.
+ * @param pkg                  The package to fold.
+ * @param prefix               The path prefix accumulated by parent
+ *                             hoists (always '' at the top level;
+ *                             non-empty when this pkg is itself
+ *                             inside a parent chain).
+ * @param bswmdNames           Module shortNames loaded from any
+ *                             BSWMD schema.
+ * @param trustedPackRe        Regex matching trusted vendor pack
+ *                             shortNames (e.g. `JWQ_.*_PACK`).
+ * @param genericPrefixRe      Regex matching generic vendor prefix
+ *                             shortNames (`EAS`/`EcucDefs`/
+ *                             `AUTOSAR(_.*)?`). Requires a positive
+ *                             BSWMD match on the inner to actually
+ *                             trigger a fold.
  */
 function foldPackage(
   pkg: ArxmlPackage,
   prefix: string,
   bswmdNames: ReadonlySet<string>,
-  vendorRe: RegExp,
+  trustedPackRe: RegExp,
+  genericPrefixRe: RegExp,
 ): ArxmlPackage {
   const nested = pkg.packages;
 
@@ -602,19 +630,23 @@ function foldPackage(
   //     carry siblings)
   //   - it carries no `elements` of its own (vendor wrappers are
   //     pass-through)
-  //   - its nested child's shortName matches a loaded BSWMD module
-  //     shortName (the gold path).
+  //   - any of the following hold:
+  //       a. inner.shortName is a BSWMD module (gold path), OR
+  //       b. pkg.shortName matches a trusted vendor pack prefix
+  //          (folds on naming alone, no BSWMD gate), OR
+  //       c. pkg.shortName matches a generic vendor prefix AND
+  //          inner.shortName is a BSWMD module (sanity gate
+  //          against user-defined `EcucDefs`).
   //
-  // v1.9.0 Sprint X (MEDIUM #2) — the vendor prefix whitelist is now
-  // AND-combined with the BSWMD match. Previously the whitelist alone
-  // could trigger a fold (e.g. `EcucDefs > MyOwnSub` would fold to
-  // `MyOwnSub` even though `MyOwnSub` is not a known BSWMD module).
-  // That silently collapsed user-defined `EcucDefs` packages that
-  // happened to share the well-known prefix. The whitelist is now a
-  // sanity gate — fold is allowed for whitelisted prefixes BUT only
-  // when the inner is positively known to be a BSWMD module. Without
-  // the BSWMD match the user might have a custom `EcucDefs` and we
-  // must keep both layers visible.
+  // v1.9.0 Sprint X Phase 5c — split the former
+  // `VENDOR_PREFIX_RE` into trusted (b) vs generic (c) tiers. The
+  // generic tier still requires the BSWMD match (MEDIUM #2
+  // invariant). The trusted tier is the Phase 5b regression fix:
+  // the previous AND-combined rule refused to fold `JWQ_CDD_PACK >
+  // JWQ_Packet > JWQ3399` because the outer wrapper's inner
+  // (`JWQ_Packet`) wasn't a BSWMD module, leaving the vendor parent
+  // visible. The trusted-prefix rule alone is sufficient — naming
+  // convention is the contract.
   //
   // This check applies at ANY level — top-level wrappers and
   // intermediate wrappers alike. Recursion walks down the chain
@@ -626,7 +658,8 @@ function foldPackage(
     nested.length === 1 &&
     pkg.elements.length === 0 &&
     (innerMatchesBswmd ||
-      (vendorRe.test(pkg.shortName) && innerMatchesBswmd));
+      trustedPackRe.test(pkg.shortName) ||
+      (genericPrefixRe.test(pkg.shortName) && innerMatchesBswmd));
 
   if (!isFoldableHere) {
     // Not foldable. If nested exists, recurse into it first to
@@ -637,7 +670,7 @@ function foldPackage(
       return pkg;
     }
     const mapped = nested.map((sp) =>
-      foldPackage(sp, joinPath(prefix, pkg.shortName), bswmdNames, vendorRe),
+      foldPackage(sp, joinPath(prefix, pkg.shortName), bswmdNames, trustedPackRe, genericPrefixRe),
     );
     const changed = mapped.some((m, i) => m !== nested[i]);
     if (!changed) return pkg;
@@ -650,7 +683,13 @@ function foldPackage(
   // Foldable: recurse into the only nested child, then hoist the
   // (now fully folded) child to take our place.
   const child = nested[0]!;
-  const foldedChild = foldPackage(child, joinPath(prefix, pkg.shortName), bswmdNames, vendorRe);
+  const foldedChild = foldPackage(
+    child,
+    joinPath(prefix, pkg.shortName),
+    bswmdNames,
+    trustedPackRe,
+    genericPrefixRe,
+  );
   // The hoisted package takes the deepest shortName (already
   // collapsed recursively). Path is rewritten to drop the entire
   // wrapper prefix.
