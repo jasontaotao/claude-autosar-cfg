@@ -352,13 +352,51 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     // WARN → exit 0
     expect(result.exitCode).toBe(0);
   });
+
+  // E6 — ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR). Two sibling
+  // parameters share the shortName 'Enable' → ERROR.
+  it('ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR) fires when sibling parameters share a shortName', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          ['Stub', { shortName: 'Stub', params: [{ shortName: 'Enable', kind: 'boolean' }] }],
+        ]),
+        ecucValues: new Map([
+          [
+            'Stub',
+            {
+              parameters: [
+                { shortName: 'Enable', value: true },
+                { shortName: 'Enable', value: false },
+              ],
+            },
+          ],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_DUPLICATE_SHORTNAME,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Enable');
+    expect(result.exitCode).toBe(1);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 021 DUPLICATE_SHORTNAME: two sibling containers/params with same
-  // shortName. normalizeToTree passes through whatever the input
-  // carries — it does not dedupe or assert uniqueness.
-  test.todo('ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR) fires on sibling shortName collision');
+  // 030 TEMPLATE_RENDER: Handlebars throws during render. The current
+  // pipeline runs generators (which may use Handlebars internally) but
+  // no top-level try/catch maps HandlebarsRuntimeError → this code;
+  // THROW is the only emit-stage exception path today.
+  test.todo('ECUC-GEN-030 (TEMPLATE_RENDER, ERROR) fires when Handlebars render throws');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does

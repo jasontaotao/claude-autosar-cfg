@@ -31,6 +31,7 @@ import {
 import { validateTypeMatches } from './emit/type-check.js';
 import { validateRange } from './emit/range.js';
 import { validateOrdering } from './emit/ordering.js';
+import { validateUniqueShortNames } from './emit/unique-short-name.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
@@ -112,6 +113,17 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       args.ecucValues as ReadonlyMap<
         string,
         { containers?: readonly { shortName: string; index?: number }[] }
+      >,
+    ),
+  );
+  // v1.12.0 E6 — sibling shortName uniqueness. Parameters only —
+  // container siblings share shortName by AUTOSAR array semantics (see
+  // `validateUniqueShortNames` doc).
+  diagnostics.push(
+    ...validateUniqueShortNames(
+      args.ecucValues as ReadonlyMap<
+        string,
+        { parameters?: readonly { shortName: string }[] }
       >,
     ),
   );
