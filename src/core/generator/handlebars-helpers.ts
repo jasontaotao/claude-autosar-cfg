@@ -123,3 +123,41 @@ export function cValue(value: unknown, def: BswmdParamDef): string {
       return '0';
   }
 }
+
+import type { GenerationVariant } from './registry.js';
+
+export type ConfigClass = 'PreCompile' | 'Link' | 'PostBuild';
+
+export interface BswmdAbstractConfigurationClass {
+  readonly configVariant: ConfigClass;
+  readonly configClass: ConfigClass;
+}
+
+export interface HasParamConfigClasses {
+  readonly paramConfigClasses: readonly BswmdAbstractConfigurationClass[];
+}
+
+/**
+ * Pick the configClass for the active variant.
+ * Throws if no pair matches (caller should treat as ERROR diagnostic).
+ */
+export function paramConfigClass(
+  def: HasParamConfigClasses,
+  variant: GenerationVariant,
+): ConfigClass {
+  const match = def.paramConfigClasses.find(p => p.configVariant === variant);
+  if (!match) {
+    throw new Error(`no configClass for variant=${variant}`);
+  }
+  return match.configClass;
+}
+
+export function bswmdPathOf(instance: {
+  readonly path: readonly string[];
+}): string {
+  return instance.path.join('/');
+}
+
+export function partitionName(name: string): string {
+  return cIdent(name);
+}

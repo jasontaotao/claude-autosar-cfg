@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-import { cIdent, cType, cValue } from '../handlebars-helpers.js';
+import {
+  cIdent,
+  cType,
+  cValue,
+  paramConfigClass,
+  bswmdPathOf,
+  partitionName,
+} from '../handlebars-helpers.js';
+import type { GenerationVariant } from '../registry.js';
 
 describe('cIdent', () => {
   it('joins slash-separated path with underscores', () => {
@@ -93,5 +101,58 @@ describe('cValue', () => {
 
   it('renders float with 6-digit precision', () => {
     expect(cValue(3.14, { kind: 'float' })).toBe('3.140000f');
+  });
+});
+
+describe('paramConfigClass', () => {
+  const defWithPair = {
+    paramConfigClasses: [
+      { configVariant: 'PreCompile' as const, configClass: 'PreCompile' as const },
+      { configVariant: 'Link' as const, configClass: 'Link' as const },
+      { configVariant: 'PostBuild' as const, configClass: 'PostBuild' as const },
+    ],
+  };
+
+  it('returns the matching configClass for active variant', () => {
+    expect(
+      paramConfigClass(defWithPair, 'PreCompile' as GenerationVariant),
+    ).toBe('PreCompile');
+    expect(
+      paramConfigClass(defWithPair, 'Link' as GenerationVariant),
+    ).toBe('Link');
+    expect(
+      paramConfigClass(defWithPair, 'PostBuild' as GenerationVariant),
+    ).toBe('PostBuild');
+  });
+
+  it('throws when no pair exists for the active variant', () => {
+    expect(() =>
+      paramConfigClass(
+        { paramConfigClasses: [] },
+        'PreCompile' as GenerationVariant,
+      ),
+    ).toThrow(/no configClass/);
+  });
+});
+
+describe('bswmdPathOf', () => {
+  it('joins instance path with slashes', () => {
+    expect(bswmdPathOf({ path: ['Mcu', 'Clock', 'Divider'] })).toBe(
+      'Mcu/Clock/Divider',
+    );
+  });
+
+  it('returns empty string for empty path', () => {
+    expect(bswmdPathOf({ path: [] })).toBe('');
+  });
+});
+
+describe('partitionName', () => {
+  it('passes through shortName as C identifier', () => {
+    expect(partitionName('Partition_0')).toBe('Partition_0');
+  });
+
+  it('prefixes with module shortName when bare name given', () => {
+    expect(partitionName('EcuC/0')).toBe('EcuC_0');
   });
 });
