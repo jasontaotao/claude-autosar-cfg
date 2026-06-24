@@ -19,7 +19,12 @@ Sibling mutation actions (`addContainer`, `deleteContainer`, `addParameter`, `ad
 **Fix**: Add the trio to `set()`, mirroring `applyMutationResultToActive` (`src/renderer/store/helpers/mutationErrors.ts:109`).
 
 ```ts
-const nextDisplayResult = computeDisplayDoc(state.viewMode, nextDocWithoutSource, nextDocuments, state.documentPaths);
+const nextDisplayResult = computeDisplayDoc(
+  state.viewMode,
+  nextDocWithoutSource,
+  nextDocuments,
+  state.documentPaths,
+);
 // ...
 set({
   documents: nextDocuments,
@@ -68,15 +73,15 @@ POSIX text-file convention; prettier and most formatters enforce trailing newlin
 
 ## Files changed (6 files, +86/-69)
 
-| File                                                              | Type |
-| ----------------------------------------------------------------- | ---- |
-| `src/shared/i18n.ts`                                              | modified |
-| `src/renderer/store/slices/mutationSlice.ts`                      | modified |
-| `src/renderer/components/ContextMenu.tsx`                        | modified |
-| `src/renderer/components/__tests__/ContextMenu.test.tsx`          | modified (regression: L1 reverted 4→5 length) |
-| `src/renderer/components/__tests__/ContextMenu.coveredByBswmd.test.tsx` | modified (regression: L1 reverted 4→5 length) |
-| `src/renderer/components/__tests__/ContextMenu.deleteModule.test.tsx` | modified (L1: disabled→absent + new enabled test) |
-| `package.json`                                                    | modified (1.10.1 → 1.10.2) |
+| File                                                                    | Type                                              |
+| ----------------------------------------------------------------------- | ------------------------------------------------- |
+| `src/shared/i18n.ts`                                                    | modified                                          |
+| `src/renderer/store/slices/mutationSlice.ts`                            | modified                                          |
+| `src/renderer/components/ContextMenu.tsx`                               | modified                                          |
+| `src/renderer/components/__tests__/ContextMenu.test.tsx`                | modified (regression: L1 reverted 4→5 length)     |
+| `src/renderer/components/__tests__/ContextMenu.coveredByBswmd.test.tsx` | modified (regression: L1 reverted 4→5 length)     |
+| `src/renderer/components/__tests__/ContextMenu.deleteModule.test.tsx`   | modified (L1: disabled→absent + new enabled test) |
+| `package.json`                                                          | modified (1.10.1 → 1.10.2)                        |
 
 ## ⚠️ Outstanding follow-up for v1.10.3
 

@@ -382,7 +382,14 @@ export function App(): JSX.Element {
         }
       }
     },
-    [openBswmdPicker, deleteContainerAction, deleteEcucModuleAction, setInfo, locale, removeBswmdWithFullFlow],
+    [
+      openBswmdPicker,
+      deleteContainerAction,
+      deleteEcucModuleAction,
+      setInfo,
+      locale,
+      removeBswmdWithFullFlow,
+    ],
   );
 
   // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns
