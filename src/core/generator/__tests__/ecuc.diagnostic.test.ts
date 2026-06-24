@@ -419,13 +419,30 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(diag.message).toContain('foo');
     expect(result.exitCode).toBe(1);
   });
+
+  // E8 — ECUC-GEN-031 (OUTPUT_WRITE, ERROR). writeOutputTree overload
+  // accepts a diagnostics array and pushes OUTPUT_WRITE on fs failure
+  // instead of re-throwing. Trigger: artifact path with NUL char (Node
+  // fs APIs reject NUL paths on all platforms).
+  it('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when post-process fs write fails', async () => {
+    const { writeOutputTree } = await import('../post-process.js');
+    const diags: import('../diagnostics.js').Diagnostic[] = [];
+    // NUL char in path → fs.writeFile throws ERR_INVALID_ARG_VALUE on
+    // every Node platform.
+    const artifacts = new Map<string, string>([[' bad/path.c', 'content']]);
+    await writeOutputTree(artifacts, '/tmp/gen-out-nul', diags);
+    const err = diags.find((d) => d.code === DiagnosticCode.ECUC_GEN_OUTPUT_WRITE);
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(err!.message).toContain('bad/path.c');
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 031 OUTPUT_WRITE: file write fails (EACCES, ENOSPC, etc.). Atomic
-  // write lives in post-process (Task 13) and runs after the pipeline
-  // returns; the pipeline does not surface write errors yet.
-  test.todo('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when output file write fails');
+  // INFO-001 EMPTY_VARIANT: active variant has no container/param
+  // entries. The pipeline does not branch on emptiness today; v2 will
+  // introduce per-variant element walk that pushes this INFO notice.
+  test.todo('ECUC-GEN-INFO-001 (INFO_EMPTY_VARIANT, INFO) fires when variant has no elements');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does
