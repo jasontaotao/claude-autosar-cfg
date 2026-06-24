@@ -30,6 +30,7 @@ import {
   type ModuleGenerator,
   type GeneratedArtifact,
 } from '../registry.js';
+import { TemplateRenderError } from '../template-render-error.js';
 
 class StubGen implements ModuleGenerator {
   readonly moduleShortName = 'Stub';
@@ -389,14 +390,42 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(diag.ecucPath).toBe('Enable');
     expect(result.exitCode).toBe(1);
   });
+
+  // E7 — ECUC-GEN-030 (TEMPLATE_RENDER, ERROR). Register a generator
+  // that throws a TemplateRenderError (e.g. Handlebars runtime
+  // exception wrapped by EcuCGenerator's template-call try/catch).
+  it('ECUC-GEN-030 (TEMPLATE_RENDER, ERROR) fires when a generator throws TemplateRenderError', async () => {
+    _resetRegistryForTest();
+    class BadTplGen implements ModuleGenerator {
+      readonly moduleShortName = 'Stub';
+      emit(): readonly GeneratedArtifact[] {
+        throw new TemplateRenderError('unknown partial: foo');
+      }
+    }
+    registerGenerator(new BadTplGen());
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Stub', { shortName: 'Stub' }]]),
+        ecucValues: new Map([['Stub', {}]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_TEMPLATE_RENDER,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.message).toContain('foo');
+    expect(result.exitCode).toBe(1);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 030 TEMPLATE_RENDER: Handlebars throws during render. The current
-  // pipeline runs generators (which may use Handlebars internally) but
-  // no top-level try/catch maps HandlebarsRuntimeError → this code;
-  // THROW is the only emit-stage exception path today.
-  test.todo('ECUC-GEN-030 (TEMPLATE_RENDER, ERROR) fires when Handlebars render throws');
+  // 031 OUTPUT_WRITE: file write fails (EACCES, ENOSPC, etc.). Atomic
+  // write lives in post-process (Task 13) and runs after the pipeline
+  // returns; the pipeline does not surface write errors yet.
+  test.todo('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when output file write fails');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does

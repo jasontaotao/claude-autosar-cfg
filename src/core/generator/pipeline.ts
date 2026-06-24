@@ -23,6 +23,7 @@
 // modules whose short name is in the list are processed.
 
 import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
+import { TemplateRenderError } from './template-render-error.js';
 import { validateReferences } from './emit/reference.js';
 import {
   validateMultiplicity,
@@ -174,12 +175,26 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       });
       for (const a of out) artifacts.set(a.path, a.content);
     } catch (e) {
-      diagnostics.push({
-        severity: DiagnosticSeverity.ERROR,
-        code: DiagnosticCode.ECUC_GEN_THROW,
-        moduleShortName,
-        message: e instanceof Error ? (e.stack ?? e.message) : String(e),
-      });
+      // v1.12.0 E7 — distinguish Handlebars/TemplateRender errors from
+      // generic throws. Module generators (EcuCGenerator) wrap their
+      // Handlebars calls in try/catch and rethrow as TemplateRenderError
+      // so the pipeline can surface ECUC-GEN-030 instead of the generic
+      // ECUC-GEN-003 THROW.
+      if (e instanceof TemplateRenderError) {
+        diagnostics.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.ECUC_GEN_TEMPLATE_RENDER,
+          moduleShortName,
+          message: e.message,
+        });
+      } else {
+        diagnostics.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.ECUC_GEN_THROW,
+          moduleShortName,
+          message: e instanceof Error ? (e.stack ?? e.message) : String(e),
+        });
+      }
     }
   }
 
