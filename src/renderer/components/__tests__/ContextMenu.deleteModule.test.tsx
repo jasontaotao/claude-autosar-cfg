@@ -94,7 +94,29 @@ describe('ContextMenu (Sprint A+ — Delete ECUC module item)', () => {
     });
   });
 
-  it('is disabled (aria-disabled) for container kind with no modulePath', async () => {
+  it('is enabled (no aria-disabled) for the bswmd kind with modulePath — the primary user-facing path', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+
+    const target: ContextMenuTarget = {
+      path: '/fake/Adc_bswmd.arxml',
+      kind: 'bswmd',
+      shortName: 'Adc_bswmd.arxml',
+      modulePath: '/Adc/Adc',
+    };
+    act(() => {
+      openContextMenu(target, 100, 100);
+    });
+
+    const item = screen.getByTestId('context-menu-item-delete-module');
+    // The source-backed module-root right-click (Sprint 17 P3 T3.2
+    // re-route) is the primary trigger for this action — the item
+    // MUST be enabled so the user can fire it without an extra
+    // "load BSWMD" step.
+    expect(item).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('is absent for container kind with no modulePath (invariant I4)', async () => {
     const onAction = vi.fn();
     await mountHost(onAction);
 
@@ -103,14 +125,16 @@ describe('ContextMenu (Sprint A+ — Delete ECUC module item)', () => {
       kind: 'container',
       shortName: 'AdcConfig',
       // intentionally NO modulePath — invariant I4: the item only
-      // appears for module-kind targets where the path resolves to
-      // an ECUC module element.
+      // appears for module-kind targets. Container/parameter/reference
+      // menus must be unchanged.
     };
     act(() => {
       openContextMenu(target, 100, 100);
     });
 
-    const item = screen.getByTestId('context-menu-item-delete-module');
-    expect(item).toHaveAttribute('aria-disabled', 'true');
+    // Use queryByTestId (returns null if absent) instead of getByTestId
+    // (throws). The item should NOT be in the DOM at all.
+    const item = screen.queryByTestId('context-menu-item-delete-module');
+    expect(item).toBeNull();
   });
 });

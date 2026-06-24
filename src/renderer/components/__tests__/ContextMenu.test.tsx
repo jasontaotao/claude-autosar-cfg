@@ -127,15 +127,14 @@ describe('ContextMenu (container target)', () => {
     expect(menu).toBeInTheDocument();
 
     const items = screen.getAllByRole('menuitem');
-    // Sprint A+ — 5 items: add-container, add-parameter, add-reference,
-    // delete-module (always present in the container menu, disabled when
-    // no modulePath), delete-container.
-    expect(items).toHaveLength(5);
+    // Container menu: 4 items (add c/p/r + delete-container). The
+    // "delete-module" entry lives in `buildBswmdItems` only — see
+    // ContextMenu.deleteModule.test.tsx.
+    expect(items).toHaveLength(4);
     expect(items[0]).toHaveTextContent(/添加子容器|Add sub-container/);
     expect(items[1]).toHaveTextContent(/添加参数|Add parameter/);
     expect(items[2]).toHaveTextContent(/添加引用|Add reference/);
-    expect(items[3]).toHaveTextContent(/删除 ECUC 模块|Delete ECUC module/);
-    expect(items[4]).toHaveTextContent(/删除|Delete/);
+    expect(items[3]).toHaveTextContent(/删除|Delete/);
   });
 
   it('localized label appears in the menu (en locale)', () => {
@@ -161,9 +160,9 @@ describe('ContextMenu (container target)', () => {
     act(() => {
       openContextMenu({ path: '/EcuC', kind: 'container', shortName: 'EcuC' }, 100, 200);
     });
-    // Sprint A+ — added the `delete-module` item (always present in the
-    // container menu, disabled when no modulePath). Total is 5.
-    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
+    // Container menu has 4 items; "delete-module" lives in
+    // buildBswmdItems only (spec: container/reference menus unchanged).
+    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
   });
 });
 
@@ -321,10 +320,8 @@ describe('ContextMenu (BSWMD-disabled items)', () => {
     expect(items[1]).toHaveAttribute('aria-disabled', 'true');
     // Add reference
     expect(items[2]).toHaveAttribute('aria-disabled', 'true');
-    // Sprint A+ — Delete ECUC module: disabled when no modulePath on target.
-    expect(items[3]).toHaveAttribute('aria-disabled', 'true');
     // Delete container is always enabled
-    expect(items[4]).not.toHaveAttribute('aria-disabled', 'true');
+    expect(items[3]).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('enables the add items when a BSWMD covers the module shortName in the path', async () => {
@@ -395,7 +392,7 @@ describe('ContextMenu (keyboard navigation)', () => {
       openContextMenu({ path: '/EcuM', kind: 'container', shortName: 'EcuM' }, 100, 100);
     });
     const items = screen.getAllByRole('menuitem');
-    expect(items).toHaveLength(5);
+    expect(items).toHaveLength(4);
 
     // Initial focus on the first item (auto-focus on open).
     expect(items[0]).toHaveFocus();

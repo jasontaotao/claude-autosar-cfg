@@ -354,7 +354,7 @@ export interface Messages {
   readonly 'mutation.error.multiplicity-floor': string; // {current} {min}
   readonly 'mutation.error.no-bswmd-for-module': string;
   readonly 'mutation.error.invalid-param-type': string; // {key}
-  readonly 'mutation.error.moduleNotFound': string; // {path}
+  readonly 'mutation.error.module-not-found': string; // {path}
   // Context-menu and ParamEditor action labels. These are the
   // user-facing strings on the buttons themselves.
   readonly 'mutation.action.addContainer': string;
@@ -953,7 +953,7 @@ export const MessagesZhCN: Messages = {
   'mutation.action.deleteModuleAria': "删除 ECUC 模块 '{name}'",
   'mutation.info.ecucModuleDeleted': "已删除 ECUC 模块 '{name}'",
   'mutation.info.ecucModuleUnlinked': "已删除 ECUC 模块 '{name}'，BSWMD 链接已断开",
-  'mutation.error.moduleNotFound': "找不到 ECUC 模块 '{path}'",
+  'mutation.error.module-not-found': "找不到 ECUC 模块 '{path}'",
   'mutation.action.deleteReferenceNotImplemented':
     '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
@@ -1464,7 +1464,7 @@ export const MessagesEn: Messages = {
   'mutation.action.deleteModuleAria': "Delete ECUC module '{name}'",
   'mutation.info.ecucModuleDeleted': "Deleted ECUC module '{name}'",
   'mutation.info.ecucModuleUnlinked': "Deleted ECUC module '{name}', BSWMD link broken",
-  'mutation.error.moduleNotFound': "ECUC module not found at '{path}'",
+  'mutation.error.module-not-found': "ECUC module not found at '{path}'",
   'confirm.cascade.title': "Delete '{name}'?",
   'confirm.cascade.message': "'{name}' is referenced by {count} places:",
   'confirm.cascade.cancel': 'Cancel',
