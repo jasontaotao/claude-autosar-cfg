@@ -5,13 +5,25 @@
 /**
  * v1.11.4 PATCH-A — single source of truth for ARXML versions that
  * have a 1:1 BSWMD mapping. `ArxmlVersion` (below) is the literal
- * union of this list, and `SUPPORTED_ARXML_VERSIONS` is a
- * reference-equal alias. `ARXML_VERSIONS` in version.ts derives the
- * BSWMD→ARXML 1:1 direct-map Set from the same source. Adding or
- * removing a version here updates all three at once — the previous
- * hand-synced pair (SUPPORTED_ARXML_VERSIONS + version.ts ARXML_VERSIONS)
- * drifted in v1.8.5 (commit 8870566) when '4.0' was added to one but
- * not the other, breaking R4.0 ECUC file parsing.
+ * union of this list, and `ARXML_VERSIONS` in version.ts derives the
+ * BSWMD→ARXML 1:1 direct-map Set from the same source.
+ *
+ * `SUPPORTED_ARXML_VERSIONS` (below) is intentionally NOT derived
+ * from this list — it is a hand-written subset that excludes 00005 /
+ * 00006 (and 00047, which is also excluded from this canonical list).
+ * See the `SUPPORTED_ARXML_VERSIONS` JSDoc for the parser-accept
+ * rationale.
+ *
+ * v1.12.0 PATCH D4 (M1) — corrected the "reference-equal alias" claim,
+ * which was inaccurate: `SUPPORTED_ARXML_VERSIONS` is hand-written.
+ * Adding or removing a version here updates `ArxmlVersion` and the
+ * direct-map Set automatically. To also add/remove it from the
+ * parser-accept set, update `SUPPORTED_ARXML_VERSIONS` manually. The
+ * pre-PATCH-A hand-synced pair (`SUPPORTED_ARXML_VERSIONS` +
+ * `version.ts ARXML_VERSIONS`) drifted in v1.8.5 (commit 8870566)
+ * when '4.0' was added to one but not the other, breaking R4.0 ECUC
+ * file parsing; the regression tests in `__tests__/types.test.ts`
+ * pin the subset invariant so the drift cannot recur.
  *
  * Keep entries in this order: dotted form first, then 5-digit literals.
  */
@@ -205,11 +217,12 @@ export type ParamEditMode =
   | 'multiline';
 
 /**
- * v1.11.4 PATCH-A — derived from `ARXML_DIRECT_MAP_VERSIONS` (the
- * canonical 13-item list above). This is the **parser-accept set**:
- * ARXML versions the parser will accept as input. It is a strict
- * subset of the direct-map set in version.ts (which also includes
- * 00005 / 00006).
+ * v1.12.0 PATCH D4 (M1) — explicitly NOT derived from
+ * `ARXML_DIRECT_MAP_VERSIONS`; it is a hand-written subset that
+ * excludes 00005 / 00006 (and 00047, which is also excluded from the
+ * canonical list above). This is the **parser-accept set**: ARXML
+ * versions the parser will accept as input. It is a strict subset of
+ * the 13-item direct-map set.
  *
  * Why exclude 00005 / 00006 from the parser-accept set: the parser
  * normalizes 5-digit r-form literals (`r4.0`, `r4.2`, ...) to dotted
@@ -220,10 +233,9 @@ export type ParamEditMode =
  * full 13-item set for the BSWMD→ARXML 1:1 direct-map.
  *
  * Adding a new version: add it to `ARXML_DIRECT_MAP_VERSIONS` (the
- * canonical list), then decide which of the two derived sets it
- * belongs to based on whether the parser can read it from real
- * ECUC files. The regression test in `__tests__/types.test.ts`
- * pins the subset invariant.
+ * canonical list), then manually add it here if the parser should
+ * accept it from real ECUC files. The regression test in
+ * `__tests__/types.test.ts` pins the subset invariant.
  */
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.0',

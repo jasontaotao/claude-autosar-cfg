@@ -1,36 +1,37 @@
 // AppHeader: slim top bar — EB tresos-style dropdown for low-frequency
-// project/file operations, toolbar buttons for high-frequency Save actions.
+// project/file operations, toolbar buttons for high-frequency Save
+// actions.
 //
-// Sprint 10 #2 changes:
-//   - Open flow now uses `openArxmlMulti` (multi-select dialog) and feeds
-//     each result through `addDocument` (was `setDoc`).
-//   - New "doc-tab strip" between the actions and the right-side stats
-//     shows every loaded document (basename) with the active one
-//     highlighted; click to switch, × to close.
-//   - The store now owns the loaded-document set (`documents[]` +
-//     `activeDocumentPath`); `doc` and `filePath` remain as back-compat
-//     derived aliases for the existing single-doc renderer consumers.
+// Sprint 13+ — historical features removed (kept as breadcrumbs so the
+// file header documents the evolution; the JSX at lines ~552 / ~752 /
+// ~798 carries the matching `Sprint 13+ — removed` notes):
+//   - Sprint 10 #2 doc-tab strip (app-doc-tabs) + active-doc basename
+//     display (app-doc-name) + AUTOSAR-version chip (app-doc-version).
+//     Documents are now navigable via the LeftPanel "files" tab
+//     (FileListTab); `activeDocumentPath`, `documentPaths`,
+//     `setActiveDocument`, and `removeDocument` were dropped from this
+//     component as part of the removal.
+//   - Sprint 11 Phase 1 project handler bodies (New / Open Project /
+//     Save Project). Moved to `useProjectActions()` (Sprint 14+
+//     extraction); AppHeader routes clicks through that hook and just
+//     owns the project chip × close flow.
 //
-// Sprint 11 Phase 1 changes:
-//   - Three project buttons (New / Open Project / Save Project) join the
-//     existing Open / Save. The active project name is rendered as a
-//     chip between the logo and the actions (hidden in loose mode).
-//   - Project handlers call window.autosarApi.projectNew / projectOpen /
-//     projectSave; success flows through `useArxmlStore.openProject`.
-//   - Save Project writes only the manifest JSON. Per-doc ARXML saves
-//     continue to use the existing `saveArxml` flow (the doc's editor
-//     remains the source of truth for its on-disk content).
-//
-// Sprint 11 Phase 1 (Option A) i18n changes:
-//   - Every user-facing string is rendered through t(locale, key).
-//   - A 中/EN toggle in the header switches `store.locale`; all
-//     t()-consuming components re-render.
+// Current responsibilities:
+//   - EB tresos-style dropdown for low-frequency actions (New / Open
+//     Project / Open ARXML / ECUC Module Selection).
+//   - Toolbar buttons for high-frequency Save actions (Save Project /
+//     Save ARXML / Save All — Sprint 16b T7) and the ScriptPanel
+//     toggle (right section, Phase C / T14).
+//   - Project chip with × close on the right section.
+//   - i18n via `t(locale, key)`; a 中/EN toggle in the header switches
+//     `store.locale`.
+//   - App version display on the far right (PATCH-B + v1.12.0 D3
+//     fallback chain: undefined API → 'dev'; missing method → '?';
+//     rejected IPC → '?').
 //
 // Menu redesign (EB tresos style):
-//   - Low-frequency actions (New Project / Open Project / Open ARXML)
-//     moved into a hover-to-open dropdown menu.
-//   - High-frequency actions (Save Project / Save ARXML) remain as
-//     toolbar buttons.
+//   - Low-frequency actions moved into a hover-to-open dropdown menu.
+//   - High-frequency actions remain as toolbar buttons.
 //   - Project chip moved to the right section.
 
 import { useCallback, useEffect, useRef, useState } from 'react';

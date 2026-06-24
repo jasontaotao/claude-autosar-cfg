@@ -676,6 +676,15 @@ describe('AppHeader (v1.11.4 PATCH-B — headless E2E fallback)', () => {
   beforeEach(() => {
     useArxmlStore.getState().clear();
     useArxmlStore.getState().setLocale('en');
+    // v1.12.0 PATCH D4 (M3) — explicit `window.autosarApi` reset to
+    // match the Save All describe (line 261) and the close-project
+    // describe. Without this, the PATCH-B tests rely on per-test
+    // setup; a leaked mock from a prior describe could silently
+    // mask the fallback being tested (e.g. a `getAppVersion` that
+    // resolves with a default mock would never reach the `.catch`
+    // branch added in D3).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = makeWindowApi();
   });
 
   it('renders vdev when window.autosarApi is undefined (headless E2E harness case)', async () => {
