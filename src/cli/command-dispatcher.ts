@@ -36,9 +36,7 @@ import { validateHeadlessProject } from './handlers/validate.js';
  * sub-command. Existing call sites passing `ParsedArgs` still compile
  * because `ParsedArgs` is a structural subset.
  */
-export type DispatchArgs =
-  | ParsedArgs
-  | { readonly kind: 'generate'; readonly input: GenerateArgs };
+export type DispatchArgs = ParsedArgs | { readonly kind: 'generate'; readonly input: GenerateArgs };
 
 /** Thrown by handlers to short-circuit with a structured failure. */
 export class HeadlessFailureError extends Error {

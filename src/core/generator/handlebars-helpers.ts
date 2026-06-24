@@ -106,9 +106,7 @@ export function cValue(value: unknown, def: BswmdParamDef): string {
     case 'boolean':
       return value ? '1' : '0';
     case 'string': {
-      const escaped = String(value)
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
+      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       return `"${escaped}"`;
     }
     case 'float':
@@ -145,16 +143,14 @@ export function paramConfigClass(
   def: HasParamConfigClasses,
   variant: GenerationVariant,
 ): ConfigClass {
-  const match = def.paramConfigClasses.find(p => p.configVariant === variant);
+  const match = def.paramConfigClasses.find((p) => p.configVariant === variant);
   if (!match) {
     throw new Error(`no configClass for variant=${variant}`);
   }
   return match.configClass;
 }
 
-export function bswmdPathOf(instance: {
-  readonly path: readonly string[];
-}): string {
+export function bswmdPathOf(instance: { readonly path: readonly string[] }): string {
   return instance.path.join('/');
 }
 

@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import {
-  emitConstDecl,
-  emitExternDecl,
-  emitLoaderEntry,
-} from '../emit/strategy.js';
+import { emitConstDecl, emitExternDecl, emitLoaderEntry } from '../emit/strategy.js';
 import { cType, cValue } from '../handlebars-helpers.js';
 
 const intDef = { kind: 'integer', min: 0, max: 255 } as const;

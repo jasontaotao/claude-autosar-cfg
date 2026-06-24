@@ -15,10 +15,7 @@
 //   validation lives in `validateReferences` (emit/reference.ts) and is
 //   invoked by the pipeline; this step only assembles the edges.
 
-import type {
-  ReferenceEdge,
-  NormalizedConfigTree,
-} from './emit/reference.js';
+import type { ReferenceEdge, NormalizedConfigTree } from './emit/reference.js';
 
 export interface BswmdModuleDefLite {
   readonly shortName: string;

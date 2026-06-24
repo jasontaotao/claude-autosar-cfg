@@ -34,33 +34,23 @@ describe('cIdent', () => {
 
 describe('cType', () => {
   it('maps EcucIntegerParamDef min=0 max=255 to uint8', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 255 }),
-    ).toBe('uint8');
+    expect(cType({ kind: 'integer', min: 0, max: 255 })).toBe('uint8');
   });
 
   it('maps min=-128 max=127 to sint8', () => {
-    expect(
-      cType({ kind: 'integer', min: -128, max: 127 }),
-    ).toBe('sint8');
+    expect(cType({ kind: 'integer', min: -128, max: 127 })).toBe('sint8');
   });
 
   it('maps min=0 max=65535 to uint16', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 65535 }),
-    ).toBe('uint16');
+    expect(cType({ kind: 'integer', min: 0, max: 65535 })).toBe('uint16');
   });
 
   it('maps min=0 max=4294967295 to uint32', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 4294967295 }),
-    ).toBe('uint32');
+    expect(cType({ kind: 'integer', min: 0, max: 4294967295 })).toBe('uint32');
   });
 
   it('maps larger range to uint64', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 4294967296 }),
-    ).toBe('uint64');
+    expect(cType({ kind: 'integer', min: 0, max: 4294967296 })).toBe('uint64');
   });
 
   it('maps EcucBooleanParamDef to uint8', () => {
@@ -114,32 +104,21 @@ describe('paramConfigClass', () => {
   };
 
   it('returns the matching configClass for active variant', () => {
-    expect(
-      paramConfigClass(defWithPair, 'PreCompile' as GenerationVariant),
-    ).toBe('PreCompile');
-    expect(
-      paramConfigClass(defWithPair, 'Link' as GenerationVariant),
-    ).toBe('Link');
-    expect(
-      paramConfigClass(defWithPair, 'PostBuild' as GenerationVariant),
-    ).toBe('PostBuild');
+    expect(paramConfigClass(defWithPair, 'PreCompile' as GenerationVariant)).toBe('PreCompile');
+    expect(paramConfigClass(defWithPair, 'Link' as GenerationVariant)).toBe('Link');
+    expect(paramConfigClass(defWithPair, 'PostBuild' as GenerationVariant)).toBe('PostBuild');
   });
 
   it('throws when no pair exists for the active variant', () => {
     expect(() =>
-      paramConfigClass(
-        { paramConfigClasses: [] },
-        'PreCompile' as GenerationVariant,
-      ),
+      paramConfigClass({ paramConfigClasses: [] }, 'PreCompile' as GenerationVariant),
     ).toThrow(/no configClass/);
   });
 });
 
 describe('bswmdPathOf', () => {
   it('joins instance path with slashes', () => {
-    expect(bswmdPathOf({ path: ['Mcu', 'Clock', 'Divider'] })).toBe(
-      'Mcu/Clock/Divider',
-    );
+    expect(bswmdPathOf({ path: ['Mcu', 'Clock', 'Divider'] })).toBe('Mcu/Clock/Divider');
   });
 
   it('returns empty string for empty path', () => {

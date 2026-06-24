@@ -23,7 +23,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Handlebars from 'handlebars';
+
+import type Handlebars from 'handlebars';
 
 import { createEngine } from '../handlebars.js';
 import {
@@ -88,7 +89,14 @@ function pbcfgTpl(): Handlebars.TemplateDelegate {
 // ---------------------------------------------------------------------------
 
 interface EcuCParamDefLike {
-  readonly kind: 'integer' | 'boolean' | 'string' | 'float' | 'enumeration' | 'reference' | 'function-name';
+  readonly kind:
+    | 'integer'
+    | 'boolean'
+    | 'string'
+    | 'float'
+    | 'enumeration'
+    | 'reference'
+    | 'function-name';
   readonly min?: number;
   readonly max?: number;
   readonly typeName?: string;
@@ -143,9 +151,7 @@ function renderCValue(value: unknown, kind: EcuCParamDefLike['kind']): string {
     case 'boolean':
       return value ? '1u' : '0u';
     case 'string': {
-      const escaped = String(value)
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
+      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       return `"${escaped}"`;
     }
     case 'float':
@@ -210,12 +216,7 @@ function emitConstDecl(ident: string, cType: string, init: string): string {
  * Build a PostBuild loader-entry stub. Two-line: `static ...` + a
  * placeholder `*(uint8*)baseAddr+offset = value;` line.
  */
-function emitLoaderEntry(
-  ident: string,
-  cType: string,
-  value: unknown,
-  offset: number,
-): string {
+function emitLoaderEntry(ident: string, cType: string, value: unknown, offset: number): string {
   return [
     `static ${cType} ${ident};`,
     `*(uint8*)((uintptr_t)baseAddr + 0x${offset.toString(16).padStart(2, '0')}u) = ${renderCValue(value, 'integer')};`,
@@ -229,11 +230,7 @@ function emitLoaderEntry(
 export class EcuCGenerator implements ModuleGenerator {
   readonly moduleShortName = 'EcuC';
 
-  emit(
-    def: unknown,
-    values: unknown,
-    ctx: GenerationContext,
-  ): readonly GeneratedArtifact[] {
+  emit(def: unknown, values: unknown, ctx: GenerationContext): readonly GeneratedArtifact[] {
     if (!def) {
       throw new Error('EcuCGenerator.emit: undefined module def');
     }
@@ -283,14 +280,12 @@ export class EcuCGenerator implements ModuleGenerator {
     // bucket (signaled by `ecucValuesMixed`) → emit a loader-entry stub
     // regardless of ctx.variant. This keeps Task 16 happy-path narrow
     // while exercising the PBcfg.c branch.
-    const pbValues = (eVals.parameters ?? []).filter(p => isPostBuild(p.path));
+    const pbValues = (eVals.parameters ?? []).filter((p) => isPostBuild(p.path));
     if (pbValues.length > 0) {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind });
         const ident = paramIdent(p.path);
-        postBuildDecls.push(
-          emitLoaderEntry(ident, cType, p.value, postBuildOffset),
-        );
+        postBuildDecls.push(emitLoaderEntry(ident, cType, p.value, postBuildOffset));
         postBuildOffset += 1;
       }
     }
@@ -299,7 +294,10 @@ export class EcuCGenerator implements ModuleGenerator {
       moduleShortName: eDef.shortName,
       generatorVersion: GENERATOR_VERSION,
       includes: [] as readonly string[],
-      typedefs: [] as readonly { name: string; fields: readonly { cType: string; name: string }[] }[],
+      typedefs: [] as readonly {
+        name: string;
+        fields: readonly { cType: string; name: string }[];
+      }[],
       externDecls: linkDecls,
       referenceDecls: [] as readonly string[],
     });

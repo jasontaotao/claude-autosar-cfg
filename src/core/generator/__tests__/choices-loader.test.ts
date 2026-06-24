@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { loadChoiceMacros } from '../choices-loader.js';
 
 describe('loadChoiceMacros', () => {

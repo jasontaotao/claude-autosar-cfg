@@ -10,8 +10,6 @@ const BUILTIN: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   },
 };
 
-export function loadChoiceMacros(
-  moduleShortName: string,
-): Readonly<Record<string, string>> {
+export function loadChoiceMacros(moduleShortName: string): Readonly<Record<string, string>> {
   return BUILTIN[moduleShortName] ?? {};
 }

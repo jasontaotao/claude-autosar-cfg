@@ -12,6 +12,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import type { Diagnostic } from '../diagnostics.js';
 import { EcuCGenerator } from '../modules/ecuc.js';
 import {
   _resetRegistryForTest,
@@ -19,7 +20,7 @@ import {
   getGenerator,
   type GenerationContext,
 } from '../registry.js';
-import type { Diagnostic } from '../diagnostics.js';
+
 import {
   ecucDef,
   ecucValuesPreCompile,
@@ -58,7 +59,7 @@ describe('EcuCGenerator', () => {
       ecucValuesPreCompile as unknown as EcucModuleConfigurationValues,
       makeCtx('PreCompile'),
     );
-    const paths = out.map(a => a.path).sort();
+    const paths = out.map((a) => a.path).sort();
     expect(paths).toEqual(['EcuC/EcuC_Cfg.c', 'EcuC/EcuC_Cfg.h']);
   });
 
@@ -72,12 +73,8 @@ describe('EcuCGenerator', () => {
       ecucValuesMixed as unknown as EcucModuleConfigurationValues,
       makeCtx('PreCompile'),
     );
-    const paths = out.map(a => a.path).sort();
-    expect(paths).toEqual([
-      'EcuC/EcuC_Cfg.c',
-      'EcuC/EcuC_Cfg.h',
-      'EcuC/EcuC_PBcfg.c',
-    ]);
+    const paths = out.map((a) => a.path).sort();
+    expect(paths).toEqual(['EcuC/EcuC_Cfg.c', 'EcuC/EcuC_Cfg.h', 'EcuC/EcuC_PBcfg.c']);
   });
 
   it('throws on undefined module def (sanity)', () => {

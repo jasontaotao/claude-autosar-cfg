@@ -22,6 +22,7 @@
 
 import { describe, it, test, expect, beforeEach } from 'vitest';
 
+import { DiagnosticSeverity, DiagnosticCode, type DiagnosticCodeValue } from '../diagnostics.js';
 import { runPipeline } from '../pipeline.js';
 import {
   registerGenerator,
@@ -29,11 +30,6 @@ import {
   type ModuleGenerator,
   type GeneratedArtifact,
 } from '../registry.js';
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type DiagnosticCodeValue,
-} from '../diagnostics.js';
 
 class StubGen implements ModuleGenerator {
   readonly moduleShortName = 'Stub';
@@ -55,17 +51,14 @@ beforeEach(() => {
  * pulling a shared builder into `test-fixtures/` would obscure the
  * pre-process/emit boundary that each test is pinning.
  */
-async function runAndFind(
-  args: Parameters<typeof runPipeline>[0],
-  code: DiagnosticCodeValue,
-) {
+async function runAndFind(args: Parameters<typeof runPipeline>[0], code: DiagnosticCodeValue) {
   const result = await runPipeline(args);
   const diag = result.diagnostics.find((d) => d.code === code);
   if (!diag) {
     throw new Error(
-      `Expected diagnostic ${code} not emitted. Got: ${result.diagnostics
-        .map((d) => `${d.severity}:${d.code}`)
-        .join(', ') || '(none)'}`,
+      `Expected diagnostic ${code} not emitted. Got: ${
+        result.diagnostics.map((d) => `${d.severity}:${d.code}`).join(', ') || '(none)'
+      }`,
     );
   }
   return { result, diag };

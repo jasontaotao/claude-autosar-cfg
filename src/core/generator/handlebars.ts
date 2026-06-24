@@ -20,20 +20,13 @@ export function createEngine(): typeof Handlebars {
   const engine = Handlebars.create();
   engine.registerHelper('cIdent', (path: unknown) => cIdent(String(path ?? '')));
   engine.registerHelper('cType', (def: unknown) => cType(def as never));
-  engine.registerHelper('cValue', (value: unknown, def: unknown) =>
-    cValue(value, def as never),
-  );
+  engine.registerHelper('cValue', (value: unknown, def: unknown) => cValue(value, def as never));
   engine.registerHelper('paramConfigClass', (def: unknown, variant: unknown) =>
-    paramConfigClass(
-      def as HasParamConfigClasses,
-      variant as GenerationVariant,
-    ),
+    paramConfigClass(def as HasParamConfigClasses, variant as GenerationVariant),
   );
   engine.registerHelper('bswmdPathOf', (inst: unknown) =>
     bswmdPathOf(inst as { readonly path: readonly string[] }),
   );
-  engine.registerHelper('partitionName', (name: unknown) =>
-    partitionName(String(name ?? '')),
-  );
+  engine.registerHelper('partitionName', (name: unknown) => partitionName(String(name ?? '')));
   return engine;
 }

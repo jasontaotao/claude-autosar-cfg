@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  sortByIndex,
-  emitContainerDecl,
-  type ContainerInstance,
-} from '../emit/container.js';
+
+import { sortByIndex, emitContainerDecl, type ContainerInstance } from '../emit/container.js';
 import type { BswmdParamDef } from '../handlebars-helpers.js';
 
 describe('sortByIndex', () => {
@@ -14,17 +11,13 @@ describe('sortByIndex', () => {
       { shortName: 'c', index: 3 },
     ];
     const sorted = sortByIndex(insts);
-    expect(sorted.map(i => i.shortName)).toEqual(['a', 'b', 'c']);
+    expect(sorted.map((i) => i.shortName)).toEqual(['a', 'b', 'c']);
   });
 
   it('falls back to shortName lexical when INDEX absent', () => {
-    const insts: ContainerInstance[] = [
-      { shortName: 'b' },
-      { shortName: 'a' },
-      { shortName: 'c' },
-    ];
+    const insts: ContainerInstance[] = [{ shortName: 'b' }, { shortName: 'a' }, { shortName: 'c' }];
     const sorted = sortByIndex(insts);
-    expect(sorted.map(i => i.shortName)).toEqual(['a', 'b', 'c']);
+    expect(sorted.map((i) => i.shortName)).toEqual(['a', 'b', 'c']);
   });
 
   it('handles mixed INDEX/no-INDEX: indexed first, then lexical', () => {
@@ -36,7 +29,7 @@ describe('sortByIndex', () => {
     ];
     const sorted = sortByIndex(insts);
     // indexed-1, indexed-2 (by index), then no-index-1, no-index-2 (by shortName)
-    expect(sorted.map(i => i.shortName)).toEqual([
+    expect(sorted.map((i) => i.shortName)).toEqual([
       'indexed-1',
       'indexed-2',
       'no-index-1',

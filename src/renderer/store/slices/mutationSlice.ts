@@ -519,9 +519,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     if (state.doc === null) return;
     const moduleEl = findByPath(state.doc, modulePath);
     if (moduleEl === null || moduleEl.element.kind !== 'module') {
-      get().setError(
-        t(state.locale, 'mutation.error.module-not-found', { path: modulePath }),
-      );
+      get().setError(t(state.locale, 'mutation.error.module-not-found', { path: modulePath }));
       return;
     }
     const wasSourceBacked = state.doc.sourceBswmdPath !== undefined;
@@ -531,9 +529,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     // reference when the target is already gone. Only commit a
     // mutation + toast when the call actually changed the doc.
     if (nextDoc === state.doc) {
-      get().setError(
-        t(state.locale, 'mutation.error.module-not-found', { path: modulePath }),
-      );
+      get().setError(t(state.locale, 'mutation.error.module-not-found', { path: modulePath }));
       return;
     }
     // Clear the BSWMD link when the doc was source-backed so the
@@ -583,9 +579,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     get().setInfo(
       t(
         state.locale,
-        wasSourceBacked
-          ? 'mutation.info.ecucModuleUnlinked'
-          : 'mutation.info.ecucModuleDeleted',
+        wasSourceBacked ? 'mutation.info.ecucModuleUnlinked' : 'mutation.info.ecucModuleDeleted',
         { name: moduleShortName },
       ),
     );

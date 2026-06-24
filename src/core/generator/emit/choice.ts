@@ -14,11 +14,7 @@ export function emitChoiceBranch(input: ChoiceBranchInput): string {
   if (input.elseBranch === null) {
     return `#ifndef ${input.macroName}\n${input.ifBranch}\n#endif`;
   }
-  return [
-    `#ifdef ${input.macroName}`,
-    input.ifBranch,
-    '#else',
-    input.elseBranch,
-    '#endif',
-  ].join('\n');
+  return [`#ifdef ${input.macroName}`, input.ifBranch, '#else', input.elseBranch, '#endif'].join(
+    '\n',
+  );
 }

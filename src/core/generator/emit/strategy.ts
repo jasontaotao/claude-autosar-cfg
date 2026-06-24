@@ -28,7 +28,7 @@ export function emitConstDecl(input: ConstDeclInput): string {
     return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident} = ${input.cValue};`;
   }
   const arr = input.value as readonly unknown[];
-  const lit = arr.map(v => String(v)).join(', ');
+  const lit = arr.map((v) => String(v)).join(', ');
   return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident}[${arr.length}] = { ${lit} };`;
 }
 

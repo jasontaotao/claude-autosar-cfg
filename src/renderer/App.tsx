@@ -326,7 +326,6 @@ export function App(): JSX.Element {
   // — see Sprint A backlog).
   const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
   const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
-  const deleteEcucModuleAction = useArxmlStore((s) => s.deleteEcucModule);
   const setInfo = useArxmlStore((s) => s.setInfo);
   // Sprint 17 P3 T3.3 — host-side routing for the new
   // `'remove-module'` action. We pull the unified BSWMD-remove
@@ -383,7 +382,14 @@ export function App(): JSX.Element {
         }
       }
     },
-    [openBswmdPicker, deleteContainerAction, setInfo, locale, removeBswmdWithFullFlow, deleteEcucModuleWithFullFlow],
+    [
+      openBswmdPicker,
+      deleteContainerAction,
+      setInfo,
+      locale,
+      removeBswmdWithFullFlow,
+      deleteEcucModuleWithFullFlow,
+    ],
   );
 
   // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns

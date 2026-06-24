@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
+import { DiagnosticSeverity, DiagnosticCode } from '../diagnostics.js';
 import { runPipeline } from '../pipeline.js';
 import {
   registerGenerator,
@@ -6,7 +8,6 @@ import {
   type ModuleGenerator,
   type GeneratedArtifact,
 } from '../registry.js';
-import { DiagnosticSeverity, DiagnosticCode } from '../diagnostics.js';
 
 class StubGen implements ModuleGenerator {
   readonly moduleShortName = 'Stub';
@@ -46,9 +47,7 @@ describe('runPipeline', () => {
       strict: false,
     });
     expect(result.exitCode).toBe(0);
-    const warn = result.diagnostics.find(
-      d => d.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR,
-    );
+    const warn = result.diagnostics.find((d) => d.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR);
     expect(warn).toBeDefined();
     expect(warn!.severity).toBe(DiagnosticSeverity.WARNING);
   });
@@ -56,7 +55,9 @@ describe('runPipeline', () => {
   it('returns exitCode=1 with ERROR for generator throw', async () => {
     class ThrowGen implements ModuleGenerator {
       readonly moduleShortName = 'Stub';
-      emit(): readonly GeneratedArtifact[] { throw new Error('boom'); }
+      emit(): readonly GeneratedArtifact[] {
+        throw new Error('boom');
+      }
     }
     _resetRegistryForTest();
     registerGenerator(new ThrowGen());
@@ -69,9 +70,7 @@ describe('runPipeline', () => {
       strict: false,
     });
     expect(result.exitCode).toBe(1);
-    const err = result.diagnostics.find(
-      d => d.code === DiagnosticCode.ECUC_GEN_THROW,
-    );
+    const err = result.diagnostics.find((d) => d.code === DiagnosticCode.ECUC_GEN_THROW);
     expect(err).toBeDefined();
     expect(err!.severity).toBe(DiagnosticSeverity.ERROR);
   });
@@ -92,11 +91,15 @@ describe('runPipeline', () => {
   it('honors moduleFilter: only runs specified modules', async () => {
     class AGen implements ModuleGenerator {
       readonly moduleShortName = 'A';
-      emit(): readonly GeneratedArtifact[] { return [{ path: 'A/a.c', content: '' }]; }
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'A/a.c', content: '' }];
+      }
     }
     class BGen implements ModuleGenerator {
       readonly moduleShortName = 'B';
-      emit(): readonly GeneratedArtifact[] { return [{ path: 'B/b.c', content: '' }]; }
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'B/b.c', content: '' }];
+      }
     }
     _resetRegistryForTest();
     registerGenerator(new AGen());
@@ -106,7 +109,10 @@ describe('runPipeline', () => {
         ['A', { shortName: 'A' }],
         ['B', { shortName: 'B' }],
       ]),
-      ecucValues: new Map([['A', {}], ['B', {}]]),
+      ecucValues: new Map([
+        ['A', {}],
+        ['B', {}],
+      ]),
       variant: 'PreCompile',
       outDir: '/tmp/out',
       moduleFilter: ['A'],

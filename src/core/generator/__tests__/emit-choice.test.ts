@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { emitChoiceBranch } from '../emit/choice.js';
 
 describe('emitChoiceBranch', () => {
@@ -25,8 +26,6 @@ describe('emitChoiceBranch', () => {
       ifBranch: 'uint8 EcuC_Flag = 1;',
       elseBranch: null,
     });
-    expect(s).toBe(
-      ['#ifndef EcuC_USE_OPTIONAL', 'uint8 EcuC_Flag = 1;', '#endif'].join('\n'),
-    );
+    expect(s).toBe(['#ifndef EcuC_USE_OPTIONAL', 'uint8 EcuC_Flag = 1;', '#endif'].join('\n'));
   });
 });

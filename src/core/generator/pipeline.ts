@@ -22,18 +22,14 @@
 // undefined, every module in the BSWMD index runs. When defined, only
 // modules whose short name is in the list are processed.
 
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from './diagnostics.js';
-import { getGenerator, type GenerationVariant } from './registry.js';
+import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
 import { validateReferences } from './emit/reference.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
   type EcucModuleConfigurationValuesInput,
 } from './normalize.js';
+import { getGenerator, type GenerationVariant } from './registry.js';
 
 export interface PipelineArgs {
   readonly bswmdIndex: ReadonlyMap<string, BswmdModuleDefLite>;
@@ -60,7 +56,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // Stage 2 — Generate
   const artifacts = new Map<string, string>();
   const moduleNames = args.moduleFilter
-    ? [...args.bswmdIndex.keys()].filter(m => args.moduleFilter!.includes(m))
+    ? [...args.bswmdIndex.keys()].filter((m) => args.moduleFilter!.includes(m))
     : [...args.bswmdIndex.keys()];
 
   for (const moduleShortName of moduleNames) {
@@ -85,35 +81,27 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       continue;
     }
     try {
-      const out = generator.emit(
-        def,
-        tree.valuesByModule.get(moduleShortName),
-        {
-          variant: args.variant,
-          bswmdIndex: tree.bswmdIndex,
-          implByModule: tree.implByModule,
-          outDir: args.outDir,
-          diagnostics,
-        },
-      );
+      const out = generator.emit(def, tree.valuesByModule.get(moduleShortName), {
+        variant: args.variant,
+        bswmdIndex: tree.bswmdIndex,
+        implByModule: tree.implByModule,
+        outDir: args.outDir,
+        diagnostics,
+      });
       for (const a of out) artifacts.set(a.path, a.content);
     } catch (e) {
       diagnostics.push({
         severity: DiagnosticSeverity.ERROR,
         code: DiagnosticCode.ECUC_GEN_THROW,
         moduleShortName,
-        message: e instanceof Error ? e.stack ?? e.message : String(e),
+        message: e instanceof Error ? (e.stack ?? e.message) : String(e),
       });
     }
   }
 
   // Stage 3 — Exit-code derivation
-  const hasError = diagnostics.some(
-    d => d.severity === DiagnosticSeverity.ERROR,
-  );
-  const hasWarning = diagnostics.some(
-    d => d.severity === DiagnosticSeverity.WARNING,
-  );
+  const hasError = diagnostics.some((d) => d.severity === DiagnosticSeverity.ERROR);
+  const hasWarning = diagnostics.some((d) => d.severity === DiagnosticSeverity.WARNING);
   let exitCode: 0 | 1 | 2;
   if (hasError) exitCode = 1;
   else if (hasWarning && args.strict) exitCode = 1;

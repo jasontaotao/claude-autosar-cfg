@@ -152,9 +152,7 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     // Assert — toast emitted (zh-CN "已删除" / en "Deleted")
     const toast = useArxmlStore.getState().toast;
     expect(toast).not.toBeNull();
-    expect(
-      toast!.message.match(/已删除 ECUC 模块|Deleted ECUC module|Adc/),
-    ).not.toBeNull();
+    expect(toast!.message.match(/已删除 ECUC 模块|Deleted ECUC module|Adc/)).not.toBeNull();
   });
 
   it('no-ops with error toast when the path does not match any module', () => {
@@ -216,9 +214,7 @@ describe('useArxmlStore.deleteEcucModule — HIGH-1 bswmdSchemas threading (v1.9
     };
     useArxmlStore.getState().addDocument(doc, doc.path);
     const expectedSchemas = [
-      makeBswmd(
-        makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam'),
-      ),
+      makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam')),
     ];
     useArxmlStore.setState({
       bswmdSchemas: expectedSchemas,

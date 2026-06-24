@@ -9,16 +9,16 @@
 // on the full `openProject` IPC pipeline — the brief explicitly says the
 // MVP handler does the parsing inline (mirror of `workspace-111` test).
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { generateHeadlessProject } from '../../handlers/generate.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+
+import type { BswmdModuleDefLite , EcucModuleConfigurationValuesInput } from '../../../core/generator/normalize.js';
 import { _resetRegistryForTest } from '../../../core/generator/registry.js';
-import type { BswmdModuleDefLite } from '../../../core/generator/normalize.js';
-import type { EcucModuleConfigurationValuesInput } from '../../../core/generator/normalize.js';
 import type { GenerateArgs } from '../../../shared/headless/ipc-contract.js';
+import { generateHeadlessProject } from '../../handlers/generate.js';
 
 /**
  * Test-only extension of the public `GenerateArgs` schema. The handler

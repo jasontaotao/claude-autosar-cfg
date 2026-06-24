@@ -10,14 +10,12 @@ export interface ContainerInstance {
  * Deterministic ordering: indexed first (by INDEX asc), then unindexed
  * (by shortName lexical asc). Stable for snapshot diffs.
  */
-export function sortByIndex<T extends ContainerInstance>(
-  instances: readonly T[],
-): readonly T[] {
+export function sortByIndex<T extends ContainerInstance>(instances: readonly T[]): readonly T[] {
   const indexed = instances
-    .filter(i => i.index !== undefined)
-    .sort((a, b) => (a.index! - b.index!));
+    .filter((i) => i.index !== undefined)
+    .sort((a, b) => a.index! - b.index!);
   const unindexed = instances
-    .filter(i => i.index === undefined)
+    .filter((i) => i.index === undefined)
     .sort((a, b) => a.shortName.localeCompare(b.shortName));
   return [...indexed, ...unindexed];
 }
@@ -33,8 +31,6 @@ export function emitContainerDecl(input: ContainerDeclInput): string {
   const fieldBase = input.typeName.endsWith('Type')
     ? input.typeName.slice(0, -'Type'.length)
     : input.typeName;
-  const fields = input.paramDefs
-    .map((def, i) => `    ${cType(def)} ${fieldBase}_${i};`)
-    .join('\n');
+  const fields = input.paramDefs.map((def, i) => `    ${cType(def)} ${fieldBase}_${i};`).join('\n');
   return `typedef struct {\n${fields}\n} ${input.typeName};`;
 }

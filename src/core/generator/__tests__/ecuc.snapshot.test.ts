@@ -28,13 +28,15 @@
 //   - The Refs-1 fixture's `references[]` is not consumed by the
 //     generator yet — its Cfg.c is byte-identical to PreCompile-1.
 
-import { describe, it, expect, test, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { describe, it, expect, test, beforeAll } from 'vitest';
+
 import { EcuCGenerator } from '../modules/ecuc.js';
 import { _resetRegistryForTest, registerGenerator, type GenerationContext } from '../registry.js';
+
 import {
   ecucDef,
   ecucValuesPreCompile,

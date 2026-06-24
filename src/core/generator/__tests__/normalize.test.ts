@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { normalizeToTree } from '../normalize.js';
 import type { BswmdModuleDefLite } from '../normalize.js';
 
@@ -25,10 +26,7 @@ const ecucValues: EcucInput = {
 
 describe('normalizeToTree', () => {
   it('builds a tree from BSWMD + ECUC values', () => {
-    const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef]]),
-      new Map([['EcuC', ecucValues]]),
-    );
+    const tree = normalizeToTree(new Map([['EcuC', ecucDef]]), new Map([['EcuC', ecucValues]]));
     expect(tree.bswmdIndex.get('EcuC')).toBe(ecucDef);
     expect(tree.valuesByModule.get('EcuC')).toBe(ecucValues);
     expect(tree.references).toEqual([]);
@@ -37,12 +35,13 @@ describe('normalizeToTree', () => {
   it('collects cross-module references', () => {
     const values: EcucInput = {
       ...ecucValues,
-      references: [
-        { path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' },
-      ],
+      references: [{ path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' }],
     };
     const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef], ['Mcu', { shortName: 'Mcu' }]]),
+      new Map([
+        ['EcuC', ecucDef],
+        ['Mcu', { shortName: 'Mcu' }],
+      ]),
       new Map([['EcuC', values]]),
     );
     expect(tree.references).toHaveLength(1);
@@ -52,14 +51,9 @@ describe('normalizeToTree', () => {
   it('warns when values reference an unloaded module', () => {
     const values: EcucInput = {
       ...ecucValues,
-      references: [
-        { path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' },
-      ],
+      references: [{ path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' }],
     };
-    const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef]]),
-      new Map([['EcuC', values]]),
-    );
+    const tree = normalizeToTree(new Map([['EcuC', ecucDef]]), new Map([['EcuC', values]]));
     // Reference still recorded (target existence check happens in validateReferences)
     expect(tree.references).toHaveLength(1);
   });

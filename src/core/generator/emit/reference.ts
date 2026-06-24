@@ -5,11 +5,7 @@
 // and by EcuC emit (Task 11/16) to render `<CONST(T * const)> x = &y;`
 // pointer declarations.
 
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from '../diagnostics.js';
+import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from '../diagnostics.js';
 
 export interface ReferenceEdge {
   readonly sourceModule: string;
@@ -29,9 +25,7 @@ export interface NormalizedConfigTree {
  * Validate that every cross-module reference resolves to an existing
  * target. Returns diagnostics; pushed to ctx.diagnostics by the caller.
  */
-export function validateReferences(
-  tree: NormalizedConfigTree,
-): readonly Diagnostic[] {
+export function validateReferences(tree: NormalizedConfigTree): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const ref of tree.references) {
     const targetMod = tree.valuesByModule.get(ref.targetModule);

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+
 import {
   registerGenerator,
   getGenerator,
@@ -35,8 +36,6 @@ describe('registerGenerator / getGenerator', () => {
 
   it('throws when registering duplicate shortName', () => {
     registerGenerator(new StubGen('Dup'));
-    expect(() => registerGenerator(new StubGen('Dup'))).toThrow(
-      /already registered/,
-    );
+    expect(() => registerGenerator(new StubGen('Dup'))).toThrow(/already registered/);
   });
 });

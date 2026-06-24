@@ -17,11 +17,7 @@ export interface GeneratedArtifact {
 
 export interface ModuleGenerator {
   readonly moduleShortName: string;
-  emit(
-    def: unknown,
-    values: unknown,
-    ctx: GenerationContext,
-  ): readonly GeneratedArtifact[];
+  emit(def: unknown, values: unknown, ctx: GenerationContext): readonly GeneratedArtifact[];
 }
 
 const generators = new Map<string, ModuleGenerator>();

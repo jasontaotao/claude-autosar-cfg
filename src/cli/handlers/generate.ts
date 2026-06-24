@@ -23,19 +23,18 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import { runPipeline } from '../../core/generator/pipeline.js';
-import { writeOutputTree } from '../../core/generator/post-process.js';
-import { registerGenerator, type GenerationVariant } from '../../core/generator/registry.js';
-import { EcuCGenerator } from '../../core/generator/modules/ecuc.js';
-import { parseBswmd } from '../../core/project/bswmd.js';
-import { loadManifest } from '../../core/project/manifest.js';
 import { parseArxml } from '../../core/arxml/parser.js';
-import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import type { DiagnosticSeverityValue } from '../../core/generator/diagnostics.js';
+import { EcuCGenerator } from '../../core/generator/modules/ecuc.js';
 import type {
   BswmdModuleDefLite,
   EcucModuleConfigurationValuesInput,
 } from '../../core/generator/normalize.js';
+import { runPipeline } from '../../core/generator/pipeline.js';
+import { writeOutputTree } from '../../core/generator/post-process.js';
+import { registerGenerator, type GenerationVariant } from '../../core/generator/registry.js';
+import { parseBswmd } from '../../core/project/bswmd.js';
+import { loadManifest } from '../../core/project/manifest.js';
 import type {
   GenerateArgs,
   GenerateResult,
@@ -43,6 +42,7 @@ import type {
   HeadlessError,
   ValidatorResult,
 } from '../../shared/headless/ipc-contract.js';
+import { fromArxmlDocument } from '../../shared/normalized-document.js';
 import { failWith } from '../command-dispatcher.js';
 
 /**
@@ -163,7 +163,7 @@ async function loadProjectMaps(
     const message = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      error: { kind: 'file-not-found', path: projectPath, message },
+      error: { kind: 'file-not-found', path: projectPath },
       stderr: [`[autosarcfg] cannot read manifest: ${message}`],
     };
   }
