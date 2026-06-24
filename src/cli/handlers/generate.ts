@@ -25,10 +25,7 @@ import { join, resolve } from 'node:path';
 
 import { runPipeline } from '../../core/generator/pipeline.js';
 import { writeOutputTree } from '../../core/generator/post-process.js';
-import {
-  registerGenerator,
-  type GenerationVariant,
-} from '../../core/generator/registry.js';
+import { registerGenerator, type GenerationVariant } from '../../core/generator/registry.js';
 import { EcuCGenerator } from '../../core/generator/modules/ecuc.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest } from '../../core/project/manifest.js';
@@ -166,7 +163,7 @@ async function loadProjectMaps(
     const message = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      error: { kind: 'file-not-found', path: projectPath, ...({} as { readonly message?: string }) },
+      error: { kind: 'file-not-found', path: projectPath, message },
       stderr: [`[autosarcfg] cannot read manifest: ${message}`],
     };
   }

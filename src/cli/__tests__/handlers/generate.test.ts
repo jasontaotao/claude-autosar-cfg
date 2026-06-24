@@ -18,6 +18,33 @@ import { generateHeadlessProject } from '../../handlers/generate.js';
 import { _resetRegistryForTest } from '../../../core/generator/registry.js';
 import type { BswmdModuleDefLite } from '../../../core/generator/normalize.js';
 import type { EcucModuleConfigurationValuesInput } from '../../../core/generator/normalize.js';
+import type { GenerateArgs } from '../../../shared/headless/ipc-contract.js';
+
+/**
+ * Test-only extension of the public `GenerateArgs` schema. The handler
+ * accepts underscore-prefixed escape hatches to bypass the fs-based
+ * project loader; that surface is not part of the wire contract, so
+ * tests add it via an intersection rather than `as unknown` casts.
+ */
+type GenerateArgsForTest = GenerateArgs & {
+  readonly _bswmdIndex?: ReadonlyMap<string, BswmdModuleDefLite>;
+  readonly _ecucValues?: ReadonlyMap<string, EcucModuleConfigurationValuesInput>;
+};
+
+/**
+ * Test fixture shape for the BSWMD module def. The wire-facing
+ * `BswmdModuleDefLite` is intentionally a one-field opaque handle; the
+ * runtime pipeline widens it via `ReadonlyMap<string, unknown>` and the
+ * generators walk `containers` directly. The richer shape below
+ * captures the minimal in-memory fixture needed by EcuCGenerator.
+ */
+interface BswmdContainerDefFixture {
+  readonly shortName: string;
+  readonly parameters: readonly { readonly kind: string }[];
+}
+interface BswmdModuleDefFixture extends BswmdModuleDefLite {
+  readonly containers: readonly BswmdContainerDefFixture[];
+}
 
 let projectDir: string;
 
@@ -48,29 +75,28 @@ describe('generateHeadlessProject', () => {
     // Seed inline BSWMD + BSWCFG that the loader helper will surface to the
     // pipeline. A bare `{ shortName: 'EcuC' }` def + empty values is enough
     // for EcuCGenerator to emit `EcuC/EcuC_Cfg.h` (the container header).
-    const bswmdIndex = new Map<string, BswmdModuleDefLite>([
-      // minimal def with one empty container so EcuCGenerator iterates cleanly.
-      // Cast to the lite type — the generator narrows at runtime via `containers`.
+    const bswmdIndex = new Map<string, BswmdModuleDefFixture>([
       [
         'EcuC',
         {
           shortName: 'EcuC',
           containers: [{ shortName: 'EcuCGeneral', parameters: [] }],
-        } as unknown as BswmdModuleDefLite,
+        },
       ],
     ]);
     const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
       ['EcuC', { parameters: [], references: [] }],
     ]);
 
-    const result = await generateHeadlessProject({
+    const args: GenerateArgsForTest = {
       command: 'generate',
       projectPath: projectDir,
       format: 'json',
       // Inject pre-loaded maps for the test — bypass fs-based loader.
       _bswmdIndex: bswmdIndex,
       _ecucValues: ecucValues,
-    } as Parameters<typeof generateHeadlessProject>[0]);
+    };
+    const result = await generateHeadlessProject(args);
 
     expect(result.ok).toBe(true);
     expect(result.command).toBe('generate');
