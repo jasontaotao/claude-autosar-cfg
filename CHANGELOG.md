@@ -5,6 +5,22 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] - 2026-06-24
+
+### Added
+
+- New `generate` sub-command in headless CLI: emits BSW configuration C source code (Cfg.c / Cfg.h / PBcfg.c) from ECUC values + BSWMD.
+  - MVP demo module: EcuC (single-module end-to-end proof)
+  - Full 3-stage pipeline (pre-process / generate / post-process)
+  - Pure-function `ModuleGenerator` interface; TS class static registration via `registerGenerator()`
+  - 12 standard `DiagnosticCode` values; CLI exit codes 0/1/2 per project convention
+  - 85+ new tests; ~10 ARXML fixtures; 7 golden snapshot files
+
+### References
+
+- Spec: `docs/superpowers/specs/2026-06-24-bsw-code-generator-design.md`
+- Plan: `docs/superpowers/plans/2026-06-24-bsw-code-generator.md`
+
 ## [1.9.0] - 2026-06-23 — ECUC vendor-prefix export + container DEFINITION-REF + UI fold
 
 MINOR bump: **7 commits since v1.8.5** (`e27f62a` → `ae4ce72`, branch `feature/sprint-x-vendor-prefix`). 2128 → 2167 tests (+39 net). Sprint X — three interlocking fixes for vendor-prefix (经纬恒润 / EB tresos / Vector / AUTOSAR_R2x) BSWMD modules. Closes the user's report that exporting `test.autosarcfg.json` produced ARXML that lost the vendor prefix hierarchy and silently dropped container-level `<DEFINITION-REF>` and `<PARAMETER-VALUES>` for multi-instance copies.
