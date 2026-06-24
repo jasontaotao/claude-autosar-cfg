@@ -196,13 +196,50 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     // WARN → exit 0 (per pipeline §Stage 3: any WARNING → 0 unless --strict)
     expect(result.exitCode).toBe(0);
   });
+
+  // E2 — ECUC-GEN-011 (MULTIPLICITY, ERROR). BSWMD declares
+  // container 'PartitionConfig' with lowerMultiplicity=1, upperMultiplicity=3.
+  // ECUC values carry 0 instances → below lower → ERROR.
+  it('ECUC-GEN-011 (MULTIPLICITY, ERROR) fires when instance count below lower bound', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              containers: [
+                { shortName: 'PartitionConfig', lowerMultiplicity: 1, upperMultiplicity: 3 },
+              ],
+            },
+          ],
+        ]),
+        ecucValues: new Map([['Stub', { containers: [] }]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_MULTIPLICITY,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('PartitionConfig');
+    // ERROR → exit 1
+    expect(result.exitCode).toBe(1);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 011 MULTIPLICITY: count of container instances vs [lower, upper].
-  // No consumer code in v1.11.0 walks container[] entries to compare
-  // against BSWMD-defined lowerMultiplicity/upperMultiplicity.
-  test.todo('ECUC-GEN-011 (MULTIPLICITY, ERROR) fires when instance count out of bounds');
+  // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
+  // The EcuC generator uses cTypeForKind to derive C types but does
+  // not currently compare against the value's runtime kind.
+  test.todo('ECUC-GEN-012 (TYPE_MISMATCH, ERROR) fires on value vs def type mismatch');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does

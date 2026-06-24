@@ -25,6 +25,10 @@
 import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
 import { validateReferences } from './emit/reference.js';
 import {
+  validateMultiplicity,
+  type BswmdModuleDefForMultiplicity,
+} from './emit/multiplicity.js';
+import {
   normalizeToTree,
   type BswmdModuleDefLite,
   type EcucModuleConfigurationValuesInput,
@@ -52,6 +56,20 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // Stage 1 — Pre-process
   const tree = normalizeToTree(args.bswmdIndex, args.ecucValues);
   diagnostics.push(...validateReferences(tree));
+  // v1.12.0 E2 — container instance-count validation. Casts the loose
+  // BSWMD / ECUC types into the narrow shape `validateMultiplicity`
+  // expects; the cast is safe because the BSWMD parser and ECUC parser
+  // produce matching shapes (the BSWMD module def carries containers[]
+  // and ECUC values carry containers[]).
+  diagnostics.push(
+    ...validateMultiplicity(
+      args.bswmdIndex as ReadonlyMap<string, BswmdModuleDefForMultiplicity>,
+      args.ecucValues as ReadonlyMap<
+        string,
+        { containers?: readonly { shortName: string }[] }
+      >,
+    ),
+  );
 
   // Stage 2 — Generate
   const artifacts = new Map<string, string>();
