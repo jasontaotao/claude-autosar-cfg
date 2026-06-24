@@ -23,15 +23,14 @@
 // modules whose short name is in the list are processed.
 
 import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
-import { TemplateRenderError } from './template-render-error.js';
-import { validateReferences } from './emit/reference.js';
 import {
   validateMultiplicity,
   type BswmdModuleDefForMultiplicity,
 } from './emit/multiplicity.js';
-import { validateTypeMatches } from './emit/type-check.js';
-import { validateRange } from './emit/range.js';
 import { validateOrdering } from './emit/ordering.js';
+import { validateRange } from './emit/range.js';
+import { validateReferences } from './emit/reference.js';
+import { validateTypeMatches } from './emit/type-check.js';
 import { validateUniqueShortNames } from './emit/unique-short-name.js';
 import {
   normalizeToTree,
@@ -39,6 +38,7 @@ import {
   type EcucModuleConfigurationValuesInput,
 } from './normalize.js';
 import { getGenerator, type GenerationVariant } from './registry.js';
+import { TemplateRenderError } from './template-render-error.js';
 
 export interface PipelineArgs {
   readonly bswmdIndex: ReadonlyMap<string, BswmdModuleDefLite>;

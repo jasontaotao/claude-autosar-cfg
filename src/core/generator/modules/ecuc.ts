@@ -26,8 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { createEngine } from '../handlebars.js';
 import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
+import { createEngine } from '../handlebars.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,

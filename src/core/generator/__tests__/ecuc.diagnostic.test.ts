@@ -20,9 +20,14 @@
 // inputs, so the tests stay close to the wire shape and avoid coupling
 // to a future XML parser.
 
-import { describe, it, test, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-import { DiagnosticSeverity, DiagnosticCode, type DiagnosticCodeValue } from '../diagnostics.js';
+import {
+  DiagnosticSeverity,
+  DiagnosticCode,
+  type Diagnostic,
+  type DiagnosticCodeValue,
+} from '../diagnostics.js';
 import { runPipeline } from '../pipeline.js';
 import {
   registerGenerator,
@@ -426,7 +431,7 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
   // fs APIs reject NUL paths on all platforms).
   it('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when post-process fs write fails', async () => {
     const { writeOutputTree } = await import('../post-process.js');
-    const diags: import('../diagnostics.js').Diagnostic[] = [];
+    const diags: Diagnostic[] = [];
     // NUL char in path → fs.writeFile throws ERR_INVALID_ARG_VALUE on
     // every Node platform.
     const artifacts = new Map<string, string>([[' bad/path.c', 'content']]);
