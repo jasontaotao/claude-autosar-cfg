@@ -120,7 +120,7 @@ export function applyMutationResultToActive(
   state: ArxmlState,
   activeIdx: number,
   nextActiveDoc: ArxmlDocument,
-  activeFilePath: string,
+  activeFilePath: string | null,
 ): void {
   if (state.documents[activeIdx] === nextActiveDoc) return;
   const nextDocuments = state.documents.map((d, i) => (i === activeIdx ? nextActiveDoc : d));
@@ -143,10 +143,37 @@ export function applyMutationResultToActive(
     documents: nextDocuments,
     doc: nextActiveDoc,
     displayDoc: nextDisplayResult?.doc ?? null,
-    dirtyPaths: addToDirty(state.dirtyPaths, activeFilePath),
+    // v1.11.0 — `activeFilePath` is nullable for delete-style mutations
+    // whose active doc may not be in the documents array (e.g. stale
+    // activeDocumentPath after a removed doc). The pre-refactor inline
+    // code skipped addToDirty in that case to avoid polluting
+    // `dirtyPaths` with a phantom path; we preserve that contract.
+    dirtyPaths:
+      activeFilePath === null ? state.dirtyPaths : addToDirty(state.dirtyPaths, activeFilePath),
     validationErrors: validateProjectForRenderer(nextDocuments),
     lastValidatedAt: Date.now(),
     // Sprint 17c T10 — refresh warnings in combined mode.
     warnings: nextWarnings,
   });
+}
+
+/**
+ * Apply a successful module deletion to the ACTIVE document. The post-
+ * mutation pipeline is identical to `applyMutationResultToActive` (the
+ * `nextActiveDoc` is the source-of-truth after `removeModuleFromDoc`),
+ * so we delegate to the shared helper to keep the bswmdSchemas threading
+ * in one place. Without this delegation `deleteEcucModule` would have
+ * to inline the post-mutation block, and the next refactor that touches
+ * the vendor-fold wiring (e.g. another v1.9.0-style fix) would need to
+ * patch two call sites — the same DRY violation that re-introduced
+ * v1.9.0 HIGH #1 in v1.10.2 (the inline copy dropped the 5th arg).
+ */
+export function applyModuleDeleteToActive(
+  set: (partial: Partial<ArxmlState>) => void,
+  state: ArxmlState,
+  activeIdx: number,
+  nextActiveDoc: ArxmlDocument,
+  activeFilePath: string | null,
+): void {
+  applyMutationResultToActive(set, state, activeIdx, nextActiveDoc, activeFilePath);
 }
