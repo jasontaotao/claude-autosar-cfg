@@ -25,11 +25,11 @@ namespace. Behavior for hand-written ECUC documents that include
 sibling elements inside `EcucDefs` (e.g. a reference alongside the
 module) is unchanged — those packages are preserved as-is.
 
-| Before | After |
-|---|---|
-| `AUTOSAR_R22 > EcucDefs > Adc > containers...` | `AUTOSAR_R22 > Adc > containers...` |
-| `EcucDefs > Adc > containers...` | `Adc > containers...` (hoisted to root) |
-| `EcucDefs > [Adc_module, ref]` (siblings) | unchanged (preserved) |
+| Before                                         | After                                   |
+| ---------------------------------------------- | --------------------------------------- |
+| `AUTOSAR_R22 > EcucDefs > Adc > containers...` | `AUTOSAR_R22 > Adc > containers...`     |
+| `EcucDefs > Adc > containers...`               | `Adc > containers...` (hoisted to root) |
+| `EcucDefs > [Adc_module, ref]` (siblings)      | unchanged (preserved)                   |
 
 The new fold is naming-only — it does not require the module to be
 present in any loaded BSWMD schema, so a fresh project with no BSWMDs
@@ -75,8 +75,7 @@ with the post-fold shape (e.g. `/AUTOSAR_R22/Adc`).
     2. `folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]`
     3. `refuses to fold when EcucDefs has sibling elements (module + reference) — invariant I1`
     4. `folds EcucDefs even when the module is NOT in loaded BSWMDs (naming-only tier)`
-  - 1 in `src/renderer/components/tree/__tests__/Tree.test.tsx` (tier 4 nested hoist):
-    5. `hoists the ECUC module past a NESTED vendor-folded package (tier 4 inside AUTOSAR_R22)`
+  - 1 in `src/renderer/components/tree/__tests__/Tree.test.tsx` (tier 4 nested hoist): 5. `hoists the ECUC module past a NESTED vendor-folded package (tier 4 inside AUTOSAR_R22)`
   2. `folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]`
   3. `refuses to fold when EcucDefs has sibling elements (module + reference) — invariant I1`
   4. `folds EcucDefs even when the module is NOT in loaded BSWMDs (naming-only tier)`
@@ -94,17 +93,17 @@ with the post-fold shape (e.g. `/AUTOSAR_R22/Adc`).
 
 ## Commits since v1.9.0 (`599a417`)
 
-| Commit | Type | Subject |
-|---|---|---|
-| `552b231` | fix | `fix(tree): hoist nested vendor-folded packages (tier 4 nested case)` |
-| `1721431` | feat | `feat(combinedDoc): add EcucDefs fold (tier 4) for BSWMD-generated ECUC` |
-| `b03398f` | chore | `chore(format): prettier --write on Sprint X WIP files` |
-| `5b425c4` | fix | `fix(arxml): unblock removeContainer + picker dedup on nested-package docs` |
-| `acdd43d` | fix | `fix(sprint-x): enum dropdowns + param mutations for vendor-CDD projects` |
-| `8cd6b05` | fix | `fix(arxml): unblock addContainer on vendor-prefix legacy docs (3 layer fix)` |
-| `97d2944` | fix | `fix(renderer): hoist vendor-folded top-level package in Tree` |
-| `b425986` | chore | `chore(format): prettier --write user repro test` |
-| `c46f4a8` | fix | `fix(arxml): mirror BSWMD physical structure in ECUC skeleton` |
+| Commit    | Type  | Subject                                                                       |
+| --------- | ----- | ----------------------------------------------------------------------------- |
+| `552b231` | fix   | `fix(tree): hoist nested vendor-folded packages (tier 4 nested case)`         |
+| `1721431` | feat  | `feat(combinedDoc): add EcucDefs fold (tier 4) for BSWMD-generated ECUC`      |
+| `b03398f` | chore | `chore(format): prettier --write on Sprint X WIP files`                       |
+| `5b425c4` | fix   | `fix(arxml): unblock removeContainer + picker dedup on nested-package docs`   |
+| `acdd43d` | fix   | `fix(sprint-x): enum dropdowns + param mutations for vendor-CDD projects`     |
+| `8cd6b05` | fix   | `fix(arxml): unblock addContainer on vendor-prefix legacy docs (3 layer fix)` |
+| `97d2944` | fix   | `fix(renderer): hoist vendor-folded top-level package in Tree`                |
+| `b425986` | chore | `chore(format): prettier --write user repro test`                             |
+| `c46f4a8` | fix   | `fix(arxml): mirror BSWMD physical structure in ECUC skeleton`                |
 
 ## Out of scope (deferred)
 
