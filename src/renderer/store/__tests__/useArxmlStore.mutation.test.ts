@@ -17,7 +17,14 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ArxmlPackage,
+  ParamValue,
+} from '@core/arxml/types';
 
 import { useArxmlStore } from '../useArxmlStore';
 
@@ -345,6 +352,128 @@ describe('useArxmlStore — addContainer (Sprint 15)', () => {
     const after = useArxmlStore.getState();
     expect(after.documents[0]).toBe(before);
     expect(after.error).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.12.0 PATCH 1 (M4 from v1.11.4 joint review) — end-to-end P2 regression
+//
+// P2 (v1.11.2 carryover): recurring `lower0 / upper=infinite add-container`
+// failure on the AUTOSAR_R22 > EcucDefs > Adc 3-layer value-file shape.
+// v1.11.3 (commit 0b02392) fixed the fold-side path resolution, but no
+// test pinned the full mutation dispatch chain end-to-end against the
+// 3-layer shape — only `findByPath` resolution was tested (combinedDoc.
+// test.ts:457-522). This block closes the regression-test gap.
+//
+// Pre-v1.11.3: post-fold selectedPath was `/AUTOSAR_R22/Adc/...` (only
+// the inner EcucDefs was collapsed); the source doc still had the 3-layer
+// structure and findByPath returned `path-not-found`, so every
+// `addContainer` was a silent no-op via `mutation.error.path-not-found`.
+//
+// Post-v1.11.3: the outer AUTOSAR(_.*)? wrap is also collapsed when its
+// only nested child is a tier-4 foldable EcucDefs pkg (combinedDoc.ts:
+// 686-692 + 756). Post-fold selectedPath is `/Adc/AdcConfigSet`, which
+// the source doc can resolve via the vendor-fold fallback in
+// core/arxml/path.ts:84-105.
+//
+// This test exercises the full mutation dispatch chain end-to-end:
+// addContainer (single-mode default) → resolveModuleAndParentContainer
+// (compressed 3-segment fallback at bswmdLookup.ts:89-99) → coreAddContainer
+// → applyMutationResultToActive → computeDisplayDoc re-fold.
+// ---------------------------------------------------------------------------
+describe('useArxmlStore — 3-layer AUTOSAR_R22/EcucDefs/Adc end-to-end (P2 regression)', () => {
+  it('addContainer at post-fold /Adc/AdcConfigSet succeeds for an upperMultiplicity: infinite child', () => {
+    // Arrange — 3-layer source doc `AUTOSAR_R22 > EcucDefs > Adc >
+    // AdcConfigSet` (mirrors combinedDoc.test.ts:457-522 fixture).
+    const moduleEl: ArxmlElement = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Adc',
+      params: {},
+      children: [
+        {
+          kind: 'container',
+          tagName: 'ECUC-CONTAINER-VALUE',
+          shortName: 'AdcConfigSet',
+          params: {},
+          children: [],
+        },
+      ],
+      references: [],
+    };
+    const ecucDefsPkg: ArxmlPackage = {
+      shortName: 'EcucDefs',
+      path: '/AUTOSAR_R22/EcucDefs',
+      elements: [moduleEl],
+    };
+    const wrapPkg: ArxmlPackage = {
+      shortName: 'AUTOSAR_R22',
+      path: '/AUTOSAR_R22',
+      elements: [],
+      packages: [ecucDefsPkg],
+    };
+    const doc: ArxmlDocument = {
+      path: '/test/Adc_EcucValues.arxml',
+      version: '4.6',
+      packages: [wrapPkg],
+    };
+
+    // Register the 3-layer doc + a BSWMD whose AdcConfigSet declares an
+    // `AdcConfig` sub-container with upperMultiplicity: 'infinite' —
+    // this is the P2 invariant the test pins (no multiplicity-exceeded
+    // when the user adds many of these).
+    //
+    // Skip the `addBswmd('<mock />')` route — its parser would fail on
+    // the mock content and persist a parse error in `state.error` that
+    // the subsequent setState doesn't clear. The setState below populates
+    // `bswmdSchemas` + `bswmdPaths` directly, which is all `addContainer`
+    // needs (it reads `bswmdSchemas` via `resolveModuleAndParentContainer`).
+    useArxmlStore.getState().addDocument(doc, '/test/Adc_EcucValues.arxml');
+    useArxmlStore.setState({
+      bswmdSchemas: [
+        // `makeBswModule` here is the import-aliased
+        // `makeBswModuleWithSubContainer` from line 30 (topContainer +
+        // subContainer + param shape — see the PATCH-C comment block).
+        makeBswmd(makeBswModule('Adc', 'AdcConfigSet', 'AdcConfig')),
+      ],
+      bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
+    });
+    const before = useArxmlStore.getState().documents[0]!;
+
+    // Act — single-mode default (viewMode defaults to 'single' per
+    // uiSlice.ts:148). The post-fold path `/Adc/AdcConfigSet` is what
+    // Tree emits after the v1.11.3 tier-4 + outer-wrap fold extension.
+    // Pre-v1.11.3 this would resolve to `path-not-found` because the
+    // source doc's structure was 3 layers deep and findByPath could not
+    // map the 2-segment post-fold path back.
+    useArxmlStore.getState().addContainer('/Adc/AdcConfigSet', 'AdcConfig');
+
+    // Assert — mutation succeeded against the 3-layer shape. No error
+    // was raised; the source doc was mutated (different ref); the path
+    // is marked dirty; the new AdcConfig child appears in the source
+    // doc's AdcConfigSet container.
+    const after = useArxmlStore.getState();
+    expect(after.error).toBeNull();
+    expect(after.documents[0]).not.toBe(before);
+    // Source doc preserved its 3-layer AUTOSAR_R22 > EcucDefs > Adc wrap;
+    // walk to AdcConfigSet and confirm the new AdcConfig child.
+    const wrap = after.documents[0]!.packages[0]!;
+    expect(wrap.shortName).toBe('AUTOSAR_R22');
+    const ecucDefs = wrap.packages![0]!;
+    expect(ecucDefs.shortName).toBe('EcucDefs');
+    const adcMod = ecucDefs.elements[0]!;
+    if (adcMod.kind !== 'module') throw new Error('expected module');
+    const adcConfigSet = adcMod.children[0]!;
+    if (adcConfigSet.kind !== 'container') throw new Error('expected container');
+    expect(adcConfigSet.children).toHaveLength(1);
+    const newChild = adcConfigSet.children[0]!;
+    if (newChild.kind !== 'container') throw new Error('expected new container');
+    expect(newChild.shortName).toBe('AdcConfig');
+    // Marked dirty.
+    expect(after.dirtyPaths.has('/test/Adc_EcucValues.arxml')).toBe(true);
+    // Display doc rebuilt; the post-fold tree root is `Adc` with the
+    // new child accessible at `/Adc/AdcConfigSet/AdcConfig`.
+    expect(after.displayDoc).not.toBeNull();
   });
 });
 
