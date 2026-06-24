@@ -124,7 +124,7 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     expect(next.toast!.kind).toBe('info');
   });
 
-  it('removes the module AND clears sourceBswmdPath for a source-backed doc', () => {
+  it('removes the module AND clears sourceBswmdPath for a source-backed doc', async () => {
     // Arrange
     const doc = makeDoc({
       moduleShortName: 'Adc',
@@ -132,13 +132,47 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     });
     useArxmlStore.getState().addDocument(doc, doc.path);
 
-    // Act
+    // Capture the validation trio AFTER addDocument populated it.
+    // A silent revert that drops the trio refresh would pass if we
+    // only asserted "non-null" — the trio value would just be
+    // whatever addDocument set. Pinning a DELTA on lastValidatedAt
+    // forces the post-delete revalidation to actually run.
+    const trioBefore = {
+      validationErrors: useArxmlStore.getState().validationErrors,
+      lastValidatedAt: useArxmlStore.getState().lastValidatedAt,
+      displayDoc: useArxmlStore.getState().displayDoc,
+    };
+
+    // Act — sleep 2ms so Date.now() is guaranteed to advance even on
+    // platforms with millisecond-resolution timers (Windows clock
+    // resolution is 15.6ms by default but jest fake timers in
+    // fast-runners can collapse adjacent calls into the same ms).
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 2);
+    });
     useArxmlStore.getState().deleteEcucModule('/Adc/Adc');
 
     // Assert — module removed AND sourceBswmdPath cleared (no dangling link)
     const next = useArxmlStore.getState();
     expect(next.doc!.packages[0]!.elements.length).toBe(0);
     expect(next.doc!.sourceBswmdPath).toBeUndefined();
+
+    // HIGH-2 (v1.11.2) — the post-mutation validation trio MUST be
+    // refreshed on success. v1.10.2 release notes claimed this trio
+    // (validationErrors + lastValidatedAt + displayDoc) was wired into
+    // deleteEcucModule; the pre-fix tests did not assert it, so a
+    // silent revert would pass. The trio is locked with a DELTA
+    // (lastValidatedAt advanced) and a reference-identity (displayDoc
+    // rebuilt to the new active doc) so a future refactor that drops
+    // either cannot pass this test.
+    expect(next.validationErrors).toEqual(trioBefore.validationErrors);
+    expect(next.lastValidatedAt).not.toBeNull();
+    expect(next.lastValidatedAt).toBeGreaterThan(trioBefore.lastValidatedAt as number);
+    // displayDoc rebuilt to the new active doc reference — the fold
+    // pipeline ran end-to-end (and emitted the same single-mode
+    // identity in single-mode as in the no-op path).
+    expect(next.displayDoc).toBe(next.doc);
+    expect(next.displayDoc).not.toBe(trioBefore.displayDoc);
   });
 
   it('surfaces a localized success toast', () => {
@@ -152,9 +186,7 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     // Assert — toast emitted (zh-CN "已删除" / en "Deleted")
     const toast = useArxmlStore.getState().toast;
     expect(toast).not.toBeNull();
-    expect(
-      toast!.message.match(/已删除 ECUC 模块|Deleted ECUC module|Adc/),
-    ).not.toBeNull();
+    expect(toast!.message.match(/已删除 ECUC 模块|Deleted ECUC module|Adc/)).not.toBeNull();
   });
 
   it('no-ops with error toast when the path does not match any module', () => {
@@ -162,6 +194,13 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     const doc = makeDoc({ moduleShortName: 'Adc' });
     useArxmlStore.getState().addDocument(doc, doc.path);
     const before = useArxmlStore.getState().documents[0]!;
+    // Capture the validation trio after addDocument (which already
+    // refreshed it). The no-op delete must not refresh again.
+    const trioBefore = {
+      validationErrors: useArxmlStore.getState().validationErrors,
+      lastValidatedAt: useArxmlStore.getState().lastValidatedAt,
+      displayDoc: useArxmlStore.getState().displayDoc,
+    };
 
     // Act
     useArxmlStore.getState().deleteEcucModule('/Adc/NonExistent');
@@ -172,6 +211,15 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     expect(next.doc!.packages[0]!.elements.length).toBe(1);
     expect(next.toast).not.toBeNull();
     expect(next.toast!.kind).toBe('error');
+
+    // HIGH-2 (v1.11.2) — the no-op path must NOT spuriously refresh
+    // the validation trio. addDocument already populated lastValidatedAt;
+    // a no-op delete must not roll it forward (that would publish a
+    // timestamp not corresponding to any actual mutation). Locking
+    // the trio prevents a future refactor from re-introducing this.
+    expect(next.validationErrors).toBe(trioBefore.validationErrors);
+    expect(next.lastValidatedAt).toBe(trioBefore.lastValidatedAt);
+    expect(next.displayDoc).toBe(trioBefore.displayDoc);
   });
 });
 
@@ -216,9 +264,7 @@ describe('useArxmlStore.deleteEcucModule — HIGH-1 bswmdSchemas threading (v1.9
     };
     useArxmlStore.getState().addDocument(doc, doc.path);
     const expectedSchemas = [
-      makeBswmd(
-        makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam'),
-      ),
+      makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam')),
     ];
     useArxmlStore.setState({
       bswmdSchemas: expectedSchemas,

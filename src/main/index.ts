@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, shell } from 'electron';
 
 import { registerIpcHandlers } from './ipc/register.js';
+import { isAllowedExternalUrl } from './window-open-allowlist.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,9 +31,11 @@ async function createMainWindow(): Promise<void> {
     mainWindow?.show();
   });
 
-  // Open external links in default browser
+  // Open external links in default browser — gate via allowlist (HIGH-5 from v1.10.2 joint review).
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
 

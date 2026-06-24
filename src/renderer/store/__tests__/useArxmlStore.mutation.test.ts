@@ -673,6 +673,102 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     expect(configSet.params.AdcConfigRef).toBeUndefined();
     expect(after.dirtyPaths.has('/tmp/Adc.arxml')).toBe(true);
   });
+
+  // HIGH-4 (v1.11.2) — cascade must not silently skip per-ref failures.
+  // Realistic scenario: the user opened the cascade dialog while the
+  // target ref still existed, but a concurrent action (or stale
+  // snapshot) removed the ref's container between scan and confirm.
+  // The pre-v1.11.2 cascade dropped the failure on the floor and
+  // reported a clean success — a contract violation. After the fix
+  // the cascade still applies what it can, but emits a `warning` toast
+  // naming the count of unresolved refs so the user can audit.
+  it('cascade: stale ref (containerPath gone) → warning toast surfaces unresolved count', () => {
+    // Arrange — set up the normal pendingDelete via the public API.
+    setUpWithPendingDelete();
+
+    // Inject a stale ref into pendingDelete.references whose container
+    // path no longer resolves. This simulates a concurrent delete or a
+    // snapshot taken before the ref was removed.
+    useArxmlStore.setState((s) => ({
+      pendingDelete: s.pendingDelete
+        ? {
+            path: s.pendingDelete.path,
+            references: [
+              ...s.pendingDelete.references,
+              {
+                filePath: '/tmp/Adc.arxml',
+                containerPath: '/EAS/Adc/NoSuchContainer',
+                paramKey: 'GhostRef',
+              },
+            ],
+          }
+        : null,
+    }));
+
+    // Act
+    useArxmlStore.getState().confirmDeleteContainer('cascade');
+
+    // Assert — primary delete still succeeded for the resolvable refs.
+    const after = useArxmlStore.getState();
+    expect(after.pendingDelete).toBeNull();
+    const mod = after.documents[0]!.packages[0]!.elements[0]!;
+    if (mod.kind !== 'module') throw new Error('expected module');
+    const configSet = mod.children.find(
+      (c) => c.kind === 'container' && c.shortName === 'AdcConfigSet',
+    );
+    expect(configSet).toBeDefined();
+    if (configSet?.kind !== 'container') throw new Error('expected container');
+    expect(configSet.params.AdcConfigRef).toBeUndefined();
+
+    // Assert — the partial-failure diagnostic surfaces via the typed
+    // toast slot. Pin the exact i18n substring for the count slot so
+    // the test cannot accidentally match an unrelated "1" elsewhere
+    // (timestamps, file paths, etc.).
+    expect(after.toast).not.toBeNull();
+    expect(after.toast?.kind).toBe('warning');
+    // En: "1 reference(s)"; zh-CN: "1 个引用" — either is acceptable.
+    expect(after.toast?.message ?? '').toMatch(/1 reference\(s\)|1 个引用/);
+    // The legacy `error` slot must NOT be clobbered by the cascade
+    // partial-failure diagnostic (HIGH-4 v1.11.2 review finding:
+    // setWarning writes both fields; we route the warning through
+    // the typed toast slot only to avoid stomping prior errors).
+    expect(after.error).toBeNull();
+    expect(after.dirtyPaths.has('/tmp/Adc.arxml')).toBe(true);
+  });
+
+  it('cascade: all-refs-fail → warning still emitted, container delete still applied', () => {
+    // Arrange — set up pendingDelete, then nuke ALL refs by pointing
+    // them at non-existent containers. This is the worst-case partial
+    // failure: every cascade resolution fails, but the primary delete
+    // still went through.
+    setUpWithPendingDelete();
+
+    useArxmlStore.setState((s) => ({
+      pendingDelete: s.pendingDelete
+        ? {
+            path: s.pendingDelete.path,
+            references: s.pendingDelete.references.map((r) => ({
+              ...r,
+              containerPath: '/EAS/Adc/NoSuchContainer',
+            })),
+          }
+        : null,
+    }));
+
+    // Act
+    useArxmlStore.getState().confirmDeleteContainer('cascade');
+
+    // Assert — primary delete succeeded (AdcConfig gone), and the
+    // warning toast surfaces the failure count to the user. Pin the
+    // exact count slot in the i18n string (en: "1 reference(s)";
+    // zh-CN: "1 个引用") so the assertion cannot be satisfied by an
+    // unrelated digit in a timestamp or file path.
+    const after = useArxmlStore.getState();
+    expect(after.pendingDelete).toBeNull();
+    expect(after.toast?.kind).toBe('warning');
+    expect(after.toast?.message ?? '').toMatch(/1 reference\(s\)|1 个引用/);
+    expect(after.error).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
