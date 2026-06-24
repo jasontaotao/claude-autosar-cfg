@@ -306,13 +306,59 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(diag.message).toContain('10');
     expect(result.exitCode).toBe(1);
   });
+
+  // E5 — ECUC-GEN-020 (ORDERING, WARN). BSWMD container 'PartitionConfig'.
+  // ECUC instances carry INDEX attributes [3, 1, 2] — not strictly
+  // ascending → WARN (the emit will force-sort, masking the issue).
+  it('ECUC-GEN-020 (ORDERING, WARN) fires when INDEX attributes are not strictly ascending', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              containers: [{ shortName: 'PartitionConfig' }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          [
+            'Stub',
+            {
+              containers: [
+                { shortName: 'PartitionConfig', index: 3 },
+                { shortName: 'PartitionConfig', index: 1 },
+                { shortName: 'PartitionConfig', index: 2 },
+              ],
+            },
+          ],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_ORDERING,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('PartitionConfig');
+    // WARN → exit 0
+    expect(result.exitCode).toBe(0);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 020 ORDERING: container INDEX attribute not strictly ascending.
-  // Container emit sorts by INDEX today (force-correct order); the
-  // reverse check that flags reordering violations is not yet wired.
-  test.todo('ECUC-GEN-020 (ORDERING, WARN) fires on out-of-order INDEX values');
+  // 021 DUPLICATE_SHORTNAME: two sibling containers/params with same
+  // shortName. normalizeToTree passes through whatever the input
+  // carries — it does not dedupe or assert uniqueness.
+  test.todo('ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR) fires on sibling shortName collision');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does
@@ -323,11 +369,6 @@ describe('Diagnostic fixture triggers — deferred to v2', () => {
   // EcuC emit writes the value verbatim into C source; no min/max
   // clamp or compare runs in v1.11.0.
   test.todo('ECUC-GEN-013 (RANGE, ERROR) fires on value outside [min, max]');
-
-  // 020 ORDERING: container INDEX attribute not strictly ascending.
-  // Container emit sorts by INDEX today (force-correct order); the
-  // reverse check that flags reordering violations is not yet wired.
-  test.todo('ECUC-GEN-020 (ORDERING, WARN) fires on out-of-order INDEX values');
 
   // 021 DUPLICATE_SHORTNAME: two sibling containers/params with same
   // shortName. normalizeToTree passes through whatever the input

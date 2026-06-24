@@ -30,6 +30,7 @@ import {
 } from './emit/multiplicity.js';
 import { validateTypeMatches } from './emit/type-check.js';
 import { validateRange } from './emit/range.js';
+import { validateOrdering } from './emit/ordering.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
@@ -96,6 +97,21 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       args.ecucValues as ReadonlyMap<
         string,
         { parameters?: readonly { shortName: string; value: unknown }[] }
+      >,
+    ),
+  );
+  // v1.12.0 E5 — container INDEX ordering check. Warns when source
+  // INDEX sequence is not strictly ascending (the emit will force-sort
+  // anyway, but the inconsistency should be visible to the user).
+  diagnostics.push(
+    ...validateOrdering(
+      args.bswmdIndex as ReadonlyMap<
+        string,
+        { containers?: readonly { shortName: string }[] }
+      >,
+      args.ecucValues as ReadonlyMap<
+        string,
+        { containers?: readonly { shortName: string; index?: number }[] }
       >,
     ),
   );
