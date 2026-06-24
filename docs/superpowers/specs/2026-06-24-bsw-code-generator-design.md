@@ -28,13 +28,13 @@ internal architecture from public sources — all vendor docs were paywalled
 or unreachable). The surviving findings come from the AUTOSAR MMOD standard
 (R22-11).
 
-| # | Claim | Vote | Confidence | Status |
-|---|---|---|---|---|
-| 1 | Schema vs Values strict split (definition ref + BswImplementation) | 3-0 | High | **Foundation** |
-| 2 | Per-element `configClass` + `configVariant` pair mandate | 2-1 | High | **Foundation** |
-| 3 | 3-stage pipeline (pre / generate / post) | — | Medium | **Design choice** |
-| 4 | Diagnostic channel pattern | — | Medium | **Design choice** |
-| 5 | ECUC type → C mapping rules | — | Medium | **Design choice** |
+| #   | Claim                                                              | Vote | Confidence | Status            |
+| --- | ------------------------------------------------------------------ | ---- | ---------- | ----------------- |
+| 1   | Schema vs Values strict split (definition ref + BswImplementation) | 3-0  | High       | **Foundation**    |
+| 2   | Per-element `configClass` + `configVariant` pair mandate           | 2-1  | High       | **Foundation**    |
+| 3   | 3-stage pipeline (pre / generate / post)                           | —    | Medium     | **Design choice** |
+| 4   | Diagnostic channel pattern                                         | —    | Medium     | **Design choice** |
+| 5   | ECUC type → C mapping rules                                        | —    | Medium     | **Design choice** |
 
 Three claims were refuted (0-3 votes): PreCompileTime/VariantLinkTime/VariantPostBuild
 exact wording, container `atpSplitable` + sort order mandate, and
@@ -74,25 +74,25 @@ treat these as configurable behavior rather than hard standards.
 
 ## Locked Decisions (from brainstorm)
 
-| # | Decision | Rationale |
-|---|---|---|
-| 1 | MVP scope = full pipeline + **EcuC demo module only** | Proves architecture end-to-end with smallest possible test surface |
-| 2 | Template engine = **Handlebars** (already in renderer) | 6KB, helpers sufficient, no new dep |
-| 3 | Module registration = **pure TS class + static `registerGenerator()`** | Type safety at compile time, no descriptor schema to maintain |
-| 4 | C standard = **C99** | MISRA-C compatibility wins over modernity |
-| 5 | CLI entry = **headless CLI v1 sub-command** (no new binary) | Existing `validate` / `extract` / `sws` shape |
-| A | `--variant` default = `PreCompile` | Most common case |
-| B | Missing generator → **WARNING**, not ERROR | Allow partial output |
-| C | multiplicity violation → ERROR; ordering violation → WARNING | Strict on type contract, lenient on layout |
-| D | Registry key = module **shortName** (e.g. `"EcuC"`), not full path | Vendor-neutral across BSWMD path variants |
-| E | `emit()` is **pure function** | Required for snapshot tests + cache + parallelism |
-| F | Module generators **mutually independent** | No cross-module reads; enables parallel generate stage |
-| G | Container order: by `<INDEX>` ascending, fallback shortName lexical | Deterministic for snapshot diffs |
-| H | Choice emit = Approach A (`#ifdef`) only for MVP | EcuC has one simple choice; v2 if needed |
-| I | Reference target unresolved → **ERROR** | Reference is ECUC hard constraint |
-| J | Snapshot tests = vitest snapshot (committed to repo) | No external tool dependency |
-| K | Add `--strict` flag (treat WARNING as ERROR) | Useful for CI |
-| L | Exit code: any ERROR → 1; all WARNING → 0 | Standard CLI convention |
+| #   | Decision                                                               | Rationale                                                          |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1   | MVP scope = full pipeline + **EcuC demo module only**                  | Proves architecture end-to-end with smallest possible test surface |
+| 2   | Template engine = **Handlebars** (already in renderer)                 | 6KB, helpers sufficient, no new dep                                |
+| 3   | Module registration = **pure TS class + static `registerGenerator()`** | Type safety at compile time, no descriptor schema to maintain      |
+| 4   | C standard = **C99**                                                   | MISRA-C compatibility wins over modernity                          |
+| 5   | CLI entry = **headless CLI v1 sub-command** (no new binary)            | Existing `validate` / `extract` / `sws` shape                      |
+| A   | `--variant` default = `PreCompile`                                     | Most common case                                                   |
+| B   | Missing generator → **WARNING**, not ERROR                             | Allow partial output                                               |
+| C   | multiplicity violation → ERROR; ordering violation → WARNING           | Strict on type contract, lenient on layout                         |
+| D   | Registry key = module **shortName** (e.g. `"EcuC"`), not full path     | Vendor-neutral across BSWMD path variants                          |
+| E   | `emit()` is **pure function**                                          | Required for snapshot tests + cache + parallelism                  |
+| F   | Module generators **mutually independent**                             | No cross-module reads; enables parallel generate stage             |
+| G   | Container order: by `<INDEX>` ascending, fallback shortName lexical    | Deterministic for snapshot diffs                                   |
+| H   | Choice emit = Approach A (`#ifdef`) only for MVP                       | EcuC has one simple choice; v2 if needed                           |
+| I   | Reference target unresolved → **ERROR**                                | Reference is ECUC hard constraint                                  |
+| J   | Snapshot tests = vitest snapshot (committed to repo)                   | No external tool dependency                                        |
+| K   | Add `--strict` flag (treat WARNING as ERROR)                           | Useful for CI                                                      |
+| L   | Exit code: any ERROR → 1; all WARNING → 0                              | Standard CLI convention                                            |
 
 ## Architecture
 
@@ -142,7 +142,7 @@ treat these as configurable behavior rather than hard standards.
    elements by the active variant.
 3. **BswImplementation is a filter, not a selector.** Generator lookup is by
    module shortName. BswImplementation only determines which schema is
-   *eligible* to be used; the generator itself does not inspect it.
+   _eligible_ to be used; the generator itself does not inspect it.
 4. **Diagnostic accumulation across stages.** pre / generate / post each
    push to a shared `Diagnostic[]`. CLI exit code derives from severity
    (ERROR → 1, all WARNING → 0, `--strict` collapses WARNING to ERROR).
@@ -249,7 +249,7 @@ export interface ModuleGenerator {
   emit(
     def: BswmdModuleDef,
     values: EcucModuleConfigurationValues,
-    ctx: GenerationContext
+    ctx: GenerationContext,
   ): readonly GeneratedArtifact[];
 }
 
@@ -272,13 +272,14 @@ export function getGenerator(shortName: string): ModuleGenerator | undefined {
 Located at `src/core/generator/modules/ecuc.ts`. Implements `ModuleGenerator`
 with `moduleShortName = 'EcuC'`. Renders 3 templates:
 
-| Template | Path | Notes |
-|---|---|---|
-| `cfg.h.hbs` | `EcuC/EcuC_Cfg.h` | Typedefs, extern decls, header guard |
-| `cfg.c.hbs` | `EcuC/EcuC_Cfg.c` | CONST decls for PreCompile, externs for Link, RAM shadows for PostBuild |
-| `pbcfg.c.hbs` | `EcuC/EcuC_PBcfg.c` | Loader entries (only emitted if any PostBuild element) |
+| Template      | Path                | Notes                                                                   |
+| ------------- | ------------------- | ----------------------------------------------------------------------- |
+| `cfg.h.hbs`   | `EcuC/EcuC_Cfg.h`   | Typedefs, extern decls, header guard                                    |
+| `cfg.c.hbs`   | `EcuC/EcuC_Cfg.c`   | CONST decls for PreCompile, externs for Link, RAM shadows for PostBuild |
+| `pbcfg.c.hbs` | `EcuC/EcuC_PBcfg.c` | Loader entries (only emitted if any PostBuild element)                  |
 
 EcuC emit logic:
+
 1. Filter def by active variant: `pickByVariant(def.paramConfigClasses, ctx.variant)`
 2. Partition values by element's configClass: PreCompile / Link / PostBuild
 3. Render `cfg.h.hbs` with `moduleShortName`, includes (gathered from
@@ -299,11 +300,11 @@ just to discover an empty result.
 
 ### configClass × isArray strategy
 
-| configClass \ isArray | Scalar | Array |
-|---|---|---|
-| **PreCompile** | `CONST(Type, AUTOMATIC) uint8 EcuC_X = 42;` | `CONST(Type, AUTOMATIC) uint8 EcuC_X[3] = { 1, 2, 3 };` |
-| **Link** | `extern CONST(Type, AUTOMATIC) uint8 EcuC_X;` | `extern CONST(Type, AUTOMATIC) uint8 EcuC_X[3];` |
-| **PostBuild** | `static uint8 EcuC_X;` | `static uint8 EcuC_X[3];` + loader entry (see PBcfg format below) |
+| configClass \ isArray | Scalar                                        | Array                                                             |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| **PreCompile**        | `CONST(Type, AUTOMATIC) uint8 EcuC_X = 42;`   | `CONST(Type, AUTOMATIC) uint8 EcuC_X[3] = { 1, 2, 3 };`           |
+| **Link**              | `extern CONST(Type, AUTOMATIC) uint8 EcuC_X;` | `extern CONST(Type, AUTOMATIC) uint8 EcuC_X[3];`                  |
+| **PostBuild**         | `static uint8 EcuC_X;`                        | `static uint8 EcuC_X[3];` + loader entry (see PBcfg format below) |
 
 **PostBuild loader entry format** (defined for MVP, kept simple — v2 may
 extend):
@@ -328,16 +329,16 @@ instead of concatenating strings directly.
 
 ### ECUC type → C type
 
-| ECUC Type | C Type | Notes |
-|---|---|---|
+| ECUC Type                     | C Type                                | Notes                          |
+| ----------------------------- | ------------------------------------- | ------------------------------ |
 | `EcucIntegerParamDef` ≤32-bit | `uint8`/`uint16`/`uint32`/`sint8`/... | Narrowest fit by min/max range |
-| `EcucIntegerParamDef` >32-bit | `uint64` | |
-| `EcucFloatParamDef` | `float32` / `float64` | Per precision requirement |
-| `EcucBooleanParamDef` | `uint8` (0/1) | No `<stdbool.h>` (MISRA) |
-| `EcucStringParamDef` | `const char*` | Default |
-| `EcucEnumerationParamDef` | `uint8` + `EcuC_XType` enum typedef | |
-| `EcucReferenceValue` | `const TargetType * const` | |
-| `EcucFunctionNameDef` | `void (*)(void)` | Typedef'd function pointer |
+| `EcucIntegerParamDef` >32-bit | `uint64`                              |                                |
+| `EcucFloatParamDef`           | `float32` / `float64`                 | Per precision requirement      |
+| `EcucBooleanParamDef`         | `uint8` (0/1)                         | No `<stdbool.h>` (MISRA)       |
+| `EcucStringParamDef`          | `const char*`                         | Default                        |
+| `EcucEnumerationParamDef`     | `uint8` + `EcuC_XType` enum typedef   |                                |
+| `EcucReferenceValue`          | `const TargetType * const`            |                                |
+| `EcucFunctionNameDef`         | `void (*)(void)`                      | Typedef'd function pointer     |
 
 ### Container
 
@@ -399,24 +400,24 @@ Handlebars (already a renderer dep, no new package). Helpers registered in
 `src/core/generator/handlebars-helpers.ts`, **separate from** renderer
 helpers to keep coupling minimal.
 
-| Helper | Signature | Returns |
-|---|---|---|
-| `cIdent` | `(path: string) => string` | Legal C identifier (`/` → `_`) |
-| `cType` | `(def: BswmdParamDef) => string` | C typedef name |
-| `cValue` | `(value: EcucValue, def: BswmdParamDef) => string` | C literal |
-| `paramConfigClass` | `(def, variant) => 'PreCompile'\|'Link'\|'PostBuild'` | Active class |
-| `bswmdPathOf` | `(instance: EcucValueInstance) => string` | Dotted BSWMD path |
-| `partitionName` | `(name: string) => string` | C-safe partition id |
+| Helper             | Signature                                             | Returns                        |
+| ------------------ | ----------------------------------------------------- | ------------------------------ |
+| `cIdent`           | `(path: string) => string`                            | Legal C identifier (`/` → `_`) |
+| `cType`            | `(def: BswmdParamDef) => string`                      | C typedef name                 |
+| `cValue`           | `(value: EcucValue, def: BswmdParamDef) => string`    | C literal                      |
+| `paramConfigClass` | `(def, variant) => 'PreCompile'\|'Link'\|'PostBuild'` | Active class                   |
+| `bswmdPathOf`      | `(instance: EcucValueInstance) => string`             | Dotted BSWMD path              |
+| `partitionName`    | `(name: string) => string`                            | C-safe partition id            |
 
 All helpers pure functions, 100% branch coverage required.
 
 Partials (`src/core/generator/templates/_partials/`):
 
-| Partial | Purpose |
-|---|---|
-| `license.h.hbs` | Project license header (committed file, copyright editable) |
-| `header_guard.h.hbs` | Standard `#ifndef X / #define X / #endif` wrapper |
-| `c_decl.h.hbs` | Shared C declaration patterns |
+| Partial              | Purpose                                                     |
+| -------------------- | ----------------------------------------------------------- |
+| `license.h.hbs`      | Project license header (committed file, copyright editable) |
+| `header_guard.h.hbs` | Standard `#ifndef X / #define X / #endif` wrapper           |
+| `c_decl.h.hbs`       | Shared C declaration patterns                               |
 
 ## Diagnostic Channel
 
@@ -430,23 +431,23 @@ export const DiagnosticSeverity = {
 } as const;
 
 export const DiagnosticCode = {
-  ECUC_GEN_NO_SCHEMA:           'ECUC-GEN-001',  // WARN — BSWMD missing the module
-  ECUC_GEN_NO_GENERATOR:        'ECUC-GEN-002',  // WARN — Registry missing the generator
-  ECUC_GEN_THROW:               'ECUC-GEN-003',  // ERROR — Generator threw
-  ECUC_GEN_REF_UNRESOLVED:      'ECUC-GEN-010',  // ERROR — Reference target missing
-  ECUC_GEN_MULTIPLICITY:        'ECUC-GEN-011',  // ERROR — Instance count out of bounds
-  ECUC_GEN_TYPE_MISMATCH:       'ECUC-GEN-012',  // ERROR — Value vs def type
-  ECUC_GEN_RANGE:               'ECUC-GEN-013',  // ERROR — Value out of min/max
-  ECUC_GEN_ORDERING:            'ECUC-GEN-020',  // WARN — Container ordering violation
-  ECUC_GEN_DUPLICATE_SHORTNAME: 'ECUC-GEN-021',  // ERROR — Duplicate shortName in module
-  ECUC_GEN_TEMPLATE_RENDER:     'ECUC-GEN-030',  // ERROR — Handlebars render failed
-  ECUC_GEN_OUTPUT_WRITE:        'ECUC-GEN-031',  // ERROR — File write failed
-  ECUC_GEN_INFO_EMPTY_VARIANT:  'ECUC-GEN-INFO-001', // INFO — no elements for active variant
+  ECUC_GEN_NO_SCHEMA: 'ECUC-GEN-001', // WARN — BSWMD missing the module
+  ECUC_GEN_NO_GENERATOR: 'ECUC-GEN-002', // WARN — Registry missing the generator
+  ECUC_GEN_THROW: 'ECUC-GEN-003', // ERROR — Generator threw
+  ECUC_GEN_REF_UNRESOLVED: 'ECUC-GEN-010', // ERROR — Reference target missing
+  ECUC_GEN_MULTIPLICITY: 'ECUC-GEN-011', // ERROR — Instance count out of bounds
+  ECUC_GEN_TYPE_MISMATCH: 'ECUC-GEN-012', // ERROR — Value vs def type
+  ECUC_GEN_RANGE: 'ECUC-GEN-013', // ERROR — Value out of min/max
+  ECUC_GEN_ORDERING: 'ECUC-GEN-020', // WARN — Container ordering violation
+  ECUC_GEN_DUPLICATE_SHORTNAME: 'ECUC-GEN-021', // ERROR — Duplicate shortName in module
+  ECUC_GEN_TEMPLATE_RENDER: 'ECUC-GEN-030', // ERROR — Handlebars render failed
+  ECUC_GEN_OUTPUT_WRITE: 'ECUC-GEN-031', // ERROR — File write failed
+  ECUC_GEN_INFO_EMPTY_VARIANT: 'ECUC-GEN-INFO-001', // INFO — no elements for active variant
 } as const;
 
 export interface Diagnostic {
-  readonly severity: typeof DiagnosticSeverity[keyof typeof DiagnosticSeverity];
-  readonly code: typeof DiagnosticCode[keyof typeof DiagnosticCode];
+  readonly severity: (typeof DiagnosticSeverity)[keyof typeof DiagnosticSeverity];
+  readonly code: (typeof DiagnosticCode)[keyof typeof DiagnosticCode];
   readonly moduleShortName?: string;
   readonly bswmdPath?: string;
   readonly ecucPath?: string;
@@ -474,30 +475,30 @@ claude-autosarcfg generate \
   [--browse-templates]
 ```
 
-| Flag | Default | Notes |
-|---|---|---|
-| `--project` | (required) | Path to `.acproj` |
-| `--variant` | `PreCompile` | Decision A |
-| `--out` | `<project>/generated/` | Directory for emitted artifacts |
-| `--module` | all | Filter to subset (MVP: equivalent to EcuC only) |
-| `--strict` | off | Decision K |
-| `--format` | `human` | `human` or `json` |
-| `--browse-templates` | off | Dev mode: dump merged template output to stderr |
+| Flag                 | Default                | Notes                                           |
+| -------------------- | ---------------------- | ----------------------------------------------- |
+| `--project`          | (required)             | Path to `.acproj`                               |
+| `--variant`          | `PreCompile`           | Decision A                                      |
+| `--out`              | `<project>/generated/` | Directory for emitted artifacts                 |
+| `--module`           | all                    | Filter to subset (MVP: equivalent to EcuC only) |
+| `--strict`           | off                    | Decision K                                      |
+| `--format`           | `human`                | `human` or `json`                               |
+| `--browse-templates` | off                    | Dev mode: dump merged template output to stderr |
 
 Sits alongside existing `validate`, `extract`, `sws` sub-commands in
 `src/cli/commands/`.
 
 ## Testing Strategy
 
-| Layer | Test count target | Tool | Coverage goal |
-|---|---|---|---|
-| Unit (helpers) | ~30 | vitest | 100% branch |
-| Unit (emit strategy) | ~15 | vitest | 100% branch |
-| Unit (normalize) | ~15 | vitest | 100% branch |
-| Integration (EcuC pipeline) | ~10 | vitest | happy path + 3+ diagnostic codes |
-| **Snapshot** (EcuC, golden Cfg.c/h) | 6 (3 fixtures × 2 variants) | vitest snapshot | byte-stable output |
-| Diagnostic fixture | ~10 (1 per DiagnosticCode) | vitest | every code triggered by exactly one fixture |
-| CLI | ~5 | spawn node CLI | argv parsing + exit code |
+| Layer                               | Test count target           | Tool            | Coverage goal                               |
+| ----------------------------------- | --------------------------- | --------------- | ------------------------------------------- |
+| Unit (helpers)                      | ~30                         | vitest          | 100% branch                                 |
+| Unit (emit strategy)                | ~15                         | vitest          | 100% branch                                 |
+| Unit (normalize)                    | ~15                         | vitest          | 100% branch                                 |
+| Integration (EcuC pipeline)         | ~10                         | vitest          | happy path + 3+ diagnostic codes            |
+| **Snapshot** (EcuC, golden Cfg.c/h) | 6 (3 fixtures × 2 variants) | vitest snapshot | byte-stable output                          |
+| Diagnostic fixture                  | ~10 (1 per DiagnosticCode)  | vitest          | every code triggered by exactly one fixture |
+| CLI                                 | ~5                          | spawn node CLI  | argv parsing + exit code                    |
 
 Total target: ~85 new tests, ≥80% line coverage on `core/generator/`
 package (project floor per `common/testing.md`).
@@ -587,26 +588,26 @@ templates + ~85 tests + ~10 fixture files.
 
 ## Out-of-Scope (Future Work)
 
-| Item | Sprint target | Rationale |
-|---|---|---|
-| Mcu / Port / Dio generators | v1.10.0+ | Each module is its own sprint; validates registry extension |
-| Renderer-side "Generate" button + IPC | v1.11.0+ | Reuses this core via existing IPC pattern |
-| Post-build binary blob format | v1.12.0+ | Standard mandates C interface; binary is open design |
-| RTE generator | v2.0+ | Separate domain; bigger scope |
-| Dynamic plugin loader from npm | v2.0+ | Only if/when third parties need to ship generators |
-| BSWMD `GENERATION-INFO` extension | v2.0+ | Vendor-specific metadata; would require spec coordination |
-| EB tresos / ETAS byte-compat | v2.0+ | Would need vendor docs; only valuable for migration workflows |
+| Item                                  | Sprint target | Rationale                                                     |
+| ------------------------------------- | ------------- | ------------------------------------------------------------- |
+| Mcu / Port / Dio generators           | v1.10.0+      | Each module is its own sprint; validates registry extension   |
+| Renderer-side "Generate" button + IPC | v1.11.0+      | Reuses this core via existing IPC pattern                     |
+| Post-build binary blob format         | v1.12.0+      | Standard mandates C interface; binary is open design          |
+| RTE generator                         | v2.0+         | Separate domain; bigger scope                                 |
+| Dynamic plugin loader from npm        | v2.0+         | Only if/when third parties need to ship generators            |
+| BSWMD `GENERATION-INFO` extension     | v2.0+         | Vendor-specific metadata; would require spec coordination     |
+| EB tresos / ETAS byte-compat          | v2.0+         | Would need vendor docs; only valuable for migration workflows |
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|---|---|
-| `clang-format` not available on CI | Vendor binary via project-local tool; verify in `pnpm verify` stage 7 |
-| Snapshot drift on C formatter upgrade | Pin `clang-format` version; documented in `docs/build-deps.md` |
-| Handlebars escape behavior in C strings | Tests include string with `"`, `\`, and embedded `{{` literals |
-| Cross-module reference circular (A→B→A) | Pre-process walks reference graph; circular → ERROR with cycle path |
-| Snapshot file churn on whitespace | `clang-format` runs deterministically; CI smoke test on Linux + Windows |
-| User passes `--variant` value that no module supports | Pre-process filters; missing variant → WARNING per module |
+| Risk                                                  | Mitigation                                                              |
+| ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `clang-format` not available on CI                    | Vendor binary via project-local tool; verify in `pnpm verify` stage 7   |
+| Snapshot drift on C formatter upgrade                 | Pin `clang-format` version; documented in `docs/build-deps.md`          |
+| Handlebars escape behavior in C strings               | Tests include string with `"`, `\`, and embedded `{{` literals          |
+| Cross-module reference circular (A→B→A)               | Pre-process walks reference graph; circular → ERROR with cycle path     |
+| Snapshot file churn on whitespace                     | `clang-format` runs deterministically; CI smoke test on Linux + Windows |
+| User passes `--variant` value that no module supports | Pre-process filters; missing variant → WARNING per module               |
 
 ## References
 

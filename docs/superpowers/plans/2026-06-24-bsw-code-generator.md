@@ -145,10 +145,12 @@ testdata/generator/
 ## Task 1: Diagnostic channel — type, severity, code enum
 
 **Files:**
+
 - Create: `src/core/generator/diagnostics.ts`
 - Create: `src/core/generator/__tests__/diagnostics.test.ts`
 
 **Interfaces:**
+
 - Produces: `Diagnostic` type, `DiagnosticSeverity` const, `DiagnosticCode` const — used by all later tasks
 
 - [ ] **Step 1: Write the failing test**
@@ -156,11 +158,7 @@ testdata/generator/
 ```ts
 // src/core/generator/__tests__/diagnostics.test.ts
 import { describe, it, expect } from 'vitest';
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from '../diagnostics.js';
+import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from '../diagnostics.js';
 
 describe('DiagnosticSeverity', () => {
   it('exposes ERROR / WARNING / INFO', () => {
@@ -221,25 +219,23 @@ export const DiagnosticSeverity = {
 } as const;
 
 export const DiagnosticCode = {
-  ECUC_GEN_NO_SCHEMA:           'ECUC-GEN-001',
-  ECUC_GEN_NO_GENERATOR:        'ECUC-GEN-002',
-  ECUC_GEN_THROW:               'ECUC-GEN-003',
-  ECUC_GEN_REF_UNRESOLVED:      'ECUC-GEN-010',
-  ECUC_GEN_MULTIPLICITY:        'ECUC-GEN-011',
-  ECUC_GEN_TYPE_MISMATCH:       'ECUC-GEN-012',
-  ECUC_GEN_RANGE:               'ECUC-GEN-013',
-  ECUC_GEN_ORDERING:            'ECUC-GEN-020',
+  ECUC_GEN_NO_SCHEMA: 'ECUC-GEN-001',
+  ECUC_GEN_NO_GENERATOR: 'ECUC-GEN-002',
+  ECUC_GEN_THROW: 'ECUC-GEN-003',
+  ECUC_GEN_REF_UNRESOLVED: 'ECUC-GEN-010',
+  ECUC_GEN_MULTIPLICITY: 'ECUC-GEN-011',
+  ECUC_GEN_TYPE_MISMATCH: 'ECUC-GEN-012',
+  ECUC_GEN_RANGE: 'ECUC-GEN-013',
+  ECUC_GEN_ORDERING: 'ECUC-GEN-020',
   ECUC_GEN_DUPLICATE_SHORTNAME: 'ECUC-GEN-021',
-  ECUC_GEN_TEMPLATE_RENDER:     'ECUC-GEN-030',
-  ECUC_GEN_OUTPUT_WRITE:        'ECUC-GEN-031',
-  ECUC_GEN_INFO_EMPTY_VARIANT:  'ECUC-GEN-INFO-001',
+  ECUC_GEN_TEMPLATE_RENDER: 'ECUC-GEN-030',
+  ECUC_GEN_OUTPUT_WRITE: 'ECUC-GEN-031',
+  ECUC_GEN_INFO_EMPTY_VARIANT: 'ECUC-GEN-INFO-001',
 } as const;
 
-export type DiagnosticSeverityValue =
-  (typeof DiagnosticSeverity)[keyof typeof DiagnosticSeverity];
+export type DiagnosticSeverityValue = (typeof DiagnosticSeverity)[keyof typeof DiagnosticSeverity];
 
-export type DiagnosticCodeValue =
-  (typeof DiagnosticCode)[keyof typeof DiagnosticCode];
+export type DiagnosticCodeValue = (typeof DiagnosticCode)[keyof typeof DiagnosticCode];
 
 export interface Diagnostic {
   readonly severity: DiagnosticSeverityValue;
@@ -269,10 +265,12 @@ git commit -m "feat(generator): Diagnostic channel types + 12 codes"
 ## Task 2: GeneratorRegistry — interfaces + register/get
 
 **Files:**
+
 - Create: `src/core/generator/registry.ts`
 - Create: `src/core/generator/__tests__/registry.test.ts`
 
 **Interfaces:**
+
 - Produces: `GenerationContext`, `GeneratedArtifact`, `ModuleGenerator` types + `registerGenerator()` and `getGenerator()` functions — used by all generator code
 
 - [ ] **Step 1: Write the failing test**
@@ -290,8 +288,12 @@ import { Diagnostic } from '../diagnostics.js';
 
 class StubGen implements ModuleGenerator {
   readonly moduleShortName: string;
-  constructor(name: string) { this.moduleShortName = name; }
-  emit(): readonly GeneratedArtifact[] { return []; }
+  constructor(name: string) {
+    this.moduleShortName = name;
+  }
+  emit(): readonly GeneratedArtifact[] {
+    return [];
+  }
 }
 
 beforeEach(() => {
@@ -313,9 +315,7 @@ describe('registerGenerator / getGenerator', () => {
 
   it('throws when registering duplicate shortName', () => {
     registerGenerator(new StubGen('Dup'));
-    expect(() => registerGenerator(new StubGen('Dup'))).toThrow(
-      /already registered/,
-    );
+    expect(() => registerGenerator(new StubGen('Dup'))).toThrow(/already registered/);
   });
 });
 ```
@@ -352,11 +352,7 @@ export interface GeneratedArtifact {
 
 export interface ModuleGenerator {
   readonly moduleShortName: string;
-  emit(
-    def: unknown,
-    values: unknown,
-    ctx: GenerationContext,
-  ): readonly GeneratedArtifact[];
+  emit(def: unknown, values: unknown, ctx: GenerationContext): readonly GeneratedArtifact[];
 }
 
 const generators = new Map<string, ModuleGenerator>();
@@ -411,12 +407,14 @@ git commit -m "feat(generator): GeneratorRegistry + interfaces (test-isolated)"
 ## Task 3: Handlebars engine setup + cIdent helper
 
 **Files:**
+
 - Create: `src/core/generator/handlebars.ts`
 - Create: `src/core/generator/handlebars-helpers.ts`
 - Create: `src/core/generator/__tests__/handlebars-helpers.test.ts`
 - Create: `src/core/generator/__tests__/handlebars.test.ts`
 
 **Interfaces:**
+
 - Produces: `createEngine()` function, `cIdent(path)` helper — used by all template rendering
 
 - [ ] **Step 1: Write the failing test for cIdent**
@@ -556,11 +554,13 @@ git commit -m "feat(generator): Handlebars engine + cIdent helper"
 ## Task 4: Handlebars helpers — cType, cValue
 
 **Files:**
+
 - Modify: `src/core/generator/handlebars-helpers.ts`
 - Modify: `src/core/generator/__tests__/handlebars-helpers.test.ts`
 - Modify: `src/core/generator/handlebars.ts` (register new helpers)
 
 **Interfaces:**
+
 - Produces: `cType(def)` and `cValue(value, def)` — used by EcuC templates
 
 - [ ] **Step 1: Add failing tests**
@@ -572,33 +572,23 @@ import { cType, cValue } from '../handlebars-helpers.js';
 
 describe('cType', () => {
   it('maps EcucIntegerParamDef min=0 max=255 to uint8', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 255 }),
-    ).toBe('uint8');
+    expect(cType({ kind: 'integer', min: 0, max: 255 })).toBe('uint8');
   });
 
   it('maps min=-128 max=127 to sint8', () => {
-    expect(
-      cType({ kind: 'integer', min: -128, max: 127 }),
-    ).toBe('sint8');
+    expect(cType({ kind: 'integer', min: -128, max: 127 })).toBe('sint8');
   });
 
   it('maps min=0 max=65535 to uint16', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 65535 }),
-    ).toBe('uint16');
+    expect(cType({ kind: 'integer', min: 0, max: 65535 })).toBe('uint16');
   });
 
   it('maps min=0 max=4294967295 to uint32', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 4294967295 }),
-    ).toBe('uint32');
+    expect(cType({ kind: 'integer', min: 0, max: 4294967295 })).toBe('uint32');
   });
 
   it('maps larger range to uint64', () => {
-    expect(
-      cType({ kind: 'integer', min: 0, max: 4294967296 }),
-    ).toBe('uint64');
+    expect(cType({ kind: 'integer', min: 0, max: 4294967296 })).toBe('uint64');
   });
 
   it('maps EcucBooleanParamDef to uint8', () => {
@@ -655,9 +645,15 @@ export interface BswmdIntegerParamDef {
   readonly min?: number;
   readonly max?: number;
 }
-export interface BswmdBooleanParamDef { readonly kind: 'boolean'; }
-export interface BswmdStringParamDef  { readonly kind: 'string'; }
-export interface BswmdFloatParamDef   { readonly kind: 'float'; }
+export interface BswmdBooleanParamDef {
+  readonly kind: 'boolean';
+}
+export interface BswmdStringParamDef {
+  readonly kind: 'string';
+}
+export interface BswmdFloatParamDef {
+  readonly kind: 'float';
+}
 export interface BswmdEnumerationParamDef {
   readonly kind: 'enumeration';
   readonly typeName: string;
@@ -687,23 +683,30 @@ export function cType(def: BswmdParamDef): string {
       const unsigned = min >= 0;
       const range = max - min;
       if (!unsigned) {
-        if (range <= 127)        return 'sint8';
-        if (range <= 32767)      return 'sint16';
+        if (range <= 127) return 'sint8';
+        if (range <= 32767) return 'sint16';
         if (range <= 2147483647) return 'sint32';
         return 'sint64';
       }
-      if (range <= 255)        return 'uint8';
-      if (range <= 65535)      return 'uint16';
+      if (range <= 255) return 'uint8';
+      if (range <= 65535) return 'uint16';
       if (range <= 4294967295) return 'uint32';
       return 'uint64';
     }
-    case 'boolean':           return 'uint8';
-    case 'string':            return 'const char*';
-    case 'float':             return 'float32';
-    case 'enumeration':       return 'uint8';
-    case 'reference':         return `const ${def.targetType} * const`;
-    case 'function-name':     return def.signature;
-    default:                  return '??';
+    case 'boolean':
+      return 'uint8';
+    case 'string':
+      return 'const char*';
+    case 'float':
+      return 'float32';
+    case 'enumeration':
+      return 'uint8';
+    case 'reference':
+      return `const ${def.targetType} * const`;
+    case 'function-name':
+      return def.signature;
+    default:
+      return '??';
   }
 }
 
@@ -714,9 +717,7 @@ export function cValue(value: unknown, def: BswmdParamDef): string {
     case 'boolean':
       return value ? '1' : '0';
     case 'string': {
-      const escaped = String(value)
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"');
+      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       return `"${escaped}"`;
     }
     case 'float':
@@ -750,9 +751,7 @@ export function createEngine(): typeof Handlebars {
   const engine = Handlebars.create();
   engine.registerHelper('cIdent', (path: unknown) => cIdent(String(path ?? '')));
   engine.registerHelper('cType', (def: unknown) => cType(def as never));
-  engine.registerHelper('cValue', (value: unknown, def: unknown) =>
-    cValue(value, def as never),
-  );
+  engine.registerHelper('cValue', (value: unknown, def: unknown) => cValue(value, def as never));
   return engine;
 }
 ```
@@ -775,6 +774,7 @@ git commit -m "feat(generator): cType + cValue helpers (ECUC → C mapping)"
 ## Task 5: Handlebars helpers — paramConfigClass, bswmdPathOf, partitionName
 
 **Files:**
+
 - Modify: `src/core/generator/handlebars-helpers.ts`
 - Modify: `src/core/generator/__tests__/handlebars-helpers.test.ts`
 - Modify: `src/core/generator/handlebars.ts` (register helpers)
@@ -784,32 +784,22 @@ git commit -m "feat(generator): cType + cValue helpers (ECUC → C mapping)"
 Append to `src/core/generator/__tests__/handlebars-helpers.test.ts`:
 
 ```ts
-import {
-  paramConfigClass,
-  bswmdPathOf,
-  partitionName,
-} from '../handlebars-helpers.js';
+import { paramConfigClass, bswmdPathOf, partitionName } from '../handlebars-helpers.js';
 import type { GenerationVariant } from '../registry.js';
 
 describe('paramConfigClass', () => {
   const defWithPair = {
     paramConfigClasses: [
       { configVariant: 'PreCompile', configClass: 'PreCompile' },
-      { configVariant: 'Link',      configClass: 'Link' },
+      { configVariant: 'Link', configClass: 'Link' },
       { configVariant: 'PostBuild', configClass: 'PostBuild' },
     ],
   };
 
   it('returns the matching configClass for active variant', () => {
-    expect(
-      paramConfigClass(defWithPair, 'PreCompile' as GenerationVariant),
-    ).toBe('PreCompile');
-    expect(
-      paramConfigClass(defWithPair, 'Link' as GenerationVariant),
-    ).toBe('Link');
-    expect(
-      paramConfigClass(defWithPair, 'PostBuild' as GenerationVariant),
-    ).toBe('PostBuild');
+    expect(paramConfigClass(defWithPair, 'PreCompile' as GenerationVariant)).toBe('PreCompile');
+    expect(paramConfigClass(defWithPair, 'Link' as GenerationVariant)).toBe('Link');
+    expect(paramConfigClass(defWithPair, 'PostBuild' as GenerationVariant)).toBe('PostBuild');
   });
 
   it('throws when no pair exists for the active variant', () => {
@@ -821,9 +811,7 @@ describe('paramConfigClass', () => {
 
 describe('bswmdPathOf', () => {
   it('joins instance path with slashes', () => {
-    expect(bswmdPathOf({ path: ['Mcu', 'Clock', 'Divider'] })).toBe(
-      'Mcu/Clock/Divider',
-    );
+    expect(bswmdPathOf({ path: ['Mcu', 'Clock', 'Divider'] })).toBe('Mcu/Clock/Divider');
   });
 
   it('returns empty string for empty path', () => {
@@ -873,7 +861,7 @@ export function paramConfigClass(
   def: HasParamConfigClasses,
   variant: GenerationVariant,
 ): ConfigClass {
-  const match = def.paramConfigClasses.find(p => p.configVariant === variant);
+  const match = def.paramConfigClasses.find((p) => p.configVariant === variant);
   if (!match) {
     throw new Error(`no configClass for variant=${variant}`);
   }
@@ -910,18 +898,14 @@ export function createEngine(): typeof Handlebars {
   const engine = Handlebars.create();
   engine.registerHelper('cIdent', (path: unknown) => cIdent(String(path ?? '')));
   engine.registerHelper('cType', (def: unknown) => cType(def as never));
-  engine.registerHelper('cValue', (value: unknown, def: unknown) =>
-    cValue(value, def as never),
-  );
+  engine.registerHelper('cValue', (value: unknown, def: unknown) => cValue(value, def as never));
   engine.registerHelper('paramConfigClass', (def: unknown, variant: unknown) =>
     paramConfigClass(def as HasParamConfigClasses, variant as GenerationVariant),
   );
   engine.registerHelper('bswmdPathOf', (inst: unknown) =>
     bswmdPathOf(inst as { readonly path: readonly string[] }),
   );
-  engine.registerHelper('partitionName', (name: unknown) =>
-    partitionName(String(name ?? '')),
-  );
+  engine.registerHelper('partitionName', (name: unknown) => partitionName(String(name ?? '')));
   return engine;
 }
 ```
@@ -944,10 +928,12 @@ git commit -m "feat(generator): paramConfigClass + bswmdPathOf + partitionName h
 ## Task 6: Emit strategy — configClass × isArray → C
 
 **Files:**
+
 - Create: `src/core/generator/emit/strategy.ts`
 - Create: `src/core/generator/__tests__/emit-strategy.test.ts`
 
 **Interfaces:**
+
 - Produces: `emitConstDecl(param)`, `emitExternDecl(param)`, `emitLoaderEntry(param)` — used by module generators
 
 - [ ] **Step 1: Write the failing test**
@@ -955,11 +941,7 @@ git commit -m "feat(generator): paramConfigClass + bswmdPathOf + partitionName h
 ```ts
 // src/core/generator/__tests__/emit-strategy.test.ts
 import { describe, it, expect } from 'vitest';
-import {
-  emitConstDecl,
-  emitExternDecl,
-  emitLoaderEntry,
-} from '../emit/strategy.js';
+import { emitConstDecl, emitExternDecl, emitLoaderEntry } from '../emit/strategy.js';
 import { cType, cValue } from '../handlebars-helpers.js';
 
 const intDef = { kind: 'integer', min: 0, max: 255 } as const;
@@ -1061,7 +1043,7 @@ export function emitConstDecl(input: ConstDeclInput): string {
     return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident} = ${input.cValue};`;
   }
   const arr = input.value as readonly unknown[];
-  const lit = arr.map(v => String(v)).join(', ');
+  const lit = arr.map((v) => String(v)).join(', ');
   return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident}[${arr.length}] = { ${lit} };`;
 }
 
@@ -1117,10 +1099,12 @@ git commit -m "feat(generator): configClass × isArray emit strategy"
 ## Task 7: ECUC type → C type mapping (extracted from cType)
 
 **Files:**
+
 - Create: `src/core/generator/emit/types.ts`
 - Create: `src/core/generator/__tests__/emit-types.test.ts`
 
 **Interfaces:**
+
 - Produces: `typeToCType(ecucDef)` — used by container emit (Task 8)
 
 Note: `cType()` in `handlebars-helpers.ts` already handles ECUC → C
@@ -1148,12 +1132,13 @@ describe('typeToCType', () => {
     expect(typeToCType({ kind: 'boolean' })).toBe('uint8');
     expect(typeToCType({ kind: 'string' })).toBe('const char*');
     expect(typeToCType({ kind: 'float' })).toBe('float32');
-    expect(typeToCType({ kind: 'enumeration', typeName: 'EcuC_StateType' }))
-      .toBe('uint8');
-    expect(typeToCType({ kind: 'reference', targetType: 'Mcu_ClockConfigType' }))
-      .toBe('const Mcu_ClockConfigType * const');
-    expect(typeToCType({ kind: 'function-name', signature: 'void (*)(void)' }))
-      .toBe('void (*)(void)');
+    expect(typeToCType({ kind: 'enumeration', typeName: 'EcuC_StateType' })).toBe('uint8');
+    expect(typeToCType({ kind: 'reference', targetType: 'Mcu_ClockConfigType' })).toBe(
+      'const Mcu_ClockConfigType * const',
+    );
+    expect(typeToCType({ kind: 'function-name', signature: 'void (*)(void)' })).toBe(
+      'void (*)(void)',
+    );
   });
 });
 ```
@@ -1181,23 +1166,30 @@ export function typeToCType(def: BswmdParamDef): string {
       const unsigned = min >= 0;
       const range = max - min;
       if (!unsigned) {
-        if (range <= 127)        return 'sint8';
-        if (range <= 32767)      return 'sint16';
+        if (range <= 127) return 'sint8';
+        if (range <= 32767) return 'sint16';
         if (range <= 2147483647) return 'sint32';
         return 'sint64';
       }
-      if (range <= 255)        return 'uint8';
-      if (range <= 65535)      return 'uint16';
+      if (range <= 255) return 'uint8';
+      if (range <= 65535) return 'uint16';
       if (range <= 4294967295) return 'uint32';
       return 'uint64';
     }
-    case 'boolean':           return 'uint8';
-    case 'string':            return 'const char*';
-    case 'float':             return 'float32';
-    case 'enumeration':       return 'uint8';
-    case 'reference':         return `const ${def.targetType} * const`;
-    case 'function-name':     return def.signature;
-    default:                  return '??';
+    case 'boolean':
+      return 'uint8';
+    case 'string':
+      return 'const char*';
+    case 'float':
+      return 'float32';
+    case 'enumeration':
+      return 'uint8';
+    case 'reference':
+      return `const ${def.targetType} * const`;
+    case 'function-name':
+      return def.signature;
+    default:
+      return '??';
   }
 }
 ```
@@ -1219,10 +1211,12 @@ git commit -m "feat(generator): typeToCType — ECUC type → C type (TS-side)"
 ## Task 8: Container emit + deterministic ordering
 
 **Files:**
+
 - Create: `src/core/generator/emit/container.ts`
 - Create: `src/core/generator/__tests__/emit-container.test.ts`
 
 **Interfaces:**
+
 - Produces: `sortByIndex(instances)`, `emitContainerDecl(container)` — used by EcuC generator
 
 - [ ] **Step 1: Write the failing test**
@@ -1230,11 +1224,7 @@ git commit -m "feat(generator): typeToCType — ECUC type → C type (TS-side)"
 ```ts
 // src/core/generator/__tests__/emit-container.test.ts
 import { describe, it, expect } from 'vitest';
-import {
-  sortByIndex,
-  emitContainerDecl,
-  type ContainerInstance,
-} from '../emit/container.js';
+import { sortByIndex, emitContainerDecl, type ContainerInstance } from '../emit/container.js';
 import type { BswmdParamDef } from '../handlebars-helpers.js';
 
 describe('sortByIndex', () => {
@@ -1245,17 +1235,13 @@ describe('sortByIndex', () => {
       { shortName: 'c', index: 3 },
     ];
     const sorted = sortByIndex(insts);
-    expect(sorted.map(i => i.shortName)).toEqual(['a', 'b', 'c']);
+    expect(sorted.map((i) => i.shortName)).toEqual(['a', 'b', 'c']);
   });
 
   it('falls back to shortName lexical when INDEX absent', () => {
-    const insts: ContainerInstance[] = [
-      { shortName: 'b' },
-      { shortName: 'a' },
-      { shortName: 'c' },
-    ];
+    const insts: ContainerInstance[] = [{ shortName: 'b' }, { shortName: 'a' }, { shortName: 'c' }];
     const sorted = sortByIndex(insts);
-    expect(sorted.map(i => i.shortName)).toEqual(['a', 'b', 'c']);
+    expect(sorted.map((i) => i.shortName)).toEqual(['a', 'b', 'c']);
   });
 
   it('handles mixed INDEX/no-INDEX: indexed first, then lexical', () => {
@@ -1267,7 +1253,7 @@ describe('sortByIndex', () => {
     ];
     const sorted = sortByIndex(insts);
     // indexed-1, indexed-2 (by index), then no-index-1, no-index-2 (by shortName)
-    expect(sorted.map(i => i.shortName)).toEqual([
+    expect(sorted.map((i) => i.shortName)).toEqual([
       'indexed-1',
       'indexed-2',
       'no-index-1',
@@ -1315,14 +1301,12 @@ export interface ContainerInstance {
  * Deterministic ordering: indexed first (by INDEX asc), then unindexed
  * (by shortName lexical asc). Stable for snapshot diffs.
  */
-export function sortByIndex<T extends ContainerInstance>(
-  instances: readonly T[],
-): readonly T[] {
+export function sortByIndex<T extends ContainerInstance>(instances: readonly T[]): readonly T[] {
   const indexed = instances
-    .filter(i => i.index !== undefined)
-    .sort((a, b) => (a.index! - b.index!));
+    .filter((i) => i.index !== undefined)
+    .sort((a, b) => a.index! - b.index!);
   const unindexed = instances
-    .filter(i => i.index === undefined)
+    .filter((i) => i.index === undefined)
     .sort((a, b) => a.shortName.localeCompare(b.shortName));
   return [...indexed, ...unindexed];
 }
@@ -1357,12 +1341,14 @@ git commit -m "feat(generator): container emit + deterministic INDEX ordering"
 ## Task 9: Choice emit (Approach A: #ifdef) + choices.json loader
 
 **Files:**
+
 - Create: `src/core/generator/emit/choice.ts`
 - Create: `src/core/generator/choices-loader.ts`
 - Create: `src/core/generator/__tests__/emit-choice.test.ts`
 - Create: `src/core/generator/__tests__/choices-loader.test.ts`
 
 **Interfaces:**
+
 - Produces: `loadChoiceMacros(moduleShortName)`, `emitChoiceBranch(...)` — used by EcuC generator
 
 - [ ] **Step 1: Write the failing test for choices-loader**
@@ -1408,9 +1394,7 @@ const BUILTIN: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   },
 };
 
-export function loadChoiceMacros(
-  moduleShortName: string,
-): Readonly<Record<string, string>> {
+export function loadChoiceMacros(moduleShortName: string): Readonly<Record<string, string>> {
   return BUILTIN[moduleShortName] ?? {};
 }
 ```
@@ -1451,9 +1435,7 @@ describe('emitChoiceBranch', () => {
       ifBranch: 'uint8 EcuC_Flag = 1;',
       elseBranch: null,
     });
-    expect(s).toBe(
-      ['#ifndef EcuC_USE_OPTIONAL', 'uint8 EcuC_Flag = 1;', '#endif'].join('\n'),
-    );
+    expect(s).toBe(['#ifndef EcuC_USE_OPTIONAL', 'uint8 EcuC_Flag = 1;', '#endif'].join('\n'));
   });
 });
 ```
@@ -1478,13 +1460,9 @@ export function emitChoiceBranch(input: ChoiceBranchInput): string {
   if (input.elseBranch === null) {
     return `#ifndef ${input.macroName}\n${input.ifBranch}\n#endif`;
   }
-  return [
-    `#ifdef ${input.macroName}`,
-    input.ifBranch,
-    '#else',
-    input.elseBranch,
-    '#endif',
-  ].join('\n');
+  return [`#ifdef ${input.macroName}`, input.ifBranch, '#else', input.elseBranch, '#endif'].join(
+    '\n',
+  );
 }
 ```
 
@@ -1505,10 +1483,12 @@ git commit -m "feat(generator): choice emit (#ifdef) + choices.json loader"
 ## Task 10: Reference integrity validation + emit
 
 **Files:**
+
 - Create: `src/core/generator/emit/reference.ts`
 - Create: `src/core/generator/__tests__/emit-reference.test.ts`
 
 **Interfaces:**
+
 - Produces: `validateReferences(tree)`, `emitReferenceDecl(ref, targetType)` — used by pipeline pre-process + EcuC emit
 
 - [ ] **Step 1: Write the failing test**
@@ -1529,7 +1509,12 @@ const makeTree = (valuesByModule: Record<string, unknown>): NormalizedConfigTree
   valuesByModule: new Map(Object.entries(valuesByModule)),
   implByModule: new Map(),
   references: [
-    { sourceModule: 'EcuC', sourcePath: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' },
+    {
+      sourceModule: 'EcuC',
+      sourcePath: 'RefToMcuClock',
+      targetModule: 'Mcu',
+      targetPath: 'ClockConfig_0',
+    },
   ] as ReferenceEdge[],
 });
 
@@ -1540,14 +1525,14 @@ describe('validateReferences', () => {
       Mcu: { ClockConfig_0: {} },
     });
     const diags = validateReferences(tree);
-    const errors = diags.filter(d => d.severity === DiagnosticSeverity.ERROR);
+    const errors = diags.filter((d) => d.severity === DiagnosticSeverity.ERROR);
     expect(errors).toHaveLength(0);
   });
 
   it('reports ECUC-GEN-010 when target module missing', () => {
     const tree = makeTree({ EcuC: { RefToMcuClock: {} } });
     const diags = validateReferences(tree);
-    const err = diags.find(d => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED);
+    const err = diags.find((d) => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED);
     expect(err).toBeDefined();
     expect(err!.moduleShortName).toBe('EcuC');
     expect(err!.ecucPath).toBe('RefToMcuClock');
@@ -1559,7 +1544,7 @@ describe('validateReferences', () => {
       Mcu: { OtherConfig: {} },
     });
     const diags = validateReferences(tree);
-    const err = diags.find(d => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED);
+    const err = diags.find((d) => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED);
     expect(err).toBeDefined();
   });
 });
@@ -1587,11 +1572,7 @@ Expected: FAIL
 
 ```ts
 // src/core/generator/emit/reference.ts
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from '../diagnostics.js';
+import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from '../diagnostics.js';
 
 export interface ReferenceEdge {
   readonly sourceModule: string;
@@ -1611,9 +1592,7 @@ export interface NormalizedConfigTree {
  * Validate that every cross-module reference resolves to an existing
  * target. Returns diagnostics; pushed to ctx.diagnostics by the caller.
  */
-export function validateReferences(
-  tree: NormalizedConfigTree,
-): readonly Diagnostic[] {
+export function validateReferences(tree: NormalizedConfigTree): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const ref of tree.references) {
     const targetMod = tree.valuesByModule.get(ref.targetModule);
@@ -1669,10 +1648,12 @@ git commit -m "feat(generator): reference integrity validation + emit"
 ## Task 11: pre-process — normalizeToTree
 
 **Files:**
+
 - Create: `src/core/generator/normalize.ts`
 - Create: `src/core/generator/__tests__/normalize.test.ts`
 
 **Interfaces:**
+
 - Produces: `normalizeToTree(bswmdIndex, ecucValues)` returning `NormalizedConfigTree` — used by pipeline
 
 - [ ] **Step 1: Write the failing test**
@@ -1699,10 +1680,7 @@ const ecucValues = {
 
 describe('normalizeToTree', () => {
   it('builds a tree from BSWMD + ECUC values', () => {
-    const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef]]),
-      new Map([['EcuC', ecucValues]]),
-    );
+    const tree = normalizeToTree(new Map([['EcuC', ecucDef]]), new Map([['EcuC', ecucValues]]));
     expect(tree.bswmdIndex.get('EcuC')).toBe(ecucDef);
     expect(tree.valuesByModule.get('EcuC')).toBe(ecucValues);
     expect(tree.references).toEqual([]);
@@ -1711,12 +1689,13 @@ describe('normalizeToTree', () => {
   it('collects cross-module references', () => {
     const values = {
       ...ecucValues,
-      references: [
-        { path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' },
-      ],
+      references: [{ path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' }],
     } as unknown as EcucModuleConfigurationValues;
     const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef], ['Mcu', { ...ecucDef, shortName: 'Mcu' }]]),
+      new Map([
+        ['EcuC', ecucDef],
+        ['Mcu', { ...ecucDef, shortName: 'Mcu' }],
+      ]),
       new Map([['EcuC', values]]),
     );
     expect(tree.references).toHaveLength(1);
@@ -1726,14 +1705,9 @@ describe('normalizeToTree', () => {
   it('warns when values reference an unloaded module', () => {
     const values = {
       ...ecucValues,
-      references: [
-        { path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' },
-      ],
+      references: [{ path: 'RefToMcuClock', targetModule: 'Mcu', targetPath: 'ClockConfig_0' }],
     } as unknown as EcucModuleConfigurationValues;
-    const tree = normalizeToTree(
-      new Map([['EcuC', ecucDef]]),
-      new Map([['EcuC', values]]),
-    );
+    const tree = normalizeToTree(new Map([['EcuC', ecucDef]]), new Map([['EcuC', values]]));
     // Reference still recorded (target existence check happens in validateReferences)
     expect(tree.references).toHaveLength(1);
   });
@@ -1813,10 +1787,12 @@ git commit -m "feat(generator): normalizeToTree — pre-process BSWMD + ECUC val
 ## Task 12: Pipeline orchestrator (3-stage)
 
 **Files:**
+
 - Create: `src/core/generator/pipeline.ts`
 - Create: `src/core/generator/__tests__/pipeline.test.ts`
 
 **Interfaces:**
+
 - Produces: `runPipeline(args)` returning `{ exitCode, diagnostics, artifacts }` — used by CLI handler
 
 - [ ] **Step 1: Write the failing test**
@@ -1871,9 +1847,7 @@ describe('runPipeline', () => {
       strict: false,
     });
     expect(result.exitCode).toBe(0);
-    const warn = result.diagnostics.find(
-      d => d.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR,
-    );
+    const warn = result.diagnostics.find((d) => d.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR);
     expect(warn).toBeDefined();
     expect(warn!.severity).toBe(DiagnosticSeverity.WARNING);
   });
@@ -1881,7 +1855,9 @@ describe('runPipeline', () => {
   it('returns exitCode=1 with ERROR for generator throw', async () => {
     class ThrowGen implements ModuleGenerator {
       readonly moduleShortName = 'Stub';
-      emit(): readonly GeneratedArtifact[] { throw new Error('boom'); }
+      emit(): readonly GeneratedArtifact[] {
+        throw new Error('boom');
+      }
     }
     _resetRegistryForTest();
     registerGenerator(new ThrowGen());
@@ -1894,9 +1870,7 @@ describe('runPipeline', () => {
       strict: false,
     });
     expect(result.exitCode).toBe(1);
-    const err = result.diagnostics.find(
-      d => d.code === DiagnosticCode.ECUC_GEN_THROW,
-    );
+    const err = result.diagnostics.find((d) => d.code === DiagnosticCode.ECUC_GEN_THROW);
     expect(err).toBeDefined();
     expect(err!.severity).toBe(DiagnosticSeverity.ERROR);
   });
@@ -1917,18 +1891,28 @@ describe('runPipeline', () => {
   it('honors moduleFilter: only runs specified modules', async () => {
     class AGen implements ModuleGenerator {
       readonly moduleShortName = 'A';
-      emit(): readonly GeneratedArtifact[] { return [{ path: 'A/a.c', content: '' }]; }
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'A/a.c', content: '' }];
+      }
     }
     class BGen implements ModuleGenerator {
       readonly moduleShortName = 'B';
-      emit(): readonly GeneratedArtifact[] { return [{ path: 'B/b.c', content: '' }]; }
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'B/b.c', content: '' }];
+      }
     }
     _resetRegistryForTest();
     registerGenerator(new AGen());
     registerGenerator(new BGen());
     const result = await runPipeline({
-      bswmdIndex: new Map([['A', {}], ['B', {}]]),
-      ecucValues: new Map([['A', {}], ['B', {}]]),
+      bswmdIndex: new Map([
+        ['A', {}],
+        ['B', {}],
+      ]),
+      ecucValues: new Map([
+        ['A', {}],
+        ['B', {}],
+      ]),
       variant: 'PreCompile',
       outDir: '/tmp/out',
       moduleFilter: ['A'],
@@ -1949,11 +1933,7 @@ Expected: FAIL
 
 ```ts
 // src/core/generator/pipeline.ts
-import {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from './diagnostics.js';
+import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
 import { normalizeToTree } from './normalize.js';
 import { getGenerator, type GenerationVariant } from './registry.js';
 import { validateReferences } from './emit/reference.js';
@@ -1981,7 +1961,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
 
   const artifacts = new Map<string, string>();
   const modulesToRun = args.moduleFilter
-    ? [...args.bswmdIndex.keys()].filter(m => args.moduleFilter!.includes(m))
+    ? [...args.bswmdIndex.keys()].filter((m) => args.moduleFilter!.includes(m))
     : [...args.bswmdIndex.keys()];
 
   for (const moduleShortName of modulesToRun) {
@@ -2019,13 +1999,13 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         severity: DiagnosticSeverity.ERROR,
         code: DiagnosticCode.ECUC_GEN_THROW,
         moduleShortName,
-        message: e instanceof Error ? e.stack ?? e.message : String(e),
+        message: e instanceof Error ? (e.stack ?? e.message) : String(e),
       });
     }
   }
 
-  const hasError = diagnostics.some(d => d.severity === DiagnosticSeverity.ERROR);
-  const hasWarning = diagnostics.some(d => d.severity === DiagnosticSeverity.WARNING);
+  const hasError = diagnostics.some((d) => d.severity === DiagnosticSeverity.ERROR);
+  const hasWarning = diagnostics.some((d) => d.severity === DiagnosticSeverity.WARNING);
   let exitCode: 0 | 1 | 2;
   if (hasError) exitCode = 1;
   else if (hasWarning && args.strict) exitCode = 1;
@@ -2053,10 +2033,12 @@ git commit -m "feat(generator): 3-stage pipeline orchestrator with exit code log
 ## Task 13: Post-process — atomic write (no clang-format in MVP)
 
 **Files:**
+
 - Create: `src/core/generator/post-process.ts`
 - Create: `src/core/generator/__tests__/post-process.test.ts`
 
 **Interfaces:**
+
 - Produces: `writeOutputTree(artifacts, outDir)` — used by CLI handler
 
 Note on clang-format: per spec, the MVP atomic-write path doesn't
@@ -2099,9 +2081,7 @@ describe('writeOutputTree', () => {
   });
 
   it('creates subdirectories as needed', async () => {
-    const artifacts = new Map([
-      ['Deep/Nested/Path/file.c', '/* nested */'],
-    ]);
+    const artifacts = new Map([['Deep/Nested/Path/file.c', '/* nested */']]);
     await writeOutputTree(artifacts, outDir);
     const f = await readFile(join(outDir, 'Deep/Nested/Path/file.c'), 'utf8');
     expect(f).toBe('/* nested */');
@@ -2113,7 +2093,7 @@ describe('writeOutputTree', () => {
     // No leftover temp files
     const { readdir } = await import('node:fs/promises');
     const entries = await readdir(outDir);
-    expect(entries.filter(e => e.includes('.tmp'))).toEqual([]);
+    expect(entries.filter((e) => e.includes('.tmp'))).toEqual([]);
   });
 });
 ```
@@ -2161,6 +2141,7 @@ git commit -m "feat(generator): post-process — atomic file write (temp + renam
 ## Task 14: EcuC testdata fixtures (BSWMD + BSWCFG)
 
 **Files:**
+
 - Create: `testdata/generator/ecuc-bswmd.arxml`
 - Create: `testdata/generator/ecuc-bswcfg-1.arxml` (PreCompile only)
 - Create: `testdata/generator/ecuc-bswcfg-mixed.arxml` (PreCompile + PostBuild)
@@ -2171,6 +2152,7 @@ git commit -m "feat(generator): post-process — atomic file write (temp + renam
 - [ ] **Step 1: Author EcuC BSWMD fixture**
 
 Create `testdata/generator/ecuc-bswmd.arxml` — a minimal EcuC schema with:
+
 - 4 params: `EcuC_PartitionConfigId` (uint16), `EcuC_PartitionBootPriority` (uint8), `EcuC_PartitionType` (enumeration), `EcuC_ConfigConsistencyHash` (uint32)
 - 1 container: `EcuC_PartitionConfig` (array, multiplicity 0..10)
 - 1 choice: `EcucPartitionChoice` with 2 alternatives
@@ -2215,6 +2197,7 @@ git commit -m "test(generator): EcuC BSWMD + BSWCFG fixtures (3 scenarios)"
 ## Task 15: EcuC Handlebars templates (3 files + 3 partials)
 
 **Files:**
+
 - Create: `src/core/generator/templates/_partials/license.h.hbs`
 - Create: `src/core/generator/templates/_partials/header_guard.h.hbs`
 - Create: `src/core/generator/templates/_partials/c_decl.h.hbs`
@@ -2227,9 +2210,9 @@ git commit -m "test(generator): EcuC BSWMD + BSWCFG fixtures (3 scenarios)"
 Create `src/core/generator/templates/_partials/license.h.hbs`:
 
 ```handlebars
-{{!-- SPDX-License-Identifier: MIT --}}
+{{! SPDX-License-Identifier: MIT }}
 {{!-- AUTOSAR BSW C code generated by claude-AutosarCfg {{generatorVersion}} --}}
-{{!-- DO NOT EDIT — regenerate via `claude-autosarcfg generate` --}}
+{{! DO NOT EDIT — regenerate via `claude-autosarcfg generate` }}
 ```
 
 - [ ] **Step 2: Write the header-guard partial**
@@ -2251,11 +2234,13 @@ Create `src/core/generator/templates/_partials/header_guard.h.hbs`:
 Create `src/core/generator/templates/_partials/c_decl.h.hbs`:
 
 ```handlebars
-{{!-- expects `cType`, `ident`, optional `init` (C literal), optional `arrayLen` --}}
+{{! expects `cType`, `ident`, optional `init` (C literal), optional `arrayLen` }}
 {{#if arrayLen}}
-{{cType}} {{ident}}[{{arrayLen}}]{{#if init}} = { {{init}} }{{/if}};
+  {{cType}}
+  {{ident}}[{{arrayLen}}]{{#if init}} = { {{init}} }{{/if}};
 {{else}}
-{{cType}} {{ident}}{{#if init}} = {{init}}{{/if}};
+  {{cType}}
+  {{ident}}{{#if init}} = {{init}}{{/if}};
 {{/if}}
 ```
 
@@ -2357,6 +2342,7 @@ git commit -m "feat(generator): EcuC Handlebars templates (cfg.h/cfg.c/pbcfg.c) 
 ## Task 16: EcuCGenerator class + happy-path test
 
 **Files:**
+
 - Create: `src/core/generator/modules/ecuc.ts`
 - Create: `src/core/generator/__tests__/ecuc.test.ts`
 - Create: `src/core/generator/index.ts` (public API barrel)
@@ -2367,14 +2353,8 @@ git commit -m "feat(generator): EcuC Handlebars templates (cfg.h/cfg.c/pbcfg.c) 
 // src/core/generator/__tests__/ecuc.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EcuCGenerator } from '../modules/ecuc.js';
-import {
-  _resetRegistryForTest,
-  registerGenerator,
-} from '../registry.js';
-import type {
-  BswmdModuleDef,
-  EcucModuleConfigurationValues,
-} from '../test-fixtures/ecuc.js'; // task-specific fixture type
+import { _resetRegistryForTest, registerGenerator } from '../registry.js';
+import type { BswmdModuleDef, EcucModuleConfigurationValues } from '../test-fixtures/ecuc.js'; // task-specific fixture type
 import { ecucDef, ecucValuesPreCompile } from '../test-fixtures/ecuc.js';
 
 describe('EcuCGenerator', () => {
@@ -2390,7 +2370,7 @@ describe('EcuCGenerator', () => {
     const g = getGeneratorForTest('EcuC');
     const ctx = makeCtx('PreCompile');
     const out = g.emit(ecucDef, ecucValuesPreCompile, ctx);
-    const paths = out.map(a => a.path).sort();
+    const paths = out.map((a) => a.path).sort();
     expect(paths).toEqual(['EcuC/EcuC_Cfg.c', 'EcuC/EcuC_Cfg.h']);
   });
 
@@ -2401,9 +2381,7 @@ describe('EcuCGenerator', () => {
 
   it('throws on undefined module def (sanity)', () => {
     const g = new EcuCGenerator();
-    expect(() =>
-      g.emit(undefined as never, ecucValuesPreCompile, makeCtx('PreCompile')),
-    ).toThrow();
+    expect(() => g.emit(undefined as never, ecucValuesPreCompile, makeCtx('PreCompile'))).toThrow();
   });
 });
 
@@ -2447,11 +2425,7 @@ import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
 import { createEngine } from '../handlebars.js';
 import { loadChoiceMacros } from '../choices-loader.js';
-import type {
-  ModuleGenerator,
-  GeneratedArtifact,
-  GenerationContext,
-} from '../registry.js';
+import type { ModuleGenerator, GeneratedArtifact, GenerationContext } from '../registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -2516,7 +2490,10 @@ export class EcuCGenerator implements ModuleGenerator {
 // Stub types — narrow in subsequent tasks as EcuC BSWMD fixture is parsed.
 interface EcuCModuleDef {
   readonly shortName: string;
-  readonly typedefs?: readonly { name: string; fields: readonly { cType: string; name: string }[] }[];
+  readonly typedefs?: readonly {
+    name: string;
+    fields: readonly { cType: string; name: string }[];
+  }[];
 }
 interface EcuCModuleConfigurationValues {
   readonly includes?: readonly string[];
@@ -2525,12 +2502,44 @@ interface EcuCModuleConfigurationValues {
 }
 
 // Helper stubs — replace with real implementations in subsequent tasks.
-function emitExterns(_def: EcuCModuleDef, _v: EcuCModuleConfigurationValues, _v2: GenerationContext['variant']): string[] { return []; }
-function emitRefs(_v: EcuCModuleConfigurationValues): string[] { return []; }
-function emitPreCompile(_d: EcuCModuleDef, _v: EcuCModuleConfigurationValues, _c: GenerationContext): string[] { return []; }
-function emitLink(_d: EcuCModuleDef, _v: EcuCModuleConfigurationValues, _c: GenerationContext): string[] { return []; }
-function emitPostBuild(_d: EcuCModuleDef, _v: EcuCModuleConfigurationValues, _c: GenerationContext): string[] { return []; }
-function emitChoices(_d: EcuCModuleDef, _v: EcuCModuleConfigurationValues, _c: GenerationContext): string[] { return []; }
+function emitExterns(
+  _def: EcuCModuleDef,
+  _v: EcuCModuleConfigurationValues,
+  _v2: GenerationContext['variant'],
+): string[] {
+  return [];
+}
+function emitRefs(_v: EcuCModuleConfigurationValues): string[] {
+  return [];
+}
+function emitPreCompile(
+  _d: EcuCModuleDef,
+  _v: EcuCModuleConfigurationValues,
+  _c: GenerationContext,
+): string[] {
+  return [];
+}
+function emitLink(
+  _d: EcuCModuleDef,
+  _v: EcuCModuleConfigurationValues,
+  _c: GenerationContext,
+): string[] {
+  return [];
+}
+function emitPostBuild(
+  _d: EcuCModuleDef,
+  _v: EcuCModuleConfigurationValues,
+  _c: GenerationContext,
+): string[] {
+  return [];
+}
+function emitChoices(
+  _d: EcuCModuleDef,
+  _v: EcuCModuleConfigurationValues,
+  _c: GenerationContext,
+): string[] {
+  return [];
+}
 ```
 
 - [ ] **Step 4: Write the public API barrel**
@@ -2549,11 +2558,7 @@ export {
 } from './registry.js';
 export { writeOutputTree } from './post-process.js';
 export { normalizeToTree } from './normalize.js';
-export {
-  DiagnosticSeverity,
-  DiagnosticCode,
-  type Diagnostic,
-} from './diagnostics.js';
+export { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -2574,6 +2579,7 @@ git commit -m "feat(generator): EcuCGenerator + public API barrel"
 ## Task 17: EcuC snapshot tests (golden file compare)
 
 **Files:**
+
 - Create: `src/core/generator/__tests__/ecuc.snapshot.test.ts`
 - Create: `testdata/generator/ecuc-expected/PreCompile-1/EcuC_Cfg.c` (committed)
 - Create: `testdata/generator/ecuc-expected/PreCompile-1/EcuC_Cfg.h` (committed)
@@ -2608,10 +2614,7 @@ Write the captured output to the 7 expected files (2 PreCompile, 3 Mixed, 2 Refs
 // src/core/generator/__tests__/ecuc.snapshot.test.ts
 import { describe, it, expect, beforeAll } from 'vitest';
 import { EcuCGenerator } from '../modules/ecuc.js';
-import {
-  _resetRegistryForTest,
-  registerGenerator,
-} from '../registry.js';
+import { _resetRegistryForTest, registerGenerator } from '../registry.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -2637,14 +2640,14 @@ describe('EcuC snapshot', () => {
   it('PreCompile-1 Cfg.c matches', () => {
     const g = new EcuCGenerator();
     const out = g.emit(ecucDef, ecucValuesPreCompile, makeCtx('PreCompile'));
-    const c = out.find(a => a.path === 'EcuC/EcuC_Cfg.c')!;
+    const c = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c')!;
     expect(c.content).toBe(readSnap('PreCompile-1/EcuC_Cfg.c'));
   });
 
   it('PreCompile-1 Cfg.h matches', () => {
     const g = new EcuCGenerator();
     const out = g.emit(ecucDef, ecucValuesPreCompile, makeCtx('PreCompile'));
-    const h = out.find(a => a.path === 'EcuC/EcuC_Cfg.h')!;
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h')!;
     expect(h.content).toBe(readSnap('PreCompile-1/EcuC_Cfg.h'));
   });
 
@@ -2652,7 +2655,7 @@ describe('EcuC snapshot', () => {
     const g = new EcuCGenerator();
     const out = g.emit(ecucDef, ecucValuesMixed, makeCtx('PreCompile'));
     for (const f of ['EcuC/EcuC_Cfg.c', 'EcuC/EcuC_Cfg.h', 'EcuC/EcuC_PBcfg.c']) {
-      const a = out.find(x => x.path === f)!;
+      const a = out.find((x) => x.path === f)!;
       const expectedPath = f.replace('EcuC/', 'Mixed-1/');
       expect(a.content).toBe(readSnap(expectedPath));
     }
@@ -2661,7 +2664,7 @@ describe('EcuC snapshot', () => {
   it('Refs-1 emits reference decls', () => {
     const g = new EcuCGenerator();
     const out = g.emit(ecucDef, ecucValuesRefs, makeCtx('PreCompile'));
-    const c = out.find(a => a.path === 'EcuC/EcuC_Cfg.c')!;
+    const c = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c')!;
     expect(c.content).toBe(readSnap('Refs-1/EcuC_Cfg.c'));
     expect(c.content).toContain('&Mcu_ClockConfig_0');
   });
@@ -2699,6 +2702,7 @@ git commit -m "test(generator): EcuC snapshot tests (golden Cfg.c/Cfg.h/PBcfg.c)
 ## Task 18: Diagnostic fixture tests (one per code)
 
 **Files:**
+
 - Create: `src/core/generator/__tests__/ecuc.diagnostic.test.ts`
 - Create: `testdata/generator/diagnostics/<code>/*.arxml` (11 fixture files)
 
@@ -2711,20 +2715,20 @@ code appears.
 For each of the following codes, create a fixture ARXML under
 `testdata/generator/diagnostics/<code>/`:
 
-| Code | Fixture trigger |
-|---|---|
-| `ECUC_GEN_NO_SCHEMA` | BSWCFG references a module not in any BSWMD |
-| `ECUC_GEN_NO_GENERATOR` | Module loaded but generator not registered |
-| `ECUC_GEN_THROW` | Generator throws (test by injecting a throwing generator — see step 2) |
-| `ECUC_GEN_REF_UNRESOLVED` | Cross-module ref to unloaded module/path |
-| `ECUC_GEN_MULTIPLICITY` | BSWCFG has 11 instances of a `0..10` container |
-| `ECUC_GEN_TYPE_MISMATCH` | Integer value where Boolean expected |
-| `ECUC_GEN_RANGE` | Integer value outside [min, max] |
-| `ECUC_GEN_ORDERING` | 3 instances with INDEX 3, 1, 2 (out of order) |
-| `ECUC_GEN_DUPLICATE_SHORTNAME` | Two instances with same shortName |
-| `ECUC_GEN_TEMPLATE_RENDER` | Handlebars template throws (test via stub template) |
-| `ECUC_GEN_OUTPUT_WRITE` | Output path is unwritable (test by mocking fs) |
-| `ECUC_GEN_INFO_EMPTY_VARIANT` | Module has no elements for `--variant PostBuild` |
+| Code                           | Fixture trigger                                                        |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `ECUC_GEN_NO_SCHEMA`           | BSWCFG references a module not in any BSWMD                            |
+| `ECUC_GEN_NO_GENERATOR`        | Module loaded but generator not registered                             |
+| `ECUC_GEN_THROW`               | Generator throws (test by injecting a throwing generator — see step 2) |
+| `ECUC_GEN_REF_UNRESOLVED`      | Cross-module ref to unloaded module/path                               |
+| `ECUC_GEN_MULTIPLICITY`        | BSWCFG has 11 instances of a `0..10` container                         |
+| `ECUC_GEN_TYPE_MISMATCH`       | Integer value where Boolean expected                                   |
+| `ECUC_GEN_RANGE`               | Integer value outside [min, max]                                       |
+| `ECUC_GEN_ORDERING`            | 3 instances with INDEX 3, 1, 2 (out of order)                          |
+| `ECUC_GEN_DUPLICATE_SHORTNAME` | Two instances with same shortName                                      |
+| `ECUC_GEN_TEMPLATE_RENDER`     | Handlebars template throws (test via stub template)                    |
+| `ECUC_GEN_OUTPUT_WRITE`        | Output path is unwritable (test by mocking fs)                         |
+| `ECUC_GEN_INFO_EMPTY_VARIANT`  | Module has no elements for `--variant PostBuild`                       |
 
 - [ ] **Step 2: Write diagnostic fixture tests**
 
@@ -2732,11 +2736,7 @@ For each of the following codes, create a fixture ARXML under
 // src/core/generator/__tests__/ecuc.diagnostic.test.ts
 import { describe, it, expect } from 'vitest';
 import { runPipeline } from '../pipeline.js';
-import {
-  registerGenerator,
-  _resetRegistryForTest,
-  type ModuleGenerator,
-} from '../registry.js';
+import { registerGenerator, _resetRegistryForTest, type ModuleGenerator } from '../registry.js';
 import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import { ecucDef } from '../test-fixtures/ecuc.js';
 
@@ -2751,7 +2751,7 @@ describe('Diagnostic fixture triggers', () => {
       moduleFilter: undefined,
       strict: false,
     });
-    const d = result.diagnostics.find(x => x.code === DiagnosticCode.ECUC_GEN_NO_SCHEMA);
+    const d = result.diagnostics.find((x) => x.code === DiagnosticCode.ECUC_GEN_NO_SCHEMA);
     expect(d).toBeDefined();
     expect(d!.moduleShortName).toBe('Ghost');
   });
@@ -2766,7 +2766,7 @@ describe('Diagnostic fixture triggers', () => {
       moduleFilter: undefined,
       strict: false,
     });
-    const d = result.diagnostics.find(x => x.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR);
+    const d = result.diagnostics.find((x) => x.code === DiagnosticCode.ECUC_GEN_NO_GENERATOR);
     expect(d).toBeDefined();
   });
 
@@ -2774,7 +2774,9 @@ describe('Diagnostic fixture triggers', () => {
     _resetRegistryForTest();
     class ThrowGen implements ModuleGenerator {
       readonly moduleShortName = 'Stub';
-      emit(): readonly never[] { throw new Error('boom'); }
+      emit(): readonly never[] {
+        throw new Error('boom');
+      }
     }
     registerGenerator(new ThrowGen());
     const result = await runPipeline({
@@ -2785,7 +2787,7 @@ describe('Diagnostic fixture triggers', () => {
       moduleFilter: undefined,
       strict: false,
     });
-    const d = result.diagnostics.find(x => x.code === DiagnosticCode.ECUC_GEN_THROW);
+    const d = result.diagnostics.find((x) => x.code === DiagnosticCode.ECUC_GEN_THROW);
     expect(d).toBeDefined();
     expect(d!.severity).toBe(DiagnosticSeverity.ERROR);
   });
@@ -2813,6 +2815,7 @@ git commit -m "test(generator): diagnostic fixture tests (one per DiagnosticCode
 ## Task 19: CLI sub-command — generate handler + dispatcher wiring
 
 **Files:**
+
 - Create: `src/cli/handlers/generate.ts`
 - Modify: `src/cli/command-dispatcher.ts` (add generate case)
 - Modify: `src/shared/headless/ipc-contract.ts` (add GenerateArgs + GenerateResult types)
@@ -2820,6 +2823,7 @@ git commit -m "test(generator): diagnostic fixture tests (one per DiagnosticCode
 - Create: `src/cli/__tests__/handlers/generate.test.ts`
 
 **Interfaces:**
+
 - Produces: `generateHeadlessProject(args): Promise<GenerateResult>` — exported from CLI module
 
 - [ ] **Step 1: Add GenerateArgs + GenerateResult to IPC contract**
@@ -2839,11 +2843,11 @@ export type HeadlessGenerateFormat = 'human' | 'json';
 export interface GenerateArgs {
   readonly command: 'generate';
   readonly projectPath: string;
-  readonly variant?: HeadlessGenerateVariant;   // default 'PreCompile'
-  readonly outDir?: string;                     // default <project>/generated
-  readonly modules?: readonly string[];         // optional filter
-  readonly strict?: boolean;                    // promote WARNING → ERROR
-  readonly format?: HeadlessGenerateFormat;     // default 'human'
+  readonly variant?: HeadlessGenerateVariant; // default 'PreCompile'
+  readonly outDir?: string; // default <project>/generated
+  readonly modules?: readonly string[]; // optional filter
+  readonly strict?: boolean; // promote WARNING → ERROR
+  readonly format?: HeadlessGenerateFormat; // default 'human'
 }
 
 export interface GeneratedFile {
@@ -2858,7 +2862,7 @@ export interface GenerateResult {
   readonly outDir: string;
   readonly variant: HeadlessGenerateVariant;
   readonly files: readonly GeneratedFile[];
-  readonly diagnostics: readonly ValidatorResult[];   // reuse ValidatorResult type
+  readonly diagnostics: readonly ValidatorResult[]; // reuse ValidatorResult type
   readonly durationMs: number;
 }
 ```
@@ -2916,10 +2920,7 @@ import { join } from 'node:path';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { runPipeline } from '../../core/generator/pipeline.js';
 import { writeOutputTree } from '../../core/generator/post-process.js';
-import {
-  registerGenerator,
-  type GenerationVariant,
-} from '../../core/generator/registry.js';
+import { registerGenerator, type GenerationVariant } from '../../core/generator/registry.js';
 import { EcuCGenerator } from '../../core/generator/modules/ecuc.js';
 import type {
   GenerateArgs,
@@ -2927,9 +2928,7 @@ import type {
   GeneratedFile,
 } from '../../shared/headless/ipc-contract.js';
 
-export async function generateHeadlessProject(
-  args: GenerateArgs,
-): Promise<GenerateResult> {
+export async function generateHeadlessProject(args: GenerateArgs): Promise<GenerateResult> {
   const start = Date.now();
   const variant: GenerationVariant = args.variant ?? 'PreCompile';
   const outDir = args.outDir ?? join(args.projectPath, 'generated');
@@ -2956,9 +2955,10 @@ export async function generateHeadlessProject(
   // responsible for the actual process exit code.
   await writeOutputTree(pipeline.artifacts, outDir);
 
-  const files: GeneratedFile[] = [...pipeline.artifacts.entries()].map(
-    ([path, content]) => ({ path, bytes: Buffer.byteLength(content, 'utf8') }),
-  );
+  const files: GeneratedFile[] = [...pipeline.artifacts.entries()].map(([path, content]) => ({
+    path,
+    bytes: Buffer.byteLength(content, 'utf8'),
+  }));
 
   return {
     ok: pipeline.exitCode !== 1,
@@ -2967,7 +2967,7 @@ export async function generateHeadlessProject(
     outDir,
     variant,
     files,
-    diagnostics: pipeline.diagnostics.map(d => ({
+    diagnostics: pipeline.diagnostics.map((d) => ({
       ruleId: d.code,
       severity: d.severity === 'ERROR' ? 'error' : d.severity === 'WARNING' ? 'warning' : 'warning',
       path: d.ecucPath ?? '',
@@ -3006,7 +3006,11 @@ Edit `src/cli/index.ts` — add:
 
 ```ts
 export { generateHeadlessProject } from './handlers/generate.js';
-export type { GenerateArgs, GenerateResult, GeneratedFile } from '../shared/headless/ipc-contract.js';
+export type {
+  GenerateArgs,
+  GenerateResult,
+  GeneratedFile,
+} from '../shared/headless/ipc-contract.js';
 ```
 
 - [ ] **Step 7: Run handler test**
@@ -3028,6 +3032,7 @@ git commit -m "feat(cli): generate sub-command handler + dispatcher wiring"
 ## Task 20: Final verify + version bump + release notes
 
 **Files:**
+
 - Modify: `package.json` (version 1.9.1 → 1.10.0)
 - Modify: `CHANGELOG.md` (add v1.10.0 entry)
 - Create: `docs/superpowers/release-notes-v1.10.0.md`
@@ -3063,6 +3068,7 @@ Add to top of `CHANGELOG.md`:
 ## [1.10.0] - 2026-06-24
 
 ### Added
+
 - New `generate` sub-command in headless CLI: emits BSW configuration
   C source code (Cfg.c / Cfg.h / PBcfg.c) from ECUC values + BSWMD.
   - MVP demo module: EcuC (single-module end-to-end proof).
@@ -3074,6 +3080,7 @@ Add to top of `CHANGELOG.md`:
   - 85+ new tests; ~10 ARXML fixtures; 7 golden snapshot files.
 
 ### References
+
 - Spec: `docs/superpowers/specs/2026-06-24-bsw-code-generator-design.md`
 - Plan: `docs/superpowers/plans/2026-06-24-bsw-code-generator.md`
 ```
