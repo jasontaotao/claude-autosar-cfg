@@ -48,6 +48,13 @@ export type ContextMenuTarget = {
   readonly path: string;
   readonly kind: 'module' | 'container' | 'reference' | 'bswmd';
   readonly shortName: string;
+  /**
+   * Sprint A+ — when the right-click target is a module-kind node
+   * whose source BSWMD is loaded, this carries the post-fold module
+   * path so the menu can offer "Delete ECUC module" alongside
+   * "Remove BSWMD". Undefined for non-module targets.
+   */
+  readonly modulePath?: string;
 };
 
 /** Action union — one of the operations the user can fire from the
@@ -63,7 +70,8 @@ export type ContextMenuAction =
   | { readonly type: 'add-reference'; readonly path: string }
   | { readonly type: 'delete-container'; readonly path: string; readonly name: string }
   | { readonly type: 'delete-reference'; readonly path: string }
-  | { readonly type: 'remove-module'; readonly path: string };
+  | { readonly type: 'remove-module'; readonly path: string }
+  | { readonly type: 'delete-module'; readonly path: string; readonly name: string };
 
 // ---------------------------------------------------------------------------
 // Module-level state cell — the menu's "open or closed" + position.
@@ -276,6 +284,22 @@ function buildContainerItems(
       cssClass: 'context-menu-item context-menu-item-add',
       build: (t) => ({ type: 'add-reference', path: t.path }),
     },
+    // Sprint A+ — "Delete ECUC module" entry. Renders as a disabled
+    // item when the right-click target has no `modulePath` (i.e. the
+    // target is a plain container/parameter node and the menu is being
+    // built by `buildContainerItems` for that case). The `build`
+    // callback falls back to `t.path` so the action still carries a
+    // sensible path even when the disabled item is clicked via
+    // accessibility tooling — the App.tsx router will hit the store's
+    // path-not-found branch and surface a toast.
+    {
+      id: 'delete-module',
+      label: t(locale, 'mutation.action.deleteModule', { name: target.shortName }),
+      ariaLabel: t(locale, 'mutation.action.deleteModuleAria', { name: target.shortName }),
+      disabled: target.modulePath === undefined,
+      cssClass: 'context-menu-item context-menu-item-delete',
+      build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
+    },
     {
       id: 'delete-container',
       label: t(locale, 'mutation.action.delete', { name: target.shortName }),
@@ -312,9 +336,18 @@ function buildReferenceItems(target: ContextMenuTarget, locale: Locale): readonl
  * which shows the 4-option dialog (cancel / only / cascade /
  * cascade-and-unlink). Mirrors the delete-reference shape: a single
  * destructive item with the path as the only payload field.
+ *
+ * Sprint A+ — when the right-click target carries a `modulePath`
+ * (set by the TreeNode module-kind re-route for source-backed
+ * docs), also emit a sibling "Delete ECUC module" item. The host
+ * routes `delete-module` to `useArxmlStore.deleteEcucModule(path)`,
+ * which clears the source BSWMD link atomically (no dangling
+ * chip). Spec §Design Candidates A3+B: BOTH "Remove BSWMD" and
+ * "Delete ECUC module" should be visible for a source-backed
+ * module root right-click.
  */
 function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly MenuItemSpec[] {
-  return [
+  const items: MenuItemSpec[] = [
     {
       id: 'remove-module',
       label: t(locale, 'mutation.action.removeModule'),
@@ -331,6 +364,17 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
       build: () => ({ type: 'remove-module', path: target.path }),
     },
   ];
+  if (target.modulePath !== undefined) {
+    items.push({
+      id: 'delete-module',
+      label: t(locale, 'mutation.action.deleteModule', { name: target.shortName }),
+      ariaLabel: t(locale, 'mutation.action.deleteModuleAria', { name: target.shortName }),
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-delete',
+      build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
+    });
+  }
+  return items;
 }
 
 // ---------------------------------------------------------------------------

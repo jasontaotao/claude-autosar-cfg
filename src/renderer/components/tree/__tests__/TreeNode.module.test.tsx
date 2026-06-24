@@ -140,6 +140,9 @@ describe('Tree module-kind right-click (Sprint 17 P3 T3.2)', () => {
         path: '/fake/Adc.arxml',
         kind: 'bswmd',
         shortName: 'Adc.arxml',
+        // Sprint A+ — modulePath carries the post-fold module path so
+        // the menu can offer "Delete ECUC module" alongside "Remove BSWMD".
+        modulePath: '/EAS/Adc',
       },
       50,
       50,

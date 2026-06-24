@@ -200,6 +200,12 @@ export function TreeNode({
           // path argument here is the module tree path (`/<pkg>/<module>`),
           // which we don't need for the lookup — the BSWMD path
           // comes from the document provenance, not the tree path.
+          //
+          // Sprint A+ — also carry the module path so the menu can
+          // offer "Delete ECUC module" alongside "Remove BSWMD".
+          // `path` is the canonical post-fold module path (e.g.
+          // `/Adc/Adc` for the package shortName == module shortName
+          // shape) — exactly the path `findByPath` resolves.
           const state = useArxmlStore.getState();
           const doc = state.doc ?? state.displayDoc;
           if (doc?.sourceBswmdPath !== undefined) {
@@ -208,6 +214,7 @@ export function TreeNode({
                 path: doc.sourceBswmdPath,
                 kind: 'bswmd',
                 shortName: basename(doc.sourceBswmdPath),
+                modulePath: path,
               },
               e.clientX,
               e.clientY,
