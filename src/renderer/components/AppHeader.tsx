@@ -257,13 +257,37 @@ export function AppHeader({
     //     anomaly: preload bridge failure, race during Electron startup,
     //     or a future IPC refactor that dropped the channel). Surfaces
     //     the bug instead of silently masking it.
-    if (window.autosarApi?.getAppVersion !== undefined) {
-      void window.autosarApi.getAppVersion().then(setAppVersion);
-    } else if (typeof window.autosarApi === 'undefined') {
+    //
+    // v1.12.0 PATCH D3 (M2) — extend the PATCH-B fix to the REJECTED
+    // IPC promise path. Without `.catch` + `cancelled`, the much more
+    // common "IPC call threw" failure (preload bridge failure, race
+    // during Electron startup, future IPC refactor) left the UI stuck
+    // on the literal `'…'` placeholder forever — the `?` anomaly signal
+    // was reserved for the synchronous "API shape changed" path only.
+    // Mirrors the sibling getFeatureFlags effect (lines 120-142 above).
+    const api = window.autosarApi;
+    if (api === undefined) {
       setAppVersion('dev');
-    } else {
-      setAppVersion('?');
+      return;
     }
+    if (typeof api.getAppVersion !== 'function') {
+      setAppVersion('?');
+      return;
+    }
+    let cancelled = false;
+    void api
+      .getAppVersion()
+      .then((v) => {
+        if (cancelled) return;
+        setAppVersion(v);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAppVersion('?');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 下拉菜单：点击外部关闭

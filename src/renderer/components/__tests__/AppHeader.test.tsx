@@ -713,4 +713,28 @@ describe('AppHeader (v1.11.4 PATCH-B — headless E2E fallback)', () => {
     const ver = await screen.findByText(/^v\?$/);
     expect(ver).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------------
+  // v1.12.0 PATCH D3 (M2) — rejected IPC promise must also surface `v?`.
+  // -------------------------------------------------------------------------
+  //
+  // The v1.11.4 PATCH-B fix only covered the SYNCHRONOUS failure modes
+  // (autosarApi undefined / getAppVersion missing). The much more common
+  // production failure — a REJECTED IPC promise (preload bridge failure,
+  // race during Electron startup, future IPC refactor that dropped the
+  // channel) — was left with no `.catch`, so the UI stayed on the literal
+  // `'…'` placeholder forever. This test pins the corrected behaviour.
+  it('renders v? when getAppVersion rejects (IPC failure → production-anomaly signal)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = {
+      getAppVersion: vi.fn().mockRejectedValue(new Error('IPC channel dropped')),
+      openArxml: vi.fn(),
+      openArxmlMulti: vi.fn(),
+      parseArxml: vi.fn(),
+      saveArxml: vi.fn(),
+    };
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^v\?$/);
+    expect(ver).toBeInTheDocument();
+  });
 });
