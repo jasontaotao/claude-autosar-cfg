@@ -233,13 +233,49 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     // ERROR → exit 1
     expect(result.exitCode).toBe(1);
   });
+
+  // E3 — ECUC-GEN-012 (TYPE_MISMATCH, ERROR). BSWMD declares param
+  // 'Enable' with kind='boolean'. ECUC values carry a string 'true'
+  // → runtime kind='string', expected='boolean' → ERROR.
+  it('ECUC-GEN-012 (TYPE_MISMATCH, ERROR) fires when value runtime kind does not match BSWMD kind', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              params: [{ shortName: 'Enable', kind: 'boolean' }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          ['Stub', { parameters: [{ shortName: 'Enable', value: 'true' }] }],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_TYPE_MISMATCH,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Enable');
+    expect(result.exitCode).toBe(1);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
-  // The EcuC generator uses cTypeForKind to derive C types but does
-  // not currently compare against the value's runtime kind.
-  test.todo('ECUC-GEN-012 (TYPE_MISMATCH, ERROR) fires on value vs def type mismatch');
+  // 013 RANGE: integer out of [min, max] bound.
+  // EcuC emit writes the value verbatim into C source; no min/max
+  // clamp or compare runs in v1.11.0.
+  test.todo('ECUC-GEN-013 (RANGE, ERROR) fires on value outside [min, max]');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does

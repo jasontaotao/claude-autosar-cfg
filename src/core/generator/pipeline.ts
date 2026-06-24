@@ -28,6 +28,7 @@ import {
   validateMultiplicity,
   type BswmdModuleDefForMultiplicity,
 } from './emit/multiplicity.js';
+import { validateTypeMatches } from './emit/type-check.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
@@ -67,6 +68,19 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       args.ecucValues as ReadonlyMap<
         string,
         { containers?: readonly { shortName: string }[] }
+      >,
+    ),
+  );
+  // v1.12.0 E3 — parameter runtime-kind vs BSWMD-kind validation.
+  diagnostics.push(
+    ...validateTypeMatches(
+      args.bswmdIndex as ReadonlyMap<
+        string,
+        { params?: readonly { shortName: string; kind: 'integer' | 'float' | 'boolean' | 'string' | 'enumeration' | 'reference' | 'function-name' }[] }
+      >,
+      args.ecucValues as ReadonlyMap<
+        string,
+        { parameters?: readonly { shortName: string; value: unknown }[] }
       >,
     ),
   );
