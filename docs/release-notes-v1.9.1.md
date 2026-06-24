@@ -47,11 +47,36 @@ separate `chore(format)` commit (no semantic change) so the project's
 None. Existing ECUC projects re-render correctly on next open. The fold
 is transparent — no on-disk ARXML change, no user action required.
 
+### Tree: hoist nested vendor-folded packages (tier 4 nested case)
+
+The initial v1.9.1 release shipped the `foldVendorPackages` tier 4
+logic but missed the corresponding Tree renderer update. The top-level
+`flatMap` in `src/renderer/components/tree/Tree.tsx` correctly hoists
+synthesised pkgs at the document root, but `renderPackage`'s nested
+recursion (`pkg.packages.map`) did not check `isVendorFoldResult`,
+causing an extra "synthesised pkg" treeitem between the outer package
+and the ECUC module.
+
+User-visible bug: `AUTOSAR_R22 > EcucDefs > Adc_module` rendered as
+`AUTOSAR_R22 > Adc pkg > Adc module` (3 layers) instead of
+`AUTOSAR_R22 > Adc module` (2 layers).
+
+Fix: `renderPackage` now branches on `sp.isVendorFoldResult` and
+routes nested synthesised pkgs through `renderChildren` with the
+parent package's path as `parentPath`, so child paths stay consistent
+with the post-fold shape (e.g. `/AUTOSAR_R22/Adc`).
+
 ## Tests
 
-- **Total**: 2223 passed + 1 skipped (up from 2219 + 1 in v1.9.0 SHIPPED)
-- **New tests**: 4 in `src/renderer/store/helpers/__tests__/combinedDoc.test.ts`:
-  1. `folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]`
+- **Total**: 2224 passed + 1 skipped (up from 2219 + 1 in v1.9.0 SHIPPED)
+- **New tests**: 5 across 2 files:
+  - 4 in `src/renderer/store/helpers/__tests__/combinedDoc.test.ts` (tier 4 fold logic):
+    1. `folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]`
+    2. `folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]`
+    3. `refuses to fold when EcucDefs has sibling elements (module + reference) — invariant I1`
+    4. `folds EcucDefs even when the module is NOT in loaded BSWMDs (naming-only tier)`
+  - 1 in `src/renderer/components/tree/__tests__/Tree.test.tsx` (tier 4 nested hoist):
+    5. `hoists the ECUC module past a NESTED vendor-folded package (tier 4 inside AUTOSAR_R22)`
   2. `folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]`
   3. `refuses to fold when EcucDefs has sibling elements (module + reference) — invariant I1`
   4. `folds EcucDefs even when the module is NOT in loaded BSWMDs (naming-only tier)`
@@ -71,6 +96,7 @@ is transparent — no on-disk ARXML change, no user action required.
 
 | Commit | Type | Subject |
 |---|---|---|
+| `552b231` | fix | `fix(tree): hoist nested vendor-folded packages (tier 4 nested case)` |
 | `1721431` | feat | `feat(combinedDoc): add EcucDefs fold (tier 4) for BSWMD-generated ECUC` |
 | `b03398f` | chore | `chore(format): prettier --write on Sprint X WIP files` |
 | `5b425c4` | fix | `fix(arxml): unblock removeContainer + picker dedup on nested-package docs` |
