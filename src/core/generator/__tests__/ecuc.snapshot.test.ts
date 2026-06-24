@@ -28,17 +28,13 @@
 //   - The Refs-1 fixture's `references[]` is not consumed by the
 //     generator yet — its Cfg.c is byte-identical to PreCompile-1.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, test, beforeAll } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { EcuCGenerator } from '../modules/ecuc.js';
-import {
-  _resetRegistryForTest,
-  registerGenerator,
-  type GenerationContext,
-} from '../registry.js';
+import { _resetRegistryForTest, registerGenerator, type GenerationContext } from '../registry.js';
 import {
   ecucDef,
   ecucValuesPreCompile,
@@ -52,17 +48,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function readSnap(relPath: string): string {
   return readFileSync(
-    join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      'testdata',
-      'generator',
-      'ecuc-expected',
-      relPath,
-    ),
+    join(__dirname, '..', '..', '..', '..', 'testdata', 'generator', 'ecuc-expected', relPath),
     'utf8',
   );
 }
@@ -86,11 +72,11 @@ describe('EcuC snapshot', () => {
   it('PreCompile-1 Cfg.c matches', () => {
     const g = new EcuCGenerator();
     const out = g.emit(
-      ecucDef as unknown as BswmdModuleDef,
-      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues,
+      ecucDef as unknown as BswmdModuleDef, // type-erase: TS hand-typed fixture deliberately uses loose types
+      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues, // type-erase: TS hand-typed fixture deliberately uses loose types
       makeCtx(),
     );
-    const c = out.find(a => a.path === 'EcuC/EcuC_Cfg.c');
+    const c = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c');
     if (!c) throw new Error('EcuC_Cfg.c missing from emit output');
     expect(c.content).toBe(readSnap('PreCompile-1/EcuC_Cfg.c'));
   });
@@ -98,11 +84,11 @@ describe('EcuC snapshot', () => {
   it('PreCompile-1 Cfg.h matches', () => {
     const g = new EcuCGenerator();
     const out = g.emit(
-      ecucDef as unknown as BswmdModuleDef,
-      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues,
+      ecucDef as unknown as BswmdModuleDef, // type-erase: TS hand-typed fixture deliberately uses loose types
+      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues, // type-erase: TS hand-typed fixture deliberately uses loose types
       makeCtx(),
     );
-    const h = out.find(a => a.path === 'EcuC/EcuC_Cfg.h');
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
     if (!h) throw new Error('EcuC_Cfg.h missing from emit output');
     expect(h.content).toBe(readSnap('PreCompile-1/EcuC_Cfg.h'));
   });
@@ -110,12 +96,12 @@ describe('EcuC snapshot', () => {
   it('Mixed-1 emits Cfg.c, Cfg.h, PBcfg.c (byte-identical)', () => {
     const g = new EcuCGenerator();
     const out = g.emit(
-      ecucDef as unknown as BswmdModuleDef,
-      ecucValuesMixed as unknown as EcucModuleConfigurationValues,
+      ecucDef as unknown as BswmdModuleDef, // type-erase: TS hand-typed fixture deliberately uses loose types
+      ecucValuesMixed as unknown as EcucModuleConfigurationValues, // type-erase: TS hand-typed fixture deliberately uses loose types
       makeCtx(),
     );
     for (const f of ['EcuC/EcuC_Cfg.c', 'EcuC/EcuC_Cfg.h', 'EcuC/EcuC_PBcfg.c']) {
-      const a = out.find(x => x.path === f);
+      const a = out.find((x) => x.path === f);
       if (!a) throw new Error(`${f} missing from emit output`);
       const expectedPath = f.replace('EcuC/', 'Mixed-1/');
       expect(a.content).toBe(readSnap(expectedPath));
@@ -128,14 +114,21 @@ describe('EcuC snapshot', () => {
     // still serves as the regression anchor once reference emit lands.
     const g = new EcuCGenerator();
     const out = g.emit(
-      ecucDef as unknown as BswmdModuleDef,
-      ecucValuesRefs as unknown as EcucModuleConfigurationValues,
+      ecucDef as unknown as BswmdModuleDef, // type-erase: TS hand-typed fixture deliberately uses loose types
+      ecucValuesRefs as unknown as EcucModuleConfigurationValues, // type-erase: TS hand-typed fixture deliberately uses loose types
       makeCtx(),
     );
-    const c = out.find(a => a.path === 'EcuC/EcuC_Cfg.c');
-    const h = out.find(a => a.path === 'EcuC/EcuC_Cfg.h');
+    const c = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c');
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
     if (!c || !h) throw new Error('Refs-1: missing Cfg.c or Cfg.h');
     expect(c.content).toBe(readSnap('Refs-1/EcuC_Cfg.c'));
     expect(h.content).toBe(readSnap('Refs-1/EcuC_Cfg.h'));
   });
+
+  // TODO: once the EcuC generator emits `<Reference>` entries into Cfg.c,
+  // assert that Refs-1's Cfg.c content contains the expected
+  // `&Mcu_ClockConfig_0` symbol so the deferred reference-emission work
+  // has a concrete regression anchor. The current generator ignores
+  // `references[]` and emits a byte-identical Cfg.c to PreCompile-1.
+  test.todo('Refs-1 Cfg.c contains &Mcu_ClockConfig_0 reference emit');
 });
