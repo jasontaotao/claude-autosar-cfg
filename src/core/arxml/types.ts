@@ -2,20 +2,40 @@
 // Reference: AUTOSAR TPS_StandardizationTemplate (4.x).
 //   https://www.autosar.org/fileadmin/standards/foundation/22-11/AUTOSAR_TPS_StandardizationTemplate.pdf
 
-export type ArxmlVersion =
-  | '4.0'
-  | '4.2'
-  | '4.4'
-  | '4.6'
-  | '4.7'
-  | '5.0'
-  | '00005'
-  | '00006'
-  | '00046'
-  | '00048'
-  | '00049'
-  | '00050'
-  | '00051';
+/**
+ * v1.11.4 PATCH-A — single source of truth for ARXML versions that
+ * have a 1:1 BSWMD mapping. `ArxmlVersion` (below) is the literal
+ * union of this list, and `SUPPORTED_ARXML_VERSIONS` is a
+ * reference-equal alias. `ARXML_VERSIONS` in version.ts derives the
+ * BSWMD→ARXML 1:1 direct-map Set from the same source. Adding or
+ * removing a version here updates all three at once — the previous
+ * hand-synced pair (SUPPORTED_ARXML_VERSIONS + version.ts ARXML_VERSIONS)
+ * drifted in v1.8.5 (commit 8870566) when '4.0' was added to one but
+ * not the other, breaking R4.0 ECUC file parsing.
+ *
+ * Keep entries in this order: dotted form first, then 5-digit literals.
+ */
+export const ARXML_DIRECT_MAP_VERSIONS = [
+  '4.0',
+  '4.2',
+  '4.4',
+  '4.6',
+  '4.7',
+  '5.0',
+  // 5-digit literals — AUTOSAR standard form for R4.4+ releases:
+  // 00046 = R4.6, 00048 = R19-11, 00049 = R20-11, 00050 = R21-11,
+  // 00051 = R22-11.
+  // 00047 (R4.7) intentionally omitted — no fixture proves vendor emission yet.
+  '00005',
+  '00006',
+  '00046',
+  '00048',
+  '00049',
+  '00050',
+  '00051',
+] as const;
+
+export type ArxmlVersion = (typeof ARXML_DIRECT_MAP_VERSIONS)[number];
 
 export interface ArxmlDocument {
   /** Root file path or logical name */
@@ -184,6 +204,27 @@ export type ParamEditMode =
   | 'reference'
   | 'multiline';
 
+/**
+ * v1.11.4 PATCH-A — derived from `ARXML_DIRECT_MAP_VERSIONS` (the
+ * canonical 13-item list above). This is the **parser-accept set**:
+ * ARXML versions the parser will accept as input. It is a strict
+ * subset of the direct-map set in version.ts (which also includes
+ * 00005 / 00006).
+ *
+ * Why exclude 00005 / 00006 from the parser-accept set: the parser
+ * normalizes 5-digit r-form literals (`r4.0`, `r4.2`, ...) to dotted
+ * form per AUTOSAR 4.x namespaces. The 00005 / 00006 5-digit literals
+ * have no r-form equivalent in the AUTOSAR standard — R4.x maps to
+ * 00046 (R4.6) onward. The BSWMD parser may still emit 00005 / 00006
+ * (it accepts a wider input set), which is why version.ts keeps the
+ * full 13-item set for the BSWMD→ARXML 1:1 direct-map.
+ *
+ * Adding a new version: add it to `ARXML_DIRECT_MAP_VERSIONS` (the
+ * canonical list), then decide which of the two derived sets it
+ * belongs to based on whether the parser can read it from real
+ * ECUC files. The regression test in `__tests__/types.test.ts`
+ * pins the subset invariant.
+ */
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   '4.0',
   '4.2',
@@ -194,13 +235,16 @@ export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
   // 5-digit literals — AUTOSAR standard form for R4.4+ releases:
   // 00046 = R4.6, 00048 = R19-11, 00049 = R20-11, 00050 = R21-11,
   // 00051 = R22-11.
-  // 00047 (R4.7) intentionally omitted — no fixture proves vendor emission yet.
+  // 00005 / 00006 / 00047 (R4.7) intentionally omitted — see the
+  // 00047 comment on ARXML_DIRECT_MAP_VERSIONS for the R4.7 reason,
+  // and the SUPPORTED_ARXML_VERSIONS comment for the 00005/00006
+  // reason.
   '00046',
   '00048',
   '00049',
   '00050',
   '00051',
-] as const;
+];
 
 /**
  * Result envelope used by all core API surfaces (parser, serializer, future validators).

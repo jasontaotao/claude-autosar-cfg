@@ -26,9 +26,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
-import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import { useArxmlStore } from '../useArxmlStore';
+
+import { makeBswModule, makeBswmd } from './__fixtures__/bswmd.js';
 
 // ---------------------------------------------------------------------------
 // Fixture builders
@@ -74,54 +75,10 @@ function makeDoc(
 }
 
 /**
- * Build a BswModuleDef with a single top-container declaring one integer
- * parameter. The default BSWMD path style matches the existing
- * `makeBswModule` (`/EAS/<module>/<container>/<param>`) so combined-mode
- * routing works the same way.
+ * Build a BswModuleDef + BswmdDocument pair (extracted to
+ * ./__fixtures__/bswmd.ts in v1.11.4 PATCH-C). See __fixtures__/bswmd.ts
+ * for the makeBswModule + makeBswmd implementations.
  */
-function makeBswModule(
-  moduleShortName: string,
-  containerShortName: string,
-  paramShortName: string,
-  paramPath: string,
-): BswModuleDef {
-  const topContainer: ContainerDef = {
-    shortName: containerShortName,
-    path: `/EAS/${moduleShortName}/${containerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-    subContainers: [],
-    parameters: [
-      {
-        shortName: paramShortName,
-        path: paramPath,
-        kind: 'integer',
-        defaultValue: 0,
-        minValue: 0,
-        maxValue: 100,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      } satisfies ParamDef,
-    ],
-    references: [],
-    choices: [],
-  };
-  return {
-    shortName: moduleShortName,
-    path: `/EAS/${moduleShortName}`,
-    dialect: 'ecuc-module-def',
-    moduleId: 0,
-    containers: [topContainer],
-    providedEntries: [],
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-  };
-}
-
-function makeBswmd(mod: BswModuleDef) {
-  return { version: '4.6', modules: [mod], warnings: [] };
-}
 
 /**
  * Walk the test doc's tree to the first container under the module.

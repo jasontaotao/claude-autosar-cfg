@@ -671,3 +671,46 @@ describe('AppHeader project chip × button (close + clear)', () => {
     expect(s.dirtyPaths.has('/p/B.arxml')).toBe(true);
   });
 });
+
+describe('AppHeader (v1.11.4 PATCH-B — headless E2E fallback)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
+  });
+
+  it('renders vdev when window.autosarApi is undefined (headless E2E harness case)', async () => {
+    // Closes v1.11.2 P1 (E2E harness gap). The 9 pre-existing E2E specs
+    // crash on AppHeader mount when window.autosarApi is undefined
+    // because the original code unconditionally called
+    // `window.autosarApi.getAppVersion()`. The PATCH-B fix detects the
+    // missing API and falls back to 'dev' so headless Vite drives
+    // (without Electron's preload) can mount the header and reach
+    // the actual test assertions.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = undefined;
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^vdev$/);
+    expect(ver).toBeInTheDocument();
+    expect(ver.className).toContain('app-version');
+  });
+
+  it('renders v? when window.autosarApi exists but getAppVersion is missing (production-anomaly signal)', async () => {
+    // Defensive fallback for partial-mock or production preload-bridge
+    // failure cases (e.g. a future IPC refactor drops the channel,
+    // or the preload script throws during Electron startup). Per
+    // code-review MEDIUM on v1.11.4 PATCH-B, this is distinct from
+    // the headless-E2E case (where autosarApi is entirely undefined
+    // and 'dev' is the expected fallback). Showing '?' instead of
+    // 'dev' surfaces the anomaly instead of silently masking it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = {
+      openArxml: vi.fn(),
+      openArxmlMulti: vi.fn(),
+      parseArxml: vi.fn(),
+      saveArxml: vi.fn(),
+    };
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^v\?$/);
+    expect(ver).toBeInTheDocument();
+  });
+});

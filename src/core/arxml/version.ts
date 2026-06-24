@@ -12,27 +12,22 @@
 // '4.6' (the value skeleton.ts hardcoded before v1.8.4; matches
 // r4.6 AUTOSAR_4-6-0.xsd namespace + schemaLocation).
 //
+// v1.11.4 PATCH-A — `ARXML_VERSIONS` (the BSWMD→ARXML 1:1 direct-map
+// set) is now derived from `ARXML_DIRECT_MAP_VERSIONS` in types.ts
+// (the canonical 13-item list). This is the **direct-map set**:
+// every entry has a direct ARXML equivalent and is returned by
+// `mapBswmdVersionToArxml` unchanged. The parser-accept set in
+// types.ts (`SUPPORTED_ARXML_VERSIONS`) is a strict subset of this
+// set — see the comment on `SUPPORTED_ARXML_VERSIONS` in types.ts
+// for why 00005 / 00006 are excluded there.
+//
 // Future expansion: if a user reports a vendor extension that needs a
 // different default (e.g. some r5.0 vendor tool emitting r5.5
 // namespace), add the case here + a regression test.
 
-import type { ArxmlVersion } from './types.js';
+import { ARXML_DIRECT_MAP_VERSIONS, type ArxmlVersion } from './types.js';
 
-const ARXML_VERSIONS: ReadonlySet<string> = new Set<ArxmlVersion>([
-  '4.0',
-  '4.2',
-  '4.4',
-  '4.6',
-  '4.7',
-  '5.0',
-  '00005',
-  '00006',
-  '00046',
-  '00048',
-  '00049',
-  '00050',
-  '00051',
-]);
+const ARXML_VERSIONS: ReadonlySet<string> = new Set<string>(ARXML_DIRECT_MAP_VERSIONS);
 
 export function mapBswmdVersionToArxml(v: string): ArxmlVersion {
   if (ARXML_VERSIONS.has(v)) return v as ArxmlVersion;

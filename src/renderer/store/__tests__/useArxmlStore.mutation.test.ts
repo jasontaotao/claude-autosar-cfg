@@ -18,9 +18,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
-import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import { useArxmlStore } from '../useArxmlStore';
+
+// v1.11.4 PATCH-C — BSWMD builders extracted to ./__fixtures__/bswmd.ts.
+// `makeBswModuleWithSubContainer` is aliased as `makeBswModule` here
+// because every call site in this file passes 3-4 args targeting the
+// "topContainer + subContainer + TestParam param" shape (addContainer
+// tests). The simpler `makeBswModule` (no subContainer) lives in
+// addparam.test.ts / deleteModule.test.ts.
+import { makeBswmd, makeBswModuleWithSubContainer as makeBswModule } from './__fixtures__/bswmd.js';
 
 // ---------------------------------------------------------------------------
 // Test fixture builders
@@ -66,67 +73,12 @@ function makeDoc(
 }
 
 /**
- * Build a minimal BswModuleDef with a single top-level container and a
- * single sub-container the picker / addContainer flow will target. The
- * module's `path` matches the doc's structure (`/EAS/Adc`) so the store's
- * BSWMD lookup helper resolves it.
+ * BSWMD fixture builders (extracted to ./__fixtures__/bswmd.ts in v1.11.4
+ * PATCH-C). The previous local `makeBswModule` here built the
+ * "topContainer + subContainer + TestParam" shape; that helper is now
+ * `makeBswModuleWithSubContainer` in the fixtures module, imported above
+ * as `makeBswModule` for call-site compatibility.
  */
-function makeBswModule(
-  moduleShortName: string,
-  topContainerShortName: string,
-  subContainerShortName: string,
-  paramShortName: string = 'TestParam',
-): BswModuleDef {
-  const subContainer: ContainerDef = {
-    shortName: subContainerShortName,
-    path: `/EAS/${moduleShortName}/${topContainerShortName}/${subContainerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 'infinite',
-    subContainers: [],
-    parameters: [],
-    references: [],
-    choices: [],
-  };
-  const topContainer: ContainerDef = {
-    shortName: topContainerShortName,
-    path: `/EAS/${moduleShortName}/${topContainerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-    subContainers: [subContainer],
-    parameters: [
-      {
-        shortName: paramShortName,
-        path: `/EAS/${moduleShortName}/${topContainerShortName}/${paramShortName}`,
-        kind: 'integer',
-        defaultValue: 0,
-        minValue: 0,
-        maxValue: 100,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      } satisfies ParamDef,
-    ],
-    references: [],
-    choices: [],
-  };
-  return {
-    shortName: moduleShortName,
-    path: `/EAS/${moduleShortName}`,
-    dialect: 'ecuc-module-def',
-    moduleId: 0,
-    containers: [topContainer],
-    providedEntries: [],
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-  };
-}
-
-/**
- * Wrap a single BswModuleDef into a BswmdDocument for the store.
- */
-function makeBswmd(mod: BswModuleDef) {
-  return { version: '4.6', modules: [mod], warnings: [] };
-}
 
 beforeEach(() => {
   useArxmlStore.getState().clear();
