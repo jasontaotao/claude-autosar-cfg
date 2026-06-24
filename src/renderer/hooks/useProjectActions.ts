@@ -113,10 +113,18 @@ function setNewProjectDialogOpen(open: boolean): void {
 // maps it to the i18n key suffix, which intentionally drops the
 // trailing "Project" so the keys are short and the bundles read
 // naturally (`message.new` not `message.newProject`).
-export type SwitchingAction = 'newProject' | 'openProject' | 'addBswmd' | 'removeBswmd';
+export type SwitchingAction =
+  | 'newProject'
+  | 'openProject'
+  | 'addBswmd'
+  | 'removeBswmd'
+  // Sprint A+ - Delete ECUC module dirty-guard (spec invariant I3).
+  | 'deleteModule';
 
 /** Map a SwitchingAction to the short axis used in i18n key suffixes. */
-function toI18nAxis(action: SwitchingAction): 'new' | 'open' | 'addBswmd' | 'removeBswmd' {
+function toI18nAxis(
+  action: SwitchingAction,
+): 'new' | 'open' | 'addBswmd' | 'removeBswmd' | 'deleteModule' {
   switch (action) {
     case 'newProject':
       return 'new';
@@ -126,6 +134,8 @@ function toI18nAxis(action: SwitchingAction): 'new' | 'open' | 'addBswmd' | 'rem
       return 'addBswmd';
     case 'removeBswmd':
       return 'removeBswmd';
+    case 'deleteModule':
+      return 'deleteModule';
   }
 }
 
@@ -727,6 +737,36 @@ export function useProjectActions(): {
     [saveProject],
   );
 
+  // Sprint A+ - deleteEcucModuleWithFullFlow. Mirrors
+  // removeBswmdWithFullFlow but for the Delete ECUC module
+  // context-menu action (spec invariant I3 - dirty-guard). The
+  // store's deleteEcucModule action does the actual mutation;
+  // here we wrap it in guardedDirtySwitch so unsaved edits
+  // prompt the user to save / discard / cancel BEFORE the
+  // deletion fires.
+  //
+  // The modulePath is the post-fold module path (e.g. /Adc/Adc).
+  // The moduleName is the human-readable shortName for the i18n
+  // targetName interpolation.
+  const deleteEcucModuleWithFullFlow = useCallback(
+    async (modulePath: string, moduleName: string): Promise<ProjectActionResult> => {
+      const guard = await guardedDirtySwitch({
+        action: 'deleteModule',
+        targetName: moduleName,
+        save: saveProject,
+      });
+      if (!guard.proceed) {
+        if ('saveError' in guard) {
+          return { kind: 'error', message: guard.saveError };
+        }
+        return { kind: 'canceled' };
+      }
+      useArxmlStore.getState().deleteEcucModule(modulePath);
+      return { kind: 'ok' };
+    },
+    [saveProject],
+  );
+
   return {
     newProject,
     openProjectFromDialog,
@@ -734,6 +774,7 @@ export function useProjectActions(): {
     addBswmdFromDialog,
     removeBswmdWithGuard,
     removeBswmdWithFullFlow,
+    deleteEcucModuleWithFullFlow,
     submitNewProject,
   };
 }
