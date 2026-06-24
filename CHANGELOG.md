@@ -5,6 +5,18 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.11.3] - 2026-06-24 — PATCH: EcucDefs fold extends to outer `AUTOSAR(_.*)?` wrap
+
+PATCH bump: **1 commit**. Fixes the Adc add/remove regression where the BSWMD-derived value file with `AUTOSAR_R22 > EcucDefs > Adc` folded only the inner `EcucDefs` layer, leaving a post-fold selectedPath of `/AUTOSAR_R22/Adc/...` that the source doc's 3-layer structure could not resolve, so every mutation dispatch (`addContainer` / `addParameter` / `removeContainer` / `removeParameter` / `addReference`) returned `path-not-found` and the menu actions were silently no-ops.
+
+### Fixed
+
+- **HIGH — fold triggers when the inner is a foldable `EcucDefs`** (`combinedDoc.ts:684-693` + 756): `foldPackage`'s `isFoldableHere` OR chain now includes a new tier-4-derived trigger — when the only nested child is a tier-4 foldable `EcucDefs` pkg (carries exactly one `kind: 'module'` element and no sub-packages), the outer `AUTOSAR(_.*)?` wrap is also collapsed so the post-fold top-level pkg carries the module element directly. The structural pattern `EcucDefs + single module` is the contract (no BSWMD match required, consistent with the tier-4 naming-only rule). The hoisted pkg is marked `isVendorFoldResult: true` so `Tree.tsx:158-170` continues to render it past the vendor namespace; the post-fold selectedPath becomes `/Adc/...` and `findByPath`'s vendor-fold fallback (`core/arxml/path.ts:84-105`) resolves it on the un-folded source doc. The change is strictly opt-in by the inner shape — a user-defined `AUTOSAR_Foo > EcucDefs` with mixed contents (more than one element, or no module element, or sub-packages) still preserves both layers per the existing tier-4 + MEDIUM #2 invariants. The 3-tier detection rule doc in `foldPackage` was extended with a `(d)` clause.
+
+### Tests
+
+- 1 updated + 1 new in `src/renderer/store/helpers/__tests__/combinedDoc.test.ts` under "EcucDefs fold (tier 4)": the previously-passing `'folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]'` now asserts the full 3-layer collapse (Adc hoisted at root with `path === '/Adc'`, `isVendorFoldResult === true`); the new `'end-to-end — Adc_EcucValues.arxml shape yields post-fold selectedPath that resolves on the source doc'` test pins the regression to the specific real-world doc shape (`AUTOSAR_R22 > EcucDefs > <module>` with a single BSWMD module) so future fold-rule edits must explicitly acknowledge this case.
+
 ## [1.9.0] - 2026-06-23 — ECUC vendor-prefix export + container DEFINITION-REF + UI fold
 
 MINOR bump: **7 commits since v1.8.5** (`e27f62a` → `ae4ce72`, branch `feature/sprint-x-vendor-prefix`). 2128 → 2167 tests (+39 net). Sprint X — three interlocking fixes for vendor-prefix (经纬恒润 / EB tresos / Vector / AUTOSAR_R2x) BSWMD modules. Closes the user's report that exporting `test.autosarcfg.json` produced ARXML that lost the vendor prefix hierarchy and silently dropped container-level `<DEFINITION-REF>` and `<PARAMETER-VALUES>` for multi-instance copies.

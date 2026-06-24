@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 
@@ -424,7 +425,7 @@ describe('computeDisplayDoc vendor fold (Sprint X T7)', () => {
 // ---------------------------------------------------------------------------
 
 describe('EcucDefs fold (tier 4)', () => {
-  it('folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]', () => {
+  it('folds AUTOSAR_R22 > EcucDefs > Adc_module to [Adc hoisted at root] (outer wrap collapses too)', () => {
     // Arrange — mirrors skeleton.ts output for Adc_bswmd.arxml
     const doc = makeEcucDefsDoc({ wrapShortName: 'AUTOSAR_R22', moduleShortName: 'Adc' });
     const bswmds = [makeBswmd(['Adc'])];
@@ -432,19 +433,92 @@ describe('EcucDefs fold (tier 4)', () => {
     // Act
     const result = computeDisplayDoc('single', doc, [], [], bswmds);
 
-    // Assert
+    // Assert — the whole 3-layer chain AUTOSAR_R22 > EcucDefs > Adc
+    // collapses to a single hoisted `Adc` at the root. Leaving the
+    // outer AUTOSAR_R22 wrap visible (the v1.9.0 behaviour) would
+    // produce a post-fold selectedPath of `/AUTOSAR_R22/Adc/...` that
+    // no longer matches the source doc's 3-layer structure, so every
+    // mutation dispatch (`addContainer` / `addParameter` /
+    // `removeContainer` / `removeParameter` / `addReference`) would
+    // fail with `path-not-found`. The fix extends tier 4's collapse
+    // to the outer `AUTOSAR(_.*)?` wrap when the inner satisfies the
+    // tier-4 structural pattern.
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    expect(result!.doc!.packages.length).toBe(1);
+    const hoisted = result!.doc!.packages[0]!;
+    expect(hoisted.isVendorFoldResult).toBe(true);
+    expect(hoisted.shortName).toBe('Adc');
+    expect(hoisted.path).toBe('/Adc');
+    expect(hoisted.elements.length).toBe(1);
+    expect(hoisted.elements[0]!.kind).toBe('module');
+  });
+
+  it('end-to-end — Adc_EcucValues.arxml shape yields post-fold selectedPath that resolves on the source doc', () => {
+    // Regression test for the Adc add/remove bug: a value file with
+    // `AUTOSAR_R22 > EcucDefs > Adc > AdcConfigSet` (3 layers + child)
+    // must fold to a selectedPath that the SOURCE doc can resolve via
+    // the vendor-fold fallback in `findByPath` (core/arxml/path.ts:84-105).
+    // Pre-fix, the post-fold path was `/AUTOSAR_R22/Adc/AdcConfigSet` and
+    // findByPath returned `path-not-found` because the source doc still
+    // had the EcucDefs layer between them.
+    const moduleEl: ArxmlElement = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Adc',
+      params: {},
+      children: [
+        {
+          kind: 'container',
+          tagName: 'ECUC-CONTAINER-VALUE',
+          shortName: 'AdcConfigSet',
+          params: {},
+          children: [],
+        },
+      ],
+      references: [],
+    };
+    const ecucDefsPkg: ArxmlPackage = {
+      shortName: 'EcucDefs',
+      path: '/AUTOSAR_R22/EcucDefs',
+      elements: [moduleEl],
+    };
+    const wrapPkg: ArxmlPackage = {
+      shortName: 'AUTOSAR_R22',
+      path: '/AUTOSAR_R22',
+      elements: [],
+      packages: [ecucDefsPkg],
+    };
+    const doc: ArxmlDocument = {
+      path: '/test',
+      version: '4.6',
+      packages: [wrapPkg],
+    };
+    const bswmds = [makeBswmd(['Adc'])];
+
+    const result = computeDisplayDoc('single', doc, [], [], bswmds);
+
     expect(result).not.toBeNull();
     expect(result!.doc).not.toBeNull();
     const topPkg = result!.doc!.packages[0]!;
-    expect(topPkg.shortName).toBe('AUTOSAR_R22');
-    // The wrap now contains a single child pkg carrying the hoisted module
-    expect(topPkg.packages).toBeDefined();
-    expect(topPkg.packages!.length).toBe(1);
-    const hoisted = topPkg.packages![0]!;
-    expect(hoisted.isVendorFoldResult).toBe(true);
-    expect(hoisted.shortName).toBe('Adc');
-    expect(hoisted.elements.length).toBe(1);
-    expect(hoisted.elements[0]!.kind).toBe('module');
+    // The hoisted pkg carries the module element as a direct child;
+    // the Tree (Tree.tsx:158-170) sees isVendorFoldResult === true at
+    // the top level and renders the module at root with parent path
+    // '' → selectedPath = '/Adc/AdcConfigSet' on a child click.
+    expect(topPkg.isVendorFoldResult).toBe(true);
+    expect(topPkg.shortName).toBe('Adc');
+    expect(topPkg.elements[0]!.kind).toBe('module');
+
+    // End-to-end pin: the post-fold path '/Adc/AdcConfigSet' must
+    // resolve on the SOURCE doc via the vendor-fold fallback (the
+    // module shortName 'Adc' is found anywhere in the tree, then the
+    // 'AdcConfigSet' child is walked). Pre-fix, the post-fold path
+    // was '/AUTOSAR_R22/Adc/AdcConfigSet' which did not match the
+    // source's 3-layer structure and findByPath returned null.
+    const resolved = findByPath(doc, '/Adc/AdcConfigSet');
+    expect(resolved).not.toBeNull();
+    expect(resolved!.element.kind).toBe('container');
+    expect((resolved!.element as { shortName: string }).shortName).toBe('AdcConfigSet');
   });
 
   it('folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]', () => {
