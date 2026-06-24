@@ -192,7 +192,25 @@ export function AppHeader({
   }, []);
 
   useEffect(() => {
-    void window.autosarApi.getAppVersion().then(setAppVersion);
+    // v1.11.4 PATCH-B — graceful fallback when window.autosarApi
+    // is unavailable (e.g. headless E2E harness driving Vite without
+    // the Electron preload). Without this guard, the call throws on
+    // mount in 9 E2E specs and crashes the React tree before any
+    // test assertion can run. Closes v1.11.2 P1 (E2E harness gap).
+    //
+    // Distinguishes two failure modes (per code-review MEDIUM, v1.11.4):
+    //   - autosarApi entirely undefined → 'dev' (E2E harness; expected)
+    //   - autosarApi present but getAppVersion missing → '?' (production
+    //     anomaly: preload bridge failure, race during Electron startup,
+    //     or a future IPC refactor that dropped the channel). Surfaces
+    //     the bug instead of silently masking it.
+    if (window.autosarApi?.getAppVersion !== undefined) {
+      void window.autosarApi.getAppVersion().then(setAppVersion);
+    } else if (typeof window.autosarApi === 'undefined') {
+      setAppVersion('dev');
+    } else {
+      setAppVersion('?');
+    }
   }, []);
 
   // 下拉菜单：点击外部关闭

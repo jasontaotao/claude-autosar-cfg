@@ -13,59 +13,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument, ArxmlModule } from '@core/arxml/types';
-import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import * as combinedDoc from '../helpers/combinedDoc.js';
 import { useArxmlStore } from '../useArxmlStore';
 
-// ---------------------------------------------------------------------------
-// BSWMD fixture builders (mirrors useArxmlStore.addparam.test.ts:82-124 — kept
-// local so this file stays self-contained for any future split)
-// ---------------------------------------------------------------------------
+import { makeBswModule, makeBswmd } from './__fixtures__/bswmd.js';
 
-function makeBswModule(
-  moduleShortName: string,
-  containerShortName: string,
-  paramShortName: string,
-  paramPath: string,
-): BswModuleDef {
-  const topContainer: ContainerDef = {
-    shortName: containerShortName,
-    path: `/EAS/${moduleShortName}/${containerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-    subContainers: [],
-    parameters: [
-      {
-        shortName: paramShortName,
-        path: paramPath,
-        kind: 'integer',
-        defaultValue: 0,
-        minValue: 0,
-        maxValue: 100,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      } satisfies ParamDef,
-    ],
-    references: [],
-    choices: [],
-  };
-  return {
-    shortName: moduleShortName,
-    path: `/EAS/${moduleShortName}`,
-    dialect: 'ecuc-module-def',
-    moduleId: 0,
-    containers: [topContainer],
-    providedEntries: [],
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-  };
-}
-
-function makeBswmd(mod: BswModuleDef) {
-  return { version: '4.6', modules: [mod], warnings: [] };
-}
+// ---------------------------------------------------------------------------
+// BSWMD fixture builders (extracted to ./__fixtures__/bswmd.ts in v1.11.4
+// PATCH-C — shared with useArxmlStore.addparam.test.ts and
+// useArxmlStore.mutation.test.ts).
+// ---------------------------------------------------------------------------
 
 function makeModule(shortName: string): ArxmlModule {
   return {
