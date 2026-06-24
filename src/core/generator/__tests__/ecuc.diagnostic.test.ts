@@ -163,15 +163,42 @@ describe('Diagnostic fixture triggers — real pipeline emissions', () => {
 // code lands.
 // ---------------------------------------------------------------------------
 
-describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 001 NO_SCHEMA: pipeline's generate loop iterates
-  // `[...args.bswmdIndex.keys()]` and then re-looks up the same key in
-  // `tree.bswmdIndex` (which IS args.bswmdIndex, just type-cast). The
-  // `if (!def)` branch is therefore unreachable in v1.11.0. v2 needs
-  // to widen the loop to also pull modules from ecucValues whose
-  // BSWMD is missing — then this code will surface.
-  test.todo('ECUC-GEN-001 (NO_SCHEMA, WARN) fires when BSWMD missing for a values-only module');
+describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → implemented)', () => {
+  // E1 (M1 of v1.12.0 MINOR E) — pipeline widened to iterate the union
+  // of bswmdIndex + ecucValues keys, so a values-only module (present
+  // in ecucValues but missing BSWMD) now surfaces as NO_SCHEMA WARN.
+  it('ECUC-GEN-001 (NO_SCHEMA, WARN) fires when BSWMD missing for a values-only module', async () => {
+    // bswmdIndex is empty (or omits 'ValuesOnlyMod'); ecucValues carries
+    // it. The pipeline should iterate the union → emit WARN.
+    _resetRegistryForTest();
+    // Register a catch-all generator so the pipeline doesn't ALSO push
+    // NO_GENERATOR (which would mask the NO_SCHEMA we're testing).
+    registerGenerator({
+      moduleShortName: 'Other',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Other', { shortName: 'Other' }]]),
+        ecucValues: new Map([
+          ['Other', {}],
+          ['ValuesOnlyMod', {}],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_NO_SCHEMA,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(diag.moduleShortName).toBe('ValuesOnlyMod');
+    // WARN → exit 0 (per pipeline §Stage 3: any WARNING → 0 unless --strict)
+    expect(result.exitCode).toBe(0);
+  });
+});
 
+describe('Diagnostic fixture triggers — deferred to v2', () => {
   // 011 MULTIPLICITY: count of container instances vs [lower, upper].
   // No consumer code in v1.11.0 walks container[] entries to compare
   // against BSWMD-defined lowerMultiplicity/upperMultiplicity.

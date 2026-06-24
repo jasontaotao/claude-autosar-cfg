@@ -55,9 +55,18 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
 
   // Stage 2 — Generate
   const artifacts = new Map<string, string>();
+  // v1.12.0 E1 — iterate the UNION of bswmdIndex + ecucValues keys so a
+  // values-only module (present in ecucValues but missing BSWMD) surfaces
+  // as NO_SCHEMA WARN. Pre-E1 the loop only walked bswmdIndex, which
+  // made the `if (!def)` branch unreachable (the loop's own key was
+  // guaranteed to be in the index it just iterated).
+  const allModuleNames = new Set<string>([
+    ...args.bswmdIndex.keys(),
+    ...args.ecucValues.keys(),
+  ]);
   const moduleNames = args.moduleFilter
-    ? [...args.bswmdIndex.keys()].filter((m) => args.moduleFilter!.includes(m))
-    : [...args.bswmdIndex.keys()];
+    ? [...allModuleNames].filter((m) => args.moduleFilter!.includes(m))
+    : [...allModuleNames];
 
   for (const moduleShortName of moduleNames) {
     const def = tree.bswmdIndex.get(moduleShortName);
