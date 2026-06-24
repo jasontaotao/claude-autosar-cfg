@@ -817,4 +817,57 @@ describe('Tree (combined mode)', () => {
     fireEvent.click(module);
     expect(state.select).toHaveBeenCalledWith('/Can.arxml/EAS/Can');
   });
+
+  // 2026-06-24 — Tier 4 (EcucDefs) regression: when the synthesised
+  // pkg from `foldVendorPackages` sits as a NESTED child of another
+  // pkg (e.g. AUTOSAR_R22 > EcucDefs > Adc), the Tree must hoist
+  // the contained module past the synthesised wrapper at the
+  // nested level too — not only at the top level. The top-level
+  // hoist (line 158) did not cover this case, so users saw
+  // `AUTOSAR_R22 > Adc pkg > Adc module` (3 layers) instead of
+  // `AUTOSAR_R22 > Adc module` (2 layers).
+  it('hoists the ECUC module past a NESTED vendor-folded package (tier 4 inside AUTOSAR_R22)', () => {
+    const displayDoc: ArxmlDocument = {
+      path: '/test',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          path: '/AUTOSAR_R22',
+          elements: [],
+          packages: [
+            {
+              shortName: 'Adc',
+              path: '/Adc',
+              isVendorFoldResult: true,
+              elements: [
+                {
+                  kind: 'module',
+                  tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                  shortName: 'Adc',
+                  params: {},
+                  children: [],
+                  references: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    expect(within(tree).getByRole('treeitem', { name: 'AUTOSAR_R22' })).toBeInTheDocument();
+    fireEvent.click(within(tree).getByTestId('chevron-/AUTOSAR_R22'));
+    // The synthesised Adc pkg wrapper would carry its own chevron
+    // testid (`chevron-/Adc`) — before the fix it rendered as an
+    // extra treeitem between AUTOSAR_R22 and the Adc module. The
+    // fix hoists the module past the wrapper so NO chevron-/Adc
+    // should exist; only the module (label-/AUTOSAR_R22/Adc) is a
+    // direct child of AUTOSAR_R22.
+    expect(within(tree).queryByTestId('chevron-/Adc')).toBeNull();
+    expect(within(tree).getByTestId('label-/AUTOSAR_R22/Adc')).toBeInTheDocument();
+  });
 });
