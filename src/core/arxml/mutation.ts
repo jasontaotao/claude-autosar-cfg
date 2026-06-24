@@ -236,6 +236,43 @@ export function removeContainer(
 }
 
 /**
+ * Sprint A+ — remove the module-kind element at `modulePath` from `doc`.
+ * Pure helper used by `deleteEcucModule` to clear the entire
+ * `<ECUC-MODULE-CONFIGURATION-VALUES>` element without cascading to
+ * inbound references (refs target containers, not modules — the BSWMD
+ * invariant guarantees nothing points at a module root).
+ *
+ * No-op semantics: returns the same `ArxmlDocument` reference when
+ *   - the path does not resolve
+ *   - the resolved element is not a module (container / reference / unknown)
+ *   - the resolved element is already absent (defensive)
+ *
+ * Implementation note: the ECUC module is a direct child of its root
+ * package (`pkg.elements`), not a child of an element. The legacy
+ * `removeElement` helper walks `parent.children` and is therefore
+ * unsuitable for top-level package elements; we drop the module here
+ * with a direct immutable package rebuild. Reference equality is
+ * preserved when the target does not match (defensive guard).
+ */
+export function removeModuleFromDoc(doc: ArxmlDocument, modulePath: string): ArxmlDocument {
+  const target = findByPath(doc, modulePath);
+  if (target === null) return doc;
+  if (target.element.kind !== 'module') return doc;
+  const nextElements = target.pkg.elements.filter((e) => e !== target.element);
+  if (nextElements.length === target.pkg.elements.length) return doc;
+  // Rebuild only the matched package. The map() preserves reference
+  // equality on the unchanged packages so the doc is fully immutable.
+  let pkgReplaced = false;
+  const nextPackages = doc.packages.map((p) => {
+    if (p !== target.pkg) return p;
+    pkgReplaced = true;
+    return { ...p, elements: nextElements };
+  });
+  if (!pkgReplaced) return doc;
+  return { ...doc, packages: nextPackages };
+}
+
+/**
  * Remove the element at `path` AND any inbound references that target it
  * (auto-dangle strategy). Single-doc scope: cross-doc cascade is the
  * store's responsibility via `findReferencesTo`.

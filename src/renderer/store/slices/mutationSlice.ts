@@ -11,8 +11,10 @@ import {
   addReference as coreAddReference,
   findReferencesTo,
   removeContainer as coreRemoveContainer,
+  removeModuleFromDoc,
   removeParameter as coreRemoveParameter,
 } from '@core/arxml/mutation.js';
+import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlDocument } from '@core/arxml/types';
 import { validateProjectForRenderer } from '@core/validation';
 import { t } from '@shared/i18n';
@@ -55,6 +57,14 @@ export interface MutationSlice {
   addReference: (containerPath: string, refShortName: string) => void;
   deleteParameter: (containerPath: string, paramKey: string) => void;
   confirmDeleteContainer: (choice: 'cancel' | 'only' | 'cascade') => void;
+  /**
+   * Sprint A+ — delete the entire ECUC module (the
+   * `<ECUC-MODULE-CONFIGURATION-VALUES>` element) at the given
+   * post-fold path. For source-backed docs the BSWMD link is cleared
+   * in the same step so the ProjectPanel chip no longer dangles.
+   * No-op + error toast when the path does not resolve to a module.
+   */
+  deleteEcucModule: (modulePath: string) => void;
 }
 
 export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice> = (set, get) => ({
@@ -487,5 +497,104 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
           ? nextDisplayResult.warnings
           : state.warnings,
     });
+  },
+
+  // Sprint A+ — delete the ECUC module at `modulePath` from the active
+  // document. The BSWMD link is cleared in the same step when the
+  // document was generated from a skeleton (otherwise the
+  // `sourceBswmdPath` dangles and the ProjectPanel chip reports a
+  // stale count). A localized toast is emitted on both success and
+  // not-found; the not-found path is a no-op (the doc reference is
+  // preserved) per the reference-equality convention in the rest of
+  // the mutation surface.
+  //
+  // Combined-mode note: the tree's module-root right-click fires on
+  // the post-fold display path. We resolve via `state.doc` (the
+  // source) because `displayDoc` is the combined view; the spec
+  // doesn't require combined-mode special handling for v1.10.1
+  // (consistent with `updateParam`).
+  deleteEcucModule: (modulePath) => {
+    const state = get();
+    if (state.doc === null) return;
+    const moduleEl = findByPath(state.doc, modulePath);
+    if (moduleEl === null || moduleEl.element.kind !== 'module') {
+      setErrorWithKind(set, state.locale, {
+        kind: 'path-not-found',
+        path: modulePath,
+      });
+      // Also stamp the typed toast so the AppHeader banner reads
+      // the error kind consistently with the new typed-envelope
+      // convention. Without this the legacy `error` field alone
+      // would miss the typed-discriminator consumers (ErrorBanner
+      // auto-dismiss, ARIA role, etc.).
+      get().setError(
+        t(state.locale, 'mutation.error.moduleNotFound', { path: modulePath }),
+      );
+      return;
+    }
+    const wasSourceBacked = state.doc.sourceBswmdPath !== undefined;
+    const moduleShortName = moduleEl.element.shortName;
+    const nextDoc = removeModuleFromDoc(state.doc, modulePath);
+    // No-op guard — `removeModuleFromDoc` preserves the same doc
+    // reference when the target is already gone. Only commit a
+    // mutation + toast when the call actually changed the doc.
+    if (nextDoc === state.doc) {
+      setErrorWithKind(set, state.locale, {
+        kind: 'path-not-found',
+        path: modulePath,
+      });
+      get().setError(
+        t(state.locale, 'mutation.error.moduleNotFound', { path: modulePath }),
+      );
+      return;
+    }
+    // Clear the BSWMD link in the same step so the ProjectPanel
+    // chip doesn't dangle ("0 modules covered by BSWMD" with no
+    // module). We always clear (not only when `wasSourceBacked`) so
+    // a future doc that somehow had both a source path AND no
+    // module still drops the stale link.
+    //
+    // `exactOptionalPropertyTypes` rejects `sourceBswmdPath:
+    // undefined` on the spread (the declared type is `?: string`,
+    // not `?: string | undefined`); delete the key instead so the
+    // doc shape is the canonical "no source" form without forcing
+    // `undefined` into the field.
+    const nextDocWithoutSource: ArxmlDocument = { ...nextDoc };
+    delete (nextDocWithoutSource as { sourceBswmdPath?: string }).sourceBswmdPath;
+    // Mirror the mutation into the `documents` array so the source-
+    // of-truth is consistent with the back-compat `doc` alias. For
+    // single-mode the active doc IS the document in the array, so we
+    // patch the matching slot. For combined-mode the active doc may
+    // be a different file from the source we're mutating — but the
+    // spec doesn't require combined-mode handling for v1.10.1, so we
+    // always patch the active doc's slot.
+    const activeIdx =
+      state.activeDocumentPath !== null
+        ? state.documentPaths.indexOf(state.activeDocumentPath)
+        : -1;
+    const nextDocuments =
+      activeIdx >= 0
+        ? state.documents.map((d, i) => (i === activeIdx ? nextDocWithoutSource : d))
+        : state.documents;
+    // Track dirty state via `dirtyPaths` (the Set) rather than the
+    // function-getter `isDirty` — the same convention as the other
+    // mutation actions. Only mark dirty if the active doc was
+    // actually mutated (activeIdx >= 0).
+    const nextDirtyPaths =
+      activeIdx >= 0 ? addToDirty(state.dirtyPaths, state.activeDocumentPath!) : state.dirtyPaths;
+    set({
+      documents: nextDocuments,
+      doc: nextDocWithoutSource,
+      dirtyPaths: nextDirtyPaths,
+    });
+    get().setInfo(
+      t(
+        state.locale,
+        wasSourceBacked
+          ? 'mutation.info.ecucModuleUnlinked'
+          : 'mutation.info.ecucModuleDeleted',
+        { name: moduleShortName },
+      ),
+    );
   },
 });
