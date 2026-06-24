@@ -66,13 +66,48 @@ describe('user JWQ3399 addContainer path invariant', () => {
     readonly expectedParent: string;
     readonly expectedKind: 'container' | 'module';
   }> = [
-    { path: '/JWQ3399/JWQ3399ConfigSet', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399ConfigSet', expectedKind: 'container' },
-    { path: '/JWQ3399/JWQ3399General', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399General', expectedKind: 'container' },
-    { path: '/JWQ3399/JWQ3399General/JWQ3399GPIOConfig', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399GPIOConfig', expectedKind: 'container' },
-    { path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399ConfigSet', expectedKind: 'container' },
-    { path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399General', expectedKind: 'container' },
-    { path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General/JWQ3399GPIOConfig', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399GPIOConfig', expectedKind: 'container' },
-    { path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/JWQ3399InitConfig', expectedModule: 'JWQ3399', expectedParent: 'JWQ3399InitConfig', expectedKind: 'container' },
+    {
+      path: '/JWQ3399/JWQ3399ConfigSet',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399ConfigSet',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ3399/JWQ3399General',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399General',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ3399/JWQ3399General/JWQ3399GPIOConfig',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399GPIOConfig',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399ConfigSet',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399General',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399General/JWQ3399GPIOConfig',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399GPIOConfig',
+      expectedKind: 'container',
+    },
+    {
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/JWQ3399InitConfig',
+      expectedModule: 'JWQ3399',
+      expectedParent: 'JWQ3399InitConfig',
+      expectedKind: 'container',
+    },
   ];
 
   for (const t of TARGETS) {

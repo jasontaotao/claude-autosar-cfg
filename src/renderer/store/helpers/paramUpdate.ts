@@ -9,6 +9,4 @@
 // from '../../store/helpers/paramUpdate'` imports in
 // `useArxmlStore.ts` keep working.
 
-export {
-  applyParamUpdate,
-} from '@core/arxml/mutation';
+export { applyParamUpdate } from '@core/arxml/mutation';

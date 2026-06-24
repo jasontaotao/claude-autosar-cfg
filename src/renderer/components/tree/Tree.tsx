@@ -237,17 +237,41 @@ function renderPackage(
     >
       {hasSubPackages &&
         pkg.packages!.map((sp) =>
-          renderPackage(
-            sp,
-            depth + 1,
-            expanded,
-            toggle,
-            selectedPath,
-            store,
-            onContextMenu,
-            bswmdSchemas,
-            locale,
-          ),
+          // 2026-06-24 — tier 4 nested hoist. The top-level
+          // `flatMap` (line 158) already hoists synthesised pkgs at
+          // the document root, but when a vendor-folded pkg sits as
+          // a NESTED child (e.g. AUTOSAR_R22 > EcucDefs > Adc with
+          // EcucDefs collapsed by `foldVendorPackages` tier 4), the
+          // nested recursion went through `renderPackage` which
+          // created an extra visible treeitem for the synthesised
+          // wrapper. Branch on the flag here and route through
+          // `renderChildren` with our own path as parentPath so
+          // child paths stay consistent with the post-fold shape
+          // (e.g. `/AUTOSAR_R22/Adc`).
+          sp.isVendorFoldResult === true
+            ? renderChildren(
+                sp.elements,
+                pkg.path,
+                depth + 1,
+                expanded,
+                toggle,
+                selectedPath,
+                store,
+                onContextMenu,
+                bswmdSchemas,
+                locale,
+              )
+            : renderPackage(
+                sp,
+                depth + 1,
+                expanded,
+                toggle,
+                selectedPath,
+                store,
+                onContextMenu,
+                bswmdSchemas,
+                locale,
+              ),
         )}
       {hasElements &&
         renderChildren(

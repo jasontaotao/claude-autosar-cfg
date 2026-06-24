@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { ArxmlDocument, ArxmlPackage } from '@core/arxml/types.js';
+import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 
 import { computeDisplayDoc } from '../combinedDoc.js';
@@ -99,6 +99,84 @@ function makeBswmd(moduleShortNames: readonly string[]): BswmdDocument {
       upperMultiplicity: 1,
     })),
     warnings: [],
+  };
+}
+
+/**
+ * 2026-06-23 — EcucDefs tier 4 fixtures.
+ *
+ * Build a doc shaped like the Adc skeleton output: a wrap package
+ * (e.g. `AUTOSAR_R22`) optionally containing `EcucDefs`, which in
+ * turn contains a single module element directly in its `elements`
+ * (mirrors skeleton.ts:115-175 where the module is emitted into
+ * `pkg.elements`, not into a sub-package).
+ */
+function makeEcucDefsDoc(opts: {
+  readonly wrapShortName: string | null;
+  readonly moduleShortName: string;
+}): ArxmlDocument {
+  const moduleEl: ArxmlElement = {
+    kind: 'module',
+    tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+    shortName: opts.moduleShortName,
+    params: {},
+    children: [],
+    references: [],
+  };
+  const ecucDefsPkg: ArxmlPackage = {
+    shortName: 'EcucDefs',
+    path: opts.wrapShortName === null ? '/EcucDefs' : `/${opts.wrapShortName}/EcucDefs`,
+    elements: [moduleEl],
+  };
+  if (opts.wrapShortName === null) {
+    return {
+      path: '/test',
+      version: '4.6',
+      packages: [ecucDefsPkg],
+    };
+  }
+  const wrapPkg: ArxmlPackage = {
+    shortName: opts.wrapShortName,
+    path: `/${opts.wrapShortName}`,
+    elements: [],
+    packages: [ecucDefsPkg],
+  };
+  return {
+    path: '/test',
+    version: '4.6',
+    packages: [wrapPkg],
+  };
+}
+
+/**
+ * Build an EcucDefs pkg that has MORE than one element (mixed module
+ * + reference). Used to verify the new tier refuses to fold in this
+ * case (invariant I1 + I2: element count must be strictly preserved).
+ */
+function makeEcucDefsMixedDoc(): ArxmlDocument {
+  const moduleEl: ArxmlElement = {
+    kind: 'module',
+    tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+    shortName: 'Adc',
+    params: {},
+    children: [],
+    references: [],
+  };
+  const refEl: ArxmlElement = {
+    kind: 'reference',
+    tagName: 'ECUC-REFERENCE-VALUE',
+    shortName: 'DemoRef',
+    value: '/Adc/DemoTarget',
+  };
+  const ecucDefsPkg: ArxmlPackage = {
+    shortName: 'EcucDefs',
+    path: '/EcucDefs',
+    elements: [moduleEl, refEl],
+  };
+  return {
+    path: '/test',
+    version: '4.6',
+    packages: [ecucDefsPkg],
   };
 }
 
@@ -329,5 +407,96 @@ describe('computeDisplayDoc vendor fold (Sprint X T7)', () => {
     expect(r?.doc?.packages.length).toBe(1);
     expect(r?.doc?.packages[0]?.shortName).toBe('EcucDefs');
     expect(r?.doc?.packages[0]?.packages?.[0]?.shortName).toBe('MyOwnSub');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2026-06-23 — EcucDefs fold (tier 4).
+//
+// Verifies the new fold trigger added in combinedDoc.ts#foldPackage:
+// when `pkg.shortName === 'EcucDefs'` AND it carries exactly one
+// `kind: 'module'` element AND no sub-packages, the EcucDefs layer
+// collapses and the module element is hoisted to the parent.
+//
+// Strictly disjoint from existing tier 1-3 tests because tier 4 fires
+// only when `pkg.packages === undefined && pkg.elements.length === 1`
+// (existing tiers all use `elements: []` EcucDefs as a wrapper).
+// ---------------------------------------------------------------------------
+
+describe('EcucDefs fold (tier 4)', () => {
+  it('folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]', () => {
+    // Arrange — mirrors skeleton.ts output for Adc_bswmd.arxml
+    const doc = makeEcucDefsDoc({ wrapShortName: 'AUTOSAR_R22', moduleShortName: 'Adc' });
+    const bswmds = [makeBswmd(['Adc'])];
+
+    // Act
+    const result = computeDisplayDoc('single', doc, [], [], bswmds);
+
+    // Assert
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    const topPkg = result!.doc!.packages[0]!;
+    expect(topPkg.shortName).toBe('AUTOSAR_R22');
+    // The wrap now contains a single child pkg carrying the hoisted module
+    expect(topPkg.packages).toBeDefined();
+    expect(topPkg.packages!.length).toBe(1);
+    const hoisted = topPkg.packages![0]!;
+    expect(hoisted.isVendorFoldResult).toBe(true);
+    expect(hoisted.shortName).toBe('Adc');
+    expect(hoisted.elements.length).toBe(1);
+    expect(hoisted.elements[0]!.kind).toBe('module');
+  });
+
+  it('folds EcucDefs > Adc_module (single wrap, no AUTOSAR layer) to [Adc hoisted at root]', () => {
+    // Arrange
+    const doc = makeEcucDefsDoc({ wrapShortName: null, moduleShortName: 'Adc' });
+    const bswmds = [makeBswmd(['Adc'])];
+
+    // Act
+    const result = computeDisplayDoc('single', doc, [], [], bswmds);
+
+    // Assert
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    expect(result!.doc!.packages.length).toBe(1);
+    const hoisted = result!.doc!.packages[0]!;
+    expect(hoisted.isVendorFoldResult).toBe(true);
+    expect(hoisted.shortName).toBe('Adc');
+    expect(hoisted.elements[0]!.kind).toBe('module');
+  });
+
+  it('refuses to fold when EcucDefs has sibling elements (module + reference) — invariant I1', () => {
+    // Arrange
+    const doc = makeEcucDefsMixedDoc();
+    const bswmds = [makeBswmd(['Adc'])];
+
+    // Act
+    const result = computeDisplayDoc('single', doc, [], [], bswmds);
+
+    // Assert — EcucDefs preserved unchanged (no silent element drop)
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    const pkg = result!.doc!.packages[0]!;
+    expect(pkg.shortName).toBe('EcucDefs');
+    expect(pkg.isVendorFoldResult).toBeUndefined();
+    expect(pkg.elements.length).toBe(2);
+    expect(pkg.elements[0]!.kind).toBe('module');
+    expect(pkg.elements[1]!.kind).toBe('reference');
+  });
+
+  it('folds EcucDefs even when the module is NOT in loaded BSWMDs (naming-only tier)', () => {
+    // Arrange — empty BSWMD list (no modules known)
+    const doc = makeEcucDefsDoc({ wrapShortName: null, moduleShortName: 'Adc' });
+    const bswmds = [makeBswmd([])];
+
+    // Act
+    const result = computeDisplayDoc('single', doc, [], [], bswmds);
+
+    // Assert — fold still fires (tier 4 has no BSWMD gate, unlike generic tier)
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    const hoisted = result!.doc!.packages[0]!;
+    expect(hoisted.isVendorFoldResult).toBe(true);
+    expect(hoisted.shortName).toBe('Adc');
   });
 });

@@ -21,7 +21,7 @@ const ECUC_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_Ec
 const BSWMD_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
 
 function findZeroOrInfiniteContainer(mod: BswModuleDef): { parent: string; child: string } | null {
-  const stack: { container: typeof mod.containers[number]; path: string[] }[] =
+  const stack: { container: (typeof mod.containers)[number]; path: string[] }[] =
     mod.containers.map((c) => ({ container: c, path: [c.shortName] }));
   while (stack.length > 0) {
     const { container, path } = stack.shift()!;
@@ -95,9 +95,7 @@ describe('user JWQ3399 addContainer end-to-end', () => {
       return out;
     };
     const nodes = collect(after.documents[0]!.packages as readonly TraversalNode[]);
-    const parent = nodes.find(
-      (n) => n.kind === 'container' && n.shortName === target.parent,
-    );
+    const parent = nodes.find((n) => n.kind === 'container' && n.shortName === target.parent);
     expect(parent).toBeDefined();
     const newInstance = parent?.children?.find(
       (c) => c.kind === 'container' && c.shortName === target.child,
