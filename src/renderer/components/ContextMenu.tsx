@@ -284,22 +284,11 @@ function buildContainerItems(
       cssClass: 'context-menu-item context-menu-item-add',
       build: (t) => ({ type: 'add-reference', path: t.path }),
     },
-    // Sprint A+ — "Delete ECUC module" entry. Renders as a disabled
-    // item when the right-click target has no `modulePath` (i.e. the
-    // target is a plain container/parameter node and the menu is being
-    // built by `buildContainerItems` for that case). The `build`
-    // callback falls back to `t.path` so the action still carries a
-    // sensible path even when the disabled item is clicked via
-    // accessibility tooling — the App.tsx router will hit the store's
-    // path-not-found branch and surface a toast.
-    {
-      id: 'delete-module',
-      label: t(locale, 'mutation.action.deleteModule', { name: target.shortName }),
-      ariaLabel: t(locale, 'mutation.action.deleteModuleAria', { name: target.shortName }),
-      disabled: target.modulePath === undefined,
-      cssClass: 'context-menu-item context-menu-item-delete',
-      build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
-    },
+    // Sprint A+ — the "Delete ECUC module" entry lives in
+    // `buildBswmdItems` only (it's the source-backed module-root
+    // re-route). Container/parameter/reference menus are unchanged
+    // per spec ("container/reference menus unchanged"). See
+    // `buildBswmdItems` for the entry.
     {
       id: 'delete-container',
       label: t(locale, 'mutation.action.delete', { name: target.shortName }),

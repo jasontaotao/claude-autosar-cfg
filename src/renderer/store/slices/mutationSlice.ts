@@ -518,17 +518,8 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     if (state.doc === null) return;
     const moduleEl = findByPath(state.doc, modulePath);
     if (moduleEl === null || moduleEl.element.kind !== 'module') {
-      setErrorWithKind(set, state.locale, {
-        kind: 'path-not-found',
-        path: modulePath,
-      });
-      // Also stamp the typed toast so the AppHeader banner reads
-      // the error kind consistently with the new typed-envelope
-      // convention. Without this the legacy `error` field alone
-      // would miss the typed-discriminator consumers (ErrorBanner
-      // auto-dismiss, ARIA role, etc.).
       get().setError(
-        t(state.locale, 'mutation.error.moduleNotFound', { path: modulePath }),
+        t(state.locale, 'mutation.error.module-not-found', { path: modulePath }),
       );
       return;
     }
@@ -539,20 +530,16 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     // reference when the target is already gone. Only commit a
     // mutation + toast when the call actually changed the doc.
     if (nextDoc === state.doc) {
-      setErrorWithKind(set, state.locale, {
-        kind: 'path-not-found',
-        path: modulePath,
-      });
       get().setError(
-        t(state.locale, 'mutation.error.moduleNotFound', { path: modulePath }),
+        t(state.locale, 'mutation.error.module-not-found', { path: modulePath }),
       );
       return;
     }
-    // Clear the BSWMD link in the same step so the ProjectPanel
-    // chip doesn't dangle ("0 modules covered by BSWMD" with no
-    // module). We always clear (not only when `wasSourceBacked`) so
-    // a future doc that somehow had both a source path AND no
-    // module still drops the stale link.
+    // Clear the BSWMD link when the doc was source-backed so the
+    // ProjectPanel chip doesn't dangle ("0 modules covered by BSWMD"
+    // with no module). The guard keeps the side effect aligned with
+    // spec invariant I2 ("For source-backed modules, the link is
+    // cleared on deletion").
     //
     // `exactOptionalPropertyTypes` rejects `sourceBswmdPath:
     // undefined` on the spread (the declared type is `?: string`,
@@ -560,7 +547,9 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     // doc shape is the canonical "no source" form without forcing
     // `undefined` into the field.
     const nextDocWithoutSource: ArxmlDocument = { ...nextDoc };
-    delete (nextDocWithoutSource as { sourceBswmdPath?: string }).sourceBswmdPath;
+    if (wasSourceBacked) {
+      delete (nextDocWithoutSource as { sourceBswmdPath?: string }).sourceBswmdPath;
+    }
     // Mirror the mutation into the `documents` array so the source-
     // of-truth is consistent with the back-compat `doc` alias. For
     // single-mode the active doc IS the document in the array, so we
@@ -582,10 +571,30 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     // actually mutated (activeIdx >= 0).
     const nextDirtyPaths =
       activeIdx >= 0 ? addToDirty(state.dirtyPaths, state.activeDocumentPath!) : state.dirtyPaths;
+    // Rebuild `displayDoc` after the mutation so the combined view
+    // reflects the removed module. Re-run validation so the panel
+    // doesn't show stale errors referencing the deleted path.
+    // Mirrors the post-mutation block of `applyMutationResultToActive`.
+    const nextDisplayResult = computeDisplayDoc(
+      state.viewMode,
+      nextDocWithoutSource,
+      nextDocuments,
+      state.documentPaths,
+    );
+    const nextDisplayDoc =
+      nextDisplayResult !== null ? nextDisplayResult.doc : state.displayDoc;
+    const nextWarnings =
+      state.viewMode === 'combined' && nextDisplayResult !== null
+        ? nextDisplayResult.warnings
+        : state.warnings;
     set({
       documents: nextDocuments,
       doc: nextDocWithoutSource,
+      displayDoc: nextDisplayDoc,
       dirtyPaths: nextDirtyPaths,
+      validationErrors: validateProjectForRenderer(nextDocuments),
+      lastValidatedAt: Date.now(),
+      warnings: nextWarnings,
     });
     get().setInfo(
       t(
