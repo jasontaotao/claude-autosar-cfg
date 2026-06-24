@@ -1,6 +1,6 @@
 import Handlebars from 'handlebars';
 
-import { cIdent } from './handlebars-helpers.js';
+import { cIdent, cType, cValue } from './handlebars-helpers.js';
 
 /**
  * Create a fresh Handlebars instance with generator-specific helpers
@@ -10,5 +10,9 @@ import { cIdent } from './handlebars-helpers.js';
 export function createEngine(): typeof Handlebars {
   const engine = Handlebars.create();
   engine.registerHelper('cIdent', (path: unknown) => cIdent(String(path ?? '')));
+  engine.registerHelper('cType', (def: unknown) => cType(def as never));
+  engine.registerHelper('cValue', (value: unknown, def: unknown) =>
+    cValue(value, def as never),
+  );
   return engine;
 }

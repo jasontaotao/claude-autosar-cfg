@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { cIdent } from '../handlebars-helpers.js';
+import { cIdent, cType, cValue } from '../handlebars-helpers.js';
 
 describe('cIdent', () => {
   it('joins slash-separated path with underscores', () => {
@@ -21,5 +21,77 @@ describe('cIdent', () => {
 
   it('preserves already-valid identifiers unchanged', () => {
     expect(cIdent('EcuC_Partition_0')).toBe('EcuC_Partition_0');
+  });
+});
+
+describe('cType', () => {
+  it('maps EcucIntegerParamDef min=0 max=255 to uint8', () => {
+    expect(
+      cType({ kind: 'integer', min: 0, max: 255 }),
+    ).toBe('uint8');
+  });
+
+  it('maps min=-128 max=127 to sint8', () => {
+    expect(
+      cType({ kind: 'integer', min: -128, max: 127 }),
+    ).toBe('sint8');
+  });
+
+  it('maps min=0 max=65535 to uint16', () => {
+    expect(
+      cType({ kind: 'integer', min: 0, max: 65535 }),
+    ).toBe('uint16');
+  });
+
+  it('maps min=0 max=4294967295 to uint32', () => {
+    expect(
+      cType({ kind: 'integer', min: 0, max: 4294967295 }),
+    ).toBe('uint32');
+  });
+
+  it('maps larger range to uint64', () => {
+    expect(
+      cType({ kind: 'integer', min: 0, max: 4294967296 }),
+    ).toBe('uint64');
+  });
+
+  it('maps EcucBooleanParamDef to uint8', () => {
+    expect(cType({ kind: 'boolean' })).toBe('uint8');
+  });
+
+  it('maps EcucStringParamDef to const char*', () => {
+    expect(cType({ kind: 'string' })).toBe('const char*');
+  });
+
+  it('maps EcucFloatParamDef to float32 by default', () => {
+    expect(cType({ kind: 'float' })).toBe('float32');
+  });
+
+  it('returns ?? for unknown kind', () => {
+    // The discriminated union never produces an unknown kind at the type
+    // level, but the engine wrapper calls cType with `unknown` and we want
+    // the default branch to be reachable for malformed BSWMD inputs.
+    expect(cType({ kind: 'mystery' } as never)).toBe('??');
+  });
+});
+
+describe('cValue', () => {
+  it('renders integer literal unchanged', () => {
+    expect(cValue(42, { kind: 'integer' })).toBe('42');
+  });
+
+  it('renders boolean as 0/1', () => {
+    expect(cValue(true, { kind: 'boolean' })).toBe('1');
+    expect(cValue(false, { kind: 'boolean' })).toBe('0');
+  });
+
+  it('renders string literal with C escaping', () => {
+    expect(cValue('hello', { kind: 'string' })).toBe('"hello"');
+    expect(cValue('a"b', { kind: 'string' })).toBe('"a\\"b"');
+    expect(cValue('a\\b', { kind: 'string' })).toBe('"a\\\\b"');
+  });
+
+  it('renders float with 6-digit precision', () => {
+    expect(cValue(3.14, { kind: 'float' })).toBe('3.140000f');
   });
 });
