@@ -5,6 +5,33 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-06-23 — ECUC vendor-prefix export + container DEFINITION-REF + UI fold
+
+MINOR bump: **7 commits since v1.8.5** (`e27f62a` → `ae4ce72`, branch `feature/sprint-x-vendor-prefix`). 2128 → 2167 tests (+39 net). Sprint X — three interlocking fixes for vendor-prefix (经纬恒润 / EB tresos / Vector / AUTOSAR_R2x) BSWMD modules. Closes the user's report that exporting `test.autosarcfg.json` produced ARXML that lost the vendor prefix hierarchy and silently dropped container-level `<DEFINITION-REF>` and `<PARAMETER-VALUES>` for multi-instance copies.
+
+### Added
+
+- **Skeleton preserves vendor-prefix AR-PACKAGE hierarchy** (`86f708d`): `src/core/arxml/skeleton.ts:80` `generateEcucSkeleton` now splits `mod.path` on `/` and builds a nested `ArxmlPackage.packages` chain. Single-segment paths (standard AUTOSAR modules like `/Can`) keep the legacy single-layer shape; multi-segment paths (`/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`) emit a bottom-up nested chain where the deepest leaf package carries `elements: [moduleEl]` and intermediate packages are empty wrappers. The UI folds the chain back to a single top-level node via the new `foldVendorPackages` so users see one `AR-PACKAGE` while the serialized arxml preserves the full hierarchy required by EB tresos / Vector / Intewell tooling.
+
+- **Every `ECUC-CONTAINER-VALUE` carries `<DEFINITION-REF>` + filled `<PARAMETER-VALUES>`** (`8ca372d` + `a120243`): three-layered root cause — `ArxmlContainer` lacked the `definitionRef` field (`types.ts:61`), `serializer.renderContainer` (`serializer.ts:241`) never emitted `<DEFINITION-REF>`, and `mutation.addContainer` (`mutation.ts:108`) constructed new containers with `params: {}` and no `definitionRef`. Fixed by: adding `readonly definitionRef?: string | undefined` to `ArxmlContainer` (same `exactOptionalPropertyTypes` pattern as `description`); extracting `fillParamsFromBswmd` from `skeleton.ts` to `defaultValue.ts` as a shared export; emitting `<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">` (or `ECUC-CHOICE-CONTAINER-DEF` for `isChoiceContainer`) whenever `c.definitionRef !== undefined`; stamping `definitionRef: c.path` in `buildTopContainer` / `buildSubContainerShell` / `buildChoiceShell`; stamping `definitionRef + filled params + description` in `addContainer` so multi-instance `_1`/`_2`/`_N` copies match the seed contract end-to-end.
+
+- **UI folds vendor-prefix AR-PACKAGE hierarchy** (`5d0fe80` + `771819f`): `src/renderer/store/helpers/combinedDoc.ts` adds `foldVendorPackages` and threads an optional `bswmdSchemas` parameter through 7 mutator call sites (`ecucSlice.ts:130, 198, 241, 264, 313, 346`; `mutationSlice.ts:469`; `projectSlice.ts:186`; `uiSlice.ts:205`) plus 2 post-mutation rebuild helpers (`mutationErrors.ts:applyMutationResultToSource/Active`). Detection rule: primary = top-level `pkg` with exactly one nested `pkg1` + `pkg.elements.length === 0` + `pkg1.shortName` matches a loaded BSWMD module; trusted-pack fallback = `pkg.shortName` matches `^JWQ_.*_PACK$` (specific enough that false-positives on user-defined packages are unlikely); generic-prefix = `EAS|EcucDefs|AUTOSAR(_.*)?` requires BOTH outer match and inner BSWMD match (prevents accidental folding of user-defined `EcucDefs` wrappers). Path rewriting mirrors `wrapPackageUnderSegment` (`combinedDoc.ts:433-468`).
+
+### Fixed
+
+- **CRITICAL — single-mode mutation path resolution through vendor-prefix nested source docs** (`f2006db`): after Feature 1/3, `state.doc.packages[0]` is `JWQ_CDD_PACK` while the post-fold `displayDoc.packages[0]` is `JWQ3399`. Tree selections landed on `selectedPath = '/JWQ3399/...'`; the mutation slice called `coreAddContainer(state.doc, '/JWQ3399/...', ...)` which fed `findByPath(state.doc, '/JWQ3399/...')`. The pre-X `findRootPackageByShortName` only walked top-level packages, so the lookup returned null and every mutation against vendor-prefix source docs silently failed `path-not-found`. Fixed by adding nested-fallback recursion to `findRootPackageByShortName` (`src/core/arxml/path.ts:125`) — pattern mirrors v1.4.1 bug2c's 3-segment compressed-shape fallback but generalized to any nesting depth.
+
+- **HIGH — parser captures container-level `<DEFINITION-REF>`** (`f2006db`): `src/core/arxml/parser.ts:380` `buildContainer` used to ignore `<DEFINITION-REF>` children of `ECUC-CONTAINER-VALUE`. With Feature 2 now stamping the field on every emit, save-reload cycles silently dropped all container-level `<DEFINITION-REF>` tags. Fixed by reading the field (string / `{ @_DEST, #text }` / array variants, mirroring the existing module-level pattern) and stamping `definitionRef` on the resulting `ArxmlContainer`. Also restores `isChoiceContainer: true` when `DEST="ECUC-CHOICE-CONTAINER-DEF"` so a choice shell round-trips with its branch-list marker intact.
+
+- **HIGH — `applyMutationResultToSource/Active` thread `state.bswmdSchemas`** (`f2006db`): 2 callsites in `src/renderer/store/helpers/mutationErrors.ts` were missed by the Phase 3 `bswmdSchemas` threading. Now consistent across all post-mutation displayDoc rebuilds.
+
+### Internal
+
+- 7 new test files / 5 updated test files (`+39 tests`): `path.test.ts` (3), `parser-container-defref.test.ts` (4), `combinedDoc.test.ts` (9), `mutationErrors.test.ts` (1), `defaultValue.test.ts` (3), `mutation-multi-instance.test.ts` (2 new), `skeleton.test.ts` (4 new + 1 updated), `serializer.test.ts` (3 new), `Tree.test.tsx` (2 new), `useArxmlStore.mutation.test.ts` (1 new), `bug-bswmd-multicity-and-addchild.test.ts` (helper nav), `bug2-skeleton-roundtrip.test.ts` (helper nav). Test files 211 → 214.
+- Spec: `C:\Users\13777\.claude\plans\glowing-dazzling-flamingo.md` (committed pre-implementation).
+- code-reviewer (whole-branch vs v1.8.5): initially **BLOCK** on 1 CRITICAL + 2 HIGH. After fixes → **APPROVE_WITH_NOTES** (1 regression found + fixed in `771819f`).
+- `pnpm verify` all 7 stages EXIT=0 (2167 + 1 skip / 0 type errors / 0 lint errors / format clean / 3 Vite builds OK).
+
 ## [1.8.4] - 2026-06-22 — Three correctness bugfixes
 
 PATCH bump: **5 commits since v1.8.3** (HEAD `96eab97`). 2097 → 2114 tests (+17 net). Three focused correctness fixes found by manual review of v1.8.3 SHIPPED code. No new feature, no API change, no schema change.

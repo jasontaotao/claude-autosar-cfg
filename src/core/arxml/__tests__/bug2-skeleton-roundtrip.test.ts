@@ -22,6 +22,8 @@ import type { ArxmlContainer, ArxmlModule } from '@core/arxml/types.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type { BswModuleDef, ContainerDef } from '@core/project/bswmd.js';
 
+import { findDeepestModule } from './__helpers__/findDeepestModule.js';
+
 const FIXTURE = resolve(__dirname, '../../../../tests/fixtures/bswmd/Adc_bswmd.arxml');
 
 function makeBswContainer(
@@ -160,7 +162,7 @@ describe('Bug 2a + 2b fixes — skeleton', () => {
 
     it('Adc skeleton produces value-side tagged containers', () => {
       const ar = generateEcucSkeleton(parsed.value, 'Adc');
-      const moduleEl = ar.packages[0]!.elements[0]! as ArxmlModule;
+      const moduleEl = findDeepestModule(ar);
       // Module element uses ECUC-MODULE-CONFIGURATION-VALUES (its own tag),
       // container elements use ECUC-CONTAINER-VALUE.
       expect(moduleEl.tagName).toBe('ECUC-MODULE-CONFIGURATION-VALUES');

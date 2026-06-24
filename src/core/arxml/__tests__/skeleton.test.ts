@@ -22,6 +22,7 @@
 import { describe, it, expect } from 'vitest';
 
 import type { BswmdDocument, BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd.js';
+import { serializeArxml } from '../serializer.js';
 import { generateEcucSkeleton, resolveCollisionFilename } from '../skeleton.js';
 import type { PickedModule } from '../skeleton.js';
 import type { ArxmlContainer, ArxmlModule } from '../types.js';
@@ -383,6 +384,203 @@ describe('generateEcucSkeleton', () => {
     expect(subEl.shortName).toBe('PlainSub');
     expect(subEl.isChoiceContainer).toBeUndefined();
     expect(subEl.choiceBranches).toBeUndefined();
+  });
+
+  // ─── T4 (Sprint X Phase 4) — vendor-prefix AR-PACKAGE hierarchy ─────
+  // v1.9.0 Sprint X mirrors the BSWMD `mod.path` physical structure:
+  // the first `N-1` segments become AR-PACKAGE nodes; the trailing
+  // segment (= `mod.shortName`) is the ECUC element's own SHORT-NAME
+  // and lives directly under the deepest AR-PACKAGE.
+  //
+  // BSWMD `ECUC-MODULE-DEF.path` = `parentPkg.PATH + ownShortName`, so
+  // for `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` the BSWMD-side container is
+  // `/JWQ_CDD_PACK/JWQ_Packet` and `JWQ3399` is the module's own
+  // shortName. Pre-fix the skeleton emitted `JWQ3399` as a third
+  // AR-PACKAGE (colliding with the ECUC element's SHORT-NAME); the
+  // fix emits only the parent package chain so the value-side arxml
+  // mirrors the BSWMD structure 1:1. Standard AUTOSAR modules
+  // (`/Can`) keep the existing single-layer shape — backwards-
+  // compatible with all round-trip fixtures. The renderer (Phase 3)
+  // folds the chain to the deepest package via `foldVendorPackages` so
+  // users see a single AR-PACKAGE in the Tree.
+
+  it('T4: single-segment mod.path keeps single-layer package (backwards compat)', () => {
+    // Arrange — standard AUTOSAR module `/Can` (1 segment). Existing
+    // round-trip fixtures pin this shape; Phase 4 must not regress it.
+    const can = makeBswModule('Can');
+    const doc = makeBswmd([can]);
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'Can');
+
+    // Assert — single top-level package, no nested packages, full
+    // module lives directly under it.
+    expect(ar.packages).toHaveLength(1);
+    expect(ar.packages[0]!.shortName).toBe('Can');
+    expect(ar.packages[0]!.path).toBe('/Can');
+    expect(ar.packages[0]!.elements).toHaveLength(1);
+    expect(ar.packages[0]!.packages).toBeUndefined();
+  });
+
+  it('T4: 3-segment vendor-prefix mod.path emits 2-layer AR-PACKAGE chain (strip last segment = mod.shortName)', () => {
+    // Arrange — vendor-prefix module `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
+    // (3 segments). After slicing off the trailing segment (=
+    // `mod.shortName`), only the first 2 segments form the
+    // AR-PACKAGE chain. The ECUC element `JWQ3399` lives directly
+    // under the deepest AR-PACKAGE `JWQ_Packet`.
+    const mod: BswModuleDef = {
+      shortName: 'JWQ3399',
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'JWQ3399');
+
+    // Assert — 2-layer chain (mirror of BSWMD physical structure).
+    expect(ar.packages).toHaveLength(1);
+    const jwqCddPack = ar.packages[0]!;
+    expect(jwqCddPack.shortName).toBe('JWQ_CDD_PACK');
+    expect(jwqCddPack.path).toBe('/JWQ_CDD_PACK');
+    expect(jwqCddPack.elements).toEqual([]); // vendor wrapper: no elements
+    expect(jwqCddPack.packages).toBeDefined();
+
+    const jwqPacket = jwqCddPack.packages![0]!;
+    expect(jwqPacket.shortName).toBe('JWQ_Packet');
+    expect(jwqPacket.path).toBe('/JWQ_CDD_PACK/JWQ_Packet');
+    // Leaf AR-PACKAGE carries the ECUC element directly (no extra
+    // `JWQ3399` AR-PACKAGE wrapper, since `JWQ3399` is the module's
+    // own shortName, not a separate package).
+    expect(jwqPacket.elements).toHaveLength(1);
+    expect(jwqPacket.packages).toBeUndefined();
+    const moduleEl = jwqPacket.elements[0]! as ArxmlModule;
+    expect(moduleEl.kind).toBe('module');
+    expect(moduleEl.shortName).toBe('JWQ3399');
+  });
+
+  it('T4: 2-segment vendor-prefix mod.path emits single-layer AR-PACKAGE chain (strip last segment)', () => {
+    // Arrange — `/EAS/Can` (2 segments, matches Intewell vendor
+    // prefix). After slicing off the trailing segment (= `Can` =
+    // `mod.shortName`), only `EAS` remains as a single AR-PACKAGE.
+    // The ECUC element `Can` lives directly under it.
+    const mod: BswModuleDef = {
+      shortName: 'Can',
+      path: '/EAS/Can',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'Can');
+
+    // Assert — single-layer AR-PACKAGE `EAS` carrying the `Can`
+    // ECUC element directly.
+    expect(ar.packages).toHaveLength(1);
+    const eas = ar.packages[0]!;
+    expect(eas.shortName).toBe('EAS');
+    expect(eas.path).toBe('/EAS');
+    expect(eas.elements).toHaveLength(1);
+    expect(eas.packages).toBeUndefined();
+    const moduleEl = eas.elements[0]! as ArxmlModule;
+    expect(moduleEl.shortName).toBe('Can');
+  });
+
+  it('T4: mod.path "/" or empty falls back to single-layer (does not crash)', () => {
+    // Arrange — pathological BSWMD with no segments. The skeleton
+    // must not crash; it should fall back to a single-layer package
+    // named after the module shortName so the round-trip path still
+    // resolves.
+    const mod: BswModuleDef = {
+      shortName: 'RootMod',
+      path: '/',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'RootMod');
+
+    // Assert — single-layer fallback: only the module-named package
+    // exists, no nesting (split('/').filter(Boolean) drops the lone
+    // empty segment).
+    expect(ar.packages).toHaveLength(1);
+    expect(ar.packages[0]!.shortName).toBe('RootMod');
+    expect(ar.packages[0]!.path).toBe('/RootMod');
+    expect(ar.packages[0]!.elements).toHaveLength(1);
+    expect(ar.packages[0]!.packages).toBeUndefined();
+  });
+
+  it('T4: serialised vendor-prefix skeleton has 2 nested <AR-PACKAGE> elements (ECUC element under the deepest one)', () => {
+    // Round-trip the 2-layer chain through the serializer so we know
+    // the wire format mirrors the BSWMD physical structure: 2
+    // <AR-PACKAGE> elements (vendor prefix chain) with the ECUC
+    // element's SHORT-NAME under the deepest one — no third
+    // <AR-PACKAGE> wrapping the module's own shortName.
+    const mod: BswModuleDef = {
+      shortName: 'JWQ3399',
+      path: '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [],
+      providedEntries: [],
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      multiplicityConfigClasses: [],
+    };
+    const doc: BswmdDocument = {
+      version: '4.2',
+      modules: [mod],
+      warnings: [],
+    };
+
+    // Act
+    const ar = generateEcucSkeleton(doc, 'JWQ3399');
+    const r = serializeArxml(ar);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return; // narrow for typecheck
+
+    // Assert — exactly 2 <AR-PACKAGE> elements (vendor prefix chain).
+    // `JWQ3399` appears as the ECUC element SHORT-NAME, not as a
+    // third <AR-PACKAGE>.
+    const packageCount = (r.value.match(/<AR-PACKAGE>/g) ?? []).length;
+    expect(packageCount).toBe(2);
+    expect(r.value).toContain('<SHORT-NAME>JWQ_CDD_PACK</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>JWQ_Packet</SHORT-NAME>');
+    expect(r.value).toContain('<SHORT-NAME>JWQ3399</SHORT-NAME>');
+    // Sanity: ECUC-MODULE-CONFIGURATION-VALUES exists with JWQ3399
+    // as its SHORT-NAME.
+    expect(r.value).toContain('ECUC-MODULE-CONFIGURATION-VALUES');
   });
 });
 
@@ -1131,6 +1329,158 @@ describe('generateEcucSkeleton — default param fill (post-v1.0.0)', () => {
 
     // Assert
     expect(plainEl.description).toBeUndefined();
+  });
+
+  // ─── T3 (Sprint X Phase 2) — top-container DEFINITION-REF stamp ──────
+  // v1.9.0 stamps the BSWMD-side path on every emitted ECUC-CONTAINER-VALUE
+  // (top, sub, choice) so the serializer writes a real
+  // <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">...</DEFINITION-REF>
+  // sibling of <SHORT-NAME>. Pre-T3 the field was omitted and the
+  // serializer fell back to /__synthesized__/<shortName>.
+  it('Sprint X T3: top-container stamps BSWMD path as definitionRef', () => {
+    // Arrange — a top-level container with a non-trivial path (the
+    // vendor-prefix shape `/Vendor/Can/CanConfigSet` is what the
+    // Sprint X project specifically targets, but any non-empty path
+    // exercises the stamp).
+    const cont: ContainerDef = {
+      shortName: 'CanConfigSet',
+      path: '/Vendor/Can/CanConfigSet',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'SomeParam', 0)],
+      references: [],
+      choices: [],
+    };
+
+    // Act
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+
+    // Assert — definitionRef is stamped with the exact BSWMD path,
+    // not the value-side /EAS/Can/CanConfigSet path.
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanConfigSet');
+  });
+
+  it('Sprint X T3: top-container default-fill still applies after definitionRef stamp', () => {
+    // Regression guard — adding the definitionRef stamp must not
+    // regress the v1.7.1 S2 default-fill behaviour. The two changes
+    // touch different fields, but both run in buildTopContainer.
+    const cont: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Vendor/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [mkParam('integer', 'CanBusOffProcessing', 0)],
+      references: [],
+      choices: [],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(cont), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanGeneral');
+    expect(topEl.params['CanBusOffProcessing']).toEqual({
+      type: 'integer',
+      value: 0,
+      definitionRef: '/CanBusOffProcessing',
+    });
+  });
+
+  it('Sprint X T3: sub-container (lower>0) stamps BSWMD path as definitionRef', () => {
+    // Arrange — sub-container under a top-level container. The
+    // sub-container shell path comes from the BSWMD ContainerDef.path,
+    // distinct from the parent's path.
+    const sub: ContainerDef = {
+      shortName: 'CanSub',
+      path: '/Vendor/Can/CanGeneral/CanSub',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const top: ContainerDef = {
+      shortName: 'CanGeneral',
+      path: '/Vendor/Can/CanGeneral',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [sub],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+
+    // Act
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const subEl = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — both depth levels carry their own BSWMD-side path.
+    expect(topEl.definitionRef).toBe('/Vendor/Can/CanGeneral');
+    expect(subEl.definitionRef).toBe('/Vendor/Can/CanGeneral/CanSub');
+  });
+
+  it('Sprint X T3: choice container shell stamps BSWMD path so serializer picks ECUC-CHOICE-CONTAINER-DEF DEST', () => {
+    // Arrange — a required choice container (lower=1, 2 branches).
+    // The shell's definitionRef is the choice container's own BSWMD
+    // path; combined with `isChoiceContainer: true` it signals the
+    // serializer to emit DEST="ECUC-CHOICE-CONTAINER-DEF" instead of
+    // the plain DEST="ECUC-PARAM-CONF-CONTAINER-DEF".
+    const branchA: ContainerDef = {
+      shortName: 'BranchA',
+      path: '/Vendor/Can/Top/ChoiceContainer/BranchA',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const branchB: ContainerDef = {
+      shortName: 'BranchB',
+      path: '/Vendor/Can/Top/ChoiceContainer/BranchB',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const choice: ContainerDef = {
+      shortName: 'ChoiceContainer',
+      path: '/Vendor/Can/Top/ChoiceContainer',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [branchA, branchB],
+    };
+    const top: ContainerDef = {
+      shortName: 'Top',
+      path: '/Vendor/Can/Top',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [choice],
+    };
+    const skel = generateEcucSkeleton(buildBswmdWithContainers(top), 'Can');
+
+    // Act
+    const topEl = (skel.packages[0]!.elements[0]! as ArxmlModule).children[0]! as ArxmlContainer;
+    const choiceShell = topEl.children[0]! as ArxmlContainer;
+
+    // Assert — choice marker + branch list + the choice container's
+    // own BSWMD path. The branches themselves are NOT pre-created
+    // (children: []), so their definitionRefs are not stamped by the
+    // skeleton — they get stamped by addContainer when the user picks
+    // a branch via the picker.
+    expect(choiceShell.isChoiceContainer).toBe(true);
+    expect(choiceShell.choiceBranches).toEqual(['BranchA', 'BranchB']);
+    expect(choiceShell.definitionRef).toBe('/Vendor/Can/Top/ChoiceContainer');
   });
 });
 

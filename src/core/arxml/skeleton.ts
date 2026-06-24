@@ -31,8 +31,8 @@
 
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '../project/bswmd.js';
 
-import { buildDefaultValue } from './defaultValue.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from './types.js';
+import { fillParamsFromBswmd } from './defaultValue.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ArxmlPackage } from './types.js';
 import { mapBswmdVersionToArxml } from './version.js';
 
 /**
@@ -82,18 +82,97 @@ export function generateEcucSkeleton(doc: BswmdDocument, moduleShortName: string
   if (mod === undefined) {
     throw new Error(`BSWMD module "${moduleShortName}" not found in document`);
   }
-  const packagePath = `/${mod.shortName}`;
   const moduleEl: ArxmlModule = buildModule(mod);
+  // v1.9.0 Sprint X — strict 1:1 mirror of BSWMD physical structure.
+  //
+  // BSWMD `ECUC-MODULE-DEF.path` is defined as
+  // `parentPkg.PATH + ownShortName`, so a vendor-prefix module like
+  // `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` is the BSWMD-side address of
+  // a single ECUC-MODULE-DEF whose physical container lives under
+  // `/JWQ_CDD_PACK/JWQ_Packet` (the *parent* package). The trailing
+  // `JWQ3399` is the module's own shortName, not a separate AR-PACKAGE
+  // in the BSWMD hierarchy.
+  //
+  // Pre-fix this function walked every segment of `mod.path` as an
+  // AR-PACKAGE layer (4 layers for the JWQ example: `JWQ_CDD_PACK` →
+  // `JWQ_Packet` → `JWQ3399` (mistakenly an AR-PACKAGE) → the ECUC
+  // element). That collided with the ECUC element's own SHORT-NAME
+  // (`JWQ3399`), made segment 3 / segment 4 shortNames identical, and
+  // duplicated the BSWMD-side namespace on disk.
+  //
+  // The fix: only the first `N-1` segments become AR-PACKAGE nodes
+  // (strictly mirroring the BSWMD physical structure — vendor prefixes
+  // stay, the module's own shortName stays as the ECUC element's
+  // SHORT-NAME). Standard AUTOSAR modules (`/Can`, 1 segment) keep
+  // the legacy single-layer shape; vendor-prefix modules with 2+
+  // segments emit one AR-PACKAGE chain matching the prefix depth
+  // (`/EAS/Can` → 2 layers, `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` → 2
+  // layers: `JWQ_CDD_PACK/JWQ_Packet` + ECUC element `JWQ3399`).
+  //
+  // The renderer (Phase 3) folds the chain to the deepest package via
+  // `foldVendorPackages` in `combinedDoc.ts` so users see a single
+  // AR-PACKAGE in the Tree.
+  const segments = mod.path.split('/').filter(Boolean);
+  if (segments.length <= 1) {
+    // Standard AUTOSAR or pathological single-segment path: emit the
+    // existing single-layer shape so the round-trip fixtures stay
+    // field-equal. This includes the `mod.path === '/'` edge case
+    // (`split('/').filter(Boolean)` drops the lone empty segment).
+    return {
+      path: '',
+      version: mapBswmdVersionToArxml(doc.version),
+      packages: [
+        {
+          shortName: mod.shortName,
+          path: `/${mod.shortName}`,
+          elements: [moduleEl],
+        },
+      ],
+    };
+  }
+  // Vendor-prefix: strip the last segment (= `mod.shortName`) and
+  // mirror only the remaining prefix as AR-PACKAGE chain. The leaf
+  // AR-PACKAGE carries `elements: [moduleEl]`; intermediate wrappers
+  // are empty (`elements: []`). Each package's `path` is the
+  // cumulative `/<seg1>/<seg2>/...` shape so the serialised XML
+  // produces the right <AR-PACKAGE PATH="..."> attrs.
+  const pkgSegments = segments.slice(0, -1);
+  // Defensive: `pkgSegments` is non-empty whenever `segments.length > 1`
+  // (the `length <= 1` branch above returns), but if a future caller
+  // bypasses the guard, fall back to the single-layer shape rather
+  // than emit a malformed empty chain.
+  if (pkgSegments.length === 0) {
+    return {
+      path: '',
+      version: mapBswmdVersionToArxml(doc.version),
+      packages: [
+        {
+          shortName: mod.shortName,
+          path: `/${mod.shortName}`,
+          elements: [moduleEl],
+        },
+      ],
+    };
+  }
+  let current: ArxmlPackage = {
+    shortName: pkgSegments[pkgSegments.length - 1]!,
+    path: `/${pkgSegments.join('/')}`,
+    elements: [moduleEl],
+  };
+  for (let i = pkgSegments.length - 2; i >= 0; i -= 1) {
+    const segment = pkgSegments[i]!;
+    const partialPath = `/${pkgSegments.slice(0, i + 1).join('/')}`;
+    current = {
+      shortName: segment,
+      path: partialPath,
+      elements: [],
+      packages: [current],
+    };
+  }
   return {
     path: '',
     version: mapBswmdVersionToArxml(doc.version),
-    packages: [
-      {
-        shortName: mod.shortName,
-        path: packagePath,
-        elements: [moduleEl],
-      },
-    ],
+    packages: [current],
   };
 }
 
@@ -127,6 +206,12 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
     // producing inconsistent XML.
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: c.shortName,
+    // v1.9.0 Sprint X — stamp the BSWMD-side path so the serializer
+    // emits <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/...</DEFINITION-REF>
+    // as a sibling of <SHORT-NAME>. Pre-X the field was omitted and the
+    // serializer fell back to the synthesized /__synthesized__/<shortName>
+    // placeholder, which fails EB tresos / Vector import validation.
+    definitionRef: c.path,
     params: fillParamsFromBswmd(c),
     // v1.7.1 S3 — carry the BSWMD <DESC> text through to the value
     // side so the UI can surface it as a tooltip / helper text next
@@ -150,44 +235,12 @@ function buildTopContainer(c: ContainerDef): ArxmlContainer {
 }
 
 /**
- * v1.7.1 S2 — translate a BSWMD container's declared parameter defaults
- * into typed `ParamValue` cells. Shared between `buildTopContainer` and
- * `buildSubContainerShell` so default-fill behaviour is uniform across
- * every depth (replaces the pre-S2 "top-layer only" decision).
- *
- * Semantics (preserved from the original inline code at
- * `buildTopContainer` lines 132-145):
- *
- *   - Non-null defaults are converted via `buildDefaultValue` and
- *     tagged with the BSWMD-side `definitionRef` (Sprint 16 invariant).
- *   - Null defaults on text-shaped params (enumeration / string /
- *     function-name) get an empty-string placeholder so the user gets
- *     an editable cell in the ParamEditor. Other kinds with null
- *     defaults (integer / float / boolean / reference) stay skipped.
- *   - Reference params are NOT filled here; they're handled by a
- *     separate `addReference` flow.
- *
- * Choice shells do NOT call this helper — `buildChoiceShell` keeps
- * `params: {}` literally because choice branches are user-instanced at
- * runtime and the shell is just a placeholder.
+ * v1.9.0 Sprint X — `fillParamsFromBswmd` is imported from
+ * `./defaultValue.ts` (shared with `mutation.ts`). The previous
+ * private duplicate was deleted here in Phase 2 so the skeleton and
+ * mutation layer apply identical default-fill semantics from one
+ * implementation.
  */
-function fillParamsFromBswmd(c: ContainerDef): Record<string, ParamValue> {
-  const params: Record<string, ParamValue> = {};
-  for (const p of c.parameters) {
-    const v = buildDefaultValue(p);
-    if (v !== null) {
-      params[p.shortName] = { ...v, definitionRef: p.path };
-      continue;
-    }
-    if (p.kind === 'enumeration') {
-      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
-    } else if (p.kind === 'string' || p.kind === 'function-name') {
-      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
-    }
-    // integer / float / boolean / reference null defaults stay skipped.
-  }
-  return params;
-}
 
 function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // Bug 2b (v1.4.1) — only pre-create a shell when the BSWMD declares
@@ -205,12 +258,16 @@ function buildSubContainerShell(c: ContainerDef): ArxmlContainer[] {
   // v1.7.1 S2 — params are now filled uniformly via
   // `fillParamsFromBswmd(c)` so every pre-created sub-container starts
   // with its declared defaults. Pre-S2 the field was hardcoded to `{}`.
+  //
+  // v1.9.0 Sprint X — stamp BSWMD-side path on the shell so the
+  // serializer writes <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">.
   if (c.lowerMultiplicity <= 0) return [];
   return [
     {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
+      definitionRef: c.path,
       params: fillParamsFromBswmd(c),
       // v1.7.1 S3 — carry the BSWMD <DESC> text through (uniform with
       // top containers).
@@ -250,6 +307,14 @@ function buildChoiceShell(c: ContainerDef): ArxmlContainer[] {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
       shortName: c.shortName,
+      // v1.9.0 Sprint X — choice shell's definitionRef renders as
+      // <DEFINITION-REF DEST="ECUC-CHOICE-CONTAINER-DEF">...</DEFINITION-REF>
+      // because the BSWMD source is an ECUC-CHOICE-CONTAINER-DEF. The
+      // serializer picks the DEST by inspecting `isChoiceContainer` on
+      // the ArxmlContainer; the path itself is the choice container's
+      // own BSWMD path (not a branch's path — branches are not
+      // pre-created here).
+      definitionRef: c.path,
       params: {},
       // v1.7.1 S1 — mark this shell as a choice container and list its
       // branch shortNames so the UI can distinguish it from a plain

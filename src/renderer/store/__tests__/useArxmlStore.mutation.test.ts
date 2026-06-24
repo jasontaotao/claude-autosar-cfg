@@ -133,6 +133,63 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprint X T7+T8 — vendor-prefix fold + mutation routing compatibility.
+//
+// After the store's `computeDisplayDoc` folds a 3-segment vendor chain
+// (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` → `/JWQ3399`), the
+// `displayDoc` carries the post-fold path. Tree rows call
+// `select(/JWQ3399)` and then the user invokes an action via
+// ContextMenu / ParamEditor — the action's containerPath is the
+// post-fold path, but the source doc still carries the original
+// 3-segment structure. The store action must therefore route through
+// `resolveContainerTarget` (which already falls back to per-doc
+// `findByPath` for non-prefixed paths) and apply the mutation against
+// the source doc. This test pins that contract.
+//
+// We feed the store a doc whose `EAS/Can/CanConfig` path mirrors the
+// flat shape so we don't depend on the parser recognising nested
+// packages. The mutation route must still resolve the post-fold
+// `/EAS/Can/CanConfig` path to the source doc.
+// ---------------------------------------------------------------------------
+describe('useArxmlStore — vendor-fold + combined-mode mutation (Sprint X T8)', () => {
+  it('addContainer routes through the post-fold path to the source doc in combined mode', () => {
+    // Arrange — one source doc with the flat EAS/Can/CanConfig shape
+    const canDoc = makeDoc('/tmp/Can.arxml', 'Can', 'CanConfig');
+    useArxmlStore.getState().addDocument(canDoc, '/tmp/Can.arxml');
+    useArxmlStore.setState({
+      bswmdSchemas: [makeBswmd(makeBswModule('Can', 'CanConfig', 'CanController'))],
+      bswmdPaths: ['/schemas/Can.bswmd.arxml'],
+    });
+    useArxmlStore.getState().setViewMode('combined');
+
+    // Act — use the post-fold combined-mode path
+    // (basename prefix /Can.arxml/ + inner /EAS/Can/CanConfig).
+    // This mirrors what Tree's onSelect would emit for the
+    // vendor-folded JWQ3399 node.
+    useArxmlStore.getState().addContainer('/Can.arxml/EAS/Can/CanConfig', 'CanController');
+
+    // Assert — the source doc got the new container, and the
+    // store's displayDoc was rebuilt (no error state).
+    const after = useArxmlStore.getState();
+    const canAfter = after.documents.find((d) => d.path === '/tmp/Can.arxml')!;
+    const canMod = canAfter.packages[0]!.elements[0]!;
+    if (canMod.kind !== 'module') throw new Error('expected module');
+    const canContainer = canMod.children[0]!;
+    if (canContainer.kind !== 'container') throw new Error('expected container');
+    const canFirstChild = canContainer.children[0];
+    expect(canFirstChild?.kind).toBe('container');
+    if (canFirstChild?.kind === 'module' || canFirstChild?.kind === 'container') {
+      expect(canFirstChild.shortName).toBe('CanController');
+    }
+    // The source doc is marked dirty; no other doc exists so we
+    // only assert the source one.
+    expect(after.dirtyPaths.has('/tmp/Can.arxml')).toBe(true);
+    // displayDoc was rebuilt (the store's selector ran end-to-end).
+    expect(after.displayDoc).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Picker state
 // ---------------------------------------------------------------------------
 

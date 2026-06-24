@@ -127,6 +127,9 @@ describe('ContextMenu (container target)', () => {
     expect(menu).toBeInTheDocument();
 
     const items = screen.getAllByRole('menuitem');
+    // Container menu: 4 items (add c/p/r + delete-container). The
+    // "delete-module" entry lives in `buildBswmdItems` only — see
+    // ContextMenu.deleteModule.test.tsx.
     expect(items).toHaveLength(4);
     expect(items[0]).toHaveTextContent(/添加子容器|Add sub-container/);
     expect(items[1]).toHaveTextContent(/添加参数|Add parameter/);
@@ -153,10 +156,12 @@ describe('ContextMenu (container target)', () => {
     expect(screen.getByText(/Delete 'EcuCGeneral'/)).toBeInTheDocument();
   });
 
-  it('container at root path shows all 4 items (no special case)', () => {
+  it('container at root path shows all 5 items (no special case)', () => {
     act(() => {
       openContextMenu({ path: '/EcuC', kind: 'container', shortName: 'EcuC' }, 100, 200);
     });
+    // Container menu has 4 items; "delete-module" lives in
+    // buildBswmdItems only (spec: container/reference menus unchanged).
     expect(screen.getAllByRole('menuitem')).toHaveLength(4);
   });
 });
@@ -315,7 +320,7 @@ describe('ContextMenu (BSWMD-disabled items)', () => {
     expect(items[1]).toHaveAttribute('aria-disabled', 'true');
     // Add reference
     expect(items[2]).toHaveAttribute('aria-disabled', 'true');
-    // Delete is always enabled
+    // Delete container is always enabled
     expect(items[3]).not.toHaveAttribute('aria-disabled', 'true');
   });
 

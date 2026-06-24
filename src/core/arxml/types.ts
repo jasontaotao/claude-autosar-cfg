@@ -45,6 +45,21 @@ export interface ArxmlPackage {
    * field-equal.
    */
   readonly packages?: readonly ArxmlPackage[];
+  /**
+   * v1.9.0 Sprint X — set on the top-level package produced by
+   * `foldVendorPackages` when the collapse created a fresh wrapper
+   * (i.e. the package didn't exist in the source doc, it was
+   * synthesised by the fold). The Tree uses this marker to hoist
+   * the contained module element past the vendor wrapper so users
+   * see the ECUC module as the tree root, not the vendor
+   * namespace. Source packages (untouched by fold) leave this
+   * undefined; legacy single-layer packages (`/EcuC` wrapping an
+   * `EcuC` module) leave this undefined; combined-mode file
+   * wrappers leave this undefined. Only the fold-synthesised
+   * top-level package carries the flag, so the hoisting decision
+   * is unambiguous.
+   */
+  readonly isVendorFoldResult?: boolean;
 }
 
 export type ArxmlElement = ArxmlModule | ArxmlContainer | ArxmlReference | ArxmlUnknown;
@@ -94,6 +109,22 @@ export interface ArxmlContainer {
    * property type explicitly allows `undefined`.
    */
   readonly description?: string | undefined;
+  /**
+   * v1.9.0 Sprint X — BSWMD-side path stamped at construction time
+   * (by `buildTopContainer` / `buildSubContainerShell` / `addContainer`).
+   * The serializer renders it as a `<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">`
+   * sibling of `<SHORT-NAME>` (or `ECUC-CHOICE-CONTAINER-DEF` when
+   * `isChoiceContainer` is true). `undefined` when the container was
+   * synthesized without a BSWMD definition (legacy in-memory docs that
+   * pre-date the v1.9.0 stamping) — the serializer omits the
+   * `<DEFINITION-REF>` child in that case so the field-equal round-trip
+   * signature of pre-fix fixtures is preserved.
+   *
+   * Note: declared with explicit `| undefined` for compatibility with the
+   * project's `exactOptionalPropertyTypes: true` setting — mirrors
+   * `description` directly above.
+   */
+  readonly definitionRef?: string | undefined;
 }
 
 export interface ArxmlReference {
@@ -154,6 +185,7 @@ export type ParamEditMode =
   | 'multiline';
 
 export const SUPPORTED_ARXML_VERSIONS: readonly ArxmlVersion[] = [
+  '4.0',
   '4.2',
   '4.4',
   '4.6',

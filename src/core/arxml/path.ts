@@ -2,7 +2,7 @@
 // Pure path helpers for navigating ArxmlDocument. Zero react/electron/fs deps.
 // Used by renderer store + editor to locate elements by path string.
 
-import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from './types.js';
+import type { ArxmlDocument, ArxmlElement, ArxmlModule, ArxmlPackage } from './types.js';
 
 export type ElementPath = string; // e.g. "/EAS/EcuC/EcuCGeneral/ConfigConsistencyRequired"
 
@@ -71,7 +71,40 @@ export function findByPath(
   if (pkgName === undefined) return null;
   // Locate the root package by shortName (root of the recursive <AR-PACKAGES> tree).
   const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
-  if (rootPkg === null) return null;
+  if (rootPkg === null) {
+    // v1.9.0 (post-c46f4a8) — renderer-fold fallback. Real vendor arxml
+    // files nest the ECUC module under a vendor-owned AR-PACKAGE chain
+    // (e.g. `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` ECUC). The
+    // renderer-side fold (combinedDoc.foldVendorPackages) collapses
+    // that chain back to a single top-level package named after the
+    // module, so the Tree emits paths like `/JWQ3399/...`. The source
+    // doc, however, still has the vendor chain at the top — so the
+    // root-package lookup misses entirely. Search the doc tree for an
+    // ECUC module whose shortName matches the leading segment; if
+    // found, walk the rest of the path from there. The package anchor
+    // we return is the root package that holds the matched ECUC
+    // element (its `elements` list), which is what callers use for
+    // the post-mutation revalidation pass.
+    const moduleHit = findModuleInPackages(doc.packages, (el) => el.shortName === pkgName);
+    if (moduleHit !== null) {
+      const { element, anchorPkg } = moduleHit;
+      // `rest[0]` is either the element itself (when `rest` is empty,
+      // i.e. the path is exactly `/JWQ3399` — the ECUC element's
+      // own shortName) or a child of the element.
+      if (rest.length === 0) return { pkg: anchorPkg, element };
+      if (element.kind === 'module' || element.kind === 'container') {
+        const child: ArxmlElement | undefined = element.children.find(
+          (c) => shortNameOf(c) === rest[0],
+        );
+        if (child === undefined) return null;
+        const deeper = walkFrom(child, rest.slice(1));
+        if (deeper === null) return null;
+        return { pkg: anchorPkg, element: deeper };
+      }
+      return null;
+    }
+    return null;
+  }
   // Canonical 4-segment walk: rest[0] is a module/element in pkg.
   const canonical = walkFrom(rootPkg, rest);
   if (canonical !== null) return { pkg: rootPkg, element: canonical };
@@ -107,8 +140,54 @@ function walkFrom(
         continue;
       }
       const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
-      if (child === undefined) return null;
-      cursor = child;
+      if (child !== undefined) {
+        cursor = child;
+        continue;
+      }
+      // v1.9.0 (post-c46f4a8 fix) — same-name AR-PACKAGE wrapper
+      // fallback. AUTOSAR canonical / vendored modules often wrap a
+      // single ECUC element inside an AR-PACKAGE that shares the
+      // module's shortName (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`
+      // [AR-PACKAGE] directly holding the `JWQ3399` ECUC element).
+      // The skeleton shape changed in c46f4a8 so NEW docs no longer
+      // emit this wrapper, but EXISTING user docs (v1.9.0 Sprint X
+      // era or pre-c46f4a8 vendor files like the user-reported
+      // `JWQ3399_EcucValues.arxml`) still have it. Without this
+      // fallback, the walker fails on every path into a wrapped
+      // module — `addContainer`, `addParameter`, `addReference`,
+      // `removeContainer` all break because `locateParent` returns
+      // null and the mutation surfaces `path-not-found`.
+      //
+      // The descent rule: when `name` doesn't match a sub-package or
+      // direct child element, look for a child element whose shortName
+      // equals the package's own shortName. The wrapped element is
+      // then the new cursor and the next iteration's `name` re-targets
+      // a child of the wrapped element. (If `name` already equals
+      // cursor.shortName, the caller is targeting the wrapped element
+      // itself — step into it directly.)
+      // Local alias: the isPackage() guard above narrows `cursor` to
+      // ArxmlPackage, but reassignments below widen the union; capture
+      // the package's shortName while the narrowing still holds.
+      const pkgShortName: string = cursor.shortName;
+      const wrapped: ArxmlElement | undefined = cursor.elements.find(
+        (e) => shortNameOf(e) === pkgShortName,
+      );
+      if (wrapped !== undefined) {
+        if (name === pkgShortName) {
+          cursor = wrapped;
+          continue;
+        }
+        if (wrapped.kind === 'module' || wrapped.kind === 'container') {
+          const inner: ArxmlElement | undefined = wrapped.children.find(
+            (c) => shortNameOf(c) === name,
+          );
+          if (inner !== undefined) {
+            cursor = inner;
+            continue;
+          }
+        }
+      }
+      return null;
     } else if (cursor.kind === 'module' || cursor.kind === 'container') {
       const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
       if (next === undefined) return null;
@@ -118,7 +197,19 @@ function walkFrom(
       return null;
     }
   }
-  if (cursor === undefined || isPackage(cursor)) return null;
+  if (cursor === undefined) return null;
+  if (isPackage(cursor)) {
+    // v1.9.0 (post-c46f4a8) — same-name AR-PACKAGE wrapper final-step
+    // unwrap. When the path lands on a package whose shortName matches
+    // a child element's shortName, return the wrapped element instead
+    // of the package. Matches the per-iteration fallback above; needed
+    // when the path itself ends on the wrapped layer (no further
+    // segment to drive the mid-walk unwrap).
+    const pkgShortName = cursor.shortName;
+    const wrapped = cursor.elements.find((e) => shortNameOf(e) === pkgShortName);
+    if (wrapped !== undefined) return wrapped;
+    return null;
+  }
   return cursor;
 }
 
@@ -126,8 +217,27 @@ function findRootPackageByShortName(
   pkgs: readonly ArxmlPackage[],
   shortName: string,
 ): ArxmlPackage | null {
+  // Fast path: literal top-level match. The vast majority of paths resolve
+  // here (canonical layout, BSWMD-derived docs that already flatten
+  // AR-PACKAGES).
   for (const p of pkgs) {
     if (p.shortName === shortName) return p;
+  }
+  // v1.9.0 Sprint X — nested fallback for vendor-prefix source docs.
+  // Real vendor arxml files nest the ECUC module package under a
+  // vendor-owned chain (e.g. `JWQ_CDD_PACK > JWQ_Packet > JWQ3399`). The
+  // renderer-side fold (combinedDoc.foldVendorPackages) collapses that
+  // chain back to a single top-level package named after the module, so
+  // the Tree emits paths like `/JWQ3399/...`. The source doc, however,
+  // still has `JWQ_CDD_PACK` at the top — so the literal shortName lookup
+  // misses. Walk the recursive package tree and accept the deepest
+  // match. The walk order is depth-first so the FIRST hit wins, which
+  // matches the (deterministic) iteration order of the source doc.
+  for (const p of pkgs) {
+    if (p.packages !== undefined) {
+      const nested = findRootPackageByShortName(p.packages, shortName);
+      if (nested !== null) return nested;
+    }
   }
   return null;
 }
@@ -141,6 +251,91 @@ function findPackageByShortName(
     if (p.shortName === shortName) return p;
   }
   return null;
+}
+
+/**
+ * v1.9.0 (post-c46f4a8) — depth-first walk over the recursive
+ * `<AR-PACKAGES>` tree that yields each `ECUC-MODULE-CONFIGURATION-VALUES`
+ * element alongside the root package that directly contains it (the
+ * "anchor" callers use for the post-mutation revalidation pass).
+ *
+ * Iteration order is depth-first, deterministic per source-doc
+ * iteration order. The shared walker backs `findByPath`'s fallback,
+ * `findFirstEcucModule`, and `findEcucModuleByShortName` so the
+ * three helpers stay in sync as the doc shape evolves.
+ *
+ * Used by `findByPath` as the fallback when the leading path
+ * segment doesn't match a root package by shortName — the typical
+ * case for vendor-prefix source docs whose renderer-fold
+ * representation puts the module's shortName at the path root.
+ */
+function findModuleInPackages(
+  pkgs: readonly ArxmlPackage[],
+  predicate: (el: ArxmlModule) => boolean,
+): { element: ArxmlModule; anchorPkg: ArxmlPackage } | null {
+  for (const p of pkgs) {
+    for (const el of p.elements) {
+      if (el.kind === 'module' && predicate(el)) {
+        return { element: el, anchorPkg: p };
+      }
+    }
+    if (p.packages !== undefined) {
+      const nested = findModuleInPackages(p.packages, predicate);
+      if (nested !== null) return nested;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find the first `ECUC-MODULE-CONFIGURATION-VALUES` element in the doc,
+ * walking depth-first across the recursive `<AR-PACKAGES>` tree and
+ * descending into each package's `elements` list. Returns `null` when
+ * the doc has no ECUC module anywhere.
+ *
+ * v1.9.0 Sprint X — nested-package parity for the renderer-side
+ * `doc.packages[0]?.elements[0]` shortcut. The shortcut silently
+ * returns `undefined` on vendor-prefix source docs whose ECUC module
+ * lives under one or more `<AR-PACKAGE>` wrappers (e.g.
+ * `JWQ_CDD_PACK > JWQ_Packet > JWQ3399`), because `JWQ_CDD_PACK.elements`
+ * is empty in that shape — see user-reported
+ * `C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml`.
+ * Callers that need "the one ECUC module of this doc" should use this
+ * helper instead of the flat shortcut so they work on both the
+ * canonical flat shape and the vendor-prefix nested shape.
+ *
+ * **Single-module-doc assumption**: callers assume the doc contains
+ * exactly one ECUC module (the common case for skeleton-built or
+ * single-module user ECUC values). On a multi-module merged doc,
+ * only the first module is returned; callers that need every module
+ * should iterate `findModuleInPackages` directly or compose their
+ * own depth-first walk.
+ */
+export function findFirstEcucModule(doc: ArxmlDocument): ArxmlModule | null {
+  return findModuleInPackages(doc.packages, () => true)?.element ?? null;
+}
+
+/**
+ * Find a specific `ECUC-MODULE-CONFIGURATION-VALUES` element by
+ * shortName, walking depth-first across the recursive `<AR-PACKAGES>`
+ * tree. Returns `null` when no matching module is found.
+ *
+ * Companion to `findFirstEcucModule` for callers that already know
+ * the target module's shortName (e.g. matching a picker's module
+ * shortName against an open ECUC doc). Uses the same nested-aware
+ * walk so it works on vendor-prefix source docs.
+ *
+ * **Single-module-doc assumption**: see `findFirstEcucModule` — on a
+ * multi-module merged doc the FIRST module with the matching shortName
+ * wins (depth-first). If two modules in the same doc share a
+ * shortName, only the first is returned; callers needing deterministic
+ * selection in that edge case should iterate `findModuleInPackages`.
+ */
+export function findEcucModuleByShortName(
+  doc: ArxmlDocument,
+  shortName: string,
+): ArxmlModule | null {
+  return findModuleInPackages(doc.packages, (el) => el.shortName === shortName)?.element ?? null;
 }
 
 // Type guard: distinguish an ArxmlPackage from an ArxmlElement.

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
-import type { ArxmlDocument } from '../types.js';
+import type { ArxmlContainer, ArxmlDocument } from '../types.js';
 
 const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
 
@@ -442,6 +442,139 @@ describe('serializeArxml', () => {
         '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Can/CanConfigSet/CanIfSupport</DEFINITION-REF>',
       );
       expect(r.value).not.toContain('/__synthesized__/');
+    });
+
+    // ---------- Sprint X — ECUC-CONTAINER-VALUE DEFINITION-REF ----------
+    // Phase 1 of Sprint X — stamp `ArxmlContainer.definitionRef` at skeleton
+    // construction time and emit it as a `<DEFINITION-REF DEST="...">`
+    // child of every `<ECUC-CONTAINER-VALUE>`. The DEST attribute
+    // distinguishes plain sub-containers (`ECUC-PARAM-CONF-CONTAINER-DEF`)
+    // from choice shells (`ECUC-CHOICE-CONTAINER-DEF`). Legacy in-memory
+    // documents that pre-date the v1.9.0 stamping (no `definitionRef`)
+    // must keep emitting XML without the tag — round-trip is field-equal
+    // for pre-fix fixtures.
+
+    it('case 1: container with definitionRef emits <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">', () => {
+      const doc: ArxmlDocument = {
+        path: '',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Can',
+                params: {},
+                references: [],
+                children: [
+                  {
+                    kind: 'container',
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'CanGeneral',
+                    params: {},
+                    children: [],
+                    definitionRef: '/AUTOSAR/EcucDefs/Can/CanConfigSet/CanGeneral',
+                  } as ArxmlContainer,
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const r = serializeArxml(doc);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value).toContain(
+        '<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Can/CanConfigSet/CanGeneral</DEFINITION-REF>',
+      );
+    });
+
+    it('case 2: choice container with definitionRef emits <DEFINITION-REF DEST="ECUC-CHOICE-CONTAINER-DEF">', () => {
+      const doc: ArxmlDocument = {
+        path: '',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Can',
+                params: {},
+                references: [],
+                children: [
+                  {
+                    kind: 'container',
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'CanIfBufferCfg',
+                    params: {},
+                    children: [],
+                    isChoiceContainer: true,
+                    choiceBranches: ['CanIfMailbox', 'CanIfRxBuffer'],
+                    definitionRef: '/AUTOSAR/EcucDefs/CanIf/CanIfConfigSet/CanIfBufferCfg',
+                  } as ArxmlContainer,
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const r = serializeArxml(doc);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      expect(r.value).toContain(
+        '<DEFINITION-REF DEST="ECUC-CHOICE-CONTAINER-DEF">/AUTOSAR/EcucDefs/CanIf/CanIfConfigSet/CanIfBufferCfg</DEFINITION-REF>',
+      );
+    });
+
+    it('case 3: legacy container without definitionRef omits <DEFINITION-REF> tag (back-compat)', () => {
+      const doc: ArxmlDocument = {
+        path: '',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'Can',
+                params: {},
+                references: [],
+                children: [
+                  {
+                    kind: 'container',
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'LegacyContainer',
+                    params: {},
+                    children: [],
+                    // No definitionRef — pre-v1.9.0 shape.
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const r = serializeArxml(doc);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      // The container block must not contain a DEFINITION-REF at all.
+      // (Module-level DEFINITION-REFs are unrelated and pre-existing.)
+      // Anchor on the container's own block to avoid false positives.
+      const containerBlock = r.value.match(
+        /<ECUC-CONTAINER-VALUE>[\s\S]*?<\/ECUC-CONTAINER-VALUE>/,
+      );
+      expect(containerBlock).not.toBeNull();
+      if (containerBlock) {
+        expect(containerBlock[0]).not.toContain('<DEFINITION-REF');
+      }
     });
 
     it('Sprint 16: reference param DEFINITION-REF prefers value.definitionRef over synthesized path', () => {

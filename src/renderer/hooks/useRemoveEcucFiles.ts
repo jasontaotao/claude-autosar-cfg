@@ -36,6 +36,7 @@
 
 import { useCallback } from 'react';
 
+import { findEcucModuleByShortName } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t } from '@shared/i18n.js';
 import type { ProjectDeleteArxmlResult } from '@shared/types.js';
@@ -82,16 +83,20 @@ export function useRemoveEcucFiles(): {
     //
     // Walk every loaded document; a target is a doc whose
     // `sourceBswmdPath` matches the pick's `bswmdPath` AND whose
-    // top-level module shortName matches the pick's
+    // (possibly nested) ECUC module shortName matches the pick's
     // `moduleShortName`. Skeleton-generated ECUCs are 1-module docs
-    // (see buildModule in skeleton.ts), so packages[0].elements[0]
-    // is the module.
+    // (see buildModule in skeleton.ts), but vendor-prefix source docs
+    // can nest the ECUC module under one or more <AR-PACKAGE>
+    // wrappers (e.g. `JWQ_CDD_PACK > JWQ_Packet > JWQ3399`); use
+    // `findEcucModuleByShortName` so the lookup walks the recursive
+    // <AR-PACKAGES> tree instead of only checking
+    // `d.packages[0]?.elements[0]`.
     let targets: RemoveEcucTarget[] = [];
     for (const pick of picks) {
       const doc = state.documents.find((d) => {
         if (d.sourceBswmdPath !== pick.bswmdPath) return false;
-        const moduleEl = d.packages[0]?.elements[0];
-        return moduleEl?.kind === 'module' && moduleEl.shortName === pick.moduleShortName;
+        const moduleEl = findEcucModuleByShortName(d, pick.moduleShortName);
+        return moduleEl !== null;
       });
       if (doc === undefined) continue;
       targets.push({

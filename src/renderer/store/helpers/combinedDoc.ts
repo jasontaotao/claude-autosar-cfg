@@ -5,6 +5,7 @@
 
 import { findByPathMultiDoc } from '@core/arxml/path';
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types';
+import type { BswmdDocument } from '@core/project/bswmd.js';
 
 export interface ResolvedContainerTarget {
   readonly doc: ArxmlDocument;
@@ -62,27 +63,37 @@ export interface ResolveContainerTargetState {
  * without inline branching. In 'single' mode it returns the active
  * `doc`; in 'combined' mode it returns a freshly synthesised virtual
  * document (or null when no docs are loaded).
+ *
+ * v1.9.0 Sprint X T7 — added optional `bswmdSchemas` so the vendor-
+ * prefix fold has up-to-date module coverage. Both single-mode and
+ * combined-mode now run `foldVendorPackages` so the Tree shows only
+ * the deepest AR-PACKAGE (vendor-private wrappers are hidden).
  */
 export function computeDisplayDoc(
   mode: 'single' | 'combined' | 'import-merged',
   activeDoc: ArxmlDocument | null,
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
+  bswmdSchemas?: readonly BswmdDocument[],
 ): CombinedDocumentResult | null {
   if (mode === 'single' || mode === 'import-merged') {
-    // Single / import-merged mode passes through the active doc
-    // unchanged; the import-merged view synthesises its own tree
-    // in the ModuleSelectionPanel / DiffTable components, so the
-    // legacy Tree continues to show the active doc behind the
-    // import slice. The result is wrapped in a
-    // `CombinedDocumentResult` for type uniformity with the
-    // combined-mode branch — the empty warnings array is
-    // intentional. `doc` may be null when no source documents are
-    // loaded; callers treat that as "no display content".
-    return { doc: activeDoc, warnings: [] };
+    // Single / import-merged mode passes the active doc through the
+    // vendor fold so the Tree shows only the deepest AR-PACKAGE
+    // (matches user's mental model: vendor-private wrapper layers
+    // are hidden). `activeDoc` may be null when no source documents
+    // are loaded; callers treat that as "no display content".
+    if (activeDoc === null) return { doc: null, warnings: [] };
+    return {
+      doc: foldVendorPackages(activeDoc, bswmdSchemas ?? []),
+      warnings: [],
+    };
   }
   if (documents.length === 0) return null;
-  return buildCombinedDocument(documents, filePaths);
+  const built = buildCombinedDocument(documents, filePaths);
+  return {
+    doc: built.doc === null ? null : foldVendorPackages(built.doc, bswmdSchemas ?? []),
+    warnings: built.warnings,
+  };
 }
 
 export type CombinedDocumentWarning = {
@@ -492,4 +503,255 @@ export function stripCombinedPrefix(combinedPath: string, sourceFilePath: string
   // Flat mode: no wrapper in the combined view — the path is already
   // an inner path. Return verbatim.
   return combinedPath;
+}
+
+// ---------------------------------------------------------------------------
+// v1.9.0 Sprint X — vendor-prefix package fold (T7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Heuristic: a top-level AR-PACKAGE chain `/A/B/C` where C is a BSWMD
+ * module shortName (e.g. `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399` with
+ * C=JWQ3399 loaded from a BSWMD) should be visually flattened so the
+ * UI shows only C. Vendor-private wrapper layers (JWQ_CDD_PACK,
+ * JWQ_Packet) collapse into C; the serialised arxml keeps the full
+ * 3-layer shape so it remains AUTOSAR-tooling-compatible
+ * (skeleton.ts emits the full chain; this is displayDoc-only).
+ *
+ * Detection rule (depth-first, top-down):
+ *   1. If a top-level package P has exactly one nested package P1
+ *      (and P1 has no `elements` of its own — vendor wrappers carry
+ *      elements=[]), AND either:
+ *      a. P1.shortName matches any shortName in
+ *         `bswmdSchemas[*].modules[*]` (gold path — BSWMD match),
+ *      b. P.shortName matches a trusted vendor-pack prefix
+ *         (`JWQ_.*_PACK`, see Phase 5c below), OR
+ *      c. P.shortName matches a generic vendor prefix
+ *         (`EAS`/`EcucDefs`/`AUTOSAR(_.*)?`) AND P1.shortName matches
+ *         a BSWMD module shortName (sanity gate against
+ *         user-defined `EcucDefs`).
+ *      then collapse: hoist P1 to the top, preserving P1.shortName /
+ *      path / elements / packages, and continue the fold recursively
+ *      into P1.
+ *   2. Otherwise, leave the package as-is (and recurse into its
+ *      children).
+ *
+ * Path rewriting: the hoisted package's path is rewritten to drop the
+ * vendor wrapper prefix so the post-fold path is the deepest segment
+ * alone (e.g. `/JWQ3399` instead of `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399`).
+ * This keeps `selectedPath` consistent across the fold — ParamEditor /
+ * ContextMenu consume the post-fold paths and `findByPath` on the
+ * source `doc` still resolves them via the fold-aware lookup paths.
+ *
+ * Pure: no I/O, no React, no Zustand. Returns a new ArxmlDocument
+ * when at least one package was folded; returns the same reference
+ * otherwise (so `useMemo` callers skip re-render).
+ */
+function foldVendorPackages(
+  doc: ArxmlDocument,
+  bswmdSchemas: readonly BswmdDocument[],
+): ArxmlDocument {
+  const bswmdModuleNames = new Set<string>();
+  for (const schema of bswmdSchemas) {
+    for (const mod of schema.modules) {
+      bswmdModuleNames.add(mod.shortName);
+    }
+  }
+  // v1.9.0 Sprint X Phase 5c — split vendor prefix matching into
+  // two tiers:
+  //   - TRUSTED: `JWQ_.*_PACK` (经纬恒润 Intewell vendor pack
+  //     convention). Specific enough that we trust the fold on
+  //     naming alone — the full chain `JWQ_CDD_PACK > JWQ_Packet >
+  //     JWQ3399` collapses even when `JWQ3399` isn't (yet) loaded
+  //     as a BSWMD module. Restores the user requirement "不在 UI
+  //     里显示 vendor 父层".
+  //   - GENERIC: `EAS` / `EcucDefs` / `AUTOSAR(_.*)?` (AUTOSAR
+  //     standard namespaces). These are short and common enough
+  //     that a user could plausibly name a project-local package
+  //     after them; we keep the BSWMD AND gate for these so the
+  //     fold only triggers when the inner is positively known.
+  const TRUSTED_VENDOR_PACK_RE = /^JWQ_.*_PACK$/;
+  const GENERIC_VENDOR_PREFIX_RE = /^(EAS|EcucDefs|AUTOSAR(_.*)?)$/;
+
+  const foldedPackages = doc.packages
+    .map((p) =>
+      foldPackage(p, '', bswmdModuleNames, TRUSTED_VENDOR_PACK_RE, GENERIC_VENDOR_PREFIX_RE),
+    )
+    .filter((p): p is ArxmlPackage => p !== null);
+
+  // Reference-equal fast path: if no package was actually folded,
+  // return the same ArxmlDocument reference so downstream `useMemo`
+  // callers (Tree.tsx) skip re-render.
+  if (
+    foldedPackages.length === doc.packages.length &&
+    foldedPackages.every((p, i) => p === doc.packages[i])
+  ) {
+    return doc;
+  }
+  return { ...doc, packages: foldedPackages };
+}
+
+/**
+ * Recursively fold a single package. Returns the same package
+ * reference when no fold is needed (preserves ref equality for the
+ * fast path).
+ *
+ * Algorithm: walk DOWN the wrapper chain collapsing each layer that
+ * satisfies the fold condition. The deepest leaf stays put; every
+ * intermediate wrapper collapses into it. This handles chains of
+ * arbitrary depth (1, 2, 3+ segments) with the same code path.
+ *
+ * @param pkg                  The package to fold.
+ * @param prefix               The path prefix accumulated by parent
+ *                             hoists (always '' at the top level;
+ *                             non-empty when this pkg is itself
+ *                             inside a parent chain).
+ * @param bswmdNames           Module shortNames loaded from any
+ *                             BSWMD schema.
+ * @param trustedPackRe        Regex matching trusted vendor pack
+ *                             shortNames (e.g. `JWQ_.*_PACK`).
+ * @param genericPrefixRe      Regex matching generic vendor prefix
+ *                             shortNames (`EAS`/`EcucDefs`/
+ *                             `AUTOSAR(_.*)?`). Requires a positive
+ *                             BSWMD match on the inner to actually
+ *                             trigger a fold.
+ */
+function foldPackage(
+  pkg: ArxmlPackage,
+  prefix: string,
+  bswmdNames: ReadonlySet<string>,
+  trustedPackRe: RegExp,
+  genericPrefixRe: RegExp,
+): ArxmlPackage {
+  const nested = pkg.packages;
+
+  // Foldable? A package is foldable when:
+  //   - it has EXACTLY ONE nested package (vendor wrappers don't
+  //     carry siblings)
+  //   - it carries no `elements` of its own (vendor wrappers are
+  //     pass-through)
+  //   - any of the following hold:
+  //       a. inner.shortName is a BSWMD module (gold path), OR
+  //       b. pkg.shortName matches a trusted vendor pack prefix
+  //          (folds on naming alone, no BSWMD gate), OR
+  //       c. pkg.shortName matches a generic vendor prefix AND
+  //          inner.shortName is a BSWMD module (sanity gate
+  //          against user-defined `EcucDefs`).
+  //
+  // v1.9.0 Sprint X Phase 5c — split the former
+  // `VENDOR_PREFIX_RE` into trusted (b) vs generic (c) tiers. The
+  // generic tier still requires the BSWMD match (MEDIUM #2
+  // invariant). The trusted tier is the Phase 5b regression fix:
+  // the previous AND-combined rule refused to fold `JWQ_CDD_PACK >
+  // JWQ_Packet > JWQ3399` because the outer wrapper's inner
+  // (`JWQ_Packet`) wasn't a BSWMD module, leaving the vendor parent
+  // visible. The trusted-prefix rule alone is sufficient — naming
+  // convention is the contract.
+  //
+  // This check applies at ANY level — top-level wrappers and
+  // intermediate wrappers alike. Recursion walks down the chain
+  // until we find a non-foldable package (the leaf).
+  const innerMatchesBswmd =
+    nested !== undefined && nested.length === 1 && bswmdNames.has(nested[0]!.shortName);
+  // 2026-06-23 — EcucDefs tier (tier 4). Fires when the package IS
+  // the standard AUTOSAR `EcucDefs` namespace AND it carries exactly
+  // one `kind: 'module'` element directly (no sub-packages).
+  // No BSWMD gate: a fresh project with no BSWMDs loaded should
+  // still see the EcucDefs layer collapsed, matching the user's
+  // mental model of "EcucDefs is a namespace, not a UI surface".
+  // The `length === 1` + `kind === 'module'` check is the I1 + I2
+  // safety guard — mixed elements (e.g. reference + module) are
+  // preserved unchanged instead of silently dropped.
+  const ecucDefsHasSingleModule =
+    pkg.shortName === 'EcucDefs' &&
+    pkg.packages === undefined &&
+    pkg.elements.length === 1 &&
+    pkg.elements[0]!.kind === 'module';
+
+  // Tier 4 fast path — EcucDefs with a single module element
+  // directly inside (no sub-packages). Distinct from tiers 1-3:
+  // the hoist target is `pkg.elements[0]` (the module element
+  // itself), not a sub-package. Return a synthesised pkg whose
+  // shortName / path match the module element, marked
+  // `isVendorFoldResult: true` so Tree.tsx hoists it past the
+  // vendor namespace the same way it does for the JWQ_*_PACK chain.
+  // Element count is strictly preserved (I1) — we carry the module
+  // element over, no siblings are dropped.
+  if (ecucDefsHasSingleModule) {
+    // Narrow ArxmlElement union — the `kind === 'module'` check in
+    // `ecucDefsHasSingleModule` is not preserved by TS narrowing
+    // across the closure boundary, so re-narrow explicitly.
+    const moduleEl = pkg.elements[0]!;
+    if (moduleEl.kind !== 'module') {
+      // Unreachable given the ecucDefsHasSingleModule gate, but TS
+      // requires the explicit narrow before reading `.shortName`
+      // (ArxmlUnknown has no shortName field).
+      return pkg;
+    }
+    return {
+      shortName: moduleEl.shortName,
+      path: `/${moduleEl.shortName}`,
+      isVendorFoldResult: true,
+      elements: [moduleEl],
+    };
+  }
+
+  // Tiers 1-3: wrapper-style fold (collapse into the only nested package).
+  const isFoldableHere =
+    nested !== undefined &&
+    nested.length === 1 &&
+    pkg.elements.length === 0 &&
+    (innerMatchesBswmd ||
+      trustedPackRe.test(pkg.shortName) ||
+      (genericPrefixRe.test(pkg.shortName) && innerMatchesBswmd));
+
+  if (!isFoldableHere) {
+    // Not foldable. If nested exists, recurse into it first to
+    // collapse any inner wrappers; only allocate a new pkg if the
+    // nested array actually changed.
+    if (nested === undefined || nested.length === 0) {
+      // No nested → return ref-equal.
+      return pkg;
+    }
+    const mapped = nested.map((sp) =>
+      foldPackage(sp, joinPath(prefix, pkg.shortName), bswmdNames, trustedPackRe, genericPrefixRe),
+    );
+    const changed = mapped.some((m, i) => m !== nested[i]);
+    if (!changed) return pkg;
+    return {
+      ...pkg,
+      packages: mapped,
+    };
+  }
+
+  // Foldable: recurse into the only nested child, then hoist the
+  // (now fully folded) child to take our place.
+  const child = nested[0]!;
+  const foldedChild = foldPackage(
+    child,
+    joinPath(prefix, pkg.shortName),
+    bswmdNames,
+    trustedPackRe,
+    genericPrefixRe,
+  );
+  // The hoisted package takes the deepest shortName (already
+  // collapsed recursively). Path is rewritten to drop the entire
+  // wrapper prefix. `isVendorFoldResult: true` flags this as a
+  // fold-synthesised wrapper (vs a source-doc package) so the
+  // Tree can hoist the contained module element past the vendor
+  // namespace without confusing it with legacy single-layer or
+  // combined-mode file wrappers.
+  const hoistedPackages = foldedChild.packages;
+  return {
+    ...foldedChild,
+    path: `/${foldedChild.shortName}`,
+    isVendorFoldResult: true,
+    ...(hoistedPackages !== undefined ? { packages: hoistedPackages } : {}),
+    elements: foldedChild.elements,
+  };
+}
+
+function joinPath(prefix: string, segment: string): string {
+  if (prefix === '') return `/${segment}`;
+  return `${prefix}/${segment}`;
 }

@@ -20,9 +20,15 @@
 // `useArxmlStore.applyParamUpdate`.
 
 import { getContainerDefByPath } from '../project/bswmd.js';
-import type { BswModuleDef, ContainerDef, ParamDef, ReferenceDef } from '../project/bswmd.js';
+import type {
+  BswModuleDef,
+  ContainerDef,
+  ParamDef,
+  ParamKind,
+  ReferenceDef,
+} from '../project/bswmd.js';
 
-import { buildDefaultValue } from './defaultValue.js';
+import { buildDefaultValue, fillParamsFromBswmd } from './defaultValue.js';
 import { findByPath } from './path.js';
 import type {
   ArxmlContainer,
@@ -156,11 +162,22 @@ export function addContainer(
   }
 
   // 4. Build the new container element and insert it.
+  //
+  // v1.9.0 Sprint X — stamp BSWMD-side path + description and fill
+  // defaults from the childContainerDef so the serializer emits a
+  // spec-compliant ECUC-CONTAINER-VALUE (with <DEFINITION-REF> +
+  // <PARAMETER-VALUES>) for every added instance, including the
+  // `_1`/`_2`/`_N` multi-instance suffixes from Step 3.
   const newContainer: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: effectiveShortName,
-    params: {},
+    definitionRef: childContainerDef.path,
+    params: fillParamsFromBswmd(childContainerDef),
+    description: childContainerDef.desc,
+    // Multi-instance instances do NOT pre-create sub-containers —
+    // the user adds them individually. Matches the skeleton's
+    // `buildSubContainerShell` decision to skip lower=0 entries.
     children: [],
   };
   const next = insertChild(doc, pkg, parent, newContainer, moduleDef, parentPath);
@@ -216,6 +233,43 @@ export function removeContainer(
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
   return { ok: true, value: removed };
+}
+
+/**
+ * Sprint A+ — remove the module-kind element at `modulePath` from `doc`.
+ * Pure helper used by `deleteEcucModule` to clear the entire
+ * `<ECUC-MODULE-CONFIGURATION-VALUES>` element without cascading to
+ * inbound references (refs target containers, not modules — the BSWMD
+ * invariant guarantees nothing points at a module root).
+ *
+ * No-op semantics: returns the same `ArxmlDocument` reference when
+ *   - the path does not resolve
+ *   - the resolved element is not a module (container / reference / unknown)
+ *   - the resolved element is already absent (defensive)
+ *
+ * Implementation note: the ECUC module is a direct child of its root
+ * package (`pkg.elements`), not a child of an element. The legacy
+ * `removeElement` helper walks `parent.children` and is therefore
+ * unsuitable for top-level package elements; we drop the module here
+ * with a direct immutable package rebuild. Reference equality is
+ * preserved when the target does not match (defensive guard).
+ */
+export function removeModuleFromDoc(doc: ArxmlDocument, modulePath: string): ArxmlDocument {
+  const target = findByPath(doc, modulePath);
+  if (target === null) return doc;
+  if (target.element.kind !== 'module') return doc;
+  const nextElements = target.pkg.elements.filter((e) => e !== target.element);
+  if (nextElements.length === target.pkg.elements.length) return doc;
+  // Rebuild only the matched package. The map() preserves reference
+  // equality on the unchanged packages so the doc is fully immutable.
+  let pkgReplaced = false;
+  const nextPackages = doc.packages.map((p) => {
+    if (p !== target.pkg) return p;
+    pkgReplaced = true;
+    return { ...p, elements: nextElements };
+  });
+  if (!pkgReplaced) return doc;
+  return { ...doc, packages: nextPackages };
 }
 
 /**
@@ -426,34 +480,17 @@ function checkMultiplicityFloor(
  * Walk `doc.packages` recursively to find the element at `segments`
  * (relative to root package). Returns the element (module / container /
  * reference) or `null` if any segment misses.
+ *
+ * v1.9.0 Sprint X — delegate to `path.ts#findByPath`, which already
+ * handles nested AR-PACKAGE chains and the same-name AR-PACKAGE
+ * wrapper fallback. The legacy flat `doc.packages.find(...)` lookup
+ * missed every vendor-prefix source doc whose ECUC module lives
+ * under 2+ <AR-PACKAGE> wrappers (e.g. `JWQ_CDD_PACK > JWQ_Packet >
+ * JWQ3399`) — that broke `checkMultiplicityFloor` on nested docs.
  */
 function findElementByPath(doc: ArxmlDocument, segments: readonly string[]): ArxmlElement | null {
   if (segments.length === 0) return null;
-  const [pkgName, ...rest] = segments;
-  if (pkgName === undefined) return null;
-  const rootPkg = doc.packages.find((p) => p.shortName === pkgName);
-  if (rootPkg === undefined) return null;
-  return findInPackage(rootPkg, rest);
-}
-
-function findInPackage(pkg: ArxmlPackage, segments: readonly string[]): ArxmlElement | null {
-  let cursor: ArxmlElement | ArxmlPackage = pkg;
-  for (const name of segments) {
-    if (isPackage(cursor)) {
-      const child: ArxmlElement | undefined = cursor.elements.find((e) => shortNameOf(e) === name);
-      if (child === undefined) return null;
-      cursor = child;
-      continue;
-    }
-    if (cursor.kind === 'module' || cursor.kind === 'container') {
-      const next: ArxmlElement | undefined = cursor.children.find((c) => shortNameOf(c) === name);
-      if (next === undefined) return null;
-      cursor = next;
-      continue;
-    }
-    return null;
-  }
-  return isPackage(cursor) ? null : cursor;
+  return findByPath(doc, `/${segments.join('/')}`)?.element ?? null;
 }
 
 /**
@@ -503,7 +540,19 @@ export function addParameter(
   if (Object.prototype.hasOwnProperty.call(parent.params, paramDef.shortName)) {
     return { ok: false, error: { kind: 'name-conflict', shortName: paramDef.shortName } };
   }
-  const value = buildDefaultValue(paramDef);
+  // Sprint 18 hotfix — fall back to a typed zero-value when the BSWMD
+  // omits `<DEFAULT-VALUE>`. Many vendor CDDs (the user-reported
+  // JWQ3399_bswmd.arxml is one) declare optional params without a
+  // default; `buildDefaultValue` returns `null` for those (its
+  // documented behaviour), which the previous `addParameter` mapped
+  // to `invalid-param-type`. From the renderer's POV the type is
+  // valid — the user just hasn't filled it in yet — so we
+  // synthesise a placeholder and rely on the existing param-editor
+  // UI to surface the empty state (e.g. EnumEditor falls back to a
+  // free-form text input when its literals lookup misses, IntegerEditor
+  // accepts the initial `0`). The placeholder is overwritten on the
+  // first `applyParamUpdate` once the user picks a value.
+  const value = buildDefaultValue(paramDef) ?? zeroValueForKind(paramDef.kind);
   if (value === null) {
     return {
       ok: false,
@@ -641,6 +690,70 @@ export function removeParameter(
       : { ...parent, params: nextParams };
   const next = replaceElement(doc, pkg, parent, nextParent);
   return { ok: true, value: next };
+}
+
+/**
+ * Sprint 18 hotfix — apply a single param edit inside the container
+ * at `containerPath`. Returns the input `doc` reference verbatim
+ * when the path does not resolve (reference equality preserved so
+ * downstream selectors can skip work) or when the new value equals
+ * the existing one (no-op).
+ *
+ * Mirrors `removeParameter`'s location/rewrite pattern. The renderer
+ * calls it from `updateParam` whenever the user toggles a boolean,
+ * types into an integer/float/string input, or picks an enum literal
+ * from the dropdown. The path shape is the post-fold `containerPath`
+ * the Tree emits (see `foldVendorPackages` in `combinedDoc.ts`).
+ *
+ * **Post-fold wrapper handling.** A post-fold package named
+ * `JWQ3399` directly contains the ECUC module also named `JWQ3399`
+ * (the vendor wrappers `JWQ_CDD_PACK > JWQ_Packet` collapse into it
+ * — see `walkFrom` in `path.ts` for the descent rule). The previous
+ * implementation walked `pkg.elements` by shortName and missed the
+ * wrapper, silently no-op'ing every edit for vendor-CDD projects.
+ * This rewrite delegates the location step to `locateParent` (which
+ * uses `findByPath` and inherits the wrapper fallback) and writes
+ * the new value via `replaceElement` (which already handles
+ * non-top-level packages via `replaceAnywhere`).
+ *
+ * **definitionRef preservation.** When the incoming `value` does
+ * not carry a `definitionRef` but the existing param has one, we
+ * merge so the ARXML serializer keeps writing the real BSWMD-side
+ * path instead of regressing to `/__synthesized__/<shortName>`.
+ */
+export function applyParamUpdate(
+  doc: ArxmlDocument,
+  containerPath: string,
+  paramKey: string,
+  value: ParamValue,
+): ArxmlDocument {
+  const located = locateParent(doc, containerPath);
+  if (located === null) return doc;
+  const { parent, pkg } = located;
+  const current = parent.params[paramKey];
+  if (current !== undefined && paramValueEquals(current, value)) return doc;
+  const incoming = withDefinitionRefPreserved(value, current);
+  const nextParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, params: { ...parent.params, [paramKey]: incoming } }
+      : { ...parent, params: { ...parent.params, [paramKey]: incoming } };
+  return replaceElement(doc, pkg, parent, nextParent);
+}
+
+function paramValueEquals(a: ParamValue, b: ParamValue): boolean {
+  if (a.type !== b.type) return false;
+  return a.value === b.value;
+}
+
+function withDefinitionRefPreserved(
+  incoming: ParamValue,
+  current: ParamValue | undefined,
+): ParamValue {
+  if (current === undefined) return incoming;
+  if (incoming.definitionRef !== undefined) return incoming;
+  if (current.definitionRef === undefined) return incoming;
+  if (current.type !== incoming.type) return incoming;
+  return { ...incoming, definitionRef: current.definitionRef } as ParamValue;
 }
 
 /**
@@ -862,20 +975,6 @@ function locateParent(doc: ArxmlDocument, parentPath: string): LocatedParent | n
   return { parent: element, pkg };
 }
 
-function findRootPackageByShortName(
-  pkgs: readonly ArxmlPackage[],
-  shortName: string,
-): ArxmlPackage | null {
-  for (const p of pkgs) {
-    if (p.shortName === shortName) return p;
-  }
-  return null;
-}
-
-function isPackage(value: ArxmlElement | ArxmlPackage): value is ArxmlPackage {
-  return !('kind' in value);
-}
-
 function shortNameOf(e: ArxmlElement): string {
   if (e.kind === 'reference') return e.shortName ?? e.value;
   // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME;
@@ -938,6 +1037,32 @@ function replaceElement(
   target: ArxmlModule | ArxmlContainer,
   replacement: ArxmlModule | ArxmlContainer,
 ): ArxmlDocument {
+  // The `pkg` parameter is the package the caller believes holds the
+  // target. For most calls (post-fold display paths on single-layer
+  // docs) it's correct. For vendor-prefix legacy docs where the
+  // path walker fell through to the ECUC search fallback, the
+  // returned `pkg` is the inner package that directly contains the
+  // ECUC module (e.g. JWQ_Packet), not the top-level package. Without
+  // the descent below, `replaceInElements` would only run against
+  // the top-level package (where the inner pkg's identity is not
+  // found), `changed` would stay false, and the function would
+  // silently return the original doc — every mutation would no-op
+  // with no error.
+  //
+  // Try the fast path first (caller's package matches a top-level
+  // package); if not, walk the recursive tree and replace wherever
+  // the target lives.
+  const fastResult = replaceInTopLevelPackage(doc, pkg, target, replacement);
+  if (fastResult.changed) return fastResult.doc;
+  return replaceAnywhere(doc, target, replacement);
+}
+
+function replaceInTopLevelPackage(
+  doc: ArxmlDocument,
+  pkg: ArxmlPackage,
+  target: ArxmlModule | ArxmlContainer,
+  replacement: ArxmlModule | ArxmlContainer,
+): { readonly changed: boolean; readonly doc: ArxmlDocument } {
   let changed = false;
   const nextPackages = doc.packages.map((p) => {
     if (p !== pkg) return p;
@@ -946,8 +1071,44 @@ function replaceElement(
     changed = true;
     return { ...p, elements: nextElements };
   });
+  if (!changed) return { changed: false, doc };
+  return { changed: true, doc: { ...doc, packages: nextPackages } };
+}
+
+function replaceAnywhere(
+  doc: ArxmlDocument,
+  target: ArxmlModule | ArxmlContainer,
+  replacement: ArxmlModule | ArxmlContainer,
+): ArxmlDocument {
+  let changed = false;
+  const nextPackages = mapPackagesDeep(doc.packages, (p) => {
+    const nextElements = replaceInElements(p.elements, target, replacement);
+    if (nextElements === p.elements) return p;
+    changed = true;
+    return { ...p, elements: nextElements };
+  });
   if (!changed) return doc;
   return { ...doc, packages: nextPackages };
+}
+
+function mapPackagesDeep(
+  pkgs: readonly ArxmlPackage[],
+  fn: (p: ArxmlPackage) => ArxmlPackage,
+): readonly ArxmlPackage[] {
+  let changed = false;
+  const out: ArxmlPackage[] = pkgs.map((p) => {
+    const mapped = fn(p);
+    if (mapped !== p) {
+      changed = true;
+      return mapped;
+    }
+    if (p.packages === undefined || p.packages.length === 0) return p;
+    const nextNested = mapPackagesDeep(p.packages, fn);
+    if (nextNested === p.packages) return p;
+    changed = true;
+    return { ...p, packages: nextNested };
+  });
+  return changed ? out : pkgs;
 }
 
 function replaceInElements(
@@ -986,66 +1147,57 @@ function sameIdentity(a: ArxmlElement, b: ArxmlModule | ArxmlContainer): boolean
  * Remove the element at `parentPath` (which must be a sub-path under
  * `pkgName`) by walking down `rest` segments and dropping the leaf.
  * Returns `null` if no match is found.
+ *
+ * v1.9.0 Sprint X — nested-package parity. The legacy flat walker only
+ * checked `rootPkg.elements`; vendor-prefix source docs nest the ECUC
+ * module under a chain of <AR-PACKAGE> wrappers (e.g. `JWQ_CDD_PACK >
+ * JWQ_Packet > JWQ3399` — the user-reported shape from
+ * `C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml`).
+ * In that shape `rootPkg.elements` is empty and the target lives in
+ * `rootPkg.packages[i].elements`, so the flat walk returns null and
+ * `removeContainer` silently surfaces `path-not-found` for every
+ * container (including the 0..* placeholders that the user reports
+ * cannot be deleted after being added).
+ *
+ * Delegate to `path.ts#findByPath` (already handles nested packages
+ * + the same-name AR-PACKAGE wrapper fallback) and `replaceElement`
+ * (already handles nested via the top-level + anywhere fallback) so
+ * the remove path inherits the same nested-package support the lookup
+ * paths have had since the v1.9.0 Sprint X 3-layer fix landed.
  */
 function removeElement(
   doc: ArxmlDocument,
   pkgName: string,
   rest: readonly string[],
 ): ArxmlDocument | null {
-  const rootPkg = findRootPackageByShortName(doc.packages, pkgName);
-  if (rootPkg === null) return null;
-  let changed = false;
-  const nextPackages = doc.packages.map((p) => {
-    if (p !== rootPkg) return p;
-    const nextElements = removeInElements(p.elements, rest);
-    if (nextElements === p.elements) return p;
-    changed = true;
-    return { ...p, elements: nextElements };
-  });
-  if (!changed) return null;
-  return { ...doc, packages: nextPackages };
-}
-
-function removeInElements(
-  elements: readonly ArxmlElement[],
-  rest: readonly string[],
-): readonly ArxmlElement[] {
-  if (rest.length === 0) return elements;
-  const [head, ...tail] = rest;
-  if (head === undefined) return elements;
-  let changed = false;
-  const next: ArxmlElement[] = [];
-  for (const el of elements) {
-    if (el.kind === 'reference' || el.kind === 'unknown') {
-      // v1.4.0 trust sprint — 17c. Unknown vendor extensions are leaves
-      // and have no SHORT-NAME match — push through untouched.
-      next.push(el);
-      continue;
-    }
-    if (el.shortName === head) {
-      if (tail.length === 0) {
-        // Drop this element.
-        changed = true;
-        continue;
-      }
-      // Descend and try to remove deeper.
-      const replacedChildren = removeInElements(el.children, tail);
-      if (replacedChildren === el.children) {
-        next.push(el);
-      } else {
-        changed = true;
-        if (el.kind === 'module') {
-          next.push({ ...el, children: replacedChildren });
-        } else {
-          next.push({ ...el, children: replacedChildren });
-        }
-      }
-      continue;
-    }
-    next.push(el);
-  }
-  if (!changed) return elements;
-  return next;
+  const fullPath = `/${[pkgName, ...rest].join('/')}`;
+  const targetHit = findByPath(doc, fullPath);
+  if (targetHit === null) return null;
+  const { element: target, pkg: anchorPkg } = targetHit;
+  if (target.kind === 'reference' || target.kind === 'unknown') return null;
+  // Locate the parent by dropping the trailing segment. The parent
+  // element is the one whose children we re-build without the target.
+  const parentSegments = [pkgName, ...rest].slice(0, -1);
+  if (parentSegments.length === 0) return null;
+  const parentPath = `/${parentSegments.join('/')}`;
+  const parentHit = findByPath(doc, parentPath);
+  if (parentHit === null) return null;
+  const { element: parent } = parentHit;
+  if (parent.kind !== 'module' && parent.kind !== 'container') return null;
+  // Reference-equality removal so multi-instance siblings are
+  // preserved — only the specific target is dropped, not all
+  // siblings sharing the same kind+shortName.
+  const newChildren = parent.children.filter((c) => c !== target);
+  if (newChildren.length === parent.children.length) return null;
+  const newParent: ArxmlModule | ArxmlContainer =
+    parent.kind === 'module'
+      ? { ...parent, children: newChildren }
+      : { ...parent, children: newChildren };
+  const next = replaceElement(doc, anchorPkg, parent, newParent);
+  // `replaceElement` returns the original doc reference when no
+  // element matched; treat that as a failed removal so callers see
+  // `path-not-found` rather than a silent no-op.
+  return next === doc ? null : next;
 }
 
 // ---------------------------------------------------------------------------
@@ -1055,3 +1207,33 @@ function removeInElements(
 // `buildDefaultValue` was extracted post-v1.0.0 to `./defaultValue.ts`
 // so `skeleton.ts` can reuse the same ParamKind→ParamValue coercion
 // without duplicating the mapping logic.
+
+/**
+ * Sprint 18 hotfix — typed zero-value for params whose BSWMD omits
+ * `<DEFAULT-VALUE>`. Used as the `addParameter` fallback when
+ * `buildDefaultValue` returns `null`. The placeholder is overwritten
+ * on the first user edit; the renderer treats an empty enum / string
+ * as "not yet picked" (EnumEditor falls back to a free-form text
+ * input, IntegerEditor accepts the initial `0`, etc.).
+ *
+ * Note: the placeholder for `enumeration` is the empty string
+ * (NOT one of `paramDef.enumerationLiterals`) so we never silently
+ * materialise a value the BSWMD hasn't declared. The validator will
+ * flag the empty-string enum value against the BSWMD's literal set,
+ * which is the correct user-facing signal.
+ */
+function zeroValueForKind(kind: ParamKind): ParamValue | null {
+  switch (kind) {
+    case 'integer':
+      return { type: 'integer', value: 0 };
+    case 'float':
+      return { type: 'float', value: 0 };
+    case 'boolean':
+      return { type: 'boolean', value: false };
+    case 'enumeration':
+      return { type: 'enum', value: '' };
+    case 'string':
+    case 'function-name':
+      return { type: 'string', value: '' };
+  }
+}

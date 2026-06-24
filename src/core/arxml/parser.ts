@@ -386,6 +386,35 @@ function buildContainer(
   if (shortName === undefined) return null;
   const path = `${parentPath}/${shortName}`;
   const { params } = extractParamsAndRefs(item);
+  // v1.9.0 Sprint X (HIGH #2) — read container-level <DEFINITION-REF>
+  // so skeleton-emitted arxml survives save→reload→save. Mirrors the
+  // module-level pattern in `extractParamsAndRefs` (parser.ts:500):
+  //   - text-only `DEFINITION-REF` → string
+  //   - attribute-bearing `DEFINITION-REF DEST="..."` → { @_DEST, #text }
+  //   - multiple DEFINITION-REFs (rare but valid in some dialects) → first
+  //     non-empty wins, matching the single-DEST serializer output.
+  //   - DEST = ECUC-CHOICE-CONTAINER-DEF stamps `isChoiceContainer` so
+  //     the UI choice marker (added in v1.7.1 S1) survives a
+  //     save→reload→save round-trip. Without this, a saved choice shell
+  //     would re-load as a plain container and lose its picker UI.
+  const defRefRaw = item['DEFINITION-REF'];
+  let definitionRef: string | undefined;
+  let isChoiceContainer: boolean | undefined;
+  if (defRefRaw !== undefined) {
+    const first = (Array.isArray(defRefRaw) ? defRefRaw[0] : defRefRaw) as
+      | string
+      | Record<string, unknown>
+      | undefined;
+    if (typeof first === 'string') {
+      definitionRef = first;
+    } else if (typeof first === 'object' && first !== null) {
+      const obj = first as Record<string, unknown>;
+      const text = obj['#text'];
+      if (typeof text === 'string') definitionRef = text;
+      const dest = obj['@_DEST'];
+      if (dest === 'ECUC-CHOICE-CONTAINER-DEF') isChoiceContainer = true;
+    }
+  }
   const subContainers = item['SUB-CONTAINERS'];
   const children: ArxmlElement[] = [];
   if (typeof subContainers === 'object' && subContainers !== null) {
@@ -397,6 +426,8 @@ function buildContainer(
     shortName,
     params,
     children,
+    ...(definitionRef !== undefined ? { definitionRef } : {}),
+    ...(isChoiceContainer === true ? { isChoiceContainer } : {}),
   };
 }
 

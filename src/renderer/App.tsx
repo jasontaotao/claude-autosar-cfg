@@ -39,6 +39,7 @@
 import { useCallback, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
+import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t as i18nT } from '@shared/i18n';
 
@@ -201,8 +202,15 @@ export function App(): JSX.Element {
       const existingPicks: PickedModule[] = [];
       for (const doc of state.documents) {
         if (doc.sourceBswmdPath === undefined) continue;
-        const moduleEl = doc.packages[0]?.elements[0];
-        if (moduleEl?.kind !== 'module') continue;
+        // Sprint X — nested-package parity. `doc.packages[0]?.elements[0]`
+        // returns undefined on vendor-prefix source docs whose ECUC module
+        // lives under one or more <AR-PACKAGE> wrappers (e.g. the
+        // user-reported `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` shape from
+        // C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml).
+        // `findFirstEcucModule` walks depth-first across the recursive
+        // <AR-PACKAGES> tree so the picker dedup works on both shapes.
+        const moduleEl = findFirstEcucModule(doc);
+        if (moduleEl === null) continue;
         existingPicks.push({
           bswmdPath: doc.sourceBswmdPath,
           moduleShortName: moduleEl.shortName,
@@ -318,6 +326,7 @@ export function App(): JSX.Element {
   // — see Sprint A backlog).
   const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
   const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
+  const deleteEcucModuleAction = useArxmlStore((s) => s.deleteEcucModule);
   const setInfo = useArxmlStore((s) => s.setInfo);
   // Sprint 17 P3 T3.3 — host-side routing for the new
   // `'remove-module'` action. We pull the unified BSWMD-remove
@@ -358,6 +367,13 @@ export function App(): JSX.Element {
           // the unawaited promise for ESLint `no-floating-promises`.
           void removeBswmdWithFullFlow(action.path);
           return;
+        case 'delete-module':
+          // Sprint A+ — delete the entire ECUC module at the
+          // post-fold path. The store action clears the source BSWMD
+          // link when the doc was skeleton-generated (no dangling
+          // chip) and emits a localized toast on success / not-found.
+          deleteEcucModuleAction(action.path);
+          return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
           // added without a handler.
@@ -366,7 +382,7 @@ export function App(): JSX.Element {
         }
       }
     },
-    [openBswmdPicker, deleteContainerAction, setInfo, locale, removeBswmdWithFullFlow],
+    [openBswmdPicker, deleteContainerAction, deleteEcucModuleAction, setInfo, locale, removeBswmdWithFullFlow],
   );
 
   // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns

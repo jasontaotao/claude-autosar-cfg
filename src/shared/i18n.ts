@@ -354,6 +354,7 @@ export interface Messages {
   readonly 'mutation.error.multiplicity-floor': string; // {current} {min}
   readonly 'mutation.error.no-bswmd-for-module': string;
   readonly 'mutation.error.invalid-param-type': string; // {key}
+  readonly 'mutation.error.module-not-found': string; // {path}
   // Context-menu and ParamEditor action labels. These are the
   // user-facing strings on the buttons themselves.
   readonly 'mutation.action.addContainer': string;
@@ -381,6 +382,16 @@ export interface Messages {
   // reference graph has no remove path). Surface a localized info
   // toast so the user gets feedback instead of a silent no-op.
   readonly 'mutation.action.deleteReferenceNotImplemented': string;
+  // Sprint 14+ — ECUC module delete entry point. When the user
+  // right-clicks a module-root tree node whose BSWMD is loaded, the
+  // context menu offers a sibling "Delete ECUC module" item next to
+  // "Remove BSWMD". The aria variant supplies an accessible label;
+  // the info.* keys back the success/unlink toasts emitted by the
+  // deleteEcucModule store action.
+  readonly 'mutation.action.deleteModule': string; // {name}
+  readonly 'mutation.action.deleteModuleAria': string; // {name}
+  readonly 'mutation.info.ecucModuleDeleted': string; // {name}
+  readonly 'mutation.info.ecucModuleUnlinked': string; // {name}
   // Sprint 15 — CascadeConfirmDialog (3-option). Distinct from the
   // existing dirty-guard confirm.cascade.* which is reserved for
   // unsaved-changes flows.
@@ -400,6 +411,17 @@ export interface Messages {
   readonly 'confirm.removeBswmd.only': string;
   readonly 'confirm.removeBswmd.cascade': string;
   readonly 'confirm.removeBswmd.cascadeAndUnlink': string;
+
+  // Close project with unsaved changes — the project chip × button
+  // gates close + clear behind this 3-button dialog when
+  // `dirtyPaths.size > 0`. The button label set maps 1:1 onto the
+  // existing `ConfirmChoice` union: Cancel=continue, Discard=discard,
+  // Save and close=saveAndProceed.
+  readonly 'confirm.closeProject.title': string;
+  readonly 'confirm.closeProject.message': string; // {count}
+  readonly 'confirm.closeProject.cancel': string;
+  readonly 'confirm.closeProject.discard': string;
+  readonly 'confirm.closeProject.save': string;
 
   // --- Sprint 15 — picker / editor chrome ---
   // BswmdPickerDialog + ParamEditor placeholders. Splitting them off
@@ -927,6 +949,11 @@ export const MessagesZhCN: Messages = {
   'mutation.action.undo': '撤销',
   'mutation.action.bswmdRemoved': "已移除 BSWMD '{name}'",
   'mutation.action.undoFailed': '撤销失败：BSWMD 已恢复或被替换',
+  'mutation.action.deleteModule': "删除 ECUC 模块 '{name}'",
+  'mutation.action.deleteModuleAria': "删除 ECUC 模块 '{name}'",
+  'mutation.info.ecucModuleDeleted': "已删除 ECUC 模块 '{name}'",
+  'mutation.info.ecucModuleUnlinked': "已删除 ECUC 模块 '{name}'，BSWMD 链接已断开",
+  'mutation.error.module-not-found': "找不到 ECUC 模块 '{path}'",
   'mutation.action.deleteReferenceNotImplemented':
     '删除引用功能尚未实现（已加入 Sprint A backlog）',
   'confirm.cascade.title': "删除 '{name}'?",
@@ -940,6 +967,12 @@ export const MessagesZhCN: Messages = {
   'confirm.removeBswmd.only': '仅移除 BSWMD',
   'confirm.removeBswmd.cascade': '一并删除依赖文件',
   'confirm.removeBswmd.cascadeAndUnlink': '一并删除 + 从磁盘删除 BSWMD',
+  'confirm.closeProject.title': '关闭项目？',
+  'confirm.closeProject.message':
+    '此项目有 {count} 处未保存的修改。关闭后这些修改将被丢弃。是否继续？',
+  'confirm.closeProject.cancel': '取消',
+  'confirm.closeProject.discard': '放弃所有修改',
+  'confirm.closeProject.save': '保存后关闭',
 
   'picker.search.placeholder': '搜索…',
   'picker.tooltip.atMax': '已达最大实例数 ({current}/{max})',
@@ -1427,6 +1460,11 @@ export const MessagesEn: Messages = {
   'mutation.action.undoFailed': 'Undo failed: BSWMD already restored or replaced',
   'mutation.action.deleteReferenceNotImplemented':
     'Deleting references is not yet implemented (tracked in Sprint A backlog)',
+  'mutation.action.deleteModule': "Delete ECUC module '{name}'",
+  'mutation.action.deleteModuleAria': "Delete ECUC module '{name}'",
+  'mutation.info.ecucModuleDeleted': "Deleted ECUC module '{name}'",
+  'mutation.info.ecucModuleUnlinked': "Deleted ECUC module '{name}', BSWMD link broken",
+  'mutation.error.module-not-found': "ECUC module not found at '{path}'",
   'confirm.cascade.title': "Delete '{name}'?",
   'confirm.cascade.message': "'{name}' is referenced by {count} places:",
   'confirm.cascade.cancel': 'Cancel',
@@ -1438,6 +1476,12 @@ export const MessagesEn: Messages = {
   'confirm.removeBswmd.only': 'Only remove BSWMD',
   'confirm.removeBswmd.cascade': 'Also delete dependents',
   'confirm.removeBswmd.cascadeAndUnlink': 'Also delete + remove BSWMD from disk',
+  'confirm.closeProject.title': 'Close project?',
+  'confirm.closeProject.message':
+    'This project has {count} unsaved change(s). Closing will discard them. Continue?',
+  'confirm.closeProject.cancel': 'Cancel',
+  'confirm.closeProject.discard': 'Discard all',
+  'confirm.closeProject.save': 'Save and close',
 
   'picker.search.placeholder': 'Search…',
   'picker.tooltip.atMax': 'Maximum reached ({current}/{max})',

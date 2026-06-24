@@ -178,4 +178,88 @@ describe('addContainer multi-instance (v1.8.4 Bug 2 fix)', () => {
       expect(child.shortName).toBe('CanIfRxPduCfg_1');
     }
   });
+
+  // ─── T6 (Sprint X Phase 2) — addContainer stamps DEFINITION-REF + defaults
+  // v1.9.0 fixes v1.8.4 Bug 2's follow-on: the multi-instance `_1`/`_2`
+  // siblings that addContainer auto-suffixes were emitted with empty
+  // params + missing definitionRef. The serializer then either fell back
+  // to /__synthesized__/<shortName> or omitted <DEFINITION-REF>, neither
+  // of which is spec-compliant. T6 stamps both the childContainerDef.path
+  // (so <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF"> is real)
+  // and the default-filled params (so <PARAMETER-VALUES> renders the
+  // BSWMD-declared defaults rather than an empty block).
+  it('multi-instance `_1` carries BSWMD path as definitionRef (v1.9.0 Sprint X)', () => {
+    // Arrange — childDef with one integer parameter; upper=infinite so
+    // addContainer falls through the suffix branch and emits Pdu_1.
+    const childParam: ParamDef = {
+      shortName: 'PduId',
+      path: '/Module/Pdu/PduId',
+      kind: 'integer',
+      defaultValue: 0,
+      minValue: null,
+      maxValue: null,
+      minLength: null,
+      maxLength: null,
+      enumerationLiterals: [],
+    };
+    const childDef: ContainerDef = {
+      shortName: 'Pdu',
+      path: '/Module/Pdu',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      subContainers: [],
+      parameters: [childParam],
+      references: [],
+      choices: [],
+      multiplicityConfigClasses: [],
+    };
+    const doc = makeDoc('Com', [makeContainer('Pdu')]);
+    const moduleDef = makeBswModule('Com', [childDef]);
+
+    // Act
+    const r = addContainer(doc, '/EAS/Com', 'Pdu', moduleDef, childDef);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const pdu1 = rootModule.children.find(
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'Pdu_1',
+    )!;
+    // The auto-suffixed instance is spec-compliant ECUC-CONTAINER-VALUE.
+    expect(pdu1.definitionRef).toBe('/Module/Pdu');
+    // Default-fill carries the BSWMD-side path on the param definitionRef.
+    expect(pdu1.params['PduId']).toBeDefined();
+    expect(pdu1.params['PduId']!.definitionRef).toBe('/Module/Pdu/PduId');
+    expect(pdu1.params['PduId']!.value).toBe(0);
+  });
+
+  it('addContainer stamps description from childContainerDef.desc', () => {
+    // v1.9.0 Sprint X Phase 2 — T6 also carries childContainerDef.desc
+    // onto the new instance, matching the skeleton's v1.7.1 S3 behaviour.
+    const childDef: ContainerDef = {
+      shortName: 'CanController',
+      path: '/Module/CanController',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      subContainers: [],
+      parameters: [],
+      references: [],
+      choices: [],
+      multiplicityConfigClasses: [],
+      desc: 'CAN controller configuration block.',
+    };
+    const doc = makeDoc('Can', []);
+    const moduleDef = makeBswModule('Can', [childDef]);
+
+    const r = addContainer(doc, '/EAS/Can', 'CanController', moduleDef, childDef);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    const newChild = rootModule.children.find(
+      (c): c is ArxmlContainer => c.kind === 'container' && c.shortName === 'CanController',
+    )!;
+    expect(newChild.description).toBe('CAN controller configuration block.');
+    expect(newChild.definitionRef).toBe('/Module/CanController');
+  });
 });

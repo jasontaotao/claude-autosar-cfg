@@ -554,6 +554,42 @@ describe('parseArxml — defensive structure validation', () => {
     expect(r.error.kind).toBe('unsupported-version');
   });
 
+  it('parses AUTOSAR r4.0 with dashed xsd schemaLocation (regression for v1.8.5 SUPPORTED_ARXML_VERSIONS omission)', () => {
+    // Regression: v1.8.5 (commit 8870566) added '4.0' to ArxmlVersion
+    // type union, version.ts ARXML_VERSIONS set, and serializer
+    // SCHEMA_LOCATION — but forgot to add '4.0' to
+    // SUPPORTED_ARXML_VERSIONS in types.ts. Real ECUC files like
+    // JWQ3399_EcucValues.arxml use
+    //   xmlns="http://autosar.org/schema/r4.0" ... AUTOSAR_4-0-3.xsd
+    // which the parser detects as version '4.0', then fails with
+    // unsupported-version because '4.0' is not in the supported list.
+    // openProject surfaces this as
+    //   "打开项目: openProject: ARXML parse failed: unsupported-version".
+    // Fix: include '4.0' in SUPPORTED_ARXML_VERSIONS so the dashed-xsd
+    // R4.0.3 namespace parses successfully.
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-0-3.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EAS</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>EcuC</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/EAS/EcuC</DEFINITION-REF>
+          <CONTAINERS></CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.version).toBe('4.0');
+  });
+
   it('parses <SHORT-NAME> when wrapped in object form (line 202-204 readShortName)', () => {
     // Line 202 — fast-xml-parser may emit SHORT-NAME as `{ '#text': 'Name' }`
     // when the element has attributes. Build a SHORT-NAME in object form.

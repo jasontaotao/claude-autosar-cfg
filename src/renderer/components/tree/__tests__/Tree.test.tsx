@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { parseArxml } from '@core/arxml/parser.js';
-import type { ArxmlDocument } from '@core/arxml/types.js';
+import type { ArxmlDocument, ArxmlElement, ArxmlModule, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { Locale } from '@shared/i18n.js';
 
@@ -500,6 +500,171 @@ describe('Tree (nested AR-PACKAGES)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sprint X T7 — vendor-prefix fold UI hoist (post 2-layer skeleton).
+//
+// The Tree reads `displayDoc` (already folded by `computeDisplayDoc`
+// in the store layer). After the skeleton.ts 2-layer fix and the
+// `foldVendorPackages` collapse, the post-fold top-level package
+// carries `isVendorFoldResult: true` to mark it as a fold
+// synthesised wrapper. Tree.tsx flatMap-s the package list: when
+// `isVendorFoldResult === true`, the contained ECUC module is
+// hoisted and rendered as the tree root. Source packages (legacy
+// /EcuC + EcuC, combined-mode /Can.arxml/EAS + Can, hand-authored
+// ECUC XMLs) leave the flag undefined and render normally.
+//
+// The tests inject the post-fold displayDoc shape directly so the
+// Tree integration is decoupled from the store-layer fold logic
+// (covered by combinedDoc.test.ts) and the skeleton write path
+// (covered by skeleton.test.ts).
+// ---------------------------------------------------------------------------
+describe('Tree (vendor-prefix fold UI hoist)', () => {
+  function makeDisplayDoc(
+    pkgName: string,
+    moduleName: string,
+    opts: { isVendorFoldResult?: boolean; extraElements?: readonly ArxmlElement[] } = {},
+  ): ArxmlDocument {
+    const moduleEl: ArxmlModule = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: moduleName,
+      params: {},
+      children: [],
+      references: [],
+    };
+    const pkg: ArxmlPackage = {
+      shortName: pkgName,
+      path: `/${pkgName}`,
+      elements: [moduleEl, ...(opts.extraElements ?? [])],
+      ...(opts.isVendorFoldResult === true ? { isVendorFoldResult: true } : {}),
+    };
+    return {
+      path: '/test',
+      version: '4.6',
+      packages: [pkg],
+    };
+  }
+
+  it('hoists the ECUC module past the vendor-folded package (isVendorFoldResult=true)', () => {
+    // Vendor-internal package JWQ_Packet (isVendorFoldResult=true)
+    // carries a single module element JWQ3399. Tree must skip
+    // JWQ_Packet and render JWQ3399 directly as the root treeitem.
+    const displayDoc = makeDisplayDoc('JWQ_Packet', 'JWQ3399', {
+      isVendorFoldResult: true,
+    });
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    // Only one JWQ3399 node visible (the module) — no JWQ_Packet
+    // package node, no name duplication.
+    expect(within(tree).queryAllByRole('treeitem', { name: 'JWQ3399' })).toHaveLength(1);
+    expect(within(tree).queryByRole('treeitem', { name: 'JWQ_Packet' })).toBeNull();
+    expect(within(tree).queryByRole('treeitem', { name: /JWQ_CDD_PACK/ })).toBeNull();
+  });
+
+  it('hoisted module carries the module kind badge (not package)', () => {
+    const displayDoc = makeDisplayDoc('JWQ_Packet', 'JWQ3399', {
+      isVendorFoldResult: true,
+    });
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    // Root treeitem path = /JWQ3399 (parentPath='' so module's
+    // childPath = '' + '/' + 'JWQ3399'). The kind-dot testid
+    // encodes the node's kind; we expect the module-kind dot, NOT
+    // a package badge.
+    expect(screen.getByTestId('kind-dot-/JWQ3399')).toBeInTheDocument();
+    expect(screen.getByTestId('kind-dot-/JWQ3399').className).toMatch(/kind-module/);
+  });
+
+  it('hoisted module path is /<shortName> (no double-segment prefix)', () => {
+    // parentPath='' so the module's childPath = '' + '/' +
+    // 'JWQ3399' = '/JWQ3399'. Selected-path round-trip through
+    // findByPath stays stable.
+    const displayDoc = makeDisplayDoc('JWQ_Packet', 'JWQ3399', {
+      isVendorFoldResult: true,
+    });
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    expect(screen.getByTestId('label-/JWQ3399')).toBeInTheDocument();
+  });
+
+  it('does NOT hoist legacy single-layer packages (isVendorFoldResult undefined)', () => {
+    // Legacy /EcuC + EcuC module (EcuC is both the package and
+    // module name) — even though the shapes look identical to a
+    // vendor-folded top level, the absence of the
+    // isVendorFoldResult flag tells the Tree to render the package
+    // row normally.
+    const displayDoc = makeDisplayDoc('EcuC', 'EcuC');
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    expect(within(tree).getByRole('treeitem', { name: 'EcuC' })).toBeInTheDocument();
+    // The legacy EcuC package renders with a 'package' subtitle
+    // (see TreeNode.tsx renderPackage path).
+    expect(within(tree).getByText('package')).toBeInTheDocument();
+  });
+
+  it('does NOT hoist vendor-internal packages that are source-doc (no fold applied)', () => {
+    // A user-authored ECUC XML may carry /JWQ_Packet as a real
+    // source-doc package (not a fold artefact). Without the
+    // isVendorFoldResult flag the Tree renders it normally.
+    const displayDoc = makeDisplayDoc('JWQ_Packet', 'JWQ3399');
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    expect(within(tree).getByRole('treeitem', { name: 'JWQ_Packet' })).toBeInTheDocument();
+    // The module is rendered as the package's child (not hoisted).
+    // Expand the chevron to assert the child is reachable as a
+    // normal nested row.
+    fireEvent.click(within(tree).getByTestId('chevron-/JWQ_Packet'));
+    expect(within(tree).getByRole('treeitem', { name: 'JWQ3399' })).toBeInTheDocument();
+  });
+
+  it('does NOT hoist multi-segment-path wrappers (combined-mode /Can.arxml/EAS)', () => {
+    // Combined-mode displayDoc wraps every file's packages under
+    // the file basename, producing multi-segment paths like
+    // `/Can.arxml/EAS`. The package carries no
+    // isVendorFoldResult flag and the Tree must keep the file
+    // branch row visible.
+    const displayDoc: ArxmlDocument = {
+      path: '[Combined]',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Can.arxml',
+          path: '/Can.arxml/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'Can',
+              params: {},
+              children: [],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    // File-branch row IS rendered as the root (no hoist). The Can
+    // module is its child but the parent is collapsed by default,
+    // so we expand the chevron first to assert the child is
+    // reachable as a normal nested row.
+    expect(within(tree).getByRole('treeitem', { name: 'Can.arxml' })).toBeInTheDocument();
+    fireEvent.click(within(tree).getByTestId('chevron-/Can.arxml/EAS'));
+    expect(within(tree).getByRole('treeitem', { name: 'Can' })).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 3: keyboard accessibility (T9).
 // ArrowRight expands, ArrowLeft collapses, ArrowDown/Up move focus, Enter selects.
 // ---------------------------------------------------------------------------
@@ -651,5 +816,58 @@ describe('Tree (combined mode)', () => {
     const module = within(tree).getByRole('treeitem', { name: /Can$/ });
     fireEvent.click(module);
     expect(state.select).toHaveBeenCalledWith('/Can.arxml/EAS/Can');
+  });
+
+  // 2026-06-24 — Tier 4 (EcucDefs) regression: when the synthesised
+  // pkg from `foldVendorPackages` sits as a NESTED child of another
+  // pkg (e.g. AUTOSAR_R22 > EcucDefs > Adc), the Tree must hoist
+  // the contained module past the synthesised wrapper at the
+  // nested level too — not only at the top level. The top-level
+  // hoist (line 158) did not cover this case, so users saw
+  // `AUTOSAR_R22 > Adc pkg > Adc module` (3 layers) instead of
+  // `AUTOSAR_R22 > Adc module` (2 layers).
+  it('hoists the ECUC module past a NESTED vendor-folded package (tier 4 inside AUTOSAR_R22)', () => {
+    const displayDoc: ArxmlDocument = {
+      path: '/test',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          path: '/AUTOSAR_R22',
+          elements: [],
+          packages: [
+            {
+              shortName: 'Adc',
+              path: '/Adc',
+              isVendorFoldResult: true,
+              elements: [
+                {
+                  kind: 'module',
+                  tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                  shortName: 'Adc',
+                  params: {},
+                  children: [],
+                  references: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const { api } = makeStoreApi({ doc: null, displayDoc });
+    render(<Tree store={api} />);
+
+    const tree = screen.getByRole('tree');
+    expect(within(tree).getByRole('treeitem', { name: 'AUTOSAR_R22' })).toBeInTheDocument();
+    fireEvent.click(within(tree).getByTestId('chevron-/AUTOSAR_R22'));
+    // The synthesised Adc pkg wrapper would carry its own chevron
+    // testid (`chevron-/Adc`) — before the fix it rendered as an
+    // extra treeitem between AUTOSAR_R22 and the Adc module. The
+    // fix hoists the module past the wrapper so NO chevron-/Adc
+    // should exist; only the module (label-/AUTOSAR_R22/Adc) is a
+    // direct child of AUTOSAR_R22.
+    expect(within(tree).queryByTestId('chevron-/Adc')).toBeNull();
+    expect(within(tree).getByTestId('label-/AUTOSAR_R22/Adc')).toBeInTheDocument();
   });
 });

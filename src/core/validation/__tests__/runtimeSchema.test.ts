@@ -511,9 +511,35 @@ describe('lookupSchemaAcrossModuleRoots — vendor CDD fallback (param side)', (
   });
 
   it('returns null when the query is under a module shortName no BSWMD declares', () => {
+    // Sprint 18 hotfix — the relaxed algorithm locates the module
+    // shortName anywhere in the query AND suffix-trims the lead.
+    // `NotARealModule` at segments[1] is therefore a no-op for the
+    // resolution — the suffix-trim drops it. This is the desired
+    // behaviour for the user's vendor-CDD project where the value
+    // tree nests `JWQ3399General` inside `JWQ3399ConfigSet` while
+    // the BSWMD declares them as siblings.
+    //
+    // The "unknown module shortName" guard that this test used to pin
+    // no longer fires because the algorithm falls back to suffix-trim
+    // before giving up. We re-purpose this test to assert the
+    // NEW contract: when ALL possible candidates miss (no BSWMD
+    // entry has a suffix that matches the post-trim path), the
+    // helper returns null. The original `NotARealModule` shape now
+    // hits `JWQ3399General/JWQ3399CommArch` because that is a real
+    // BSWMD entry; we assert that and add a separate query (with a
+    // path that does NOT match any real entry) to confirm the
+    // miss path still works.
     const { layer, moduleRoot } = vendorCddLayer();
     const unknownModulePath = '/JWQ3399/NotARealModule/JWQ3399General/JWQ3399CommArch';
-    expect(lookupSchemaAcrossModuleRoots(unknownModulePath, layer, [moduleRoot])).toBeNull();
+    // Suffix-trim drops `NotARealModule` and finds the real entry.
+    const hit = lookupSchemaAcrossModuleRoots(unknownModulePath, layer, [moduleRoot]);
+    expect(hit).not.toBeNull();
+    expect(hit!.enumLiterals).toEqual(
+      expect.arrayContaining(['CommArchWithBridge', 'CommArchWithOutBridge']),
+    );
+    // A truly bogus tail still misses.
+    const trulyBogus = '/JWQ3399/NotARealModule/NotARealContainer/NotARealParam';
+    expect(lookupSchemaAcrossModuleRoots(trulyBogus, layer, [moduleRoot])).toBeNull();
   });
 
   it('returns the entry via direct lookup when the query already uses the schema-side namespace', () => {
@@ -546,16 +572,56 @@ describe('lookupSchemaAcrossModuleRoots — vendor CDD fallback (param side)', (
     expect(lookupSchemaAcrossModuleRoots(moduleLevelPath, layer, [moduleRoot])).toBeNull();
   });
 
-  it('returns null for 3-segment compressed shape (caller must use resolveModuleAndParentContainer)', () => {
-    // Pins the documented "3-segment compressed shape NOT covered"
-    // contract. The helper uses `segments[1]` as the module
-    // shortName, so a query like `/JWQ3399/JWQ3399General/...` would
-    // mistreat `JWQ3399General` as a module shortName and miss every
-    // candidate root. Future refactors that widen the algorithm
-    // should update this test to match the new contract.
+  it('finds the entry for the post-fold 3-segment compressed shape (renderer output after foldVendorPackages)', () => {
+    // Sprint 18 hotfix — REVERSES the previous contract. The renderer
+    // emits `containerPath = '/<moduleShortName>/<container>/...'`
+    // after `foldVendorPackages` collapses the vendor wrapper chain
+    // (Sprint X T7). The previous algorithm pinned this shape as
+    // "NOT covered — caller must use resolveModuleAndParentContainer";
+    // that pinned contract caused the user's vendor-CDD project to
+    // render every enum param as a free-form text input. The new
+    // algorithm locates the module shortName at segments[0] and
+    // rebuilds the candidate as `<moduleRoot>/<container>/<param>`,
+    // which hits the BSWMD-side layer key directly.
     const { layer, moduleRoot } = vendorCddLayer();
     const compressed3SegPath = '/JWQ3399/JWQ3399General/JWQ3399CommArch';
-    expect(lookupSchemaAcrossModuleRoots(compressed3SegPath, layer, [moduleRoot])).toBeNull();
+    const entry = lookupSchemaAcrossModuleRoots(compressed3SegPath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+    expect(entry!.type).toBe('enumeration');
+    expect(entry!.enumLiterals).toEqual(
+      expect.arrayContaining(['CommArchWithBridge', 'CommArchWithOutBridge']),
+    );
+  });
+
+  // Sprint 18 hotfix — value-tree structural divergence. The user
+  // project at C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\
+  // test.autosarcfg.json nests `JWQ3399General` inside
+  // `JWQ3399ConfigSet` in the value tree, while the BSWMD declares
+  // both as siblings directly under the module. The two lookups
+  // above miss this because both sides share the same
+  // `/<pkg>/<module>` prefix. The leading-prefix + suffix-trim
+  // fallback must catch it so the EnumEditor renders the dropdown
+  // instead of a free-form text input.
+  it('finds the enum literals when the value tree wraps a BSWMD top-level container in an extra sub-container', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    // Value-tree path the renderer builds when the user navigates
+    // into JWQ3399General (which the user's ECUC value file nests
+    // under JWQ3399ConfigSet) and then looks up JWQ3399CommArch.
+    const valueSidePath =
+      '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/JWQ3399General/JWQ3399CommArch';
+
+    // Direct + namespace fallbacks both miss (same `/<pkg>/<module>`
+    // prefix on both sides).
+    expect(layer.params.has(valueSidePath)).toBe(false);
+
+    // Leading-prefix + suffix-trim fallback MUST hit by trimming
+    // `JWQ3399ConfigSet/` off the front of the suffix.
+    const entry = lookupSchemaAcrossModuleRoots(valueSidePath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+    expect(entry!.type).toBe('enumeration');
+    expect(entry!.enumLiterals).toEqual(
+      expect.arrayContaining(['CommArchWithBridge', 'CommArchWithOutBridge']),
+    );
   });
 });
 
@@ -594,10 +660,27 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
     expect(entry!.upper).toBe(1);
   });
 
-  it('returns null when the path is under an unknown module shortName', () => {
+  it('falls through to a real BSWMD container even when an intermediate segment is unknown', () => {
+    // Sprint 18 hotfix — same contract change as the param-side
+    // counterpart: the suffix-trim pass drops intermediate segments
+    // that are not in the BSWMD, so a query like
+    // `/JWQ3399/NotARealModule/JWQ3399General` falls through to the
+    // real `JWQ3399General` entry. This is the desired behaviour
+    // for the user's vendor-CDD project where the value tree nests
+    // `JWQ3399General` inside an extra container not declared by the
+    // BSWMD.
     const { layer, moduleRoot } = vendorCddLayer();
+    const entry = lookupContainerSchemaAcrossModuleRoots(
+      '/JWQ3399/NotARealModule/JWQ3399General',
+      layer,
+      [moduleRoot],
+    );
+    expect(entry).not.toBeNull();
+    expect(entry!.lower).toBe(1);
+    expect(entry!.upper).toBe(1);
+    // Truly bogus tails still miss.
     expect(
-      lookupContainerSchemaAcrossModuleRoots('/JWQ3399/NotARealModule/JWQ3399General', layer, [
+      lookupContainerSchemaAcrossModuleRoots('/JWQ3399/NotARealModule/NotARealContainer', layer, [
         moduleRoot,
       ]),
     ).toBeNull();
@@ -617,5 +700,27 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
       lookupContainerSchemaAcrossModuleRoots('JWQ3399/General', layer, [moduleRoot]),
     ).toBeNull();
     expect(lookupContainerSchemaAcrossModuleRoots('/JWQ3399', layer, [moduleRoot])).toBeNull();
+  });
+
+  // Sprint 18 hotfix — value-tree structural divergence (mirror of
+  // the param-side test above). The container helper must also
+  // resolve when the value tree wraps a BSWMD top-level container
+  // in an extra sub-container.
+  it('finds the container entry when the value tree wraps a BSWMD top-level container in an extra sub-container', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    // Value-tree path to JWQ3399General via the user's JWQ3399ConfigSet wrapper.
+    const valueSideContainerPath =
+      '/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/JWQ3399ConfigSet/JWQ3399General';
+
+    // Direct + namespace fallbacks both miss.
+    expect(layer.containers.has(valueSideContainerPath)).toBe(false);
+
+    // Leading-prefix + suffix-trim fallback MUST hit.
+    const entry = lookupContainerSchemaAcrossModuleRoots(valueSideContainerPath, layer, [
+      moduleRoot,
+    ]);
+    expect(entry).not.toBeNull();
+    expect(entry!.lower).toBe(1);
+    expect(entry!.upper).toBe(1);
   });
 });

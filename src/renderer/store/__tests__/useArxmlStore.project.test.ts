@@ -269,6 +269,85 @@ describe('useArxmlStore — closeProject', () => {
 });
 
 // ---------------------------------------------------------------------------
+// closeProjectAndDiscard
+// ---------------------------------------------------------------------------
+//
+// User-reported "tree still has content after closing project" — the
+// project chip × button now dispatches a destructive variant of close
+// that ALSO drops the document set, so the Tree component renders the
+// `tree-empty` placeholder (Tree.tsx:128). The original `closeProject`
+// preserves documents (loose-mode contract) and stays as-is for callers
+// that depend on that behaviour; `closeProjectAndDiscard` is the new
+// action for the UI "close project and wipe the slate" intent.
+
+describe('useArxmlStore — closeProjectAndDiscard', () => {
+  it('clears project, documents, doc, displayDoc, filePath, and dirtyPaths in one shot', () => {
+    // Arrange — open a project with 1 doc, mark dirty
+    useArxmlStore.getState().openProject({
+      manifestPath: '/proj/p.json',
+      manifest: sampleManifest({ valueArxmlPaths: ['/proj/CanIf.arxml'] }),
+      docs: [{ rel: '/proj/CanIf.arxml', path: '/proj/CanIf.arxml', content: MIN_ARXML }],
+    });
+    useArxmlStore
+      .getState()
+      .updateParam('/EcucDefs/CanIf', 'NewParam', { type: 'integer', value: 42 });
+    expect(useArxmlStore.getState().dirtyPaths.size).toBeGreaterThan(0);
+    expect(useArxmlStore.getState().documents).toHaveLength(1);
+    expect(useArxmlStore.getState().displayDoc).not.toBeNull();
+
+    // Act
+    useArxmlStore.getState().closeProjectAndDiscard();
+
+    // Assert — every field the Tree reads is reset, so the tree
+    // collapses to its empty-hint placeholder.
+    const after = useArxmlStore.getState();
+    expect(after.project).toBeNull();
+    expect(after.projectPath).toBeNull();
+    expect(after.documents).toEqual([]);
+    expect(after.documentPaths).toEqual([]);
+    expect(after.activeDocumentPath).toBeNull();
+    expect(after.doc).toBeNull();
+    expect(after.filePath).toBeNull();
+    expect(after.displayDoc).toBeNull();
+    expect(after.dirtyPaths.size).toBe(0);
+    expect(after.selectedPath).toBeNull();
+    expect(after.validationErrors).toEqual([]);
+    expect(after.warnings).toEqual([]);
+  });
+
+  it('is a safe no-op when the store is already empty', () => {
+    // Arrange — fresh state (beforeEach already calls clear())
+    expect(useArxmlStore.getState().project).toBeNull();
+    expect(useArxmlStore.getState().documents).toEqual([]);
+
+    // Act + Assert — must not throw
+    expect(() => useArxmlStore.getState().closeProjectAndDiscard()).not.toThrow();
+    const after = useArxmlStore.getState();
+    expect(after.project).toBeNull();
+    expect(after.documents).toEqual([]);
+    expect(after.dirtyPaths.size).toBe(0);
+  });
+
+  it('still drops loose-mode documents (no project chip is rendered in that state, but the action must remain total)', () => {
+    // Arrange — loose mode with a single doc and a dirty change
+    useArxmlStore.getState().addDocument(parseArxmlOrThrow(MIN_ARXML), '/loose/A.arxml');
+    useArxmlStore
+      .getState()
+      .updateParam('/EcucDefs/CanIf', 'NewParam', { type: 'integer', value: 42 });
+    expect(useArxmlStore.getState().documents).toHaveLength(1);
+
+    // Act
+    useArxmlStore.getState().closeProjectAndDiscard();
+
+    // Assert
+    const after = useArxmlStore.getState();
+    expect(after.project).toBeNull();
+    expect(after.documents).toEqual([]);
+    expect(after.dirtyPaths.size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Project sync (addDocument / removeDocument with project open)
 // ---------------------------------------------------------------------------
 

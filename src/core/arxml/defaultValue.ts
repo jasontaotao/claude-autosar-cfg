@@ -3,12 +3,15 @@
 // so both the mutation layer and the skeleton generator can produce
 // the same `ParamValue` shape from a BSWMD `ParamDef`.
 //
+// Sprint X — also exposes `fillParamsFromBswmd`, promoted from
+// `core/arxml/skeleton.ts` (private to that file pre-v1.9.0) so the
+// mutation layer and skeleton share one default-fill path.
+//
 // Pure: no I/O, no React, no Zustand, no electron.
 // Previously private to mutation.ts (commit `e552ac9`); promoted to a
-// shared module so skeleton.ts can call it during skeleton construction
-// (commit TBD).
+// shared module so skeleton.ts can call it during skeleton construction.
 
-import type { ParamDef } from '../project/bswmd.js';
+import type { ContainerDef, ParamDef } from '../project/bswmd.js';
 
 import type { ParamValue } from './types.js';
 
@@ -66,4 +69,43 @@ export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
       return null;
     }
   }
+}
+
+/**
+ * v1.9.0 Sprint X — translate a BSWMD container's declared parameter
+ * defaults into typed `ParamValue` cells, keyed by the param shortName
+ * with the BSWMD-side path carried on `definitionRef`.
+ *
+ * Promoted from `core/arxml/skeleton.ts` (where it was a private
+ * helper since v1.7.1 S2) so the mutation layer and the skeleton share
+ * a single default-fill implementation.
+ *
+ * Semantics (preserved from the skeleton helper at
+ * `buildTopContainer` lines 132-145 of the pre-X version):
+ *
+ *   - Non-null defaults are converted via `buildDefaultValue` and
+ *     tagged with the BSWMD-side `definitionRef` (Sprint 16 invariant).
+ *   - Null defaults on text-shaped params (enumeration / string /
+ *     function-name) get an empty-string placeholder so the user gets
+ *     an editable cell in the ParamEditor. Other kinds with null
+ *     defaults (integer / float / boolean / reference) stay skipped.
+ *   - Reference params are NOT filled here; they're handled by a
+ *     separate `addReference` flow.
+ */
+export function fillParamsFromBswmd(c: ContainerDef): Record<string, ParamValue> {
+  const params: Record<string, ParamValue> = {};
+  for (const p of c.parameters) {
+    const v = buildDefaultValue(p);
+    if (v !== null) {
+      params[p.shortName] = { ...v, definitionRef: p.path };
+      continue;
+    }
+    if (p.kind === 'enumeration') {
+      params[p.shortName] = { type: 'enum', value: '', definitionRef: p.path };
+    } else if (p.kind === 'string' || p.kind === 'function-name') {
+      params[p.shortName] = { type: 'string', value: '', definitionRef: p.path };
+    }
+    // integer / float / boolean / reference null defaults stay skipped.
+  }
+  return params;
 }

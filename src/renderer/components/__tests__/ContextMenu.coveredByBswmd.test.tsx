@@ -131,6 +131,9 @@ describe('ContextMenu — pkg-vs-module BSWMD coverage', () => {
     });
 
     const items = screen.getAllByRole('menuitem');
+    // Sprint A+ — the container menu now emits 5 items: the legacy 4
+    // (add-container, add-parameter, add-reference, delete-container)
+    // "delete-module" entry lives in buildBswmdItems only.
     expect(items).toHaveLength(4);
     // The first three are the "Add *" items — they MUST be enabled now.
     expect(items[0]).not.toHaveAttribute('aria-disabled', 'true');
@@ -177,6 +180,9 @@ describe('ContextMenu — combined-mode basename prefix', () => {
     });
 
     const items = screen.getAllByRole('menuitem');
+    // Sprint A+ — the container menu now emits 5 items: the legacy 4
+    // (add-container, add-parameter, add-reference, delete-container)
+    // "delete-module" entry lives in buildBswmdItems only.
     expect(items).toHaveLength(4);
     expect(items[0]).not.toHaveAttribute('aria-disabled', 'true');
     expect(items[1]).not.toHaveAttribute('aria-disabled', 'true');
@@ -217,6 +223,9 @@ describe('ContextMenu — combined-mode [doc:N] prefix', () => {
     });
 
     const items = screen.getAllByRole('menuitem');
+    // Sprint A+ — the container menu now emits 5 items: the legacy 4
+    // (add-container, add-parameter, add-reference, delete-container)
+    // "delete-module" entry lives in buildBswmdItems only.
     expect(items).toHaveLength(4);
     expect(items[0]).not.toHaveAttribute('aria-disabled', 'true');
     expect(items[1]).not.toHaveAttribute('aria-disabled', 'true');
@@ -250,13 +259,16 @@ describe('ContextMenu — disabled when BSWMD does not cover the path', () => {
     });
 
     const items = screen.getAllByRole('menuitem');
+    // Sprint A+ — the container menu now emits 5 items: the legacy 4
+    // (add-container, add-parameter, add-reference, delete-container)
+    // "delete-module" entry lives in buildBswmdItems only.
     expect(items).toHaveLength(4);
     // Add items disabled with tooltip.
     expect(items[0]).toHaveAttribute('aria-disabled', 'true');
     expect(items[0]!.getAttribute('title')).toMatch(/需要先加载 BSWMD|Load BSWMD first/);
     expect(items[1]).toHaveAttribute('aria-disabled', 'true');
     expect(items[2]).toHaveAttribute('aria-disabled', 'true');
-    // Delete still enabled.
+    // Delete container is always enabled.
     expect(items[3]).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

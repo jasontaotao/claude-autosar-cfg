@@ -143,19 +143,46 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
       aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })}
       data-testid="tree-root"
     >
-      {doc.packages.map((pkg: ArxmlPackage) =>
-        renderPackage(
-          pkg,
-          0,
-          expanded,
-          toggle,
-          selectedPath,
-          store,
-          onContextMenu,
-          bswmdSchemas,
-          locale,
-        ),
-      )}
+      {doc.packages.flatMap((pkg: ArxmlPackage): JSX.Element[] => {
+        // UI abstraction layer — independent of skeleton.ts.
+        // `foldVendorPackages` collapses the vendor-prefix AR-PACKAGE
+        // chain (e.g. JWQ_CDD_PACK > JWQ_Packet) to a single
+        // top-level package and flags it with `isVendorFoldResult:
+        // true` to mark the package as fold-synthesised (vs a
+        // source-doc package). Tree checks that single flag to
+        // decide whether to hoist the contained ECUC module past
+        // the vendor wrapper, so users see the module as the tree
+        // root. Source packages (legacy /EcuC + EcuC, combined-mode
+        // /Can.arxml/EAS + Can, etc.) leave the flag undefined and
+        // render normally.
+        if (pkg.isVendorFoldResult === true) {
+          return renderChildren(
+            pkg.elements,
+            '',
+            0,
+            expanded,
+            toggle,
+            selectedPath,
+            store,
+            onContextMenu,
+            bswmdSchemas,
+            locale,
+          );
+        }
+        return [
+          renderPackage(
+            pkg,
+            0,
+            expanded,
+            toggle,
+            selectedPath,
+            store,
+            onContextMenu,
+            bswmdSchemas,
+            locale,
+          ),
+        ];
+      })}
     </aside>
   );
 }
@@ -210,17 +237,41 @@ function renderPackage(
     >
       {hasSubPackages &&
         pkg.packages!.map((sp) =>
-          renderPackage(
-            sp,
-            depth + 1,
-            expanded,
-            toggle,
-            selectedPath,
-            store,
-            onContextMenu,
-            bswmdSchemas,
-            locale,
-          ),
+          // 2026-06-24 — tier 4 nested hoist. The top-level
+          // `flatMap` (line 158) already hoists synthesised pkgs at
+          // the document root, but when a vendor-folded pkg sits as
+          // a NESTED child (e.g. AUTOSAR_R22 > EcucDefs > Adc with
+          // EcucDefs collapsed by `foldVendorPackages` tier 4), the
+          // nested recursion went through `renderPackage` which
+          // created an extra visible treeitem for the synthesised
+          // wrapper. Branch on the flag here and route through
+          // `renderChildren` with our own path as parentPath so
+          // child paths stay consistent with the post-fold shape
+          // (e.g. `/AUTOSAR_R22/Adc`).
+          sp.isVendorFoldResult === true
+            ? renderChildren(
+                sp.elements,
+                pkg.path,
+                depth + 1,
+                expanded,
+                toggle,
+                selectedPath,
+                store,
+                onContextMenu,
+                bswmdSchemas,
+                locale,
+              )
+            : renderPackage(
+                sp,
+                depth + 1,
+                expanded,
+                toggle,
+                selectedPath,
+                store,
+                onContextMenu,
+                bswmdSchemas,
+                locale,
+              ),
         )}
       {hasElements &&
         renderChildren(

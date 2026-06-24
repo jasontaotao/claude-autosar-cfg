@@ -20,9 +20,24 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument, ArxmlVersion } from '@core/arxml/types.js';
+import type { ProjectManifest } from '@shared/project';
 
+import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { AppHeader } from '../AppHeader.js';
+import { confirm } from '../ConfirmDialog.js';
+
+// Mock the dialog module so we can drive the 3-button choice from the
+// test (the real ConfirmRoot is mounted at App level — not by the
+// AppHeader unit suite). Without the mock, `confirm()` would resolve
+// with 'continue' (safe fallback) and the test could not exercise
+// the discard / saveAndProceed paths.
+vi.mock('../ConfirmDialog.js', () => ({
+  confirm: vi.fn(),
+  ConfirmRoot: () => null,
+}));
+
+const confirmMock = vi.mocked(confirm);
 
 // Sprint 14 / Task 11 — AppHeader now requires the ECUC-picker props.
 // Most of the legacy suite doesn't care about the picker (they test
@@ -466,5 +481,193 @@ describe('AppHeader formatParseError i18n (Sprint 13+ Stage 4 M8)', () => {
       expect(err).toContain('Missing root element');
       expect(err).toContain('expected <AUTOSAR>');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Project chip × button (close project + clear tree)
+// ---------------------------------------------------------------------------
+//
+// User-reported: "I closed the project, why does the tree still have
+// content?". The fix: clicking × on the project chip must wipe the
+// in-memory document set (close + clear), not just drop the manifest
+// reference. The original `closeProject` is preserved for callers that
+// rely on the loose-mode contract; a new `closeProjectAndDiscard`
+// action does the destructive variant.
+//
+// When the project has unsaved changes (dirtyPaths.size > 0), the
+// click must surface a 3-button Save / Discard / Cancel dialog:
+//   - saveAndProceed → save all dirty ARXML, then close
+//   - discard        → close without saving
+//   - continue       → no-op (user changed their mind)
+// When dirtyPaths is empty, the click closes immediately with no
+// dialog. This describe pins the full flow.
+
+describe('AppHeader project chip × button (close + clear)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
+    confirmMock.mockReset();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = makeWindowApi();
+  });
+
+  function openProjectInStore(): void {
+    // Inject the bare-minimum manifest/projectPath so the project
+    // chip renders in AppHeader. We bypass `openProject` to keep the
+    // test focused on the × button — the open flow has its own suite.
+    const manifest: ProjectManifest = {
+      schemaVersion: MANIFEST_SCHEMA_VERSION,
+      id: '00000000-0000-0000-0000-000000000099',
+      name: 'TestProj',
+      valueArxmlPaths: ['/p/A.arxml'],
+      bswmdPaths: [],
+    };
+    useArxmlStore.setState({ project: manifest, projectPath: '/p/test.autosarcfg.json' });
+  }
+
+  it('does NOT render the × button when no project is open', () => {
+    render(<AppHeader {...noopProps} />);
+    expect(screen.queryByTestId('btn-project-close')).toBeNull();
+  });
+
+  it('renders the × button on the project chip when a project is open', () => {
+    openProjectInStore();
+    render(<AppHeader {...noopProps} />);
+    const btn = screen.getByTestId('btn-project-close');
+    expect(btn).toBeInTheDocument();
+    expect(btn.getAttribute('aria-label')).toMatch(/TestProj/);
+  });
+
+  it('× click with no dirty docs closes immediately — no dialog, store cleared', async () => {
+    openProjectInStore();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    // No dirty mark.
+    render(<AppHeader {...noopProps} />);
+
+    fireEvent.click(screen.getByTestId('btn-project-close'));
+
+    // The dialog must NOT have been opened.
+    expect(confirmMock).not.toHaveBeenCalled();
+    // The destructive store action ran — project + documents gone.
+    await vi.waitFor(() => {
+      const s = useArxmlStore.getState();
+      expect(s.project).toBeNull();
+      expect(s.projectPath).toBeNull();
+      expect(s.documents).toEqual([]);
+      expect(s.displayDoc).toBeNull();
+    });
+  });
+
+  it('× click with dirty docs + Discard → saveArxml NOT called, store cleared', async () => {
+    openProjectInStore();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml']) });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
+    confirmMock.mockResolvedValue('discard');
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-project-close'));
+
+    // The dialog was offered to the user.
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1));
+    // No save happened — discard means throw away.
+    expect(api.saveArxml).not.toHaveBeenCalled();
+    // Store wiped.
+    await vi.waitFor(() => {
+      const s = useArxmlStore.getState();
+      expect(s.project).toBeNull();
+      expect(s.documents).toEqual([]);
+      expect(s.dirtyPaths.size).toBe(0);
+    });
+  });
+
+  it('× click with dirty docs + Save → saveArxml called for each dirty path, then store cleared', async () => {
+    openProjectInStore();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml', '/p/B.arxml']) });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
+    api.saveArxml.mockImplementation(async (req: { currentPath?: string }) => ({
+      ok: true,
+      value: { canceled: false, path: req.currentPath ?? '/p/A.arxml' },
+    }));
+    confirmMock.mockResolvedValue('saveAndProceed');
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-project-close'));
+
+    await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(2));
+    const calledPaths = api.saveArxml.mock.calls
+      .map((c) => (c[0] as { currentPath?: string }).currentPath)
+      .sort();
+    expect(calledPaths).toEqual(['/p/A.arxml', '/p/B.arxml']);
+    // Once every dirty path was markSaved'd and dispatched the close,
+    // the store is empty.
+    await vi.waitFor(() => {
+      const s = useArxmlStore.getState();
+      expect(s.project).toBeNull();
+      expect(s.documents).toEqual([]);
+      expect(s.dirtyPaths.size).toBe(0);
+    });
+  });
+
+  it('× click with dirty docs + Cancel → saveArxml NOT called, project stays open', async () => {
+    openProjectInStore();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml']) });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
+    confirmMock.mockResolvedValue('continue');
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-project-close'));
+
+    await vi.waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1));
+    expect(api.saveArxml).not.toHaveBeenCalled();
+    // Nothing changed — project and documents are still there.
+    const s = useArxmlStore.getState();
+    expect(s.project).not.toBeNull();
+    expect(s.documents).toHaveLength(1);
+    expect(s.dirtyPaths.size).toBe(1);
+  });
+
+  it('× click with dirty docs + Save + a save failure aborts the close (project stays open)', async () => {
+    // The brief said Save means "save all and close". If ANY save
+    // fails, the user should NOT lose the project — the partial
+    // success leaves dirty state on the failing file, the toast
+    // surfaces the error, and the project chip stays visible.
+    openProjectInStore();
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/A.arxml');
+    useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
+    useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml', '/p/B.arxml']) });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi as MockWindowAutosarApi;
+    api.saveArxml
+      .mockResolvedValueOnce({ ok: true, value: { canceled: false, path: '/p/A.arxml' } })
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { kind: 'permission-denied', message: 'EACCES' },
+      });
+    confirmMock.mockResolvedValue('saveAndProceed');
+
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-project-close'));
+
+    await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(2));
+    // Project did NOT close — B.arxml is still dirty and the toast
+    // is set to the partial-failure message (mirrors Save All
+    // semantics so the user can fix the error and try again).
+    await vi.waitFor(() => {
+      const s = useArxmlStore.getState();
+      expect(s.error).not.toBeNull();
+      expect(s.error).toContain('1 failed');
+    });
+    const s = useArxmlStore.getState();
+    expect(s.project).not.toBeNull();
+    expect(s.documents).toHaveLength(2);
+    expect(s.dirtyPaths.has('/p/B.arxml')).toBe(true);
   });
 });
