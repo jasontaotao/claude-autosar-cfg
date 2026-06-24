@@ -2,13 +2,16 @@
 //
 // E10 of v1.12.0 MINOR E — second ModuleGenerator smoke test. Validates
 // that the generator interface (defined in `registry.ts`) is generic
-// across BSW modules: adding Mcu requires ZERO changes to pipeline.ts,
-// normalize.ts, or any other shared code.
+// across BSW modules: adding Mcu required ZERO changes to pipeline.ts,
+// normalize.ts, or any other shared code (verified at the source level
+// by `git diff 6a2123f^..89de292 -- src/core/generator/normalize.ts
+// src/core/generator/registry.ts` returning empty).
 //
-// These tests use minimal in-test fixtures (no ARXML on disk) — Mcu
-// integration via the real `testdata/generator/mcu-bswmd.arxml` +
-// `mcu-bswcfg-refs.arxml` fixtures is exercised by the EcuC REF_UNRESOLVED
-// tests (since EcuC refs McuClockConfig_0).
+// These tests use minimal in-test fixtures (no ARXML on disk). Real
+// `testdata/generator/mcu-bswmd.arxml` + `mcu-bswcfg-refs.arxml`
+// fixtures exist on disk for cross-module reference testing, but
+// parser-driven end-to-end coverage for the Mcu module itself is
+// scoped to v1.13.0 (see joint review M3).
 
 import { describe, it, expect, beforeEach } from 'vitest';
 

@@ -185,6 +185,11 @@ export class McuGenerator implements ModuleGenerator {
 
     // Walk every container and emit one CONST per parameter.
     // MVP: PreCompile only (no variant branching yet).
+    //
+    // TODO(Task 17 / v1.13.0): Joint review M5 — the hardcoded
+    // `'Param'` literal assumes single-param containers and collides
+    // with `EcuCGenerator.shortNameFromDef` semantics. Track together
+    // when threading real BSWMD shortNames through.
     const preCompileDecls: string[] = [];
     for (const container of mDef.containers) {
       for (const pDef of container.parameters) {

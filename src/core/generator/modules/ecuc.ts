@@ -351,6 +351,14 @@ export class EcuCGenerator implements ModuleGenerator {
  * Fixtures carry the value path; the BSWMD def here stores `kind`
  * without a name. For MVP we use the last path segment; Task 17 will
  * thread the real `shortName` from the parsed BSWMD.
+ *
+ * TODO(Task 17 / v1.13.0): Joint review M5 — both this hardcoded
+ * `'Param'` literal and the McuGenerator's mirror at
+ * `modules/mcu.ts:191` assume single-param containers. The moment a
+ * real BSWMD fixture has two parameters with different shortNames,
+ * every parameter will collide at the `paramByPath` lookup. Add a
+ * regression test that walks a 2-param container before unblocking
+ * v1.13.0 parser-driven tests.
  */
 function shortNameFromDef(_def: EcuCParamDefLike): string {
   // The fixture's parameter entries don't carry names explicitly, but
@@ -365,6 +373,10 @@ function shortNameFromDef(_def: EcuCParamDefLike): string {
  * Heuristic for the "Mixed" fixture: paths that mention PostBuild land
  * in the PostBuild bucket so the PBcfg.c branch fires. Task 17 will
  * replace this with `paramConfigClass` lookups against the real def.
+ *
+ * Joint review L3 — fixture-only heuristic; will silently mis-classify
+ * real BSWMD paths that contain "PostBuild" anywhere in the path.
+ * Tracked for v1.13.0.
  */
 function isPostBuild(path: string): boolean {
   return /PostBuild/i.test(path);

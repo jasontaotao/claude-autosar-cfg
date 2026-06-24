@@ -1,21 +1,16 @@
 // core/generator/__tests__/ecuc.diagnostic.test.ts
 //
 // Acceptance-gate coverage for every DiagnosticCode defined in Task 1.
+// As of v1.12.0 MINOR E, all 12 codes (E1-E9 + the 3 pre-existing real
+// codes) have producer code AND real `it(...)` tests in this file.
 //
-// For each of the 12 codes, this file either asserts the code fires
-// against a synthetic pipeline run (real `it(...)` test) or marks it
-// `test.todo(...)` with a 5-line comment explaining why the validation
-// logic is deferred. Per the v1.11.0 brief:
+// History:
+//   - v1.11.0: 3 real codes (NO_GENERATOR, THROW, REF_UNRESOLVED).
+//   - v1.12.0 MINOR E1-E9: filled the remaining 9 deferred codes with
+//     validation helpers in `src/core/generator/emit/` + pipeline.ts
+//     wiring. All 9 test.todo placeholders replaced with real tests.
 //
-//   - 4 codes are emitted by the current pipeline:
-//       001 NO_SCHEMA, 002 NO_GENERATOR, 003 THROW, 010 REF_UNRESOLVED
-//   - 8 codes are NOT yet emitted; the validation/emit logic that
-//     would surface them is scoped to v2:
-//       011 MULTIPLICITY, 012 TYPE_MISMATCH, 013 RANGE,
-//       020 ORDERING, 021 DUPLICATE_SHORTNAME,
-//       030 TEMPLATE_RENDER, 031 OUTPUT_WRITE, INFO-001 EMPTY_VARIANT
-//
-// The 4 real tests use module-level fixtures only (no ARXML on disk):
+// The tests use module-level fixtures only (no ARXML on disk):
 // the pipeline's pre-process + generate stages accept `Map<string, ...>`
 // inputs, so the tests stay close to the wire shape and avoid coupling
 // to a future XML parser.
@@ -357,6 +352,58 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(diag.ecucPath).toBe('PartitionConfig');
     // WARN → exit 0
     expect(result.exitCode).toBe(0);
+  });
+
+  // M1 (joint review) — pin the "one warning per container" behavior.
+  // validateOrdering uses `break` after the first non-monotonic pair;
+  // subsequent violations in the same container are silenced. This
+  // test ensures that the suppression is intentional (not a bug that
+  // happens to pass). The single warning's message must still be the
+  // first detected violation.
+  it('ECUC-GEN-020 fires exactly once per container even with multiple non-monotonic pairs', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        [
+          'Stub',
+          {
+            shortName: 'Stub',
+            containers: [{ shortName: 'PartitionConfig' }],
+          },
+        ],
+      ]),
+      // INDEX sequence [5, 1, 2, 7, 0] has violations at (5→1),
+      // (2→7) is valid, (7→0) is also non-monotonic. The helper should
+      // emit one warning per container, not per pair.
+      ecucValues: new Map([
+        [
+          'Stub',
+          {
+            containers: [
+              { shortName: 'PartitionConfig', index: 5 },
+              { shortName: 'PartitionConfig', index: 1 },
+              { shortName: 'PartitionConfig', index: 2 },
+              { shortName: 'PartitionConfig', index: 7 },
+              { shortName: 'PartitionConfig', index: 0 },
+            ],
+          },
+        ],
+      ]),
+      variant: 'PreCompile',
+      outDir: '/tmp',
+      moduleFilter: undefined,
+      strict: false,
+    });
+    const orderingDiags = result.diagnostics.filter(
+      (d) => d.code === DiagnosticCode.ECUC_GEN_ORDERING,
+    );
+    expect(orderingDiags).toHaveLength(1);
+    expect(orderingDiags[0]!.message).toContain('5');
+    expect(orderingDiags[0]!.message).toContain('1');
   });
 
   // E6 — ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR). Two sibling
