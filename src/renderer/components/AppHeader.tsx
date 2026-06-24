@@ -1,36 +1,37 @@
 // AppHeader: slim top bar — EB tresos-style dropdown for low-frequency
-// project/file operations, toolbar buttons for high-frequency Save actions.
+// project/file operations, toolbar buttons for high-frequency Save
+// actions.
 //
-// Sprint 10 #2 changes:
-//   - Open flow now uses `openArxmlMulti` (multi-select dialog) and feeds
-//     each result through `addDocument` (was `setDoc`).
-//   - New "doc-tab strip" between the actions and the right-side stats
-//     shows every loaded document (basename) with the active one
-//     highlighted; click to switch, × to close.
-//   - The store now owns the loaded-document set (`documents[]` +
-//     `activeDocumentPath`); `doc` and `filePath` remain as back-compat
-//     derived aliases for the existing single-doc renderer consumers.
+// Sprint 13+ — historical features removed (kept as breadcrumbs so the
+// file header documents the evolution; the JSX at lines ~552 / ~752 /
+// ~798 carries the matching `Sprint 13+ — removed` notes):
+//   - Sprint 10 #2 doc-tab strip (app-doc-tabs) + active-doc basename
+//     display (app-doc-name) + AUTOSAR-version chip (app-doc-version).
+//     Documents are now navigable via the LeftPanel "files" tab
+//     (FileListTab); `activeDocumentPath`, `documentPaths`,
+//     `setActiveDocument`, and `removeDocument` were dropped from this
+//     component as part of the removal.
+//   - Sprint 11 Phase 1 project handler bodies (New / Open Project /
+//     Save Project). Moved to `useProjectActions()` (Sprint 14+
+//     extraction); AppHeader routes clicks through that hook and just
+//     owns the project chip × close flow.
 //
-// Sprint 11 Phase 1 changes:
-//   - Three project buttons (New / Open Project / Save Project) join the
-//     existing Open / Save. The active project name is rendered as a
-//     chip between the logo and the actions (hidden in loose mode).
-//   - Project handlers call window.autosarApi.projectNew / projectOpen /
-//     projectSave; success flows through `useArxmlStore.openProject`.
-//   - Save Project writes only the manifest JSON. Per-doc ARXML saves
-//     continue to use the existing `saveArxml` flow (the doc's editor
-//     remains the source of truth for its on-disk content).
-//
-// Sprint 11 Phase 1 (Option A) i18n changes:
-//   - Every user-facing string is rendered through t(locale, key).
-//   - A 中/EN toggle in the header switches `store.locale`; all
-//     t()-consuming components re-render.
+// Current responsibilities:
+//   - EB tresos-style dropdown for low-frequency actions (New / Open
+//     Project / Open ARXML / ECUC Module Selection).
+//   - Toolbar buttons for high-frequency Save actions (Save Project /
+//     Save ARXML / Save All — Sprint 16b T7) and the ScriptPanel
+//     toggle (right section, Phase C / T14).
+//   - Project chip with × close on the right section.
+//   - i18n via `t(locale, key)`; a 中/EN toggle in the header switches
+//     `store.locale`.
+//   - App version display on the far right (PATCH-B + v1.12.0 D3
+//     fallback chain: undefined API → 'dev'; missing method → '?';
+//     rejected IPC → '?').
 //
 // Menu redesign (EB tresos style):
-//   - Low-frequency actions (New Project / Open Project / Open ARXML)
-//     moved into a hover-to-open dropdown menu.
-//   - High-frequency actions (Save Project / Save ARXML) remain as
-//     toolbar buttons.
+//   - Low-frequency actions moved into a hover-to-open dropdown menu.
+//   - High-frequency actions remain as toolbar buttons.
 //   - Project chip moved to the right section.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -94,6 +95,59 @@ function formatParseError(e: ParseError, locale: Locale): string {
         message: e.message,
       });
   }
+}
+
+// v1.12.0 PATCH D2 (H1 dedup) — silent-save every dirty ARXML
+// document via the T2 contract (no dialog per file). Returns
+// `{ saved, failed }` so callers can render the result with their
+// own UX (toast vs. close-on-success). Busy state and the leading
+// `setStoreError(null)` live here so both callers stay tiny.
+//
+// Module-level (not a hook or exported util) because it has no React
+// state of its own — both callers (`onSaveAll`,
+// `onCloseProjectClick.saveAndProceed`) pass a `setBusy` adapter to
+// route into their `setState({ busy })` slot.
+//
+// Fresh-snapshot semantics: the helper reads `useArxmlStore.getState()`
+// at entry, after any caller-side `await` (notably the confirm dialog
+// in the close-project path). Strict improvement over the pre-D2 code,
+// which captured the dirty set before the dialog resolved — a doc
+// marked dirty during the modal would have been silently dropped.
+async function saveAllDirty(
+  setStoreError: (msg: string | null) => void,
+  setBusy: (busy: boolean) => void,
+): Promise<{ saved: number; failed: string[] }> {
+  const storeState = useArxmlStore.getState();
+  const dirty = Array.from(storeState.dirtyPaths);
+  setBusy(true);
+  setStoreError(null);
+  let saved = 0;
+  const failed: string[] = [];
+  for (const path of dirty) {
+    // Resolve the path to its ArxmlDocument via the parallel-array
+    // index. `documents[i]` corresponds to `documentPaths[i]` (the
+    // contract `addDocument` enforces); we cannot match by `doc.path`
+    // because docs carry their OWN in-memory path (`/in-memory` in
+    // tests, the source path in production) rather than the filePath
+    // keying the documentPaths set.
+    const idx = storeState.documentPaths.indexOf(path);
+    if (idx === -1) continue;
+    const docEntry = storeState.documents[idx];
+    if (docEntry === undefined) continue;
+    const r = await window.autosarApi.saveArxml({
+      doc: docEntry,
+      defaultName: basename(path) || 'untitled.arxml',
+      currentPath: path,
+    });
+    if (r.ok && !r.value.canceled) {
+      useArxmlStore.getState().markSaved(r.value.path ?? path);
+      saved += 1;
+    } else if (!r.ok) {
+      failed.push(r.error.message);
+    }
+  }
+  setBusy(false);
+  return { saved, failed };
 }
 
 export function AppHeader({
@@ -204,13 +258,37 @@ export function AppHeader({
     //     anomaly: preload bridge failure, race during Electron startup,
     //     or a future IPC refactor that dropped the channel). Surfaces
     //     the bug instead of silently masking it.
-    if (window.autosarApi?.getAppVersion !== undefined) {
-      void window.autosarApi.getAppVersion().then(setAppVersion);
-    } else if (typeof window.autosarApi === 'undefined') {
+    //
+    // v1.12.0 PATCH D3 (M2) — extend the PATCH-B fix to the REJECTED
+    // IPC promise path. Without `.catch` + `cancelled`, the much more
+    // common "IPC call threw" failure (preload bridge failure, race
+    // during Electron startup, future IPC refactor) left the UI stuck
+    // on the literal `'…'` placeholder forever — the `?` anomaly signal
+    // was reserved for the synchronous "API shape changed" path only.
+    // Mirrors the sibling getFeatureFlags effect (lines 120-142 above).
+    const api = window.autosarApi;
+    if (api === undefined) {
       setAppVersion('dev');
-    } else {
-      setAppVersion('?');
+      return;
     }
+    if (typeof api.getAppVersion !== 'function') {
+      setAppVersion('?');
+      return;
+    }
+    let cancelled = false;
+    void api
+      .getAppVersion()
+      .then((v) => {
+        if (cancelled) return;
+        setAppVersion(v);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAppVersion('?');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 下拉菜单：点击外部关闭
@@ -341,56 +419,24 @@ export function AppHeader({
   // Sprint 16b T7 — Save All toolbar button. Loops over every entry
   // in `dirtyPaths`, resolves each to its ArxmlDocument, and calls
   // saveArxml with `currentPath = path` so the main process silent-
-  // saves (reuses the T2 contract; no dialog per file). On success
-  // markSaved drops the path from `dirtyPaths`; on failure the path
-  // stays dirty and the error is collected into a per-failure list.
-  // Final toast reports either N saved (all good) or "Saved X, Y
-  // failed: firstError" when at least one save errored.
+  // saves (reuses the T2 contract; no dialog per file). v1.12.0
+  // PATCH D2 — heavy lift (loop + busy + leading setStoreError(null))
+  // moves to `saveAllDirty`; this handler keeps its leading guards
+  // and locale-bound toast so the two callers don't diverge again.
   // -----------------------------------------------------------------
   const onSaveAll = async (): Promise<void> => {
     if (state.busy) return;
-    const storeState = useArxmlStore.getState();
-    const dirty = Array.from(storeState.dirtyPaths);
-    if (dirty.length === 0) return;
-    setState({ busy: true });
-    setStoreError(null);
-    let saved = 0;
-    const failed: string[] = [];
-    for (const path of dirty) {
-      // Resolve the path to its ArxmlDocument via the parallel-array
-      // index. `documents[i]` corresponds to `documentPaths[i]` (the
-      // contract `addDocument` enforces); we cannot match by
-      // `doc.path` because docs carry their OWN in-memory path
-      // (`/in-memory` in tests, the source path in production) rather
-      // than the filePath keying the documentPaths set.
-      const idx = storeState.documentPaths.indexOf(path);
-      if (idx === -1) continue;
-      const docEntry = storeState.documents[idx];
-      if (docEntry === undefined) continue;
-      const r = await window.autosarApi.saveArxml({
-        doc: docEntry,
-        defaultName: basename(path) || 'untitled.arxml',
-        currentPath: path,
-      });
-      if (r.ok && !r.value.canceled) {
-        useArxmlStore.getState().markSaved(r.value.path ?? path);
-        saved += 1;
-      } else if (!r.ok) {
-        failed.push(r.error.message);
-      }
-    }
-    setState({ busy: false });
-    if (failed.length === 0) {
-      setStoreError(t(locale, 'app.saveAllDone', { count: saved }));
-    } else {
-      setStoreError(
-        t(locale, 'app.saveAllPartial', {
-          saved,
-          failed: failed.length,
-          firstError: failed[0] ?? '',
-        }),
-      );
-    }
+    if (useArxmlStore.getState().dirtyPaths.size === 0) return;
+    const { saved, failed } = await saveAllDirty(setStoreError, (b) => setState({ busy: b }));
+    setStoreError(
+      failed.length === 0
+        ? t(locale, 'app.saveAllDone', { count: saved })
+        : t(locale, 'app.saveAllPartial', {
+            saved,
+            failed: failed.length,
+            firstError: failed[0] ?? '',
+          }),
+    );
   };
 
   // -----------------------------------------------------------------
@@ -435,37 +481,15 @@ export function AppHeader({
         storeState.closeProjectAndDiscard();
         return;
       case 'saveAndProceed': {
-        setState({ busy: true });
-        setStoreError(null);
-        const dirty = Array.from(storeState.dirtyPaths);
-        let saved = 0;
-        const failed: string[] = [];
-        for (const path of dirty) {
-          // Resolve the path to its ArxmlDocument via the parallel-
-          // array index (mirrors `onSaveAll`).
-          const idx = storeState.documentPaths.indexOf(path);
-          if (idx === -1) continue;
-          const docEntry = storeState.documents[idx];
-          if (docEntry === undefined) continue;
-          const r = await window.autosarApi.saveArxml({
-            doc: docEntry,
-            defaultName: basename(path) || 'untitled.arxml',
-            currentPath: path,
-          });
-          if (r.ok && !r.value.canceled) {
-            useArxmlStore.getState().markSaved(r.value.path ?? path);
-            saved += 1;
-          } else if (!r.ok) {
-            failed.push(r.error.message);
-          }
-        }
-        setState({ busy: false });
+        // v1.12.0 PATCH D2 — same `saveAllDirty` helper `onSaveAll`
+        // uses, so the two paths can never drift apart again. On full
+        // success we close the project; on any failure we mirror the
+        // `app.saveAllPartial` toast so the user sees the same
+        // "Saved N, M failed: firstError" message and can retry.
+        const { saved, failed } = await saveAllDirty(setStoreError, (b) => setState({ busy: b }));
         if (failed.length === 0) {
           useArxmlStore.getState().closeProjectAndDiscard();
         } else {
-          // Mirror `onSaveAll` toast format so the user gets a
-          // consistent "Saved N, M failed: firstError" message and
-          // can retry after fixing the underlying error.
           setStoreError(
             t(locale, 'app.saveAllPartial', {
               saved,
