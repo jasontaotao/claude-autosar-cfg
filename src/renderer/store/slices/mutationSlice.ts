@@ -33,6 +33,7 @@ import {
 } from '../helpers/combinedDoc.js';
 import { addToDirty } from '../helpers/dirty.js';
 import {
+  applyModuleDeleteToActive,
   applyMutationResultToActive,
   applyMutationResultToSource,
   mutationErrorToI18n,
@@ -556,46 +557,29 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     // patch the matching slot. For combined-mode the active doc may
     // be a different file from the source we're mutating — but the
     // spec doesn't require combined-mode handling for v1.10.1, so we
-    // always patch the active doc's slot.
+    // always patch the active doc's slot. If the active path isn't in
+    // documentPaths (e.g. a stale activeDocumentPath after a removed
+    // doc), activeIdx is -1 and the helper's `state.documents.map(...)`
+    // becomes a no-op — preserving the pre-refactor behaviour where the
+    // displayDoc/validationErrors/warnings refresh still runs and the
+    // success toast still fires.
     const activeIdx =
       state.activeDocumentPath !== null
         ? state.documentPaths.indexOf(state.activeDocumentPath)
         : -1;
-    const nextDocuments =
-      activeIdx >= 0
-        ? state.documents.map((d, i) => (i === activeIdx ? nextDocWithoutSource : d))
-        : state.documents;
-    // Track dirty state via `dirtyPaths` (the Set) rather than the
-    // function-getter `isDirty` — the same convention as the other
-    // mutation actions. Only mark dirty if the active doc was
-    // actually mutated (activeIdx >= 0).
-    const nextDirtyPaths =
-      activeIdx >= 0 ? addToDirty(state.dirtyPaths, state.activeDocumentPath!) : state.dirtyPaths;
-    // Rebuild `displayDoc` after the mutation so the combined view
-    // reflects the removed module. Re-run validation so the panel
-    // doesn't show stale errors referencing the deleted path.
-    // Mirrors the post-mutation block of `applyMutationResultToActive`.
-    const nextDisplayResult = computeDisplayDoc(
-      state.viewMode,
+    // Delegate the post-mutation pipeline (rebuild displayDoc +
+    // revalidate + lastValidatedAt + dirtyPaths + warnings) to the
+    // shared helper so `state.bswmdSchemas` is threaded in one place
+    // — v1.9.0 HIGH #1 (vendor-fold regression) and the DRY class
+    // that re-introduced it in v1.10.2 (inline copy dropped the 5th
+    // arg) cannot recur here.
+    applyModuleDeleteToActive(
+      set,
+      state,
+      activeIdx,
       nextDocWithoutSource,
-      nextDocuments,
-      state.documentPaths,
+      state.activeDocumentPath,
     );
-    const nextDisplayDoc =
-      nextDisplayResult !== null ? nextDisplayResult.doc : state.displayDoc;
-    const nextWarnings =
-      state.viewMode === 'combined' && nextDisplayResult !== null
-        ? nextDisplayResult.warnings
-        : state.warnings;
-    set({
-      documents: nextDocuments,
-      doc: nextDocWithoutSource,
-      displayDoc: nextDisplayDoc,
-      dirtyPaths: nextDirtyPaths,
-      validationErrors: validateProjectForRenderer(nextDocuments),
-      lastValidatedAt: Date.now(),
-      warnings: nextWarnings,
-    });
     get().setInfo(
       t(
         state.locale,
