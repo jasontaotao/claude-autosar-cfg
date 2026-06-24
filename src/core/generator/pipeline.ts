@@ -29,6 +29,7 @@ import {
   type BswmdModuleDefForMultiplicity,
 } from './emit/multiplicity.js';
 import { validateTypeMatches } from './emit/type-check.js';
+import { validateRange } from './emit/range.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
@@ -77,6 +78,20 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
       args.bswmdIndex as ReadonlyMap<
         string,
         { params?: readonly { shortName: string; kind: 'integer' | 'float' | 'boolean' | 'string' | 'enumeration' | 'reference' | 'function-name' }[] }
+      >,
+      args.ecucValues as ReadonlyMap<
+        string,
+        { parameters?: readonly { shortName: string; value: unknown }[] }
+      >,
+    ),
+  );
+  // v1.12.0 E4 — integer/float range validation (only fires when
+  // BSWMD declares min/max). Type-mismatch is owned by E3 above.
+  diagnostics.push(
+    ...validateRange(
+      args.bswmdIndex as ReadonlyMap<
+        string,
+        { params?: readonly { shortName: string; kind: 'integer' | 'float'; min?: number; max?: number }[] }
       >,
       args.ecucValues as ReadonlyMap<
         string,

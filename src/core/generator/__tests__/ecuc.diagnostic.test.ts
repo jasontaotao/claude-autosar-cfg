@@ -269,13 +269,50 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(diag.ecucPath).toBe('Enable');
     expect(result.exitCode).toBe(1);
   });
+
+  // E4 — ECUC-GEN-013 (RANGE, ERROR). BSWMD declares integer param
+  // 'Priority' with min=0, max=10. ECUC carries value 99 → ERROR.
+  it('ECUC-GEN-013 (RANGE, ERROR) fires when integer value exceeds max', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              params: [{ shortName: 'Priority', kind: 'integer', min: 0, max: 10 }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          ['Stub', { parameters: [{ shortName: 'Priority', value: 99 }] }],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_RANGE,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Priority');
+    expect(diag.message).toContain('99');
+    expect(diag.message).toContain('10');
+    expect(result.exitCode).toBe(1);
+  });
 });
 
 describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // 013 RANGE: integer out of [min, max] bound.
-  // EcuC emit writes the value verbatim into C source; no min/max
-  // clamp or compare runs in v1.11.0.
-  test.todo('ECUC-GEN-013 (RANGE, ERROR) fires on value outside [min, max]');
+  // 020 ORDERING: container INDEX attribute not strictly ascending.
+  // Container emit sorts by INDEX today (force-correct order); the
+  // reverse check that flags reordering violations is not yet wired.
+  test.todo('ECUC-GEN-020 (ORDERING, WARN) fires on out-of-order INDEX values');
 
   // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
   // The EcuC generator uses cTypeForKind to derive C types but does
