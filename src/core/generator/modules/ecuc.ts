@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import type Handlebars from 'handlebars';
 
 import { createEngine } from '../handlebars.js';
+import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,
@@ -236,6 +237,21 @@ export class EcuCGenerator implements ModuleGenerator {
     }
     const eDef = def as EcuCModuleDefLike;
     const eVals = (values ?? {}) as EcuCModuleValuesLike;
+
+    // v1.12.0 E9 — empty-variant detection. If the active variant has
+    // neither BSWMD containers nor ECUC parameter values, surface an
+    // INFO diagnostic so the user knows the emit produced a stub
+    // (rather than silently emitting a near-empty Cfg.c/Cfg.h).
+    const hasContainers = eDef.containers.length > 0;
+    const hasParams = (eVals.parameters ?? []).length > 0;
+    if (!hasContainers && !hasParams) {
+      ctx.diagnostics.push({
+        severity: DiagnosticSeverity.INFO,
+        code: DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
+        moduleShortName: eDef.shortName,
+        message: `Module ${eDef.shortName}: active variant has no containers or parameters; emit is a stub`,
+      });
+    }
 
     // Index parameters by BSWMD path for O(1) value lookup.
     const paramByPath = new Map<string, EcuCParamValueLike>();

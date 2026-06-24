@@ -436,42 +436,42 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(err!.severity).toBe(DiagnosticSeverity.ERROR);
     expect(err!.message).toContain('bad/path.c');
   });
+
+  // E9 — ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO). EcuCGenerator is
+  // registered with a BSWMD module def that has zero containers AND the
+  // values carry zero parameters. The generator should push an INFO
+  // diagnostic so the user knows the active variant produced nothing
+  // (rather than silently emitting a stub Cfg.c/Cfg.h).
+  it('ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO) fires when active variant has no elements', async () => {
+    const { EcuCGenerator } = await import('../modules/ecuc.js');
+    _resetRegistryForTest();
+    registerGenerator(new EcuCGenerator());
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'EcuC',
+            {
+              shortName: 'EcuC',
+              containers: [],
+            },
+          ],
+        ]),
+        ecucValues: new Map([['EcuC', { parameters: [] }]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.INFO);
+    expect(diag.moduleShortName).toBe('EcuC');
+    // INFO → exit 0
+    expect(result.exitCode).toBe(0);
+  });
 });
 
-describe('Diagnostic fixture triggers — deferred to v2', () => {
-  // INFO-001 EMPTY_VARIANT: active variant has no container/param
-  // entries. The pipeline does not branch on emptiness today; v2 will
-  // introduce per-variant element walk that pushes this INFO notice.
-  test.todo('ECUC-GEN-INFO-001 (INFO_EMPTY_VARIANT, INFO) fires when variant has no elements');
-
-  // 012 TYPE_MISMATCH: integer value where Boolean expected, etc.
-  // The EcuC generator uses cTypeForKind to derive C types but does
-  // not currently compare against the value's runtime kind.
-  test.todo('ECUC-GEN-012 (TYPE_MISMATCH, ERROR) fires on value vs def type mismatch');
-
-  // 013 RANGE: integer out of [min, max] bound.
-  // EcuC emit writes the value verbatim into C source; no min/max
-  // clamp or compare runs in v1.11.0.
-  test.todo('ECUC-GEN-013 (RANGE, ERROR) fires on value outside [min, max]');
-
-  // 021 DUPLICATE_SHORTNAME: two sibling containers/params with same
-  // shortName. normalizeToTree passes through whatever the input
-  // carries — it does not dedupe or assert uniqueness.
-  test.todo('ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR) fires on sibling shortName collision');
-
-  // 030 TEMPLATE_RENDER: Handlebars throws during render. The current
-  // pipeline runs generators (which may use Handlebars internally) but
-  // no top-level try/catch maps HandlebarsRuntimeError → this code;
-  // THROW is the only emit-stage exception path today.
-  test.todo('ECUC-GEN-030 (TEMPLATE_RENDER, ERROR) fires when Handlebars render throws');
-
-  // 031 OUTPUT_WRITE: file write fails (EACCES, ENOSPC, etc.). Atomic
-  // write lives in post-process (Task 13) and runs after the pipeline
-  // returns; the pipeline does not surface write errors yet.
-  test.todo('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when output file write fails');
-
-  // INFO-001 EMPTY_VARIANT: active variant has no container/param
-  // entries. The pipeline does not branch on emptiness today; v2 will
-  // introduce per-variant element walk that pushes this INFO notice.
-  test.todo('ECUC-GEN-INFO-001 (INFO_EMPTY_VARIANT, INFO) fires when variant has no elements');
-});
+// All 9 diagnostic codes have real `it(...)` tests now (E1–E9).
+// Future codes (e.g. ECUC-GEN-040 IMPL_FILTER) can add new describes
+// alongside this one.
