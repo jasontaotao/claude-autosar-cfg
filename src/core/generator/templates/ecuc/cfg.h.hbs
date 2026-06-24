@@ -1,0 +1,35 @@
+{{> license}}
+#ifndef ECU_CFG_H
+#define ECU_CFG_H
+
+#include "Std_Types.h"
+{{#each includes}}
+#include "{{this}}"
+{{/each}}
+
+{{#each typedefs}}
+typedef struct {
+{{#each fields}}
+    {{this.cType}} {{this.name}};
+{{/each}}
+} {{this.name}};
+
+{{/each}}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+{{#each externDecls}}
+extern {{this}};
+{{/each}}
+
+{{#each referenceDecls}}
+extern {{this}};
+{{/each}}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ECU_CFG_H */
