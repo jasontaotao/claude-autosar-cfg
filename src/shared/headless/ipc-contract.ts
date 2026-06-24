@@ -105,11 +105,67 @@ export interface ValidateArgs {
   readonly stub: boolean;
 }
 
-/** Discriminated union of the 3 v1 CLI sub-commands (per A+C spec §4). */
+/** Discriminated union of the v1 CLI sub-commands (per A+C spec §4 + v1.11.0 generate). */
 export type HeadlessCommand =
   | { readonly kind: 'read'; readonly input: ReadArgs }
   | { readonly kind: 'mutate'; readonly input: MutateArgs }
-  | { readonly kind: 'validate'; readonly input: ValidateArgs };
+  | { readonly kind: 'validate'; readonly input: ValidateArgs }
+  | { readonly kind: 'generate'; readonly input: GenerateArgs };
+
+// ---------------------------------------------------------------------------
+// Generate command — v1.11.0 BSW generator sub-command
+// ---------------------------------------------------------------------------
+
+/** Pre-compile / link-time / post-build variant selectors for BSW code generation. */
+export type HeadlessGenerateVariant = 'PreCompile' | 'Link' | 'PostBuild';
+
+/** Output format for the `generate` sub-command. */
+export type HeadlessGenerateFormat = 'human' | 'json';
+
+/**
+ * Arguments for the `generate` sub-command (v1.11.0 BSW generator).
+ *
+ * Mirrors the dispatcher envelope: `command` discriminates to `generate`
+ * so a future GUI bridge can parse the union without per-call narrowing.
+ */
+export interface GenerateArgs {
+  readonly command: 'generate';
+  /** Path to `.autosarcfg.json` manifest. */
+  readonly projectPath: string;
+  /** Variant selector; default `PreCompile`. */
+  readonly variant?: HeadlessGenerateVariant;
+  /** Output directory; default `<projectPath>/generated`. */
+  readonly outDir?: string;
+  /** Optional module short-name allowlist; undefined = all modules. */
+  readonly modules?: readonly string[];
+  /** Promote WARNING → ERROR (exit 1 instead of 0). */
+  readonly strict?: boolean;
+  /** Output format; default `human` for CLI ergonomics. */
+  readonly format?: HeadlessGenerateFormat;
+}
+
+/** A single generated file: relative path + byte count. */
+export interface GeneratedFile {
+  readonly path: string;
+  readonly bytes: number;
+}
+
+/**
+ * Result envelope for the `generate` sub-command. `ok` is `false` only
+ * when the pipeline reported at least one ERROR (i.e. exitCode 1).
+ * WARNING-only runs still surface as `ok: true` so the dispatcher can
+ * map them to EXIT_WARNING without an exception.
+ */
+export interface GenerateResult {
+  readonly ok: boolean;
+  readonly command: 'generate';
+  readonly projectPath: string;
+  readonly outDir: string;
+  readonly variant: HeadlessGenerateVariant;
+  readonly files: readonly GeneratedFile[];
+  readonly diagnostics: readonly ValidatorResult[];
+  readonly durationMs: number;
+}
 
 // ---------------------------------------------------------------------------
 // HeadlessResult — standard output envelope (per A+C spec §4)
@@ -160,8 +216,8 @@ export interface ValidateResult {
   readonly durationMs: number;
 }
 
-/** Discriminated union of all 3 successful command results. */
-export type HeadlessResult = ReadResult | MutateResult | ValidateResult;
+/** Discriminated union of all successful command results (read / mutate / validate / generate). */
+export type HeadlessResult = ReadResult | MutateResult | ValidateResult | GenerateResult;
 
 // ---------------------------------------------------------------------------
 // HeadlessError — failure envelope (per A+C spec §4 + §9)

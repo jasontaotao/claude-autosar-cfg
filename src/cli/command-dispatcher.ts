@@ -1,26 +1,44 @@
 // Command dispatcher (v1.6.0 A+C-3).
 //
 // Pure routing: takes a `ParsedArgs` from commander and delegates to
-// the matching handler (`read` / `mutate` / `validate`). Each handler
-// returns a `HeadlessExitCode`; the dispatcher is responsible for
-// emitting the result envelope on stdout (in JSON form per spec §7.5)
+// the matching handler (`read` / `mutate` / `validate` / `generate`).
+// Each handler returns a `HeadlessResult`; the dispatcher is responsible
+// for emitting the result envelope on stdout (in JSON form per spec §7.5)
 // and returning the exit code to the bin entry.
 //
 // Design: handlers do NOT write to stdout/stderr directly. They return
 // a `HeadlessResult` (success) or throw a `HeadlessFailureError` (catch
 // at the dispatcher level → emit + exit code). Keeps handlers testable.
+//
+// v1.11.0 note: `ParsedArgs` (commander.ts) is the v1.6.0 3-sub-command
+// union. The dispatcher accepts a wider `DispatchArgs` so the new
+// `generate` handler is reachable without modifying commander.ts yet —
+// the future commander.ts update just needs to extend `ParsedArgs` to
+// include `generate`.
 
 import type {
   HeadlessResult,
   HeadlessFailure,
   HeadlessError,
+  GenerateArgs,
 } from '../shared/headless/ipc-contract.js';
 
 import type { ParsedArgs } from './commander.js';
 import { EXIT_SUCCESS, EXIT_FATAL, EXIT_WARNING, type HeadlessExitCode } from './exitCodes.js';
+import { generateHeadlessProject } from './handlers/generate.js';
 import { mutateHeadlessProject } from './handlers/mutate.js';
 import { readHeadlessProject } from './handlers/read.js';
 import { validateHeadlessProject } from './handlers/validate.js';
+
+/**
+ * v1.11.0 superset of `ParsedArgs`. Adds `generate` so this dispatcher
+ * can route it without waiting for commander.ts to register the 4th
+ * sub-command. Existing call sites passing `ParsedArgs` still compile
+ * because `ParsedArgs` is a structural subset.
+ */
+export type DispatchArgs =
+  | ParsedArgs
+  | { readonly kind: 'generate'; readonly input: GenerateArgs };
 
 /** Thrown by handlers to short-circuit with a structured failure. */
 export class HeadlessFailureError extends Error {
@@ -35,7 +53,7 @@ export class HeadlessFailureError extends Error {
  * Dispatch a parsed command to its handler, emit the result envelope
  * to stdout, and return the appropriate exit code.
  */
-export async function dispatchCommand(parsed: ParsedArgs): Promise<HeadlessExitCode> {
+export async function dispatchCommand(parsed: DispatchArgs): Promise<HeadlessExitCode> {
   let result: HeadlessResult;
   try {
     switch (parsed.kind) {
@@ -47,6 +65,9 @@ export async function dispatchCommand(parsed: ParsedArgs): Promise<HeadlessExitC
         break;
       case 'validate':
         result = await validateHeadlessProject(parsed.input);
+        break;
+      case 'generate':
+        result = await generateHeadlessProject(parsed.input);
         break;
     }
   } catch (err) {
@@ -74,6 +95,13 @@ export async function dispatchCommand(parsed: ParsedArgs): Promise<HeadlessExitC
   // `--strict` was set (strict promotes warnings → 1, but the handler
   // returns `EXIT_FATAL` in that case so we never reach here).
   if (parsed.kind === 'mutate' && result.command === 'mutate' && result.warnings.length > 0) {
+    return EXIT_WARNING;
+  }
+
+  // Generate: a WARNING-only pipeline run (`ok: true` with non-empty
+  // diagnostics) still exits 2 so CI can spot generators that emitted
+  // partial output (e.g. ECUC-GEN-002 "no generator for module X").
+  if (result.command === 'generate' && result.ok === true && result.diagnostics.length > 0) {
     return EXIT_WARNING;
   }
 
