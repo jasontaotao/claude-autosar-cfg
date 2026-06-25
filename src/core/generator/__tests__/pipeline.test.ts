@@ -121,4 +121,58 @@ describe('runPipeline', () => {
     expect(result.artifacts.size).toBe(1);
     expect(result.artifacts.has('A/a.c')).toBe(true);
   });
+
+  // v1.14.0 MINOR S6 — when Stage 1 (pre-process) produces an ERROR,
+  // Stage 2 (generate) MUST NOT run the generators. Running generators
+  // against malformed input (e.g. unresolved cross-module refs) can
+  // emit garbage that overwrites valid artifacts on disk. The pipeline
+  // should bail out before the generators see bad input.
+  it('skips Stage 2 generators when Stage 1 produced an ERROR (D-rev2 S6)', async () => {
+    let stage2Ran = false;
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        stage2Ran = true;
+        return [];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    // Stage 1 ERROR: EcuC references Os, but Os is not loaded.
+    // validateReferences pushes ECUC-GEN-010 (REF_UNRESOLVED) at ERROR.
+    // We still load EcuC into bswmdIndex so the pipeline would normally
+    // reach the generate stage for EcuC — the S6 gate must stop it.
+    const result = await runPipeline({
+      bswmdIndex: new Map([['EcuC', { shortName: 'EcuC', containers: [] }]]),
+      ecucValues: new Map([
+        [
+          'EcuC',
+          {
+            definitionRef: '/AUTOSAR/EcucDefs/EcuC',
+            parameters: [],
+            references: [
+              {
+                path: 'EcuC/EcuCGeneral/PartitionRef',
+                targetModule: 'Os', // not loaded → Stage 1 ERROR
+                targetPath: 'Os/OsCore/OsCore_0',
+              },
+            ],
+          },
+        ],
+      ]),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    expect(stage2Ran).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.diagnostics.some((d) => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED)).toBe(
+      true,
+    );
+    // Stage 2 must not produce any artifacts.
+    expect(result.artifacts.size).toBe(0);
+  });
 });
