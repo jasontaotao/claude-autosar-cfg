@@ -271,6 +271,14 @@ export function useProjectActions(): {
   // and `removeBswmdWithCascade` callers in P3 (UI context-menu +
   // ProjectPanel × button rewrite).
   readonly removeBswmdWithFullFlow: (path: string) => Promise<ProjectActionResult>;
+  // Sprint A+ — replaces `deleteEcucModule` direct store call. Unified
+  // entry point that does dirty-guard + 3-button confirm dialog +
+  // dispatch on the user's choice. Spec invariant I3: unsaved edits
+  // are protected from accidental ECUC module deletion.
+  readonly deleteEcucModuleWithFullFlow: (
+    modulePath: string,
+    moduleName: string,
+  ) => Promise<ProjectActionResult>;
   readonly submitNewProject: (
     name: string,
     directory: string,

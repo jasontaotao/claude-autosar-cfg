@@ -385,7 +385,7 @@ export function App(): JSX.Element {
     [
       openBswmdPicker,
       deleteContainerAction,
-      deleteEcucModuleAction,
+      deleteEcucModuleWithFullFlow,
       setInfo,
       locale,
       removeBswmdWithFullFlow,

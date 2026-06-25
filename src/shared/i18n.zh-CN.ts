@@ -138,11 +138,13 @@ export const MessagesZhCN: Messages = {
   'confirm.unsaved.discard.open': '不保存，打开',
   'confirm.unsaved.discard.addBswmd': '不保存，添加',
   'confirm.unsaved.discard.removeBswmd': '不保存，移除',
+  'confirm.unsaved.discard.deleteModule': '不保存，删除',
   'confirm.unsaved.discard.excludeEcuc': '不保存，排除',
   'confirm.unsaved.saveAndNew.new': '保存并新建',
   'confirm.unsaved.saveAndNew.open': '保存并打开',
   'confirm.unsaved.saveAndNew.addBswmd': '保存并添加',
   'confirm.unsaved.saveAndNew.removeBswmd': '保存并移除',
+  'confirm.unsaved.saveAndNew.deleteModule': '保存并删除',
   'confirm.unsaved.saveAndNew.excludeEcuc': '保存并排除',
   'confirm.unsaved.saveAndNew.import': '保存并导入',
 

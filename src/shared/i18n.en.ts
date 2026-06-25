@@ -142,11 +142,13 @@ export const MessagesEn: Messages = {
   'confirm.unsaved.discard.open': 'Discard & Open',
   'confirm.unsaved.discard.addBswmd': 'Discard & Add',
   'confirm.unsaved.discard.removeBswmd': 'Discard & Remove',
+  'confirm.unsaved.discard.deleteModule': 'Discard & Delete',
   'confirm.unsaved.discard.excludeEcuc': 'Discard & Exclude',
   'confirm.unsaved.saveAndNew.new': 'Save & New',
   'confirm.unsaved.saveAndNew.open': 'Save & Open',
   'confirm.unsaved.saveAndNew.addBswmd': 'Save & Add',
   'confirm.unsaved.saveAndNew.removeBswmd': 'Save & Remove',
+  'confirm.unsaved.saveAndNew.deleteModule': 'Save & Delete',
   'confirm.unsaved.saveAndNew.excludeEcuc': 'Save & Exclude',
   'confirm.unsaved.saveAndNew.import': 'Save and import',
 

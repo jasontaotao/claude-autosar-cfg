@@ -13,7 +13,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument, ArxmlModule } from '@core/arxml/types';
-import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import * as combinedDoc from '../helpers/combinedDoc.js';
 import { useArxmlStore } from '../useArxmlStore';

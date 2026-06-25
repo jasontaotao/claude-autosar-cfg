@@ -207,11 +207,13 @@ export interface Messages {
   readonly 'confirm.unsaved.discard.open': string;
   readonly 'confirm.unsaved.discard.addBswmd': string;
   readonly 'confirm.unsaved.discard.removeBswmd': string;
+  readonly 'confirm.unsaved.discard.deleteModule': string;
   readonly 'confirm.unsaved.discard.excludeEcuc': string;
   readonly 'confirm.unsaved.saveAndNew.new': string;
   readonly 'confirm.unsaved.saveAndNew.open': string;
   readonly 'confirm.unsaved.saveAndNew.addBswmd': string;
   readonly 'confirm.unsaved.saveAndNew.removeBswmd': string;
+  readonly 'confirm.unsaved.saveAndNew.deleteModule': string;
   readonly 'confirm.unsaved.saveAndNew.excludeEcuc': string;
   // Sprint 17a — Import entry-point "save and import" label.
   readonly 'confirm.unsaved.saveAndNew.import': string;
