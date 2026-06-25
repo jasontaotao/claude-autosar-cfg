@@ -36,6 +36,7 @@ import { validateRange } from './emit/range.js';
 import { validateReferences } from './emit/reference.js';
 import { validateTypeMatches } from './emit/type-check.js';
 import { validateUniqueShortNames } from './emit/unique-short-name.js';
+import { validateModuleHeaderPaths } from './modules/_shared.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
@@ -61,6 +62,10 @@ type EcucIndexForRange = Parameters<typeof validateRange>[1];
 type BswmdIndexForTypeMatches = Parameters<typeof validateTypeMatches>[0];
 type EcucIndexForTypeMatches = Parameters<typeof validateTypeMatches>[1];
 type EcucIndexForUniqueShortNames = Parameters<typeof validateUniqueShortNames>[0];
+// v1.14.1 PATCH-G (G4) — type alias for `validateModuleHeaderPaths`.
+// Matches the D-rev2 PATCH-D `Parameters<typeof validator>[0]`
+// pattern used by every other validator in this file.
+type BswmdIndexForModuleHeaderPaths = Parameters<typeof validateModuleHeaderPaths>[0];
 
 export interface PipelineArgs {
   readonly bswmdIndex: ReadonlyMap<string, BswmdModuleDefLite>;
@@ -83,6 +88,11 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // Stage 1 — Pre-process
   const tree = normalizeToTree(args.bswmdIndex, args.ecucValues);
   diagnostics.push(...validateReferences(tree));
+  // v1.14.1 PATCH-G (G4) — SEC3 wire-up. Push ERROR
+  // `BSW-SEC-002` for any BSWMD module whose `moduleHeader` or
+  // `includes[]` entry fails the whitelist. S6 early-break
+  // (line ~150) covers Stage 2 skip when any ERROR is present.
+  diagnostics.push(...validateModuleHeaderPaths(args.bswmdIndex as BswmdIndexForModuleHeaderPaths));
   // v1.12.0 E2 — container instance-count validation. The cast is safe
   // because the BSWMD parser and ECUC parser produce matching shapes
   // (the BSWMD module def carries containers[] and ECUC values carry

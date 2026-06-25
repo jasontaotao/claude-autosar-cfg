@@ -8,7 +8,11 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { walkContainers, type ContainerLike } from '../emit/container.js';
+import {
+  walkContainers,
+  walkContainersWithAncestry,
+  type ContainerLike,
+} from '../emit/container.js';
 
 describe('walkContainers (D-rev2 S8)', () => {
   it('visits every container in pre-order (root → children → grandchildren)', () => {
@@ -99,5 +103,61 @@ describe('walkContainers (D-rev2 S8)', () => {
       },
     );
     expect(visited).toEqual(['A', 'A1', 'A2', 'A2a', 'B']);
+  });
+});
+
+describe('walkContainersWithAncestry (v1.14.1 PATCH-G G3)', () => {
+  it('threads accumulated parentPath to the visit callback', () => {
+    const seen: Array<{ name: string; ancestry: string }> = [];
+    walkContainersWithAncestry(
+      [
+        {
+          shortName: 'McuModuleConfiguration',
+          parameters: [],
+          containers: [
+            {
+              shortName: 'McuRamSection',
+              parameters: [],
+              containers: [
+                { shortName: 'McuRamSectionBaseAddress', parameters: [] },
+              ],
+            },
+          ],
+        },
+      ],
+      'Mcu', // module shortName as initial parentPath
+      (c, ancestry) => {
+        seen.push({ name: c.shortName, ancestry });
+      },
+    );
+    expect(seen).toEqual([
+      { name: 'McuModuleConfiguration', ancestry: 'Mcu/McuModuleConfiguration' },
+      { name: 'McuRamSection', ancestry: 'Mcu/McuModuleConfiguration/McuRamSection' },
+      {
+        name: 'McuRamSectionBaseAddress',
+        ancestry:
+          'Mcu/McuModuleConfiguration/McuRamSection/McuRamSectionBaseAddress',
+      },
+    ]);
+  });
+
+  it('returns immediately on empty input', () => {
+    const seen: string[] = [];
+    walkContainersWithAncestry([], '', (c) => {
+      seen.push(c.shortName);
+    });
+    expect(seen).toEqual([]);
+  });
+
+  it('handles empty parentPath (no leading slash on root)', () => {
+    const seen: string[] = [];
+    walkContainersWithAncestry(
+      [{ shortName: 'A', parameters: [] }],
+      '',
+      (_c, ancestry) => {
+        seen.push(ancestry);
+      },
+    );
+    expect(seen).toEqual(['A']);
   });
 });

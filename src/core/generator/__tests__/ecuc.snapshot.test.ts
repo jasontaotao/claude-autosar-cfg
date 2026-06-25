@@ -68,7 +68,10 @@ function makeCtx(): GenerationContext {
   );
   return {
     variant: 'PreCompile',
-    bswmdIndex: new Map<string, unknown>(),
+    bswmdIndex: new Map<string, unknown>([
+      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ]) as never,
     implByModule: new Map<string, string>(),
     outDir: '/tmp',
     diagnostics: [],

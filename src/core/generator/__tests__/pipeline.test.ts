@@ -175,4 +175,40 @@ describe('runPipeline', () => {
     // Stage 2 must not produce any artifacts.
     expect(result.artifacts.size).toBe(0);
   });
+
+  // v1.14.1 PATCH-G (G4) — SEC3 wire-up. The pipeline's Stage 1 must
+  // run `validateModuleHeaderPaths` and surface a BSW-SEC-002 ERROR
+  // for any BSWMD module whose `moduleHeader` fails the whitelist.
+  // S6 early-break then skips Stage 2 (no generator runs for any
+  // module), so a SpyGen with `stage2Ran` flag proves the gate works.
+  it('v1.14.1 G4 — skips Stage 2 when BSWMD moduleHeader fails SEC3', async () => {
+    let stage2Ran = false;
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        stage2Ran = true;
+        return [];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        // `..` in moduleHeader → SEC3 violation
+        ['EcuC', { shortName: 'EcuC', moduleHeader: '../etc/EcuC_Cfg.h', containers: [] }],
+      ]),
+      ecucValues: new Map(),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    expect(stage2Ran).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_INVALID_HEADER_PATH),
+    ).toBe(true);
+  });
 });

@@ -1537,3 +1537,122 @@ describe('parseBswmd — <DESC> extraction (v1.7.1 S3)', () => {
     expect(c.desc).toBeUndefined();
   });
 });
+
+// ─── G1 (PATCH-G) — <HEADER> + <STD-INCLUDES> extraction ─────────────
+// v1.14.1 surfaces two new fields on `BswModuleDef`:
+//   - `moduleHeader?: string` — the path declared in
+//     `<HEADER><SHORT-NAME>` of the module def. The generator's S2+ work
+//     will emit `#include "..."` from this value when wiring cross-module
+//     references.
+//   - `includes?: readonly string[]` — pre-supplied include list from
+//     `<STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>`. Empty array (not
+//     `undefined`) when the BSWMD omits the block so callers can iterate
+//     without nullability checks.
+describe('parseBswmd — <HEADER> + <STD-INCLUDES> extraction (v1.14.1 G1)', () => {
+  it('extracts moduleHeader from <HEADER><SHORT-NAME>', () => {
+    // Arrange — minimal module def with a <HEADER> child but no
+    // <STD-INCLUDES>. Asserts only the moduleHeader half of G1.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>TestMod</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <HEADER><SHORT-NAME>TestMod/Mod_Cfg.h</SHORT-NAME></HEADER>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert
+    const mod = result.value.modules.find((m) => m.shortName === 'TestMod');
+    if (!mod) throw new Error('TestMod not in result');
+    expect(mod.moduleHeader).toBe('TestMod/Mod_Cfg.h');
+    // v1.14.1 PATCH-G G1 review follow-up — assert the always-array
+    // contract on `includes` so a future refactor swapping `[]` for
+    // `undefined` would slip through.
+    expect(mod.includes).toEqual([]);
+  });
+
+  it('extracts includes[] from <STD-INCLUDES>/<STD-INCLUDE>', () => {
+    // Arrange — minimal module def with a <STD-INCLUDES> child
+    // containing two <STD-INCLUDE> entries. Asserts only the includes
+    // half of G1; moduleHeader is absent in this fixture.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>TestMod</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <STD-INCLUDES>
+            <STD-INCLUDE><SHORT-NAME>Os/Os_Cfg.h</SHORT-NAME></STD-INCLUDE>
+            <STD-INCLUDE><SHORT-NAME>Com/Com_Cfg.h</SHORT-NAME></STD-INCLUDE>
+          </STD-INCLUDES>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert
+    const mod = result.value.modules.find((m) => m.shortName === 'TestMod');
+    if (!mod) throw new Error('TestMod not in result');
+    expect(mod.includes).toEqual(['Os/Os_Cfg.h', 'Com/Com_Cfg.h']);
+    // v1.14.1 PATCH-G G1 review follow-up — assert the absent-field
+    // contract on `moduleHeader` so a future refactor swapping
+    // `undefined` for `null` would slip through.
+    expect(mod.moduleHeader).toBeUndefined();
+  });
+
+  it('warns and drops a <STD-INCLUDE> with no <SHORT-NAME>', () => {
+    // Arrange — one well-formed STD-INCLUDE and one with an empty body.
+    // v1.14.1 PATCH-G G1 review follow-up: a malformed entry must
+    // surface a breadcrumb (so S2+ can diagnose a missing-but-expected
+    // header) rather than vanishing from `includes` silently.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>TestMod</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <STD-INCLUDES>
+            <STD-INCLUDE><SHORT-NAME>Os/Os_Cfg.h</SHORT-NAME></STD-INCLUDE>
+            <STD-INCLUDE></STD-INCLUDE>
+          </STD-INCLUDES>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert
+    const mod = result.value.modules.find((m) => m.shortName === 'TestMod');
+    if (!mod) throw new Error('TestMod not in result');
+    expect(mod.includes).toEqual(['Os/Os_Cfg.h']);
+    expect(result.value.warnings).toEqual(
+      expect.arrayContaining([expect.stringMatching(/STD-INCLUDE has no SHORT-NAME/)]),
+    );
+  });
+});

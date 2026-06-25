@@ -2,6 +2,7 @@
 #define ECUC_CFG_H
 
 #include "Std_Types.h"
+#include "Os/Os_Cfg.h"
 
 
 #ifdef __cplusplus

@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
+import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import { walkContainers, type ContainerLike } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
@@ -36,7 +37,13 @@ import {
 } from '../registry.js';
 import { loadModuleTemplate } from '../templates/loader.js';
 
-import { pushEmptyVariantDiagnostic, renderCValue, buildHeaderGuard } from './_shared.js';
+import {
+  buildHeaderGuard,
+  buildReferenceIncludes,
+  pushEmptyVariantDiagnostic,
+  renderCValue,
+  type BswmdIndexForModuleHeaderPaths,
+} from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -224,6 +231,13 @@ export class EcuCGenerator implements ModuleGenerator {
     // PartitionConfig → PartitionBuffer → PartitionBufferHeader) emits
     // params from every level. Flat fixtures are unaffected (their
     // containers[] is empty or undefined).
+    // v1.14.1 PATCH-G (G3) — EcuC uses leaf-only `container.shortName` for
+    // path construction, while Mcu uses ancestry-aware paths
+    // (walkContainersWithAncestry). EcuC's `paramByPath` lookups would
+    // also need ancestry-tracking before EcuC can match Mcu's behavior.
+    // Tracked for v1.14.2 follow-up: extend this site to use
+    // walkContainersWithAncestry and feed `cDef.shortName` chain into
+    // the paramByPath lookup key.
     walkContainers(eDef.containers as readonly ContainerLike[], (container) => {
       const cDef = container as EcuCContainerDefLike;
       for (const pDef of cDef.parameters) {
@@ -267,13 +281,47 @@ export class EcuCGenerator implements ModuleGenerator {
       }
     }
 
+    // v1.14.1 PATCH-G (G2) — auto-#include for cross-module ref
+    // targets. Each `ref.targetModule` is looked up in the BSWMD
+    // index; its `moduleHeader` is added to the include set, deduped
+    // against any pre-existing includes (none today, but defensive
+    // for future BSWMD-supplied includes — see G1 `includes[]`).
+    //
+    // When a ref's target module is in the BSWMD index but lacks
+    // `moduleHeader`, push `BSW-SEC-004` so the user knows which
+    // module needs `<HEADER>` added. The helper itself doesn't push
+    // diagnostics — separation keeps it composable.
+    const refIncludes = new Set<string>();
+    const refIncludePaths = buildReferenceIncludes(
+      eVals.references ?? [],
+      ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+      refIncludes,
+    );
+    for (const ref of eVals.references ?? []) {
+      const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
+        | BswmdIndexForModuleHeaderPaths
+        | undefined;
+      if (targetDef && targetDef.moduleHeader === undefined) {
+        ctx.diagnostics.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
+          moduleShortName: eDef.shortName,
+          ecucPath: ref.path,
+          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
+        });
+      }
+    }
+
     const header = headerTpl()({
       moduleShortName: eDef.shortName,
       generatorVersion: GENERATOR_VERSION,
       // v1.14.0 MINOR S1 — module-scoped header guard replaces the
       // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
       headerGuard: buildHeaderGuard(eDef.shortName),
-      includes: [] as readonly string[],
+      // v1.14.1 PATCH-G (G2) — pass auto-derived includes
+      // (currently only ref-target headers; future: BSWMD
+      // `includes[]` from G1).
+      includes: refIncludePaths,
       typedefs: [] as readonly {
         name: string;
         fields: readonly { cType: string; name: string }[];

@@ -64,6 +64,22 @@ export interface BswModuleDef {
    * `ContainerDef.multiplicityConfigClasses` for the rationale.
    */
   readonly multiplicityConfigClasses?: readonly MultiplicityConfigClass[];
+  /**
+   * v1.14.1 PATCH-G (G1) — header path from `<HEADER><SHORT-NAME>`,
+   * emitted verbatim as `#include "..."` in dependent Cfg.h. Drives
+   * S2+ (cross-module ref auto-#include) and SEC3 wire-up. `undefined`
+   * when the BSWMD omits `<HEADER>`; declared with explicit
+   * `| undefined` for compatibility with the project's
+   * `exactOptionalPropertyTypes: true` setting.
+   */
+  readonly moduleHeader?: string | undefined;
+  /**
+   * v1.14.1 PATCH-G (G1) — pre-supplied `#include` list from
+   * `<STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>`. Empty array (not
+   * `undefined`) when the BSWMD omits `<STD-INCLUDES>` so callers
+   * can iterate without nullability checks.
+   */
+  readonly includes?: readonly string[];
 }
 
 /**
@@ -863,6 +879,31 @@ function buildEcucModule(
       ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
     );
   }
+  // v1.14.1 PATCH-G (G1) — extract <HEADER><SHORT-NAME> and
+  // <STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>. fast-xml-parser
+  // collapses single child to a string and multiple children to
+  // an array; `asArray` normalizes both.
+  const headerRaw = asArray<Record<string, unknown>>(item['HEADER'])[0];
+  const moduleHeader = headerRaw ? readShortName(headerRaw) : undefined;
+  const stdIncludesEl = asArray<Record<string, unknown>>(item['STD-INCLUDES'])[0];
+  const includes: string[] = stdIncludesEl
+    ? asArray<Record<string, unknown>>(stdIncludesEl['STD-INCLUDE']).flatMap((si) => {
+        const name = readShortName(si);
+        if (name === undefined) {
+          // v1.14.1 PATCH-G G1 review follow-up — surface a warning
+          // when a <STD-INCLUDE> has no <SHORT-NAME>. The <HEADER>
+          // case returns undefined and the caller sees the absence via
+          // the optional `moduleHeader` field, but the same pattern in
+          // a list (includes[]) would silently drop the entry. Without
+          // this breadcrumb, S2+ would emit `#include` directives for
+          // a missing-but-expected header with no diagnostic.
+          warnings?.push(
+            `${path} STD-INCLUDE has no SHORT-NAME — entry dropped`,
+          );
+        }
+        return name === undefined ? [] : [name];
+      })
+    : [];
   return {
     shortName,
     path,
@@ -873,6 +914,8 @@ function buildEcucModule(
     lowerMultiplicity: readLowerMultiplicity(item),
     upperMultiplicity: readUpperMultiplicity(item),
     multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+    moduleHeader,
+    includes,
   };
 }
 

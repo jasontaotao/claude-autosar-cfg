@@ -21,6 +21,14 @@ export const DiagnosticCode = {
   ECUC_GEN_TEMPLATE_RENDER: 'ECUC-GEN-030',
   ECUC_GEN_OUTPUT_WRITE: 'ECUC-GEN-031',
   ECUC_GEN_INFO_EMPTY_VARIANT: 'ECUC-GEN-INFO-001',
+  // v1.14.1 PATCH-G (G4) — SEC3 wire-up. BSWMD-supplied
+  // `moduleHeader` / `includes[]` must pass `validateHeaderPath`
+  // (whitelist `^[A-Za-z0-9_./-]+$` + no `..` + no leading `/`).
+  // 002 = invalid path; 003 = empty SHORT-NAME; 004 = ref target
+  // module loaded but moduleHeader undefined.
+  BSW_SEC_INVALID_HEADER_PATH: 'BSW-SEC-002',
+  BSW_SEC_EMPTY_INCLUDE: 'BSW-SEC-003',
+  BSW_SEC_MISSING_TARGET_HEADER: 'BSW-SEC-004',
 } as const;
 
 export type DiagnosticSeverityValue = (typeof DiagnosticSeverity)[keyof typeof DiagnosticSeverity];

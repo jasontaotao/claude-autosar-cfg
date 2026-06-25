@@ -11,6 +11,10 @@
           </DESC>
           <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
           <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <HEADER><SHORT-NAME>Mcu/Mcu_Cfg.h</SHORT-NAME></HEADER>
+          <STD-INCLUDES>
+            <STD-INCLUDE><SHORT-NAME>Dem/Dem_Cfg.h</SHORT-NAME></STD-INCLUDE>
+          </STD-INCLUDES>
           <CONTAINERS>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
               <SHORT-NAME>McuClockSettingConfig</SHORT-NAME>

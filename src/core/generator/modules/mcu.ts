@@ -24,6 +24,9 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
+import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
+import { walkContainersWithAncestry } from '../emit/container.js';
+import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent } from '../handlebars-helpers.js';
 import {
   type GeneratedArtifact,
@@ -32,7 +35,13 @@ import {
 } from '../registry.js';
 import { loadModuleTemplate } from '../templates/loader.js';
 
-import { pushEmptyVariantDiagnostic, renderCValue, buildHeaderGuard } from './_shared.js';
+import {
+  buildHeaderGuard,
+  buildReferenceIncludes,
+  pushEmptyVariantDiagnostic,
+  renderCValue,
+  type BswmdIndexForModuleHeaderPaths,
+} from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -66,6 +75,9 @@ interface McuParamDefLike {
 interface McuContainerDefLike {
   readonly shortName: string;
   readonly parameters: readonly McuParamDefLike[];
+  // v1.14.1 PATCH-G (G3) — recursive walk. Mirrors
+  // EcuCContainerDefLike. Optional for flat fixtures.
+  readonly containers?: readonly McuContainerDefLike[];
 }
 
 interface McuModuleDefLike {
@@ -79,8 +91,18 @@ interface McuParamValueLike {
   readonly value: unknown;
 }
 
+interface McuReferenceValueLike {
+  readonly path: string;
+  readonly targetModule: string;
+  readonly targetPath: string;
+}
+
 interface McuModuleValuesLike {
   readonly parameters?: readonly McuParamValueLike[];
+  // v1.14.1 PATCH-G (G3) — S2 parity with EcuC. When Mcu params
+  // include ECUC-REFERENCE-DEF values, emit `extern CONST(...)`
+  // decls and auto-#include the target module's header.
+  readonly references?: readonly McuReferenceValueLike[];
 }
 
 const GENERATOR_VERSION = '1.12.0';
@@ -151,18 +173,62 @@ export class McuGenerator implements ModuleGenerator {
     // param shortName. The previous `'Param'` literal collision with
     // EcuCGenerator.shortNameFromDef is fixed by reading shortName
     // from the parsed BSWMD def directly.
+    //
+    // v1.14.1 PATCH-G (G3) — recursive container walk (D-rev2 S8
+    // parity). Mirrors the v1.14.0 S8 change in EcuC. Flat fixtures
+    // are unaffected (their nested `containers` is empty). The
+    // emitted C ident accumulates the full container ancestry
+    // (`Module_Container_SubContainer_Param`) so nested BSWMD
+    // params get distinct idents from the top-level container's
+    // same-named params. `walkContainers` does not pass parent
+    // context, so we run the walk inline with an explicit path
+    // accumulator rather than mutating the shared helper.
     const preCompileDecls: string[] = [];
-    for (const container of mDef.containers) {
-      for (const pDef of container.parameters) {
-        const path = `${mDef.shortName}/${container.shortName}/${pDef.shortName ?? 'Param'}`;
-        const value = paramByPath.get(path);
-        const cType = cTypeForKind(pDef);
-        // v1.13.3 PATCH-C: `paramIdent` → `cIdent` (byte-identical body
-        // moved to handlebars-helpers.ts in earlier refactor; the
-        // duplicate is now deleted in favor of the canonical helper).
-        const ident = cIdent(path);
-        const init = value ? renderCValue(value.value, pDef.kind) : '0u';
-        preCompileDecls.push(`CONST(${cType}, AUTOMATIC) ${cType} ${ident} = ${init};`);
+    // v1.14.1 PATCH-G (G3) — uses the shared
+    // `walkContainersWithAncestry` helper from emit/container.ts.
+    // The companion `walkContainers` keeps its leaf-only callback
+    // signature (locked by v1.14.0 S8 tests).
+    walkContainersWithAncestry(
+      mDef.containers as Parameters<typeof walkContainersWithAncestry>[0],
+      mDef.shortName,
+      (container, ancestry) => {
+        const cDef = container as McuContainerDefLike;
+        for (const pDef of cDef.parameters) {
+          const path = `${ancestry}/${pDef.shortName ?? 'Param'}`;
+          const value = paramByPath.get(path);
+          const cType = cTypeForKind(pDef);
+          // v1.13.3 PATCH-C: `paramIdent` → `cIdent` (byte-identical body
+          // moved to handlebars-helpers.ts in earlier refactor; the
+          // duplicate is now deleted in favor of the canonical helper).
+          const ident = cIdent(path);
+          const init = value ? renderCValue(value.value, pDef.kind) : '0u';
+          preCompileDecls.push(`CONST(${cType}, AUTOMATIC) ${cType} ${ident} = ${init};`);
+        }
+      },
+    );
+
+    // v1.14.1 PATCH-G (G3) — S2 parity: auto-#include ref targets +
+    // emit referenceDecls. Mirrors the EcuC pattern from G2 / S2.
+    // Mcu has no Link or PostBuild variants (PreCompile-only in MVP),
+    // so referenceDecls are all extern decls, not link externs.
+    const refIncludes = new Set<string>();
+    const refIncludePaths = buildReferenceIncludes(
+      mVals.references ?? [],
+      ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+      refIncludes,
+    );
+    for (const ref of mVals.references ?? []) {
+      const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
+        | BswmdIndexForModuleHeaderPaths
+        | undefined;
+      if (targetDef && targetDef.moduleHeader === undefined) {
+        ctx.diagnostics.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
+          moduleShortName: mDef.shortName,
+          ecucPath: ref.path,
+          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
+        });
       }
     }
 
@@ -172,13 +238,25 @@ export class McuGenerator implements ModuleGenerator {
       // v1.14.0 MINOR S1 — module-scoped header guard replaces the
       // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
       headerGuard: buildHeaderGuard(mDef.shortName),
-      includes: [] as readonly string[],
+      includes: refIncludePaths,
       typedefs: [] as readonly {
         name: string;
         fields: readonly { cType: string; name: string }[];
       }[],
       externDecls: [] as readonly string[],
-      referenceDecls: [] as readonly string[],
+      // v1.14.1 PATCH-G (G3) — render referenceDecls. Threads the
+      // real BSWMD `targetType` via `bswmdParamIndex` when available,
+      // matching v1.14.0 S2 EcuC behaviour (senior-review parity fix
+      // — Mcu previously hardcoded `void`, hiding type mismatches
+      // for any future Mcu ref-def). Falls back to `void` when the
+      // BSWMD does not declare a `targetType` (current Mcu fixture).
+      referenceDecls: (mVals.references ?? []).map((ref) => {
+        const sourceIdent = cIdent(ref.path);
+        const targetIdent = cIdent(ref.targetPath);
+        const pDef = ctx.bswmdParamIndex?.get(ref.path) as { targetType?: string } | undefined;
+        const targetType = pDef?.targetType ?? 'void';
+        return emitReferenceDecl({ ident: sourceIdent, targetIdent, targetType }).replace(/;$/, '');
+      }),
     });
 
     const source = sourceTpl()({

@@ -69,4 +69,28 @@ describe('EcuCGenerator reference emit (D-rev2 S2)', () => {
     if (!h) throw new Error('Cfg.h missing from emit output');
     expect(h.content).not.toContain('CONST(void * const, AUTOMATIC)');
   });
+
+  // v1.14.1 PATCH-G (G2) — closes v1.14.0 S2 deferred finding:
+  // emitted `&Os_OsCore_OsCore_0` requires `Os/Os_Cfg.h` to be
+  // `#include`d before `EcuC_Cfg.h` so the pointer type resolves.
+  // The template's `{{#each includes}}` is wired; the data has to
+  // be derived from each ref's `targetModule` BSWMD `moduleHeader`.
+  it('v1.14.1 G2 — auto-includes target module header in Cfg.h', () => {
+    const g = new EcuCGenerator();
+    const bswmdIndex = new Map([
+      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ] as never);
+    const out = g.emit(ecucDef as never, ecucValuesRefs as never, {
+      variant: 'PreCompile',
+      bswmdIndex: bswmdIndex as never,
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: [],
+      bswmdParamIndex: new Map(),
+    });
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('Cfg.h missing');
+    expect(h.content).toContain('#include "Os/Os_Cfg.h"');
+  });
 });

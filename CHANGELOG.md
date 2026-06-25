@@ -5,6 +5,31 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.14.1 (2026-06-25) — PATCH-G
+
+Closes 3 deferred items from v1.14.0:
+
+- **G1 (BSWMD parser)**: `<ECUC-MODULE-DEF>` `<HEADER>` and `<STD-INCLUDES>/<STD-INCLUDE>` now surface as `BswModuleDef.moduleHeader?` and `BswModuleDef.includes?`. Cross-module reference auto-`#include` finally has a real data source.
+- **G2 (S2+ auto-#include)**: EcuCGenerator.emit now resolves each `reference.targetModule` to its BSWMD `moduleHeader` and adds it to the generated `EcuC_Cfg.h` `#include` list. Generated header is now self-contained and compiles without manual patching.
+- **G3 (Mcu recursion + S2 parity)**: `McuGenerator` switches to `walkContainers` (mirrors v1.14.0 S8 EcuC change) and consumes `references[]` for the same auto-`#include` + reference decl behaviour.
+- **G4 (SEC3 wire-up)**: `validateHeaderPath` (v1.13.5 PATCH-F defensive-only) is now called on every BSWMD-supplied `moduleHeader` and `includes[]` entry. Failures push `BSW-SEC-002` ERROR; pipeline S6 early-break stops Stage 2.
+
+Test count: 2418 → 2427 (+9: 2 bswmd, 4 validate-module-header-paths, 2 mcu, 1 pipeline integration).
+
+## v1.14.0 (2026-06-25) — MINOR: D-rev2 closeout
+
+Closes all 7 D-rev2 joint review findings (2 CRITICAL + 5 LOW/MED).
+
+- **S1 (CRITICAL)**: Module-scoped header guard via `buildHeaderGuard(moduleShortName)` in `_shared.ts`. `EcuC_Cfg.h` and `Mcu_Cfg.h` no longer share a generic include guard.
+- **S2 (CRITICAL)**: EcuCGenerator consumes `values.references[]` and emits reference decls (`extern CONST(void * const, AUTOMATIC) Module_Foo = &Target_Bar_0;`).
+- **S5**: `ECUC-GEN-INFO-001` promoted INFO→WARNING (visible by default).
+- **S6**: Pipeline Stage 2 early-break on Stage 1 ERROR (no wasted emit work).
+- **S8**: `walkContainers` depth-first pre-order recursive container walk in EcuC.
+- **S9**: `validateReferences` instance-level check (target container instance exists).
+- **S10**: Cross-type sibling shortName uniqueness (container↔parameter).
+
+22 files / +893 / -96. 245/245 test files pass, 2418 tests + 2 skip + 0 todo.
+
 ## [1.11.4] - 2026-06-24 — PATCH: R4.0 version list single-source + E2E AppHeader fallback + BSWMD fixture extract
 
 PATCH bump: **3 commits since v1.11.3** (v1.11.3 merge commit `6a9710da8944b8294e153cf79073a8115a13d271`). Closes the remaining v1.12.0+ PATCH backlog items (A: R4.0 version list debt, B: E2E harness AppHeader fallback, C: BSWMD fixture extract) ahead of the upcoming v1.12.0 MINOR (joint review rerun + BSW code generator 补完).

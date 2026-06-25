@@ -78,3 +78,35 @@ export function walkContainers(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// v1.14.1 PATCH-G (G3) — ancestry-aware sibling helper.
+// ---------------------------------------------------------------------------
+
+/**
+ * Depth-first pre-order traversal that threads the accumulated
+ * `parentPath` into the visit callback as a second argument. The
+ * initial `parentPath` is typically `''` (root) or the module's
+ * `shortName` (so descendants get a `Module/` prefix on their
+ * ancestry). At each level the callback receives the container and
+ * the full slash-separated ancestry leading up to (but not
+ * including) that container.
+ *
+ * Companion to `walkContainers` — the v1.14.0 S8 helper stays
+ * un-touched because its callback signature is locked by the S8
+ * tests. Mcu's G3 walk uses this helper (EcuC still uses the
+ * leaf-only `walkContainers`; see EcuC comment at the call site).
+ */
+export function walkContainersWithAncestry(
+  containers: readonly ContainerLike[],
+  parentPath: string,
+  visit: (c: ContainerLike, ancestry: string) => void,
+): void {
+  for (const c of containers) {
+    const ancestry = parentPath ? `${parentPath}/${c.shortName}` : c.shortName;
+    visit(c, ancestry);
+    if (c.containers && c.containers.length > 0) {
+      walkContainersWithAncestry(c.containers, ancestry, visit);
+    }
+  }
+}

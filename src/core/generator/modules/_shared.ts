@@ -28,8 +28,8 @@
 //     but not action-required since `cType`'s `'??'` is fail-fast by
 //     design and not actually reachable through the BSWMD parser).
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
-import { cIdent } from '../handlebars-helpers.js';
+import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
+import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
 import type { GenerationContext } from '../registry.js';
 
 /**
@@ -117,4 +117,81 @@ export function buildHeaderGuard(moduleShortName: string): string {
   const ident = cIdent(moduleShortName);
   if (!ident) return 'UNNAMED_MODULE_CFG_H';
   return `${ident.toUpperCase()}_CFG_H`;
+}
+
+/**
+ * v1.14.1 PATCH-G (G4) — SEC3 wire-up. For every module in the
+ * BSWMD index, validate its `moduleHeader` and each entry in
+ * `includes[]` against `validateHeaderPath` (the v1.13.5 PATCH-F
+ * whitelist). Pushes ERROR `BSW-SEC-002` for any path that
+ * contains `..`, starts with `/`, fails the `[A-Za-z0-9_./-]+`
+ * whitelist, or is empty. Module-level iteration is per the
+ * pipeline's existing `Parameters<typeof validator>[0]` cast
+ * pattern (D-rev2 PATCH-D).
+ */
+export interface BswmdIndexForModuleHeaderPaths {
+  readonly shortName: string;
+  readonly moduleHeader?: string;
+  readonly includes?: readonly string[];
+}
+
+export function validateModuleHeaderPaths(
+  bswmdIndex: ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+): readonly Diagnostic[] {
+  const out: Diagnostic[] = [];
+  for (const [modName, modDef] of bswmdIndex) {
+    if (modDef.moduleHeader !== undefined && !validateHeaderPath(modDef.moduleHeader)) {
+      out.push({
+        severity: DiagnosticSeverity.ERROR,
+        code: DiagnosticCode.BSW_SEC_INVALID_HEADER_PATH,
+        moduleShortName: modName,
+        message: `Module ${modName} moduleHeader '${modDef.moduleHeader}' fails SEC3 validation (whitelist ^[A-Za-z0-9_./-]+$ + no leading / + no .. segment)`,
+      });
+    }
+    for (const inc of modDef.includes ?? []) {
+      if (!validateHeaderPath(inc)) {
+        out.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.BSW_SEC_INVALID_HEADER_PATH,
+          moduleShortName: modName,
+          message: `Module ${modName} include '${inc}' fails SEC3 validation`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * v1.14.1 PATCH-G (G2) — resolve a `references[]` list to the set
+ * of BSWMD-supplied target module headers, deduped against any
+ * pre-existing include set. Each ref's `targetModule` is looked
+ * up in `bswmdIndex`; if `moduleHeader` is present and passes
+ * `validateHeaderPath`, the path is added to the output. The
+ * caller-owned `existing` Set is never mutated: a local `seen`
+ * Set is seeded from `existing` and used for dedup, so this
+ * helper is fully immutable and safe to compose.
+ *
+ * Caller responsibility: when `ref.targetModule` is in the
+ * BSWMD index but its `moduleHeader` is undefined, the caller
+ * should push `BSW-SEC-004` so the user knows which target
+ * module needs `<HEADER>` added. This helper does not push
+ * diagnostics — it only resolves paths.
+ */
+export function buildReferenceIncludes(
+  references: readonly { readonly targetModule: string }[],
+  bswmdIndex: ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+  existing: ReadonlySet<string>,
+): readonly string[] {
+  const seen = new Set<string>(existing);
+  const out: string[] = [];
+  for (const ref of references) {
+    const targetDef = bswmdIndex.get(ref.targetModule);
+    const hdr = targetDef?.moduleHeader;
+    if (hdr && !seen.has(hdr) && validateHeaderPath(hdr)) {
+      out.push(hdr);
+      seen.add(hdr);
+    }
+  }
+  return out;
 }

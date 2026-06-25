@@ -109,4 +109,84 @@ describe('McuGenerator', () => {
     expect(diag?.code).toBe('ECUC-GEN-INFO-001');
     expect(diag?.severity).toBe('WARNING');
   });
+
+  // v1.14.1 PATCH-G (G3) — Mcu recursive container walk parity with
+  // EcuC. Before the fix, Mcu used a flat 1-level for-loop that
+  // silently dropped nested containers (D-rev2 S8 followup). This
+  // test asserts that 2-level nesting emits both levels' parameters.
+  it('v1.14.1 G3 — recursively walks nested containers', () => {
+    const g = new McuGenerator();
+    const out = g.emit(
+      {
+        shortName: 'Mcu',
+        containers: [
+          {
+            shortName: 'McuModuleConfiguration',
+            parameters: [{ kind: 'integer', shortName: 'McuClockReferencePointFrequency' }],
+            containers: [
+              {
+                shortName: 'McuRamSection',
+                parameters: [{ kind: 'integer', shortName: 'McuRamSectionBaseAddress' }],
+              },
+            ],
+          },
+        ],
+      } as never,
+      {} as never,
+      {
+        variant: 'PreCompile',
+        bswmdIndex: new Map(),
+        implByModule: new Map(),
+        outDir: '/tmp',
+        diagnostics: [],
+        bswmdParamIndex: new Map(),
+      },
+    );
+    const c = out.find((a) => a.path === 'Mcu/Mcu_Cfg.c');
+    if (!c) throw new Error('Mcu_Cfg.c missing');
+    // Both the top-level param and the nested-container param must
+    // appear (G3 closes the flat-1-level walk D-rev2 S8 followup).
+    expect(c.content).toContain('Mcu_McuModuleConfiguration_McuClockReferencePointFrequency');
+    expect(c.content).toContain(
+      'Mcu_McuModuleConfiguration_McuRamSection_McuRamSectionBaseAddress',
+    );
+  });
+
+  // v1.14.1 PATCH-G (G3) — S2 parity with EcuC. Mcu's `references[]`
+  // must produce `extern CONST(void * const, AUTOMATIC)` decls in
+  // Cfg.h and auto-#include the target module's header. Mirrors
+  // the G2 / S2 EcuC test in `refs-emit.test.ts`.
+  it('v1.14.1 G3 — consumes references[] and renders const pointer decl', () => {
+    const g = new McuGenerator();
+    const bswmdIndex = new Map([
+      ['Mcu', { shortName: 'Mcu', moduleHeader: 'Mcu/Mcu_Cfg.h' }],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ] as never);
+    const out = g.emit(
+      { shortName: 'Mcu', containers: [] } as never,
+      {
+        references: [
+          {
+            path: 'Mcu/McuModuleConfiguration/McuRamSectionRef',
+            targetModule: 'Os',
+            targetPath: 'Os/OsCore/OsCore_0',
+          },
+        ],
+      } as never,
+      {
+        variant: 'PreCompile',
+        bswmdIndex: bswmdIndex as never,
+        implByModule: new Map(),
+        outDir: '/tmp',
+        diagnostics: [],
+        bswmdParamIndex: new Map(),
+      },
+    );
+    const h = out.find((a) => a.path === 'Mcu/Mcu_Cfg.h');
+    if (!h) throw new Error('Mcu_Cfg.h missing');
+    expect(h.content).toContain('#include "Os/Os_Cfg.h"');
+    expect(h.content).toContain(
+      'extern CONST(void * const, AUTOMATIC) Mcu_McuModuleConfiguration_McuRamSectionRef = &Os_OsCore_OsCore_0',
+    );
+  });
 });
