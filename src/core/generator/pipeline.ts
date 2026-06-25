@@ -12,6 +12,13 @@
 //   `ctx.diagnostics` array. Missing generator → WARNING
 //   (`ECUC-GEN-002`); throw → ERROR (`ECUC-GEN-003`).
 //
+//   v1.14.0 MINOR S6 — if Stage 1 produces any ERROR diagnostic, Stage 2
+//   is skipped entirely. The pipeline returns an empty artifacts map
+//   with the correct exit code. This is a global gate (any ERROR →
+//   no generators run for any module), conservative by design: a fatal
+//   input means no artifacts should be emitted, even for modules whose
+//   own validation passed.
+//
 // Stage 3 — Exit-code logic:
 //   - any ERROR            → 1
 //   - any WARNING + strict → 1
@@ -97,10 +104,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // v1.12.0 E4 — integer/float range validation (only fires when
   // BSWMD declares min/max). Type-mismatch is owned by E3 above.
   diagnostics.push(
-    ...validateRange(
-      args.bswmdIndex as BswmdIndexForRange,
-      args.ecucValues as EcucIndexForRange,
-    ),
+    ...validateRange(args.bswmdIndex as BswmdIndexForRange, args.ecucValues as EcucIndexForRange),
   );
   // v1.12.0 E5 — container INDEX ordering check. Warns when source
   // INDEX sequence is not strictly ascending (the emit will force-sort
@@ -114,21 +118,33 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // v1.12.0 E6 — sibling shortName uniqueness. Parameters only —
   // container siblings share shortName by AUTOSAR array semantics (see
   // `validateUniqueShortNames` doc).
-  diagnostics.push(
-    ...validateUniqueShortNames(args.ecucValues as EcucIndexForUniqueShortNames),
-  );
+  diagnostics.push(...validateUniqueShortNames(args.ecucValues as EcucIndexForUniqueShortNames));
 
   // Stage 2 — Generate
+  //
+  // v1.14.0 MINOR S6 — bail out of Stage 2 when Stage 1 produced any
+  // ERROR diagnostic. Without this gate, generators run against
+  // malformed input (e.g. unresolved cross-module references) and may
+  // emit garbage that overwrites valid artifacts on disk. Stage 3
+  // (exit-code derivation) still runs so the user sees the correct
+  // exit code for the partial work. (D-rev2 Senior S6)
+  if (diagnostics.some((d) => d.severity === DiagnosticSeverity.ERROR)) {
+    const hasError = true;
+    const hasWarning = diagnostics.some((d) => d.severity === DiagnosticSeverity.WARNING);
+    let exitCode: 0 | 1 | 2;
+    if (hasError) exitCode = 1;
+    else if (hasWarning && args.strict) exitCode = 1;
+    else exitCode = 0;
+    return { exitCode, diagnostics, artifacts: new Map() };
+  }
+
   const artifacts = new Map<string, string>();
   // v1.12.0 E1 — iterate the UNION of bswmdIndex + ecucValues keys so a
   // values-only module (present in ecucValues but missing BSWMD) surfaces
   // as NO_SCHEMA WARN. Pre-E1 the loop only walked bswmdIndex, which
   // made the `if (!def)` branch unreachable (the loop's own key was
   // guaranteed to be in the index it just iterated).
-  const allModuleNames = new Set<string>([
-    ...args.bswmdIndex.keys(),
-    ...args.ecucValues.keys(),
-  ]);
+  const allModuleNames = new Set<string>([...args.bswmdIndex.keys(), ...args.ecucValues.keys()]);
   const moduleNames = args.moduleFilter
     ? [...allModuleNames].filter((m) => args.moduleFilter!.includes(m))
     : [...allModuleNames];

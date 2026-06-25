@@ -1,5 +1,5 @@
-#ifndef ECU_CFG_H
-#define ECU_CFG_H
+#ifndef ECUC_CFG_H
+#define ECUC_CFG_H
 
 #include "Std_Types.h"
 
@@ -9,9 +9,10 @@ extern "C" {
 #endif
 
 
+extern CONST(void * const, AUTOMATIC) EcuC_EcuCGeneral_PartitionRef = &Os_OsCore_OsCore_0;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* ECU_CFG_H */
+#endif /* ECUC_CFG_H */

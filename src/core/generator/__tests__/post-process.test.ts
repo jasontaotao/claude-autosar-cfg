@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
+import type { Diagnostic } from '../diagnostics.js';
+
 // Mock node:fs/promises so we can observe writeFile + rename without
 // fighting non-configurable property descriptors on the namespace import.
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -92,7 +94,7 @@ describe('writeOutputTree', () => {
   // start with the canonicalized outDir. Escape attempts push an
   // ECUC-GEN-031 (OUTPUT_WRITE) diagnostic.
   it('refuses to write artifacts whose path escapes outDir (SEC4)', async () => {
-    const diagnostics: import('../diagnostics.js').Diagnostic[] = [];
+    const diagnostics: Diagnostic[] = [];
     const artifacts = new Map<string, string>([
       ['evil/../../../tmp/escape.c', '/* escape */'],
       ['legit.c', '/* legit */'],

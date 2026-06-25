@@ -255,9 +255,7 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
             },
           ],
         ]),
-        ecucValues: new Map([
-          ['Stub', { parameters: [{ shortName: 'Enable', value: 'true' }] }],
-        ]),
+        ecucValues: new Map([['Stub', { parameters: [{ shortName: 'Enable', value: 'true' }] }]]),
         variant: 'PreCompile',
         outDir: '/tmp',
         moduleFilter: undefined,
@@ -290,9 +288,7 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
             },
           ],
         ]),
-        ecucValues: new Map([
-          ['Stub', { parameters: [{ shortName: 'Priority', value: 99 }] }],
-        ]),
+        ecucValues: new Map([['Stub', { parameters: [{ shortName: 'Priority', value: 99 }] }]]),
         variant: 'PreCompile',
         outDir: '/tmp',
         moduleFilter: undefined,
@@ -489,12 +485,19 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     expect(err!.message).toContain('bad/path.c');
   });
 
-  // E9 — ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO). EcuCGenerator is
+  // E9 — ECUC-GEN-INFO-001 (EMPTY_VARIANT). EcuCGenerator is
   // registered with a BSWMD module def that has zero containers AND the
-  // values carry zero parameters. The generator should push an INFO
-  // diagnostic so the user knows the active variant produced nothing
-  // (rather than silently emitting a stub Cfg.c/Cfg.h).
-  it('ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO) fires when active variant has no elements', async () => {
+  // values carry zero parameters. The generator pushes a diagnostic so
+  // the user knows the active variant produced nothing (rather than
+  // silently emitting a stub Cfg.c/Cfg.h).
+  //
+  // v1.14.0 MINOR S5 — severity promoted from INFO → WARNING
+  // (D-rev2 Senior S5). The empty-variant case is non-trivial: it
+  // means a BSWMD module was loaded but generated nothing, which the
+  // user must see. The code string `ECUC-GEN-INFO-001` is preserved
+  // for backwards compat with downstream consumers; only the severity
+  // changes. In strict mode this now escalates to exitCode=1.
+  it('ECUC-GEN-INFO-001 (EMPTY_VARIANT, WARNING) fires when active variant has no elements', async () => {
     const { EcuCGenerator } = await import('../modules/ecuc.js');
     _resetRegistryForTest();
     registerGenerator(new EcuCGenerator());
@@ -517,10 +520,36 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
       },
       DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
     );
-    expect(diag.severity).toBe(DiagnosticSeverity.INFO);
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
     expect(diag.moduleShortName).toBe('EcuC');
-    // INFO → exit 0
+    // WARNING (no strict) → exit 0 (success-with-warning).
     expect(result.exitCode).toBe(0);
+  });
+
+  // v1.14.0 MINOR S5 — strict mode flips the empty-variant WARNING
+  // into exitCode=1 (matches the existing strict-mode contract for
+  // other WARNINGs). Pins the new behavior so a future regression to
+  // INFO severity would surface here.
+  it('ECUC-GEN-INFO-001 escalates to exitCode=1 in --strict mode (D-rev2 S5)', async () => {
+    const { EcuCGenerator } = await import('../modules/ecuc.js');
+    _resetRegistryForTest();
+    registerGenerator(new EcuCGenerator());
+    const result = await runPipeline({
+      bswmdIndex: new Map([['EcuC', { shortName: 'EcuC', containers: [] }]]),
+      ecucValues: new Map([['EcuC', { parameters: [] }]]),
+      variant: 'PreCompile',
+      outDir: '/tmp',
+      moduleFilter: undefined,
+      strict: true,
+    });
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.diagnostics.some(
+        (d) =>
+          d.code === DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT &&
+          d.severity === DiagnosticSeverity.WARNING,
+      ),
+    ).toBe(true);
   });
 });
 

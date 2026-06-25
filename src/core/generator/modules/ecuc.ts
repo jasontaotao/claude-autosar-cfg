@@ -25,7 +25,10 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
+import { walkContainers, type ContainerLike } from '../emit/container.js';
+import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
+import type { BswmdParamDefLite } from '../normalize.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,
@@ -33,7 +36,7 @@ import {
 } from '../registry.js';
 import { loadModuleTemplate } from '../templates/loader.js';
 
-import { pushEmptyVariantDiagnostic, renderCValue } from './_shared.js';
+import { pushEmptyVariantDiagnostic, renderCValue, buildHeaderGuard } from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -86,6 +89,11 @@ interface EcuCParamDefLike {
 interface EcuCContainerDefLike {
   readonly shortName: string;
   readonly parameters: readonly EcuCParamDefLike[];
+  // v1.14.0 MINOR S8 — optional nested containers. Real BSWMD nests
+  // 2-3 levels deep (D-rev2 Senior S8), e.g. EcuC PartitionConfig →
+  // PartitionBuffer → PartitionBufferHeader. Optional so existing flat
+  // fixtures keep compiling unchanged.
+  readonly containers?: readonly EcuCContainerDefLike[];
 }
 
 interface EcuCModuleDefLike {
@@ -100,8 +108,17 @@ interface EcuCParamValueLike {
   readonly value: unknown;
 }
 
+interface EcucReferenceValueLike {
+  readonly path: string;
+  readonly targetModule: string;
+  readonly targetPath: string;
+}
+
 interface EcuCModuleValuesLike {
   readonly parameters?: readonly EcuCParamValueLike[];
+  // v1.14.0 MINOR S2 — references consumed for referenceDecls emission
+  // (D-rev2 Senior S2 / Refs-1 backlog). Replaces hardcoded `[]`.
+  readonly references?: readonly EcucReferenceValueLike[];
 }
 
 const GENERATOR_VERSION = '1.11.0';
@@ -202,9 +219,15 @@ export class EcuCGenerator implements ModuleGenerator {
     const postBuildDecls: string[] = [];
     let postBuildOffset = 0;
 
-    for (const container of eDef.containers) {
-      for (const pDef of container.parameters) {
-        const path = `${eDef.shortName}/${container.shortName}/${pDef.shortName ?? 'Param'}`;
+    // v1.14.0 MINOR S8 — recursive container walk (D-rev2 Senior S8).
+    // Replaces the flat 1-level for-loop so nested BSWMD (e.g. EcuC
+    // PartitionConfig → PartitionBuffer → PartitionBufferHeader) emits
+    // params from every level. Flat fixtures are unaffected (their
+    // containers[] is empty or undefined).
+    walkContainers(eDef.containers as readonly ContainerLike[], (container) => {
+      const cDef = container as EcuCContainerDefLike;
+      for (const pDef of cDef.parameters) {
+        const path = `${eDef.shortName}/${cDef.shortName}/${pDef.shortName ?? 'Param'}`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
         const ident = cIdent(path);
@@ -222,7 +245,7 @@ export class EcuCGenerator implements ModuleGenerator {
           preCompileDecls.push(emitConstDecl(ident, cType, init));
         }
       }
-    }
+    });
 
     // v1.13.4 PATCH-B (L3) — PostBuild routing driven by BSWMD
     // paramConfigClass instead of the /PostBuild/i.test(path) regex
@@ -247,13 +270,33 @@ export class EcuCGenerator implements ModuleGenerator {
     const header = headerTpl()({
       moduleShortName: eDef.shortName,
       generatorVersion: GENERATOR_VERSION,
+      // v1.14.0 MINOR S1 — module-scoped header guard replaces the
+      // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
+      headerGuard: buildHeaderGuard(eDef.shortName),
       includes: [] as readonly string[],
       typedefs: [] as readonly {
         name: string;
         fields: readonly { cType: string; name: string }[];
       }[],
       externDecls: linkDecls,
-      referenceDecls: [] as readonly string[],
+      // v1.14.0 MINOR S2 — consume values.references[] for cross-module
+      // pointer declarations (D-rev2 Senior S2). Thread real
+      // targetType from the BSWMD param index when available
+      // (joint-review S2 targetType finding); fall back to `void`
+      // for legacy fixtures that don't model reference types.
+      // The helper guards against empty targetIdent (joint-review F1)
+      // — see emitReferenceDecl in emit/reference.ts.
+      //
+      // The cfg.h.hbs template wraps each entry as
+      // `extern {{{this}}};` (lines 27-29), so we strip the trailing
+      // `;` from emitReferenceDecl's output to avoid `;;`.
+      referenceDecls: (eVals.references ?? []).map((ref) => {
+        const sourceIdent = cIdent(ref.path);
+        const targetIdent = cIdent(ref.targetPath);
+        const pDef = ctx.bswmdParamIndex?.get(ref.path) as { targetType?: string } | undefined;
+        const targetType = pDef?.targetType ?? 'void';
+        return emitReferenceDecl({ ident: sourceIdent, targetIdent, targetType }).replace(/;$/, '');
+      }),
     });
 
     const source = sourceTpl()({
@@ -299,13 +342,12 @@ export class EcuCGenerator implements ModuleGenerator {
 function isPostBuild(
   path: string,
   variant: 'PreCompile' | 'Link' | 'PostBuild',
-  paramIndex?: ReadonlyMap<string, import('../normalize.js').BswmdParamDefLite>,
+  paramIndex?: ReadonlyMap<string, BswmdParamDefLite>,
 ): boolean {
   if (!paramIndex) return false;
   const param = paramIndex.get(path);
   if (!param) return false;
-  const targetVariant =
-    variant === 'PostBuild' ? 'VARIANT-POST-BUILD' : 'VARIANT-PRE-COMPILE';
+  const targetVariant = variant === 'PostBuild' ? 'VARIANT-POST-BUILD' : 'VARIANT-PRE-COMPILE';
   return param.paramConfigClasses.some(
     (cc) => cc.configVariant === targetVariant && cc.configClass === 'POST-BUILD',
   );

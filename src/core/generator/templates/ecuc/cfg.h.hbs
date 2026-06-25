@@ -1,6 +1,6 @@
 {{> license}}
-#ifndef ECU_CFG_H
-#define ECU_CFG_H
+#ifndef {{headerGuard}}
+#define {{headerGuard}}
 
 #include "Std_Types.h"
 {{#each includes}}
@@ -32,4 +32,4 @@ extern {{{this}}};
 }
 #endif
 
-#endif /* ECU_CFG_H */
+#endif /* {{headerGuard}} */

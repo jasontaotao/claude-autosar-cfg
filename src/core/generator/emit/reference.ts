@@ -30,6 +30,16 @@ export interface NormalizedConfigTree {
 /**
  * Validate that every cross-module reference resolves to an existing
  * target. Returns diagnostics; pushed to ctx.diagnostics by the caller.
+ *
+ * v1.14.0 MINOR S9 — instance-level check (D-rev2 Senior S9). The
+ * pre-v1.14.0 implementation used a loose `(targetMod as Record<string,
+ * unknown>)[ref.targetPath]` lookup that rejected valid references
+ * (e.g. when targetMod is the raw `Os` values object that doesn't
+ * carry a flat string key for `Os/OsCore/OsCore_0`) AND silently
+ * accepted invalid ones (e.g. `targetPath` ending in a non-existent
+ * tail). The new check requires the target path's shortName tail to
+ * match a real container instance declared in the target module's
+ * `containers[]`.
  */
 export function validateReferences(tree: NormalizedConfigTree): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
@@ -45,14 +55,22 @@ export function validateReferences(tree: NormalizedConfigTree): readonly Diagnos
       });
       continue;
     }
-    const targetContainer = (targetMod as Record<string, unknown>)[ref.targetPath];
-    if (targetContainer === undefined) {
+    // v1.14.0 MINOR S9 — instance-level check. The target path's
+    // shortName tail must match a recognized container instance in
+    // the target module's `containers[]` array. Replaces the loose
+    // `(targetMod as Record<string, unknown>)[ref.targetPath]` lookup
+    // that silently accepted any string match.
+    const targetContainers = (targetMod as { containers?: readonly { shortName: string }[] })
+      .containers;
+    const targetPathTail = ref.targetPath.split('/').pop() ?? ref.targetPath;
+    const targetIsInstance = targetContainers?.some((c) => c.shortName === targetPathTail) ?? false;
+    if (!targetIsInstance) {
       out.push({
         severity: DiagnosticSeverity.ERROR,
         code: DiagnosticCode.ECUC_GEN_REF_UNRESOLVED,
         moduleShortName: ref.sourceModule,
         ecucPath: ref.sourcePath,
-        message: `Reference target ${ref.targetModule}/${ref.targetPath} not found in values`,
+        message: `Reference target ${ref.targetModule}/${ref.targetPath} is not a known container instance`,
       });
     }
   }
@@ -66,5 +84,15 @@ export interface ReferenceDeclInput {
 }
 
 export function emitReferenceDecl(input: ReferenceDeclInput): string {
+  // v1.14.0 MINOR (joint review F1) — guard against empty targetIdent.
+  // An empty cIdent (e.g. `cIdent('   ')` returns '') would otherwise
+  // emit `CONST(...) Foo = & ;` — malformed C. Throw so the E2/E7
+  // pipeline catches it as a generator error (ECUC-GEN-003) instead
+  // of producing compile-time garbage.
+  if (!input.targetIdent) {
+    throw new Error(
+      `emitReferenceDecl: empty targetIdent (source='${input.ident}', targetType='${input.targetType}')`,
+    );
+  }
   return `CONST(${input.targetType} * const, AUTOMATIC) ${input.ident} = &${input.targetIdent};`;
 }

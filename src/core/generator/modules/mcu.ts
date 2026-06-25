@@ -32,7 +32,7 @@ import {
 } from '../registry.js';
 import { loadModuleTemplate } from '../templates/loader.js';
 
-import { pushEmptyVariantDiagnostic, renderCValue } from './_shared.js';
+import { pushEmptyVariantDiagnostic, renderCValue, buildHeaderGuard } from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -169,6 +169,9 @@ export class McuGenerator implements ModuleGenerator {
     const header = headerTpl()({
       moduleShortName: mDef.shortName,
       generatorVersion: GENERATOR_VERSION,
+      // v1.14.0 MINOR S1 — module-scoped header guard replaces the
+      // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
+      headerGuard: buildHeaderGuard(mDef.shortName),
       includes: [] as readonly string[],
       typedefs: [] as readonly {
         name: string;

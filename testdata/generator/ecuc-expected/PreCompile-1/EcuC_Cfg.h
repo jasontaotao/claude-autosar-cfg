@@ -1,5 +1,5 @@
-#ifndef ECU_CFG_H
-#define ECU_CFG_H
+#ifndef ECUC_CFG_H
+#define ECUC_CFG_H
 
 #include "Std_Types.h"
 
@@ -14,4 +14,4 @@ extern "C" {
 }
 #endif
 
-#endif /* ECU_CFG_H */
+#endif /* ECUC_CFG_H */
