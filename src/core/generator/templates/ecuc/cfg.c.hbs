@@ -1,0 +1,18 @@
+{{> license}}
+#include "{{moduleHeader}}"
+
+{{#each preCompileDecls}}
+{{this}}
+{{/each}}
+
+{{#each linkDecls}}
+{{this}}
+{{/each}}
+
+{{#each postBuildDecls}}
+{{this}}
+{{/each}}
+
+{{#each choiceBlocks}}
+{{this}}
+{{/each}}

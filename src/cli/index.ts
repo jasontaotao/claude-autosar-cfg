@@ -29,3 +29,11 @@ export { parsePatchDocument, parsePatchJson, parsePatchYaml } from './patch-pars
 export { readHeadlessProject } from './handlers/read.js';
 export { mutateHeadlessProject } from './handlers/mutate.js';
 export { validateHeadlessProject } from './handlers/validate.js';
+export { generateHeadlessProject } from './handlers/generate.js';
+export type {
+  GenerateArgs,
+  GenerateResult,
+  GeneratedFile,
+  HeadlessGenerateVariant,
+  HeadlessGenerateFormat,
+} from '../shared/headless/ipc-contract.js';

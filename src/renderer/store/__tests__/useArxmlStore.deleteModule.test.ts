@@ -13,6 +13,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument, ArxmlModule } from '@core/arxml/types';
+import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 
 import * as combinedDoc from '../helpers/combinedDoc.js';
 import { useArxmlStore } from '../useArxmlStore';
@@ -178,6 +179,83 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     expect(next.validationErrors).toBe(trioBefore.validationErrors);
     expect(next.lastValidatedAt).toBe(trioBefore.lastValidatedAt);
     expect(next.displayDoc).toBe(trioBefore.displayDoc);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HIGH-1 regression — deleteEcucModule must thread `state.bswmdSchemas` to
+// computeDisplayDoc so the post-mutation fold uses the same BSWMD whitelist
+// as pre-mutation. Without this, the fold falls back to the heuristic
+// prefix-only path and the displayDoc shape drifts from what the user was
+// editing (re-introduces v1.9.0 Sprint X HIGH #1).
+//
+// Spy approach rationale: the behavioral difference (fold result with vs
+// without bswmdSchemas) only surfaces for NESTED package structures
+// (`EcucDefs > Adc > module`), but `removeModuleFromDoc` only works on
+// FLAT paths (module directly in rootPkg.elements — it filters
+// `target.pkg.elements` which is the root package's elements, not the
+// package containing the module). So a behavioral test for nested paths
+// would short-circuit at the no-op guard. Instead, we spy on
+// `computeDisplayDoc` and assert the call signature — that's the
+// behavior we actually care about: the helper was called with the
+// 5th arg equal to `state.bswmdSchemas`.
+// ---------------------------------------------------------------------------
+
+describe('useArxmlStore.deleteEcucModule — HIGH-1 bswmdSchemas threading (v1.9.0 vendor-fold regression)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    vi.restoreAllMocks();
+  });
+
+  it('threads state.bswmdSchemas as the 5th argument to computeDisplayDoc', () => {
+    // Arrange — flat structure so removeModuleFromDoc finds and removes
+    // the module successfully.
+    const doc: ArxmlDocument = {
+      path: '/test/Adc_EcucValues.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Adc',
+          path: '/Adc',
+          elements: [makeModule('Adc')],
+        },
+      ],
+    };
+    useArxmlStore.getState().addDocument(doc, doc.path);
+    const expectedSchemas = [
+      makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam')),
+    ];
+    useArxmlStore.setState({
+      bswmdSchemas: expectedSchemas,
+      bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
+    });
+
+    // Spy on computeDisplayDoc — vi.spyOn on a module export works in
+    // Vitest's ESM-aware runtime when the import resolves to a named
+    // export of the same module object (which `combinedDoc.js`
+    // provides). The spy preserves the original implementation.
+    const spy = vi.spyOn(combinedDoc, 'computeDisplayDoc');
+
+    // Act
+    useArxmlStore.getState().deleteEcucModule('/Adc/Adc');
+
+    // Assert — the call MUST have received the populated bswmdSchemas
+    // as its 5th argument. Pre-fix the call site omitted the argument
+    // entirely (`computeDisplayDoc(a, b, c, d)` — bswmdSchemas
+    // defaulted to `[]` inside the fold). After-fix the helper threads
+    // `state.bswmdSchemas` and the 5th arg of the post-mutation call
+    // is the populated array.
+    expect(spy).toHaveBeenCalled();
+    // Find the call that matches the post-mutation signature
+    // (viewMode, nextDoc, nextDocuments, documentPaths, bswmdSchemas).
+    const calledWithSchemas = spy.mock.calls.some(
+      (args) =>
+        args[0] === 'single' &&
+        // 5th arg present and equals our populated schemas reference
+        args.length >= 5 &&
+        args[4] === expectedSchemas,
+    );
+    expect(calledWithSchemas).toBe(true);
   });
 });
 

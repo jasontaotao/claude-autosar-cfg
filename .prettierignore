@@ -10,4 +10,7 @@ vendor/
 # These are immutable records; prettier --check skips them so the
 # verify pipeline stays green without re-flowing the historical text.
 docs/release-notes/**
+docs/release-notes-v1.10.1.md
+docs/release-notes-v1.10.2.md
+docs/release-notes-v1.10.3.md
 docs/superpowers/archive/

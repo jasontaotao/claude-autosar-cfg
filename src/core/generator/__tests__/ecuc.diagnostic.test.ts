@@ -1,0 +1,529 @@
+// core/generator/__tests__/ecuc.diagnostic.test.ts
+//
+// Acceptance-gate coverage for every DiagnosticCode defined in Task 1.
+// As of v1.12.0 MINOR E, all 12 codes (E1-E9 + the 3 pre-existing real
+// codes) have producer code AND real `it(...)` tests in this file.
+//
+// History:
+//   - v1.11.0: 3 real codes (NO_GENERATOR, THROW, REF_UNRESOLVED).
+//   - v1.12.0 MINOR E1-E9: filled the remaining 9 deferred codes with
+//     validation helpers in `src/core/generator/emit/` + pipeline.ts
+//     wiring. All 9 test.todo placeholders replaced with real tests.
+//
+// The tests use module-level fixtures only (no ARXML on disk):
+// the pipeline's pre-process + generate stages accept `Map<string, ...>`
+// inputs, so the tests stay close to the wire shape and avoid coupling
+// to a future XML parser.
+
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import {
+  DiagnosticSeverity,
+  DiagnosticCode,
+  type Diagnostic,
+  type DiagnosticCodeValue,
+} from '../diagnostics.js';
+import { runPipeline } from '../pipeline.js';
+import {
+  registerGenerator,
+  _resetRegistryForTest,
+  type ModuleGenerator,
+  type GeneratedArtifact,
+} from '../registry.js';
+import { TemplateRenderError } from '../template-render-error.js';
+
+class StubGen implements ModuleGenerator {
+  readonly moduleShortName = 'Stub';
+  emit(): readonly GeneratedArtifact[] {
+    return [{ path: 'Stub/Stub_Cfg.c', content: '/* stub */' }];
+  }
+}
+
+beforeEach(() => {
+  _resetRegistryForTest();
+  registerGenerator(new StubGen());
+});
+
+/**
+ * Helper — runs the pipeline with the given inputs and returns the
+ * diagnostics array (asserting presence of the requested code).
+ *
+ * Kept local to this file because every test rolls its own scenario;
+ * pulling a shared builder into `test-fixtures/` would obscure the
+ * pre-process/emit boundary that each test is pinning.
+ */
+async function runAndFind(args: Parameters<typeof runPipeline>[0], code: DiagnosticCodeValue) {
+  const result = await runPipeline(args);
+  const diag = result.diagnostics.find((d) => d.code === code);
+  if (!diag) {
+    throw new Error(
+      `Expected diagnostic ${code} not emitted. Got: ${
+        result.diagnostics.map((d) => `${d.severity}:${d.code}`).join(', ') || '(none)'
+      }`,
+    );
+  }
+  return { result, diag };
+}
+
+describe('Diagnostic fixture triggers — real pipeline emissions', () => {
+  it('ECUC-GEN-002 (NO_GENERATOR, WARN) fires when generator not registered', async () => {
+    // Stub is in bswmdIndex (so NO_SCHEMA won't fire) but no generator
+    // is registered for it (beforeEach registers StubGen; here we
+    // reset and re-register a different module to keep 'Stub' bare).
+    _resetRegistryForTest();
+    // Register an unrelated generator so the registry is non-empty;
+    // 'Stub' itself has no generator.
+    registerGenerator({
+      moduleShortName: 'Other',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Stub', { shortName: 'Stub' }]]),
+        ecucValues: new Map([['Stub', {}]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_NO_GENERATOR,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(diag.moduleShortName).toBe('Stub');
+  });
+
+  it('ECUC-GEN-003 (THROW, ERROR) fires when generator throws', async () => {
+    // Replace the default StubGen with a throwing one. The pipeline's
+    // generate-stage try/catch wraps emit() and pushes ECUC_GEN_THROW
+    // with severity=ERROR and the throw's stack/message.
+    _resetRegistryForTest();
+    class ThrowGen implements ModuleGenerator {
+      readonly moduleShortName = 'Stub';
+      emit(): readonly GeneratedArtifact[] {
+        throw new Error('boom');
+      }
+    }
+    registerGenerator(new ThrowGen());
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Stub', { shortName: 'Stub' }]]),
+        ecucValues: new Map([['Stub', {}]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_THROW,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.message).toContain('boom');
+    expect(result.exitCode).toBe(1); // any ERROR → exit 1
+  });
+
+  it('ECUC-GEN-010 (REF_UNRESOLVED, ERROR) fires for unresolved cross-module ref', async () => {
+    // Pipeline pre-process calls validateReferences, which iterates
+    // tree.references. Source module 'Stub' references target module
+    // 'MissingMod' — not present in ecucValues, so targetMod is
+    // undefined → NO_SCHEMA-style ERROR push.
+    const { diag } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Stub', { shortName: 'Stub' }]]),
+        ecucValues: new Map([
+          [
+            'Stub',
+            {
+              references: [
+                {
+                  path: 'Stub/StubGeneral/MissingRef',
+                  targetModule: 'MissingMod',
+                  targetPath: 'MissingMod/Whatever',
+                },
+              ],
+            },
+          ],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_REF_UNRESOLVED,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Stub/StubGeneral/MissingRef');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Deferred coverage (8 codes) — validation/emit logic for these codes is
+// scoped to v2. The pipeline does not yet push them, so we record the
+// intent with `test.todo(...)` plus a short context comment per code.
+// Future sprints flip these to real `it(...)` tests once the producer
+// code lands.
+// ---------------------------------------------------------------------------
+
+describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → implemented)', () => {
+  // E1 (M1 of v1.12.0 MINOR E) — pipeline widened to iterate the union
+  // of bswmdIndex + ecucValues keys, so a values-only module (present
+  // in ecucValues but missing BSWMD) now surfaces as NO_SCHEMA WARN.
+  it('ECUC-GEN-001 (NO_SCHEMA, WARN) fires when BSWMD missing for a values-only module', async () => {
+    // bswmdIndex is empty (or omits 'ValuesOnlyMod'); ecucValues carries
+    // it. The pipeline should iterate the union → emit WARN.
+    _resetRegistryForTest();
+    // Register a catch-all generator so the pipeline doesn't ALSO push
+    // NO_GENERATOR (which would mask the NO_SCHEMA we're testing).
+    registerGenerator({
+      moduleShortName: 'Other',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Other', { shortName: 'Other' }]]),
+        ecucValues: new Map([
+          ['Other', {}],
+          ['ValuesOnlyMod', {}],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_NO_SCHEMA,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(diag.moduleShortName).toBe('ValuesOnlyMod');
+    // WARN → exit 0 (per pipeline §Stage 3: any WARNING → 0 unless --strict)
+    expect(result.exitCode).toBe(0);
+  });
+
+  // E2 — ECUC-GEN-011 (MULTIPLICITY, ERROR). BSWMD declares
+  // container 'PartitionConfig' with lowerMultiplicity=1, upperMultiplicity=3.
+  // ECUC values carry 0 instances → below lower → ERROR.
+  it('ECUC-GEN-011 (MULTIPLICITY, ERROR) fires when instance count below lower bound', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              containers: [
+                { shortName: 'PartitionConfig', lowerMultiplicity: 1, upperMultiplicity: 3 },
+              ],
+            },
+          ],
+        ]),
+        ecucValues: new Map([['Stub', { containers: [] }]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_MULTIPLICITY,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('PartitionConfig');
+    // ERROR → exit 1
+    expect(result.exitCode).toBe(1);
+  });
+
+  // E3 — ECUC-GEN-012 (TYPE_MISMATCH, ERROR). BSWMD declares param
+  // 'Enable' with kind='boolean'. ECUC values carry a string 'true'
+  // → runtime kind='string', expected='boolean' → ERROR.
+  it('ECUC-GEN-012 (TYPE_MISMATCH, ERROR) fires when value runtime kind does not match BSWMD kind', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              params: [{ shortName: 'Enable', kind: 'boolean' }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          ['Stub', { parameters: [{ shortName: 'Enable', value: 'true' }] }],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_TYPE_MISMATCH,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Enable');
+    expect(result.exitCode).toBe(1);
+  });
+
+  // E4 — ECUC-GEN-013 (RANGE, ERROR). BSWMD declares integer param
+  // 'Priority' with min=0, max=10. ECUC carries value 99 → ERROR.
+  it('ECUC-GEN-013 (RANGE, ERROR) fires when integer value exceeds max', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              params: [{ shortName: 'Priority', kind: 'integer', min: 0, max: 10 }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          ['Stub', { parameters: [{ shortName: 'Priority', value: 99 }] }],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_RANGE,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Priority');
+    expect(diag.message).toContain('99');
+    expect(diag.message).toContain('10');
+    expect(result.exitCode).toBe(1);
+  });
+
+  // E5 — ECUC-GEN-020 (ORDERING, WARN). BSWMD container 'PartitionConfig'.
+  // ECUC instances carry INDEX attributes [3, 1, 2] — not strictly
+  // ascending → WARN (the emit will force-sort, masking the issue).
+  it('ECUC-GEN-020 (ORDERING, WARN) fires when INDEX attributes are not strictly ascending', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              containers: [{ shortName: 'PartitionConfig' }],
+            },
+          ],
+        ]),
+        ecucValues: new Map([
+          [
+            'Stub',
+            {
+              containers: [
+                { shortName: 'PartitionConfig', index: 3 },
+                { shortName: 'PartitionConfig', index: 1 },
+                { shortName: 'PartitionConfig', index: 2 },
+              ],
+            },
+          ],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_ORDERING,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('PartitionConfig');
+    // WARN → exit 0
+    expect(result.exitCode).toBe(0);
+  });
+
+  // M1 (joint review) — pin the "one warning per container" behavior.
+  // validateOrdering uses `break` after the first non-monotonic pair;
+  // subsequent violations in the same container are silenced. This
+  // test ensures that the suppression is intentional (not a bug that
+  // happens to pass). The single warning's message must still be the
+  // first detected violation.
+  it('ECUC-GEN-020 fires exactly once per container even with multiple non-monotonic pairs', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        [
+          'Stub',
+          {
+            shortName: 'Stub',
+            containers: [{ shortName: 'PartitionConfig' }],
+          },
+        ],
+      ]),
+      // INDEX sequence [5, 1, 2, 7, 0] has violations at (5→1),
+      // (2→7) is valid, (7→0) is also non-monotonic. The helper should
+      // emit one warning per container, not per pair.
+      ecucValues: new Map([
+        [
+          'Stub',
+          {
+            containers: [
+              { shortName: 'PartitionConfig', index: 5 },
+              { shortName: 'PartitionConfig', index: 1 },
+              { shortName: 'PartitionConfig', index: 2 },
+              { shortName: 'PartitionConfig', index: 7 },
+              { shortName: 'PartitionConfig', index: 0 },
+            ],
+          },
+        ],
+      ]),
+      variant: 'PreCompile',
+      outDir: '/tmp',
+      moduleFilter: undefined,
+      strict: false,
+    });
+    const orderingDiags = result.diagnostics.filter(
+      (d) => d.code === DiagnosticCode.ECUC_GEN_ORDERING,
+    );
+    expect(orderingDiags).toHaveLength(1);
+    expect(orderingDiags[0]!.message).toContain('5');
+    expect(orderingDiags[0]!.message).toContain('1');
+  });
+
+  // E6 — ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR). Two sibling
+  // parameters share the shortName 'Enable' → ERROR.
+  it('ECUC-GEN-021 (DUPLICATE_SHORTNAME, ERROR) fires when sibling parameters share a shortName', async () => {
+    _resetRegistryForTest();
+    registerGenerator({
+      moduleShortName: 'Stub',
+      emit: (): readonly GeneratedArtifact[] => [],
+    });
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          ['Stub', { shortName: 'Stub', params: [{ shortName: 'Enable', kind: 'boolean' }] }],
+        ]),
+        ecucValues: new Map([
+          [
+            'Stub',
+            {
+              parameters: [
+                { shortName: 'Enable', value: true },
+                { shortName: 'Enable', value: false },
+              ],
+            },
+          ],
+        ]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_DUPLICATE_SHORTNAME,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.ecucPath).toBe('Enable');
+    expect(result.exitCode).toBe(1);
+  });
+
+  // E7 — ECUC-GEN-030 (TEMPLATE_RENDER, ERROR). Register a generator
+  // that throws a TemplateRenderError (e.g. Handlebars runtime
+  // exception wrapped by EcuCGenerator's template-call try/catch).
+  it('ECUC-GEN-030 (TEMPLATE_RENDER, ERROR) fires when a generator throws TemplateRenderError', async () => {
+    _resetRegistryForTest();
+    class BadTplGen implements ModuleGenerator {
+      readonly moduleShortName = 'Stub';
+      emit(): readonly GeneratedArtifact[] {
+        throw new TemplateRenderError('unknown partial: foo');
+      }
+    }
+    registerGenerator(new BadTplGen());
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([['Stub', { shortName: 'Stub' }]]),
+        ecucValues: new Map([['Stub', {}]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_TEMPLATE_RENDER,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(diag.moduleShortName).toBe('Stub');
+    expect(diag.message).toContain('foo');
+    expect(result.exitCode).toBe(1);
+  });
+
+  // E8 — ECUC-GEN-031 (OUTPUT_WRITE, ERROR). writeOutputTree overload
+  // accepts a diagnostics array and pushes OUTPUT_WRITE on fs failure
+  // instead of re-throwing. Trigger: artifact path with NUL char (Node
+  // fs APIs reject NUL paths on all platforms).
+  it('ECUC-GEN-031 (OUTPUT_WRITE, ERROR) fires when post-process fs write fails', async () => {
+    const { writeOutputTree } = await import('../post-process.js');
+    const diags: Diagnostic[] = [];
+    // NUL char in path → fs.writeFile throws ERR_INVALID_ARG_VALUE on
+    // every Node platform.
+    const artifacts = new Map<string, string>([[' bad/path.c', 'content']]);
+    await writeOutputTree(artifacts, '/tmp/gen-out-nul', diags);
+    const err = diags.find((d) => d.code === DiagnosticCode.ECUC_GEN_OUTPUT_WRITE);
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(err!.message).toContain('bad/path.c');
+  });
+
+  // E9 — ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO). EcuCGenerator is
+  // registered with a BSWMD module def that has zero containers AND the
+  // values carry zero parameters. The generator should push an INFO
+  // diagnostic so the user knows the active variant produced nothing
+  // (rather than silently emitting a stub Cfg.c/Cfg.h).
+  it('ECUC-GEN-INFO-001 (EMPTY_VARIANT, INFO) fires when active variant has no elements', async () => {
+    const { EcuCGenerator } = await import('../modules/ecuc.js');
+    _resetRegistryForTest();
+    registerGenerator(new EcuCGenerator());
+    const { diag, result } = await runAndFind(
+      {
+        bswmdIndex: new Map([
+          [
+            'EcuC',
+            {
+              shortName: 'EcuC',
+              containers: [],
+            },
+          ],
+        ]),
+        ecucValues: new Map([['EcuC', { parameters: [] }]]),
+        variant: 'PreCompile',
+        outDir: '/tmp',
+        moduleFilter: undefined,
+        strict: false,
+      },
+      DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
+    );
+    expect(diag.severity).toBe(DiagnosticSeverity.INFO);
+    expect(diag.moduleShortName).toBe('EcuC');
+    // INFO → exit 0
+    expect(result.exitCode).toBe(0);
+  });
+});
+
+// All 9 diagnostic codes have real `it(...)` tests now (E1–E9).
+// Future codes (e.g. ECUC-GEN-040 IMPL_FILTER) can add new describes
+// alongside this one.

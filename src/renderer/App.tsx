@@ -326,7 +326,6 @@ export function App(): JSX.Element {
   // — see Sprint A backlog).
   const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
   const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
-  const deleteEcucModuleAction = useArxmlStore((s) => s.deleteEcucModule);
   const setInfo = useArxmlStore((s) => s.setInfo);
   // Sprint 17 P3 T3.3 — host-side routing for the new
   // `'remove-module'` action. We pull the unified BSWMD-remove
@@ -334,7 +333,7 @@ export function App(): JSX.Element {
   // dialog (cancel / only / cascade / cascade-and-unlink) stays
   // in one place. Same hook used by the ProjectPanel × button
   // (rewired in T3.4).
-  const { removeBswmdWithFullFlow } = useProjectActions();
+  const { removeBswmdWithFullFlow, deleteEcucModuleWithFullFlow } = useProjectActions();
   const handleContextMenuAction = useCallback(
     (action: ContextMenuAction): void => {
       switch (action.type) {
@@ -368,11 +367,12 @@ export function App(): JSX.Element {
           void removeBswmdWithFullFlow(action.path);
           return;
         case 'delete-module':
-          // Sprint A+ — delete the entire ECUC module at the
-          // post-fold path. The store action clears the source BSWMD
-          // link when the doc was skeleton-generated (no dangling
-          // chip) and emits a localized toast on success / not-found.
-          deleteEcucModuleAction(action.path);
+          // Sprint A+ — fire-and-forget pattern matching remove-module.
+          // The hook wraps the store's deleteEcucModule in
+          // guardedDirtySwitch so unsaved edits are protected
+          // (spec invariant I3). action.name is the human-readable
+          // module shortName used in the i18n target interpolation.
+          void deleteEcucModuleWithFullFlow(action.path, action.name);
           return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
