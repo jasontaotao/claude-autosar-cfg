@@ -29,6 +29,7 @@
 //     design and not actually reachable through the BSWMD parser).
 
 import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
+import { cIdent } from '../handlebars-helpers.js';
 import type { GenerationContext } from '../registry.js';
 
 /**
@@ -77,14 +78,38 @@ export function renderCValue(value: unknown, kind: string): string {
  * Severity is INFO today (v1.13.0 default). v1.14.0 MINOR will
  * promote to WARN/ERROR per D-rev2 Senior S5.
  */
-export function pushEmptyVariantDiagnostic(
-  ctx: GenerationContext,
-  moduleShortName: string,
-): void {
+export function pushEmptyVariantDiagnostic(ctx: GenerationContext, moduleShortName: string): void {
   ctx.diagnostics.push({
     severity: DiagnosticSeverity.INFO,
     code: DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
     moduleShortName,
     message: `Module ${moduleShortName}: active variant has no containers or parameters; emit is a stub`,
   });
+}
+
+/**
+ * v1.14.0 MINOR S1 — build a module-scoped C header guard of the
+ * form `${MODULE_SHORT_NAME}_CFG_H`. Replaces the hardcoded `ECU_CFG_H`
+ * literal in `cfg.h.hbs` that previously collided across modules
+ * (D-rev2 Senior S1).
+ *
+ * Why per-module matters: when a translation unit `#include`s two BSW
+ * module headers (e.g. `EcuC_Cfg.h` then `Mcu_Cfg.h`), the second
+ * `#ifndef ECU_CFG_H` would see the macro already defined by the
+ * first header and silently skip Mcu's body — the `extern CONST(...)`
+ * declarations never reach the TU, and downstream code fails to link
+ * with `undefined reference to Mcu_xxx`. Per-module guards
+ * (`ECUC_CFG_H` / `MCU_CFG_H`) prevent this collision.
+ *
+ * Input safety: delegates to `cIdent` (v1.13.5 SEC2 whitelist), which
+ * strips shell-meta characters (`#`, `$`, `@`, `*`, `?`) and prefixes
+ * `_` for leading-digit shortNames so the generated `#ifndef` token
+ * is always a legal C preprocessor identifier. Returns
+ * `UNNAMED_MODULE_CFG_H` for empty or whitespace-only input so the
+ * downstream `#ifndef` / `#define` never see an undefined token.
+ */
+export function buildHeaderGuard(moduleShortName: string): string {
+  const ident = cIdent(moduleShortName);
+  if (!ident) return 'UNNAMED_MODULE_CFG_H';
+  return `${ident.toUpperCase()}_CFG_H`;
 }

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import type Handlebars from 'handlebars';
 
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
+import type { BswmdParamDefLite } from '../normalize.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,
@@ -33,7 +34,7 @@ import {
 } from '../registry.js';
 import { loadModuleTemplate } from '../templates/loader.js';
 
-import { pushEmptyVariantDiagnostic, renderCValue } from './_shared.js';
+import { pushEmptyVariantDiagnostic, renderCValue, buildHeaderGuard } from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
@@ -247,6 +248,9 @@ export class EcuCGenerator implements ModuleGenerator {
     const header = headerTpl()({
       moduleShortName: eDef.shortName,
       generatorVersion: GENERATOR_VERSION,
+      // v1.14.0 MINOR S1 — module-scoped header guard replaces the
+      // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
+      headerGuard: buildHeaderGuard(eDef.shortName),
       includes: [] as readonly string[],
       typedefs: [] as readonly {
         name: string;
@@ -299,7 +303,7 @@ export class EcuCGenerator implements ModuleGenerator {
 function isPostBuild(
   path: string,
   variant: 'PreCompile' | 'Link' | 'PostBuild',
-  paramIndex?: ReadonlyMap<string, import('../normalize.js').BswmdParamDefLite>,
+  paramIndex?: ReadonlyMap<string, BswmdParamDefLite>,
 ): boolean {
   if (!paramIndex) return false;
   const param = paramIndex.get(path);

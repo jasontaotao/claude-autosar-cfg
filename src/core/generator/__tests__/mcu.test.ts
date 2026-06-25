@@ -16,16 +16,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { McuGenerator } from '../modules/mcu.js';
-import { registerGenerator, _resetRegistryForTest, getGenerator, type GenerationContext } from '../registry.js';
+import {
+  registerGenerator,
+  _resetRegistryForTest,
+  getGenerator,
+  type GenerationContext,
+} from '../registry.js';
 
 const mcuDef = {
   shortName: 'Mcu',
   containers: [
     {
       shortName: 'McuClockSettingConfig',
-      parameters: [
-        { kind: 'integer' as const },
-      ],
+      parameters: [{ kind: 'integer' as const }],
     },
   ],
 };
@@ -61,6 +64,18 @@ describe('McuGenerator', () => {
     expect(paths).toEqual(['Mcu/Mcu_Cfg.c', 'Mcu/Mcu_Cfg.h']);
   });
 
+  // v1.14.0 MINOR S1 — integration assertion for module-scoped header
+  // guard. The Mcu Cfg.h must use MCU_CFG_H (not the legacy EcuC default).
+  it('Cfg.h uses module-scoped header guard MCU_CFG_H (D-rev2 S1)', () => {
+    const g = new McuGenerator();
+    const out = g.emit(mcuDef, mcuValues, makeCtx());
+    const h = out.find((a) => a.path === 'Mcu/Mcu_Cfg.h');
+    if (!h) throw new Error('Mcu/Mcu_Cfg.h missing from emit output');
+    expect(h.content).toContain('#ifndef MCU_CFG_H');
+    expect(h.content).toContain('#define MCU_CFG_H');
+    expect(h.content).toContain('#endif /* MCU_CFG_H */');
+  });
+
   it('registers and retrieves via the registry (no pipeline change)', () => {
     registerGenerator(new McuGenerator());
     const g = getGenerator('Mcu');
@@ -87,11 +102,7 @@ describe('McuGenerator', () => {
   it('pushes ECUC-GEN-INFO-001 when the active variant has no elements', () => {
     const g = new McuGenerator();
     const ctx = makeCtx();
-    const out = g.emit(
-      { shortName: 'Mcu', containers: [] },
-      { parameters: [] },
-      ctx,
-    );
+    const out = g.emit({ shortName: 'Mcu', containers: [] }, { parameters: [] }, ctx);
     expect(out).toHaveLength(2); // still emits artifacts (stub)
     const info = ctx.diagnostics.find((d) => d.message.includes('Mcu'));
     expect(info?.code).toBe('ECUC-GEN-INFO-001');

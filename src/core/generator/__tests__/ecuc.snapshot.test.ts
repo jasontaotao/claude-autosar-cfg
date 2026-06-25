@@ -106,6 +106,24 @@ describe('EcuC snapshot', () => {
     expect(h.content).toBe(readSnap('PreCompile-1/EcuC_Cfg.h'));
   });
 
+  // v1.14.0 MINOR S1 — integration assertion for module-scoped header
+  // guard. The EcuC Cfg.h must use ECUC_CFG_H. The snapshot byte-equal
+  // check above already proves this for PreCompile-1; this test makes
+  // the contract explicit + survives snapshot regeneration drift.
+  it('Cfg.h uses module-scoped header guard ECUC_CFG_H (D-rev2 S1)', () => {
+    const g = new EcuCGenerator();
+    const out = g.emit(
+      ecucDef as unknown as BswmdModuleDef,
+      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues,
+      makeCtx(),
+    );
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('EcuC/EcuC_Cfg.h missing from emit output');
+    expect(h.content).toContain('#ifndef ECUC_CFG_H');
+    expect(h.content).toContain('#define ECUC_CFG_H');
+    expect(h.content).toContain('#endif /* ECUC_CFG_H */');
+  });
+
   it('Mixed-1 emits Cfg.c, Cfg.h, PBcfg.c (byte-identical)', () => {
     const g = new EcuCGenerator();
     const out = g.emit(
