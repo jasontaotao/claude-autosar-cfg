@@ -385,10 +385,10 @@ export function App(): JSX.Element {
     [
       openBswmdPicker,
       deleteContainerAction,
+      deleteEcucModuleAction,
       setInfo,
       locale,
       removeBswmdWithFullFlow,
-      deleteEcucModuleWithFullFlow,
     ],
   );
 

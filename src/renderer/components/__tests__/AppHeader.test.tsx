@@ -671,3 +671,79 @@ describe('AppHeader project chip × button (close + clear)', () => {
     expect(s.dirtyPaths.has('/p/B.arxml')).toBe(true);
   });
 });
+
+describe('AppHeader (v1.11.4 PATCH-B — headless E2E fallback)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
+    // v1.12.0 PATCH D4 (M3) — explicit `window.autosarApi` reset to
+    // match the Save All describe (line 261) and the close-project
+    // describe. Without this, the PATCH-B tests rely on per-test
+    // setup; a leaked mock from a prior describe could silently
+    // mask the fallback being tested (e.g. a `getAppVersion` that
+    // resolves with a default mock would never reach the `.catch`
+    // branch added in D3).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = makeWindowApi();
+  });
+
+  it('renders vdev when window.autosarApi is undefined (headless E2E harness case)', async () => {
+    // Closes v1.11.2 P1 (E2E harness gap). The 9 pre-existing E2E specs
+    // crash on AppHeader mount when window.autosarApi is undefined
+    // because the original code unconditionally called
+    // `window.autosarApi.getAppVersion()`. The PATCH-B fix detects the
+    // missing API and falls back to 'dev' so headless Vite drives
+    // (without Electron's preload) can mount the header and reach
+    // the actual test assertions.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = undefined;
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^vdev$/);
+    expect(ver).toBeInTheDocument();
+    expect(ver.className).toContain('app-version');
+  });
+
+  it('renders v? when window.autosarApi exists but getAppVersion is missing (production-anomaly signal)', async () => {
+    // Defensive fallback for partial-mock or production preload-bridge
+    // failure cases (e.g. a future IPC refactor drops the channel,
+    // or the preload script throws during Electron startup). Per
+    // code-review MEDIUM on v1.11.4 PATCH-B, this is distinct from
+    // the headless-E2E case (where autosarApi is entirely undefined
+    // and 'dev' is the expected fallback). Showing '?' instead of
+    // 'dev' surfaces the anomaly instead of silently masking it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = {
+      openArxml: vi.fn(),
+      openArxmlMulti: vi.fn(),
+      parseArxml: vi.fn(),
+      saveArxml: vi.fn(),
+    };
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^v\?$/);
+    expect(ver).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // v1.12.0 PATCH D3 (M2) — rejected IPC promise must also surface `v?`.
+  // -------------------------------------------------------------------------
+  //
+  // The v1.11.4 PATCH-B fix only covered the SYNCHRONOUS failure modes
+  // (autosarApi undefined / getAppVersion missing). The much more common
+  // production failure — a REJECTED IPC promise (preload bridge failure,
+  // race during Electron startup, future IPC refactor that dropped the
+  // channel) — was left with no `.catch`, so the UI stayed on the literal
+  // `'…'` placeholder forever. This test pins the corrected behaviour.
+  it('renders v? when getAppVersion rejects (IPC failure → production-anomaly signal)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = {
+      getAppVersion: vi.fn().mockRejectedValue(new Error('IPC channel dropped')),
+      openArxml: vi.fn(),
+      openArxmlMulti: vi.fn(),
+      parseArxml: vi.fn(),
+      saveArxml: vi.fn(),
+    };
+    render(<AppHeader {...noopProps} />);
+    const ver = await screen.findByText(/^v\?$/);
+    expect(ver).toBeInTheDocument();
+  });
+});

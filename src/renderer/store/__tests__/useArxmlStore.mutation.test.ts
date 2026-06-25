@@ -17,10 +17,24 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import type { ArxmlContainer, ArxmlDocument, ArxmlModule, ParamValue } from '@core/arxml/types';
-import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  ArxmlPackage,
+  ParamValue,
+} from '@core/arxml/types';
 
 import { useArxmlStore } from '../useArxmlStore';
+
+// v1.11.4 PATCH-C — BSWMD builders extracted to ./__fixtures__/bswmd.ts.
+// `makeBswModuleWithSubContainer` is aliased as `makeBswModule` here
+// because every call site in this file passes 3-4 args targeting the
+// "topContainer + subContainer + TestParam param" shape (addContainer
+// tests). The simpler `makeBswModule` (no subContainer) lives in
+// addparam.test.ts / deleteModule.test.ts.
+import { makeBswmd, makeBswModuleWithSubContainer as makeBswModule } from './__fixtures__/bswmd.js';
 
 // ---------------------------------------------------------------------------
 // Test fixture builders
@@ -66,67 +80,12 @@ function makeDoc(
 }
 
 /**
- * Build a minimal BswModuleDef with a single top-level container and a
- * single sub-container the picker / addContainer flow will target. The
- * module's `path` matches the doc's structure (`/EAS/Adc`) so the store's
- * BSWMD lookup helper resolves it.
+ * BSWMD fixture builders (extracted to ./__fixtures__/bswmd.ts in v1.11.4
+ * PATCH-C). The previous local `makeBswModule` here built the
+ * "topContainer + subContainer + TestParam" shape; that helper is now
+ * `makeBswModuleWithSubContainer` in the fixtures module, imported above
+ * as `makeBswModule` for call-site compatibility.
  */
-function makeBswModule(
-  moduleShortName: string,
-  topContainerShortName: string,
-  subContainerShortName: string,
-  paramShortName: string = 'TestParam',
-): BswModuleDef {
-  const subContainer: ContainerDef = {
-    shortName: subContainerShortName,
-    path: `/EAS/${moduleShortName}/${topContainerShortName}/${subContainerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 'infinite',
-    subContainers: [],
-    parameters: [],
-    references: [],
-    choices: [],
-  };
-  const topContainer: ContainerDef = {
-    shortName: topContainerShortName,
-    path: `/EAS/${moduleShortName}/${topContainerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-    subContainers: [subContainer],
-    parameters: [
-      {
-        shortName: paramShortName,
-        path: `/EAS/${moduleShortName}/${topContainerShortName}/${paramShortName}`,
-        kind: 'integer',
-        defaultValue: 0,
-        minValue: 0,
-        maxValue: 100,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      } satisfies ParamDef,
-    ],
-    references: [],
-    choices: [],
-  };
-  return {
-    shortName: moduleShortName,
-    path: `/EAS/${moduleShortName}`,
-    dialect: 'ecuc-module-def',
-    moduleId: 0,
-    containers: [topContainer],
-    providedEntries: [],
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-  };
-}
-
-/**
- * Wrap a single BswModuleDef into a BswmdDocument for the store.
- */
-function makeBswmd(mod: BswModuleDef) {
-  return { version: '4.6', modules: [mod], warnings: [] };
-}
 
 beforeEach(() => {
   useArxmlStore.getState().clear();
@@ -393,6 +352,128 @@ describe('useArxmlStore — addContainer (Sprint 15)', () => {
     const after = useArxmlStore.getState();
     expect(after.documents[0]).toBe(before);
     expect(after.error).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.12.0 PATCH 1 (M4 from v1.11.4 joint review) — end-to-end P2 regression
+//
+// P2 (v1.11.2 carryover): recurring `lower0 / upper=infinite add-container`
+// failure on the AUTOSAR_R22 > EcucDefs > Adc 3-layer value-file shape.
+// v1.11.3 (commit 0b02392) fixed the fold-side path resolution, but no
+// test pinned the full mutation dispatch chain end-to-end against the
+// 3-layer shape — only `findByPath` resolution was tested (combinedDoc.
+// test.ts:457-522). This block closes the regression-test gap.
+//
+// Pre-v1.11.3: post-fold selectedPath was `/AUTOSAR_R22/Adc/...` (only
+// the inner EcucDefs was collapsed); the source doc still had the 3-layer
+// structure and findByPath returned `path-not-found`, so every
+// `addContainer` was a silent no-op via `mutation.error.path-not-found`.
+//
+// Post-v1.11.3: the outer AUTOSAR(_.*)? wrap is also collapsed when its
+// only nested child is a tier-4 foldable EcucDefs pkg (combinedDoc.ts:
+// 686-692 + 756). Post-fold selectedPath is `/Adc/AdcConfigSet`, which
+// the source doc can resolve via the vendor-fold fallback in
+// core/arxml/path.ts:84-105.
+//
+// This test exercises the full mutation dispatch chain end-to-end:
+// addContainer (single-mode default) → resolveModuleAndParentContainer
+// (compressed 3-segment fallback at bswmdLookup.ts:89-99) → coreAddContainer
+// → applyMutationResultToActive → computeDisplayDoc re-fold.
+// ---------------------------------------------------------------------------
+describe('useArxmlStore — 3-layer AUTOSAR_R22/EcucDefs/Adc end-to-end (P2 regression)', () => {
+  it('addContainer at post-fold /Adc/AdcConfigSet succeeds for an upperMultiplicity: infinite child', () => {
+    // Arrange — 3-layer source doc `AUTOSAR_R22 > EcucDefs > Adc >
+    // AdcConfigSet` (mirrors combinedDoc.test.ts:457-522 fixture).
+    const moduleEl: ArxmlElement = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Adc',
+      params: {},
+      children: [
+        {
+          kind: 'container',
+          tagName: 'ECUC-CONTAINER-VALUE',
+          shortName: 'AdcConfigSet',
+          params: {},
+          children: [],
+        },
+      ],
+      references: [],
+    };
+    const ecucDefsPkg: ArxmlPackage = {
+      shortName: 'EcucDefs',
+      path: '/AUTOSAR_R22/EcucDefs',
+      elements: [moduleEl],
+    };
+    const wrapPkg: ArxmlPackage = {
+      shortName: 'AUTOSAR_R22',
+      path: '/AUTOSAR_R22',
+      elements: [],
+      packages: [ecucDefsPkg],
+    };
+    const doc: ArxmlDocument = {
+      path: '/test/Adc_EcucValues.arxml',
+      version: '4.6',
+      packages: [wrapPkg],
+    };
+
+    // Register the 3-layer doc + a BSWMD whose AdcConfigSet declares an
+    // `AdcConfig` sub-container with upperMultiplicity: 'infinite' —
+    // this is the P2 invariant the test pins (no multiplicity-exceeded
+    // when the user adds many of these).
+    //
+    // Skip the `addBswmd('<mock />')` route — its parser would fail on
+    // the mock content and persist a parse error in `state.error` that
+    // the subsequent setState doesn't clear. The setState below populates
+    // `bswmdSchemas` + `bswmdPaths` directly, which is all `addContainer`
+    // needs (it reads `bswmdSchemas` via `resolveModuleAndParentContainer`).
+    useArxmlStore.getState().addDocument(doc, '/test/Adc_EcucValues.arxml');
+    useArxmlStore.setState({
+      bswmdSchemas: [
+        // `makeBswModule` here is the import-aliased
+        // `makeBswModuleWithSubContainer` from line 30 (topContainer +
+        // subContainer + param shape — see the PATCH-C comment block).
+        makeBswmd(makeBswModule('Adc', 'AdcConfigSet', 'AdcConfig')),
+      ],
+      bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
+    });
+    const before = useArxmlStore.getState().documents[0]!;
+
+    // Act — single-mode default (viewMode defaults to 'single' per
+    // uiSlice.ts:148). The post-fold path `/Adc/AdcConfigSet` is what
+    // Tree emits after the v1.11.3 tier-4 + outer-wrap fold extension.
+    // Pre-v1.11.3 this would resolve to `path-not-found` because the
+    // source doc's structure was 3 layers deep and findByPath could not
+    // map the 2-segment post-fold path back.
+    useArxmlStore.getState().addContainer('/Adc/AdcConfigSet', 'AdcConfig');
+
+    // Assert — mutation succeeded against the 3-layer shape. No error
+    // was raised; the source doc was mutated (different ref); the path
+    // is marked dirty; the new AdcConfig child appears in the source
+    // doc's AdcConfigSet container.
+    const after = useArxmlStore.getState();
+    expect(after.error).toBeNull();
+    expect(after.documents[0]).not.toBe(before);
+    // Source doc preserved its 3-layer AUTOSAR_R22 > EcucDefs > Adc wrap;
+    // walk to AdcConfigSet and confirm the new AdcConfig child.
+    const wrap = after.documents[0]!.packages[0]!;
+    expect(wrap.shortName).toBe('AUTOSAR_R22');
+    const ecucDefs = wrap.packages![0]!;
+    expect(ecucDefs.shortName).toBe('EcucDefs');
+    const adcMod = ecucDefs.elements[0]!;
+    if (adcMod.kind !== 'module') throw new Error('expected module');
+    const adcConfigSet = adcMod.children[0]!;
+    if (adcConfigSet.kind !== 'container') throw new Error('expected container');
+    expect(adcConfigSet.children).toHaveLength(1);
+    const newChild = adcConfigSet.children[0]!;
+    if (newChild.kind !== 'container') throw new Error('expected new container');
+    expect(newChild.shortName).toBe('AdcConfig');
+    // Marked dirty.
+    expect(after.dirtyPaths.has('/test/Adc_EcucValues.arxml')).toBe(true);
+    // Display doc rebuilt; the post-fold tree root is `Adc` with the
+    // new child accessible at `/Adc/AdcConfigSet/AdcConfig`.
+    expect(after.displayDoc).not.toBeNull();
   });
 });
 
@@ -672,6 +753,102 @@ describe('useArxmlStore — confirmDeleteContainer (Sprint 15)', () => {
     if (configSet.kind !== 'container') throw new Error('expected container');
     expect(configSet.params.AdcConfigRef).toBeUndefined();
     expect(after.dirtyPaths.has('/tmp/Adc.arxml')).toBe(true);
+  });
+
+  // HIGH-4 (v1.11.2) — cascade must not silently skip per-ref failures.
+  // Realistic scenario: the user opened the cascade dialog while the
+  // target ref still existed, but a concurrent action (or stale
+  // snapshot) removed the ref's container between scan and confirm.
+  // The pre-v1.11.2 cascade dropped the failure on the floor and
+  // reported a clean success — a contract violation. After the fix
+  // the cascade still applies what it can, but emits a `warning` toast
+  // naming the count of unresolved refs so the user can audit.
+  it('cascade: stale ref (containerPath gone) → warning toast surfaces unresolved count', () => {
+    // Arrange — set up the normal pendingDelete via the public API.
+    setUpWithPendingDelete();
+
+    // Inject a stale ref into pendingDelete.references whose container
+    // path no longer resolves. This simulates a concurrent delete or a
+    // snapshot taken before the ref was removed.
+    useArxmlStore.setState((s) => ({
+      pendingDelete: s.pendingDelete
+        ? {
+            path: s.pendingDelete.path,
+            references: [
+              ...s.pendingDelete.references,
+              {
+                filePath: '/tmp/Adc.arxml',
+                containerPath: '/EAS/Adc/NoSuchContainer',
+                paramKey: 'GhostRef',
+              },
+            ],
+          }
+        : null,
+    }));
+
+    // Act
+    useArxmlStore.getState().confirmDeleteContainer('cascade');
+
+    // Assert — primary delete still succeeded for the resolvable refs.
+    const after = useArxmlStore.getState();
+    expect(after.pendingDelete).toBeNull();
+    const mod = after.documents[0]!.packages[0]!.elements[0]!;
+    if (mod.kind !== 'module') throw new Error('expected module');
+    const configSet = mod.children.find(
+      (c) => c.kind === 'container' && c.shortName === 'AdcConfigSet',
+    );
+    expect(configSet).toBeDefined();
+    if (configSet?.kind !== 'container') throw new Error('expected container');
+    expect(configSet.params.AdcConfigRef).toBeUndefined();
+
+    // Assert — the partial-failure diagnostic surfaces via the typed
+    // toast slot. Pin the exact i18n substring for the count slot so
+    // the test cannot accidentally match an unrelated "1" elsewhere
+    // (timestamps, file paths, etc.).
+    expect(after.toast).not.toBeNull();
+    expect(after.toast?.kind).toBe('warning');
+    // En: "1 reference(s)"; zh-CN: "1 个引用" — either is acceptable.
+    expect(after.toast?.message ?? '').toMatch(/1 reference\(s\)|1 个引用/);
+    // The legacy `error` slot must NOT be clobbered by the cascade
+    // partial-failure diagnostic (HIGH-4 v1.11.2 review finding:
+    // setWarning writes both fields; we route the warning through
+    // the typed toast slot only to avoid stomping prior errors).
+    expect(after.error).toBeNull();
+    expect(after.dirtyPaths.has('/tmp/Adc.arxml')).toBe(true);
+  });
+
+  it('cascade: all-refs-fail → warning still emitted, container delete still applied', () => {
+    // Arrange — set up pendingDelete, then nuke ALL refs by pointing
+    // them at non-existent containers. This is the worst-case partial
+    // failure: every cascade resolution fails, but the primary delete
+    // still went through.
+    setUpWithPendingDelete();
+
+    useArxmlStore.setState((s) => ({
+      pendingDelete: s.pendingDelete
+        ? {
+            path: s.pendingDelete.path,
+            references: s.pendingDelete.references.map((r) => ({
+              ...r,
+              containerPath: '/EAS/Adc/NoSuchContainer',
+            })),
+          }
+        : null,
+    }));
+
+    // Act
+    useArxmlStore.getState().confirmDeleteContainer('cascade');
+
+    // Assert — primary delete succeeded (AdcConfig gone), and the
+    // warning toast surfaces the failure count to the user. Pin the
+    // exact count slot in the i18n string (en: "1 reference(s)";
+    // zh-CN: "1 个引用") so the assertion cannot be satisfied by an
+    // unrelated digit in a timestamp or file path.
+    const after = useArxmlStore.getState();
+    expect(after.pendingDelete).toBeNull();
+    expect(after.toast?.kind).toBe('warning');
+    expect(after.toast?.message ?? '').toMatch(/1 reference\(s\)|1 个引用/);
+    expect(after.error).toBeNull();
   });
 });
 

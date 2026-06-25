@@ -443,20 +443,37 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     //    would be cleaned up).
     const docEdits = new Map<number, ArxmlDocument>();
     docEdits.set(workingIdx, workingDoc);
+    // HIGH-4 (v1.11.2) — track per-ref failures so we can surface them
+    // as a warning toast. The cascade contract promises every reference
+    // gets cleaned up; silently skipping an unresolvable one is a
+    // contract violation that left dangling references invisible to
+    // the user. We still apply the deletes we can — the primary
+    // container delete is not rolled back — but the count surfaces.
+    const failedRefs: {
+      readonly filePath: string;
+      readonly containerPath: string;
+      readonly paramKey: string;
+    }[] = [];
     if (choice === 'cascade') {
       for (const ref of pending.references) {
         const refDocIdx = state.documentPaths.indexOf(ref.filePath);
-        if (refDocIdx === -1) continue;
+        if (refDocIdx === -1) {
+          failedRefs.push(ref);
+          continue;
+        }
         // Use the latest in-progress edit if we have already touched
         // this doc, otherwise pull the current document.
         const refDoc = docEdits.get(refDocIdx) ?? state.documents[refDocIdx];
-        if (refDoc === undefined) continue;
+        if (refDoc === undefined) {
+          failedRefs.push(ref);
+          continue;
+        }
         const r2 = coreRemoveParameter(refDoc, ref.containerPath, ref.paramKey);
         if (r2.ok) {
           docEdits.set(refDocIdx, r2.value);
+        } else {
+          failedRefs.push(ref);
         }
-        // If `r2` failed (e.g. the ref was already gone) we silently
-        // skip — the user's intent is satisfied either way.
       }
     }
 
@@ -498,6 +515,27 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
           ? nextDisplayResult.warnings
           : state.warnings,
     });
+
+    // HIGH-4 (v1.11.2) — surface cascade partial-failure count. Called
+    // after the main set() so the validation trio is already in
+    // place. We set the typed `toast` slot directly instead of going
+    // through `setWarning` because the latter writes BOTH the
+    // legacy `error` field AND the typed `toast` slot — the
+    // cascade partial-failure is NOT an error in the cascade
+    // contract sense (the primary delete succeeded for the
+    // resolvable refs; only some refs were unresolvable), so
+    // clobbering `error` would also stomp any unrelated prior
+    // error a previous mutation may have left in the store. The
+    // typed `toast` slot is the canonical surface for non-error
+    // diagnostic notifications per the uiSlice comment block.
+    if (failedRefs.length > 0) {
+      const message = t(state.locale, 'mutation.warning.cascadePartial', {
+        count: failedRefs.length,
+      });
+      set({
+        toast: { kind: 'warning', message, autoDismissMs: 5000 },
+      });
+    }
   },
 
   // Sprint A+ — delete the ECUC module at `modulePath` from the active

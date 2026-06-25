@@ -5,21 +5,41 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
-## [1.11.0] - 2026-06-24
+## [1.11.4] - 2026-06-24 — PATCH: R4.0 version list single-source + E2E AppHeader fallback + BSWMD fixture extract
 
-### Added
+PATCH bump: **3 commits since v1.11.3** (v1.11.3 merge commit `6a9710da8944b8294e153cf79073a8115a13d271`). Closes the remaining v1.12.0+ PATCH backlog items (A: R4.0 version list debt, B: E2E harness AppHeader fallback, C: BSWMD fixture extract) ahead of the upcoming v1.12.0 MINOR (joint review rerun + BSW code generator 补完).
 
-- New `generate` sub-command in headless CLI: emits BSW configuration C source code (Cfg.c / Cfg.h / PBcfg.c) from ECUC values + BSWMD.
-  - MVP demo module: EcuC (single-module end-to-end proof)
-  - Full 3-stage pipeline (pre-process / generate / post-process)
-  - Pure-function `ModuleGenerator` interface; TS class static registration via `registerGenerator()`
-  - 12 standard `DiagnosticCode` values; CLI exit codes 0/1/2 per project convention
-  - 85+ new tests; ~10 ARXML fixtures; 7 golden snapshot files
+### Changed
 
-### References
+- **R4.0 version list single-source** (`src/core/arxml/types.ts:5-49` + `version.ts:1-46`): Extracted `ARXML_DIRECT_MAP_VERSIONS` (13-item `as const` array) as the canonical source of truth for ARXML versions. `ArxmlVersion` is now `(typeof ARXML_DIRECT_MAP_VERSIONS)[number]`, `SUPPORTED_ARXML_VERSIONS` is a documented 11-item subset (parser-accept set; excludes `00005`/`00006` per the historical BSWMD↔ARXML semantic distinction in `version.ts:1-17`), and `ARXML_VERSIONS` in `version.ts` is now `new Set(ARXML_DIRECT_MAP_VERSIONS)` (full 13-item BSWMD→ARXML 1:1 direct-map set). Adding a new version in the future is a single-line edit at one location — eliminates the v1.8.5 failure mode where `'4.0'` was added to one list but forgotten in the other. 3 new tests in `types.test.ts` pin: (a) the canonical 13-item list, (b) the subset invariant (parser-accept ⊂ direct-map), (c) every canonical entry maps to itself via `mapBswmdVersionToArxml`.
 
-- Spec: `docs/superpowers/specs/2026-06-24-bsw-code-generator-design.md`
-- Plan: `docs/superpowers/plans/2026-06-24-bsw-code-generator.md`
+- **E2E harness AppHeader fallback** (`src/renderer/components/AppHeader.tsx:194-211`): When `window.autosarApi` is undefined (headless Vite-driven E2E specs without Electron's preload) or `getAppVersion` is missing on the api object (preload bridge failure), the version chip falls back to `'dev'` (E2E expected case) or `'?'` (production anomaly — surfaces the bug instead of silently masking it). Closes v1.11.2 P1 (E2E harness gap that crashed 9 pre-existing specs at `waitForHeader`). 2 new tests in `AppHeader.test.tsx` pin both fallback paths.
+
+- **BSWMD fixture extract** (`src/renderer/store/__tests__/__fixtures__/bswmd.ts` NEW, 137 lines): Extracted the previously-duplicated `makeBswModule` + `makeBswmd` helpers from `useArxmlStore.addparam.test.ts`, `useArxmlStore.deleteModule.test.ts`, and `useArxmlStore.mutation.test.ts` into a shared fixtures module. The mutation tests' distinct "with sub-container" shape is now `makeBswModuleWithSubContainer` (imported as `makeBswModule` via alias to keep the 7 call sites unchanged). No behavior change — pure cleanup. Future BSWMD fixtures extend in one place.
+
+### Tests
+
+- 3 new in `src/core/arxml/__tests__/types.test.ts` (PATCH A)
+- 2 new in `src/renderer/components/__tests__/AppHeader.test.tsx` (PATCH B)
+- 33 unchanged in 3 affected test files (PATCH C: addparam / deleteModule / mutation, fixtures now imported instead of locally defined)
+
+Test delta: 2256 → 2258 (+2 net; the 3 PATCH A + 2 PATCH B = 5 new tests, minus 3 tests that moved from `types.test.ts` to the new fixtures file = 0 net change for PATCH C, but the +2 from PATCH A test count includes the canonical 13-item test which acts as both a unit test and a regression test for the design).
+
+### Code review
+
+`code-reviewer` agent verdict: `0C / 0H / 1M / 2L` → **APPROVE**. The MEDIUM (PATCH B fallback distinguishability between E2E and production anomaly) was resolved in the same commit by splitting the conditions (`'dev'` for `autosarApi === undefined`, `'?'` for partial-mock). The two LOW (PATCH A literal-type narrowing loss, PATCH C dual-helper design) are stylistic and do not affect runtime correctness.
+
+## [1.11.3] - 2026-06-24 — PATCH: EcucDefs fold extends to outer `AUTOSAR(_.*)?` wrap
+
+PATCH bump: **1 commit**. Fixes the Adc add/remove regression where the BSWMD-derived value file with `AUTOSAR_R22 > EcucDefs > Adc` folded only the inner `EcucDefs` layer, leaving a post-fold selectedPath of `/AUTOSAR_R22/Adc/...` that the source doc's 3-layer structure could not resolve, so every mutation dispatch (`addContainer` / `addParameter` / `removeContainer` / `removeParameter` / `addReference`) returned `path-not-found` and the menu actions were silently no-ops.
+
+### Fixed
+
+- **HIGH — fold triggers when the inner is a foldable `EcucDefs`** (`combinedDoc.ts:684-693` + 756): `foldPackage`'s `isFoldableHere` OR chain now includes a new tier-4-derived trigger — when the only nested child is a tier-4 foldable `EcucDefs` pkg (carries exactly one `kind: 'module'` element and no sub-packages), the outer `AUTOSAR(_.*)?` wrap is also collapsed so the post-fold top-level pkg carries the module element directly. The structural pattern `EcucDefs + single module` is the contract (no BSWMD match required, consistent with the tier-4 naming-only rule). The hoisted pkg is marked `isVendorFoldResult: true` so `Tree.tsx:158-170` continues to render it past the vendor namespace; the post-fold selectedPath becomes `/Adc/...` and `findByPath`'s vendor-fold fallback (`core/arxml/path.ts:84-105`) resolves it on the un-folded source doc. The change is strictly opt-in by the inner shape — a user-defined `AUTOSAR_Foo > EcucDefs` with mixed contents (more than one element, or no module element, or sub-packages) still preserves both layers per the existing tier-4 + MEDIUM #2 invariants. The 3-tier detection rule doc in `foldPackage` was extended with a `(d)` clause.
+
+### Tests
+
+- 1 updated + 1 new in `src/renderer/store/helpers/__tests__/combinedDoc.test.ts` under "EcucDefs fold (tier 4)": the previously-passing `'folds AUTOSAR_R22 > EcucDefs > Adc_module to AUTOSAR_R22 > [Adc hoisted]'` now asserts the full 3-layer collapse (Adc hoisted at root with `path === '/Adc'`, `isVendorFoldResult === true`); the new `'end-to-end — Adc_EcucValues.arxml shape yields post-fold selectedPath that resolves on the source doc'` test pins the regression to the specific real-world doc shape (`AUTOSAR_R22 > EcucDefs > <module>` with a single BSWMD module) so future fold-rule edits must explicitly acknowledge this case.
 
 ## [1.9.0] - 2026-06-23 — ECUC vendor-prefix export + container DEFINITION-REF + UI fold
 

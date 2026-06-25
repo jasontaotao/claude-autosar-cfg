@@ -525,11 +525,22 @@ export function stripCombinedPrefix(combinedPath: string, sourceFilePath: string
  *      a. P1.shortName matches any shortName in
  *         `bswmdSchemas[*].modules[*]` (gold path — BSWMD match),
  *      b. P.shortName matches a trusted vendor-pack prefix
- *         (`JWQ_.*_PACK`, see Phase 5c below), OR
+ *         (`JWQ_.*_PACK`, see Phase 5c below),
  *      c. P.shortName matches a generic vendor prefix
  *         (`EAS`/`EcucDefs`/`AUTOSAR(_.*)?`) AND P1.shortName matches
  *         a BSWMD module shortName (sanity gate against
- *         user-defined `EcucDefs`).
+ *         user-defined `EcucDefs`), OR
+ *      d. P1 is a tier-4 foldable EcucDefs pkg (carries exactly one
+ *         module element and no sub-packages). This handles the
+ *         real-world `AUTOSAR_R22 > EcucDefs > <module>` shape that
+ *         v1.9.0 tier 4 only collapsed the inner of — leaving the
+ *         outer `AUTOSAR_R22` wrapper visible produced a post-fold
+ *         path of `/AUTOSAR_R22/<module>/...` that no longer matched
+ *         the source doc structure (which still has the 3-layer
+ *         chain), so `findByPath` failed for any mutation. The
+ *         structural pattern `EcucDefs + single module` is the
+ *         contract here — no BSWMD match required, consistent with
+ *         tier 4's own naming-only rule.
  *      then collapse: hoist P1 to the top, preserving P1.shortName /
  *      path / elements / packages, and continue the fold recursively
  *      into P1.
@@ -636,7 +647,19 @@ function foldPackage(
   //          (folds on naming alone, no BSWMD gate), OR
   //       c. pkg.shortName matches a generic vendor prefix AND
   //          inner.shortName is a BSWMD module (sanity gate
-  //          against user-defined `EcucDefs`).
+  //          against user-defined `EcucDefs`), OR
+  //       d. inner is itself a tier-4 foldable EcucDefs pkg
+  //          (carries exactly one module element and no
+  //          sub-packages). The real-world `AUTOSAR_R22 > EcucDefs
+  //          > <module>` shape only collapsed the inner half in
+  //          v1.9.0 — leaving the outer `AUTOSAR(_.*)?` wrap
+  //          visible produced a post-fold selectedPath of
+  //          `/AUTOSAR_R22/<module>/...` that no longer matched the
+  //          source doc's 3-layer structure, so every mutation
+  //          dispatch failed with `path-not-found`. The structural
+  //          pattern `EcucDefs + single module` is the contract
+  //          here — no BSWMD match required, consistent with tier
+  //          4's own naming-only rule.
   //
   // v1.9.0 Sprint X Phase 5c — split the former
   // `VENDOR_PREFIX_RE` into trusted (b) vs generic (c) tiers. The
@@ -653,6 +676,20 @@ function foldPackage(
   // until we find a non-foldable package (the leaf).
   const innerMatchesBswmd =
     nested !== undefined && nested.length === 1 && bswmdNames.has(nested[0]!.shortName);
+  // v1.11.3 — tier 4 + outer wrap. Detect the `AUTOSAR(_.*)? >
+  // EcucDefs > <module>` pattern structurally (no BSWMD gate). The
+  // inner is the EcucDefs pkg the tier-4 fast path would itself
+  // fold; recursing into it via the tiers 1-3 hoist below yields
+  // the module as the top-level pkg, which is the desired display
+  // shape and the only shape `findByPath` can resolve on the
+  // un-folded source doc.
+  const innerIsFoldableEcucDefs =
+    nested !== undefined &&
+    nested.length === 1 &&
+    nested[0]!.packages === undefined &&
+    nested[0]!.elements.length === 1 &&
+    nested[0]!.elements[0]!.kind === 'module' &&
+    nested[0]!.shortName === 'EcucDefs';
   // 2026-06-23 — EcucDefs tier (tier 4). Fires when the package IS
   // the standard AUTOSAR `EcucDefs` namespace AND it carries exactly
   // one `kind: 'module'` element directly (no sub-packages).
@@ -702,6 +739,7 @@ function foldPackage(
     nested.length === 1 &&
     pkg.elements.length === 0 &&
     (innerMatchesBswmd ||
+      innerIsFoldableEcucDefs ||
       trustedPackRe.test(pkg.shortName) ||
       (genericPrefixRe.test(pkg.shortName) && innerMatchesBswmd));
 

@@ -394,6 +394,12 @@ export interface Messages {
   readonly 'mutation.action.deleteModuleAria': string; // {name}
   readonly 'mutation.info.ecucModuleDeleted': string; // {name}
   readonly 'mutation.info.ecucModuleUnlinked': string; // {name}
+  // HIGH-4 (v1.11.2) — cascade partial-failure surface. Emitted when
+  // the cascade loop in confirmDeleteContainer could not resolve one or
+  // more reference hits (concurrent edit, stale snapshot, file removed).
+  // The primary delete still applies; this toast tells the user how
+  // many refs were dropped so they can audit the dangling state.
+  readonly 'mutation.warning.cascadePartial': string; // {count}
   // Sprint 15 — CascadeConfirmDialog (3-option). Distinct from the
   // existing dirty-guard confirm.cascade.* which is reserved for
   // unsaved-changes flows.
@@ -958,6 +964,8 @@ export const MessagesZhCN: Messages = {
   'mutation.action.deleteModuleAria': "删除 ECUC 模块 '{name}'",
   'mutation.info.ecucModuleDeleted': "已删除 ECUC 模块 '{name}'",
   'mutation.info.ecucModuleUnlinked': "已删除 ECUC 模块 '{name}'，BSWMD 链接已断开",
+  'mutation.warning.cascadePartial':
+    '级联删除完成，但有 {count} 个引用未能解析（可能已被其他操作删除）',
   'mutation.error.module-not-found': "找不到 ECUC 模块 '{path}'",
   'mutation.action.deleteReferenceNotImplemented':
     '删除引用功能尚未实现（已加入 Sprint A backlog）',
@@ -1472,6 +1480,8 @@ export const MessagesEn: Messages = {
   'mutation.action.deleteModuleAria': "Delete ECUC module '{name}'",
   'mutation.info.ecucModuleDeleted': "Deleted ECUC module '{name}'",
   'mutation.info.ecucModuleUnlinked': "Deleted ECUC module '{name}', BSWMD link broken",
+  'mutation.warning.cascadePartial':
+    'Cascade delete completed, but {count} reference(s) could not be resolved (possibly removed by another action)',
   'mutation.error.module-not-found': "ECUC module not found at '{path}'",
   'confirm.cascade.title': "Delete '{name}'?",
   'confirm.cascade.message': "'{name}' is referenced by {count} places:",

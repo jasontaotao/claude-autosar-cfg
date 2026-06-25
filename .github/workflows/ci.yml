@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -66,9 +67,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  # Stage 4: coverage
+  # Stage 4: coverage — vitest enforces the thresholds in
+  # vitest.config.ts (lines/functions/branches/statements 80/80/70/80).
+  # A drop below the floor fails this job, so a PR can never silently
+  # regress coverage. The HTML report is uploaded as an artifact for
+  # line-level inspection from the GitHub UI.
   coverage:
-    name: Stage 4 / Coverage (>= 80% on core/)
+    name: Stage 4 / Coverage (>= 80% core/, threshold-enforced)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -90,7 +95,7 @@ jobs:
           path: coverage/
           retention-days: 7
 
-  # Stage 5: build
+  # Stage 5: build (main + preload + renderer)
   build:
     name: Stage 5 / Build (main + preload + renderer)
     runs-on: ubuntu-latest
@@ -116,3 +121,62 @@ jobs:
             dist/preload
             dist/renderer
           retention-days: 7
+
+  # Stage 6: import-regression — opt-in regression guard (Sprint 14
+  # T15 / spec §8.6) that round-trips an ARXML through import → save
+  # → re-import and asserts byte equality. Lives under
+  # tests/regression/ which is excluded from vitest.config.ts so
+  # `pnpm test` does not pick it up; the dedicated
+  # vitest.regression.config.ts whitelists it. Pre-fix this guard only
+  # ran in `pnpm verify` locally, so a PR could ship a regression
+  # without CI noticing.
+  regression:
+    name: Stage 6 / Import Regression (Sprint 14 T15 §8.6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vitest run --config vitest.regression.config.ts
+
+  # Stage 7: GH release — fires only on tag push (v*). Skipped on
+  # PRs / main pushes. Uses the gh CLI that ships with
+  # `gh release create --generate-notes`; we set the title from the
+  # tag and let GitHub generate the body from commits since the prior
+  # tag (v1.8.4 → v1.8.5 etc.). Replaces the manual `gh release
+  # create` step that the release captain used to run locally.
+  release:
+    name: Stage 7 / GitHub Release (tag push only)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [lint, type-check, test, coverage, build, regression]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag

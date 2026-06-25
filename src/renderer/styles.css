@@ -1,3 +1,12 @@
+/* v1.6.0 Cluster U — Keyboard-First Power User                       */
+/*   CommandPalette + CheatSheet (live in keyboard/keyboard.css but    */
+/*   bundled here to keep one global stylesheet).                     */
+/* ------------------------------------------------------------------ */
+/* CSS @import must precede all other statements (besides @charset or
+   empty @layer) per the CSS spec; placing it here ahead of Tailwind
+   keeps Vite's CSS pipeline from warning + failing to bundle. */
+@import url('./keyboard/keyboard.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -640,7 +649,6 @@ body,
 
 /* ------------------------------------------------------------------ */
 /* v1.6.0 Cluster U — Keyboard-First Power User                       */
-/*   CommandPalette + CheatSheet (live in keyboard/keyboard.css but    */
-/*   bundled here to keep one global stylesheet).                     */
+/*   CommandPalette + CheatSheet — see the @import at the top of the  */
+/*   file (CSS spec requires @import before any other statement).      */
 /* ------------------------------------------------------------------ */
-@import url('./keyboard/keyboard.css');

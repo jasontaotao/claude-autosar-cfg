@@ -37,22 +37,24 @@ import type { BswmdDocument } from '@core/project/bswmd.js';
 import type { Locale } from '@shared/i18n.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-import { closeContextMenu, ContextMenuRoot, openContextMenu } from '../ContextMenu.js';
+import {
+  closeContextMenu,
+  type ContextMenuAction,
+  ContextMenuRoot,
+  openContextMenu,
+} from '../ContextMenu.js';
 
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
-// Public action shape — mirrors the union inside ContextMenu.tsx.
-// Sprint 17 P3 T3.3 added 'remove-module'; keep this mirror in sync
-// so the test's `onAction` callback accepts the new variant.
-type ContextMenuAction =
-  | { type: 'add-container'; path: string }
-  | { type: 'add-parameter'; path: string }
-  | { type: 'add-reference'; path: string }
-  | { type: 'delete-container'; path: string; name: string }
-  | { type: 'delete-reference'; path: string }
-  | { type: 'remove-module'; path: string };
+// Public action shape — imported directly from ContextMenu so the
+// test's `onAction` callback stays in lock-step with the component's
+// declared union. (Earlier this file mirrored the union locally and
+// drifted out of sync after v1.10.1 added 'delete-module' — TS2322 in
+// the Host component contract.)
+// Sprint 17 P3 T3.3 added 'remove-module'; the source-of-truth is
+// `ContextMenuAction` in `../ContextMenu.js`.
 
 interface HostProps {
   readonly onAction: (action: ContextMenuAction) => void;

@@ -18,54 +18,13 @@ import type { BswModuleDef, ContainerDef, ParamDef } from '@core/project/bswmd';
 import * as combinedDoc from '../helpers/combinedDoc.js';
 import { useArxmlStore } from '../useArxmlStore';
 
-// ---------------------------------------------------------------------------
-// BSWMD fixture builders (mirrors useArxmlStore.addparam.test.ts:82-124 — kept
-// local so this file stays self-contained for any future split)
-// ---------------------------------------------------------------------------
+import { makeBswModule, makeBswmd } from './__fixtures__/bswmd.js';
 
-function makeBswModule(
-  moduleShortName: string,
-  containerShortName: string,
-  paramShortName: string,
-  paramPath: string,
-): BswModuleDef {
-  const topContainer: ContainerDef = {
-    shortName: containerShortName,
-    path: `/EAS/${moduleShortName}/${containerShortName}`,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-    subContainers: [],
-    parameters: [
-      {
-        shortName: paramShortName,
-        path: paramPath,
-        kind: 'integer',
-        defaultValue: 0,
-        minValue: 0,
-        maxValue: 100,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      } satisfies ParamDef,
-    ],
-    references: [],
-    choices: [],
-  };
-  return {
-    shortName: moduleShortName,
-    path: `/EAS/${moduleShortName}`,
-    dialect: 'ecuc-module-def',
-    moduleId: 0,
-    containers: [topContainer],
-    providedEntries: [],
-    lowerMultiplicity: 0,
-    upperMultiplicity: 1,
-  };
-}
-
-function makeBswmd(mod: BswModuleDef) {
-  return { version: '4.6', modules: [mod], warnings: [] };
-}
+// ---------------------------------------------------------------------------
+// BSWMD fixture builders (extracted to ./__fixtures__/bswmd.ts in v1.11.4
+// PATCH-C — shared with useArxmlStore.addparam.test.ts and
+// useArxmlStore.mutation.test.ts).
+// ---------------------------------------------------------------------------
 
 function makeModule(shortName: string): ArxmlModule {
   return {
@@ -124,7 +83,7 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     expect(next.toast!.kind).toBe('info');
   });
 
-  it('removes the module AND clears sourceBswmdPath for a source-backed doc', () => {
+  it('removes the module AND clears sourceBswmdPath for a source-backed doc', async () => {
     // Arrange
     const doc = makeDoc({
       moduleShortName: 'Adc',
@@ -132,13 +91,47 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     });
     useArxmlStore.getState().addDocument(doc, doc.path);
 
-    // Act
+    // Capture the validation trio AFTER addDocument populated it.
+    // A silent revert that drops the trio refresh would pass if we
+    // only asserted "non-null" — the trio value would just be
+    // whatever addDocument set. Pinning a DELTA on lastValidatedAt
+    // forces the post-delete revalidation to actually run.
+    const trioBefore = {
+      validationErrors: useArxmlStore.getState().validationErrors,
+      lastValidatedAt: useArxmlStore.getState().lastValidatedAt,
+      displayDoc: useArxmlStore.getState().displayDoc,
+    };
+
+    // Act — sleep 2ms so Date.now() is guaranteed to advance even on
+    // platforms with millisecond-resolution timers (Windows clock
+    // resolution is 15.6ms by default but jest fake timers in
+    // fast-runners can collapse adjacent calls into the same ms).
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 2);
+    });
     useArxmlStore.getState().deleteEcucModule('/Adc/Adc');
 
     // Assert — module removed AND sourceBswmdPath cleared (no dangling link)
     const next = useArxmlStore.getState();
     expect(next.doc!.packages[0]!.elements.length).toBe(0);
     expect(next.doc!.sourceBswmdPath).toBeUndefined();
+
+    // HIGH-2 (v1.11.2) — the post-mutation validation trio MUST be
+    // refreshed on success. v1.10.2 release notes claimed this trio
+    // (validationErrors + lastValidatedAt + displayDoc) was wired into
+    // deleteEcucModule; the pre-fix tests did not assert it, so a
+    // silent revert would pass. The trio is locked with a DELTA
+    // (lastValidatedAt advanced) and a reference-identity (displayDoc
+    // rebuilt to the new active doc) so a future refactor that drops
+    // either cannot pass this test.
+    expect(next.validationErrors).toEqual(trioBefore.validationErrors);
+    expect(next.lastValidatedAt).not.toBeNull();
+    expect(next.lastValidatedAt).toBeGreaterThan(trioBefore.lastValidatedAt as number);
+    // displayDoc rebuilt to the new active doc reference — the fold
+    // pipeline ran end-to-end (and emitted the same single-mode
+    // identity in single-mode as in the no-op path).
+    expect(next.displayDoc).toBe(next.doc);
+    expect(next.displayDoc).not.toBe(trioBefore.displayDoc);
   });
 
   it('surfaces a localized success toast', () => {
@@ -160,6 +153,13 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     const doc = makeDoc({ moduleShortName: 'Adc' });
     useArxmlStore.getState().addDocument(doc, doc.path);
     const before = useArxmlStore.getState().documents[0]!;
+    // Capture the validation trio after addDocument (which already
+    // refreshed it). The no-op delete must not refresh again.
+    const trioBefore = {
+      validationErrors: useArxmlStore.getState().validationErrors,
+      lastValidatedAt: useArxmlStore.getState().lastValidatedAt,
+      displayDoc: useArxmlStore.getState().displayDoc,
+    };
 
     // Act
     useArxmlStore.getState().deleteEcucModule('/Adc/NonExistent');
@@ -170,6 +170,92 @@ describe('useArxmlStore.deleteEcucModule (Sprint A+)', () => {
     expect(next.doc!.packages[0]!.elements.length).toBe(1);
     expect(next.toast).not.toBeNull();
     expect(next.toast!.kind).toBe('error');
+
+    // HIGH-2 (v1.11.2) — the no-op path must NOT spuriously refresh
+    // the validation trio. addDocument already populated lastValidatedAt;
+    // a no-op delete must not roll it forward (that would publish a
+    // timestamp not corresponding to any actual mutation). Locking
+    // the trio prevents a future refactor from re-introducing this.
+    expect(next.validationErrors).toBe(trioBefore.validationErrors);
+    expect(next.lastValidatedAt).toBe(trioBefore.lastValidatedAt);
+    expect(next.displayDoc).toBe(trioBefore.displayDoc);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HIGH-1 regression — deleteEcucModule must thread `state.bswmdSchemas` to
+// computeDisplayDoc so the post-mutation fold uses the same BSWMD whitelist
+// as pre-mutation. Without this, the fold falls back to the heuristic
+// prefix-only path and the displayDoc shape drifts from what the user was
+// editing (re-introduces v1.9.0 Sprint X HIGH #1).
+//
+// Spy approach rationale: the behavioral difference (fold result with vs
+// without bswmdSchemas) only surfaces for NESTED package structures
+// (`EcucDefs > Adc > module`), but `removeModuleFromDoc` only works on
+// FLAT paths (module directly in rootPkg.elements — it filters
+// `target.pkg.elements` which is the root package's elements, not the
+// package containing the module). So a behavioral test for nested paths
+// would short-circuit at the no-op guard. Instead, we spy on
+// `computeDisplayDoc` and assert the call signature — that's the
+// behavior we actually care about: the helper was called with the
+// 5th arg equal to `state.bswmdSchemas`.
+// ---------------------------------------------------------------------------
+
+describe('useArxmlStore.deleteEcucModule — HIGH-1 bswmdSchemas threading (v1.9.0 vendor-fold regression)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    vi.restoreAllMocks();
+  });
+
+  it('threads state.bswmdSchemas as the 5th argument to computeDisplayDoc', () => {
+    // Arrange — flat structure so removeModuleFromDoc finds and removes
+    // the module successfully.
+    const doc: ArxmlDocument = {
+      path: '/test/Adc_EcucValues.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'Adc',
+          path: '/Adc',
+          elements: [makeModule('Adc')],
+        },
+      ],
+    };
+    useArxmlStore.getState().addDocument(doc, doc.path);
+    const expectedSchemas = [
+      makeBswmd(makeBswModule('Adc', 'AdcConfig', 'TestParam', '/EAS/Adc/AdcConfig/TestParam')),
+    ];
+    useArxmlStore.setState({
+      bswmdSchemas: expectedSchemas,
+      bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
+    });
+
+    // Spy on computeDisplayDoc — vi.spyOn on a module export works in
+    // Vitest's ESM-aware runtime when the import resolves to a named
+    // export of the same module object (which `combinedDoc.js`
+    // provides). The spy preserves the original implementation.
+    const spy = vi.spyOn(combinedDoc, 'computeDisplayDoc');
+
+    // Act
+    useArxmlStore.getState().deleteEcucModule('/Adc/Adc');
+
+    // Assert — the call MUST have received the populated bswmdSchemas
+    // as its 5th argument. Pre-fix the call site omitted the argument
+    // entirely (`computeDisplayDoc(a, b, c, d)` — bswmdSchemas
+    // defaulted to `[]` inside the fold). After-fix the helper threads
+    // `state.bswmdSchemas` and the 5th arg of the post-mutation call
+    // is the populated array.
+    expect(spy).toHaveBeenCalled();
+    // Find the call that matches the post-mutation signature
+    // (viewMode, nextDoc, nextDocuments, documentPaths, bswmdSchemas).
+    const calledWithSchemas = spy.mock.calls.some(
+      (args) =>
+        args[0] === 'single' &&
+        // 5th arg present and equals our populated schemas reference
+        args.length >= 5 &&
+        args[4] === expectedSchemas,
+    );
+    expect(calledWithSchemas).toBe(true);
   });
 });
 
