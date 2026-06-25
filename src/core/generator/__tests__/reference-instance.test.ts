@@ -47,9 +47,10 @@ describe('validateReferences — instance-level (D-rev2 S9)', () => {
     const diags = validateReferences(tree);
     const refUnresolved = diags.filter((d) => d.code === DiagnosticCode.ECUC_GEN_REF_UNRESOLVED);
     expect(refUnresolved).toHaveLength(1);
-    expect(refUnresolved[0].severity).toBe(DiagnosticSeverity.ERROR);
-    expect(refUnresolved[0].moduleShortName).toBe('EcuC');
-    expect(refUnresolved[0].ecucPath).toBe('EcuC/EcuCGeneral/PartitionRef');
+    const first = refUnresolved[0]!;
+    expect(first.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(first.moduleShortName).toBe('EcuC');
+    expect(first.ecucPath).toBe('EcuC/EcuCGeneral/PartitionRef');
   });
 
   it('accepts a reference whose target matches a known container instance', () => {
