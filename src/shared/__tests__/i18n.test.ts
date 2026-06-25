@@ -8,10 +8,16 @@
 //   - both message bundles cover the same set of keys (compile-time-like
 //     safety net; if either bundle is missing a key, the test fails)
 
+import { readFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { t, MessagesZhCN, MessagesEn } from '../i18n.js';
 import type { Locale, MessageKey, Messages } from '../i18n.js';
+
+const I18N_DIR = dirname(fileURLToPath(import.meta.url));
 
 const ALL_KEYS = Object.keys(MessagesZhCN) as MessageKey[];
 
@@ -746,3 +752,40 @@ beforeEach(() => {
 // Re-export so vitest can find types in this module-scope helper.
 // (Type-only — does not affect runtime behavior.)
 export type { Messages };
+
+// -----------------------------------------------------------------------------
+// i18n.ts file split (LOW-3 backlog item: "1769→800")
+//
+// Pin the structural shape of the split so a future refactor that re-inlines
+// the bundles (or grows i18n.ts back beyond 900 lines) fails this test.
+// -----------------------------------------------------------------------------
+
+describe('i18n — file split (LOW-3 backlog, 1769→800)', () => {
+  it('i18n.ts is split into per-locale bundle files', () => {
+    // Sanity: the split files exist on disk. If a refactor inlines the
+    // bundles back into i18n.ts, this fails first.
+    expect(existsSync(join(I18N_DIR, '..', 'i18n.zh-CN.ts'))).toBe(true);
+    expect(existsSync(join(I18N_DIR, '..', 'i18n.en.ts'))).toBe(true);
+  });
+
+  it('i18n.ts stays under the 850-line regression ceiling', () => {
+    // The split targets ≤ 800 lines; we assert 850 to allow headroom for
+    // organic type-interface growth (~30 keys with docs at the current
+    // rate) while still flagging a re-inlined bundle (~1700 lines) as a
+    // regression.
+    const lines = readFileSync(join(I18N_DIR, '..', 'i18n.ts'), 'utf8').split('\n').length;
+    expect(lines).toBeLessThan(850);
+  });
+
+  it('i18n.ts barrel re-exports MessagesZhCN and MessagesEn', async () => {
+    // Importing from the locale files directly + comparing references
+    // proves the barrel re-export is identity-preserving (not a copy).
+    // MessagesZhCN / MessagesEn are already statically imported at the
+    // top of this file (the barrel is `../i18n.js`); only the bundle
+    // modules need dynamic import for the cross-module reference check.
+    const { MessagesZhCN: zhFromBundle } = await import('../i18n.zh-CN.js');
+    const { MessagesEn: enFromBundle } = await import('../i18n.en.js');
+    expect(MessagesZhCN).toBe(zhFromBundle);
+    expect(MessagesEn).toBe(enFromBundle);
+  });
+});
