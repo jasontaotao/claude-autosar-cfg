@@ -13,6 +13,7 @@ import {
   READ_FLAG_NAMES,
   MUTATE_FLAG_NAMES,
   VALIDATE_FLAG_NAMES,
+  GENERATE_FLAG_NAMES,
 } from '../commander.js';
 
 describe('commander — global flag catalog', () => {
@@ -152,6 +153,152 @@ describe('commander — validate sub-command flags', () => {
   });
 });
 
+describe('commander — generate sub-command flags', () => {
+  it('exposes --variant, --out-dir, --modules, --strict', () => {
+    expect(GENERATE_FLAG_NAMES).toEqual([
+      '--variant',
+      '--out-dir',
+      '--modules',
+      '--strict',
+    ]);
+  });
+
+  it('parses --project and defaults variant to PreCompile', () => {
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.autosarcfg.json',
+    ]);
+    expect(parsed.kind).toBe('generate');
+    if (parsed.kind === 'generate') {
+      expect(parsed.input.projectPath).toBe('/tmp/p.autosarcfg.json');
+      expect(parsed.input.variant).toBe('PreCompile');
+      expect(parsed.input.command).toBe('generate');
+      expect(parsed.input.strict).toBe(false);
+    }
+  });
+
+  it('parses explicit --variant values', () => {
+    for (const v of ['PreCompile', 'Link', 'PostBuild']) {
+      const parsed = parseCliArgs([
+        'node',
+        'autosarcfg',
+        'generate',
+        '--project',
+        '/tmp/p.json',
+        '--variant',
+        v,
+      ]);
+      if (parsed.kind === 'generate') {
+        expect(parsed.input.variant).toBe(v);
+      }
+    }
+  });
+
+  it('rejects unknown --variant values', () => {
+    expect(() =>
+      parseCliArgs([
+        'node',
+        'autosarcfg',
+        'generate',
+        '--project',
+        '/tmp/p.json',
+        '--variant',
+        'Runtime',
+      ]),
+    ).toThrow(/Invalid --variant/);
+  });
+
+  it('captures --out-dir verbatim', () => {
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+      '--out-dir',
+      '/tmp/out',
+    ]);
+    if (parsed.kind === 'generate') {
+      expect(parsed.input.outDir).toBe('/tmp/out');
+    }
+  });
+
+  it('omits outDir and modules when not provided (handler applies defaults)', () => {
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+    ]);
+    if (parsed.kind === 'generate') {
+      expect(parsed.input.outDir).toBeUndefined();
+      expect(parsed.input.modules).toBeUndefined();
+    }
+  });
+
+  it('collects --modules as repeatable string[]', () => {
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+      '--modules',
+      'EcuC',
+      '--modules',
+      'Wdg',
+    ]);
+    if (parsed.kind === 'generate') {
+      expect(parsed.input.modules).toEqual(['EcuC', 'Wdg']);
+    }
+  });
+
+  it('captures --strict as true when present', () => {
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+      '--strict',
+    ]);
+    if (parsed.kind === 'generate') {
+      expect(parsed.input.strict).toBe(true);
+    }
+  });
+
+  it('defaults generate format to human and accepts --format json', () => {
+    const human = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+    ]);
+    const json = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      '/tmp/p.json',
+      '--format',
+      'json',
+    ]);
+    if (human.kind === 'generate') expect(human.input.format).toBe('human');
+    if (json.kind === 'generate') expect(json.input.format).toBe('json');
+  });
+
+  it('no longer throws "Unhandled sub-command: generate" (regression for missing wiring)', () => {
+    expect(() =>
+      parseCliArgs(['node', 'autosarcfg', 'generate', '--project', '/tmp/p.json']),
+    ).not.toThrow();
+  });
+});
+
 describe('commander — global flags', () => {
   it('captures --verbose / --quiet / --no-color', () => {
     const parsed = parseCliArgs([
@@ -202,22 +349,26 @@ describe('commander — global flags', () => {
   });
 });
 
-describe('commander — flag count gate (16 total)', () => {
-  it('exposes exactly 16 flags (7 global + 2 read + 4 mutate + 2 validate + 1 read-format = 16)', () => {
+describe('commander — flag count gate (18 unique)', () => {
+  it('exposes exactly 18 unique flags across catalogs (deduplicates --strict shared between mutate + generate)', () => {
     // Global: --project --locale --format --verbose --quiet --no-color --platform (7)
     // Read: --paths --summary-only (2)
     // Mutate: --patch --dry-run --strict --backup (4)
     // Validate: --rules --severity (2)
-    // --format is counted once globally (covers read/mutate/validate)
-    // Total: 7 + 2 + 4 + 2 = 15 documented flags; --format is reused as
-    // global so total unique = 15. Adding --version (commander builtin)
-    // rounds the visible surface to 16.
+    // Generate: --variant --out-dir --modules --strict (4)
+    // Catalog total: 7 + 2 + 4 + 2 + 4 = 19.
+    // Shared flag: --strict appears in MUTATE_FLAG_NAMES and GENERATE_FLAG_NAMES
+    // (commander scopes per-sub-command options, so no runtime collision; but
+    // the catalog count counts it twice). Unique flags: 19 - 1 = 18.
+    // --format is a global flag only (not in any sub-command catalog), so it
+    // is not double-counted.
     const total =
       GLOBAL_FLAG_NAMES.length +
       READ_FLAG_NAMES.length +
       MUTATE_FLAG_NAMES.length +
-      VALIDATE_FLAG_NAMES.length;
-    // --format is shared; subtract once.
-    expect(total - 1).toBe(14);
+      VALIDATE_FLAG_NAMES.length +
+      GENERATE_FLAG_NAMES.length;
+    // --strict is shared between mutate and generate; subtract once.
+    expect(total - 1).toBe(18);
   });
 });
