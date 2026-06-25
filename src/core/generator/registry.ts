@@ -1,4 +1,5 @@
 import type { Diagnostic } from './diagnostics.js';
+import type { BswmdParamDefLite } from './normalize.js';
 
 export type GenerationVariant = 'PreCompile' | 'Link' | 'PostBuild';
 
@@ -8,6 +9,11 @@ export interface GenerationContext {
   readonly implByModule: ReadonlyMap<string, string>;
   readonly outDir: string;
   readonly diagnostics: Diagnostic[];
+  // v1.13.4 PATCH-B (M5 + L3) — flat lookup keyed by
+  // Module/Container/Param path. Generators use this to resolve the
+  // real BSWMD shortName + paramConfigClass without re-walking the
+  // BSWMD tree on every emit.
+  readonly bswmdParamIndex?: ReadonlyMap<string, BswmdParamDefLite>;
 }
 
 export interface GeneratedArtifact {

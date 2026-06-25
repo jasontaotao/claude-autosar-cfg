@@ -72,6 +72,10 @@ interface EcuCParamDefLike {
     | 'enumeration'
     | 'reference'
     | 'function-name';
+  // v1.13.4 PATCH-B (M5) — real BSWMD shortName. Replaces the
+  // hardcoded `'Param'` literal that previously collided across
+  // multi-param containers.
+  readonly shortName?: string;
   readonly min?: number;
   readonly max?: number;
   readonly typeName?: string;
@@ -200,7 +204,7 @@ export class EcuCGenerator implements ModuleGenerator {
 
     for (const container of eDef.containers) {
       for (const pDef of container.parameters) {
-        const path = `${eDef.shortName}/${container.shortName}/${shortNameFromDef(pDef)}`;
+        const path = `${eDef.shortName}/${container.shortName}/${pDef.shortName ?? 'Param'}`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
         const ident = cIdent(path);
@@ -220,11 +224,17 @@ export class EcuCGenerator implements ModuleGenerator {
       }
     }
 
-    // For "Mixed" fixture: any param whose value sits in the PostBuild
-    // bucket (signaled by `ecucValuesMixed`) → emit a loader-entry stub
-    // regardless of ctx.variant. This keeps Task 16 happy-path narrow
-    // while exercising the PBcfg.c branch.
-    const pbValues = (eVals.parameters ?? []).filter((p) => isPostBuild(p.path));
+    // v1.13.4 PATCH-B (L3) — PostBuild routing driven by BSWMD
+    // paramConfigClass instead of the /PostBuild/i.test(path) regex
+    // substring heuristic. The heuristic was over-broad: any path
+    // containing the substring "PostBuild" would trigger PBcfg.c
+    // emission, including real BSWMD paths that just happen to mention
+    // PostBuild in a container or param name. The structured lookup
+    // matches the param's actual configClass for the active variant.
+    const paramIndex = ctx.bswmdParamIndex;
+    const pbValues = (eVals.parameters ?? []).filter((p) =>
+      isPostBuild(p.path, ctx.variant, paramIndex),
+    );
     if (pbValues.length > 0) {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind });
@@ -275,37 +285,28 @@ export class EcuCGenerator implements ModuleGenerator {
 }
 
 /**
- * Synthesize the param's BSWMD shortName from the value path's tail.
- * Fixtures carry the value path; the BSWMD def here stores `kind`
- * without a name. For MVP we use the last path segment; Task 17 will
- * thread the real `shortName` from the parsed BSWMD.
+ * v1.13.4 PATCH-B (L3) — resolve whether a value-path belongs in the
+ * PostBuild bucket by looking up the BSWMD param's configClass for
+ * the active variant. Replaces the previous /PostBuild/i.test(path)
+ * substring heuristic (D-rev2 L3 / S4) that was over-broad and would
+ * false-positive on any real BSWMD path containing "PostBuild" in a
+ * container or param name.
  *
- * TODO(Task 17 / v1.13.0): Joint review M5 — both this hardcoded
- * `'Param'` literal and the McuGenerator's mirror at
- * `modules/mcu.ts:191` assume single-param containers. The moment a
- * real BSWMD fixture has two parameters with different shortNames,
- * every parameter will collide at the `paramByPath` lookup. Add a
- * regression test that walks a 2-param container before unblocking
- * v1.13.0 parser-driven tests.
+ * Returns `false` when the param is unknown to `bswmdParamIndex` —
+ * conservative default preserves the no-emission contract for legacy
+ * fixtures that don't model configClass routing.
  */
-function shortNameFromDef(_def: EcuCParamDefLike): string {
-  // The fixture's parameter entries don't carry names explicitly, but
-  // the *values* in `ecucValuesPreCompile` do (via `path`). The def
-  // walker above indexes by container + param order; for happy-path
-  // tests we only care about the artifact *count*, not which exact
-  // path lands in which bucket. Task 17 will fix the wiring.
-  return 'Param';
-}
-
-/**
- * Heuristic for the "Mixed" fixture: paths that mention PostBuild land
- * in the PostBuild bucket so the PBcfg.c branch fires. Task 17 will
- * replace this with `paramConfigClass` lookups against the real def.
- *
- * Joint review L3 — fixture-only heuristic; will silently mis-classify
- * real BSWMD paths that contain "PostBuild" anywhere in the path.
- * Tracked for v1.13.0.
- */
-function isPostBuild(path: string): boolean {
-  return /PostBuild/i.test(path);
+function isPostBuild(
+  path: string,
+  variant: 'PreCompile' | 'Link' | 'PostBuild',
+  paramIndex?: ReadonlyMap<string, import('../normalize.js').BswmdParamDefLite>,
+): boolean {
+  if (!paramIndex) return false;
+  const param = paramIndex.get(path);
+  if (!param) return false;
+  const targetVariant =
+    variant === 'PostBuild' ? 'VARIANT-POST-BUILD' : 'VARIANT-PRE-COMPILE';
+  return param.paramConfigClasses.some(
+    (cc) => cc.configVariant === targetVariant && cc.configClass === 'POST-BUILD',
+  );
 }

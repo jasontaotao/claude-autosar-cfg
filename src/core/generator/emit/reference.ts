@@ -6,6 +6,7 @@
 // pointer declarations.
 
 import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from '../diagnostics.js';
+import type { BswmdParamDefLite } from '../normalize.js';
 
 export interface ReferenceEdge {
   readonly sourceModule: string;
@@ -19,6 +20,11 @@ export interface NormalizedConfigTree {
   readonly valuesByModule: ReadonlyMap<string, unknown>;
   readonly implByModule: ReadonlyMap<string, string>;
   readonly references: readonly ReferenceEdge[];
+  // v1.13.4 PATCH-B (M5 + L3) — flat lookup keyed by
+  // Module/Container/Param path. Lets generators resolve real BSWMD
+  // shortName + paramConfigClass without walking nested arrays on
+  // every emit.
+  readonly bswmdParamIndex: ReadonlyMap<string, BswmdParamDefLite>;
 }
 
 /**

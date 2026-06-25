@@ -20,28 +20,68 @@ export function cIdent(path: string): string {
  */
 export interface BswmdIntegerParamDef {
   readonly kind: 'integer';
+  // v1.13.4 PATCH-B (M5) — real BSWMD shortName replaces the hardcoded
+  // 'Param' literal in generator emission. Optional here for backward
+  // compat with fixtures that only model kind/min/max.
+  readonly shortName?: string;
+  // v1.13.4 PATCH-B (L3) — per-variant configClass. Optional here for
+  // backward compat with fixtures that don't model configClass routing.
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
   readonly min?: number;
   readonly max?: number;
 }
 export interface BswmdBooleanParamDef {
   readonly kind: 'boolean';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
 }
 export interface BswmdStringParamDef {
   readonly kind: 'string';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
 }
 export interface BswmdFloatParamDef {
   readonly kind: 'float';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
 }
 export interface BswmdEnumerationParamDef {
   readonly kind: 'enumeration';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
   readonly typeName: string;
 }
 export interface BswmdReferenceParamDef {
   readonly kind: 'reference';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
   readonly targetType: string;
 }
 export interface BswmdFunctionNameDef {
   readonly kind: 'function-name';
+  readonly shortName?: string;
+  readonly paramConfigClasses?: readonly {
+    readonly configClass: 'PRE-COMPILE' | 'POST-BUILD' | 'LINK';
+    readonly configVariant: 'VARIANT-PRE-COMPILE' | 'VARIANT-POST-BUILD';
+  }[];
   readonly signature: string;
 }
 export type BswmdParamDef =

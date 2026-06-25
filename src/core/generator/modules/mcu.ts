@@ -56,6 +56,9 @@ function sourceTpl(): Handlebars.TemplateDelegate {
 
 interface McuParamDefLike {
   readonly kind: 'integer' | 'boolean' | 'string' | 'float' | 'enumeration';
+  // v1.13.4 PATCH-B (M5) — real BSWMD shortName. Replaces the
+  // hardcoded `'Param'` literal in path construction.
+  readonly shortName?: string;
   readonly min?: number;
   readonly max?: number;
 }
@@ -144,14 +147,14 @@ export class McuGenerator implements ModuleGenerator {
     // Walk every container and emit one CONST per parameter.
     // MVP: PreCompile only (no variant branching yet).
     //
-    // TODO(Task 17 / v1.13.0): Joint review M5 — the hardcoded
-    // `'Param'` literal assumes single-param containers and collides
-    // with `EcuCGenerator.shortNameFromDef` semantics. Track together
-    // when threading real BSWMD shortNames through.
+    // v1.13.4 PATCH-B (M5) — `pDef.shortName` carries the real BSWMD
+    // param shortName. The previous `'Param'` literal collision with
+    // EcuCGenerator.shortNameFromDef is fixed by reading shortName
+    // from the parsed BSWMD def directly.
     const preCompileDecls: string[] = [];
     for (const container of mDef.containers) {
       for (const pDef of container.parameters) {
-        const path = `${mDef.shortName}/${container.shortName}/Param`;
+        const path = `${mDef.shortName}/${container.shortName}/${pDef.shortName ?? 'Param'}`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
         // v1.13.3 PATCH-C: `paramIdent` → `cIdent` (byte-identical body

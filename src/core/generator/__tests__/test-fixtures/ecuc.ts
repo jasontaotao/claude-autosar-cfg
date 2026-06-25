@@ -61,11 +61,44 @@ export const ecucDef: BswmdModuleDef = {
       parameters: [
         {
           kind: 'integer',
+          // v1.13.4 PATCH-B (M5) — real BSWMD shortName aligns the
+          // generator's emission path with the value-paths in
+          // ecucValuesPreCompile/Mixed/Refs. Without this the generator
+          // fell back to a hardcoded 'Param' literal and produced two
+          // duplicate-identifier declarations in any multi-param container.
+          shortName: 'ConfigConsistencyHash',
+          // v1.13.4 PATCH-B (L3) — paramConfigClass=PRE-COMPILE
+          // means this stays in Cfg.c (never PBcfg.c).
+          paramConfigClasses: [
+            { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+          ],
           min: 0,
           max: 4294967295,
         } satisfies BswmdParamDef,
         {
           kind: 'boolean',
+          shortName: 'GenericParameter',
+          paramConfigClasses: [
+            { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+          ],
+        } satisfies BswmdParamDef,
+        // v1.13.4 PATCH-B (L3) — third param exercises the
+        // paramConfigClass-driven PostBuild routing. Before L3 the
+        // heuristic /PostBuild/i.test(path) was over-broad; now only
+        // params whose paramConfigClass matches POST-BUILD for the
+        // active variant route to PBcfg.c.
+        {
+          kind: 'integer',
+          shortName: 'PostBuildParam',
+          // configClass=POST-BUILD under VARIANT-PRE-COMPILE — the
+          // mixed-build case where the value is loaded post-build
+          // even in a PreCompile variant. This is what triggers the
+          // loader-entry emission in PBcfg.c.
+          paramConfigClasses: [
+            { configClass: 'POST-BUILD', configVariant: 'VARIANT-PRE-COMPILE' },
+          ],
+          min: 0,
+          max: 4294967295,
         } satisfies BswmdParamDef,
       ],
     },

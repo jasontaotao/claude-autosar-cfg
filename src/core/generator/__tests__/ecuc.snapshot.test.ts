@@ -35,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect, test, beforeAll } from 'vitest';
 
 import { EcuCGenerator } from '../modules/ecuc.js';
+import { normalizeToTree, type BswmdModuleDefLite } from '../normalize.js';
 import { _resetRegistryForTest, registerGenerator, type GenerationContext } from '../registry.js';
 
 import {
@@ -56,12 +57,22 @@ function readSnap(relPath: string): string {
 }
 
 function makeCtx(): GenerationContext {
+  // v1.13.4 PATCH-B (L3) — populate bswmdParamIndex via the production
+  // normalizeToTree path so the L3 structured lookup has the BSWMD
+  // metadata it needs (configClass routing). Without this, Mixed-1
+  // would not emit EcuC_PBcfg.c because isPostBuild() falls back to
+  // `false` when the index is empty (conservative default).
+  const tree = normalizeToTree(
+    new Map([[ecucDef.shortName, ecucDef as unknown as BswmdModuleDefLite]]),
+    new Map(),
+  );
   return {
     variant: 'PreCompile',
     bswmdIndex: new Map<string, unknown>(),
     implByModule: new Map<string, string>(),
     outDir: '/tmp',
     diagnostics: [],
+    bswmdParamIndex: tree.bswmdParamIndex,
   };
 }
 

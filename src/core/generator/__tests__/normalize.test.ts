@@ -57,4 +57,60 @@ describe('normalizeToTree', () => {
     // Reference still recorded (target existence check happens in validateReferences)
     expect(tree.references).toHaveLength(1);
   });
+
+  // v1.13.4 PATCH-B (M5) — bswmdParamIndex feeds the real BSWMD
+  // shortName + paramConfigClass through the pipeline. Builder keys
+  // by Module/Container/Param path so generators can lookup emission
+  // metadata without walking nested arrays on every emit.
+  it('builds bswmdParamIndex keyed by Module/Container/Param path', () => {
+    const defWithContainers = {
+      shortName: 'EcuC',
+      containers: [
+        {
+          shortName: 'EcuCGeneral',
+          parameters: [
+            {
+              kind: 'integer',
+              shortName: 'ConfigConsistencyHash',
+              paramConfigClasses: [
+                { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+                { configClass: 'POST-BUILD', configVariant: 'VARIANT-POST-BUILD' },
+              ],
+            },
+          ],
+        },
+        {
+          shortName: 'EcuCPartitionConfig',
+          parameters: [
+            {
+              kind: 'integer',
+              shortName: 'EcuC_PartitionConfigId',
+              paramConfigClasses: [
+                { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+              ],
+            },
+          ],
+        },
+      ],
+    } as BswmdModuleDefLite;
+    const tree = normalizeToTree(
+      new Map([['EcuC', defWithContainers]]),
+      new Map([['EcuC', ecucValues]]),
+    );
+    expect(tree.bswmdParamIndex.size).toBe(2);
+    expect(
+      tree.bswmdParamIndex.get('EcuC/EcuCGeneral/ConfigConsistencyHash')?.shortName,
+    ).toBe('ConfigConsistencyHash');
+    expect(
+      tree.bswmdParamIndex.get('EcuC/EcuCPartitionConfig/EcuC_PartitionConfigId')
+        ?.paramConfigClasses,
+    ).toEqual([
+      { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+    ]);
+  });
+
+  it('returns empty bswmdParamIndex when BSWMD has no containers', () => {
+    const tree = normalizeToTree(new Map([['EcuC', ecucDef]]), new Map([['EcuC', ecucValues]]));
+    expect(tree.bswmdParamIndex.size).toBe(0);
+  });
 });

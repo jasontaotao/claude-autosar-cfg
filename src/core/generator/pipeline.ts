@@ -161,6 +161,9 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         implByModule: tree.implByModule,
         outDir: args.outDir,
         diagnostics,
+        // v1.13.4 PATCH-B (M5 + L3) — pass bswmdParamIndex so
+        // generators can resolve real BSWMD shortName + configClass.
+        bswmdParamIndex: tree.bswmdParamIndex,
       });
       for (const a of out) artifacts.set(a.path, a.content);
     } catch (e) {

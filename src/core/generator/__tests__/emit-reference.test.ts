@@ -12,6 +12,7 @@ const makeTree = (valuesByModule: Record<string, unknown>): NormalizedConfigTree
   bswmdIndex: new Map(),
   valuesByModule: new Map(Object.entries(valuesByModule)),
   implByModule: new Map(),
+  bswmdParamIndex: new Map(),
   references: [
     {
       sourceModule: 'EcuC',

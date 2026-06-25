@@ -2,11 +2,11 @@
 #include "{{moduleHeader}}"
 
 {{#each loaderEntries}}
-{{this}}
+{{{this}}}
 {{/each}}
 
 void {{moduleShortName}}_PBcfg_Init(void* baseAddr) {
 {{#each loaderCalls}}
-    {{this}}
+    {{{this}}}
 {{/each}}
 }

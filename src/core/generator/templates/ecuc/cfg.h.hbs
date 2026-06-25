@@ -10,9 +10,9 @@
 {{#each typedefs}}
 typedef struct {
 {{#each fields}}
-    {{this.cType}} {{this.name}};
+    {{{this.cType}}} {{{this.name}}};
 {{/each}}
-} {{this.name}};
+} {{{this.name}}};
 
 {{/each}}
 
@@ -21,11 +21,11 @@ extern "C" {
 #endif
 
 {{#each externDecls}}
-extern {{this}};
+extern {{{this}}};
 {{/each}}
 
 {{#each referenceDecls}}
-extern {{this}};
+extern {{{this}}};
 {{/each}}
 
 #ifdef __cplusplus
