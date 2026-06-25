@@ -9,6 +9,7 @@ import {
   paramConfigClass,
   bswmdPathOf,
   partitionName,
+  validateHeaderPath,
 } from '../handlebars-helpers.js';
 import type { GenerationVariant } from '../registry.js';
 
@@ -31,6 +32,26 @@ describe('cIdent', () => {
 
   it('preserves already-valid identifiers unchanged', () => {
     expect(cIdent('EcuC_Partition_0')).toBe('EcuC_Partition_0');
+  });
+
+  // v1.13.5 PATCH-F (SEC2) — D-rev2 Security finding: cIdent allowed
+  // characters that would let a malicious BSWMD shortName smuggle
+  // shell-meta or invalid C characters into the generated header.
+  // Whitelist the C-identifier alphabet [A-Za-z0-9_]; everything else
+  // becomes '_'. Leading digits are prefixed with '_' to keep the
+  // result a valid C identifier. Trailing '_' (from a special char
+  // at the end) is stripped for cleanliness.
+  it('replaces shell-meta characters with underscores (SEC2)', () => {
+    expect(cIdent('EcuC#Bad')).toBe('EcuC_Bad');
+    expect(cIdent('a$b')).toBe('a_b');
+    expect(cIdent('Foo*')).toBe('Foo'); // trailing '_' stripped
+    expect(cIdent('a@b/c')).toBe('a_b_c');
+    expect(cIdent('q?mark')).toBe('q_mark');
+  });
+
+  it('prefixes leading digits with underscore (SEC2 invalid C idents)', () => {
+    expect(cIdent('1leading')).toBe('_1leading');
+    expect(cIdent('9nine')).toBe('_9nine');
   });
 });
 
@@ -182,5 +203,40 @@ describe('partitionName', () => {
 
   it('prefixes with module shortName when bare name given', () => {
     expect(partitionName('EcuC/0')).toBe('EcuC_0');
+  });
+});
+
+// v1.13.5 PATCH-F (SEC3) — D-rev2 Security finding: `moduleHeader` and
+// every `includes[]` entry land verbatim inside `#include "..."` in the
+// generated C source. A malicious BSWMD that includes `..` (path
+// traversal), `"` (quote escape), or shell-meta would let an attacker
+// read arbitrary files (during compile) or smuggle content into the
+// generator output. Whitelist the path alphabet `[A-Za-z0-9_./-]+`.
+describe('validateHeaderPath', () => {
+  it('accepts simple moduleHeader', () => {
+    expect(validateHeaderPath('EcuC/EcuC_Cfg.h')).toBe(true);
+  });
+
+  it('accepts flat include path with extension', () => {
+    expect(validateHeaderPath('Std_Types.h')).toBe(true);
+  });
+
+  it('rejects parent-directory traversal (SEC3)', () => {
+    expect(validateHeaderPath('../etc/passwd')).toBe(false);
+    expect(validateHeaderPath('EcuC/../secret.h')).toBe(false);
+  });
+
+  it('rejects quote / shell-meta (SEC3)', () => {
+    expect(validateHeaderPath('foo"; rm -rf')).toBe(false);
+    expect(validateHeaderPath('foo`bar`')).toBe(false);
+    expect(validateHeaderPath('foo$(whoami)')).toBe(false);
+  });
+
+  it('rejects absolute paths (SEC3)', () => {
+    expect(validateHeaderPath('/etc/passwd')).toBe(false);
+  });
+
+  it('rejects empty string', () => {
+    expect(validateHeaderPath('')).toBe(false);
   });
 });

@@ -1,16 +1,50 @@
 /**
  * Convert an ECUC-style path into a legal C identifier.
- * - `/`, `-`, `.`, `:` → `_`
+ * - Whitelist: `[A-Za-z0-9_]` (the C-identifier alphabet)
+ * - Any other char (incl. `/`, `-`, `.`, `:`, `#`, `$`, `@`, `*`, `?`,
+ *   shell-meta, non-ASCII) → `_`
  * - Trims whitespace
  * - Collapses runs of `_`
- * Returns '' for empty input.
+ * - Strips leading/trailing `_`
+ * - Prefix with `_` if the result starts with a digit (C identifiers
+ *   may not begin with a digit)
+ *
+ * v1.13.5 PATCH-F (SEC2) — D-rev2 Security finding. The previous
+ * `replace(/[/\-.:]/g, '_')` allowed `#`/`$`/`@`/`*`/`?` and any
+ * leading digit through unchanged, letting a malicious BSWMD
+ * shortName smuggle characters that break generated C compilation
+ * or break out of header guards.
  */
 export function cIdent(path: string): string {
-  return path
+  const cleaned = path
     .trim()
-    .replace(/[/\-.:]/g, '_')
+    .replace(/[^A-Za-z0-9_]/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
+  // Prefix `_` if the cleaned result begins with a digit — invalid C
+  // identifiers. Preserves the original semantics (path → ident) for
+  // already-valid input like `EcuC_Partition_0`.
+  return /^\d/.test(cleaned) ? `_${cleaned}` : cleaned;
+}
+
+/**
+ * v1.13.5 PATCH-F (SEC3) — D-rev2 Security finding: `moduleHeader` and
+ * every `includes[]` entry land verbatim inside `#include "..."` in
+ * the generated C source. Without validation, a malicious BSWMD could
+ * include path-traversal (`..`), absolute paths (`/etc/...`), quote
+ * escape (`"`), or shell-meta (`` ` ``, `$(...)`) to read arbitrary
+ * files at compile time or smuggle content into the generated output.
+ *
+ * Whitelist: must be non-empty AND match `^[A-Za-z0-9_./-]+$` (no `..`
+ * substring either — that would slip through the character class
+ * without the `..` ban).
+ */
+const HEADER_PATH_OK = /^[A-Za-z0-9_./-]+$/;
+export function validateHeaderPath(s: string): boolean {
+  if (s.length === 0) return false;
+  if (s.startsWith('/')) return false; // absolute paths forbidden
+  if (s.includes('..')) return false; // path-traversal forbidden
+  return HEADER_PATH_OK.test(s);
 }
 
 /**

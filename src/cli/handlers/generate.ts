@@ -29,7 +29,7 @@
 // atomic rename. This handler is the glue.
 
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { parseArxml } from '../../core/arxml/parser.js';
@@ -70,7 +70,19 @@ interface GenerateArgsInternal extends GenerateArgs {
 export async function generateHeadlessProject(args: GenerateArgs): Promise<GenerateResult> {
   const start = Date.now();
   const internalArgs = args as GenerateArgsInternal;
-  const projectPath = resolve(args.projectPath);
+  // v1.13.5 PATCH-F (SEC1) — canonicalize via realpath so symlinked
+  // manifests / BSWMDs / ECUC value files resolve to their real
+  // target. Without this, an attacker could symlink the manifest
+  // into a restricted directory and have the loader read sensitive
+  // content from there. `resolve` only normalizes the path string;
+  // `realpath` follows the symlink.
+  let projectPath = resolve(args.projectPath);
+  try {
+    projectPath = await realpath(projectPath);
+  } catch {
+    // realpath fails when the path doesn't exist; the existsSync
+    // check below surfaces a clean file-not-found error.
+  }
 
   if (!existsSync(projectPath)) {
     failWith({ kind: 'file-not-found', path: projectPath }, 1);
@@ -192,7 +204,11 @@ async function loadProjectMaps(
   // Parse BSWMDs into `BswmdModuleDefLite` map keyed by shortName.
   const bswmdIndex = new Map<string, BswmdModuleDefLite>();
   for (const rel of manifest.bswmdPaths) {
-    const abs = resolve(manifestDir, rel);
+    const resolved = resolve(manifestDir, rel);
+    // v1.13.5 PATCH-F (SEC1) — realpath before read so symlinked
+    // BSWMDs can't redirect the loader into an attacker-controlled
+    // directory.
+    const abs = await safeRealpath(resolved);
     let xml: string;
     try {
       xml = await readFile(abs, 'utf-8');
@@ -209,7 +225,9 @@ async function loadProjectMaps(
   // Parse ECUC value files into per-module values.
   const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>();
   for (const rel of manifest.valueArxmlPaths) {
-    const abs = resolve(manifestDir, rel);
+    const resolved = resolve(manifestDir, rel);
+    // v1.13.5 PATCH-F (SEC1) — see above.
+    const abs = await safeRealpath(resolved);
     let xml: string;
     try {
       xml = await readFile(abs, 'utf-8');
@@ -233,6 +251,20 @@ async function loadProjectMaps(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * v1.13.5 PATCH-F (SEC1) — helper: realpath with graceful fallback.
+ * `realpath` throws on non-existent paths; we want the original
+ * `resolve()`'d string in that case (so the subsequent `readFile`
+ * attempt surfaces the file-not-found error uniformly).
+ */
+async function safeRealpath(p: string): Promise<string> {
+  try {
+    return await realpath(p);
+  } catch {
+    return p;
+  }
+}
 
 /**
  * Best-effort extraction of a module short name from a normalized

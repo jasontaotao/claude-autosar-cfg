@@ -84,4 +84,25 @@ describe('writeOutputTree', () => {
     const written = await readFile(finalPath, 'utf8');
     expect(written).toBe('/* content */');
   });
+
+  // v1.13.5 PATCH-F (SEC4) — D-rev2 Security finding: writeOutputTree
+  // joined relPath onto outDir without canonicalization, so a malicious
+  // artifact path like `../../../tmp/escape` would write OUTSIDE outDir.
+  // Now: realpath(outDir) once, then realpath(dirname(absPath)) must
+  // start with the canonicalized outDir. Escape attempts push an
+  // ECUC-GEN-031 (OUTPUT_WRITE) diagnostic.
+  it('refuses to write artifacts whose path escapes outDir (SEC4)', async () => {
+    const diagnostics: import('../diagnostics.js').Diagnostic[] = [];
+    const artifacts = new Map<string, string>([
+      ['evil/../../../tmp/escape.c', '/* escape */'],
+      ['legit.c', '/* legit */'],
+    ]);
+    await writeOutputTree(artifacts, outDir, diagnostics);
+    // Escape attempt produced a diagnostic.
+    expect(diagnostics.length).toBeGreaterThan(0);
+    expect(diagnostics.some((d) => d.message.includes('escape'))).toBe(true);
+    // Legit artifact still wrote.
+    const written = await readFile(join(outDir, 'legit.c'), 'utf8');
+    expect(written).toBe('/* legit */');
+  });
 });

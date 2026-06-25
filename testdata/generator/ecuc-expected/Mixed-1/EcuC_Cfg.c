@@ -1,7 +1,8 @@
 #include "EcuC/EcuC_Cfg.h"
 
-CONST(uint32, AUTOMATIC) uint32 EcuC_EcuCGeneral_Param &#x3D; 0u;
-CONST(uint8, AUTOMATIC) uint8 EcuC_EcuCGeneral_Param &#x3D; 0u;
+CONST(uint32, AUTOMATIC) uint32 EcuC_EcuCGeneral_ConfigConsistencyHash = 305419896;
+CONST(uint8, AUTOMATIC) uint8 EcuC_EcuCGeneral_GenericParameter = 0u;
+CONST(uint32, AUTOMATIC) uint32 EcuC_EcuCGeneral_PostBuildParam = 42;
 
 
 
