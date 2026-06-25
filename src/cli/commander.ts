@@ -1,9 +1,9 @@
 // Commander.js wiring for `autosarcfg` CLI (v1.6.0 A+C-1).
 //
-// Per A+C spec §7.1-§7.4: 16 CLI flags across 4 sub-commands plus
-// global flags. Pure parsing — the dispatcher in `command-dispatcher.ts`
-// does the actual work. This module is a thin adapter over commander.js
-// that:
+// Per A+C spec §7.1-§7.4 + v1.11.0 BSW generator: 18 unique CLI flags
+// across 4 sub-commands plus global flags. Pure parsing — the dispatcher
+// in `command-dispatcher.ts` does the actual work. This module is a thin
+// adapter over commander.js that:
 //   - returns a tagged union (`ParsedArgs`) so callers don't reparse
 //   - exports flag-name catalogs for test pinning (silent drops = test fail)
 //   - exits 3 on unknown sub-command (per A+C spec §7.5)
@@ -15,6 +15,7 @@ import type {
   ReadArgs,
   MutateArgs,
   ValidateArgs,
+  GenerateArgs,
 } from '../shared/headless/ipc-contract.js';
 
 /** Flag catalog — exported so commander.test.ts pins the surface. */
@@ -31,6 +32,12 @@ export const GLOBAL_FLAG_NAMES = [
 export const READ_FLAG_NAMES = ['--paths', '--summary-only'] as const;
 export const MUTATE_FLAG_NAMES = ['--patch', '--dry-run', '--strict', '--backup'] as const;
 export const VALIDATE_FLAG_NAMES = ['--rules', '--severity'] as const;
+export const GENERATE_FLAG_NAMES = [
+  '--variant',
+  '--out-dir',
+  '--modules',
+  '--strict',
+] as const;
 
 /** Parsed global flags (apply to every sub-command). */
 export interface GlobalFlags {
@@ -44,7 +51,7 @@ export interface GlobalFlags {
   readonly platform?: string;
 }
 
-/** Discriminated union of all 3 sub-command inputs + global flags. */
+/** Discriminated union of all 4 sub-command inputs + global flags. */
 export type ParsedArgs =
   | { readonly kind: 'read'; readonly global: GlobalFlags; readonly input: ReadArgs }
   | {
@@ -52,10 +59,15 @@ export type ParsedArgs =
       readonly global: GlobalFlags;
       readonly input: MutateArgs & { strict: boolean; backup: boolean };
     }
-  | { readonly kind: 'validate'; readonly global: GlobalFlags; readonly input: ValidateArgs };
+  | { readonly kind: 'validate'; readonly global: GlobalFlags; readonly input: ValidateArgs }
+  | {
+      readonly kind: 'generate';
+      readonly global: GlobalFlags;
+      readonly input: GenerateArgs & { strict: boolean };
+    };
 
 /**
- * Build a commander.js `Command` tree with all 3 sub-commands + global
+ * Build a commander.js `Command` tree with all 4 sub-commands + global
  * flags. Exported for the bin entry; tests use `parseCliArgs` directly.
  */
 export function buildCommand(): Command {
@@ -119,6 +131,32 @@ export function buildCommand(): Command {
       // No-op action; dispatcher handles execution.
     });
 
+  // --- generate sub-command (v1.11.0 BSW code generator) ---
+  root
+    .command('generate')
+    .description(
+      'Run BSW code generator pipeline (PreCompile | Link | PostBuild) and emit files to <outDir>',
+    )
+    .option(
+      '--variant <v>',
+      'Generation variant: PreCompile | Link | PostBuild (default: PreCompile)',
+      'PreCompile',
+    )
+    .option(
+      '--out-dir <path>',
+      'Output directory for generated files (default: <projectPath>/generated)',
+    )
+    .option(
+      '--modules <shortName>',
+      'Restrict generation to specific module short names (repeatable)',
+      collectPaths,
+      [] as string[],
+    )
+    .option('--strict', 'Promote any WARNING to exit 1', false)
+    .action(function (this: Command) {
+      // No-op action; dispatcher handles execution.
+    });
+
   // Reject unknown commands before commander exits silently.
   root.exitOverride();
 
@@ -143,7 +181,7 @@ export function parseCliArgs(argv: readonly string[]): ParsedArgs {
   // The sub-command (if any) is attached to `cmd` as `args` after parse.
   const subArgs = cmd.args;
   if (subArgs.length === 0) {
-    throw new Error('Missing sub-command. Use `autosarcfg read|mute|validate`.');
+    throw new Error('Missing sub-command. Use `autosarcfg read|mutate|validate|generate`.');
   }
 
   const subName = subArgs[0];
@@ -193,6 +231,27 @@ export function parseCliArgs(argv: readonly string[]): ParsedArgs {
           stub: true,
         },
       };
+    case 'generate':
+      return {
+        kind: 'generate',
+        global,
+        input: {
+          command: 'generate',
+          projectPath: global.projectPath,
+          variant: pickVariant(subOpts['variant']),
+          ...(typeof subOpts['outDir'] === 'string' ? { outDir: subOpts['outDir'] } : {}),
+          ...(Array.isArray(subOpts['modules']) && subOpts['modules'].length > 0
+            ? { modules: subOpts['modules'] as string[] }
+            : {}),
+          strict: (subOpts['strict'] as boolean | undefined) === true,
+          // `generate` inherits --format from root (not registered as its own
+          // option). `pickGenerateFormat` normalises the wider global domain
+          // ('json' | 'summary' | 'arxml-dump') down to the generate domain
+          // ('human' | 'json'); values other than 'json' silently fall back
+          // to 'human' per pickGenerateFormat's contract.
+          format: pickGenerateFormat(rootOpts['format']),
+        },
+      };
     default:
       throw new Error(`Unhandled sub-command: ${String(subName)}`);
   }
@@ -221,6 +280,17 @@ function readGlobalFlags(opts: Record<string, unknown>): GlobalFlags {
 
 function pickFormat(raw: unknown): 'json' | 'summary' {
   return raw === 'json' ? 'json' : 'summary';
+}
+
+function pickVariant(raw: unknown): 'PreCompile' | 'Link' | 'PostBuild' {
+  if (raw === 'PreCompile' || raw === 'Link' || raw === 'PostBuild') return raw;
+  throw new Error(
+    `Invalid --variant '${String(raw)}': expected PreCompile | Link | PostBuild`,
+  );
+}
+
+function pickGenerateFormat(raw: unknown): 'human' | 'json' {
+  return raw === 'json' ? 'json' : 'human';
 }
 
 // Re-export HeadlessCommand for callers that want the wire type.

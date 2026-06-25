@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { dispatchCommand, HeadlessFailureError } from '../command-dispatcher.js';
-import type { ParsedArgs } from '../commander.js';
+import { parseCliArgs, type ParsedArgs } from '../commander.js';
 import { EXIT_SUCCESS, EXIT_FATAL, EXIT_INVALID_INPUT, EXIT_WARNING } from '../exitCodes.js';
 
 const COM_ARXML = 'D:/claude_proj2/claude-AutosarCfg/tests/fixtures/arxml/Com_Com.arxml';
@@ -120,6 +120,42 @@ describe('dispatchCommand — validate path (stub)', () => {
     expect(out.command).toBe('validate');
     expect(out.stub).toBe(true);
     expect(out.results).toEqual([]);
+  });
+});
+
+describe('dispatchCommand — generate path', () => {
+  let cap: StdCapture;
+  beforeEach(() => {
+    cap = captureStd();
+  });
+  afterEach(() => {
+    cap.restore();
+  });
+
+  it('routes ParsedArgs { kind: "generate" } through dispatchCommand via parseCliArgs (regression for missing sub-command wiring)', async () => {
+    // Regression: pre-fix parseCliArgs would throw "Unhandled sub-command:
+    // generate" before reaching dispatchCommand. The dispatcher side was
+    // already wired (DispatchArgs widened at command-dispatcher.ts:39),
+    // but no CLI invocation could reach it until commander.ts registered
+    // the sub-command.
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      COM_ARXML,
+    ]);
+    expect(parsed.kind).toBe('generate');
+    const code = await dispatchCommand(parsed);
+    // COM_ARXML is not a manifest, so the handler returns internal-error
+    // (not file-not-found — the file exists) and the dispatcher exits 1.
+    // Asserting error.kind === 'internal-error' pins the manifest-mode
+    // loader short-circuit path: a regression that fell through to
+    // existsSync would emit 'file-not-found' instead.
+    expect(code).toBe(EXIT_FATAL);
+    const out = JSON.parse(cap.stdout.join('')) as { ok: false; error: { kind: string } };
+    expect(out.ok).toBe(false);
+    expect(out.error.kind).toBe('internal-error');
   });
 });
 

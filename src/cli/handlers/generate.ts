@@ -4,16 +4,25 @@
 // BSWMD + ECUC values maps, write generated files to disk via the
 // atomic-write helper, and return a `GenerateResult` envelope.
 //
-// Input shapes:
-//   - `GenerateArgs` is the public wire type (see ipc-contract.ts).
-//   - The test injects `_bswmdIndex` / `_ecucValues` directly (no fs
-//     round-trip) so the handler is decoupled from the IPC project
-//     loader. Real CLI invocations in v1.11.0 wire the openProject IPC
-//     handler (TODO: add a thin adapter that calls `openProject` and
-//     pulls `bswmdIndex` / `ecucValues` off the returned slice). For
-//     now the handler exits with a clear `internal-error` envelope if
-//     those maps are missing — that path keeps the v1.11.0 MVP
-//     testable without committing to the IPC bridge.
+// Project loading — two paths:
+//   - Manifest-mode (production): `loadProjectMaps` reads the
+//     `.autosarcfg.json` manifest, walks `bswmdPaths` + `valueArxmlPaths`,
+//     and parses each file with `parseBswmd` / `parseArxml`. This is the
+//     path real CLI invocations hit when
+//     `pnpm autosarcfg generate --project <manifest>` is run.
+//   - Injection fast-path (tests + future IPC bridge): tests (and a
+//     future IPC bridge) pass `_bswmdIndex` / `_ecucValues` directly to
+//     skip the fs-based loader.
+//
+// Loose-ARXML mode (`.arxml` without a manifest) is intentionally out of
+// scope for v1.11.0 MVP; the loader returns `internal-error` with a
+// precise message if `projectPath` doesn't end in `.autosarcfg.json` or
+// `.acproj`. Loose-ARXML support is a future sprint item.
+//
+// CLI sub-command wiring lives in `src/cli/commander.ts` (registered
+// alongside `read` / `mutate` / `validate`). The dispatcher's `generate`
+// branch (`src/cli/command-dispatcher.ts:67-69`) routes parsed
+// `GenerateArgs` here.
 //
 // Pipeline reuse: `runPipeline` (Task 12) owns pre-process → emit →
 // exit-code derivation. `writeOutputTree` (Task 13) handles the
