@@ -54,30 +54,48 @@ export type BswmdParamDef =
   | BswmdFunctionNameDef;
 
 /**
+ * Thresholds for the integer→C-type ladder.
+ * Used by `integerToCType` to pick the smallest signed/unsigned N-bit
+ * type whose span (max - min + 1) fits the threshold. Centralized so the
+ * magic numbers don't drift across `cType` / `typeToCType` / `cTypeForKind`.
+ */
+export const INTTYPE_THRESHOLDS = {
+  INT8_MAX_SPAN: 256, // 2^8
+  INT16_MAX_SPAN: 65536, // 2^16
+  INT32_MAX_SPAN: 4294967296, // 2^32
+  // INT64 = anything larger
+} as const;
+
+/**
+ * Map an [min, max] integer range onto the smallest C type whose
+ * cardinality fits. Picks signed (sint8/16/32/64) when min < 0, unsigned
+ * (uint8/16/32/64) otherwise. Used by `cType`, `typeToCType`, and
+ * `cTypeForKind` in `ecuc.ts`. Mcu's `cTypeForKind` intentionally
+ * bypasses this helper (see `mcu.ts:137`).
+ */
+export function integerToCType(min: number, max: number): string {
+  const unsigned = min >= 0;
+  const span = max - min + 1;
+  if (!unsigned) {
+    if (span <= INTTYPE_THRESHOLDS.INT8_MAX_SPAN) return 'sint8';
+    if (span <= INTTYPE_THRESHOLDS.INT16_MAX_SPAN) return 'sint16';
+    if (span <= INTTYPE_THRESHOLDS.INT32_MAX_SPAN) return 'sint32';
+    return 'sint64';
+  }
+  if (span <= INTTYPE_THRESHOLDS.INT8_MAX_SPAN) return 'uint8';
+  if (span <= INTTYPE_THRESHOLDS.INT16_MAX_SPAN) return 'uint16';
+  if (span <= INTTYPE_THRESHOLDS.INT32_MAX_SPAN) return 'uint32';
+  return 'uint64';
+}
+
+/**
  * Map an ECUC parameter definition onto its C type.
  * Mirrors `typeToCType` in Task 7 — keep the case arms and defaults in sync.
  */
 export function cType(def: BswmdParamDef): string {
   switch (def.kind) {
-    case 'integer': {
-      const min = def.min ?? 0;
-      const max = def.max ?? 0;
-      const unsigned = min >= 0;
-      // Cardinality: how many distinct values fit in [min, max].
-      // sint8: 256 values, sint16: 65536, sint32: 2^32, sint64: 2^64.
-      // uintN: 256 / 65536 / 2^32 / 2^64.
-      const span = max - min + 1;
-      if (!unsigned) {
-        if (span <= 256) return 'sint8';
-        if (span <= 65536) return 'sint16';
-        if (span <= 4294967296) return 'sint32';
-        return 'sint64';
-      }
-      if (span <= 256) return 'uint8';
-      if (span <= 65536) return 'uint16';
-      if (span <= 4294967296) return 'uint32';
-      return 'uint64';
-    }
+    case 'integer':
+      return integerToCType(def.min ?? 0, def.max ?? 0);
     case 'boolean':
       return 'uint8';
     case 'string':

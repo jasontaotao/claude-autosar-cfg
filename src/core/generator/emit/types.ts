@@ -1,44 +1,12 @@
 // src/core/generator/emit/types.ts
 //
-// Same logic as `cType()` in handlebars-helpers.ts but callable from
-// TypeScript code (not templates). Keep in sync with cType().
+// `typeToCType` is the TS-callable counterpart of `cType()` in
+// handlebars-helpers.ts. Re-export the same function so callers in
+// `emit/*.ts` and tests don't have to know about the helper module.
+//
+// v1.13.2 PATCH-E: previously this file held a 37-line copy of the
+// integer→C-type ladder (D-rev2 R1 finding). It now re-exports
+// `cType` from `handlebars-helpers.ts` so the ladder lives in one
+// place (`integerToCType`).
 
-import type { BswmdParamDef } from '../handlebars-helpers.js';
-
-export function typeToCType(def: BswmdParamDef): string {
-  switch (def.kind) {
-    case 'integer': {
-      const min = def.min ?? 0;
-      const max = def.max ?? 0;
-      const unsigned = min >= 0;
-      // Cardinality: how many distinct values fit in [min, max].
-      // sint8: 256 values, sint16: 65536, sint32: 2^32, sint64: 2^64.
-      // uintN: 256 / 65536 / 2^32 / 2^64.
-      const span = max - min + 1;
-      if (!unsigned) {
-        if (span <= 256) return 'sint8';
-        if (span <= 65536) return 'sint16';
-        if (span <= 4294967296) return 'sint32';
-        return 'sint64';
-      }
-      if (span <= 256) return 'uint8';
-      if (span <= 65536) return 'uint16';
-      if (span <= 4294967296) return 'uint32';
-      return 'uint64';
-    }
-    case 'boolean':
-      return 'uint8';
-    case 'string':
-      return 'const char*';
-    case 'float':
-      return 'float32';
-    case 'enumeration':
-      return 'uint8';
-    case 'reference':
-      return `const ${def.targetType} * const`;
-    case 'function-name':
-      return def.signature;
-    default:
-      return '??';
-  }
-}
+export { cType as typeToCType } from '../handlebars-helpers.js';

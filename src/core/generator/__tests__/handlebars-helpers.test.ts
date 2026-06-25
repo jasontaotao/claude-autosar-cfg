@@ -4,6 +4,8 @@ import {
   cIdent,
   cType,
   cValue,
+  INTTYPE_THRESHOLDS,
+  integerToCType,
   paramConfigClass,
   bswmdPathOf,
   partitionName,
@@ -70,6 +72,53 @@ describe('cType', () => {
     // level, but the engine wrapper calls cType with `unknown` and we want
     // the default branch to be reachable for malformed BSWMD inputs.
     expect(cType({ kind: 'mystery' } as never)).toBe('??');
+  });
+});
+
+describe('INTTYPE_THRESHOLDS', () => {
+  it('exports the canonical span ladder as 2^N constants', () => {
+    expect(INTTYPE_THRESHOLDS.INT8_MAX_SPAN).toBe(256);
+    expect(INTTYPE_THRESHOLDS.INT16_MAX_SPAN).toBe(65536);
+    expect(INTTYPE_THRESHOLDS.INT32_MAX_SPAN).toBe(4294967296);
+  });
+});
+
+describe('integerToCType', () => {
+  it('picks uint8 for span ≤ 256 with non-negative base', () => {
+    expect(integerToCType(0, 0)).toBe('uint8');
+    expect(integerToCType(0, 255)).toBe('uint8');
+  });
+
+  it('picks uint16 for span 257..65536 with non-negative base', () => {
+    expect(integerToCType(0, 256)).toBe('uint16');
+    expect(integerToCType(0, 65535)).toBe('uint16');
+  });
+
+  it('picks uint32 for span 65537..2^32 with non-negative base', () => {
+    expect(integerToCType(0, 65537)).toBe('uint32');
+    expect(integerToCType(0, 4294967295)).toBe('uint32');
+  });
+
+  it('picks uint64 for span > 2^32', () => {
+    expect(integerToCType(0, 4294967297)).toBe('uint64');
+  });
+
+  it('picks sint8 for negative-base span ≤ 256', () => {
+    expect(integerToCType(-128, 127)).toBe('sint8');
+    expect(integerToCType(-1, 0)).toBe('sint8');
+  });
+
+  it('picks sint16 for negative-base span 257..65536', () => {
+    expect(integerToCType(-128, 128)).toBe('sint16');
+    expect(integerToCType(-32768, 32767)).toBe('sint16');
+  });
+
+  it('picks sint32 for negative-base span 65537..2^32', () => {
+    expect(integerToCType(-32768, 32768)).toBe('sint32');
+  });
+
+  it('picks sint64 for negative-base span > 2^32', () => {
+    expect(integerToCType(-1, 4294967296)).toBe('sint64');
   });
 });
 

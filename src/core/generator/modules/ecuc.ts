@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import type Handlebars from 'handlebars';
 
 import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
+import { integerToCType } from '../handlebars-helpers.js';
 import { createEngine } from '../handlebars.js';
 import {
   type GeneratedArtifact,
@@ -166,22 +167,8 @@ function renderCValue(value: unknown, kind: EcuCParamDefLike['kind']): string {
 
 function cTypeForKind(def: EcuCParamDefLike): string {
   switch (def.kind) {
-    case 'integer': {
-      const min = def.min ?? 0;
-      const max = def.max ?? 0;
-      const unsigned = min >= 0;
-      const span = max - min + 1;
-      if (!unsigned) {
-        if (span <= 256) return 'sint8';
-        if (span <= 65536) return 'sint16';
-        if (span <= 4294967296) return 'sint32';
-        return 'sint64';
-      }
-      if (span <= 256) return 'uint8';
-      if (span <= 65536) return 'uint16';
-      if (span <= 4294967296) return 'uint32';
-      return 'uint64';
-    }
+    case 'integer':
+      return integerToCType(def.min ?? 0, def.max ?? 0);
     case 'boolean':
       return 'uint8';
     case 'string':
