@@ -69,18 +69,23 @@ export function renderCValue(value: unknown, kind: string): string {
 }
 
 /**
- * Push the E9 empty-variant INFO diagnostic. Shared across modules
- * so every `ModuleGenerator` surfaces consistent semantics: if the
+ * Push the E9 empty-variant diagnostic. Shared across modules so
+ * every `ModuleGenerator` surfaces consistent semantics: if the
  * active variant has neither BSWMD containers nor ECUC parameter
  * values, the user sees `ECUC-GEN-INFO-001` explaining that the
  * emit produced a stub.
  *
- * Severity is INFO today (v1.13.0 default). v1.14.0 MINOR will
- * promote to WARN/ERROR per D-rev2 Senior S5.
+ * v1.14.0 MINOR S5 — severity promoted INFO → WARNING
+ * (D-rev2 Senior S5). Empty-variant is non-trivial: a BSWMD module
+ * was loaded but produced nothing, which the user must see. The code
+ * string `ECUC-GEN-INFO-001` is preserved for backwards compat with
+ * downstream consumers (CLI surfaces, log parsers); only the severity
+ * changes. In strict mode (pipeline arg), the pipeline's exit-code
+ * logic flips this WARNING into exitCode=1.
  */
 export function pushEmptyVariantDiagnostic(ctx: GenerationContext, moduleShortName: string): void {
   ctx.diagnostics.push({
-    severity: DiagnosticSeverity.INFO,
+    severity: DiagnosticSeverity.WARNING,
     code: DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
     moduleShortName,
     message: `Module ${moduleShortName}: active variant has no containers or parameters; emit is a stub`,

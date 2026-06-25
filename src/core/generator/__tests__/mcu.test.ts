@@ -99,12 +99,14 @@ describe('McuGenerator', () => {
     expect(out.every((a) => a.path.startsWith('Mcu/'))).toBe(true);
   });
 
-  it('pushes ECUC-GEN-INFO-001 when the active variant has no elements', () => {
+  it('pushes ECUC-GEN-INFO-001 (WARNING) when the active variant has no elements', () => {
+    // v1.14.0 MINOR S5 — severity promoted INFO → WARNING (D-rev2 S5).
     const g = new McuGenerator();
     const ctx = makeCtx();
     const out = g.emit({ shortName: 'Mcu', containers: [] }, { parameters: [] }, ctx);
     expect(out).toHaveLength(2); // still emits artifacts (stub)
-    const info = ctx.diagnostics.find((d) => d.message.includes('Mcu'));
-    expect(info?.code).toBe('ECUC-GEN-INFO-001');
+    const diag = ctx.diagnostics.find((d) => d.message.includes('Mcu'));
+    expect(diag?.code).toBe('ECUC-GEN-INFO-001');
+    expect(diag?.severity).toBe('WARNING');
   });
 });
