@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 
+extern CONST(void * const, AUTOMATIC) EcuC_EcuCGeneral_PartitionRef = &Os_OsCore_OsCore_0;
 
 #ifdef __cplusplus
 }

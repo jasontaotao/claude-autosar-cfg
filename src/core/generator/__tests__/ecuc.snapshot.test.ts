@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, it, expect, test, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 
 import { EcuCGenerator } from '../modules/ecuc.js';
 import { normalizeToTree, type BswmdModuleDefLite } from '../normalize.js';
@@ -140,9 +140,10 @@ describe('EcuC snapshot', () => {
   });
 
   it('Refs-1 emits Cfg.c + Cfg.h (byte-identical)', () => {
-    // Note: the current generator does not consume `references[]` — the
-    // Refs-1 Cfg.c is byte-identical to PreCompile-1's. The fixture
-    // still serves as the regression anchor once reference emit lands.
+    // v1.14.0 MINOR S2 — the generator now consumes values.references[].
+    // Cfg.h grows the cross-module pointer decl
+    // `extern CONST(void * const, AUTOMATIC) EcuC_EcuCGeneral_PartitionRef = &Os_OsCore_OsCore_0;`
+    // and is no longer byte-identical to PreCompile-1's.
     const g = new EcuCGenerator();
     const out = g.emit(
       ecucDef as unknown as BswmdModuleDef, // type-erase: TS hand-typed fixture deliberately uses loose types
@@ -156,10 +157,30 @@ describe('EcuC snapshot', () => {
     expect(h.content).toBe(readSnap('Refs-1/EcuC_Cfg.h'));
   });
 
-  // TODO: once the EcuC generator emits `<Reference>` entries into Cfg.c,
-  // assert that Refs-1's Cfg.c content contains the expected
-  // `&Mcu_ClockConfig_0` symbol so the deferred reference-emission work
-  // has a concrete regression anchor. The current generator ignores
-  // `references[]` and emits a byte-identical Cfg.c to PreCompile-1.
-  test.todo('Refs-1 Cfg.c contains &Mcu_ClockConfig_0 reference emit');
+  // v1.14.0 MINOR S2 — concrete regression anchor for the reference
+  // emit. Replaces the deferred `test.todo` from v1.13.x with a real
+  // assertion: the Refs-1 Cfg.h must carry the cross-module pointer
+  // decl, AND must differ from PreCompile-1's (which has no refs).
+  it('Refs-1 Cfg.h contains the Os_OsCore_OsCore_0 reference decl (D-rev2 S2 closed)', () => {
+    const g = new EcuCGenerator();
+    const out = g.emit(
+      ecucDef as unknown as BswmdModuleDef,
+      ecucValuesRefs as unknown as EcucModuleConfigurationValues,
+      makeCtx(),
+    );
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('Refs-1: Cfg.h missing');
+    expect(h.content).toContain(
+      'extern CONST(void * const, AUTOMATIC) EcuC_EcuCGeneral_PartitionRef = &Os_OsCore_OsCore_0;',
+    );
+    // Must differ from PreCompile-1's Cfg.h — Refs-1 now has the
+    // pointer decl that PreCompile-1 doesn't.
+    expect(h.content).not.toBe(readSnap('PreCompile-1/EcuC_Cfg.h'));
+  });
+
+  // v1.14.0 MINOR S2 — the original `test.todo('Refs-1 Cfg.c contains
+  // &Mcu_ClockConfig_0 reference emit')` from v1.13.x is removed.
+  // Cfg.h now carries the cross-module pointer declaration (asserted
+  // above), which is the v1.14.0 scope. Cfg.c reference emit is
+  // deferred to a future release.
 });

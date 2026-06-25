@@ -101,8 +101,17 @@ interface EcuCParamValueLike {
   readonly value: unknown;
 }
 
+interface EcucReferenceValueLike {
+  readonly path: string;
+  readonly targetModule: string;
+  readonly targetPath: string;
+}
+
 interface EcuCModuleValuesLike {
   readonly parameters?: readonly EcuCParamValueLike[];
+  // v1.14.0 MINOR S2 — references consumed for referenceDecls emission
+  // (D-rev2 Senior S2 / Refs-1 backlog). Replaces hardcoded `[]`.
+  readonly references?: readonly EcucReferenceValueLike[];
 }
 
 const GENERATOR_VERSION = '1.11.0';
@@ -257,7 +266,19 @@ export class EcuCGenerator implements ModuleGenerator {
         fields: readonly { cType: string; name: string }[];
       }[],
       externDecls: linkDecls,
-      referenceDecls: [] as readonly string[],
+      // v1.14.0 MINOR S2 — consume values.references[] for cross-module
+      // pointer declarations (D-rev2 Senior S2). Target type defaults to
+      // `void` when the BSWMD reference def carries no targetType
+      // (matches `cTypeForKind({ kind: 'reference' })` default at line
+      // below; defensive until the parser threads targetType through).
+      referenceDecls: (eVals.references ?? []).map((ref) => {
+        const sourceIdent = cIdent(ref.path);
+        const targetIdent = cIdent(ref.targetPath);
+        // No trailing `;` — the `cfg.h.hbs` template wraps each entry
+        // as `extern {{{this}}};` (lines 27-29), so the semicolon
+        // belongs to the template, not the entry string.
+        return `CONST(void * const, AUTOMATIC) ${sourceIdent} = &${targetIdent}`;
+      }),
     });
 
     const source = sourceTpl()({
@@ -308,8 +329,7 @@ function isPostBuild(
   if (!paramIndex) return false;
   const param = paramIndex.get(path);
   if (!param) return false;
-  const targetVariant =
-    variant === 'PostBuild' ? 'VARIANT-POST-BUILD' : 'VARIANT-PRE-COMPILE';
+  const targetVariant = variant === 'PostBuild' ? 'VARIANT-POST-BUILD' : 'VARIANT-PRE-COMPILE';
   return param.paramConfigClasses.some(
     (cc) => cc.configVariant === targetVariant && cc.configClass === 'POST-BUILD',
   );
