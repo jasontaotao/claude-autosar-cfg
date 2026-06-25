@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import type Handlebars from 'handlebars';
 
 import { walkContainers, type ContainerLike } from '../emit/container.js';
+import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
@@ -279,17 +280,22 @@ export class EcuCGenerator implements ModuleGenerator {
       }[],
       externDecls: linkDecls,
       // v1.14.0 MINOR S2 — consume values.references[] for cross-module
-      // pointer declarations (D-rev2 Senior S2). Target type defaults to
-      // `void` when the BSWMD reference def carries no targetType
-      // (matches `cTypeForKind({ kind: 'reference' })` default at line
-      // below; defensive until the parser threads targetType through).
+      // pointer declarations (D-rev2 Senior S2). Thread real
+      // targetType from the BSWMD param index when available
+      // (joint-review S2 targetType finding); fall back to `void`
+      // for legacy fixtures that don't model reference types.
+      // The helper guards against empty targetIdent (joint-review F1)
+      // — see emitReferenceDecl in emit/reference.ts.
+      //
+      // The cfg.h.hbs template wraps each entry as
+      // `extern {{{this}}};` (lines 27-29), so we strip the trailing
+      // `;` from emitReferenceDecl's output to avoid `;;`.
       referenceDecls: (eVals.references ?? []).map((ref) => {
         const sourceIdent = cIdent(ref.path);
         const targetIdent = cIdent(ref.targetPath);
-        // No trailing `;` — the `cfg.h.hbs` template wraps each entry
-        // as `extern {{{this}}};` (lines 27-29), so the semicolon
-        // belongs to the template, not the entry string.
-        return `CONST(void * const, AUTOMATIC) ${sourceIdent} = &${targetIdent}`;
+        const pDef = ctx.bswmdParamIndex?.get(ref.path) as { targetType?: string } | undefined;
+        const targetType = pDef?.targetType ?? 'void';
+        return emitReferenceDecl({ ident: sourceIdent, targetIdent, targetType }).replace(/;$/, '');
       }),
     });
 

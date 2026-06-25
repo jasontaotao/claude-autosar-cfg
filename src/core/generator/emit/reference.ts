@@ -84,5 +84,15 @@ export interface ReferenceDeclInput {
 }
 
 export function emitReferenceDecl(input: ReferenceDeclInput): string {
+  // v1.14.0 MINOR (joint review F1) — guard against empty targetIdent.
+  // An empty cIdent (e.g. `cIdent('   ')` returns '') would otherwise
+  // emit `CONST(...) Foo = & ;` — malformed C. Throw so the E2/E7
+  // pipeline catches it as a generator error (ECUC-GEN-003) instead
+  // of producing compile-time garbage.
+  if (!input.targetIdent) {
+    throw new Error(
+      `emitReferenceDecl: empty targetIdent (source='${input.ident}', targetType='${input.targetType}')`,
+    );
+  }
   return `CONST(${input.targetType} * const, AUTOMATIC) ${input.ident} = &${input.targetIdent};`;
 }

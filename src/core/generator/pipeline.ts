@@ -12,6 +12,13 @@
 //   `ctx.diagnostics` array. Missing generator → WARNING
 //   (`ECUC-GEN-002`); throw → ERROR (`ECUC-GEN-003`).
 //
+//   v1.14.0 MINOR S6 — if Stage 1 produces any ERROR diagnostic, Stage 2
+//   is skipped entirely. The pipeline returns an empty artifacts map
+//   with the correct exit code. This is a global gate (any ERROR →
+//   no generators run for any module), conservative by design: a fatal
+//   input means no artifacts should be emitted, even for modules whose
+//   own validation passed.
+//
 // Stage 3 — Exit-code logic:
 //   - any ERROR            → 1
 //   - any WARNING + strict → 1
