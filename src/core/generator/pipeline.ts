@@ -23,10 +23,7 @@
 // modules whose short name is in the list are processed.
 
 import { DiagnosticSeverity, DiagnosticCode, type Diagnostic } from './diagnostics.js';
-import {
-  validateMultiplicity,
-  type BswmdModuleDefForMultiplicity,
-} from './emit/multiplicity.js';
+import { validateMultiplicity } from './emit/multiplicity.js';
 import { validateOrdering } from './emit/ordering.js';
 import { validateRange } from './emit/range.js';
 import { validateReferences } from './emit/reference.js';
@@ -39,6 +36,24 @@ import {
 } from './normalize.js';
 import { getGenerator, type GenerationVariant } from './registry.js';
 import { TemplateRenderError } from './template-render-error.js';
+
+// v1.13.3 PATCH-D — `Parameters<typeof validator>[0/1]` aliases the loose
+// `args.bswmdIndex` / `args.ecucValues` types onto the narrow shape each
+// emit/*.ts validator expects. Replaces 8 inline `as ReadonlyMap<...>`
+// structural-type casts (D-rev2 R5/C3/C9) with the validator's own
+// parameter type. No behavior change — tsc narrows the same way it did
+// before; the difference is that the cast target lives next to the
+// validator definition, so adding a new BSWMD field in emit/*.ts is
+// automatically picked up by pipeline.ts.
+type BswmdIndexForMultiplicity = Parameters<typeof validateMultiplicity>[0];
+type EcucIndexForMultiplicity = Parameters<typeof validateMultiplicity>[1];
+type BswmdIndexForOrdering = Parameters<typeof validateOrdering>[0];
+type EcucIndexForOrdering = Parameters<typeof validateOrdering>[1];
+type BswmdIndexForRange = Parameters<typeof validateRange>[0];
+type EcucIndexForRange = Parameters<typeof validateRange>[1];
+type BswmdIndexForTypeMatches = Parameters<typeof validateTypeMatches>[0];
+type EcucIndexForTypeMatches = Parameters<typeof validateTypeMatches>[1];
+type EcucIndexForUniqueShortNames = Parameters<typeof validateUniqueShortNames>[0];
 
 export interface PipelineArgs {
   readonly bswmdIndex: ReadonlyMap<string, BswmdModuleDefLite>;
@@ -61,45 +76,30 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // Stage 1 — Pre-process
   const tree = normalizeToTree(args.bswmdIndex, args.ecucValues);
   diagnostics.push(...validateReferences(tree));
-  // v1.12.0 E2 — container instance-count validation. Casts the loose
-  // BSWMD / ECUC types into the narrow shape `validateMultiplicity`
-  // expects; the cast is safe because the BSWMD parser and ECUC parser
-  // produce matching shapes (the BSWMD module def carries containers[]
-  // and ECUC values carry containers[]).
+  // v1.12.0 E2 — container instance-count validation. The cast is safe
+  // because the BSWMD parser and ECUC parser produce matching shapes
+  // (the BSWMD module def carries containers[] and ECUC values carry
+  // containers[]). Cast targets come from the validator's own parameter
+  // types — v1.13.3 PATCH-D (closes D-rev2 R5/C3/C9, L1 backlog).
   diagnostics.push(
     ...validateMultiplicity(
-      args.bswmdIndex as ReadonlyMap<string, BswmdModuleDefForMultiplicity>,
-      args.ecucValues as ReadonlyMap<
-        string,
-        { containers?: readonly { shortName: string }[] }
-      >,
+      args.bswmdIndex as BswmdIndexForMultiplicity,
+      args.ecucValues as EcucIndexForMultiplicity,
     ),
   );
   // v1.12.0 E3 — parameter runtime-kind vs BSWMD-kind validation.
   diagnostics.push(
     ...validateTypeMatches(
-      args.bswmdIndex as ReadonlyMap<
-        string,
-        { params?: readonly { shortName: string; kind: 'integer' | 'float' | 'boolean' | 'string' | 'enumeration' | 'reference' | 'function-name' }[] }
-      >,
-      args.ecucValues as ReadonlyMap<
-        string,
-        { parameters?: readonly { shortName: string; value: unknown }[] }
-      >,
+      args.bswmdIndex as BswmdIndexForTypeMatches,
+      args.ecucValues as EcucIndexForTypeMatches,
     ),
   );
   // v1.12.0 E4 — integer/float range validation (only fires when
   // BSWMD declares min/max). Type-mismatch is owned by E3 above.
   diagnostics.push(
     ...validateRange(
-      args.bswmdIndex as ReadonlyMap<
-        string,
-        { params?: readonly { shortName: string; kind: 'integer' | 'float'; min?: number; max?: number }[] }
-      >,
-      args.ecucValues as ReadonlyMap<
-        string,
-        { parameters?: readonly { shortName: string; value: unknown }[] }
-      >,
+      args.bswmdIndex as BswmdIndexForRange,
+      args.ecucValues as EcucIndexForRange,
     ),
   );
   // v1.12.0 E5 — container INDEX ordering check. Warns when source
@@ -107,26 +107,15 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // anyway, but the inconsistency should be visible to the user).
   diagnostics.push(
     ...validateOrdering(
-      args.bswmdIndex as ReadonlyMap<
-        string,
-        { containers?: readonly { shortName: string }[] }
-      >,
-      args.ecucValues as ReadonlyMap<
-        string,
-        { containers?: readonly { shortName: string; index?: number }[] }
-      >,
+      args.bswmdIndex as BswmdIndexForOrdering,
+      args.ecucValues as EcucIndexForOrdering,
     ),
   );
   // v1.12.0 E6 — sibling shortName uniqueness. Parameters only —
   // container siblings share shortName by AUTOSAR array semantics (see
   // `validateUniqueShortNames` doc).
   diagnostics.push(
-    ...validateUniqueShortNames(
-      args.ecucValues as ReadonlyMap<
-        string,
-        { parameters?: readonly { shortName: string }[] }
-      >,
-    ),
+    ...validateUniqueShortNames(args.ecucValues as EcucIndexForUniqueShortNames),
   );
 
   // Stage 2 — Generate

@@ -20,51 +20,24 @@
 //   - The class declares `moduleShortName = 'EcuC'`; `registry.ts` keys
 //     registrations on that string.
 
-import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
-import { integerToCType } from '../handlebars-helpers.js';
-import { createEngine } from '../handlebars.js';
+import { cIdent, integerToCType } from '../handlebars-helpers.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,
   type ModuleGenerator,
 } from '../registry.js';
+import { loadModuleTemplate } from '../templates/loader.js';
+
+import { pushEmptyVariantDiagnostic, renderCValue } from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
 const PARTIAL_DIR = join(__dirname, '..', 'templates', '_partials');
-
-/**
- * Build a fresh Handlebars engine with the shared `_partials/*` macros
- * registered. We rebuild the engine per load so partials are picked up
- * even in watch-mode after edits.
- */
-function buildEngine(): typeof Handlebars {
-  const engine = createEngine();
-  for (const entry of readdirSync(PARTIAL_DIR)) {
-    if (!entry.endsWith('.hbs')) continue;
-    const partialSrc = readFileSync(join(PARTIAL_DIR, entry), 'utf8');
-    // Register under both the bare-name (e.g. `license`) and the
-    // filename-without-`.hbs` (e.g. `license.h`) so callers can
-    // reference either `{{> license}}` or `{{> license.h}}`. The
-    // current EcuC templates use the bare-name convention.
-    const bare = entry.replace(/\.hbs$/, '');
-    engine.registerPartial(bare.replace(/\.h$/, ''), partialSrc);
-    engine.registerPartial(bare, partialSrc);
-  }
-  return engine;
-}
-
-function loadTemplate(name: string): Handlebars.TemplateDelegate {
-  const path = join(TPL_DIR, name);
-  const src = readFileSync(path, 'utf8');
-  return buildEngine().compile(src);
-}
 
 // Module-level cache so we only compile once per process. Tests that
 // mutate the filesystem (none in MVP) would need a `_resetTemplates`
@@ -74,15 +47,15 @@ let tplSource: Handlebars.TemplateDelegate | undefined;
 let tplPbcfg: Handlebars.TemplateDelegate | undefined;
 
 function headerTpl(): Handlebars.TemplateDelegate {
-  if (!tplHeader) tplHeader = loadTemplate('cfg.h.hbs');
+  if (!tplHeader) tplHeader = loadModuleTemplate(TPL_DIR, PARTIAL_DIR, 'cfg.h.hbs');
   return tplHeader;
 }
 function sourceTpl(): Handlebars.TemplateDelegate {
-  if (!tplSource) tplSource = loadTemplate('cfg.c.hbs');
+  if (!tplSource) tplSource = loadModuleTemplate(TPL_DIR, PARTIAL_DIR, 'cfg.c.hbs');
   return tplSource;
 }
 function pbcfgTpl(): Handlebars.TemplateDelegate {
-  if (!tplPbcfg) tplPbcfg = loadTemplate('pbcfg.c.hbs');
+  if (!tplPbcfg) tplPbcfg = loadModuleTemplate(TPL_DIR, PARTIAL_DIR, 'pbcfg.c.hbs');
   return tplPbcfg;
 }
 
@@ -131,39 +104,13 @@ const GENERATOR_VERSION = '1.11.0';
 
 // ---------------------------------------------------------------------------
 // Helpers — minimal-but-real implementations.
+//
+// v1.13.3 PATCH-C: `paramIdent` and `renderCValue` moved to
+// `modules/_shared.ts`. `paramIdent` was byte-identical to `cIdent` in
+// `handlebars-helpers.ts` (D-rev2 R2, R3); call sites now use
+// `cIdent` directly. `renderCValue` lives in `_shared.ts` with the
+// `u` suffix preserved (D-rev2 R6).
 // ---------------------------------------------------------------------------
-
-/**
- * Resolve the C identifier for a parameter, scoped under the EcuC module
- * to avoid collisions across BSW modules. Mirrors `cIdent` but rooted.
- */
-function paramIdent(path: string): string {
-  // path is `EcuC/EcuCGeneral/Foo` → `EcuC_EcuCGeneral_Foo`
-  return path
-    .trim()
-    .replace(/[/\-.:]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-}
-
-function renderCValue(value: unknown, kind: EcuCParamDefLike['kind']): string {
-  switch (kind) {
-    case 'integer':
-      return String(value);
-    case 'boolean':
-      return value ? '1u' : '0u';
-    case 'string': {
-      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      return `"${escaped}"`;
-    }
-    case 'float':
-      return `${(value as number).toFixed(6)}f`;
-    case 'enumeration':
-      return String(value);
-    default:
-      return '0u';
-  }
-}
 
 function cTypeForKind(def: EcuCParamDefLike): string {
   switch (def.kind) {
@@ -225,19 +172,13 @@ export class EcuCGenerator implements ModuleGenerator {
     const eDef = def as EcuCModuleDefLike;
     const eVals = (values ?? {}) as EcuCModuleValuesLike;
 
-    // v1.12.0 E9 — empty-variant detection. If the active variant has
-    // neither BSWMD containers nor ECUC parameter values, surface an
-    // INFO diagnostic so the user knows the emit produced a stub
-    // (rather than silently emitting a near-empty Cfg.c/Cfg.h).
+    // v1.12.0 E9 — empty-variant detection. v1.13.3 PATCH-C: extracted
+    // to `pushEmptyVariantDiagnostic` in `modules/_shared.ts` (D-rev2
+    // R6, C8) so McuGenerator shares the same diagnostic semantics.
     const hasContainers = eDef.containers.length > 0;
     const hasParams = (eVals.parameters ?? []).length > 0;
     if (!hasContainers && !hasParams) {
-      ctx.diagnostics.push({
-        severity: DiagnosticSeverity.INFO,
-        code: DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
-        moduleShortName: eDef.shortName,
-        message: `Module ${eDef.shortName}: active variant has no containers or parameters; emit is a stub`,
-      });
+      pushEmptyVariantDiagnostic(ctx, eDef.shortName);
     }
 
     // Index parameters by BSWMD path for O(1) value lookup.
@@ -262,7 +203,7 @@ export class EcuCGenerator implements ModuleGenerator {
         const path = `${eDef.shortName}/${container.shortName}/${shortNameFromDef(pDef)}`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
-        const ident = paramIdent(path);
+        const ident = cIdent(path);
 
         if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
           // PBVAR build: load via stub.
@@ -287,7 +228,7 @@ export class EcuCGenerator implements ModuleGenerator {
     if (pbValues.length > 0) {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind });
-        const ident = paramIdent(p.path);
+        const ident = cIdent(p.path);
         postBuildDecls.push(emitLoaderEntry(ident, cType, p.value, postBuildOffset));
         postBuildOffset += 1;
       }

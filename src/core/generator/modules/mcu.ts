@@ -19,51 +19,34 @@
 //   only for MVP. Add variant routing when a PostBuild Mcu param
 //   appears in fixtures.
 
-import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
-import { createEngine } from '../handlebars.js';
+import { cIdent } from '../handlebars-helpers.js';
 import {
   type GeneratedArtifact,
   type GenerationContext,
   type ModuleGenerator,
 } from '../registry.js';
+import { loadModuleTemplate } from '../templates/loader.js';
+
+import { pushEmptyVariantDiagnostic, renderCValue } from './_shared.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TPL_DIR = join(__dirname, '..', 'templates', 'ecuc');
 const PARTIAL_DIR = join(__dirname, '..', 'templates', '_partials');
 
-function buildEngine(): typeof Handlebars {
-  const engine = createEngine();
-  for (const entry of readdirSync(PARTIAL_DIR)) {
-    if (!entry.endsWith('.hbs')) continue;
-    const partialSrc = readFileSync(join(PARTIAL_DIR, entry), 'utf8');
-    const bare = entry.replace(/\.hbs$/, '');
-    engine.registerPartial(bare.replace(/\.h$/, ''), partialSrc);
-    engine.registerPartial(bare, partialSrc);
-  }
-  return engine;
-}
-
-function loadTemplate(name: string): Handlebars.TemplateDelegate {
-  const path = join(TPL_DIR, name);
-  const src = readFileSync(path, 'utf8');
-  return buildEngine().compile(src);
-}
-
 let tplHeader: Handlebars.TemplateDelegate | undefined;
 let tplSource: Handlebars.TemplateDelegate | undefined;
 
 function headerTpl(): Handlebars.TemplateDelegate {
-  if (!tplHeader) tplHeader = loadTemplate('cfg.h.hbs');
+  if (!tplHeader) tplHeader = loadModuleTemplate(TPL_DIR, PARTIAL_DIR, 'cfg.h.hbs');
   return tplHeader;
 }
 function sourceTpl(): Handlebars.TemplateDelegate {
-  if (!tplSource) tplSource = loadTemplate('cfg.c.hbs');
+  if (!tplSource) tplSource = loadModuleTemplate(TPL_DIR, PARTIAL_DIR, 'cfg.c.hbs');
   return tplSource;
 }
 
@@ -100,36 +83,14 @@ interface McuModuleValuesLike {
 const GENERATOR_VERSION = '1.12.0';
 
 // ---------------------------------------------------------------------------
-// Helpers — minimal-but-real implementations (mirror EcuCGenerator).
-// Task 17 will consolidate into a shared base.
+// Helpers — minimal-but-real implementations.
+//
+// v1.13.3 PATCH-C: `paramIdent` and `renderCValue` moved to
+// `modules/_shared.ts`. `paramIdent` was byte-identical to `cIdent` in
+// `handlebars-helpers.ts` (D-rev2 R2, R3); call sites now use
+// `cIdent` directly. `renderCValue` lives in `_shared.ts` with the
+// `u` suffix preserved (D-rev2 R6).
 // ---------------------------------------------------------------------------
-
-function paramIdent(path: string): string {
-  return path
-    .trim()
-    .replace(/[/\-.:]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-}
-
-function renderCValue(value: unknown, kind: McuParamDefLike['kind']): string {
-  switch (kind) {
-    case 'integer':
-      return String(value);
-    case 'boolean':
-      return value ? '1u' : '0u';
-    case 'string': {
-      const escaped = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      return `"${escaped}"`;
-    }
-    case 'float':
-      return `${(value as number).toFixed(6)}f`;
-    case 'enumeration':
-      return String(value);
-    default:
-      return '0u';
-  }
-}
 
 function cTypeForKind(def: McuParamDefLike): string {
   switch (def.kind) {
@@ -164,17 +125,14 @@ export class McuGenerator implements ModuleGenerator {
     const mDef = def as McuModuleDefLike;
     const mVals = (values ?? {}) as McuModuleValuesLike;
 
-    // v1.12.0 E9 parity — empty-variant detection (same INFO code so
-    // Mcu users see consistent diagnostic semantics across modules).
+    // v1.12.0 E9 parity — empty-variant detection. v1.13.3 PATCH-C:
+    // extracted to `pushEmptyVariantDiagnostic` in `modules/_shared.ts`
+    // (D-rev2 R6, C8) so the EcuC + Mcu generators share the same
+    // diagnostic semantics and message format.
     const hasContainers = mDef.containers.length > 0;
     const hasParams = (mVals.parameters ?? []).length > 0;
     if (!hasContainers && !hasParams) {
-      ctx.diagnostics.push({
-        severity: DiagnosticSeverity.INFO,
-        code: DiagnosticCode.ECUC_GEN_INFO_EMPTY_VARIANT,
-        moduleShortName: mDef.shortName,
-        message: `Module ${mDef.shortName}: active variant has no containers or parameters; emit is a stub`,
-      });
+      pushEmptyVariantDiagnostic(ctx, mDef.shortName);
     }
 
     // Index parameters by BSWMD path for O(1) value lookup.
@@ -196,7 +154,10 @@ export class McuGenerator implements ModuleGenerator {
         const path = `${mDef.shortName}/${container.shortName}/Param`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
-        const ident = paramIdent(path);
+        // v1.13.3 PATCH-C: `paramIdent` → `cIdent` (byte-identical body
+        // moved to handlebars-helpers.ts in earlier refactor; the
+        // duplicate is now deleted in favor of the canonical helper).
+        const ident = cIdent(path);
         const init = value ? renderCValue(value.value, pDef.kind) : '0u';
         preCompileDecls.push(`CONST(${cType}, AUTOMATIC) ${cType} ${ident} = ${init};`);
       }
