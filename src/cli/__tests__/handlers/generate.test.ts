@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { BswmdModuleDefLite , EcucModuleConfigurationValuesInput } from '../../../core/generator/normalize.js';
 import { _resetRegistryForTest } from '../../../core/generator/registry.js';
 import type { GenerateArgs } from '../../../shared/headless/ipc-contract.js';
+import { parseCliArgs } from '../../commander.js';
 import { generateHeadlessProject } from '../../handlers/generate.js';
 
 /**
@@ -106,5 +107,58 @@ describe('generateHeadlessProject', () => {
     // At least one generated file should mention EcuC_Cfg.
     const paths = result.files.map((f) => f.path);
     expect(paths.some((p) => p.includes('EcuC_Cfg'))).toBe(true);
+  });
+});
+
+describe('generate — end-to-end via parseCliArgs + handler', () => {
+  it('routes --variant Link from CLI parser through to the handler envelope', async () => {
+    // Regression: pre-fix, `parseCliArgs(['node', 'autosarcfg', 'generate', ...])`
+    // threw "Unhandled sub-command: generate". After wiring, it returns
+    // { kind: 'generate', input: { variant: 'Link', ... } } and the handler
+    // surfaces the variant in its GenerateResult envelope.
+    const bswmdIndex = new Map<string, BswmdModuleDefFixture>([
+      [
+        'EcuC',
+        {
+          shortName: 'EcuC',
+          containers: [{ shortName: 'EcuCGeneral', parameters: [] }],
+        },
+      ],
+    ]);
+    const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
+      ['EcuC', { parameters: [], references: [] }],
+    ]);
+
+    // --project points at the project *directory* (not the manifest file).
+    // The handler's default outDir = projectPath/generated; passing a file
+    // path here would have the handler try to mkdir inside a regular file.
+    // The injection fast-path below short-circuits the manifest-mode loader.
+    const parsed = parseCliArgs([
+      'node',
+      'autosarcfg',
+      'generate',
+      '--project',
+      projectDir,
+      '--variant',
+      'Link',
+    ]);
+    expect(parsed.kind).toBe('generate');
+    if (parsed.kind !== 'generate') throw new Error('unreachable');
+    expect(parsed.input.variant).toBe('Link');
+    expect(parsed.input.strict).toBe(false);
+
+    // Bypass the manifest-mode loader by injecting maps (matches the
+    // handler's `_bswmdIndex` / `_ecucValues` fast-path).
+    const args: GenerateArgsForTest = {
+      ...parsed.input,
+      _bswmdIndex: bswmdIndex,
+      _ecucValues: ecucValues,
+    };
+    const result = await generateHeadlessProject(args);
+
+    expect(result.ok).toBe(true);
+    expect(result.command).toBe('generate');
+    expect(result.variant).toBe('Link');
+    expect(result.projectPath).toBe(projectDir);
   });
 });
