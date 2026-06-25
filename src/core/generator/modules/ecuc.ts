@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
+import { walkContainers, type ContainerLike } from '../emit/container.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
@@ -87,6 +88,11 @@ interface EcuCParamDefLike {
 interface EcuCContainerDefLike {
   readonly shortName: string;
   readonly parameters: readonly EcuCParamDefLike[];
+  // v1.14.0 MINOR S8 — optional nested containers. Real BSWMD nests
+  // 2-3 levels deep (D-rev2 Senior S8), e.g. EcuC PartitionConfig →
+  // PartitionBuffer → PartitionBufferHeader. Optional so existing flat
+  // fixtures keep compiling unchanged.
+  readonly containers?: readonly EcuCContainerDefLike[];
 }
 
 interface EcuCModuleDefLike {
@@ -212,9 +218,15 @@ export class EcuCGenerator implements ModuleGenerator {
     const postBuildDecls: string[] = [];
     let postBuildOffset = 0;
 
-    for (const container of eDef.containers) {
-      for (const pDef of container.parameters) {
-        const path = `${eDef.shortName}/${container.shortName}/${pDef.shortName ?? 'Param'}`;
+    // v1.14.0 MINOR S8 — recursive container walk (D-rev2 Senior S8).
+    // Replaces the flat 1-level for-loop so nested BSWMD (e.g. EcuC
+    // PartitionConfig → PartitionBuffer → PartitionBufferHeader) emits
+    // params from every level. Flat fixtures are unaffected (their
+    // containers[] is empty or undefined).
+    walkContainers(eDef.containers as readonly ContainerLike[], (container) => {
+      const cDef = container as EcuCContainerDefLike;
+      for (const pDef of cDef.parameters) {
+        const path = `${eDef.shortName}/${cDef.shortName}/${pDef.shortName ?? 'Param'}`;
         const value = paramByPath.get(path);
         const cType = cTypeForKind(pDef);
         const ident = cIdent(path);
@@ -232,7 +244,7 @@ export class EcuCGenerator implements ModuleGenerator {
           preCompileDecls.push(emitConstDecl(ident, cType, init));
         }
       }
-    }
+    });
 
     // v1.13.4 PATCH-B (L3) — PostBuild routing driven by BSWMD
     // paramConfigClass instead of the /PostBuild/i.test(path) regex

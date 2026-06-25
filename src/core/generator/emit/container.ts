@@ -34,3 +34,47 @@ export function emitContainerDecl(input: ContainerDeclInput): string {
   const fields = input.paramDefs.map((def, i) => `    ${cType(def)} ${fieldBase}_${i};`).join('\n');
   return `typedef struct {\n${fields}\n} ${input.typeName};`;
 }
+
+// ---------------------------------------------------------------------------
+// v1.14.0 MINOR S8 — recursive container walker (D-rev2 Senior S8).
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal structural shape for recursive container traversal. Real BSWMD
+ * containers may carry extra fields (multiplicity bounds, choice refs,
+ * reference defs); the walker only reads `shortName` and optional nested
+ * `containers`, so it stays compatible with any container shape that has
+ * those two fields.
+ */
+export interface ContainerLike {
+  readonly shortName: string;
+  readonly parameters?: readonly unknown[];
+  readonly containers?: readonly ContainerLike[];
+}
+
+/**
+ * Depth-first pre-order traversal of `containers` and their nested
+ * children. Calls `visit(c)` once per container before recursing into
+ * its children, so callers see parents before descendants.
+ *
+ * Replaces the flat 1-level walk in v1.13.x that silently dropped
+ * nested containers (D-rev2 Senior S8). Real BSWMD nests 2-3 levels
+ * deep — e.g. EcuC PartitionConfig → PartitionBuffer →
+ * PartitionBufferHeader.
+ *
+ * Tolerates containers without a `containers` field for backwards
+ * compatibility with flat BSWMD (the existing PreCompile/Mixed/Refs
+ * fixtures). Empty `containers: []` is treated identically to
+ * missing `containers`.
+ */
+export function walkContainers(
+  containers: readonly ContainerLike[],
+  visit: (c: ContainerLike) => void,
+): void {
+  for (const c of containers) {
+    visit(c);
+    if (c.containers && c.containers.length > 0) {
+      walkContainers(c.containers, visit);
+    }
+  }
+}
