@@ -31,8 +31,11 @@
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
 import type { NormalizedConfigTree } from '../emit/reference.js';
-import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
+import { cIdent, integerToCType, validateHeaderPath } from '../handlebars-helpers.js';
 import type { GenerationContext } from '../registry.js';
+
+import type { EcuCParamDefLike } from './ecuc.js';
+import type { McuParamDefLike } from './mcu.js';
 
 /**
  * EcuC/Mcu's variant of `cValue` from handlebars-helpers.ts: same
@@ -361,6 +364,51 @@ export function cTypeForBasicKind(kind: string): string {
     default:
       return 'uint8';
   }
+}
+
+/**
+ * v1.15.2 PATCH (B-3 partial) — unified `cTypeForKind` for EcuC + Mcu.
+ *
+ * The 4 shared arms (boolean / string / float / enumeration) route
+ * through `cTypeForBasicKind`. The per-module arms are dispatched on
+ * `moduleKind`:
+ *
+ * - `integer`      : EcuC → integerToCType(min ?? 0, max ?? 0)
+ *                    Mcu  → 'uint32' (hardcoded for clock ref points)
+ * - `reference`    : EcuC → `const ${def.targetType ?? 'void'} * const`
+ *                    Mcu  → no current BSWMD subset; returns 'uint8'
+ * - `function-name`: EcuC → def.signature ?? 'void'
+ *                    Mcu  → no current BSWMD subset; returns 'uint8'
+ * - unknown kind   : 'uint8' fail-safe (per-module semantics, lives
+ *                    here not in cTypeForBasicKind)
+ *
+ * Replaces the per-module `cTypeForKind` previously defined in
+ * `ecuc.ts:148` and `mcu.ts:125` (deleted in B-3.3). The unified
+ * function is the first step of B-3 (full generator type-driven
+ * refactor); B-3 emit*Decl + Handlebars parts remain deferred to
+ * v1.16.0 MINOR.
+ */
+export function cTypeForKind(
+  def: EcuCParamDefLike | McuParamDefLike,
+  moduleKind: 'EcuC' | 'Mcu',
+): string {
+  // Per-module `integer` arm — min/max-aware for EcuC, hardcoded
+  // for Mcu clock reference points.
+  if (def.kind === 'integer') {
+    return moduleKind === 'EcuC' ? integerToCType(def.min ?? 0, def.max ?? 0) : 'uint32';
+  }
+  // EcuC-specific: `reference` + `function-name` arms (v1.14.0 S2).
+  // EcuC uses def.targetType / def.signature; Mcu has no current
+  // BSWMD entries for these and falls back to the Mcu safe default
+  // of `'uint8'`.
+  if (def.kind === 'reference') {
+    return moduleKind === 'EcuC' ? `const ${def.targetType ?? 'void'} * const` : 'uint8';
+  }
+  if (def.kind === 'function-name') {
+    return moduleKind === 'EcuC' ? (def.signature ?? 'void') : 'uint8';
+  }
+  // Shared arms: boolean / string / float / enumeration
+  return cTypeForBasicKind(def.kind);
 }
 
 /**

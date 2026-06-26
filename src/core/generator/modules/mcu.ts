@@ -64,7 +64,11 @@ function sourceTpl(): Handlebars.TemplateDelegate {
 // Inputs narrowed from `unknown` — Task 17 will tighten via real parser types.
 // ---------------------------------------------------------------------------
 
-interface McuParamDefLike {
+// v1.15.2 PATCH (B-3.2) — exported for the unified
+// `cTypeForKind` in `_shared.ts`. Previously module-local;
+// the union of EcuC + Mcu parameter shapes is now referenced
+// from `_shared.ts`.
+export interface McuParamDefLike {
   readonly kind: 'integer' | 'boolean' | 'string' | 'float' | 'enumeration';
   // v1.13.4 PATCH-B (M5) — real BSWMD shortName. Replaces the
   // hardcoded `'Param'` literal in path construction.

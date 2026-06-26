@@ -74,7 +74,11 @@ function pbcfgTpl(): Handlebars.TemplateDelegate {
 // Inputs narrowed from `unknown` — Task 17 will tighten via real parser types.
 // ---------------------------------------------------------------------------
 
-interface EcuCParamDefLike {
+// v1.15.2 PATCH (B-3.2) — exported for the unified
+// `cTypeForKind` in `_shared.ts`. Previously module-local;
+// the union of EcuC + Mcu parameter shapes is now referenced
+// from `_shared.ts`.
+export interface EcuCParamDefLike {
   readonly kind:
     | 'integer'
     | 'boolean'
