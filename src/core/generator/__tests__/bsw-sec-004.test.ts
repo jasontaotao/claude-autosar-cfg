@@ -12,18 +12,16 @@
 
 import { describe, it, expect } from 'vitest';
 
+import { validateRefTargetHeaders } from '../modules/_shared.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
   type EcucModuleConfigurationValuesInput,
 } from '../normalize.js';
-import { validateRefTargetHeaders } from '../modules/_shared.js';
 
 describe('BSW-SEC-004 — missing target header push', () => {
   it('EcuC: pushes when ref target module has no moduleHeader', () => {
-    const bswmdIndex = new Map<string, BswmdModuleDefLite>([
-      ['EcuC', { shortName: 'EcuC' }],
-    ]);
+    const bswmdIndex = new Map<string, BswmdModuleDefLite>([['EcuC', { shortName: 'EcuC' }]]);
     const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
       [
         'Mcu',
@@ -39,7 +37,7 @@ describe('BSW-SEC-004 — missing target header push', () => {
 
   it('EcuC: silent when ref target module has moduleHeader', () => {
     const bswmdIndex = new Map<string, BswmdModuleDefLite>([
-      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' } as BswmdModuleDefLite],
     ]);
     const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
       [
@@ -71,7 +69,7 @@ describe('BSW-SEC-004 — missing target header push', () => {
 
   it('Mcu: silent when ref target module has moduleHeader', () => {
     const bswmdIndex = new Map<string, BswmdModuleDefLite>([
-      ['Mcu', { shortName: 'Mcu', moduleHeader: 'Mcu/Mcu_Cfg.h' }],
+      ['Mcu', { shortName: 'Mcu', moduleHeader: 'Mcu/Mcu_Cfg.h' } as BswmdModuleDefLite],
     ]);
     const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
       [

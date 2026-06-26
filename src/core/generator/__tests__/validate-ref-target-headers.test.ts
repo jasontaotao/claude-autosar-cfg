@@ -14,12 +14,12 @@
 import { describe, it, expect } from 'vitest';
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
+import { validateRefTargetHeaders } from '../modules/_shared.js';
 import {
   normalizeToTree,
   type BswmdModuleDefLite,
   type EcucModuleConfigurationValuesInput,
 } from '../normalize.js';
-import { validateRefTargetHeaders } from '../modules/_shared.js';
 
 function firstDiag(diags: readonly Diagnostic[]): Diagnostic {
   const d = diags[0];
@@ -44,9 +44,7 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2 + v1.15.1 PATCH M1)', () =
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
         },
       ],
     ]);
@@ -65,15 +63,13 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2 + v1.15.1 PATCH M1)', () =
   it('is silent when ref target module has moduleHeader', () => {
     // Arrange
     const bswmdIndex = new Map<string, BswmdModuleDefLite>([
-      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' } as BswmdModuleDefLite],
     ]);
     const ecucValues = new Map<string, EcucModuleConfigurationValuesInput>([
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
         },
       ],
     ]);
@@ -94,9 +90,7 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2 + v1.15.1 PATCH M1)', () =
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'Os', targetPath: 'Os/OsCore' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'Os', targetPath: 'Os/OsCore' }],
         },
       ],
     ]);

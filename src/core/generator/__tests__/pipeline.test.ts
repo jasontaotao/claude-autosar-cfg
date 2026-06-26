@@ -419,9 +419,7 @@ describe('runPipeline', () => {
         [
           'Mcu',
           {
-            references: [
-              { path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-            ],
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
           },
         ],
         // EcuC must also be in ecucValues for the
