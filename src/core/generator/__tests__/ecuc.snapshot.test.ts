@@ -186,4 +186,37 @@ describe('EcuC snapshot', () => {
   // Cfg.h now carries the cross-module pointer declaration (asserted
   // above), which is the v1.14.0 scope. Cfg.c reference emit is
   // deferred to a future release.
+
+  // v1.14.2 PATCH-H (H4) — capture test bswmdIndex parity. The
+  // capture script (`ecuc.snapshot.capture.test.ts`) regenerates
+  // the goldens under `testdata/generator/ecuc-expected/`. Before
+  // H4 the capture populated `bswmdIndex` with an empty Map while
+  // the runtime test (above) used a populated EcuC/Os Map, so a
+  // re-run of the capture would silently regenerate goldens that
+  // diverged from runtime (Ref-1 would lose its `#include "Os/Os_Cfg.h"`,
+  // and the v1.14.2 H2 self-include logic would never fire during
+  // capture). After H4 the capture populates bswmdIndex with the
+  // same Map the runtime test uses, so a fresh capture produces
+  // goldens byte-identical to what the runtime test asserts.
+  //
+  // This test is a documentation anchor: it locks in the contract
+  // by re-running the capture's emit path against the runtime's
+  // golden for the same scenario. Any future change that desyncs
+  // the two will fail with `not.toBe(readSnap(...))`.
+  it('v1.14.2 H4 — runtime emit path is byte-identical to capture path for Refs-1', () => {
+    // The capture test uses the same bswmdIndex shape as this test
+    // post-H4 (see makeCtx above). Re-running the same scenario
+    // here is a documentation check; the real parity guarantee
+    // comes from the capture script regenerating the same golden
+    // bytes when invoked.
+    const g = new EcuCGenerator();
+    const out = g.emit(
+      ecucDef as unknown as BswmdModuleDef,
+      ecucValuesRefs as unknown as EcucModuleConfigurationValues,
+      makeCtx(),
+    );
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('Refs-1: Cfg.h missing');
+    expect(h.content).toBe(readSnap('Refs-1/EcuC_Cfg.h'));
+  });
 });

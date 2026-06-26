@@ -5,6 +5,25 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.14.2 (2026-06-26) — PATCH-H
+
+Closes 4 deferred items from v1.14.1 (v1.14.1 PATCH-G ship note § Backlog notes (deferred)):
+
+- **H1 (BSW-SEC-003 wire-up)**: The v1.14.1 ship deferred the wire-up of `BSW-SEC-003` (declared in `diagnostics.ts:30` but the parser pushed a free-form string warning instead). v1.14.2:
+  - Parser preserves empty `<STD-INCLUDE><SHORT-NAME>` as `''` in `includes[]` so the validator can flag it.
+  - `validateModuleHeaderPaths` (in `modules/_shared.ts`) pushes `BSW-SEC-003` (WARN) for each `''` entry — short-circuits before `validateHeaderPath` so the STD-INCLUDE-specific message wins over the generic BSW-SEC-002 "fails whitelist" message.
+  - Pipeline's strict-mode upgrade loop promotes BSW-SEC-003 to ERROR when `args.strict === true`, matching the v1.14.1 spec line 168 contract.
+- **H2 (BSWMD `<STD-INCLUDES>` emission)**: The v1.14.1 G1 parser extracted `includes[]` but the generator never consumed it. v1.14.2:
+  - New `buildSelfIncludes` helper in `modules/_shared.ts` (sibling to the v1.14.1 `buildReferenceIncludes`, same immutability contract).
+  - `EcuCGenerator.emit` and `McuGenerator.emit` call `buildSelfIncludes(bswmdIndex[shortName]?.includes, refIncludes)` before the cross-ref helper; Set-based dedup ensures a path present in both sources is emitted exactly once.
+- **H3 (EcuC ancestry-aware walk parity)**: EcuC used leaf-only `walkContainers` while Mcu used `walkContainersWithAncestry` since v1.14.1 PATCH-G G3. Tracked explicitly in `ecuc.ts:234-240` as a v1.14.2 follow-up. v1.14.2:
+  - EcuC switches to `walkContainersWithAncestry`; `paramByPath` lookup key now carries the full ancestry chain.
+  - The 1-level cIdent (`EcuC_EcuCGeneral_<Param>`) is byte-identical to the pre-H3 path, so the existing snapshot goldens and tests are unaffected.
+  - For 2+ level nesting, the cIdent now carries the full chain (`EcuC_PartitionConfig_PartitionBuffer_BufferLength`), eliminating the silent identifier collision the leaf-only path was susceptible to.
+- **H4 (capture test bswmdIndex parity)**: The capture script (`ecuc.snapshot.capture.test.ts`) populated `bswmdIndex` with an empty Map, while the runtime test (`ecuc.snapshot.test.ts`) used a populated EcuC/Os Map. A re-run of the capture would silently regenerate goldens that diverged from runtime (Refs-1 would lose its `#include "Os/Os_Cfg.h"`, and the v1.14.2 H2 self-include logic would never fire during capture). v1.14.2 populates the capture bswmdIndex to match the runtime test; the existing goldens are unchanged (capture regen is a no-op for the current EcuC fixtures, matching the H3 risk-mitigation note).
+
+Test count: 2432 → 2444 (+12 net: 1 bswmd H1, 1 validate-module-header-paths H1, 2 pipeline H1, 4 build-self-includes H2, 2 refs-emit H2, 2 ecuc H3, 1 ecuc.snapshot H4 documentation; the modified existing "warns and drops" bswmd test became a renamed-and-repurposed "keeps as '' entry" test).
+
 ## v1.14.1 (2026-06-25) — PATCH-G
 
 Closes 3 deferred items from v1.14.0:

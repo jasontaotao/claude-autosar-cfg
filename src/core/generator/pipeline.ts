@@ -130,6 +130,37 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // `validateUniqueShortNames` doc).
   diagnostics.push(...validateUniqueShortNames(args.ecucValues as EcucIndexForUniqueShortNames));
 
+  // v1.14.2 PATCH-H (H1.3) — strict-mode upgrade for BSW-SEC-003.
+  // The validator emits BSW-SEC-003 as WARN (so non-strict builds
+  // succeed with a visible warning), but the v1.14.1 spec promised
+  // a strict-mode upgrade path (line 168: "`strict: true` (CLI flag)
+  // promotes `BSW-SEC-003` from WARN → ERROR"). Walk the diagnostics
+  // and rewrite the severity in-place (the array is local; no
+  // immutability concern here, matches the existing S5 INFO→WARN
+  // promotion pattern that ran in the v1.14.0 cycle).
+  if (args.strict) {
+    // v1.14.2 PATCH-H (H1.3) — strict-mode upgrade for BSW-SEC-003.
+    // Same shape as the v1.14.0 S5 INFO→WARN promotion, but using a
+    // spread-rebuild to preserve the project's `readonly` discipline
+    // (the inline `as` rewrite the senior pre-ship review flagged
+    // as M1 — the v1.13.3 PATCH-D standard prefers immutable
+    // rebuilds over `as` casts on readonly fields). The indexed
+    // loop is required because the `diagnostics` array's element
+    // type is `Diagnostic` (readonly fields) but the array itself
+    // is local-mutable; we replace each promoted element with a
+    // fresh copy that carries the new severity.
+    for (let i = 0; i < diagnostics.length; i++) {
+      const d = diagnostics[i];
+      if (
+        d &&
+        d.code === DiagnosticCode.BSW_SEC_EMPTY_INCLUDE &&
+        d.severity === DiagnosticSeverity.WARNING
+      ) {
+        diagnostics[i] = { ...d, severity: DiagnosticSeverity.ERROR };
+      }
+    }
+  }
+
   // Stage 2 — Generate
   //
   // v1.14.0 MINOR S6 — bail out of Stage 2 when Stage 1 produced any

@@ -128,6 +128,16 @@ export function buildHeaderGuard(moduleShortName: string): string {
  * whitelist, or is empty. Module-level iteration is per the
  * pipeline's existing `Parameters<typeof validator>[0]` cast
  * pattern (D-rev2 PATCH-D).
+ *
+ * v1.14.2 PATCH-H (H1) — adds the `BSW-SEC-003` WARN channel for
+ * empty `<STD-INCLUDE>` entries. The v1.14.1 parser preserved
+ * these as `''` in `includes[]` so the validator can flag them;
+ * the empty case is checked BEFORE `validateHeaderPath` (which
+ * also rejects `''` with a generic "fails whitelist" message)
+ * so the more specific STD-INCLUDE warning wins. Strict-mode
+ * upgrade (WARN → ERROR) is wired alongside the existing S5 INFO
+ * promotion in `pipeline.ts` — the validator emits WARN, the
+ * pipeline decides.
  */
 export interface BswmdIndexForModuleHeaderPaths {
   readonly shortName: string;
@@ -149,6 +159,17 @@ export function validateModuleHeaderPaths(
       });
     }
     for (const inc of modDef.includes ?? []) {
+      // H1: empty entry short-circuits before SEC3 so BSW-SEC-003
+      // wins over the generic BSW-SEC-002 "fails whitelist" message.
+      if (inc === '') {
+        out.push({
+          severity: DiagnosticSeverity.WARNING,
+          code: DiagnosticCode.BSW_SEC_EMPTY_INCLUDE,
+          moduleShortName: modName,
+          message: `Module ${modName} STD-INCLUDE has empty SHORT-NAME — entry dropped by consumer (BSW-SEC-003; strict mode promotes to ERROR)`,
+        });
+        continue;
+      }
       if (!validateHeaderPath(inc)) {
         out.push({
           severity: DiagnosticSeverity.ERROR,
@@ -192,6 +213,41 @@ export function buildReferenceIncludes(
       out.push(hdr);
       seen.add(hdr);
     }
+  }
+  return out;
+}
+
+/**
+ * v1.14.2 PATCH-H (H2) — resolve a BSWMD's `<STD-INCLUDES>` list
+ * to the deduped set of include paths the current module should
+ * `#include` in its Cfg.h. Sibling to `buildReferenceIncludes`:
+ * this handles the self-supplied includes (the module's own
+ * `<STD-INCLUDES>`), the cross-ref helper handles references[].
+ * The same `existing` Set pattern keeps the helper immutable —
+ * callers can chain `buildSelfIncludes` → `buildReferenceIncludes`
+ * in either order without double-emission.
+ *
+ * Empty entries (`''`) are skipped here — they are the H1
+ * `BSW-SEC-003` channel and have already been surfaced by
+ * `validateModuleHeaderPaths`. Re-emitting `''` as a `#include ""`
+ * directive would produce a malformed C file.
+ *
+ * Caller responsibility: invalid-character paths are filtered
+ * silently here; the validator already pushed `BSW-SEC-002` for
+ * them so the user knows which entry failed. This helper
+ * intentionally does not push diagnostics — separation keeps
+ * it composable and matches `buildReferenceIncludes`.
+ */
+export function buildSelfIncludes(
+  selfIncludes: readonly string[] | undefined,
+  existing: ReadonlySet<string>,
+): readonly string[] {
+  const seen = new Set<string>(existing);
+  const out: string[] = [];
+  for (const inc of selfIncludes ?? []) {
+    if (inc === '' || seen.has(inc) || !validateHeaderPath(inc)) continue;
+    out.push(inc);
+    seen.add(inc);
   }
   return out;
 }

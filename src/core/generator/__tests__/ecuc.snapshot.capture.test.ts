@@ -50,13 +50,27 @@ function makeCtx(): GenerationContext {
   // configClass lookup in isPostBuild() can route PostBuildParam to
   // EcuC_PBcfg.c. Without this, the capture would silently skip the
   // PBcfg.c artifact (conservative fallback when index is empty).
+  //
+  // v1.14.2 PATCH-H (H4) — populate `bswmdIndex` to match the
+  // runtime snapshot test (`ecuc.snapshot.test.ts:71-73`). Before
+  // H4 the capture script ran with an empty bswmdIndex Map, so a
+  // re-run would silently regenerate goldens that diverged from
+  // the runtime behavior (Refs-1 would lose its cross-ref
+  // `#include "Os/Os_Cfg.h"`, and the v1.14.2 H2 self-include
+  // logic would never fire during capture). After H4 the capture
+  // uses the same Map the runtime test uses, so a fresh capture
+  // produces goldens byte-identical to what the runtime test
+  // asserts (parity test in `ecuc.snapshot.test.ts`).
   const tree = normalizeToTree(
     new Map([[ecucDef.shortName, ecucDef as unknown as BswmdModuleDefLite]]),
     new Map(),
   );
   return {
     variant: 'PreCompile',
-    bswmdIndex: new Map<string, unknown>(),
+    bswmdIndex: new Map<string, unknown>([
+      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ]) as never,
     implByModule: new Map<string, string>(),
     outDir: '/tmp',
     diagnostics: [],

@@ -211,4 +211,95 @@ describe('runPipeline', () => {
       result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_INVALID_HEADER_PATH),
     ).toBe(true);
   });
+
+  // v1.14.2 PATCH-H (H1.3) — strict-mode upgrade for BSW-SEC-003.
+  // The validator emits BSW-SEC-003 as a WARN (default) so non-strict
+  // builds still succeed. When `strict: true`, the pipeline promotes
+  // the diagnostic to ERROR so the existing S6 early-break (line 141)
+  // skips Stage 2 and the exit code derives to 1. This is the path
+  // the v1.14.1 spec promised (line 168: "`strict: true` (CLI flag)
+  // promotes `BSW-SEC-003` from WARN → ERROR") — previously blocked
+  // because the v1.14.1 parser pushed a free-form string warning
+  // instead of a Diagnostic.
+  it('v1.14.2 H1.3 — strict mode promotes BSW-SEC-003 from WARN to ERROR', async () => {
+    let stage2Ran = false;
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        stage2Ran = true;
+        return [];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        // '' in includes[] → BSW-SEC-003
+        [
+          'EcuC',
+          {
+            shortName: 'EcuC',
+            moduleHeader: 'EcuC/EcuC_Cfg.h',
+            includes: [''],
+            containers: [],
+          },
+        ],
+      ]),
+      ecucValues: new Map(),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: true,
+    });
+
+    const sec003 = result.diagnostics.find((d) => d.code === DiagnosticCode.BSW_SEC_EMPTY_INCLUDE);
+    expect(sec003).toBeDefined();
+    expect(sec003?.severity).toBe(DiagnosticSeverity.ERROR);
+    // S6 early-break should still fire (promoted ERROR).
+    expect(stage2Ran).toBe(false);
+    expect(result.exitCode).toBe(1);
+  });
+
+  it('v1.14.2 H1.3 — non-strict mode keeps BSW-SEC-003 as WARN (no early-break)', async () => {
+    // Counterpart to the strict test: confirms the promotion is
+    // gated on `strict: true`. Non-strict mode must keep the WARN
+    // and proceed to Stage 2.
+    let stage2Ran = false;
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        stage2Ran = true;
+        return [];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        [
+          'EcuC',
+          {
+            shortName: 'EcuC',
+            moduleHeader: 'EcuC/EcuC_Cfg.h',
+            includes: [''],
+            containers: [],
+          },
+        ],
+      ]),
+      ecucValues: new Map(),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    const sec003 = result.diagnostics.find((d) => d.code === DiagnosticCode.BSW_SEC_EMPTY_INCLUDE);
+    expect(sec003).toBeDefined();
+    expect(sec003?.severity).toBe(DiagnosticSeverity.WARNING);
+    // Stage 2 ran (WARN is non-blocking) — exit code 0 with warning.
+    expect(stage2Ran).toBe(true);
+    expect(result.exitCode).toBe(0);
+  });
 });

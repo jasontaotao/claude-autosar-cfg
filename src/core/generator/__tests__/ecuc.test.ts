@@ -143,4 +143,108 @@ describe('EcuCGenerator', () => {
     // appear in PBcfg.c.
     expect(pbcfg.content).not.toContain('EcuC_EcuCGeneral_ConfigConsistencyHash');
   });
+
+  // v1.14.2 PATCH-H (H3) — EcuC ancestry-aware walk parity with Mcu.
+  // The existing EcuC fixture is 1-level (one container, no nested
+  // sub-containers), so we hand-roll a 2-level nested fixture here
+  // to exercise the ancestry path. The v1.14.1 ecuc.ts:234-240
+  // comment explicitly tracked this as a v1.14.2 follow-up: EcuC
+  // used leaf-only `walkContainers` while Mcu used
+  // `walkContainersWithAncestry` since v1.14.1 PATCH-G G3.
+  it('v1.14.2 H3 — nested container emits param with full ancestry path', () => {
+    const nestedDef = {
+      shortName: 'EcuC',
+      postBuildVariantSupport: false,
+      containers: [
+        {
+          shortName: 'PartitionConfig',
+          lowerMultiplicity: 0,
+          upperMultiplicity: 'infinite' as const,
+          parameters: [
+            {
+              kind: 'integer',
+              shortName: 'PartitionId',
+              paramConfigClasses: [
+                { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+              ],
+              min: 0,
+              max: 65535,
+            },
+          ],
+          containers: [
+            {
+              shortName: 'PartitionBuffer',
+              lowerMultiplicity: 0,
+              upperMultiplicity: 1,
+              parameters: [
+                {
+                  kind: 'integer',
+                  shortName: 'BufferLength',
+                  paramConfigClasses: [
+                    { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
+                  ],
+                  min: 0,
+                  max: 65535,
+                },
+              ],
+              references: [],
+              choices: [],
+              containers: [],
+            },
+          ],
+        },
+      ],
+    } as unknown as BswmdModuleDef;
+    const nestedValues = {
+      definitionRef: '/AUTOSAR/EcucDefs/EcuC',
+      parameters: [
+        {
+          path: 'EcuC/PartitionConfig/PartitionBuffer/BufferLength',
+          kind: 'integer',
+          value: 256,
+        },
+      ],
+      references: [],
+    } as unknown as EcucModuleConfigurationValues;
+
+    registerGenerator(new EcuCGenerator());
+    const g = getGenerator('EcuC');
+    if (!g) throw new Error('generator not registered');
+
+    const out = g.emit(nestedDef, nestedValues, makeCtx('PreCompile'));
+    const cfgC = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c');
+    if (!cfgC) throw new Error('EcuC_Cfg.c missing');
+
+    // Nested param must use the full ancestry path in the C ident.
+    // Pre-H3 (leaf-only): cIdent was based on
+    //   `${moduleShort}/${leafContainer}/${paramShortName}` = EcuC/PartitionBuffer/BufferLength
+    //   which would render as `EcuC_PartitionBuffer_BufferLength` —
+    //   silently colliding with the parent container's
+    //   `PartitionId` from a different sub-container in larger BSWMDs.
+    // Post-H3 (ancestry-aware): cIdent is
+    //   `${ancestry}/${paramShortName}` = EcuC/PartitionConfig/PartitionBuffer/BufferLength
+    //   → `EcuC_PartitionConfig_PartitionBuffer_BufferLength`.
+    expect(cfgC.content).toContain(
+      'EcuC_PartitionConfig_PartitionBuffer_BufferLength',
+    );
+  });
+
+  it('v1.14.2 H3 — leaf-only container emits same as before (no regression)', () => {
+    // The existing 1-level EcuC fixture must still produce the
+    // pre-H3 cIdent (EcuC_EcuCGeneral_<Param>) — the ancestry path
+    // for a 1-level walk is identical to the leaf-only path, so
+    // existing snapshot tests are unaffected.
+    registerGenerator(new EcuCGenerator());
+    const g = getGenerator('EcuC');
+    if (!g) throw new Error('generator not registered');
+
+    const out = g.emit(
+      ecucDef as unknown as BswmdModuleDef,
+      ecucValuesPreCompile as unknown as EcucModuleConfigurationValues,
+      makeCtx('PreCompile'),
+    );
+    const cfgC = out.find((a) => a.path === 'EcuC/EcuC_Cfg.c');
+    if (!cfgC) throw new Error('EcuC_Cfg.c missing');
+    expect(cfgC.content).toContain('EcuC_EcuCGeneral_ConfigConsistencyHash');
+  });
 });

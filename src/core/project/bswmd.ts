@@ -886,22 +886,20 @@ function buildEcucModule(
   const headerRaw = asArray<Record<string, unknown>>(item['HEADER'])[0];
   const moduleHeader = headerRaw ? readShortName(headerRaw) : undefined;
   const stdIncludesEl = asArray<Record<string, unknown>>(item['STD-INCLUDES'])[0];
+  // v1.14.2 PATCH-H (H1) — empty `<STD-INCLUDE><SHORT-NAME>` is kept
+  // as `''` in `includes[]` so the SEC3 validator
+  // (`validateModuleHeaderPaths` in `core/generator/modules/_shared.ts`)
+  // can push `BSW-SEC-003` for it. The v1.14.1 PATCH-G string warning
+  // is removed — the validator owns the channel now and exposes the
+  // strict-mode upgrade path the v1.14.1 spec promised (line 168:
+  // "`strict: true` (CLI flag) promotes `BSW-SEC-003` from WARN →
+  // ERROR"). The shape change is additive for callers that filter
+  // falsy entries (the H2 `buildSelfIncludes` helper does so
+  // explicitly) and a 1-line `inc === ''` branch in the validator.
   const includes: string[] = stdIncludesEl
     ? asArray<Record<string, unknown>>(stdIncludesEl['STD-INCLUDE']).flatMap((si) => {
         const name = readShortName(si);
-        if (name === undefined) {
-          // v1.14.1 PATCH-G G1 review follow-up — surface a warning
-          // when a <STD-INCLUDE> has no <SHORT-NAME>. The <HEADER>
-          // case returns undefined and the caller sees the absence via
-          // the optional `moduleHeader` field, but the same pattern in
-          // a list (includes[]) would silently drop the entry. Without
-          // this breadcrumb, S2+ would emit `#include` directives for
-          // a missing-but-expected header with no diagnostic.
-          warnings?.push(
-            `${path} STD-INCLUDE has no SHORT-NAME — entry dropped`,
-          );
-        }
-        return name === undefined ? [] : [name];
+        return name === undefined ? [''] : [name];
       })
     : [];
   return {

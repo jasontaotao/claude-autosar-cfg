@@ -1619,11 +1619,17 @@ describe('parseBswmd — <HEADER> + <STD-INCLUDES> extraction (v1.14.1 G1)', () 
     expect(mod.moduleHeader).toBeUndefined();
   });
 
-  it('warns and drops a <STD-INCLUDE> with no <SHORT-NAME>', () => {
+  it('keeps a <STD-INCLUDE> with no <SHORT-NAME> as "" entry (H1: BSW-SEC-003 wired in validator)', () => {
     // Arrange — one well-formed STD-INCLUDE and one with an empty body.
-    // v1.14.1 PATCH-G G1 review follow-up: a malformed entry must
-    // surface a breadcrumb (so S2+ can diagnose a missing-but-expected
-    // header) rather than vanishing from `includes` silently.
+    //
+    // v1.14.2 PATCH-H H1 — the empty SHORT-NAME is preserved as an empty
+    // string in `includes[]` so the SEC3 validator
+    // (`validateModuleHeaderPaths` in `modules/_shared.ts`) can push
+    // `BSW-SEC-003` for it. The string warning the v1.14.1 PATCH-G
+    // parser pushed is removed — the validator owns the channel now
+    // (matches the v1.14.1 spec line 168 strict-mode upgrade path:
+    // "`strict: true` (CLI flag) promotes `BSW-SEC-003` from WARN →
+    // ERROR").
     const xml = `<?xml version="1.0"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
   <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
@@ -1650,9 +1656,13 @@ describe('parseBswmd — <HEADER> + <STD-INCLUDES> extraction (v1.14.1 G1)', () 
     // Assert
     const mod = result.value.modules.find((m) => m.shortName === 'TestMod');
     if (!mod) throw new Error('TestMod not in result');
-    expect(mod.includes).toEqual(['Os/Os_Cfg.h']);
-    expect(result.value.warnings).toEqual(
-      expect.arrayContaining([expect.stringMatching(/STD-INCLUDE has no SHORT-NAME/)]),
+    // Empty SHORT-NAME is kept as '' so the validator can flag it.
+    expect(mod.includes).toEqual(['Os/Os_Cfg.h', '']);
+    // The parser no longer pushes a string warning — the validator
+    // owns the BSW-SEC-003 channel and strict-mode upgrade path.
+    const legacyWarning = result.value.warnings.find((w) =>
+      /STD-INCLUDE has no SHORT-NAME/.test(w),
     );
+    expect(legacyWarning).toBeUndefined();
   });
 });

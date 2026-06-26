@@ -93,4 +93,73 @@ describe('EcuCGenerator reference emit (D-rev2 S2)', () => {
     if (!h) throw new Error('Cfg.h missing');
     expect(h.content).toContain('#include "Os/Os_Cfg.h"');
   });
+
+  // v1.14.2 PATCH-H (H2) — the BSWMD's own `<STD-INCLUDES>` paths
+  // are emitted as `#include` directives alongside cross-ref
+  // includes. Self-includes come FIRST in the Cfg.h `#include`
+  // block, deduped against cross-refs via the shared `refIncludes`
+  // Set. The fixture here has both: a self-include of
+  // `Dem/Dem_Cfg.h` and a cross-ref to `Os` (which adds
+  // `Os/Os_Cfg.h`).
+  it('v1.14.2 H2 — emits self-includes from BSWMD <STD-INCLUDES>', () => {
+    const g = new EcuCGenerator();
+    const bswmdIndex = new Map([
+      [
+        'EcuC',
+        {
+          shortName: 'EcuC',
+          moduleHeader: 'EcuC/EcuC_Cfg.h',
+          includes: ['Dem/Dem_Cfg.h'],
+        },
+      ],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ] as never);
+    const out = g.emit(ecucDef as never, ecucValuesRefs as never, {
+      variant: 'PreCompile',
+      bswmdIndex: bswmdIndex as never,
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: [],
+      bswmdParamIndex: new Map(),
+    });
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('Cfg.h missing');
+    expect(h.content).toContain('#include "Dem/Dem_Cfg.h"');
+    // Self-include appears before the cross-ref (H2 ordering).
+    const demIdx = h.content.indexOf('#include "Dem/Dem_Cfg.h"');
+    const osIdx = h.content.indexOf('#include "Os/Os_Cfg.h"');
+    expect(demIdx).toBeGreaterThan(-1);
+    expect(osIdx).toBeGreaterThan(-1);
+    expect(demIdx).toBeLessThan(osIdx);
+  });
+
+  // v1.14.2 PATCH-H (H2) — when a self-include duplicates a
+  // cross-ref, only one `#include` is emitted (Set-based dedup).
+  it('v1.14.2 H2 — dedupes self-include against cross-ref to same path', () => {
+    const g = new EcuCGenerator();
+    const bswmdIndex = new Map([
+      [
+        'EcuC',
+        {
+          shortName: 'EcuC',
+          moduleHeader: 'EcuC/EcuC_Cfg.h',
+          includes: ['Os/Os_Cfg.h'],
+        },
+      ],
+      ['Os', { shortName: 'Os', moduleHeader: 'Os/Os_Cfg.h' }],
+    ] as never);
+    const out = g.emit(ecucDef as never, ecucValuesRefs as never, {
+      variant: 'PreCompile',
+      bswmdIndex: bswmdIndex as never,
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: [],
+      bswmdParamIndex: new Map(),
+    });
+    const h = out.find((a) => a.path === 'EcuC/EcuC_Cfg.h');
+    if (!h) throw new Error('Cfg.h missing');
+    // Exactly one occurrence of the Os include.
+    const matches = h.content.match(/#include "Os\/Os_Cfg\.h"/g) ?? [];
+    expect(matches).toHaveLength(1);
+  });
 });

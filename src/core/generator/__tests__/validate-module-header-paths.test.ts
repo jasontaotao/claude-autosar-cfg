@@ -73,4 +73,33 @@ describe('validateModuleHeaderPaths (v1.14.1 PATCH-G G4)', () => {
     );
     expect(diags).toHaveLength(0);
   });
+
+  it('warns on empty <STD-INCLUDE> entry (H1: BSW-SEC-003 wire-up)', () => {
+    // v1.14.2 PATCH-H (H1) — the parser now preserves empty SHORT-NAME
+    // entries as '' in includes[] (the previous "warns and drops"
+    // behaviour was the orphan-Diagnostic source the v1.14.1 ship
+    // deferred). The validator pushes BSW-SEC-003 (WARN — strict-mode
+    // upgrade wired in pipeline.ts) for each '' entry; non-empty
+    // entries that fail the whitelist still surface as BSW-SEC-002.
+    // The order matters: '' must short-circuit before validateHeaderPath
+    // so the WARN code wins over the generic "fails whitelist" message.
+    const diags = validateModuleHeaderPaths(
+      new Map([
+        [
+          'M',
+          {
+            shortName: 'M',
+            moduleHeader: 'M/M_Cfg.h',
+            includes: ['Os/Os_Cfg.h', '', 'Dem/Dem_Cfg.h'],
+          },
+        ],
+      ]),
+    );
+    expect(diags).toHaveLength(1);
+    const d = firstDiag(diags);
+    expect(d.code).toBe(DiagnosticCode.BSW_SEC_EMPTY_INCLUDE);
+    expect(d.severity).toBe(DiagnosticSeverity.WARNING);
+    expect(d.moduleShortName).toBe('M');
+    expect(d.message).toContain('STD-INCLUDE');
+  });
 });

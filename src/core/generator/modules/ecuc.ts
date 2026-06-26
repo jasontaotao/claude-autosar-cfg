@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import type Handlebars from 'handlebars';
 
 import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
-import { walkContainers, type ContainerLike } from '../emit/container.js';
+import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
@@ -40,6 +40,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 import {
   buildHeaderGuard,
   buildReferenceIncludes,
+  buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
   type BswmdIndexForModuleHeaderPaths,
@@ -231,35 +232,46 @@ export class EcuCGenerator implements ModuleGenerator {
     // PartitionConfig → PartitionBuffer → PartitionBufferHeader) emits
     // params from every level. Flat fixtures are unaffected (their
     // containers[] is empty or undefined).
-    // v1.14.1 PATCH-G (G3) — EcuC uses leaf-only `container.shortName` for
-    // path construction, while Mcu uses ancestry-aware paths
-    // (walkContainersWithAncestry). EcuC's `paramByPath` lookups would
-    // also need ancestry-tracking before EcuC can match Mcu's behavior.
-    // Tracked for v1.14.2 follow-up: extend this site to use
-    // walkContainersWithAncestry and feed `cDef.shortName` chain into
-    // the paramByPath lookup key.
-    walkContainers(eDef.containers as readonly ContainerLike[], (container) => {
-      const cDef = container as EcuCContainerDefLike;
-      for (const pDef of cDef.parameters) {
-        const path = `${eDef.shortName}/${cDef.shortName}/${pDef.shortName ?? 'Param'}`;
-        const value = paramByPath.get(path);
-        const cType = cTypeForKind(pDef);
-        const ident = cIdent(path);
+    //
+    // v1.14.2 PATCH-H (H3) — switch from `walkContainers` (leaf-only)
+    // to `walkContainersWithAncestry` so the emitted cIdent chain
+    // matches Mcu's behavior. The v1.14.1 ecuc.ts:234-240 comment
+    // explicitly tracked this as a v1.14.2 follow-up. For 1-level
+    // containers (the only shape in the existing v1.14.1 fixtures)
+    // the ancestry path equals the leaf path, so the change is
+    // behavior-preserving for flat fixtures and the pre-existing
+    // snapshot tests still pass; for 2+ level nesting the cIdent
+    // now includes the full chain
+    // (EcuC_PartitionConfig_PartitionBuffer_BufferLength instead of
+    // EcuC_PartitionBuffer_BufferLength), eliminating the silent
+    // identifier collision that the v1.14.1 leaf-only path was
+    // susceptible to.
+    walkContainersWithAncestry(
+      eDef.containers as Parameters<typeof walkContainersWithAncestry>[0],
+      eDef.shortName,
+      (container, ancestry) => {
+        const cDef = container as EcuCContainerDefLike;
+        for (const pDef of cDef.parameters) {
+          const path = `${ancestry}/${pDef.shortName ?? 'Param'}`;
+          const value = paramByPath.get(path);
+          const cType = cTypeForKind(pDef);
+          const ident = cIdent(path);
 
-        if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
-          // PBVAR build: load via stub.
-          const initVal = value?.value ?? 0;
-          postBuildDecls.push(emitLoaderEntry(ident, cType, initVal, postBuildOffset));
-          postBuildOffset += 1;
-        } else if (ctx.variant === 'Link') {
-          linkDecls.push(emitExternDecl(ident, cType));
-        } else {
-          // PreCompile (default for any other variant too).
-          const init = value ? renderCValue(value.value, pDef.kind) : '0u';
-          preCompileDecls.push(emitConstDecl(ident, cType, init));
+          if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
+            // PBVAR build: load via stub.
+            const initVal = value?.value ?? 0;
+            postBuildDecls.push(emitLoaderEntry(ident, cType, initVal, postBuildOffset));
+            postBuildOffset += 1;
+          } else if (ctx.variant === 'Link') {
+            linkDecls.push(emitExternDecl(ident, cType));
+          } else {
+            // PreCompile (default for any other variant too).
+            const init = value ? renderCValue(value.value, pDef.kind) : '0u';
+            preCompileDecls.push(emitConstDecl(ident, cType, init));
+          }
         }
-      }
-    });
+      },
+    );
 
     // v1.13.4 PATCH-B (L3) — PostBuild routing driven by BSWMD
     // paramConfigClass instead of the /PostBuild/i.test(path) regex
@@ -287,11 +299,27 @@ export class EcuCGenerator implements ModuleGenerator {
     // against any pre-existing includes (none today, but defensive
     // for future BSWMD-supplied includes — see G1 `includes[]`).
     //
+    // v1.14.2 PATCH-H (H2) — also emit BSWMD-supplied
+    // `<STD-INCLUDES>` paths for the generating module. The
+    // self-includes are processed FIRST (so they appear at the
+    // top of the Cfg.h `#include` block, matching the AUTOSAR
+    // standard ordering convention), and the cross-ref helper
+    // dedupes against them via the shared `refIncludes` Set.
+    //
     // When a ref's target module is in the BSWMD index but lacks
     // `moduleHeader`, push `BSW-SEC-004` so the user knows which
     // module needs `<HEADER>` added. The helper itself doesn't push
     // diagnostics — separation keeps it composable.
     const refIncludes = new Set<string>();
+    const selfDef = ctx.bswmdIndex?.get(eDef.shortName) as
+      | BswmdIndexForModuleHeaderPaths
+      | undefined;
+    const selfIncludePaths = buildSelfIncludes(selfDef?.includes, refIncludes);
+    // v1.14.2 PATCH-H (H2) — the helpers are immutable (each builds
+    // a local `seen` Set seeded from `existing`); the call site owns
+    // the cross-helper dedup. Seed `refIncludes` with the self paths
+    // so the next `buildReferenceIncludes` call skips duplicates.
+    for (const inc of selfIncludePaths) refIncludes.add(inc);
     const refIncludePaths = buildReferenceIncludes(
       eVals.references ?? [],
       ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
@@ -318,10 +346,13 @@ export class EcuCGenerator implements ModuleGenerator {
       // v1.14.0 MINOR S1 — module-scoped header guard replaces the
       // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
       headerGuard: buildHeaderGuard(eDef.shortName),
-      // v1.14.1 PATCH-G (G2) — pass auto-derived includes
-      // (currently only ref-target headers; future: BSWMD
-      // `includes[]` from G1).
-      includes: refIncludePaths,
+      // v1.14.1 PATCH-G (G2) + v1.14.2 PATCH-H (H2) — pass
+      // auto-derived includes: BSWMD-supplied self-includes
+      // (from `<STD-INCLUDES>`) first, then ref-target module
+      // headers from cross-module references. The Set-based
+      // dedup ensures a path present in both sources is emitted
+      // exactly once.
+      includes: [...selfIncludePaths, ...refIncludePaths],
       typedefs: [] as readonly {
         name: string;
         fields: readonly { cType: string; name: string }[];

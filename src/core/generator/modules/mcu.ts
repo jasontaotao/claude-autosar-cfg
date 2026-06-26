@@ -38,6 +38,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 import {
   buildHeaderGuard,
   buildReferenceIncludes,
+  buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
   type BswmdIndexForModuleHeaderPaths,
@@ -211,7 +212,18 @@ export class McuGenerator implements ModuleGenerator {
     // emit referenceDecls. Mirrors the EcuC pattern from G2 / S2.
     // Mcu has no Link or PostBuild variants (PreCompile-only in MVP),
     // so referenceDecls are all extern decls, not link externs.
+    //
+    // v1.14.2 PATCH-H (H2) — also emit BSWMD-supplied self-includes
+    // (from `<STD-INCLUDES>`). Same Set-based dedup pattern as EcuC:
+    // self-includes first, then cross-refs.
     const refIncludes = new Set<string>();
+    const selfDef = ctx.bswmdIndex?.get(mDef.shortName) as
+      | BswmdIndexForModuleHeaderPaths
+      | undefined;
+    const selfIncludePaths = buildSelfIncludes(selfDef?.includes, refIncludes);
+    // v1.14.2 PATCH-H (H2) — see ecuc.ts; same cross-helper dedup
+    // pattern (helpers are immutable, call site owns the set).
+    for (const inc of selfIncludePaths) refIncludes.add(inc);
     const refIncludePaths = buildReferenceIncludes(
       mVals.references ?? [],
       ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
@@ -238,7 +250,10 @@ export class McuGenerator implements ModuleGenerator {
       // v1.14.0 MINOR S1 — module-scoped header guard replaces the
       // hardcoded `ECU_CFG_H` literal (D-rev2 Senior S1).
       headerGuard: buildHeaderGuard(mDef.shortName),
-      includes: refIncludePaths,
+      // v1.14.1 PATCH-G (G3) + v1.14.2 PATCH-H (H2) — self-includes
+      // + cross-ref includes, deduped via the shared `refIncludes`
+      // Set so a path in both sources is emitted exactly once.
+      includes: [...selfIncludePaths, ...refIncludePaths],
       typedefs: [] as readonly {
         name: string;
         fields: readonly { cType: string; name: string }[];
