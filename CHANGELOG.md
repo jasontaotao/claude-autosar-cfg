@@ -5,6 +5,17 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.15.1 (2026-06-26) — PATCH
+
+Closes 2 advisory MEDIUM items from the v1.15.0 B-2 code review + 1 item from the v1.15.0 spec §Out of Scope.
+
+- **M1 (`refactor(generator)` + `refactor(pipeline)`)**: Migrate `validateRefTargetHeaders(bswmdIndex, ecucValues)` → `validateRefTargetHeaders(tree: NormalizedConfigTree)`. Closes the B-2 review M1 advisory about signature asymmetry with the rest of the Stage-1 validator surface (every other validator takes `tree`; `validateRefTargetHeaders` was the lone outlier taking raw pipeline args). The function body now uses `tree.references` (the collected `ReferenceEdge[]` from `normalizeToTree`) — one loop instead of a per-module iteration with a defensive `values.references ?? []` check. Same diagnostic shape: code, severity, moduleShortName, ecucPath, message all unchanged. The 4 re-shaped `validate-ref-target-headers.test.ts` cases + 4 re-shaped `bsw-sec-004.test.ts` cases pass via `normalizeToTree` building the test fixture tree.
+- **M2 (`test(generator)`)**: Add positive integration test (ref target HAS moduleHeader, asserted at pipeline boundary). Closes the B-2 review M2 advisory about the v1.15.0 B-2.6 "Stage 2 runs normally" case being trivially-true (no refs at all). The new case exercises the genuine positive path: a ref whose target has `moduleHeader`, so BSW-SEC-004 stays silent and Stage 2 runs normally (asserts `artifacts.size > 0` + `exitCode === 0` + no BSW-SEC-004 in diagnostics).
+- **B-5 (`feat(generator)` + `refactor(generator)` + `test(generator)`)**: Extract `cTypeForBasicKind(kind)` helper in `_shared.ts` covering the 5 byte-identical arms (`boolean` / `string` / `float` / `enumeration` / `default` — all return `'uint8'` / `'const char*'` / `'float32'` / `'uint8'` / `'uint8'` per v1.14.3 C-2 fix). EcuC + Mcu `cTypeForKind` functions delegate to the helper for these arms; the `integer` arm stays per-module (EcuC: `integerToCType(min, max)`, Mcu: hardcoded `'uint32'` for clock reference points). 5 new unit tests in `c-type-for-basic-kind.test.ts` lock the helper's contract.
+- **B-3 / B-4 (deferred)**: Full generator type-driven refactor and BSWMD full vendor modeling remain future work. See `docs/superpowers/specs/2026-06-26-v1-15-1-patch-design.md` §Out of Scope.
+
+8 commits on top of v1.15.0 (`17a4192`). Test count: 2466 → 2472 (+6 net: 5 B-5.4 helper tests + 1 M2.1 pipeline integration). No snapshot regen. SEC1-SEC4 controls intact.
+
 ## v1.15.0 (2026-06-26) — MINOR
 
 Closes 2 of 4 v1.14.3 deferred items (D-rev3 PATCH-I "Out of Scope" §41-50). B-3 (generator type-driven refactor) and B-4 (BSWMD full vendor modeling) are explicit deferrals to v1.15.1 PATCH / v1.16.0 MINOR.
