@@ -211,12 +211,11 @@ export class McuGenerator implements ModuleGenerator {
     );
 
     // v1.15.0 MINOR (B-1) — mirror EcuC's helper consumption.
-    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } =
-      resolveIncludesForModule(
-        mDef.shortName,
-        mVals.references ?? [],
-        ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-      );
+    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } = resolveIncludesForModule(
+      mDef.shortName,
+      mVals.references ?? [],
+      ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+    );
     // v1.15.0 MINOR (B-2) — see ecuc.ts; BSW-SEC-004 push moved
     // to the Stage-1 `validateRefTargetHeaders` validator. Mcu
     // no longer carries the inline duplicate.

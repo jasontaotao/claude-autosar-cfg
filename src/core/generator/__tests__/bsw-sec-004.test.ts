@@ -21,16 +21,12 @@ describe('BSW-SEC-004 — missing target header push', () => {
         [
           'Mcu',
           {
-            references: [
-              { path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-            ],
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
           },
         ],
       ]),
     );
-    expect(diags).toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-004' }),
-    );
+    expect(diags).toContainEqual(expect.objectContaining({ code: 'BSW-SEC-004' }));
   });
 
   it('EcuC: silent when ref target module has moduleHeader', () => {
@@ -40,16 +36,12 @@ describe('BSW-SEC-004 — missing target header push', () => {
         [
           'Mcu',
           {
-            references: [
-              { path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-            ],
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
           },
         ],
       ]),
     );
-    expect(diags).not.toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-004' }),
-    );
+    expect(diags).not.toContainEqual(expect.objectContaining({ code: 'BSW-SEC-004' }));
   });
 
   it('Mcu: pushes when ref target module has no moduleHeader', () => {
@@ -59,16 +51,12 @@ describe('BSW-SEC-004 — missing target header push', () => {
         [
           'EcuC',
           {
-            references: [
-              { path: 'EcuC/McuRef', targetModule: 'Mcu', targetPath: 'Mcu/Config' },
-            ],
+            references: [{ path: 'EcuC/McuRef', targetModule: 'Mcu', targetPath: 'Mcu/Config' }],
           },
         ],
       ]),
     );
-    expect(diags).toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-004' }),
-    );
+    expect(diags).toContainEqual(expect.objectContaining({ code: 'BSW-SEC-004' }));
   });
 
   it('Mcu: silent when ref target module has moduleHeader', () => {
@@ -78,15 +66,11 @@ describe('BSW-SEC-004 — missing target header push', () => {
         [
           'EcuC',
           {
-            references: [
-              { path: 'EcuC/McuRef', targetModule: 'Mcu', targetPath: 'Mcu/Config' },
-            ],
+            references: [{ path: 'EcuC/McuRef', targetModule: 'Mcu', targetPath: 'Mcu/Config' }],
           },
         ],
       ]),
     );
-    expect(diags).not.toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-004' }),
-    );
+    expect(diags).not.toContainEqual(expect.objectContaining({ code: 'BSW-SEC-004' }));
   });
 });

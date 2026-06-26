@@ -31,9 +31,7 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2)', () => {
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
         },
       ],
     ]);
@@ -50,16 +48,12 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2)', () => {
 
   it('is silent when ref target module has moduleHeader', () => {
     // Arrange
-    const bswmdIndex = new Map([
-      ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
-    ]);
+    const bswmdIndex = new Map([['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }]]);
     const ecucValues = new Map([
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
         },
       ],
     ]);
@@ -79,9 +73,7 @@ describe('validateRefTargetHeaders (v1.15.0 MINOR B-2)', () => {
       [
         'Mcu',
         {
-          references: [
-            { path: 'Mcu/OsRef', targetModule: 'Os', targetPath: 'Os/OsCore' },
-          ],
+          references: [{ path: 'Mcu/OsRef', targetModule: 'Os', targetPath: 'Os/OsCore' }],
         },
       ],
     ]);

@@ -299,12 +299,11 @@ export class EcuCGenerator implements ModuleGenerator {
     // v1.15.0 MINOR (B-1) — replace the inline 6-line block with
     // the shared helper. Output is byte-identical; the comment
     // history moves to `_shared.ts:resolveIncludesForModule`.
-    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } =
-      resolveIncludesForModule(
-        eDef.shortName,
-        eVals.references ?? [],
-        ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-      );
+    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } = resolveIncludesForModule(
+      eDef.shortName,
+      eVals.references ?? [],
+      ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+    );
     // v1.15.0 MINOR (B-2) — BSW-SEC-004 push moved to
     // `validateRefTargetHeaders` in Stage 1. The validator
     // runs in `pipeline.ts` before the S6 early-break, so

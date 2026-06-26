@@ -331,9 +331,7 @@ describe('runPipeline', () => {
         [
           'Mcu',
           {
-            references: [
-              { path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' },
-            ],
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
           },
         ],
       ]),
@@ -373,9 +371,7 @@ describe('runPipeline', () => {
     registerGenerator(new SpyGen());
 
     const result = await runPipeline({
-      bswmdIndex: new Map([
-        ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
-      ]),
+      bswmdIndex: new Map([['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }]]),
       ecucValues: new Map(),
       variant: 'PreCompile',
       outDir: '/tmp/out',

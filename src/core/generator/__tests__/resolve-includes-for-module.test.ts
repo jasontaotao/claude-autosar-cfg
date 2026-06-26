@@ -14,10 +14,7 @@ describe('resolveIncludesForModule (v1.15.0 MINOR B-1)', () => {
   it('returns selfPaths only when module has <STD-INCLUDES> but no refs', () => {
     // Arrange
     const bswmdIndex = new Map([
-      [
-        'EcuC',
-        { shortName: 'EcuC', includes: ['Os/Os_Cfg.h', 'Dem/Dem_Cfg.h'] },
-      ],
+      ['EcuC', { shortName: 'EcuC', includes: ['Os/Os_Cfg.h', 'Dem/Dem_Cfg.h'] }],
     ]);
     // Act
     const out = resolveIncludesForModule('EcuC', [], bswmdIndex);
@@ -70,9 +67,7 @@ describe('resolveIncludesForModule (v1.15.0 MINOR B-1)', () => {
     // a fresh array. The test asserts the helper is fully immutable
     // (no shared state between calls).
     // Arrange
-    const bswmdIndex = new Map([
-      ['EcuC', { shortName: 'EcuC', includes: ['A/A.h', 'B/B.h'] }],
-    ]);
+    const bswmdIndex = new Map([['EcuC', { shortName: 'EcuC', includes: ['A/A.h', 'B/B.h'] }]]);
     // Act — call twice
     const a = resolveIncludesForModule('EcuC', [], bswmdIndex);
     const b = resolveIncludesForModule('EcuC', [], bswmdIndex);
@@ -88,12 +83,7 @@ describe('resolveIncludesForModule (v1.15.0 MINOR B-1)', () => {
     // (validateModuleHeaderPaths) owns the BSW-SEC-002 push; the
     // helper is silent for invalid paths.
     // Arrange
-    const bswmdIndex = new Map([
-      [
-        'EcuC',
-        { shortName: 'EcuC', includes: ['ok.h', 'bad$(rm).h'] },
-      ],
-    ]);
+    const bswmdIndex = new Map([['EcuC', { shortName: 'EcuC', includes: ['ok.h', 'bad$(rm).h'] }]]);
     // Act
     const out = resolveIncludesForModule('EcuC', [], bswmdIndex);
     // Assert
