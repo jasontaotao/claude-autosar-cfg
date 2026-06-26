@@ -31,6 +31,7 @@
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
 import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
+import type { EcucModuleConfigurationValuesInput } from '../normalize.js';
 import type { GenerationContext } from '../registry.js';
 
 /**
@@ -327,4 +328,43 @@ export function resolveIncludesForModule(
   for (const inc of selfPaths) refIncludes.add(inc);
   const refPaths = buildReferenceIncludes(references, bswmdIndex, refIncludes);
   return { selfPaths, refPaths };
+}
+
+/**
+ * v1.15.0 MINOR (B-2) — Stage-1 validator that pushes
+ * BSW-SEC-004 ERROR for every ECUC reference whose target
+ * module is loaded in the BSWMD index but lacks `<HEADER>`.
+ * Replaces the inline emit-time push in EcuCGenerator.emit
+ * and McuGenerator.emit (D-rev3 B-2).
+ *
+ * Runs in Stage 1 (before Stage 2's generators fire), so the
+ * existing S6 early-break in `pipeline.ts` catches the error
+ * and skips artifact emission. Same diagnostic shape as the
+ * previous inline push (code, severity, message format) — the
+ * only change is timing.
+ *
+ * Silent when the ref target module is absent from
+ * `bswmdIndex` (out of scope; `validateReferences` covers
+ * unresolved refs with `ECUC-GEN-010` to avoid double-reporting).
+ */
+export function validateRefTargetHeaders(
+  bswmdIndex: ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+  ecucValues: ReadonlyMap<string, EcucModuleConfigurationValuesInput>,
+): readonly Diagnostic[] {
+  const out: Diagnostic[] = [];
+  for (const [moduleShortName, values] of ecucValues) {
+    for (const ref of values.references ?? []) {
+      const targetDef = bswmdIndex.get(ref.targetModule);
+      if (targetDef && targetDef.moduleHeader === undefined) {
+        out.push({
+          severity: DiagnosticSeverity.ERROR,
+          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
+          moduleShortName,
+          ecucPath: ref.path,
+          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
+        });
+      }
+    }
+  }
+  return out;
 }
