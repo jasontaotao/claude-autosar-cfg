@@ -20,13 +20,14 @@
 //     and consumed directly by both modules (no duplication left).
 //   - `paramIdent` — byte-identical to `cIdent`; the duplicate was
 //     removed in v1.13.3 PATCH-C (D-rev2 R2, R3).
-//   - `cTypeForKind` — still per-module because the `default` arm
-//     differs (EcuC `'uint8'`, Mcu `'uint8'`, but the shared `cType`
-//     returns `'??'`). The integer arm routes through `integerToCType`
-//     (v1.13.2 PATCH-E) so the only remaining difference is the
-//     default arm — minor enough to leave per-module (D-rev2 C11 noted
-//     but not action-required since `cType`'s `'??'` is fail-fast by
-//     design and not actually reachable through the BSWMD parser).
+//   - `cTypeForKind` — per-module because they have already diverged:
+//     EcuC's `integer` arm routes through `integerToCType(min, max)`
+//     and EcuC has `reference` + `function-name` arms (added in
+//     v1.14.0 S2 Refs-1 ref emit). Mcu's `integer` arm hardcodes
+//     `'uint32'` (no `integerToCType` call). Default arms both return
+//     `'uint8'` for now, but that is the only remaining identity.
+//     The shared `cType` returns `'??'` (fail-fast). Consolidation
+//     is deferred to the v1.15.0 generator refactor (D-rev3 B-5).
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
 import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
@@ -215,6 +216,40 @@ export function buildReferenceIncludes(
     }
   }
   return out;
+}
+
+/**
+ * v1.14.3 PATCH-I (R-2.1) — defense-in-depth for the moduleHeader
+ * fallback. The BSWMD-supplied branch (defModuleHeader defined) is
+ * gated by `validateModuleHeaderPaths` in Stage 1 (BSW-SEC-002 ERROR
+ * → S6 early-break, so by emit time any defined value already
+ * passes `validateHeaderPath`). The fallback branch synthesizes a
+ * path from the module's `shortName` — which is a raw BSWMD string
+ * without upstream character validation (the parser's `readShortName`
+ * accepts any string). Before v1.14.3 the fallback was a hardcoded
+ * literal, so this gap didn't exist; R-2 widened the input boundary
+ * that lands in `{{moduleHeader}}` and required this gate.
+ *
+ * If validation fails, push BSW-SEC-002 with the offending fallback
+ * path and return a sentinel value (`_INVALID_HEADER.h`) that the C
+ * compiler will reject at compile time. Sentinel uses an underscore
+ * prefix to make it visually distinct in downstream diagnostic output.
+ */
+export function resolveModuleHeader(
+  defModuleHeader: string | undefined,
+  fallback: string,
+  moduleShortName: string,
+  ctx: GenerationContext,
+): string {
+  if (defModuleHeader !== undefined) return defModuleHeader;
+  if (validateHeaderPath(fallback)) return fallback;
+  ctx.diagnostics.push({
+    severity: DiagnosticSeverity.ERROR,
+    code: DiagnosticCode.BSW_SEC_INVALID_HEADER_PATH,
+    moduleShortName,
+    message: `Module ${moduleShortName} fallback moduleHeader '${fallback}' fails SEC3 validation (whitelist ^[A-Za-z0-9_./-]+$); cannot auto-#include`,
+  });
+  return '_INVALID_HEADER.h';
 }
 
 /**

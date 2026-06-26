@@ -41,6 +41,7 @@ import {
   buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
+  resolveModuleHeader,
   type BswmdIndexForModuleHeaderPaths,
 } from './_shared.js';
 
@@ -83,6 +84,10 @@ interface McuContainerDefLike {
 
 interface McuModuleDefLike {
   readonly shortName: string;
+  // v1.14.3 PATCH-I (R-2) — BSWMD <HEADER> threads through to the
+  // generated C source's `#include "{{moduleHeader}}"` line.
+  // Optional; defaults to `${shortName}/${shortName}_Cfg.h` when absent.
+  readonly moduleHeader?: string | undefined;
   readonly containers: readonly McuContainerDefLike[];
 }
 
@@ -181,14 +186,13 @@ export class McuGenerator implements ModuleGenerator {
     // emitted C ident accumulates the full container ancestry
     // (`Module_Container_SubContainer_Param`) so nested BSWMD
     // params get distinct idents from the top-level container's
-    // same-named params. `walkContainers` does not pass parent
-    // context, so we run the walk inline with an explicit path
-    // accumulator rather than mutating the shared helper.
+    // same-named params.
     const preCompileDecls: string[] = [];
-    // v1.14.1 PATCH-G (G3) — uses the shared
-    // `walkContainersWithAncestry` helper from emit/container.ts.
-    // The companion `walkContainers` keeps its leaf-only callback
-    // signature (locked by v1.14.0 S8 tests).
+    // v1.14.1 PATCH-G (G3) / v1.14.3 PATCH-I (R-1) — uses the
+    // shared `walkContainersWithAncestry` helper from
+    // emit/container.ts. The v1.14.0 leaf-only predecessor
+    // (`walkContainers`) was deleted in v1.14.3 R-1; this is now
+    // the sole walker.
     walkContainersWithAncestry(
       mDef.containers as Parameters<typeof walkContainersWithAncestry>[0],
       mDef.shortName,
@@ -276,7 +280,12 @@ export class McuGenerator implements ModuleGenerator {
 
     const source = sourceTpl()({
       moduleShortName: mDef.shortName,
-      moduleHeader: 'Mcu/Mcu_Cfg.h',
+      moduleHeader: resolveModuleHeader(
+        mDef.moduleHeader,
+        `${mDef.shortName}/${mDef.shortName}_Cfg.h`,
+        mDef.shortName,
+        ctx,
+      ),
       preCompileDecls,
       linkDecls: [] as readonly string[],
       postBuildDecls: [] as readonly string[],

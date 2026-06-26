@@ -37,6 +37,8 @@ export function emitContainerDecl(input: ContainerDeclInput): string {
 
 // ---------------------------------------------------------------------------
 // v1.14.0 MINOR S8 — recursive container walker (D-rev2 Senior S8).
+// v1.14.1 PATCH-G (G3) — ancestry-aware sibling helper.
+// v1.14.3 PATCH-I (R-1) — deleted leaf-only `walkContainers`; sole walker.
 // ---------------------------------------------------------------------------
 
 /**
@@ -53,37 +55,6 @@ export interface ContainerLike {
 }
 
 /**
- * Depth-first pre-order traversal of `containers` and their nested
- * children. Calls `visit(c)` once per container before recursing into
- * its children, so callers see parents before descendants.
- *
- * Replaces the flat 1-level walk in v1.13.x that silently dropped
- * nested containers (D-rev2 Senior S8). Real BSWMD nests 2-3 levels
- * deep — e.g. EcuC PartitionConfig → PartitionBuffer →
- * PartitionBufferHeader.
- *
- * Tolerates containers without a `containers` field for backwards
- * compatibility with flat BSWMD (the existing PreCompile/Mixed/Refs
- * fixtures). Empty `containers: []` is treated identically to
- * missing `containers`.
- */
-export function walkContainers(
-  containers: readonly ContainerLike[],
-  visit: (c: ContainerLike) => void,
-): void {
-  for (const c of containers) {
-    visit(c);
-    if (c.containers && c.containers.length > 0) {
-      walkContainers(c.containers, visit);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// v1.14.1 PATCH-G (G3) — ancestry-aware sibling helper.
-// ---------------------------------------------------------------------------
-
-/**
  * Depth-first pre-order traversal that threads the accumulated
  * `parentPath` into the visit callback as a second argument. The
  * initial `parentPath` is typically `''` (root) or the module's
@@ -92,10 +63,10 @@ export function walkContainers(
  * the full slash-separated ancestry leading up to (but not
  * including) that container.
  *
- * Companion to `walkContainers` — the v1.14.0 S8 helper stays
- * un-touched because its callback signature is locked by the S8
- * tests. Mcu's G3 walk uses this helper (EcuC still uses the
- * leaf-only `walkContainers`; see EcuC comment at the call site).
+ * Both Mcu (v1.14.1 PATCH-G G3) and EcuC (v1.14.2 PATCH-H H3) use this
+ * helper. The leaf-only `walkContainers` was deleted in v1.14.3
+ * PATCH-I R-1 — callers that don't need ancestry pass `parentPath=''`
+ * and ignore the second callback argument.
  */
 export function walkContainersWithAncestry(
   containers: readonly ContainerLike[],

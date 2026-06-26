@@ -5,6 +5,17 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.14.3 (2026-06-26) — PATCH-I
+
+D-rev3 joint review on v1.14.2 HEAD (`9122ac2`) cleared 4 verified findings as surgical hygiene. Clears the runway for v1.15.0 MINOR (BSWMD full vendor modeling + generator type-driven refactor per [[claude-autosarcfg-v1-14-0-shipped]] § Backlog).
+
+- **R-1 (`chore(refactor)`)**: Delete leaf-only `walkContainers` helper. After v1.14.2 H3 swapped both generators to `walkContainersWithAncestry`, the leaf-only helper had zero production callers; the 7 S8 tests were the only thing keeping it alive. The tests now exercise `walkContainersWithAncestry` in leaf-only mode (`parentPath=''`, ignore the second callback arg). The companion JSDoc on `walkContainersWithAncestry` is updated to reflect sole-walker status (closing C-2 part 1).
+- **R-2 (`feat(generator)`)**: Thread `moduleHeader` from the parsed BSWMD `<HEADER>` into the template's `{{moduleHeader}}` field. Before this fix, `mcu.ts:279` and `ecuc.ts:383` hardcoded `'Mcu/Mcu_Cfg.h'` / `'EcuC/EcuC_Cfg.h'` literals, silently ignoring `def.moduleHeader`. Both now resolve `mDef.moduleHeader ?? \`${mDef.shortName}/${mDef.shortName}_Cfg.h\``. The fallback preserves backward compatibility with BSWMDs that omit `<HEADER>` and with all existing fixtures (which use `<HEADER>` matching the convention, so no snapshot regen). New `moduleHeader?: string` field on `EcuCModuleDefLike` / `McuModuleDefLike`.
+- **C-1 (`test(generator)`)**: Direct unit test for `BSW-SEC-004` push. The diagnostic was declared in `diagnostics.ts:31` and pushed from `ecuc.ts:339` / `mcu.ts:243`, but no existing test directly asserted it (the H2 path was covered indirectly via Refs-1 fixture where Os has `<HEADER>` set, so BSW-SEC-004 never fired). 4 cases: EcuC push + silent, Mcu push + silent.
+- **C-2 (`docs(generator)`)**: Update 2 stale comments (the `_shared.ts:23-29` `cTypeForKind` note that claimed the EcuC/Mcu default arms differ when both return `'uint8'`; the `walkContainersWithAncestry` JSDoc is in R-1).
+
+Test count: 2444 → 2452 (+8: 4 module-header-thread R-2, 4 bsw-sec-004 C-1).
+
 ## v1.14.2 (2026-06-26) — PATCH-H
 
 Closes 4 deferred items from v1.14.1 (v1.14.1 PATCH-G ship note § Backlog notes (deferred)):

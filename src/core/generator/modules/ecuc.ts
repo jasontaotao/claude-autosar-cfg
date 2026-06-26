@@ -43,6 +43,7 @@ import {
   buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
+  resolveModuleHeader,
   type BswmdIndexForModuleHeaderPaths,
 } from './_shared.js';
 
@@ -107,6 +108,10 @@ interface EcuCContainerDefLike {
 interface EcuCModuleDefLike {
   readonly shortName: string;
   readonly postBuildVariantSupport?: boolean;
+  // v1.14.3 PATCH-I (R-2) — BSWMD <HEADER> threads through to the
+  // generated C source's `#include "{{moduleHeader}}"` line.
+  // Optional; defaults to `${shortName}/${shortName}_Cfg.h` when absent.
+  readonly moduleHeader?: string | undefined;
   readonly containers: readonly EcuCContainerDefLike[];
 }
 
@@ -233,15 +238,15 @@ export class EcuCGenerator implements ModuleGenerator {
     // params from every level. Flat fixtures are unaffected (their
     // containers[] is empty or undefined).
     //
-    // v1.14.2 PATCH-H (H3) — switch from `walkContainers` (leaf-only)
-    // to `walkContainersWithAncestry` so the emitted cIdent chain
-    // matches Mcu's behavior. The v1.14.1 ecuc.ts:234-240 comment
-    // explicitly tracked this as a v1.14.2 follow-up. For 1-level
-    // containers (the only shape in the existing v1.14.1 fixtures)
-    // the ancestry path equals the leaf path, so the change is
-    // behavior-preserving for flat fixtures and the pre-existing
-    // snapshot tests still pass; for 2+ level nesting the cIdent
-    // now includes the full chain
+    // v1.14.2 PATCH-H (H3) — switch to `walkContainersWithAncestry` so
+    // the emitted cIdent chain matches Mcu's behavior (v1.14.1 G3).
+    // The v1.14.0 leaf-only predecessor (`walkContainers`) was
+    // deleted in v1.14.3 R-1; this is now the sole walker. For
+    // 1-level containers (the only shape in the existing v1.14.1
+    // fixtures) the ancestry path equals the leaf path, so the
+    // change is behavior-preserving for flat fixtures and the
+    // pre-existing snapshot tests still pass; for 2+ level nesting
+    // the cIdent now includes the full chain
     // (EcuC_PartitionConfig_PartitionBuffer_BufferLength instead of
     // EcuC_PartitionBuffer_BufferLength), eliminating the silent
     // identifier collision that the v1.14.1 leaf-only path was
@@ -380,7 +385,12 @@ export class EcuCGenerator implements ModuleGenerator {
 
     const source = sourceTpl()({
       moduleShortName: eDef.shortName,
-      moduleHeader: 'EcuC/EcuC_Cfg.h',
+      moduleHeader: resolveModuleHeader(
+        eDef.moduleHeader,
+        `${eDef.shortName}/${eDef.shortName}_Cfg.h`,
+        eDef.shortName,
+        ctx,
+      ),
       preCompileDecls,
       linkDecls,
       postBuildDecls: pbValues.length > 0 ? [] : postBuildDecls,
@@ -395,7 +405,12 @@ export class EcuCGenerator implements ModuleGenerator {
     if (postBuildDecls.length > 0) {
       const pb = pbcfgTpl()({
         moduleShortName: eDef.shortName,
-        moduleHeader: 'EcuC/EcuC_Cfg.h',
+        moduleHeader: resolveModuleHeader(
+          eDef.moduleHeader,
+          `${eDef.shortName}/${eDef.shortName}_Cfg.h`,
+          eDef.shortName,
+          ctx,
+        ),
         loaderEntries: postBuildDecls,
         loaderCalls: postBuildDecls.map((_, i) => `${eDef.shortName}_loader_call_${i}();`),
       });

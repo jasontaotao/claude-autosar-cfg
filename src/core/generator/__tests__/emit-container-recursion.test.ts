@@ -9,15 +9,14 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  walkContainers,
   walkContainersWithAncestry,
   type ContainerLike,
 } from '../emit/container.js';
 
-describe('walkContainers (D-rev2 S8)', () => {
+describe('walkContainersWithAncestry (no ancestry, leaf-only use case)', () => {
   it('visits every container in pre-order (root → children → grandchildren)', () => {
     const visited: string[] = [];
-    walkContainers(
+    walkContainersWithAncestry(
       [
         {
           shortName: 'PartitionConfig',
@@ -36,7 +35,8 @@ describe('walkContainers (D-rev2 S8)', () => {
           ],
         },
       ],
-      (c) => {
+      '',
+      (c, _ancestry) => {
         visited.push(c.shortName);
       },
     );
@@ -49,12 +49,13 @@ describe('walkContainers (D-rev2 S8)', () => {
 
   it('does not visit siblings of the root', () => {
     const visited: string[] = [];
-    walkContainers(
+    walkContainersWithAncestry(
       [
         { shortName: 'A', parameters: [], containers: [] },
         { shortName: 'B', parameters: [], containers: [] },
       ],
-      (c) => {
+      '',
+      (c, _ancestry) => {
         visited.push(c.shortName);
       },
     );
@@ -63,7 +64,7 @@ describe('walkContainers (D-rev2 S8)', () => {
 
   it('returns immediately on empty input', () => {
     const visited: string[] = [];
-    walkContainers([], (c) => {
+    walkContainersWithAncestry([], '', (c, _ancestry) => {
       visited.push(c.shortName);
     });
     expect(visited).toEqual([]);
@@ -78,7 +79,7 @@ describe('walkContainers (D-rev2 S8)', () => {
       { shortName: 'EcuCGeneral', parameters: [] },
       { shortName: 'McuClockSettingConfig', parameters: [] },
     ] as ContainerLike[];
-    walkContainers(flat, (c) => {
+    walkContainersWithAncestry(flat, '', (c, _ancestry) => {
       visited.push(c.shortName);
     });
     expect(visited).toEqual(['EcuCGeneral', 'McuClockSettingConfig']);
@@ -86,7 +87,7 @@ describe('walkContainers (D-rev2 S8)', () => {
 
   it('visits children of multiple branches in order', () => {
     const visited: string[] = [];
-    walkContainers(
+    walkContainersWithAncestry(
       [
         {
           shortName: 'A',
@@ -98,7 +99,8 @@ describe('walkContainers (D-rev2 S8)', () => {
         },
         { shortName: 'B', parameters: [] },
       ],
-      (c) => {
+      '',
+      (c, _ancestry) => {
         visited.push(c.shortName);
       },
     );
