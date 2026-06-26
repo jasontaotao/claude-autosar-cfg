@@ -37,10 +37,9 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
-  buildReferenceIncludes,
-  buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
+  resolveIncludesForModule,
   resolveModuleHeader,
   type BswmdIndexForModuleHeaderPaths,
 } from './_shared.js';
@@ -212,27 +211,13 @@ export class McuGenerator implements ModuleGenerator {
       },
     );
 
-    // v1.14.1 PATCH-G (G3) — S2 parity: auto-#include ref targets +
-    // emit referenceDecls. Mirrors the EcuC pattern from G2 / S2.
-    // Mcu has no Link or PostBuild variants (PreCompile-only in MVP),
-    // so referenceDecls are all extern decls, not link externs.
-    //
-    // v1.14.2 PATCH-H (H2) — also emit BSWMD-supplied self-includes
-    // (from `<STD-INCLUDES>`). Same Set-based dedup pattern as EcuC:
-    // self-includes first, then cross-refs.
-    const refIncludes = new Set<string>();
-    const selfDef = ctx.bswmdIndex?.get(mDef.shortName) as
-      | BswmdIndexForModuleHeaderPaths
-      | undefined;
-    const selfIncludePaths = buildSelfIncludes(selfDef?.includes, refIncludes);
-    // v1.14.2 PATCH-H (H2) — see ecuc.ts; same cross-helper dedup
-    // pattern (helpers are immutable, call site owns the set).
-    for (const inc of selfIncludePaths) refIncludes.add(inc);
-    const refIncludePaths = buildReferenceIncludes(
-      mVals.references ?? [],
-      ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-      refIncludes,
-    );
+    // v1.15.0 MINOR (B-1) — mirror EcuC's helper consumption.
+    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } =
+      resolveIncludesForModule(
+        mDef.shortName,
+        mVals.references ?? [],
+        ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+      );
     for (const ref of mVals.references ?? []) {
       const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
         | BswmdIndexForModuleHeaderPaths
