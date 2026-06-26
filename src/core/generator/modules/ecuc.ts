@@ -25,7 +25,6 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
@@ -306,20 +305,11 @@ export class EcuCGenerator implements ModuleGenerator {
         eVals.references ?? [],
         ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
       );
-    for (const ref of eVals.references ?? []) {
-      const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
-        | BswmdIndexForModuleHeaderPaths
-        | undefined;
-      if (targetDef && targetDef.moduleHeader === undefined) {
-        ctx.diagnostics.push({
-          severity: DiagnosticSeverity.ERROR,
-          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
-          moduleShortName: eDef.shortName,
-          ecucPath: ref.path,
-          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
-        });
-      }
-    }
+    // v1.15.0 MINOR (B-2) — BSW-SEC-004 push moved to
+    // `validateRefTargetHeaders` in Stage 1. The validator
+    // runs in `pipeline.ts` before the S6 early-break, so
+    // missing-target-header is caught before Stage 2 emits.
+    // EcuC no longer needs to know about BSW-SEC-004.
 
     const header = headerTpl()({
       moduleShortName: eDef.shortName,
