@@ -36,6 +36,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
+  cTypeForBasicKind,
   pushEmptyVariantDiagnostic,
   renderCValue,
   resolveIncludesForModule,
@@ -124,19 +125,18 @@ const GENERATOR_VERSION = '1.12.0';
 function cTypeForKind(def: McuParamDefLike): string {
   switch (def.kind) {
     case 'integer':
-      // Mcu clock reference points use uint32 per AUTOSAR convention;
-      // narrower ranges would be unsafe without per-BSWMD min/max bounds.
+      // Per-module: EcuC uses `integerToCType(min, max)`
+      // (min/max-aware). Mcu hardcodes `'uint32'` for clock
+      // reference points per AUTOSAR convention; narrower
+      // ranges would be unsafe without per-BSWMD min/max
+      // bounds.
       return 'uint32';
-    case 'boolean':
-      return 'uint8';
-    case 'string':
-      return 'const char*';
-    case 'float':
-      return 'float32';
-    case 'enumeration':
-      return 'uint8';
     default:
-      return 'uint8';
+      // v1.15.1 PATCH (B-5) — delegate the 5 byte-identical
+      // arms (boolean / string / float / enumeration /
+      // default) to the shared helper. See EcuC's
+      // `cTypeForKind` for the symmetric change.
+      return cTypeForBasicKind(def.kind);
   }
 }
 
