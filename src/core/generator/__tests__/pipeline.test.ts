@@ -385,4 +385,61 @@ describe('runPipeline', () => {
     expect(result.artifacts.size).toBeGreaterThan(0);
     expect(result.exitCode).toBe(0);
   });
+
+  // v1.15.1 PATCH (M2.1) — positive integration test. The
+  // v1.15.0 B-2.6 "Stage 2 runs normally" case was
+  // trivially-true (no refs at all). This case exercises the
+  // real positive path: a ref whose target HAS moduleHeader,
+  // so BSW-SEC-004 stays silent and Stage 2 runs normally.
+  //
+  // Note: EcuC must be in BOTH bswmdIndex and ecucValues,
+  // with a `containers: [{shortName: 'Config'}]` entry —
+  // the instance-level check in `validateReferences`
+  // requires the ref target path's tail to match a real
+  // container instance. Otherwise `validateReferences`
+  // would push ECUC-GEN-010 (REF_UNRESOLVED) and the S6
+  // early-break would skip Stage 2 for a reason
+  // orthogonal to BSW-SEC-004.
+  it('v1.15.1 M2.1 — ref target with moduleHeader keeps Stage 2 running', async () => {
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'EcuC/EcuC_Cfg.c', content: '/* stub */' }];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        ['Mcu', { shortName: 'Mcu', moduleHeader: 'Mcu/Mcu_Cfg.h' }],
+        ['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }],
+      ]),
+      ecucValues: new Map([
+        [
+          'Mcu',
+          {
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
+          },
+        ],
+        // EcuC must also be in ecucValues for the
+        // `validateReferences` instance-level check to pass
+        // (targetPath 'EcuC/Config' tail 'Config' must match
+        // a real container instance).
+        ['EcuC', { containers: [{ shortName: 'Config' }] }],
+      ]),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    // BSW-SEC-004 is silent (ref target has moduleHeader).
+    expect(
+      result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER),
+    ).toBe(false);
+    // Stage 2 ran (SpyGen.emit was called for EcuC).
+    expect(result.artifacts.size).toBeGreaterThan(0);
+    expect(result.exitCode).toBe(0);
+  });
 });

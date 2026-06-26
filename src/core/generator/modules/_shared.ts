@@ -30,8 +30,8 @@
 //     is deferred to the v1.15.0 generator refactor (D-rev3 B-5).
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
+import type { NormalizedConfigTree } from '../emit/reference.js';
 import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
-import type { EcucModuleConfigurationValuesInput } from '../normalize.js';
 import type { GenerationContext } from '../registry.js';
 
 /**
@@ -331,39 +331,73 @@ export function resolveIncludesForModule(
 }
 
 /**
- * v1.15.0 MINOR (B-2) — Stage-1 validator that pushes
- * BSW-SEC-004 ERROR for every ECUC reference whose target
- * module is loaded in the BSWMD index but lacks `<HEADER>`.
- * Replaces the inline emit-time push in EcuCGenerator.emit
- * and McuGenerator.emit (D-rev3 B-2).
+ * v1.15.1 PATCH (B-5) — shared `cTypeForKind` for the 5 arms
+ * that are byte-identical between EcuC and Mcu generators
+ * (per v1.14.3 PATCH-I C-2 fix that confirmed the default
+ * arms are identical). The `integer` arm stays per-module:
+ * EcuC uses `integerToCType(min, max)` (min/max-aware), Mcu
+ * hardcodes `'uint32'` per AUTOSAR convention for clock
+ * reference points. EcuC's `reference` and `function-name`
+ * arms also stay per-module (Mcu doesn't model those kinds
+ * yet).
  *
- * Runs in Stage 1 (before Stage 2's generators fire), so the
- * existing S6 early-break in `pipeline.ts` catches the error
- * and skips artifact emission. Same diagnostic shape as the
- * previous inline push (code, severity, message format) — the
- * only change is timing.
+ * If B-3 (full type-driven refactor) lands, this helper
+ * becomes the `default` arm of the unified dispatcher and
+ * the per-module `cTypeForKind` functions are deleted.
+ *
+ * B-5.4 locks the contract with 5 direct unit tests
+ * (one per arm).
+ */
+export function cTypeForBasicKind(kind: string): string {
+  switch (kind) {
+    case 'boolean':
+      return 'uint8';
+    case 'string':
+      return 'const char*';
+    case 'float':
+      return 'float32';
+    case 'enumeration':
+      return 'uint8';
+    default:
+      return 'uint8';
+  }
+}
+
+/**
+ * v1.15.0 MINOR (B-2) + v1.15.1 PATCH (M1) — Stage-1 validator
+ * that pushes BSW-SEC-004 ERROR for every ECUC reference whose
+ * target module is loaded in the BSWMD index but lacks
+ * `<HEADER>`. v1.15.0 took (bswmdIndex, ecucValues) for direct
+ * access; v1.15.1 migrates to (tree: NormalizedConfigTree) for
+ * symmetry with the rest of the Stage-1 validator surface
+ * (`validateReferences`, `validateMultiplicity`, etc., all take
+ * `tree`). Same diagnostic shape as v1.15.0 — only the signature
+ * changes.
+ *
+ * Uses `tree.references` (the collected `ReferenceEdge[]` built
+ * by `normalizeToTree` from every module's `references` field).
+ * One loop instead of a per-module iteration with a defensive
+ * `values.references ?? []` check; same single source of truth
+ * as the rest of Stage 1.
  *
  * Silent when the ref target module is absent from
  * `bswmdIndex` (out of scope; `validateReferences` covers
  * unresolved refs with `ECUC-GEN-010` to avoid double-reporting).
  */
-export function validateRefTargetHeaders(
-  bswmdIndex: ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-  ecucValues: ReadonlyMap<string, EcucModuleConfigurationValuesInput>,
-): readonly Diagnostic[] {
+export function validateRefTargetHeaders(tree: NormalizedConfigTree): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
-  for (const [moduleShortName, values] of ecucValues) {
-    for (const ref of values.references ?? []) {
-      const targetDef = bswmdIndex.get(ref.targetModule);
-      if (targetDef && targetDef.moduleHeader === undefined) {
-        out.push({
-          severity: DiagnosticSeverity.ERROR,
-          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
-          moduleShortName,
-          ecucPath: ref.path,
-          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
-        });
-      }
+  for (const ref of tree.references) {
+    const targetDef = tree.bswmdIndex.get(ref.targetModule) as
+      | BswmdIndexForModuleHeaderPaths
+      | undefined;
+    if (targetDef && targetDef.moduleHeader === undefined) {
+      out.push({
+        severity: DiagnosticSeverity.ERROR,
+        code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
+        moduleShortName: ref.sourceModule,
+        ecucPath: ref.sourcePath,
+        message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.sourcePath}`,
+      });
     }
   }
   return out;

@@ -38,6 +38,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
+  cTypeForBasicKind,
   pushEmptyVariantDiagnostic,
   renderCValue,
   resolveIncludesForModule,
@@ -147,21 +148,27 @@ const GENERATOR_VERSION = '1.11.0';
 function cTypeForKind(def: EcuCParamDefLike): string {
   switch (def.kind) {
     case 'integer':
+      // v1.13.2 PATCH-E — min/max-aware C type via
+      // `integerToCType`. Per-module: Mcu hardcodes `'uint32'`
+      // for clock reference points per AUTOSAR convention.
       return integerToCType(def.min ?? 0, def.max ?? 0);
-    case 'boolean':
-      return 'uint8';
-    case 'string':
-      return 'const char*';
-    case 'float':
-      return 'float32';
-    case 'enumeration':
-      return 'uint8';
     case 'reference':
+      // v1.14.0 MINOR S2 — per-module: Mcu doesn't model
+      // `reference` params yet.
       return `const ${def.targetType ?? 'void'} * const`;
     case 'function-name':
+      // v1.14.0 MINOR S2 — per-module: Mcu doesn't model
+      // `function-name` params yet.
       return def.signature ?? 'void';
     default:
-      return 'uint8';
+      // v1.15.1 PATCH (B-5) — delegate the 5 byte-identical
+      // arms (boolean / string / float / enumeration /
+      // default) to the shared helper. Both EcuC + Mcu
+      // generators return the same string for these arms;
+      // consolidating avoids drift if a future kind is
+      // added (e.g. `'flag'`) or the default value
+      // changes.
+      return cTypeForBasicKind(def.kind);
   }
 }
 
