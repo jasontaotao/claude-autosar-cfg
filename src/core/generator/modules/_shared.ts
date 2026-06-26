@@ -331,6 +331,39 @@ export function resolveIncludesForModule(
 }
 
 /**
+ * v1.15.1 PATCH (B-5) — shared `cTypeForKind` for the 5 arms
+ * that are byte-identical between EcuC and Mcu generators
+ * (per v1.14.3 PATCH-I C-2 fix that confirmed the default
+ * arms are identical). The `integer` arm stays per-module:
+ * EcuC uses `integerToCType(min, max)` (min/max-aware), Mcu
+ * hardcodes `'uint32'` per AUTOSAR convention for clock
+ * reference points. EcuC's `reference` and `function-name`
+ * arms also stay per-module (Mcu doesn't model those kinds
+ * yet).
+ *
+ * If B-3 (full type-driven refactor) lands, this helper
+ * becomes the `default` arm of the unified dispatcher and
+ * the per-module `cTypeForKind` functions are deleted.
+ *
+ * B-5.4 locks the contract with 5 direct unit tests
+ * (one per arm).
+ */
+export function cTypeForBasicKind(kind: string): string {
+  switch (kind) {
+    case 'boolean':
+      return 'uint8';
+    case 'string':
+      return 'const char*';
+    case 'float':
+      return 'float32';
+    case 'enumeration':
+      return 'uint8';
+    default:
+      return 'uint8';
+  }
+}
+
+/**
  * v1.15.0 MINOR (B-2) + v1.15.1 PATCH (M1) — Stage-1 validator
  * that pushes BSW-SEC-004 ERROR for every ECUC reference whose
  * target module is loaded in the BSWMD index but lacks
