@@ -286,3 +286,45 @@ export function buildSelfIncludes(
   }
   return out;
 }
+
+/**
+ * v1.15.0 MINOR (B-1) — resolve the `#include` set for a single
+ * module's Cfg.h, combining BSWMD-supplied self-includes
+ * (`<STD-INCLUDES>`) with cross-module ref-target headers
+ * (`<HEADER>` of referenced modules). Replaces the inline 6-line
+ * block that previously lived in `EcuCGenerator.emit` and
+ * `McuGenerator.emit` (D-rev3 B-1).
+ *
+ * The helper is fully immutable: the internal `refIncludes` Set is
+ * local, seeded from no caller state, and not returned. The
+ * `selfPaths` and `refPaths` are fresh arrays. Callers can
+ * compose `[...selfPaths, ...refPaths]` to feed the template
+ * context, preserving the AUTOSAR convention ordering (self first,
+ * cross-ref second).
+ *
+ * BSW-SEC-004 (cross-module ref target lacks `<HEADER>`) is
+ * NOT pushed here — the inline push was the duplication B-1
+ * targets. B-2 (next MINOR commit) moves the BSW-SEC-004 push
+ * to the new `validateRefTargetHeaders` Stage-1 validator.
+ *
+ * SEC3 (whitelist `^[A-Za-z0-9_./-]+$`) is enforced inside
+ * `buildSelfIncludes` and `buildReferenceIncludes` via
+ * `validateHeaderPath`; invalid paths are silently dropped.
+ * `validateModuleHeaderPaths` (Stage 1) owns the BSW-SEC-002
+ * / BSW-SEC-003 diagnostics.
+ */
+export function resolveIncludesForModule(
+  moduleShortName: string,
+  references: readonly { readonly targetModule: string }[],
+  bswmdIndex: ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
+): {
+  readonly selfPaths: readonly string[];
+  readonly refPaths: readonly string[];
+} {
+  const refIncludes = new Set<string>();
+  const selfDef = bswmdIndex.get(moduleShortName);
+  const selfPaths = buildSelfIncludes(selfDef?.includes, refIncludes);
+  for (const inc of selfPaths) refIncludes.add(inc);
+  const refPaths = buildReferenceIncludes(references, bswmdIndex, refIncludes);
+  return { selfPaths, refPaths };
+}
