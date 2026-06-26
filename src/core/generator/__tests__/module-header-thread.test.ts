@@ -8,8 +8,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { McuGenerator } from '../modules/mcu.js';
 import { EcuCGenerator } from '../modules/ecuc.js';
+import { McuGenerator } from '../modules/mcu.js';
 
 describe('R-2 — moduleHeader thread: def.moduleHeader flows into template', () => {
   it('Mcu: def.moduleHeader overrides convention in Mcu_Cfg.c', () => {
