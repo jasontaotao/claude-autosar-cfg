@@ -66,12 +66,6 @@ type EcucIndexForUniqueShortNames = Parameters<typeof validateUniqueShortNames>[
 // Matches the D-rev2 PATCH-D `Parameters<typeof validator>[0]`
 // pattern used by every other validator in this file.
 type BswmdIndexForModuleHeaderPaths = Parameters<typeof validateModuleHeaderPaths>[0];
-// v1.15.0 MINOR (B-2) — type alias for `validateRefTargetHeaders`.
-// First arg matches `validateModuleHeaderPaths`; second arg is
-// the ECUC values map. Mirrors the v1.13.3 PATCH-D
-// `Parameters<typeof validator>[N]` pattern.
-type BswmdIndexForRefTargetHeaders = Parameters<typeof validateRefTargetHeaders>[0];
-type EcucIndexForRefTargetHeaders = Parameters<typeof validateRefTargetHeaders>[1];
 
 export interface PipelineArgs {
   readonly bswmdIndex: ReadonlyMap<string, BswmdModuleDefLite>;
@@ -99,18 +93,14 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
   // `includes[]` entry fails the whitelist. S6 early-break
   // (line ~150) covers Stage 2 skip when any ERROR is present.
   diagnostics.push(...validateModuleHeaderPaths(args.bswmdIndex as BswmdIndexForModuleHeaderPaths));
-  // v1.15.0 MINOR (B-2) — Stage-1 push for BSW-SEC-004. Runs
-  // immediately after the BSWMD-only validators; the S6
+  // v1.15.0 MINOR (B-2) + v1.15.1 PATCH (M1) — Stage-1 push
+  // for BSW-SEC-004. Takes the post-normalize `tree` (same
+  // shape every other Stage-1 validator consumes). The S6
   // early-break below (~line 175) catches any pushed ERROR
   // and skips Stage 2. The error class is a project-config
   // error (the ECUC values reference a target whose BSWMD
   // omits <HEADER>), not a BSWMD-author error.
-  diagnostics.push(
-    ...validateRefTargetHeaders(
-      args.bswmdIndex as BswmdIndexForRefTargetHeaders,
-      args.ecucValues as EcucIndexForRefTargetHeaders,
-    ),
-  );
+  diagnostics.push(...validateRefTargetHeaders(tree));
   // v1.12.0 E2 — container instance-count validation. The cast is safe
   // because the BSWMD parser and ECUC parser produce matching shapes
   // (the BSWMD module def carries containers[] and ECUC values carry
