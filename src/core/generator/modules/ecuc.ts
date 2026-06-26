@@ -25,7 +25,6 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent, integerToCType } from '../handlebars-helpers.js';
@@ -39,10 +38,9 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
-  buildReferenceIncludes,
-  buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
+  resolveIncludesForModule,
   resolveModuleHeader,
   type BswmdIndexForModuleHeaderPaths,
 } from './_shared.js';
@@ -298,52 +296,19 @@ export class EcuCGenerator implements ModuleGenerator {
       }
     }
 
-    // v1.14.1 PATCH-G (G2) — auto-#include for cross-module ref
-    // targets. Each `ref.targetModule` is looked up in the BSWMD
-    // index; its `moduleHeader` is added to the include set, deduped
-    // against any pre-existing includes (none today, but defensive
-    // for future BSWMD-supplied includes — see G1 `includes[]`).
-    //
-    // v1.14.2 PATCH-H (H2) — also emit BSWMD-supplied
-    // `<STD-INCLUDES>` paths for the generating module. The
-    // self-includes are processed FIRST (so they appear at the
-    // top of the Cfg.h `#include` block, matching the AUTOSAR
-    // standard ordering convention), and the cross-ref helper
-    // dedupes against them via the shared `refIncludes` Set.
-    //
-    // When a ref's target module is in the BSWMD index but lacks
-    // `moduleHeader`, push `BSW-SEC-004` so the user knows which
-    // module needs `<HEADER>` added. The helper itself doesn't push
-    // diagnostics — separation keeps it composable.
-    const refIncludes = new Set<string>();
-    const selfDef = ctx.bswmdIndex?.get(eDef.shortName) as
-      | BswmdIndexForModuleHeaderPaths
-      | undefined;
-    const selfIncludePaths = buildSelfIncludes(selfDef?.includes, refIncludes);
-    // v1.14.2 PATCH-H (H2) — the helpers are immutable (each builds
-    // a local `seen` Set seeded from `existing`); the call site owns
-    // the cross-helper dedup. Seed `refIncludes` with the self paths
-    // so the next `buildReferenceIncludes` call skips duplicates.
-    for (const inc of selfIncludePaths) refIncludes.add(inc);
-    const refIncludePaths = buildReferenceIncludes(
+    // v1.15.0 MINOR (B-1) — replace the inline 6-line block with
+    // the shared helper. Output is byte-identical; the comment
+    // history moves to `_shared.ts:resolveIncludesForModule`.
+    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } = resolveIncludesForModule(
+      eDef.shortName,
       eVals.references ?? [],
       ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-      refIncludes,
     );
-    for (const ref of eVals.references ?? []) {
-      const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
-        | BswmdIndexForModuleHeaderPaths
-        | undefined;
-      if (targetDef && targetDef.moduleHeader === undefined) {
-        ctx.diagnostics.push({
-          severity: DiagnosticSeverity.ERROR,
-          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
-          moduleShortName: eDef.shortName,
-          ecucPath: ref.path,
-          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
-        });
-      }
-    }
+    // v1.15.0 MINOR (B-2) — BSW-SEC-004 push moved to
+    // `validateRefTargetHeaders` in Stage 1. The validator
+    // runs in `pipeline.ts` before the S6 early-break, so
+    // missing-target-header is caught before Stage 2 emits.
+    // EcuC no longer needs to know about BSW-SEC-004.
 
     const header = headerTpl()({
       moduleShortName: eDef.shortName,

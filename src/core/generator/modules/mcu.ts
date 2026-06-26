@@ -24,7 +24,6 @@ import { fileURLToPath } from 'node:url';
 
 import type Handlebars from 'handlebars';
 
-import { DiagnosticCode, DiagnosticSeverity } from '../diagnostics.js';
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
 import { cIdent } from '../handlebars-helpers.js';
@@ -37,10 +36,9 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
-  buildReferenceIncludes,
-  buildSelfIncludes,
   pushEmptyVariantDiagnostic,
   renderCValue,
+  resolveIncludesForModule,
   resolveModuleHeader,
   type BswmdIndexForModuleHeaderPaths,
 } from './_shared.js';
@@ -212,41 +210,15 @@ export class McuGenerator implements ModuleGenerator {
       },
     );
 
-    // v1.14.1 PATCH-G (G3) — S2 parity: auto-#include ref targets +
-    // emit referenceDecls. Mirrors the EcuC pattern from G2 / S2.
-    // Mcu has no Link or PostBuild variants (PreCompile-only in MVP),
-    // so referenceDecls are all extern decls, not link externs.
-    //
-    // v1.14.2 PATCH-H (H2) — also emit BSWMD-supplied self-includes
-    // (from `<STD-INCLUDES>`). Same Set-based dedup pattern as EcuC:
-    // self-includes first, then cross-refs.
-    const refIncludes = new Set<string>();
-    const selfDef = ctx.bswmdIndex?.get(mDef.shortName) as
-      | BswmdIndexForModuleHeaderPaths
-      | undefined;
-    const selfIncludePaths = buildSelfIncludes(selfDef?.includes, refIncludes);
-    // v1.14.2 PATCH-H (H2) — see ecuc.ts; same cross-helper dedup
-    // pattern (helpers are immutable, call site owns the set).
-    for (const inc of selfIncludePaths) refIncludes.add(inc);
-    const refIncludePaths = buildReferenceIncludes(
+    // v1.15.0 MINOR (B-1) — mirror EcuC's helper consumption.
+    const { selfPaths: selfIncludePaths, refPaths: refIncludePaths } = resolveIncludesForModule(
+      mDef.shortName,
       mVals.references ?? [],
       ctx.bswmdIndex as ReadonlyMap<string, BswmdIndexForModuleHeaderPaths>,
-      refIncludes,
     );
-    for (const ref of mVals.references ?? []) {
-      const targetDef = ctx.bswmdIndex?.get(ref.targetModule) as
-        | BswmdIndexForModuleHeaderPaths
-        | undefined;
-      if (targetDef && targetDef.moduleHeader === undefined) {
-        ctx.diagnostics.push({
-          severity: DiagnosticSeverity.ERROR,
-          code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER,
-          moduleShortName: mDef.shortName,
-          ecucPath: ref.path,
-          message: `Reference target module ${ref.targetModule} is loaded but its BSWMD omits <HEADER>; cannot auto-#include for ${ref.path}`,
-        });
-      }
-    }
+    // v1.15.0 MINOR (B-2) — see ecuc.ts; BSW-SEC-004 push moved
+    // to the Stage-1 `validateRefTargetHeaders` validator. Mcu
+    // no longer carries the inline duplicate.
 
     const header = headerTpl()({
       moduleShortName: mDef.shortName,

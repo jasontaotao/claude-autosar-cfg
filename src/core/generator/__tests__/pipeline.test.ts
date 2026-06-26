@@ -302,4 +302,87 @@ describe('runPipeline', () => {
     expect(stage2Ran).toBe(true);
     expect(result.exitCode).toBe(0);
   });
+
+  // v1.15.0 MINOR (B-2.6) — pipeline pushes BSW-SEC-004 in Stage 1
+  // when a ref target module lacks <HEADER>. The validator runs
+  // before the S6 early-break; Stage 2 must NOT run for any module
+  // (mirrors the v1.14.0 S6 contract for any Stage-1 ERROR).
+  it('v1.15.0 B-2.6 — skips Stage 2 when ref target has no moduleHeader', async () => {
+    let stage2Ran = false;
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        stage2Ran = true;
+        return [];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    // EcuC is the bswmd module without moduleHeader; Mcu references it.
+    // validateRefTargetHeaders must push BSW-SEC-004 in Stage 1; S6
+    // early-break skips Stage 2.
+    const result = await runPipeline({
+      bswmdIndex: new Map([
+        ['Mcu', { shortName: 'Mcu' }],
+        ['EcuC', { shortName: 'EcuC' }], // no moduleHeader
+      ]),
+      ecucValues: new Map([
+        [
+          'Mcu',
+          {
+            references: [{ path: 'Mcu/EcuCRef', targetModule: 'EcuC', targetPath: 'EcuC/Config' }],
+          },
+        ],
+      ]),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    expect(stage2Ran).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER),
+    ).toBe(true);
+    expect(result.artifacts.size).toBe(0);
+  });
+
+  // v1.15.0 MINOR (B-2.6) — pipeline is silent when ref target has
+  // moduleHeader. The validator returns an empty array; Stage 2
+  // runs normally and at least one artifact is produced.
+  //
+  // No refs in ecucValues: validates that the validator's silent
+  // path doesn't accidentally trigger an early-break. The
+  // "ref target has moduleHeader" positive case is locked at the
+  // unit-test level by `validate-ref-target-headers.test.ts`
+  // ("is silent when ref target module has moduleHeader"); the
+  // integration test here just confirms the wiring doesn't break
+  // the happy path.
+  it('v1.15.0 B-2.6 — Stage 2 runs normally when no BSW-SEC-004 fires', async () => {
+    class SpyGen implements ModuleGenerator {
+      readonly moduleShortName = 'EcuC';
+      emit(): readonly GeneratedArtifact[] {
+        return [{ path: 'EcuC/EcuC_Cfg.c', content: '/* stub */' }];
+      }
+    }
+    _resetRegistryForTest();
+    registerGenerator(new SpyGen());
+
+    const result = await runPipeline({
+      bswmdIndex: new Map([['EcuC', { shortName: 'EcuC', moduleHeader: 'EcuC/EcuC_Cfg.h' }]]),
+      ecucValues: new Map(),
+      variant: 'PreCompile',
+      outDir: '/tmp/out',
+      moduleFilter: undefined,
+      strict: false,
+    });
+
+    expect(
+      result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER),
+    ).toBe(false);
+    expect(result.artifacts.size).toBeGreaterThan(0);
+    expect(result.exitCode).toBe(0);
+  });
 });
