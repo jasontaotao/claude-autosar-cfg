@@ -434,25 +434,23 @@ describe('runPipeline', () => {
       strict: false,
     });
 
-    // v1.15.2 PATCH (M-2.1) — tightened from v1.15.1 M2.1's
-    // BSW-SEC-004-only assertion. The v1.15.1 version did not
-    // guard against other stage-1 diagnostics (BSW-SEC-002,
-    // BSW-SEC-003, ECUC-GEN-001) firing silently. The tightened
-    // version forbids any stage-1 ERROR and bounds WARNING at
-    // <= 1 (BSW-SEC-003 known-warn tolerance per v1.14.2 H1;
-    // future tighten when BSW-SEC-003 is fully silenced).
-    expect(result.diagnostics.filter((d) => d.severity === DiagnosticSeverity.ERROR)).toHaveLength(
-      0,
-    );
+    // v1.15.2 PATCH (M-2.1) + v1.15.3 PATCH (M-T4-1) — tightened from
+    // v1.15.1 M2.1's BSW-SEC-004-only assertion. v1.15.3 chains the
+    // negative checks via `.not.toContainEqual(...)` for symmetry with
+    // the rest of the v1.15.0+ vitest assertion style.
+    const { diagnostics, artifacts, exitCode } = result;
+    // No stage-1 ERROR may fire.
+    expect(diagnostics.filter((d) => d.severity === DiagnosticSeverity.ERROR)).toHaveLength(0);
+    // BSW-SEC-003 known-warn tolerance per v1.14.2 H1 (≤1 WARN).
     expect(
-      result.diagnostics.filter((d) => d.severity === DiagnosticSeverity.WARNING).length,
+      diagnostics.filter((d) => d.severity === DiagnosticSeverity.WARNING).length,
     ).toBeLessThanOrEqual(1);
     // BSW-SEC-004 specifically is silent (ref target has moduleHeader).
-    expect(
-      result.diagnostics.some((d) => d.code === DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER),
-    ).toBe(false);
+    expect(diagnostics).not.toContainEqual(
+      expect.objectContaining({ code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER }),
+    );
     // Stage 2 ran (SpyGen.emit was called for EcuC).
-    expect(result.artifacts.size).toBeGreaterThan(0);
-    expect(result.exitCode).toBe(0);
+    expect(artifacts.size).toBeGreaterThan(0);
+    expect(exitCode).toBe(0);
   });
 });

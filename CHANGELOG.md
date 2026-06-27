@@ -5,14 +5,54 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.15.3 (2026-06-27) — PATCH
+
+Closes 1 advisory Important (I-1) + 4 Minor follow-ups from the v1.15.2 code-review + lands the stale `docs/user-manual.html` baseline jump + deletes the obsolete sprint-14 `docs/bswmd-to-ecuc-mockup.html`. Zero production-code changes; zero test-count delta; 0 snapshot regen; SEC1–SEC4 controls intact.
+
+- **I-1 (`test(generator)`)**: Remove misleading `as 'integer'` cast on the `c-type-for-kind.test.ts:71-77` unknown-kind test. The cast existed only because the production parameter type is `EcuCParamDefLike | McuParamDefLike` (strict union); the new test widens via `satisfies { kind: string }` + a double-cast through `as unknown as Parameters<typeof cTypeForKind>[0]` that preserves type-system intent without lying to the reader. The runtime value (`'unknown-kind'`) is unchanged; behavior is identical.
+- **M-T3-1 (`test(generator)`)**: Update `c-type-for-basic-kind.test.ts` header comment to describe the post-M-1.1 4-arm world (was: 5-arm pre-M-1). Comment-only; no test-case change. Cross-references the unified dispatcher's `c-type-for-kind.test.ts` test 11 where unknown-kind semantics now live.
+- **M-T4-1 (`test(generator)`)**: Refactor the `pipeline.test.ts:435-458` M-2.1 assertion block to use vitest's chained `.not.toContainEqual(expect.objectContaining({...}))` for the BSW-SEC-004 negative check, plus destructure `result` once for symmetry with other v1.15.0+ tests. Same 5 invariants asserted; same 0-fail outcome.
+- **M-4 (`docs(generator)`)**: Add `@param` / `@returns` / `@example` lines to the `cTypeForKind` JSDoc in `src/core/generator/modules/_shared.ts`. Mirrors the JSDoc style of `cTypeForBasicKind` above it; improves call-site discoverability for the per-module `moduleKind` argument.
+- **M-T5-1 (`docs`)**: Reformat the v1.15.2 CHANGELOG bullets to wrap-with-prose at ~100 columns (matching v1.15.1 style). No content change.
+- **DOC-1 (`docs(user-manual)`)**: Land the stale `docs/user-manual.html` baseline jump from v1.2.0 → v1.15.2 (manual references bumped in title + hero + brand + What's New section + ch.13). The +475/-11 line update has been sitting in the working directory since the v1.11+ BSW generator era; this commit finally makes the manual current.
+- **DOC-2 (`chore(docs)`)**: Delete the obsolete `docs/bswmd-to-ecuc-mockup.html` (1454 lines, sprint-14 era). The ECUC-from-BSWMD feature it mockups has long since shipped (v1.11.0 BSW code generator) and superseded. 3 historical references in `CHANGELOG.md` × 2 + `docs/superpowers/archive/plans/2026-06-18-ecuc-from-bswmd.md` × 1 intentionally retained.
+
+8 commits on top of v1.15.2 (`844d6e17`). Test count: 2482 → 2482 (zero delta; no test additions or deletions). No snapshot regen. SEC1–SEC4 controls intact. Coverage 96.01% / 86.98% / 95.58% (unchanged; no production code touched).
+
 ## v1.15.2 (2026-06-27) — PATCH
 
 Closes 2 advisory MEDIUM items from the v1.15.1 code-review (M-1, M-2) + ships the cTypeForKind piece of the v1.15.0 B-3 generator type-driven refactor (B-3 partial). No behavior change for existing fixtures.
 
-- **B-3.1 + B-3.2 (`feat(generator)` + `test(generator)`)**: Add unified `cTypeForKind(def, moduleKind: 'EcuC' | 'Mcu')` to `src/core/generator/modules/_shared.ts`. Dispatches on `moduleKind` for the per-module arms (EcuC: `integerToCType(min ?? 0, max ?? 0)` for `integer`; `const ${def.targetType ?? 'void'} * const` for `reference`; `def.signature ?? 'void'` for `function-name`. Mcu: `'uint32'` for `integer`; `'uint8'` fallback for `reference` and `function-name` since no current BSWMD subset uses them). The 4 shared arms (boolean / string / float / enumeration) delegate to `cTypeForBasicKind`. 11 new unit tests in `c-type-for-kind.test.ts` lock the contract.
-- **B-3.3 (`refactor(generator)`)**: Delete the per-module `cTypeForKind` from `ecuc.ts:148` and `mcu.ts:125`; migrate 3 call sites (`ecuc.ts:267`, `ecuc.ts:299`, `mcu.ts:202`) to the unified function with `'EcuC'` / `'Mcu'` literal second arg. Output is byte-identical.
-- **M-1.1 + M-1.2 (`refactor(generator)` + `test(generator)`)**: Drop the `default: 'uint8'` arm from `cTypeForBasicKind`'s switch (5 → 4 arms). The per-module fail-safe semantics now live in the unified `cTypeForKind` and are locked by `c-type-for-kind.test.ts` test 11 (unknown kind → `'uint8'`). A runtime `return 'uint8'` backstop is kept at the bottom of `cTypeForBasicKind` as a defensive measure for any direct caller. The 1 "default / unknown" test case in `c-type-for-basic-kind.test.ts` is removed; the JSDoc on `cTypeForBasicKind` is updated to make the 4-arm vs unknown-kind distinction explicit.
-- **M-2.1 (`test(generator)`)**: Tighten the v1.15.1 M2.1 positive integration test in `pipeline.test.ts`. The v1.15.1 version only asserted `no BSW-SEC-004` and did not guard against other stage-1 diagnostics firing silently. The tightened version asserts: `diagnostics.filter(d => d.severity === 'ERROR').length === 0` (any stage-1 ERROR forbidden); `WARN <= 1` (BSW-SEC-003 known-warn tolerance); keep the BSW-SEC-004-specific + artifacts.size > 0 + exitCode === 0 assertions.
+- **B-3.1 + B-3.2 (`feat(generator)` + `test(generator)`)**: Add unified
+  `cTypeForKind(def, moduleKind: 'EcuC' | 'Mcu')` to
+  `src/core/generator/modules/_shared.ts`. Dispatches on `moduleKind` for
+  the per-module arms (EcuC: `integerToCType(min ?? 0, max ?? 0)` for
+  `integer`; `const ${def.targetType ?? 'void'} * const` for `reference`;
+  `def.signature ?? 'void'` for `function-name`. Mcu: `'uint32'` for
+  `integer`; `'uint8'` fallback for `reference` and `function-name` since
+  no current BSWMD subset uses them). The 4 shared arms (boolean / string /
+  float / enumeration) delegate to `cTypeForBasicKind`. 11 new unit tests
+  in `c-type-for-kind.test.ts` lock the contract.
+- **B-3.3 (`refactor(generator)`)**: Delete the per-module `cTypeForKind`
+  from `ecuc.ts:148` and `mcu.ts:125`; migrate 3 call sites
+  (`ecuc.ts:267`, `ecuc.ts:299`, `mcu.ts:202`) to the unified function
+  with `'EcuC'` / `'Mcu'` literal second arg. Output is byte-identical.
+- **M-1.1 + M-1.2 (`refactor(generator)` + `test(generator)`)**: Drop the
+  `default: 'uint8'` arm from `cTypeForBasicKind`'s switch (5 → 4 arms).
+  The per-module fail-safe semantics now live in the unified `cTypeForKind`
+  and are locked by `c-type-for-kind.test.ts` test 11 (unknown kind →
+  `'uint8'`). A runtime `return 'uint8'` backstop is kept at the bottom of
+  `cTypeForBasicKind` as a defensive measure for any direct caller. The 1
+  "default / unknown" test case in `c-type-for-basic-kind.test.ts` is
+  removed; the JSDoc on `cTypeForBasicKind` is updated to make the 4-arm
+  vs unknown-kind distinction explicit.
+- **M-2.1 (`test(generator)`)**: Tighten the v1.15.1 M2.1 positive
+  integration test in `pipeline.test.ts`. The v1.15.1 version only
+  asserted `no BSW-SEC-004` and did not guard against other stage-1
+  diagnostics firing silently. The tightened version asserts:
+  `diagnostics.filter(d => d.severity === 'ERROR').length === 0` (any
+  stage-1 ERROR forbidden); `WARN <= 1` (BSW-SEC-003 known-warn tolerance);
+  keep the BSW-SEC-004-specific + artifacts.size > 0 + exitCode === 0 assertions.
 - **B-3 emit\*Decl + Handlebars parts (deferred)**: Stay deferred to v1.16.0 MINOR per the v1.15.0 spec §Out of Scope. B-4 (BSWMD full vendor modeling) also stays v1.16.0 MINOR.
 
 4 commits on top of v1.15.1 (`2223e83`). Test count: 2472 → 2482 (+10 net: 11 B-3.2 new + 0 M-2.1 modify + -1 M-1.2 dropped default case). No snapshot regen. SEC1-SEC4 controls intact.

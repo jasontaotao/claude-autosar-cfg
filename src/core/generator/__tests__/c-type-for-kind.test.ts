@@ -67,12 +67,16 @@ describe('cTypeForKind (v1.15.2 PATCH B-3 unified)', () => {
   });
 
   it('unknown kind (both modules) → uint8 (per-module fail-safe)', () => {
-    // Cast needed because the production type is `EcuCParamDefLike |
-    // McuParamDefLike` (strict union); the fail-safe branch must
-    // accept any string for defense-in-depth, but the test exercises
-    // that contract without bypassing the type system at the call
-    // sites that use this helper legitimately.
-    expect(cTypeForKind({ kind: 'unknown-kind' as 'integer' }, 'EcuC')).toBe('uint8');
-    expect(cTypeForKind({ kind: 'unknown-kind' as 'integer' }, 'Mcu')).toBe('uint8');
+    // The fail-safe branch must accept any string for defense-in-depth.
+    // We use a `satisfies` cast that keeps the production type narrow at
+    // the call sites but widens to `{ kind: string }` here so the unknown
+    // kind is exercised without an `as 'integer'` lie. The final
+    // `as unknown as Parameters<typeof cTypeForKind>[0]` double-cast
+    // makes the type-system intent explicit ("the production signature
+    // is narrow; this is an exception") without misleading the reader.
+    const unknownDef = { kind: 'unknown-kind' } satisfies { kind: string };
+    const castForFailSafe = unknownDef as unknown as Parameters<typeof cTypeForKind>[0];
+    expect(cTypeForKind(castForFailSafe, 'EcuC')).toBe('uint8');
+    expect(cTypeForKind(castForFailSafe, 'Mcu')).toBe('uint8');
   });
 });
