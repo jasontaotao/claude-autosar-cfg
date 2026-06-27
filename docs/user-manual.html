@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.2.0</title>
+    <title>claude-AutosarCfg 用户手册 · v1.15.2</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -402,6 +402,63 @@
         font-weight: 600;
       }
 
+      /* What's New banner (v1.15.1) */
+      .whats-new {
+        margin: 8px 0 0;
+        padding: 24px 28px;
+        background: linear-gradient(135deg, var(--ctp-surface0) 0%, var(--ctp-mantle) 100%);
+        border: 1px solid var(--ctp-surface1);
+        border-left: 4px solid var(--ctp-mauve);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+      }
+      .whats-new .wn-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      .whats-new .wn-badge {
+        background: var(--ctp-mauve);
+        color: var(--ctp-crust);
+        padding: 3px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        font-family: var(--font-mono);
+      }
+      .whats-new .wn-version {
+        color: var(--ctp-text);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .whats-new .wn-since {
+        color: var(--ctp-overlay1);
+        font-size: 12px;
+        font-family: var(--font-mono);
+      }
+      .whats-new .wn-intro {
+        margin: 0 0 14px 0;
+        color: var(--ctp-subtext1);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .whats-new .wn-list {
+        margin: 0;
+        padding-left: 22px;
+        color: var(--ctp-subtext1);
+        font-size: 14px;
+        line-height: 1.75;
+      }
+      .whats-new .wn-list li {
+        margin-bottom: 6px;
+      }
+      .whats-new .wn-list strong {
+        color: var(--ctp-text);
+      }
+
       /* Cards / callouts */
       .callout {
         display: flex;
@@ -791,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.2.0 · manual</span>
+            <span>v1.15.2 · manual</span>
           </div>
         </div>
 
@@ -834,6 +891,9 @@
             <a href="#ch12"><span class="ch-num">12</span>常见问题</a>
           </li>
           <li>
+            <a href="#ch13"><span class="ch-num">13</span>BSW 代码生成器</a>
+          </li>
+          <li>
             <a href="#apa"><span class="ch-num">A</span>术语表</a>
           </li>
           <li>
@@ -845,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.2.0 · Sprint 14 · 2026-06-19</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.15.2 · Sprint 27 · 2026-06-26</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -853,7 +913,7 @@
           </p>
           <div class="hero-meta">
             <span>📦 Electron 30 · TypeScript 5 · React 18</span>
-            <span>🧪 1309 tests · 96.72% stmts</span>
+            <span>🧪 2472 tests · 96.72% stmts</span>
             <span>🪟 Windows / macOS / Linux</span>
             <span>📄 License: <strong>MIT</strong></span>
           </div>
@@ -863,6 +923,56 @@
           <!-- ============================================ -->
           <!-- CHAPTER 1: 入门 / GETTING STARTED             -->
           <!-- ============================================ -->
+
+          <!-- ============================================ -->
+          <!-- WHAT'S NEW IN v1.15.1 (manual baseline jump) -->
+          <!-- ============================================ -->
+          <section id="whats-new" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">🆕 WHAT'S NEW</span>
+              <strong class="wn-version">v1.15.2</strong>
+              <span class="wn-since">since v1.2.0 · 2026-06-19 → 2026-06-26</span>
+            </div>
+            <p class="wn-intro">
+              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。下表汇总
+              v1.13.0–v1.15.2 期间随 <code>CHANGELOG.md</code> 已发布的核心能力；
+              对应章节将在后续批次 (Sprint 28+) 增量补齐,完整功能与迁移说明请参阅仓库根目录
+              <code>CHANGELOG.md</code> · <code>docs/superpowers/plans/</code>。
+            </p>
+            <ul class="wn-list">
+              <li>
+                <strong>BSW 代码生成器</strong> — EcuC / Mcu 模块级 C 代码生成;
+                <code>&lt;STD-INCLUDES&gt;</code> / <code>&lt;HEADER&gt;</code> 解析;
+                参考点引用声明 (<code>emitReferenceDecl</code>);SEC1–SEC4 路径安全白名单
+              </li>
+              <li>
+                <strong>CLI <code>autosarcfg generate</code> 子命令</strong> — 终端运行
+                <code>pnpm autosarcfg generate --project &lt;manifest&gt; --variant PreCompile</code>
+                即可运行 BSW 生成器,无需启动 GUI
+              </li>
+              <li>
+                <strong>10 个 ECUC-GEN 诊断码 + 3 个 BSW-SEC 诊断码</strong> —
+                <code>ECUC-GEN-001..031</code> (schema / emit / ref / multiplicity /
+                type / range / ordering / duplicate-shortname / template / output / empty-variant)
+                + <code>BSW-SEC-002..004</code> (路径白名单 / 空 include / 缺失 target header);
+                Stage 1 (schema) / Stage 2 (semantic) 验证管道;ERROR / WARNING / INFO 分级;
+                pipeline strict-mode 在 Stage 1 ERROR 时早退
+              </li>
+              <li>
+                <strong>测试覆盖大幅提升</strong> — <strong>2472 tests · 96.72% stmts</strong>
+                (v1.2.0 时代 1309 → +1163)
+              </li>
+              <li>
+                <strong>BSWMD 模块头解析</strong> — <code>moduleHeader</code> 自动捕获 +
+                cross-module <code>#include</code> 链解析
+              </li>
+              <li>
+                <strong>13+ PATCH / MINOR 发布</strong> — v1.3.0 → v1.15.2 期间共 13+ 次
+                发布;持续修补并关闭 D-rev2 / D-rev3 安全审查 backlog
+              </li>
+            </ul>
+          </section>
+
           <section class="chapter" id="ch1">
             <div class="chapter-head">
               <div class="ch-num-badge">01</div>
@@ -1079,7 +1189,7 @@ release/win-unpacked/AutosarCfg.exe</pre>
 <span class="com"># === Stage: format ===      PASS</span>
 <span class="com"># === Stage: lint ===        PASS</span>
 <span class="com"># === Stage: type-check ===  PASS</span>
-<span class="com"># === Stage: test ===        PASS (1309 passed)</span>
+<span class="com"># === Stage: test ===        PASS (2472 passed)</span>
 <span class="com"># === Stage: coverage ===    PASS (96.72% stmts)</span>
 <span class="com"># === Stage: build ===       PASS</span></pre>
           </section>
@@ -4103,6 +4213,66 @@ release/win-unpacked/AutosarCfg.exe</pre>
                 "save 失败时仍 delete" 的数据丢失 race。
               </div>
             </div>
+
+            <h3>9.X v1.14+ 增量:模块头解析 (moduleHeader / STD-INCLUDES)</h3>
+            <p>
+              自 v1.14.1 PATCH-G 起,claude-AutosarCfg 解析 BSWMD 时会<strong>额外捕获两类关键字段</strong>,
+              用于后续 BSW 代码生成器(v1.11+)构造 cross-module <code>#include</code> 链。
+            </p>
+
+            <h4>9.X.1 <code>&lt;HEADER&gt;</code> → <code>moduleHeader</code></h4>
+            <p>
+              每个 BSWMD 顶层 <code>MODULE</code> 节点允许声明一个模块头文件路径,例如:
+            </p>
+            <pre><span class="kw">&lt;MODULE-DESC&gt;</span>
+  <span class="kw">&lt;SHORT-NAME&gt;</span>EcuC<span class="kw">&lt;/SHORT-NAME&gt;</span>
+  <span class="kw">&lt;HEADER&gt;</span>EcuC/EcuC.h<span class="kw">&lt;/HEADER&gt;</span>
+  ...
+<span class="kw">&lt;/MODULE-DESC&gt;</span></pre>
+            <p>
+              解析后落地为 <code>BswmdModuleDefLite.moduleHeader</code>。若 BSWMD 未提供
+              <code>&lt;HEADER&gt;</code>,<code>resolveModuleHeader</code> 走 fallback 路径
+              (<code>moduleShortName + ".h"</code>),但 fallback 也会经过 SEC3 白名单校验
+              (<strong>v1.14.3 R-2.1 pre-ship fix</strong>)。
+            </p>
+
+            <h4>9.X.2 <code>&lt;STD-INCLUDES&gt;</code> → <code>includes[]</code></h4>
+            <p>
+              BSWMD 可声明模块依赖的标准头(v1.14.2 PATCH-H 接入 emit,实现为
+              <code>buildSelfIncludes</code> + caller-owned <code>Set</code> dedup):
+            </p>
+            <pre><span class="kw">&lt;STD-INCLUDES&gt;</span>
+  <span class="kw">&lt;STD-INCLUDE&gt;</span>Std_Types.h<span class="kw">&lt;/STD-INCLUDE&gt;</span>
+  <span class="kw">&lt;STD-INCLUDE&gt;</span>Os.h<span class="kw">&lt;/STD-INCLUDE&gt;</span>
+<span class="kw">&lt;/STD-INCLUDES&gt;</span></pre>
+
+            <h4>9.X.3 安全白名单 (SEC3) 与诊断码</h4>
+            <p>
+              所有 <code>moduleHeader</code> 与 <code>includes[]</code> 项必须满足白名单
+              <code>^[A-Za-z0-9_./-]+$</code>:<strong>不允许</strong> <code>..</code>、绝对路径、
+              shell meta(<code>$</code>/<code>`</code>/<code>;</code>/<code>&amp;</code> 等)。
+              校验失败的项触发以下诊断:
+            </p>
+            <table>
+              <thead>
+                <tr><th>Code</th><th>触发条件</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>BSW-SEC-002</code></td><td>include / moduleHeader 路径违反白名单</td></tr>
+                <tr><td><code>BSW-SEC-003</code></td><td>include 字符串为空(v1.14.2 H1 wire-up)</td></tr>
+                <tr><td><code>BSW-SEC-004</code></td><td>引用目标的 BSWMD 已加载但 <code>moduleHeader</code> 未定义</td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout note">
+              <div class="callout-icon">i</div>
+              <div class="callout-body">
+                <strong>为什么 fallback 也走 SEC3?</strong> v1.14.3 R-2.1 之前
+                <code>resolveModuleHeader</code> 直接用 <code>def.shortName</code> 拼路径,
+                完全绕开 <code>validateHeaderPath</code>。R-2.1 把 fallback 也纳入 SEC3,
+                关闭了 Security H1(攻击者构造奇怪 moduleShortName 即可绕过白名单)。
+              </div>
+            </div>
           </section>
 
           <!-- ============================================ -->
@@ -4881,7 +5051,8 @@ release/win-unpacked/AutosarCfg.exe</pre>
             <h3>Q7 · Script Engine 什么时候能上？</h3>
             <p>
               Script Engine v1.3.0 spec 已锁定（commit <code>f77acf5</code>），基于 CodeMirror 6 +
-              <code>node:vm</code> sandbox。计划在 Sprint 14 ECUC Import 之后排期。 详见
+              <code>node:vm</code> sandbox。具体上线节点请关注仓库根
+              <code>CHANGELOG.md</code> 与 <code>RoadMap.md</code>；详细设计见
               <code>docs/superpowers/specs/2026-06-18-script-engine-design.md</code>。
             </p>
 
@@ -4914,6 +5085,188 @@ release/win-unpacked/AutosarCfg.exe</pre>
               <li>复现 ARXML / BSWMD 路径（脱敏后）</li>
               <li><code>pnpm verify</code> 的 6 阶段结果</li>
               <li>Node / pnpm 版本（<code>node -v && pnpm -v</code>）</li>
+            </ul>
+          </section>
+
+          <!-- ============================================ -->
+          <!-- CHAPTER 13: BSW 代码生成器 (v1.11+)           -->
+          <!-- ============================================ -->
+          <section class="chapter" id="ch13">
+            <div class="chapter-head">
+              <div class="ch-num-badge">13</div>
+              <h2>BSW 代码生成器<span class="en">Headless Code Generator · v1.11+</span></h2>
+            </div>
+
+            <h3>13.1 概述</h3>
+            <p>
+              自 <strong>v1.11.0</strong> 起,claude-AutosarCfg 提供<strong>独立于 GUI 的 BSW 代码生成器</strong>。
+              你可以在不启动 Electron 桌面的情况下,直接通过命令行将 <code>.autosarcfg.json</code>
+              清单 + BSWMD 定义 + ECUC 配置值 渲染为可编译的 C 源码与头文件。
+            </p>
+            <p>
+              <strong>典型用例</strong>:CI / CD 流水线(无需 X server)、批量项目再生成、回归测试
+              (与 <code>pnpm verify</code> 配合)、嵌入式工程师本机构建。
+            </p>
+
+            <div class="callout tip">
+              <div class="callout-icon">!</div>
+              <div class="callout-body">
+                <strong>GUI vs CLI 何时用?</strong>
+                <ul style="margin: 6px 0 0; padding-left: 18px;">
+                  <li><strong>GUI</strong>:首次配置、参数微调、跨文件合并导入、可视化校验</li>
+                  <li><strong>CLI</strong>:参数稳定后的批量再生成、CI 集成、回归验证</li>
+                </ul>
+              </div>
+            </div>
+
+            <h3>13.2 命令总览</h3>
+            <p>CLI 入口为 <code>autosarcfg</code>(由 <code>package.json</code> 的 <code>bin</code> 字段暴露),
+              当前提供 4 个子命令:</p>
+            <pre><span class="kw">$</span> pnpm autosarcfg <span class="com">--help</span>
+<span class="com">Usage: autosarcfg [options] [command]</span>
+
+<span class="com">Standalone CLI for AUTOSAR BSW configuration (v1.6.0 A+C)</span>
+
+<span class="com">Options:</span>
+  <span class="str">--project &lt;path&gt;</span>    <span class="com">Path to .autosarcfg.json manifest or a single .arxml</span>
+  <span class="str">--locale &lt;en|zh&gt;</span>    <span class="com">Error message locale (default: en)</span>
+  <span class="str">--format &lt;fmt&gt;</span>      <span class="com">json | summary | arxml-dump (default: summary)</span>
+  <span class="str">--verbose</span>            <span class="com">Emit structured debug logs to stderr</span>
+  <span class="str">--no-color</span>           <span class="com">Disable ANSI color codes</span>
+
+<span class="com">Commands:</span>
+  read                <span class="com">Dump project as JSON / arxml summary</span>
+  mutate              <span class="com">Apply a JSON/YAML patch file</span>
+  validate            <span class="com">Run validators against the project</span>
+  <span class="kw">generate</span>            <span class="com">Run BSW code generator pipeline</span></pre>
+
+            <h3>13.3 <code>generate</code> 子命令</h3>
+            <p>BSW 生成器专属 flags:</p>
+            <pre><span class="kw">$</span> pnpm autosarcfg generate \
+    <span class="str">--project</span> ./demos/EcuC/.autosarcfg.json \
+    <span class="str">--variant</span> PreCompile \
+    <span class="str">--out-dir</span> ./generated
+
+<span class="com"># 限制只生成特定模块(可重复 --modules)</span>
+<span class="kw">$</span> pnpm autosarcfg generate \
+    <span class="str">--project</span> ./manifest.json \
+    <span class="str">--modules</span> EcuC <span class="str">--modules</span> Mcu \
+    <span class="str">--strict</span></pre>
+
+            <table>
+              <thead>
+                <tr><th>Flag</th><th>说明</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>--variant &lt;v&gt;</code></td>
+                  <td>生成变体:<code>PreCompile</code> (默认) / <code>Link</code> / <code>PostBuild</code></td></tr>
+                <tr><td><code>--out-dir &lt;path&gt;</code></td>
+                  <td>产物输出目录(默认 <code>&lt;projectPath&gt;/generated</code>)</td></tr>
+                <tr><td><code>--modules &lt;shortName&gt;</code></td>
+                  <td>限制只生成指定模块短名(可重复)</td></tr>
+                <tr><td><code>--strict</code></td>
+                  <td>把任意 WARNING 升级为 exit 1(CI 友好)</td></tr>
+              </tbody>
+            </table>
+
+            <h3>13.4 工作流程</h3>
+            <p>生成器运行一条 6 阶段流水线(<code>src/core/generator/pipeline.ts</code>):</p>
+            <ol>
+              <li><strong>加载</strong>:解析 <code>.autosarcfg.json</code> 清单,walk <code>bswmdPaths</code> + <code>valueArxmlPaths</code></li>
+              <li><strong>Stage 1 — Schema 校验</strong>:模块定义 / 容器结构 / 参数类型</li>
+              <li><strong>Stage 2 — Semantic 校验</strong>:引用解析、multiplicity、range、duplicate shortName</li>
+              <li><strong>归一化</strong>:<code>normalize.ts</code> 把 ECUC values 折叠为 <code>BswmdParamIndex</code>(<code>bswmdParamIndex</code> 扁平化查找,v1.13.4 PATCH-B)</li>
+              <li><strong>Emit</strong>:对应 <code>ModuleGenerator.emit()</code> 渲染 Handlebars 模板(<code>templates/ecuc/</code>、<code>templates/mcu/</code>)</li>
+              <li><strong>写出</strong>:<code>writeOutputTree</code> 用 atomic rename 落盘(并发写安全)</li>
+            </ol>
+
+            <h3>13.5 已注册的模块生成器</h3>
+            <p>当前 <code>registry.ts</code> 注册 2 个模块生成器,通过
+              <code>registerGenerator(new XxxGenerator())</code> 注入:</p>
+            <table>
+              <thead>
+                <tr><th>模块</th><th>源文件</th><th>典型产物</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>EcuC</code></td>
+                  <td><code>src/core/generator/modules/ecuc.ts</code></td>
+                  <td><code>EcuC_Cfg.c</code> · <code>EcuC_PBcfg.c</code> · <code>EcuC_Lcfg.c</code></td></tr>
+                <tr><td><code>Mcu</code></td>
+                  <td><code>src/core/generator/modules/mcu.ts</code></td>
+                  <td><code>Mcu_Cfg.c</code> · <code>Mcu_PBcfg.c</code></td></tr>
+              </tbody>
+            </table>
+
+            <div class="callout note">
+              <div class="callout-icon">i</div>
+              <div class="callout-body">
+                <strong>新增模块?</strong> 在 <code>src/core/generator/modules/</code> 实现
+                <code>ModuleGenerator</code> 接口,然后在 <code>handlers/generate.ts:96</code>
+                注册。每个模块独立一组 Handlebars 模板 + 单元测试。
+              </div>
+            </div>
+
+            <h3>13.6 诊断码清单</h3>
+            <p>所有诊断通过 <code>DiagnosticCode</code> 枚举(<code>src/core/generator/diagnostics.ts</code>)发出,
+              严重级别 <code>ERROR</code> / <code>WARNING</code> / <code>INFO</code>:</p>
+            <table>
+              <thead>
+                <tr><th>Code</th><th>含义</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>ECUC-GEN-001</code></td><td>无 schema</td></tr>
+                <tr><td><code>ECUC-GEN-002</code></td><td>找不到对应 generator(未注册)</td></tr>
+                <tr><td><code>ECUC-GEN-003</code></td><td>generator 内部异常</td></tr>
+                <tr><td><code>ECUC-GEN-010</code></td><td>引用无法解析</td></tr>
+                <tr><td><code>ECUC-GEN-011</code></td><td>multiplicity 违例</td></tr>
+                <tr><td><code>ECUC-GEN-012</code></td><td>类型不匹配</td></tr>
+                <tr><td><code>ECUC-GEN-013</code></td><td>值越界(range)</td></tr>
+                <tr><td><code>ECUC-GEN-020</code></td><td>ordering 错误(参数顺序违例)</td></tr>
+                <tr><td><code>ECUC-GEN-021</code></td><td>duplicate shortName</td></tr>
+                <tr><td><code>ECUC-GEN-030</code></td><td>Handlebars 模板渲染失败</td></tr>
+                <tr><td><code>ECUC-GEN-031</code></td><td>输出文件写入失败</td></tr>
+                <tr><td><code>ECUC-GEN-INFO-001</code></td><td>变体空(仅提示)</td></tr>
+                <tr><td><code>BSW-SEC-002</code></td><td>include 路径不在白名单 <code>^[A-Za-z0-9_./-]+$</code></td></tr>
+                <tr><td><code>BSW-SEC-003</code></td><td>include 字符串为空</td></tr>
+                <tr><td><code>BSW-SEC-004</code></td><td>引用目标的 moduleHeader 缺失</td></tr>
+              </tbody>
+            </table>
+
+            <h3>13.7 退出码</h3>
+            <p>遵循 <code>src/cli/exitCodes.ts</code> 的统一约定:</p>
+            <table>
+              <thead>
+                <tr><th>Code</th><th>含义</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>0</code></td><td>全部成功(无 ERROR,允许 INFO / WARNING)</td></tr>
+                <tr><td><code>1</code></td><td>存在 ERROR,或 <code>--strict</code> 下存在 WARNING</td></tr>
+                <tr><td><code>2</code></td><td>存在 WARNING(无 ERROR)且未加 <code>--strict</code></td></tr>
+                <tr><td><code>3</code></td><td>参数 / manifest 解析失败</td></tr>
+              </tbody>
+            </table>
+
+            <h3>13.8 故障排查</h3>
+            <ul>
+              <li>
+                <strong>unknown sub-command</strong>:检查是否漏写 <code>generate</code>(<code>autosarcfg</code> 必须带子命令)。
+              </li>
+              <li>
+                <strong>internal-error</strong>:manifest 必须以 <code>.autosarcfg.json</code> 或
+                <code>.acproj</code> 结尾(<code>handlers/generate.ts:79</code> 拒绝裸 <code>.arxml</code>)。
+              </li>
+              <li>
+                <strong>BSW-SEC-002</strong>:include 路径触发白名单拒绝——检查 <code>&lt;STD-INCLUDES&gt;</code> 与
+                <code>&lt;HEADER&gt;</code> 文本是否含 <code>..</code>、绝对路径或 shell meta。
+              </li>
+              <li>
+                <strong>BSW-SEC-004</strong>:引用目标的模块 BSWMD 没有 <code>moduleHeader</code>——回查
+                <code>v1.14.3</code> R-2.1 pre-ship fix 是否正确解析 fallback。
+              </li>
+              <li>
+                <strong>完整 release notes</strong>:见仓库根 <code>CHANGELOG.md</code> 与
+                <code>docs/superpowers/plans/</code>。
+              </li>
             </ul>
           </section>
 
@@ -5016,6 +5369,97 @@ release/win-unpacked/AutosarCfg.exe</pre>
                     <td><strong>round-trip</strong></td>
                     <td>解析 → 编辑 → 序列化 产生的 XML 与输入字段级相等。</td>
                   </tr>
+                  <tr>
+                    <td><strong>BSW Generator</strong></td>
+                    <td>
+                      v1.11+ 引入的无头 C 代码生成器（<code>src/core/generator/</code>）。
+                      输入 <code>.autosarcfg.json</code> + BSWMD + ECUC,输出 <code>*_Cfg.c</code>
+                      / <code>*_PBcfg.c</code> 等。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>EcuC</strong></td>
+                    <td>
+                      ECU Configuration 模块。已注册的 <code>EcuCGenerator</code>
+                      (<code>src/core/generator/modules/ecuc.ts</code>)。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Mcu</strong></td>
+                    <td>
+                      Microcontroller Unit 模块。已注册的 <code>McuGenerator</code>
+                      (<code>src/core/generator/modules/mcu.ts</code>)。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>PreCompile / Link / PostBuild</strong></td>
+                    <td>
+                      生成变体(<code>GenerationVariant</code>)。
+                      <code>PreCompile</code> = 编译期常量,<code>Link</code> = 链接期配置,
+                      <code>PostBuild</code> = 后期构建可调参数。通过 <code>--variant</code> 选择。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>SEC1 – SEC4</strong></td>
+                    <td>
+                      路径安全白名单阶段。SEC1:realpath 规范化输入路径;
+                      SEC2:cIdent 白名单 <code>[^A-Za-z0-9_]</code>;
+                      SEC3:<code>validateHeaderPath</code> 白名单 <code>^[A-Za-z0-9_./-]+$</code>;
+                      SEC4:realpath outDir + escape 检测。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>BSW-SEC-002 / 003 / 004</strong></td>
+                    <td>
+                      路径/引用相关安全诊断码。002:include 路径白名单拒绝;
+                      003:include 字符串为空;004:ref 目标模块 <code>moduleHeader</code> 缺失。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>ECUC-GEN-001 – 031</strong></td>
+                    <td>
+                      生成器诊断码族,见 <code>src/core/generator/diagnostics.ts</code>。
+                      覆盖 schema / emit / ref / multiplicity / type / range / ordering
+                      / duplicate-shortname / template / output / empty-variant 11 类。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Stage 1 / Stage 2</strong></td>
+                    <td>
+                      验证管道两阶段。Stage 1 = schema 校验(模块/容器/参数结构);
+                      Stage 2 = semantic 校验(引用解析、range、multiplicity)。
+                      <code>--strict</code> 下 Stage 1 ERROR 触发 pipeline 早退(v1.14.0 S6)。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>moduleHeader</strong></td>
+                    <td>
+                      BSWMD 中 <code>&lt;HEADER&gt;</code> 解析出的模块头文件路径(如
+                      <code>EcuC/EcuC.h</code>)。
+                      v1.14.1 PATCH-G 接入,作为 cross-module <code>#include</code> 链的依据。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>STD-INCLUDES</strong></td>
+                    <td>
+                      BSWMD 中的 <code>&lt;STD-INCLUDES&gt;</code> 元素,声明模块依赖的标准头。
+                      v1.14.2 PATCH-H 接入 <code>buildSelfIncludes</code> + EcuC/Mcu emit。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>bswmdParamIndex</strong></td>
+                    <td>
+                      v1.13.4 PATCH-B 引入的扁平查找表,以
+                      <code>Module/Container/Param</code> 路径为 key,避免 emit 时反复 walk BSWMD。
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>autosarcfg (CLI)</strong></td>
+                    <td>
+                      无头命令行入口(<code>bin/autosarcfg.mjs</code>,<code>pnpm autosarcfg</code>)。
+                      4 个子命令:<code>read</code> · <code>mutate</code> · <code>validate</code> · <code>generate</code>。
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -5032,19 +5476,39 @@ release/win-unpacked/AutosarCfg.exe</pre>
 
             <h3>B.1 源代码布局</h3>
             <pre>src/
+├── cli/                  <span class="com"># 无头 CLI（v1.6.0+, 与 GUI 并列）</span>
+│   ├── commander.ts      <span class="com">#   commander.js 4 子命令解析 (read/mutate/validate/generate)</span>
+│   ├── command-dispatcher.ts <span class="com">#   ParsedArgs → handler 路由</span>
+│   ├── exitCodes.ts      <span class="com">#   0/1/2/3 退出码约定</span>
+│   └── handlers/         <span class="com">#   generate / read / mutate / validate 各 handler</span>
 ├── core/                <span class="com"># 纯 TS，无 react/electron 依赖</span>
 │   ├── arxml/           <span class="com">#   parser / serializer / types / path helpers</span>
 │   ├── validation/      <span class="com">#   validate() + ECUC schema (param + container)</span>
 │   ├── import/          <span class="com">#   diff / merge / patch（v1.2.0 新增）</span>
-│   └── project/         <span class="com">#   manifest + bswmd 持久化</span>
+│   ├── project/         <span class="com">#   manifest + bswmd 持久化</span>
+│   ├── ecuc/            <span class="com">#   moduleMatch 等 ECUC 辅助</span>
+│   ├── generator/       <span class="com">#   BSW 代码生成器 (v1.11+)</span>
+│   │   ├── pipeline.ts  <span class="com">#     6 阶段流水线</span>
+│   │   ├── registry.ts  <span class="com">#     ModuleGenerator 注册表</span>
+│   │   ├── normalize.ts <span class="com">#     BswmdParamIndex 扁平化 (v1.13.4)</span>
+│   │   ├── diagnostics.ts <span class="com">#     13 个 diagnostic codes</span>
+│   │   ├── post-process.ts <span class="com">#     writeOutputTree (atomic rename)</span>
+│   │   ├── modules/     <span class="com">#     EcuC / Mcu generator</span>
+│   │   ├── templates/   <span class="com">#     Handlebars 模板 + _partials/</span>
+│   │   └── emit/        <span class="com">#     emit-time 辅助</span>
+│   └── sws-validator/   <span class="com">#   Script Engine (RoadMap, node:vm sandbox)</span>
 ├── main/                <span class="com"># Electron 主进程（可使用 node / electron）</span>
-│   └── ipc/             <span class="com">#   arxml / save / bswmd / project / templates / pickDir</span>
+│   ├── ipc/             <span class="com">#   arxml / save / bswmd / project / templates / pickDir</span>
+│   └── script/          <span class="com">#   Script Engine 加载器</span>
 ├── preload/             <span class="com"># contextBridge 桥接层</span>
 ├── renderer/            <span class="com"># React + Zustand UI（只能通过 preload 调用 IPC）</span>
 │   ├── components/      <span class="com">#   Tree / ValidationPanel / ParamEditor / 各 Dialog</span>
 │   ├── hooks/           <span class="com">#   useDebouncedValidation / useProjectActions / useCreateEcuc...</span>
 │   └── store/           <span class="com">#   useArxmlStore（单一 source of truth）</span>
-└── shared/              <span class="com"># 跨层 types 和 IPC contract</span>
+└── shared/              <span class="com"># 跨层 types 和 IPC contract + headless IPC contract</span>
+
+bin/
+└── autosarcfg.mjs       <span class="com"># CLI 入口（被 `pnpm autosarcfg` 调用）</span>
 
 tests/
 ├── fixtures/arxml/      <span class="com"># 5 S32K148_EAS_EB_3399A 样例 (9.2 MB in-repo)</span>
@@ -5223,8 +5687,8 @@ docs/                    <span class="com"># specs / plans / release notes / 本
                 font-size: 12px;
               "
             >
-              claude-AutosarCfg User Manual · v1.2.0 · MIT License ·<br />
-              Generated 2026-06-19 · Source: <code>docs/user-manual.html</code><br />
+              claude-AutosarCfg User Manual · v1.15.1 · MIT License ·<br />
+              Generated 2026-06-26 · Source: <code>docs/user-manual.html</code><br />
               See also: <code>CHANGELOG.md</code> · <code>PROGRESS.md</code> ·
               <code>README.md</code>
             </p>
