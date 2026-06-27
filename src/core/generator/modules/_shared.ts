@@ -384,6 +384,27 @@ export function cTypeForBasicKind(kind: string): string {
  * function is the first step of B-3 (full generator type-driven
  * refactor); B-3 emit*Decl + Handlebars parts remain deferred to
  * v1.16.0 MINOR.
+ *
+ * v1.15.3 PATCH (M-4) — JSDoc polish: added @param / @returns /
+ * @example for call-site discoverability. Mirrors the JSDoc style
+ * of `cTypeForBasicKind` above.
+ *
+ * @param def - BSWMD parameter definition. `kind` discriminates the
+ *   arm; per-module arms also read `min` / `max` / `targetType` /
+ *   `signature`.
+ * @param moduleKind - Which generator's semantics to apply.
+ *   `'EcuC'` routes through `integerToCType` + has `reference` /
+ *   `function-name` arms; `'Mcu'` hardcodes `'uint32'` for `integer`
+ *   and `'uint8'` fallback for `reference` / `function-name`.
+ * @returns C type string suitable for use as a parameter type in
+ *   generated `*_Cfg.h` headers. Always non-empty.
+ * @example
+ *   cTypeForKind({ kind: 'integer', min: 0, max: 65535 }, 'EcuC')
+ *   // → 'uint16'
+ *   cTypeForKind({ kind: 'reference', targetType: 'McuClockConfig' }, 'EcuC')
+ *   // → 'const McuClockConfig * const'
+ *   cTypeForKind({ kind: 'reference' }, 'Mcu')
+ *   // → 'uint8'  (no current BSWMD subset uses this)
  */
 export function cTypeForKind(
   def: EcuCParamDefLike | McuParamDefLike,
