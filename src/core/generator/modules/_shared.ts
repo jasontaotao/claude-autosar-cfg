@@ -20,14 +20,14 @@
 //     and consumed directly by both modules (no duplication left).
 //   - `paramIdent` — byte-identical to `cIdent`; the duplicate was
 //     removed in v1.13.3 PATCH-C (D-rev2 R2, R3).
-//   - `cTypeForKind` — per-module because they have already diverged:
-//     EcuC's `integer` arm routes through `integerToCType(min, max)`
-//     and EcuC has `reference` + `function-name` arms (added in
-//     v1.14.0 S2 Refs-1 ref emit). Mcu's `integer` arm hardcodes
-//     `'uint32'` (no `integerToCType` call). Default arms both return
-//     `'uint8'` for now, but that is the only remaining identity.
-//     The shared `cType` returns `'??'` (fail-fast). Consolidation
-//     is deferred to the v1.15.0 generator refactor (D-rev3 B-5).
+//   - `cTypeForKind` — unified here as of v1.15.2 PATCH (B-3.3); the
+//     per-module duplicates in `ecuc.ts:148` and `mcu.ts:125` were
+//     deleted. The unified function dispatches on the `moduleKind`
+//     literal (`'EcuC' | 'Mcu'`) and produces the same C type string
+//     for every kind the per-module functions handled (EcuC's
+//     `integer` arm routes through `integerToCType`; Mcu's hardcodes
+//     `'uint32'`; `reference` and `function-name` are EcuC-specific).
+//     B-3 emit*Decl + Handlebars parts remain deferred to v1.16.0.
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
 import type { NormalizedConfigTree } from '../emit/reference.js';
