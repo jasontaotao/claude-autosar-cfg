@@ -334,22 +334,18 @@ export function resolveIncludesForModule(
 }
 
 /**
- * v1.15.1 PATCH (B-5) — shared `cTypeForKind` for the 5 arms
- * that are byte-identical between EcuC and Mcu generators
- * (per v1.14.3 PATCH-I C-2 fix that confirmed the default
- * arms are identical). The `integer` arm stays per-module:
- * EcuC uses `integerToCType(min, max)` (min/max-aware), Mcu
- * hardcodes `'uint32'` per AUTOSAR convention for clock
- * reference points. EcuC's `reference` and `function-name`
- * arms also stay per-module (Mcu doesn't model those kinds
- * yet).
+ * v1.15.1 PATCH (B-5) + v1.15.2 PATCH (M-1) — shared `cTypeForKind`
+ * helper covering the 4 known basic-kind arms that are byte-identical
+ * between EcuC and Mcu generators (boolean / string / float /
+ * enumeration). The `integer` arm stays per-module via the unified
+ * `cTypeForKind` dispatcher (EcuC: integerToCType(min, max);
+ * Mcu: hardcoded 'uint32'). Unknown-kind semantics (per-module
+ * 'uint8' fail-safe) live in the unified `cTypeForKind`, not here.
  *
- * If B-3 (full type-driven refactor) lands, this helper
- * becomes the `default` arm of the unified dispatcher and
- * the per-module `cTypeForKind` functions are deleted.
- *
- * B-5.4 locks the contract with 5 direct unit tests
- * (one per arm).
+ * B-5.4 originally locked this helper with 5 tests (one per arm
+ * including default). v1.15.2 PATCH (M-1.2) removed the default-case
+ * test; the unknown-kind behavior is now locked in
+ * `c-type-for-kind.test.ts` (test 11) via the unified dispatcher.
  */
 export function cTypeForBasicKind(kind: string): string {
   switch (kind) {
@@ -361,9 +357,10 @@ export function cTypeForBasicKind(kind: string): string {
       return 'float32';
     case 'enumeration':
       return 'uint8';
-    default:
-      return 'uint8';
   }
+  // No default arm — the 4 cases above are exhaustive for the
+  // shared-kind set. Unknown kinds fall through to the backstop.
+  return 'uint8';
 }
 
 /**
