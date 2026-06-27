@@ -138,13 +138,7 @@ describe('dispatchCommand — generate path', () => {
     // already wired (DispatchArgs widened at command-dispatcher.ts:39),
     // but no CLI invocation could reach it until commander.ts registered
     // the sub-command.
-    const parsed = parseCliArgs([
-      'node',
-      'autosarcfg',
-      'generate',
-      '--project',
-      COM_ARXML,
-    ]);
+    const parsed = parseCliArgs(['node', 'autosarcfg', 'generate', '--project', COM_ARXML]);
     expect(parsed.kind).toBe('generate');
     const code = await dispatchCommand(parsed);
     // COM_ARXML is not a manifest, so the handler returns internal-error

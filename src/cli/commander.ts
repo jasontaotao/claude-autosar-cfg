@@ -32,12 +32,7 @@ export const GLOBAL_FLAG_NAMES = [
 export const READ_FLAG_NAMES = ['--paths', '--summary-only'] as const;
 export const MUTATE_FLAG_NAMES = ['--patch', '--dry-run', '--strict', '--backup'] as const;
 export const VALIDATE_FLAG_NAMES = ['--rules', '--severity'] as const;
-export const GENERATE_FLAG_NAMES = [
-  '--variant',
-  '--out-dir',
-  '--modules',
-  '--strict',
-] as const;
+export const GENERATE_FLAG_NAMES = ['--variant', '--out-dir', '--modules', '--strict'] as const;
 
 /** Parsed global flags (apply to every sub-command). */
 export interface GlobalFlags {
@@ -284,9 +279,7 @@ function pickFormat(raw: unknown): 'json' | 'summary' {
 
 function pickVariant(raw: unknown): 'PreCompile' | 'Link' | 'PostBuild' {
   if (raw === 'PreCompile' || raw === 'Link' || raw === 'PostBuild') return raw;
-  throw new Error(
-    `Invalid --variant '${String(raw)}': expected PreCompile | Link | PostBuild`,
-  );
+  throw new Error(`Invalid --variant '${String(raw)}': expected PreCompile | Link | PostBuild`);
 }
 
 function pickGenerateFormat(raw: unknown): 'human' | 'json' {

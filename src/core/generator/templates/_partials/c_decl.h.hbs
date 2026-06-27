@@ -1,6 +1,8 @@
-{{!-- expects `cType`, `ident`, optional `init` (C literal), optional `arrayLen` --}}
+{{! expects `cType`, `ident`, optional `init` (C literal), optional `arrayLen` }}
 {{#if arrayLen}}
-{{cType}} {{ident}}[{{arrayLen}}]{{#if init}} = { {{init}} }{{/if}};
+  {{cType}}
+  {{ident}}[{{arrayLen}}]{{#if init}} = { {{init}} }{{/if}};
 {{else}}
-{{cType}} {{ident}}{{#if init}} = {{init}}{{/if}};
+  {{cType}}
+  {{ident}}{{#if init}} = {{init}}{{/if}};
 {{/if}}

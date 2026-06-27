@@ -98,15 +98,13 @@ describe('normalizeToTree', () => {
       new Map([['EcuC', ecucValues]]),
     );
     expect(tree.bswmdParamIndex.size).toBe(2);
-    expect(
-      tree.bswmdParamIndex.get('EcuC/EcuCGeneral/ConfigConsistencyHash')?.shortName,
-    ).toBe('ConfigConsistencyHash');
+    expect(tree.bswmdParamIndex.get('EcuC/EcuCGeneral/ConfigConsistencyHash')?.shortName).toBe(
+      'ConfigConsistencyHash',
+    );
     expect(
       tree.bswmdParamIndex.get('EcuC/EcuCPartitionConfig/EcuC_PartitionConfigId')
         ?.paramConfigClasses,
-    ).toEqual([
-      { configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' },
-    ]);
+    ).toEqual([{ configClass: 'PRE-COMPILE', configVariant: 'VARIANT-PRE-COMPILE' }]);
   });
 
   it('returns empty bswmdParamIndex when BSWMD has no containers', () => {

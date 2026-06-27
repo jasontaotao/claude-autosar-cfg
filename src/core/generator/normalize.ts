@@ -111,10 +111,7 @@ export function normalizeToTree(
     const mod = def as BswmdModuleDefWithContainers;
     for (const container of mod.containers ?? []) {
       for (const param of container.parameters ?? []) {
-        bswmdParamIndex.set(
-          `${moduleShortName}/${container.shortName}/${param.shortName}`,
-          param,
-        );
+        bswmdParamIndex.set(`${moduleShortName}/${container.shortName}/${param.shortName}`, param);
       }
     }
   }

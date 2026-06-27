@@ -27,7 +27,7 @@ import type Handlebars from 'handlebars';
 
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
-import { cIdent, integerToCType } from '../handlebars-helpers.js';
+import { cIdent } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
   type GeneratedArtifact,
@@ -38,7 +38,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
-  cTypeForBasicKind,
+  cTypeForKind,
   pushEmptyVariantDiagnostic,
   renderCValue,
   resolveIncludesForModule,
@@ -74,7 +74,11 @@ function pbcfgTpl(): Handlebars.TemplateDelegate {
 // Inputs narrowed from `unknown` — Task 17 will tighten via real parser types.
 // ---------------------------------------------------------------------------
 
-interface EcuCParamDefLike {
+// v1.15.2 PATCH (B-3.2) — exported for the unified
+// `cTypeForKind` in `_shared.ts`. Previously module-local;
+// the union of EcuC + Mcu parameter shapes is now referenced
+// from `_shared.ts`.
+export interface EcuCParamDefLike {
   readonly kind:
     | 'integer'
     | 'boolean'
@@ -143,34 +147,14 @@ const GENERATOR_VERSION = '1.11.0';
 // `handlebars-helpers.ts` (D-rev2 R2, R3); call sites now use
 // `cIdent` directly. `renderCValue` lives in `_shared.ts` with the
 // `u` suffix preserved (D-rev2 R6).
+//
+// v1.15.2 PATCH (B-3.3) — per-module `cTypeForKind` deleted. The
+// unified `cTypeForKind` from `_shared.ts` dispatches on
+// `moduleKind` literal and produces the same C type string for every
+// kind the per-module function handled (EcuC's `integer` arm routes
+// through `integerToCType`; `reference` and `function-name` arms are
+// EcuC-specific). No behavior change for EcuC's emitted artefacts.
 // ---------------------------------------------------------------------------
-
-function cTypeForKind(def: EcuCParamDefLike): string {
-  switch (def.kind) {
-    case 'integer':
-      // v1.13.2 PATCH-E — min/max-aware C type via
-      // `integerToCType`. Per-module: Mcu hardcodes `'uint32'`
-      // for clock reference points per AUTOSAR convention.
-      return integerToCType(def.min ?? 0, def.max ?? 0);
-    case 'reference':
-      // v1.14.0 MINOR S2 — per-module: Mcu doesn't model
-      // `reference` params yet.
-      return `const ${def.targetType ?? 'void'} * const`;
-    case 'function-name':
-      // v1.14.0 MINOR S2 — per-module: Mcu doesn't model
-      // `function-name` params yet.
-      return def.signature ?? 'void';
-    default:
-      // v1.15.1 PATCH (B-5) — delegate the 5 byte-identical
-      // arms (boolean / string / float / enumeration /
-      // default) to the shared helper. Both EcuC + Mcu
-      // generators return the same string for these arms;
-      // consolidating avoids drift if a future kind is
-      // added (e.g. `'flag'`) or the default value
-      // changes.
-      return cTypeForBasicKind(def.kind);
-  }
-}
 
 /**
  * Build one `extern CONST(...) Foo;` style declaration (Link-time).
@@ -264,7 +248,7 @@ export class EcuCGenerator implements ModuleGenerator {
         for (const pDef of cDef.parameters) {
           const path = `${ancestry}/${pDef.shortName ?? 'Param'}`;
           const value = paramByPath.get(path);
-          const cType = cTypeForKind(pDef);
+          const cType = cTypeForKind(pDef, 'EcuC');
           const ident = cIdent(path);
 
           if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
@@ -296,7 +280,7 @@ export class EcuCGenerator implements ModuleGenerator {
     );
     if (pbValues.length > 0) {
       for (const p of pbValues) {
-        const cType = cTypeForKind({ kind: p.kind });
+        const cType = cTypeForKind({ kind: p.kind }, 'EcuC');
         const ident = cIdent(p.path);
         postBuildDecls.push(emitLoaderEntry(ident, cType, p.value, postBuildOffset));
         postBuildOffset += 1;

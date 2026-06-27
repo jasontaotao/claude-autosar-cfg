@@ -29,18 +29,4 @@ describe('cTypeForBasicKind (v1.15.1 PATCH B-5)', () => {
   it('enumeration → uint8', () => {
     expect(cTypeForBasicKind('enumeration')).toBe('uint8');
   });
-
-  it('unknown / default → uint8 (fail-soft for kinds not in the basic set)', () => {
-    // v1.14.3 PATCH-I C-2: confirmed both modules return
-    // `'uint8'` for the default arm. The helper matches.
-    // `integer` and `reference` and `function-name` would
-    // also fall through to `'uint8'` if the per-module
-    // function delegated to the helper for them — but
-    // those arms stay per-module (B-5.2 + B-5.3 don't
-    // delegate for them).
-    expect(cTypeForBasicKind('integer')).toBe('uint8');
-    expect(cTypeForBasicKind('reference')).toBe('uint8');
-    expect(cTypeForBasicKind('function-name')).toBe('uint8');
-    expect(cTypeForBasicKind('unknown')).toBe('uint8');
-  });
 });

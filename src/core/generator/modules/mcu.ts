@@ -36,7 +36,7 @@ import { loadModuleTemplate } from '../templates/loader.js';
 
 import {
   buildHeaderGuard,
-  cTypeForBasicKind,
+  cTypeForKind,
   pushEmptyVariantDiagnostic,
   renderCValue,
   resolveIncludesForModule,
@@ -64,7 +64,11 @@ function sourceTpl(): Handlebars.TemplateDelegate {
 // Inputs narrowed from `unknown` — Task 17 will tighten via real parser types.
 // ---------------------------------------------------------------------------
 
-interface McuParamDefLike {
+// v1.15.2 PATCH (B-3.2) — exported for the unified
+// `cTypeForKind` in `_shared.ts`. Previously module-local;
+// the union of EcuC + Mcu parameter shapes is now referenced
+// from `_shared.ts`.
+export interface McuParamDefLike {
   readonly kind: 'integer' | 'boolean' | 'string' | 'float' | 'enumeration';
   // v1.13.4 PATCH-B (M5) — real BSWMD shortName. Replaces the
   // hardcoded `'Param'` literal in path construction.
@@ -120,25 +124,13 @@ const GENERATOR_VERSION = '1.12.0';
 // `handlebars-helpers.ts` (D-rev2 R2, R3); call sites now use
 // `cIdent` directly. `renderCValue` lives in `_shared.ts` with the
 // `u` suffix preserved (D-rev2 R6).
+//
+// v1.15.2 PATCH (B-3.3) — per-module `cTypeForKind` deleted. The
+// unified `cTypeForKind` from `_shared.ts` dispatches on
+// `moduleKind` literal; Mcu's `integer` arm hardcodes `'uint32'`
+// for clock reference points per AUTOSAR convention. No behavior
+// change for Mcu's emitted artefacts.
 // ---------------------------------------------------------------------------
-
-function cTypeForKind(def: McuParamDefLike): string {
-  switch (def.kind) {
-    case 'integer':
-      // Per-module: EcuC uses `integerToCType(min, max)`
-      // (min/max-aware). Mcu hardcodes `'uint32'` for clock
-      // reference points per AUTOSAR convention; narrower
-      // ranges would be unsafe without per-BSWMD min/max
-      // bounds.
-      return 'uint32';
-    default:
-      // v1.15.1 PATCH (B-5) — delegate the 5 byte-identical
-      // arms (boolean / string / float / enumeration /
-      // default) to the shared helper. See EcuC's
-      // `cTypeForKind` for the symmetric change.
-      return cTypeForBasicKind(def.kind);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Generator
@@ -199,7 +191,7 @@ export class McuGenerator implements ModuleGenerator {
         for (const pDef of cDef.parameters) {
           const path = `${ancestry}/${pDef.shortName ?? 'Param'}`;
           const value = paramByPath.get(path);
-          const cType = cTypeForKind(pDef);
+          const cType = cTypeForKind(pDef, 'Mcu');
           // v1.13.3 PATCH-C: `paramIdent` → `cIdent` (byte-identical body
           // moved to handlebars-helpers.ts in earlier refactor; the
           // duplicate is now deleted in favor of the canonical helper).

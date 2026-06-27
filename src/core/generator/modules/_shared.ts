@@ -20,19 +20,22 @@
 //     and consumed directly by both modules (no duplication left).
 //   - `paramIdent` — byte-identical to `cIdent`; the duplicate was
 //     removed in v1.13.3 PATCH-C (D-rev2 R2, R3).
-//   - `cTypeForKind` — per-module because they have already diverged:
-//     EcuC's `integer` arm routes through `integerToCType(min, max)`
-//     and EcuC has `reference` + `function-name` arms (added in
-//     v1.14.0 S2 Refs-1 ref emit). Mcu's `integer` arm hardcodes
-//     `'uint32'` (no `integerToCType` call). Default arms both return
-//     `'uint8'` for now, but that is the only remaining identity.
-//     The shared `cType` returns `'??'` (fail-fast). Consolidation
-//     is deferred to the v1.15.0 generator refactor (D-rev3 B-5).
+//   - `cTypeForKind` — unified here as of v1.15.2 PATCH (B-3.3); the
+//     per-module duplicates in `ecuc.ts:148` and `mcu.ts:125` were
+//     deleted. The unified function dispatches on the `moduleKind`
+//     literal (`'EcuC' | 'Mcu'`) and produces the same C type string
+//     for every kind the per-module functions handled (EcuC's
+//     `integer` arm routes through `integerToCType`; Mcu's hardcodes
+//     `'uint32'`; `reference` and `function-name` are EcuC-specific).
+//     B-3 emit*Decl + Handlebars parts remain deferred to v1.16.0.
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from '../diagnostics.js';
 import type { NormalizedConfigTree } from '../emit/reference.js';
-import { cIdent, validateHeaderPath } from '../handlebars-helpers.js';
+import { cIdent, integerToCType, validateHeaderPath } from '../handlebars-helpers.js';
 import type { GenerationContext } from '../registry.js';
+
+import type { EcuCParamDefLike } from './ecuc.js';
+import type { McuParamDefLike } from './mcu.js';
 
 /**
  * EcuC/Mcu's variant of `cValue` from handlebars-helpers.ts: same
@@ -331,22 +334,18 @@ export function resolveIncludesForModule(
 }
 
 /**
- * v1.15.1 PATCH (B-5) — shared `cTypeForKind` for the 5 arms
- * that are byte-identical between EcuC and Mcu generators
- * (per v1.14.3 PATCH-I C-2 fix that confirmed the default
- * arms are identical). The `integer` arm stays per-module:
- * EcuC uses `integerToCType(min, max)` (min/max-aware), Mcu
- * hardcodes `'uint32'` per AUTOSAR convention for clock
- * reference points. EcuC's `reference` and `function-name`
- * arms also stay per-module (Mcu doesn't model those kinds
- * yet).
+ * v1.15.1 PATCH (B-5) + v1.15.2 PATCH (M-1) — shared `cTypeForKind`
+ * helper covering the 4 known basic-kind arms that are byte-identical
+ * between EcuC and Mcu generators (boolean / string / float /
+ * enumeration). The `integer` arm stays per-module via the unified
+ * `cTypeForKind` dispatcher (EcuC: integerToCType(min, max);
+ * Mcu: hardcoded 'uint32'). Unknown-kind semantics (per-module
+ * 'uint8' fail-safe) live in the unified `cTypeForKind`, not here.
  *
- * If B-3 (full type-driven refactor) lands, this helper
- * becomes the `default` arm of the unified dispatcher and
- * the per-module `cTypeForKind` functions are deleted.
- *
- * B-5.4 locks the contract with 5 direct unit tests
- * (one per arm).
+ * B-5.4 originally locked this helper with 5 tests (one per arm
+ * including default). v1.15.2 PATCH (M-1.2) removed the default-case
+ * test; the unknown-kind behavior is now locked in
+ * `c-type-for-kind.test.ts` (test 11) via the unified dispatcher.
  */
 export function cTypeForBasicKind(kind: string): string {
   switch (kind) {
@@ -358,9 +357,55 @@ export function cTypeForBasicKind(kind: string): string {
       return 'float32';
     case 'enumeration':
       return 'uint8';
-    default:
-      return 'uint8';
   }
+  // No default arm — the 4 cases above are exhaustive for the
+  // shared-kind set. Unknown kinds fall through to the backstop.
+  return 'uint8';
+}
+
+/**
+ * v1.15.2 PATCH (B-3 partial) — unified `cTypeForKind` for EcuC + Mcu.
+ *
+ * The 4 shared arms (boolean / string / float / enumeration) route
+ * through `cTypeForBasicKind`. The per-module arms are dispatched on
+ * `moduleKind`:
+ *
+ * - `integer`      : EcuC → integerToCType(min ?? 0, max ?? 0)
+ *                    Mcu  → 'uint32' (hardcoded for clock ref points)
+ * - `reference`    : EcuC → `const ${def.targetType ?? 'void'} * const`
+ *                    Mcu  → no current BSWMD subset; returns 'uint8'
+ * - `function-name`: EcuC → def.signature ?? 'void'
+ *                    Mcu  → no current BSWMD subset; returns 'uint8'
+ * - unknown kind   : 'uint8' fail-safe (per-module semantics, lives
+ *                    here not in cTypeForBasicKind)
+ *
+ * Replaces the per-module `cTypeForKind` previously defined in
+ * `ecuc.ts:148` and `mcu.ts:125` (deleted in B-3.3). The unified
+ * function is the first step of B-3 (full generator type-driven
+ * refactor); B-3 emit*Decl + Handlebars parts remain deferred to
+ * v1.16.0 MINOR.
+ */
+export function cTypeForKind(
+  def: EcuCParamDefLike | McuParamDefLike,
+  moduleKind: 'EcuC' | 'Mcu',
+): string {
+  // Per-module `integer` arm — min/max-aware for EcuC, hardcoded
+  // for Mcu clock reference points.
+  if (def.kind === 'integer') {
+    return moduleKind === 'EcuC' ? integerToCType(def.min ?? 0, def.max ?? 0) : 'uint32';
+  }
+  // EcuC-specific: `reference` + `function-name` arms (v1.14.0 S2).
+  // EcuC uses def.targetType / def.signature; Mcu has no current
+  // BSWMD entries for these and falls back to the Mcu safe default
+  // of `'uint8'`.
+  if (def.kind === 'reference') {
+    return moduleKind === 'EcuC' ? `const ${def.targetType ?? 'void'} * const` : 'uint8';
+  }
+  if (def.kind === 'function-name') {
+    return moduleKind === 'EcuC' ? (def.signature ?? 'void') : 'uint8';
+  }
+  // Shared arms: boolean / string / float / enumeration
+  return cTypeForBasicKind(def.kind);
 }
 
 /**

@@ -46,7 +46,10 @@ export interface EcucContainerInstanceForMultiplicity {
  */
 export function validateMultiplicity(
   bswmdByModule: ReadonlyMap<string, BswmdModuleDefForMultiplicity>,
-  ecucByModule: ReadonlyMap<string, { containers?: readonly EcucContainerInstanceForMultiplicity[] }>,
+  ecucByModule: ReadonlyMap<
+    string,
+    { containers?: readonly EcucContainerInstanceForMultiplicity[] }
+  >,
 ): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const [modName, ecuc] of ecucByModule) {

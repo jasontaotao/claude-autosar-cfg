@@ -25,14 +25,8 @@ export interface EcucParameterValueForRange {
 }
 
 export function validateRange(
-  bswmdByModule: ReadonlyMap<
-    string,
-    { params?: readonly BswmdNumericParamDefForRange[] }
-  >,
-  ecucByModule: ReadonlyMap<
-    string,
-    { parameters?: readonly EcucParameterValueForRange[] }
-  >,
+  bswmdByModule: ReadonlyMap<string, { params?: readonly BswmdNumericParamDefForRange[] }>,
+  ecucByModule: ReadonlyMap<string, { parameters?: readonly EcucParameterValueForRange[] }>,
 ): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const [modName, ecuc] of ecucByModule) {
@@ -40,9 +34,7 @@ export function validateRange(
     if (def?.params === undefined) continue;
     for (const paramDef of def.params) {
       if (paramDef.min === undefined && paramDef.max === undefined) continue;
-      const paramVal = (ecuc.parameters ?? []).find(
-        (p) => p.shortName === paramDef.shortName,
-      );
+      const paramVal = (ecuc.parameters ?? []).find((p) => p.shortName === paramDef.shortName);
       if (paramVal === undefined) continue;
       const v = paramVal.value;
       if (typeof v !== 'number') continue; // type-check owns this case
@@ -53,8 +45,7 @@ export function validateRange(
           moduleShortName: modName,
           ecucPath: paramDef.shortName,
           message:
-            `Parameter ${modName}/${paramDef.shortName}: ` +
-            `value ${v} below min ${paramDef.min}`,
+            `Parameter ${modName}/${paramDef.shortName}: ` + `value ${v} below min ${paramDef.min}`,
         });
       }
       if (paramDef.max !== undefined && v > paramDef.max) {
@@ -64,8 +55,7 @@ export function validateRange(
           moduleShortName: modName,
           ecucPath: paramDef.shortName,
           message:
-            `Parameter ${modName}/${paramDef.shortName}: ` +
-            `value ${v} above max ${paramDef.max}`,
+            `Parameter ${modName}/${paramDef.shortName}: ` + `value ${v} above max ${paramDef.max}`,
         });
       }
     }
