@@ -442,7 +442,9 @@ describe('runPipeline', () => {
     // No stage-1 ERROR may fire.
     expect(diagnostics.filter((d) => d.severity === DiagnosticSeverity.ERROR)).toHaveLength(0);
     // BSW-SEC-003 known-warn tolerance per v1.14.2 H1 (≤1 WARN).
-    expect(diagnostics.filter((d) => d.severity === DiagnosticSeverity.WARNING).length).toBeLessThanOrEqual(1);
+    expect(
+      diagnostics.filter((d) => d.severity === DiagnosticSeverity.WARNING).length,
+    ).toBeLessThanOrEqual(1);
     // BSW-SEC-004 specifically is silent (ref target has moduleHeader).
     expect(diagnostics).not.toContainEqual(
       expect.objectContaining({ code: DiagnosticCode.BSW_SEC_MISSING_TARGET_HEADER }),
