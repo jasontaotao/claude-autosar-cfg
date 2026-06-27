@@ -66,18 +66,14 @@ describe('R-2 — moduleHeader thread: def.moduleHeader flows into template', ()
     // Backwards-compat: callers that build a def without moduleHeader
     // (older fixtures, ad-hoc tests) get the conventional path.
     const g = new McuGenerator();
-    const out = g.emit(
-      { shortName: 'Mcu', containers: [] } as never,
-      { references: [] } as never,
-      {
-        variant: 'PreCompile',
-        bswmdIndex: new Map(),
-        implByModule: new Map(),
-        outDir: '/tmp',
-        diagnostics: [],
-        bswmdParamIndex: new Map(),
-      },
-    );
+    const out = g.emit({ shortName: 'Mcu', containers: [] } as never, { references: [] } as never, {
+      variant: 'PreCompile',
+      bswmdIndex: new Map(),
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: [],
+      bswmdParamIndex: new Map(),
+    });
     const c = out.find((a) => a.path === 'Mcu/Mcu_Cfg.c');
     if (!c) throw new Error('Mcu/Mcu_Cfg.c missing from emit output');
     expect(c.content).toContain('#include "Mcu/Mcu_Cfg.h"');
@@ -112,40 +108,28 @@ describe('R-2 — moduleHeader thread: def.moduleHeader flows into template', ()
   it('SEC3 gate: EcuC fallback with invalid shortName pushes BSW-SEC-002', () => {
     const g = new EcuCGenerator();
     const diagnostics: unknown[] = [];
-    g.emit(
-      { shortName: '../EcuC_Evil', containers: [] } as never,
-      { references: [] } as never,
-      {
-        variant: 'PreCompile',
-        bswmdIndex: new Map(),
-        implByModule: new Map(),
-        outDir: '/tmp',
-        diagnostics: diagnostics as never,
-        bswmdParamIndex: new Map(),
-      },
-    );
-    expect(diagnostics).toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-002' }),
-    );
+    g.emit({ shortName: '../EcuC_Evil', containers: [] } as never, { references: [] } as never, {
+      variant: 'PreCompile',
+      bswmdIndex: new Map(),
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: diagnostics as never,
+      bswmdParamIndex: new Map(),
+    });
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: 'BSW-SEC-002' }));
   });
 
   it('SEC3 gate: Mcu fallback with invalid shortName pushes BSW-SEC-002', () => {
     const g = new McuGenerator();
     const diagnostics: unknown[] = [];
-    g.emit(
-      { shortName: 'Mcu; rm -rf /', containers: [] } as never,
-      { references: [] } as never,
-      {
-        variant: 'PreCompile',
-        bswmdIndex: new Map(),
-        implByModule: new Map(),
-        outDir: '/tmp',
-        diagnostics: diagnostics as never,
-        bswmdParamIndex: new Map(),
-      },
-    );
-    expect(diagnostics).toContainEqual(
-      expect.objectContaining({ code: 'BSW-SEC-002' }),
-    );
+    g.emit({ shortName: 'Mcu; rm -rf /', containers: [] } as never, { references: [] } as never, {
+      variant: 'PreCompile',
+      bswmdIndex: new Map(),
+      implByModule: new Map(),
+      outDir: '/tmp',
+      diagnostics: diagnostics as never,
+      bswmdParamIndex: new Map(),
+    });
+    expect(diagnostics).toContainEqual(expect.objectContaining({ code: 'BSW-SEC-002' }));
   });
 });

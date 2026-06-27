@@ -23,21 +23,21 @@
 
 The new generator sits under `src/core/generator/` and is composed of:
 
-| Module | Role |
-|---|---|
-| `diagnostics.ts` | `DiagnosticCode` enum (12 codes) + `Diagnostic` channel type |
-| `registry.ts` | `registerGenerator()` / `getGenerator()` / `clearRegistry()` |
+| Module                                    | Role                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `diagnostics.ts`                          | `DiagnosticCode` enum (12 codes) + `Diagnostic` channel type                                             |
+| `registry.ts`                             | `registerGenerator()` / `getGenerator()` / `clearRegistry()`                                             |
 | `handlebars.ts` + `handlebars-helpers.ts` | Handlebars engine + `cIdent` / `cType` / `cValue` / `paramConfigClass` / `bswmdPathOf` / `partitionName` |
-| `normalize.ts` | `normalizeToTree` — pre-process BSWMD + ECUC values into a tree |
-| `pipeline.ts` | 3-stage orchestrator (pre-process / generate / post-process) with exit-code logic |
-| `post-process.ts` | Atomic file write (temp + rename) |
-| `emit/strategy.ts` | configClass × isArray matrix |
-| `emit/types.ts` | `typeToCType` (ECUC → C) |
-| `emit/container.ts` | Container emit with deterministic INDEX ordering |
-| `emit/choice.ts` | Choice emit (`#ifdef` blocks) + choices.json loader |
-| `emit/reference.ts` | Reference integrity validation + emit |
-| `modules/ecuc.ts` | `EcuCGenerator` class (single-module end-to-end proof) |
-| `index.ts` | Public API barrel |
+| `normalize.ts`                            | `normalizeToTree` — pre-process BSWMD + ECUC values into a tree                                          |
+| `pipeline.ts`                             | 3-stage orchestrator (pre-process / generate / post-process) with exit-code logic                        |
+| `post-process.ts`                         | Atomic file write (temp + rename)                                                                        |
+| `emit/strategy.ts`                        | configClass × isArray matrix                                                                             |
+| `emit/types.ts`                           | `typeToCType` (ECUC → C)                                                                                 |
+| `emit/container.ts`                       | Container emit with deterministic INDEX ordering                                                         |
+| `emit/choice.ts`                          | Choice emit (`#ifdef` blocks) + choices.json loader                                                      |
+| `emit/reference.ts`                       | Reference integrity validation + emit                                                                    |
+| `modules/ecuc.ts`                         | `EcuCGenerator` class (single-module end-to-end proof)                                                   |
+| `index.ts`                                | Public API barrel                                                                                        |
 
 ## CLI
 
@@ -52,11 +52,11 @@ claude-autosarcfg generate \
 
 Exit codes:
 
-| Code | Meaning |
-|---|---|
-| 0 | `EXIT_SUCCESS` — all modules generated cleanly |
-| 1 | `EXIT_FATAL` — at least one E-class diagnostic (BSWMD/ECUC schema missing, broken ref, etc.) |
-| 2 | `EXIT_WARNING` — only W-class diagnostics (missing optional ref, default-fill only, etc.) |
+| Code | Meaning                                                                                      |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 0    | `EXIT_SUCCESS` — all modules generated cleanly                                               |
+| 1    | `EXIT_FATAL` — at least one E-class diagnostic (BSWMD/ECUC schema missing, broken ref, etc.) |
+| 2    | `EXIT_WARNING` — only W-class diagnostics (missing optional ref, default-fill only, etc.)    |
 
 ## Test Coverage
 
@@ -72,15 +72,15 @@ Exit codes:
 
 `pnpm verify` (all 7 stages):
 
-| Stage | Status |
-|---|---|
-| format | PASS |
-| lint | PASS (after dropping dead `deleteEcucModuleAction` var) |
-| type-check | 5 pre-existing renderer WIP errors in ECUC delete feature remain out of scope |
-| test | 2296 pass + 1 skip + 10 todo; 16 pre-existing workspace failures |
-| coverage | generator 91.94% / 74.86% / 94.87% — above 80% floor |
-| build | 3 stages PASS (renderer 846.77 kB / main 370.83 kB / preload 2.44 kB) |
-| import-regression | 2 tests PASS |
+| Stage             | Status                                                                        |
+| ----------------- | ----------------------------------------------------------------------------- |
+| format            | PASS                                                                          |
+| lint              | PASS (after dropping dead `deleteEcucModuleAction` var)                       |
+| type-check        | 5 pre-existing renderer WIP errors in ECUC delete feature remain out of scope |
+| test              | 2296 pass + 1 skip + 10 todo; 16 pre-existing workspace failures              |
+| coverage          | generator 91.94% / 74.86% / 94.87% — above 80% floor                          |
+| build             | 3 stages PASS (renderer 846.77 kB / main 370.83 kB / preload 2.44 kB)         |
+| import-regression | 2 tests PASS                                                                  |
 
 ## Out of Scope (v2+)
 

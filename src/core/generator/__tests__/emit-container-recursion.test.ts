@@ -8,10 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import {
-  walkContainersWithAncestry,
-  type ContainerLike,
-} from '../emit/container.js';
+import { walkContainersWithAncestry, type ContainerLike } from '../emit/container.js';
 
 describe('walkContainersWithAncestry (no ancestry, leaf-only use case)', () => {
   it('visits every container in pre-order (root → children → grandchildren)', () => {
@@ -40,11 +37,7 @@ describe('walkContainersWithAncestry (no ancestry, leaf-only use case)', () => {
         visited.push(c.shortName);
       },
     );
-    expect(visited).toEqual([
-      'PartitionConfig',
-      'PartitionBuffer',
-      'PartitionBufferHeader',
-    ]);
+    expect(visited).toEqual(['PartitionConfig', 'PartitionBuffer', 'PartitionBufferHeader']);
   });
 
   it('does not visit siblings of the root', () => {
@@ -120,9 +113,7 @@ describe('walkContainersWithAncestry (v1.14.1 PATCH-G G3)', () => {
             {
               shortName: 'McuRamSection',
               parameters: [],
-              containers: [
-                { shortName: 'McuRamSectionBaseAddress', parameters: [] },
-              ],
+              containers: [{ shortName: 'McuRamSectionBaseAddress', parameters: [] }],
             },
           ],
         },
@@ -137,8 +128,7 @@ describe('walkContainersWithAncestry (v1.14.1 PATCH-G G3)', () => {
       { name: 'McuRamSection', ancestry: 'Mcu/McuModuleConfiguration/McuRamSection' },
       {
         name: 'McuRamSectionBaseAddress',
-        ancestry:
-          'Mcu/McuModuleConfiguration/McuRamSection/McuRamSectionBaseAddress',
+        ancestry: 'Mcu/McuModuleConfiguration/McuRamSection/McuRamSectionBaseAddress',
       },
     ]);
   });
@@ -153,13 +143,9 @@ describe('walkContainersWithAncestry (v1.14.1 PATCH-G G3)', () => {
 
   it('handles empty parentPath (no leading slash on root)', () => {
     const seen: string[] = [];
-    walkContainersWithAncestry(
-      [{ shortName: 'A', parameters: [] }],
-      '',
-      (_c, ancestry) => {
-        seen.push(ancestry);
-      },
-    );
+    walkContainersWithAncestry([{ shortName: 'A', parameters: [] }], '', (_c, ancestry) => {
+      seen.push(ancestry);
+    });
     expect(seen).toEqual(['A']);
   });
 });

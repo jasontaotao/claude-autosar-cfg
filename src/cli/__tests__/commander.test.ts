@@ -155,12 +155,7 @@ describe('commander — validate sub-command flags', () => {
 
 describe('commander — generate sub-command flags', () => {
   it('exposes --variant, --out-dir, --modules, --strict', () => {
-    expect(GENERATE_FLAG_NAMES).toEqual([
-      '--variant',
-      '--out-dir',
-      '--modules',
-      '--strict',
-    ]);
+    expect(GENERATE_FLAG_NAMES).toEqual(['--variant', '--out-dir', '--modules', '--strict']);
   });
 
   it('parses --project and defaults variant to PreCompile', () => {
@@ -227,13 +222,7 @@ describe('commander — generate sub-command flags', () => {
   });
 
   it('omits outDir and modules when not provided (handler applies defaults)', () => {
-    const parsed = parseCliArgs([
-      'node',
-      'autosarcfg',
-      'generate',
-      '--project',
-      '/tmp/p.json',
-    ]);
+    const parsed = parseCliArgs(['node', 'autosarcfg', 'generate', '--project', '/tmp/p.json']);
     if (parsed.kind === 'generate') {
       expect(parsed.input.outDir).toBeUndefined();
       expect(parsed.input.modules).toBeUndefined();
@@ -272,13 +261,7 @@ describe('commander — generate sub-command flags', () => {
   });
 
   it('defaults generate format to human and accepts --format json', () => {
-    const human = parseCliArgs([
-      'node',
-      'autosarcfg',
-      'generate',
-      '--project',
-      '/tmp/p.json',
-    ]);
+    const human = parseCliArgs(['node', 'autosarcfg', 'generate', '--project', '/tmp/p.json']);
     const json = parseCliArgs([
       'node',
       'autosarcfg',

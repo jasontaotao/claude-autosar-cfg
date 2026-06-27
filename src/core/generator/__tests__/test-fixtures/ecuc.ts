@@ -94,9 +94,7 @@ export const ecucDef: BswmdModuleDef = {
           // mixed-build case where the value is loaded post-build
           // even in a PreCompile variant. This is what triggers the
           // loader-entry emission in PBcfg.c.
-          paramConfigClasses: [
-            { configClass: 'POST-BUILD', configVariant: 'VARIANT-PRE-COMPILE' },
-          ],
+          paramConfigClasses: [{ configClass: 'POST-BUILD', configVariant: 'VARIANT-PRE-COMPILE' }],
           min: 0,
           max: 4294967295,
         } satisfies BswmdParamDef,

@@ -22,14 +22,8 @@ export interface EcucContainerInstanceForOrdering {
 }
 
 export function validateOrdering(
-  bswmdByModule: ReadonlyMap<
-    string,
-    { containers?: readonly BswmdContainerDefForOrdering[] }
-  >,
-  ecucByModule: ReadonlyMap<
-    string,
-    { containers?: readonly EcucContainerInstanceForOrdering[] }
-  >,
+  bswmdByModule: ReadonlyMap<string, { containers?: readonly BswmdContainerDefForOrdering[] }>,
+  ecucByModule: ReadonlyMap<string, { containers?: readonly EcucContainerInstanceForOrdering[] }>,
 ): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const [modName, ecuc] of ecucByModule) {

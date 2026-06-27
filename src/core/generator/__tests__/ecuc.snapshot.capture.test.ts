@@ -19,10 +19,7 @@ import { describe, it } from 'vitest';
 
 import { EcuCGenerator } from '../modules/ecuc.js';
 import { normalizeToTree, type BswmdModuleDefLite } from '../normalize.js';
-import {
-  _resetRegistryForTest,
-  type GenerationContext,
-} from '../registry.js';
+import { _resetRegistryForTest, type GenerationContext } from '../registry.js';
 
 import {
   ecucDef,
@@ -34,16 +31,7 @@ import {
 } from './test-fixtures/ecuc.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outRoot = join(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  '..',
-  'testdata',
-  'generator',
-  'ecuc-expected',
-);
+const outRoot = join(__dirname, '..', '..', '..', '..', 'testdata', 'generator', 'ecuc-expected');
 
 function makeCtx(): GenerationContext {
   // v1.13.4 PATCH-B (L3) — populate bswmdParamIndex so the structured
@@ -93,11 +81,7 @@ describe.skipIf(!RUN_CAPTURE)('capture EcuC snapshots', () => {
     ];
     for (const { scenario, values } of scenarios) {
       _resetRegistryForTest();
-      const out = generator.emit(
-        ecucDef as unknown as BswmdModuleDef,
-        values,
-        makeCtx(),
-      );
+      const out = generator.emit(ecucDef as unknown as BswmdModuleDef, values, makeCtx());
       const dir = join(outRoot, `${scenario}-1`);
       mkdirSync(dir, { recursive: true });
       for (const art of out) {

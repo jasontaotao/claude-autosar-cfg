@@ -15,7 +15,10 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import type { BswmdModuleDefLite , EcucModuleConfigurationValuesInput } from '../../../core/generator/normalize.js';
+import type {
+  BswmdModuleDefLite,
+  EcucModuleConfigurationValuesInput,
+} from '../../../core/generator/normalize.js';
 import { _resetRegistryForTest } from '../../../core/generator/registry.js';
 import type { GenerateArgs } from '../../../shared/headless/ipc-contract.js';
 import { parseCliArgs } from '../../commander.js';

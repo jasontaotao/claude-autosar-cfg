@@ -224,9 +224,7 @@ describe('EcuCGenerator', () => {
     // Post-H3 (ancestry-aware): cIdent is
     //   `${ancestry}/${paramShortName}` = EcuC/PartitionConfig/PartitionBuffer/BufferLength
     //   → `EcuC_PartitionConfig_PartitionBuffer_BufferLength`.
-    expect(cfgC.content).toContain(
-      'EcuC_PartitionConfig_PartitionBuffer_BufferLength',
-    );
+    expect(cfgC.content).toContain('EcuC_PartitionConfig_PartitionBuffer_BufferLength');
   });
 
   it('v1.14.2 H3 — leaf-only container emits same as before (no regression)', () => {

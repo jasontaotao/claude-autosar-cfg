@@ -56,23 +56,15 @@ function expectedRuntimeKind(kind: BswmdParamKind): 'number' | 'boolean' | 'stri
  * supplied. Mismatch → ERROR push.
  */
 export function validateTypeMatches(
-  bswmdByModule: ReadonlyMap<
-    string,
-    { params?: readonly BswmdParamDefForTypeCheck[] }
-  >,
-  ecucByModule: ReadonlyMap<
-    string,
-    { parameters?: readonly EcucParameterValueForTypeCheck[] }
-  >,
+  bswmdByModule: ReadonlyMap<string, { params?: readonly BswmdParamDefForTypeCheck[] }>,
+  ecucByModule: ReadonlyMap<string, { parameters?: readonly EcucParameterValueForTypeCheck[] }>,
 ): readonly Diagnostic[] {
   const out: Diagnostic[] = [];
   for (const [modName, ecuc] of ecucByModule) {
     const def = bswmdByModule.get(modName);
     if (def?.params === undefined) continue;
     for (const paramDef of def.params) {
-      const paramVal = (ecuc.parameters ?? []).find(
-        (p) => p.shortName === paramDef.shortName,
-      );
+      const paramVal = (ecuc.parameters ?? []).find((p) => p.shortName === paramDef.shortName);
       if (paramVal === undefined) continue;
       const actualKind = typeof paramVal.value;
       const expectedKind = expectedRuntimeKind(paramDef.kind);
