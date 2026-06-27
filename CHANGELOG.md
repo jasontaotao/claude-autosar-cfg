@@ -5,6 +5,20 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.15.3 (2026-06-27) — PATCH
+
+Closes 1 advisory Important (I-1) + 4 Minor follow-ups from the v1.15.2 code-review + lands the stale `docs/user-manual.html` baseline jump + deletes the obsolete sprint-14 `docs/bswmd-to-ecuc-mockup.html`. Zero production-code changes; zero test-count delta; 0 snapshot regen; SEC1–SEC4 controls intact.
+
+- **I-1 (`test(generator)`)**: Remove misleading `as 'integer'` cast on the `c-type-for-kind.test.ts:71-77` unknown-kind test. The cast existed only because the production parameter type is `EcuCParamDefLike | McuParamDefLike` (strict union); the new test widens via `satisfies { kind: string }` + a double-cast through `as unknown as Parameters<typeof cTypeForKind>[0]` that preserves type-system intent without lying to the reader. The runtime value (`'unknown-kind'`) is unchanged; behavior is identical.
+- **M-T3-1 (`test(generator)`)**: Update `c-type-for-basic-kind.test.ts` header comment to describe the post-M-1.1 4-arm world (was: 5-arm pre-M-1). Comment-only; no test-case change. Cross-references the unified dispatcher's `c-type-for-kind.test.ts` test 11 where unknown-kind semantics now live.
+- **M-T4-1 (`test(generator)`)**: Refactor the `pipeline.test.ts:435-458` M-2.1 assertion block to use vitest's chained `.not.toContainEqual(expect.objectContaining({...}))` for the BSW-SEC-004 negative check, plus destructure `result` once for symmetry with other v1.15.0+ tests. Same 5 invariants asserted; same 0-fail outcome.
+- **M-4 (`docs(generator)`)**: Add `@param` / `@returns` / `@example` lines to the `cTypeForKind` JSDoc in `src/core/generator/modules/_shared.ts`. Mirrors the JSDoc style of `cTypeForBasicKind` above it; improves call-site discoverability for the per-module `moduleKind` argument.
+- **M-T5-1 (`docs`)**: Reformat the v1.15.2 CHANGELOG bullets to wrap-with-prose at ~100 columns (matching v1.15.1 style). No content change.
+- **DOC-1 (`docs(user-manual)`)**: Land the stale `docs/user-manual.html` baseline jump from v1.2.0 → v1.15.2 (manual references bumped in title + hero + brand + What's New section + ch.13). The +475/-11 line update has been sitting in the working directory since the v1.11+ BSW generator era; this commit finally makes the manual current.
+- **DOC-2 (`chore(docs)`)**: Delete the obsolete `docs/bswmd-to-ecuc-mockup.html` (1454 lines, sprint-14 era). The ECUC-from-BSWMD feature it mockups has long since shipped (v1.11.0 BSW code generator) and superseded. 3 historical references in `CHANGELOG.md` × 2 + `docs/superpowers/archive/plans/2026-06-18-ecuc-from-bswmd.md` × 1 intentionally retained.
+
+8 commits on top of v1.15.2 (`844d6e17`). Test count: 2482 → 2482 (zero delta; no test additions or deletions). No snapshot regen. SEC1–SEC4 controls intact. Coverage 96.01% / 86.98% / 95.58% (unchanged; no production code touched).
+
 ## v1.15.2 (2026-06-27) — PATCH
 
 Closes 2 advisory MEDIUM items from the v1.15.1 code-review (M-1, M-2) + ships the cTypeForKind piece of the v1.15.0 B-3 generator type-driven refactor (B-3 partial). No behavior change for existing fixtures.
