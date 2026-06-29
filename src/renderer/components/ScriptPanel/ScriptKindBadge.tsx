@@ -5,9 +5,9 @@
 // class so the colour comes from the stylesheet. Pure presentational
 // component — no state, no store access.
 
-import type { ScriptKind } from '@main/script/types';
 import { t } from '@shared/i18n';
 import type { Locale } from '@shared/i18n';
+import type { ScriptKind } from '@shared/script/types';
 
 export interface ScriptKindBadgeProps {
   readonly kind: ScriptKind;

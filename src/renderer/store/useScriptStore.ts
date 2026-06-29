@@ -20,7 +20,7 @@
 
 import { create } from 'zustand';
 
-import type { ScriptKind, ScriptRunResult, ScriptSummary } from '@main/script/types';
+import type { ScriptKind, ScriptRunResult, ScriptSummary } from '@shared/script/types';
 
 import type {
   ArxmlContainer,

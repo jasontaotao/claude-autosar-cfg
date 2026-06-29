@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
-import type { ScriptRunResult, ScriptSummary } from '@main/script/types';
+import type { ScriptRunResult, ScriptSummary } from '@shared/script/types';
 import type { ProjectSaveRequest, ProjectSaveResult } from '@shared/types';
 
 import { writeAtomic } from '../../../main/io/writeAtomic.js';

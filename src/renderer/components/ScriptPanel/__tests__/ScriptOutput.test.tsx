@@ -13,7 +13,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ScriptRunResult } from '@main/script/types';
+import type { ScriptRunResult } from '@shared/script/types';
 
 import { ScriptOutput } from '../ScriptOutput';
 

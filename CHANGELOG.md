@@ -5,6 +5,15 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.16.0 (2026-06-29) — MINOR
+
+Layering Hardening (C12 from joint review).
+
+- **`feat(architecture)`** — Renderer can no longer import `@main/*` directly. Closes the joint-review C12 finding (renderer→@main 11 type-only imports smuggling past the package-name ESLint check). Migration: created `src/shared/script/types.ts` re-exporting from `src/main/script/types.ts`; rewrote all 11 renderer import sites from `@main/script/types` to `@shared/script/types`. The re-export is type-only (`export type`), so the new shared file costs zero runtime bytes in either bundle.
+- **`chore(eslint)`** — Extended `.eslintrc.cjs` `no-restricted-imports` rule for `src/renderer/**/*.{ts,tsx}` to block `@main` path-alias imports in addition to the existing `electron` package-name check. The path alias was a Vite-only construct (renderer uses it, main doesn't alias `@main` for itself), so the old rule never fired even when the boundary was crossed.
+
+Scope note: the joint-review also flagged 144 `renderer→@core/*` imports. These are NOT violations per the README's "core/ is pure TS, no react/electron/DOM" rule — `@core/*` is renderer-allowed by design. Future audits can distinguish "core reverse imports" (architectural, OK) from "main reverse imports" (forbidden, now blocked).
+
 ## v1.15.5 (2026-06-29) — PATCH
 
 Trust Contract + Coverage Hardening. Closes 4 of 13 HIGH-severity findings from the 2026-06-29 joint review (4-agent parallel review + verify agent 13/13 CONFIRMED).

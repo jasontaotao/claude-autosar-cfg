@@ -10,8 +10,8 @@
 // The Commit / Discard buttons appear only when the run finished with
 // mutations (status === 'ok' AND mutations.length > 0).
 
-import type { ScriptLog, ScriptRunResult } from '@main/script/types';
 import { t } from '@shared/i18n';
+import type { ScriptLog, ScriptRunResult } from '@shared/script/types';
 
 export interface ScriptOutputProps {
   readonly result: ScriptRunResult | null;

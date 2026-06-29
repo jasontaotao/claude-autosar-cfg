@@ -84,6 +84,22 @@ module.exports = {
                 name: 'electron',
                 message: 'renderer/ must not import electron directly (use preload bridge)',
               },
+              // v1.16.0 — path-alias form of the same rule. Even
+              // type-only imports across the layer boundary were
+              // smuggling past the package-name check; ESLint's
+              // `no-restricted-imports` only catches string matches,
+              // and `@main/script/types` looked benign because the
+              // string 'electron' isn't in the import. The architectural
+              // invariant is "renderer reaches main only via preload" —
+              // the alias is just a Vite resolution of that same
+              // boundary. Migration target: types live in
+              // `@shared/script/types` (renderer-allowed) so this rule
+              // never fires for legitimate needs.
+              {
+                name: '@main',
+                message:
+                  'renderer/ must not import @main/* directly (use preload bridge for runtime, @shared/* for types)',
+              },
             ],
           },
         ],

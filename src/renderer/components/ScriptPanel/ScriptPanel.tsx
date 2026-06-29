@@ -18,8 +18,8 @@
 
 import { useEffect, useMemo } from 'react';
 
-import type { ScriptKind, ScriptSummary } from '@main/script/types';
 import { t } from '@shared/i18n';
+import type { ScriptKind, ScriptSummary } from '@shared/script/types';
 
 import { useScriptActions } from '../../hooks/useScriptActions';
 import { useArxmlStore } from '../../store/useArxmlStore';
