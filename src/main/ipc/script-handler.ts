@@ -18,7 +18,7 @@
 //     scripts still execute.
 
 import { randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import type { ArxmlDocument, ArxmlVersion } from '../../core/arxml/types.js';
@@ -33,6 +33,7 @@ import type {
   ScriptSaveRequest,
   ScriptSaveResponse,
 } from '../../shared/types.js';
+import { writeAtomic } from '../io/writeAtomic.js';
 import { classScriptError, validateShortName, ScriptError } from '../script/errors.js';
 import { resolveImports } from '../script/import-resolver.js';
 import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptViolation } from '../script/types.js';
@@ -73,7 +74,7 @@ interface LoadedManifest {
   readonly scripts: readonly ScriptEntry[];
 }
 
-function loadCurrentManifest(): LoadedManifest {
+async function loadCurrentManifest(): Promise<LoadedManifest> {
   if (_manifestPath === null || _projectId === null) {
     throw classScriptError(
       'no-project',
@@ -83,7 +84,7 @@ function loadCurrentManifest(): LoadedManifest {
   assertSafeManifestPath(_manifestPath);
   let raw: string;
   try {
-    raw = readFileSync(_manifestPath, 'utf8');
+    raw = await readFile(_manifestPath, 'utf8');
   } catch (e) {
     throw classScriptError(
       'manifest-read',
@@ -113,7 +114,7 @@ function loadCurrentManifest(): LoadedManifest {
   return { scripts: m.scripts ?? [] };
 }
 
-function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
+async function writeCurrentManifest(scripts: readonly ScriptEntry[]): Promise<void> {
   if (_manifestPath === null)
     throw classScriptError('no-project', 'script handler: no project open');
   assertSafeManifestPath(_manifestPath);
@@ -121,7 +122,7 @@ function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
   // runtime knows about. We can't pass the full saved manifest here
   // without widening the helper, so we re-emit the minimal shape that
   // matches the schema.
-  const json = readFileSync(_manifestPath, 'utf8');
+  const json = await readFile(_manifestPath, 'utf8');
   const cur = loadManifest(json);
   if (!cur.ok) {
     throw classScriptError(
@@ -130,13 +131,20 @@ function writeCurrentManifest(scripts: readonly ScriptEntry[]): void {
     );
   }
   const updated = { ...cur.value, scripts: scripts.slice() };
-  writeFileSync(_manifestPath, saveManifest(updated));
+  // v1.15.6 PATCH — route through writeAtomic so the manifest commit
+  // survives a crash mid-write (temp-file + fsync + rename). The
+  // script-engine manifest path is now crash-safe. Note: `stencilSaveHandler.ts`
+  // still uses `await fs.writeFile` directly (FIO-2 from the v1.17.0
+  // joint review); that site is intentionally out of scope here and
+  // remains a follow-up. The invariant test in __tests__/script-handler.test.ts
+  // guards against `.tmp-*` leftover files in the project directory.
+  await writeAtomic(_manifestPath, saveManifest(updated));
 }
 
 // -- list -----------------------------------------------------------------
 
 export async function scriptListHandler(_req: ScriptListRequest): Promise<ScriptListResponse> {
-  const m = loadCurrentManifest();
+  const m = await loadCurrentManifest();
   // Lightweight summary — no `source` field on the wire (spec § 2.2).
   return {
     scripts: m.scripts.map((s) => ({
@@ -179,7 +187,7 @@ function extractDeclaredImports(source: string): ReadonlyArray<{ from: string; n
 export async function scriptSaveHandler(req: ScriptSaveRequest): Promise<ScriptSaveResponse> {
   const err = validateShortName(req.shortName);
   if (err) throw err;
-  const m = loadCurrentManifest();
+  const m = await loadCurrentManifest();
   const list = m.scripts.slice();
   const now = new Date().toISOString();
   const declared = extractDeclaredImports(req.source);
@@ -205,7 +213,7 @@ export async function scriptSaveHandler(req: ScriptSaveRequest): Promise<ScriptS
       updatedAt: now,
     };
     list[idx] = updated;
-    writeCurrentManifest(list);
+    await writeCurrentManifest(list);
     return { id: prev.id, updatedAt: now };
   }
   // create path
@@ -225,16 +233,16 @@ export async function scriptSaveHandler(req: ScriptSaveRequest): Promise<ScriptS
     updatedAt: now,
   };
   list.push(newEntry);
-  writeCurrentManifest(list);
+  await writeCurrentManifest(list);
   return { id: newEntry.id, updatedAt: now };
 }
 
 // -- delete ---------------------------------------------------------------
 
 export async function scriptDeleteHandler(req: ScriptDeleteRequest): Promise<ScriptDeleteResponse> {
-  const m = loadCurrentManifest();
+  const m = await loadCurrentManifest();
   const filtered = m.scripts.filter((s) => s.id !== req.id);
-  writeCurrentManifest(filtered);
+  await writeCurrentManifest(filtered);
   return { ok: true };
 }
 
@@ -256,7 +264,7 @@ function emptyProject(): ArxmlDocument {
 }
 
 export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRunResponse> {
-  const m = loadCurrentManifest();
+  const m = await loadCurrentManifest();
   const entry = m.scripts.find((s) => s.id === req.id);
   if (entry === undefined) {
     throw classScriptError('unknown-script', `script id not found: ${req.id}`);

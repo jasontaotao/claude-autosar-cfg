@@ -19,7 +19,7 @@
 // The handler reads the manifest path via __resetForTest() to keep
 // the test surface small and match the templatesHandler pattern.
 
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -177,5 +177,44 @@ describe('script:run handler (Sprint 14 #1 T7)', () => {
     const r = await scriptRunHandler({ projectId, id: saved.id } as ScriptRunRequest);
     expect(r.status).toBe('import-error');
     expect(r.errorMessage).toMatch(/not found/i);
+  });
+});
+
+// v1.15.6 PATCH — script-handler.ts migrated writeCurrentManifest from
+// sync writeFileSync to async writeAtomic. The atomic helper writes to
+// a `.tmp-<pid>-<ts>` sibling, fsyncs, then renames; the temp file
+// must be cleaned up on success. This invariant guards against the
+// helper leaving dangling .tmp-* files in the project directory after
+// a script save or delete.
+//
+// This describe lives at top level (not nested inside any handler
+// describe) because the test exercises save + update + delete paths
+// in sequence against a single manifest fixture.
+describe('v1.15.6 PATCH — atomic write invariant', () => {
+  it('save + update + delete leaves no .tmp-* leftovers in the project dir', async () => {
+    // save path
+    const saved = await scriptSaveHandler(saveReq({ shortName: 'atomic-test', source: '// nop' }));
+    expect(saved.id).toBeTruthy();
+    let entries = readdirSync(workDir);
+    expect(entries.some((e) => /\.tmp-/.test(e))).toBe(false);
+
+    // update path (second writeCurrentManifest invocation)
+    await scriptSaveHandler({
+      ...saveReq({ shortName: 'atomic-test', source: '// updated' }),
+      id: saved.id,
+    });
+    entries = readdirSync(workDir);
+    expect(entries.some((e) => /\.tmp-/.test(e))).toBe(false);
+
+    // delete path (third writeCurrentManifest invocation)
+    await scriptDeleteHandler({ projectId, id: saved.id } as ScriptDeleteRequest);
+    entries = readdirSync(workDir);
+    expect(entries.some((e) => /\.tmp-/.test(e))).toBe(false);
+
+    // manifest must still be parseable + on disk at the expected path
+    const manifestJson = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    expect(manifestJson.id).toBe(projectId);
+    expect(Array.isArray(manifestJson.scripts)).toBe(true);
+    expect(manifestJson.scripts).toHaveLength(0);
   });
 });

@@ -31,7 +31,24 @@ export default defineConfig({
       // handler (script-handler.ts) use node:vm + node:crypto. These
       // are main-process-only; we externalize them so rollup doesn't
       // try to bundle them into the main-process entry.
-      external: ['electron', 'node:path', 'node:url', 'node:fs', 'node:vm', 'node:crypto'],
+      //
+      // v1.16.1 PATCH — script-handler.ts migrated sync readFileSync /
+      // writeFileSync to async readFile (from node:fs/promises) +
+      // writeAtomic. node:fs/promises is the promise-namespaced view
+      // of the same fs implementation that 'node:fs' already
+      // externalizes, so it must also be listed here. Without this,
+      // rollup errors at build with `Module 'node:fs/promises' has
+      // been externalized for browser compatibility` and refuses to
+      // resolve `readFile`.
+      external: [
+        'electron',
+        'node:path',
+        'node:url',
+        'node:fs',
+        'node:fs/promises',
+        'node:vm',
+        'node:crypto',
+      ],
     },
     sourcemap: true,
     emptyOutDir: true,
