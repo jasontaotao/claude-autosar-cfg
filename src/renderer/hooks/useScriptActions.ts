@@ -16,7 +16,7 @@
 
 import { useCallback } from 'react';
 
-import type { ScriptKind, ScriptRunResult } from '@main/script/types';
+import type { ScriptKind, ScriptRunResult } from '@shared/script/types';
 
 import { useScriptStore } from '../store/useScriptStore';
 

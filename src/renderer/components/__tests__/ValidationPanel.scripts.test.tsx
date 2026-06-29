@@ -21,7 +21,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ScriptRunResult } from '@main/script/types';
+import type { ScriptRunResult } from '@shared/script/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
 import { useScriptStore } from '../../store/useScriptStore';
