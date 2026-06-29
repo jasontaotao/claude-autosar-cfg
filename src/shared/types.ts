@@ -435,7 +435,8 @@ export type ProjectWriteArxmlBatchResult =
       readonly written: readonly string[];
       readonly failed: readonly { readonly filePath: string; readonly message: string }[];
     }
-  | { readonly kind: 'write-failed'; readonly message: string };
+  | { readonly kind: 'write-failed'; readonly message: string }
+  | { readonly kind: 'invalid-path'; readonly message: string };
 
 export interface ProjectDeleteArxmlRequest {
   readonly filePath: string;
@@ -444,7 +445,8 @@ export interface ProjectDeleteArxmlRequest {
 export type ProjectDeleteArxmlResult =
   | { readonly kind: 'ok' }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'write-failed'; readonly message: string };
+  | { readonly kind: 'write-failed'; readonly message: string }
+  | { readonly kind: 'invalid-path'; readonly message: string };
 
 // --- Sprint 17 P1 — `bswmd:delete` IPC types --------------------------------
 //
@@ -462,7 +464,8 @@ export interface ProjectDeleteBswmdRequest {
 export type ProjectDeleteBswmdResult =
   | { readonly kind: 'ok' }
   | { readonly kind: 'not-found' }
-  | { readonly kind: 'write-failed'; readonly message: string };
+  | { readonly kind: 'write-failed'; readonly message: string }
+  | { readonly kind: 'invalid-path'; readonly message: string };
 
 // --- Sprint 14 #1 — script engine IPC types --------------------------------
 //

@@ -42,8 +42,14 @@ import type {
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
+import {
+  headlessRunCommandStub,
+  swsValidateCancelStub,
+  swsValidateStub,
+} from './headless-stubs.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
+import { setOpenProjectManifestPath } from './project-manifest-state.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
 import { projectSaveHandler } from './projectSaveHandler.js';
@@ -284,6 +290,11 @@ export function registerIpcHandlers(): void {
       }
     }
 
+    // v1.15.5 — register the loaded project so subsequent calls to
+    // bswmdDeleteHandler / writeArxmlBatch can enforce containment.
+    // On success, set the state; on any failure above, we return
+    // early and the previous manifest path is untouched.
+    setOpenProjectManifestPath(manifestPath);
     return { kind: 'opened', manifestPath, manifest, docs, bswmds };
   });
 
@@ -460,6 +471,20 @@ export function registerIpcHandlers(): void {
     async (_evt, req: { readonly xml: string; readonly suggestedFilename: string }) =>
       handleStencilSave(req),
   );
+
+  // v1.15.5 — stub handlers for 5 channels declared in IPC_CHANNELS
+  // but previously unregistered (per joint review 2026-06-29). Renderer
+  // does not consume any of these (useSwsValidatorRunner calls the
+  // local store directly; CLI path does not go through main IPC).
+  // HEADLESS_MUTATE_APPLIED and HEADLESS_VALIDATE_RESULT are push
+  // channels (main→renderer via webContents.send) — they are NOT
+  // registered here because there is no renderer listener and
+  // registering would produce "Renderer did not register listener"
+  // console noise. When the GUI bridge ships (planned v1.7.0),
+  // replace the stubs with real handlers.
+  ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE, swsValidateStub);
+  ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE_CANCEL, swsValidateCancelStub);
+  ipcMain.handle(IPC_CHANNELS.HEADLESS_RUN_COMMAND, headlessRunCommandStub);
 }
 
 // ---------------------------------------------------------------------------

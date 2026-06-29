@@ -38,16 +38,42 @@
 // individually rather than dropping them on the floor.
 
 import { promises as fs } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
+import { isPathInside } from '../../shared/paths/isPathInside.js';
 import type {
   ProjectWriteArxmlBatchRequest,
   ProjectWriteArxmlBatchResult,
 } from '../../shared/types.js';
+import { writeAtomic } from '../io/writeAtomic.js';
+
+import { getOpenProjectManifestPath } from './project-manifest-state.js';
 
 export async function projectWriteArxmlBatchHandler(
   req: ProjectWriteArxmlBatchRequest,
 ): Promise<ProjectWriteArxmlBatchResult> {
+  // v1.15.5 — path-containment (defense in depth). Reject any filePath
+  // that escapes the open project's directory before touching the
+  // filesystem. Closes the renderer-forged-path vector when the IPC
+  // bridge is bypassed (e.g. compromised preload).
+  const manifestPath = getOpenProjectManifestPath();
+  if (manifestPath === null) {
+    return { kind: 'invalid-path', message: 'No project is open' };
+  }
+  const manifestDir = dirname(resolve(manifestPath));
+  const violations: string[] = [];
+  for (const f of req.files) {
+    if (!isPathInside(resolve(f.filePath), manifestDir)) {
+      violations.push(f.filePath);
+    }
+  }
+  if (violations.length > 0) {
+    return {
+      kind: 'invalid-path',
+      message: `Files escape project directory: ${violations.join(', ')}`,
+    };
+  }
+
   const written: string[] = [];
   const failed: { filePath: string; message: string }[] = [];
 
@@ -59,7 +85,7 @@ export async function projectWriteArxmlBatchHandler(
       // `<projectDir>/EcuC/EcuC.ecuc.arxml` without first creating
       // `<projectDir>/EcuC/`).
       await fs.mkdir(dirname(f.filePath), { recursive: true });
-      await fs.writeFile(f.filePath, f.content, 'utf-8');
+      await writeAtomic(f.filePath, f.content);
       written.push(f.filePath);
     } catch (err) {
       failed.push({

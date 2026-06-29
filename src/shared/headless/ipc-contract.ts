@@ -220,6 +220,21 @@ export interface ValidateResult {
 export type HeadlessResult = ReadResult | MutateResult | ValidateResult | GenerateResult;
 
 // ---------------------------------------------------------------------------
+// v1.15.5 — StubHeadlessResult
+//
+// Generic stub envelope returned by unwired IPC channels (`HEADLESS_RUN_COMMAND`)
+// registered as placeholders so the channel name space is fully populated
+// (channel-name drift risk closed). Mirrors the `ValidateResult.stub: true`
+// pattern but without the `command` / `projectPath` discriminators that
+// concrete command results carry.
+// ---------------------------------------------------------------------------
+
+export interface StubHeadlessResult {
+  readonly ok: true;
+  readonly stub: true;
+}
+
+// ---------------------------------------------------------------------------
 // HeadlessError — failure envelope (per A+C spec §4 + §9)
 // ---------------------------------------------------------------------------
 

@@ -4,7 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, shell } from 'electron';
 
 import { registerIpcHandlers } from './ipc/register.js';
+import { logFatal } from './log.js';
 import { isAllowedExternalUrl } from './window-open-allowlist.js';
+
+// v1.15.5 — log-only safety nets for process-wide fatal events.
+// Fire-and-forget `cacheSet` from arxml-stream + vm-runner timeouts
+// can otherwise leak unhandled rejections and crash the main process.
+// We deliberately do NOT call `app.exit(1)` — see `log.ts` rationale.
+process.on('uncaughtException', (err) => {
+  logFatal('uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  logFatal('unhandledRejection', reason);
+});
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

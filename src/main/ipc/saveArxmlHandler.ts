@@ -19,7 +19,6 @@
 //      so the renderer can dispatch a localized toast per failure
 //      class. `code` carries the raw NodeJS errno string when set.)
 
-import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import { dialog } from 'electron';
@@ -32,6 +31,7 @@ import type {
   SaveArxmlRequest,
   SaveArxmlResponse,
 } from '../../shared/types.js';
+import { writeAtomic } from '../io/writeAtomic.js';
 
 export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxmlResponse> {
   const defaultName = req.defaultName ?? 'untitled.arxml';
@@ -83,7 +83,7 @@ export async function saveArxmlHandler(req: SaveArxmlRequest): Promise<SaveArxml
   }
 
   try {
-    await fs.writeFile(targetPath, serialized.value, 'utf8');
+    await writeAtomic(targetPath, serialized.value);
     return { ok: true, value: { canceled: false, path: targetPath } };
   } catch (e) {
     // Sprint 17b T7 — translate the NodeJS.ErrnoException `.code`

@@ -93,7 +93,10 @@ export const IPC_CHANNELS = {
   // Renderer ↔ Main for ValidationPanel + IPC handler. CLI integration
   // is direct (no IPC) per A+C spec NEW-Q-B; these channels exist
   // purely for the GUI ↔ main boundary.
+  // v1.15.5: stub registered (see src/main/ipc/headless-stubs.ts).
+  // Renderer has no consumer per joint review 2026-06-29.
   SWS_VALIDATE: 'sws-validator:run:v1',
+  // v1.15.5: stub registered. No renderer consumer.
   SWS_VALIDATE_CANCEL: 'sws-validator:cancel:v1',
   // v1.6.0 A+C — Headless Config Engine IPC contract (PR(A+C-2)).
   //
@@ -117,8 +120,11 @@ export const IPC_CHANNELS = {
   // The CLI binary itself does NOT use IPC in v1.6.0 (it is a
   // standalone Node process). These channels are reserved for the future
   // GUI bridge (v1.7.0+ Cluster U "Run CLI" affordance).
+  // v1.15.5: stub registered. No renderer consumer (CLI bridge planned v1.7.0).
   HEADLESS_RUN_COMMAND: 'headless:run-command:v1',
+  // v1.15.5: push channel, no listener registered (would cause console noise).
   HEADLESS_MUTATE_APPLIED: 'headless:mutate-applied:v1',
+  // v1.15.5: push channel, no listener registered.
   HEADLESS_VALIDATE_RESULT: 'headless:validate-result:v1',
   // v1.8.0 K — Stencil Wizard IPC channel. Generates a minimal valid
   // ECUC module skeleton (.arxml) for one of 4 families (Com, ComM,

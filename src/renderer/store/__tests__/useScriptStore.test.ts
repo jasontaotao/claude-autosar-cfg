@@ -24,7 +24,7 @@ import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/typ
 import type { ScriptRunResult, ScriptSummary } from '@main/script/types';
 import type { ProjectSaveRequest, ProjectSaveResult } from '@shared/types';
 
-import { writeAtomic } from '../../../main/ipc/projectSaveHandler.js';
+import { writeAtomic } from '../../../main/io/writeAtomic.js';
 import { useArxmlStore } from '../useArxmlStore';
 import { useScriptStore } from '../useScriptStore';
 

@@ -22,7 +22,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { writeAtomic } from '../projectSaveHandler.js';
+import { writeAtomic } from '../../io/writeAtomic.js';
 
 describe('writeAtomic', () => {
   let testDir: string;

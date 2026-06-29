@@ -310,7 +310,8 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
     let ipcResult:
       | { kind: 'ok' }
       | { kind: 'not-found' }
-      | { kind: 'write-failed'; message: string };
+      | { kind: 'write-failed'; message: string }
+      | { kind: 'invalid-path'; message: string };
     try {
       ipcResult = await window.autosarApi.deleteBswmd({ filePath: path });
     } catch (e) {
