@@ -176,6 +176,18 @@ export function useCreateEcucFromBswmd(): {
       };
     }
 
+    // v1.15.5 — path-containment rejected the request (renderer-forged
+    // path escapes the project dir, or no project is open). Treat as
+    // a hard error so the user sees a clear message.
+    if (result.kind === 'invalid-path') {
+      return {
+        kind: 'error',
+        written: [],
+        failed: [],
+        message: result.message,
+      };
+    }
+
     // -- partial: roll back every file that did get written, --------
     // -- then surface the failures. ----------------------------------
     if (result.kind === 'partial') {

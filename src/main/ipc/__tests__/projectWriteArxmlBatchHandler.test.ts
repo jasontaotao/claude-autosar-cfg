@@ -30,16 +30,25 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  setOpenProjectManifestPath,
+  __resetOpenProjectManifestPathForTests,
+} from '../project-manifest-state.js';
 import { projectWriteArxmlBatchHandler } from '../projectWriteArxmlBatchHandler.js';
 
 let workDir: string;
 
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), 'claude-autosarcfg-write-batch-'));
+  // v1.15.5 — the handler enforces containment against the open
+  // project's manifest directory. Seed with `workDir/manifest.json`.
+  writeFileSync(join(workDir, 'manifest.json'), '{}', 'utf-8');
+  setOpenProjectManifestPath(join(workDir, 'manifest.json'));
 });
 
 afterEach(() => {
   rmSync(workDir, { recursive: true, force: true });
+  __resetOpenProjectManifestPathForTests();
 });
 
 describe('project:writeArxmlBatch handler (Sprint 14 T6)', () => {

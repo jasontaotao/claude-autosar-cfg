@@ -33,15 +33,25 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // `src/main/ipc/`. The error message will be a module-resolution
 // failure from vitest's import resolver.
 import { bswmdDeleteHandler } from '../bswmdDeleteHandler.js';
+import {
+  setOpenProjectManifestPath,
+  __resetOpenProjectManifestPathForTests,
+} from '../project-manifest-state.js';
 
 let workDir: string;
 
 beforeEach(() => {
   workDir = mkdtempSync(join(tmpdir(), 'claude-autosarcfg-delete-bswmd-'));
+  // v1.15.5 — the handler now enforces path-containment, so we must
+  // seed the module-level "open project" state with a manifest whose
+  // directory is `workDir`.
+  writeFileSync(join(workDir, 'manifest.json'), '{}', 'utf-8');
+  setOpenProjectManifestPath(join(workDir, 'manifest.json'));
 });
 
 afterEach(() => {
   rmSync(workDir, { recursive: true, force: true });
+  __resetOpenProjectManifestPathForTests();
 });
 
 describe('bswmd:delete handler (Sprint 17 P1)', () => {
@@ -88,5 +98,23 @@ describe('bswmd:delete handler (Sprint 17 P1)', () => {
     // The directory should still exist — `fs.unlink` does not
     // recursively delete, and refused the directory.
     expect(existsSync(dir)).toBe(true);
+  });
+
+  it('returns invalid-path when filePath escapes the project directory (v1.15.5)', async () => {
+    // v1.15.5 — path-containment enforced. Pick a path outside workDir.
+    const outsideDir = mkdtempSync(join(tmpdir(), 'outside-'));
+    const outside = join(outsideDir, 'evil.bswmd.arxml');
+    writeFileSync(outside, '<evil/>', 'utf-8');
+
+    const r = await bswmdDeleteHandler({ filePath: outside });
+
+    expect(r.kind).toBe('invalid-path');
+    if (r.kind !== 'invalid-path') throw new Error('unreachable');
+    expect(r.message).toContain('escapes project directory');
+
+    // The outside file must still exist — refusal is pre-unlink.
+    expect(existsSync(outside)).toBe(true);
+
+    rmSync(outsideDir, { recursive: true, force: true });
   });
 });

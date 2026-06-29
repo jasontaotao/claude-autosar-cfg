@@ -32,6 +32,9 @@ import * as path from 'node:path';
 
 import { createEmptyManifest, saveManifest } from '../../core/project/manifest.js';
 import type { ProjectNewRequest, ProjectNewResult } from '../../shared/types.js';
+import { writeAtomic } from '../io/writeAtomic.js';
+
+import { setOpenProjectManifestPath } from './project-manifest-state.js';
 
 /**
  * Handle a `PROJECT_NEW` request. See file header for the full contract.
@@ -139,7 +142,10 @@ export async function projectNewHandler(req: ProjectNewRequest): Promise<Project
     bswmdPaths: req.bswmdPaths !== undefined ? [...req.bswmdPaths] : [],
   };
   try {
-    await fs.writeFile(filePath, saveManifest(manifest), 'utf8');
+    await writeAtomic(filePath, saveManifest(manifest));
+    // v1.15.5 — register the new project as "open" so subsequent
+    // bswmdDeleteHandler / writeArxmlBatch calls can enforce containment.
+    setOpenProjectManifestPath(filePath);
     return { kind: 'created', path: filePath, manifest };
   } catch (e) {
     return {
