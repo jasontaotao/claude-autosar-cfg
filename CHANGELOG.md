@@ -5,6 +5,19 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.15.5 (2026-06-29) — PATCH
+
+Trust Contract + Coverage Hardening. Closes 4 of 13 HIGH-severity findings from the 2026-06-29 joint review (4-agent parallel review + verify agent 13/13 CONFIRMED).
+
+- **`fix(atomic-write)`** — Extract `writeAtomic` to `src/main/io/writeAtomic.ts`; replace 5 raw `fs.writeFile` calls in IPC handlers (`projectSaveHandler`, `saveArxmlHandler`, `projectWriteArxmlBatchHandler`, `projectNewHandler`). fsync + temp + rename atomic-write invariant now enforced across all main-process writes. Existing `projectSaveHandler.atomic.test.ts` migrated to new module.
+- **`fix(security)`** — Path-containment via `isPathInside` in `projectWriteArxmlBatchHandler` + `bswmdDeleteHandler`. New `src/main/ipc/project-manifest-state.ts` module-level state mirrors `script-handler.ts:_manifestPath` pattern; `setOpenProjectManifestPath` wired in `projectNewHandler` + `register.ts:PROJECT_OPEN`. `'invalid-path'` Result arm added to 3 union types (`ProjectWriteArxmlBatchResult`, `ProjectDeleteArxmlResult`, `ProjectDeleteBswmdResult`).
+- **`feat(ipc)`** — Stub handlers for 5 channels declared in `IPC_CHANNELS` but previously unregistered (`SWS_VALIDATE`, `SWS_VALIDATE_CANCEL`, `HEADLESS_RUN_COMMAND`). `HEADLESS_MUTATE_APPLIED` + `HEADLESS_VALIDATE_RESULT` are push channels and intentionally NOT registered (no renderer listener; would cause dev console "no listener" noise). New `StubHeadlessResult` envelope in `headless/ipc-contract.ts`.
+- **`fix(main)`** — `uncaughtException` + `unhandledRejection` safety nets in `main/index.ts` via new `src/main/log.ts` (log-only, no `app.exit` — preserves unsaved BSWMD / manifest work per Electron 2024+ community convention).
+
+Tests: 2500+ unit + integration (was 2097 + 1 SKIP at v1.15.4 → +401 net). `pnpm verify` 7-stage pipeline still green (format / lint / type-check / test / build / smoke). New integration test `tests/integration/__tests__/a-c-2-cli-warning-exit.test.ts` documents EXIT_WARNING=2 reachable via generate-with-diagnostics (mutate-with-warnings path is reserved but currently unreachable since `applyPatchSteps` does not emit warnings today).
+
+Deferred to v1.17.0 MINOR (per joint review): C8 `MULTIPLICITY-CONFIG-CLASSES` consumption, C9 `<DERIVED-FROM>` classifier, C10 FOREIGN-REFERENCE-DEF dest preservation, C11 `<MODULE-REF>` in `ECUC-DEFINITION-COLLECTION` recovery, C12 layering ESLint gate (renderer→@core 113+ imports), C13 AppHeader / useProjectActions file split.
+
 ## v1.15.4 (2026-06-27) — PATCH
 
 Closes the 5 v1.15.3 follow-ups listed in `docs/release-notes-v1.15.3.md` §Known Follow-ups (3 real fixes done, 2 cosmetic skipped per release-notes author's own assessment), and **fixes a v1.15.3 ship-bug**: the DOC-2 deletion of `docs/bswmd-to-ecuc-mockup.html` (1454 lines) was lost in the v1.15.3 squash merge — the file's blob hash (`020589ca`) is identical between v1.15.2 (`844d6e17`) and v1.15.3 (`c93dbe4f`), proving the deletion never reached main despite the v1.15.3 release notes claiming it shipped. **Zero production-code changes; zero test-count delta; 0 snapshot regen; SEC1–SEC4 controls intact.**

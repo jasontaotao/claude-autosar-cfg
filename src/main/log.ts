@@ -12,7 +12,7 @@
  * electron-builder templates both default to log-only).
  */
 export function logFatal(label: string, err: unknown): void {
-  const msg = err instanceof Error ? err.stack ?? err.message : String(err);
+  const msg = err instanceof Error ? (err.stack ?? err.message) : String(err);
   // eslint-disable-next-line no-console
   console.error(`[claude-AutosarCfg main ${new Date().toISOString()}] ${label}:`, msg);
 }

@@ -77,7 +77,7 @@ pnpm dev             # 打开主界面：Tree + Editor + Validation
 ### v1.6 — Sprint 14 Final 集群（2026-06-21）
 
 - 引导教程（Onboarding）
-- Headless CLI（独立 `autosarcfg` 命令，9 个退出场景）
+- Headless CLI（独立 `autosarcfg` 命令，4 个退出码：0 成功 / 1 fatal / 2 warning / 3 invalid input）
 - SWS Validator（独立 feature flag 开关）
 - 键盘优先操作流
 

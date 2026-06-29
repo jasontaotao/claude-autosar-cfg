@@ -46,6 +46,7 @@ The 87-char line `const warnings = diagnostics.filter(...)` is well within prett
 #### T3 — `chore(docs): delete obsolete docs/bswmd-to-ecuc-mockup.html (DOC-2 lost in v1.15.3 squash merge)`
 
 The v1.15.3 release notes claimed:
+
 > "**DOC-2**: Delete the obsolete `docs/bswmd-to-ecuc-mockup.html` (1454 lines, sprint-14 era). The ECUC-from-BSWMD feature it mockups has long since shipped (v1.11.0 BSW code generator) and superseded. 3 historical references in `CHANGELOG.md` × 2 + `docs/superpowers/archive/plans/2026-06-18-ecuc-from-bswmd.md` × 1 intentionally retained."
 
 **This is not what actually shipped.** Verification:
@@ -63,6 +64,7 @@ Same blob hash (`020589ca`) on both commits. The v1.15.3 T7 commit (DD-1) messag
 **Likely root cause**: When the v1.15.3 commits were POSTed via the `gh api` `git/blobs` + `git/trees` + `git/commits` chain (per v1.15.2 ship pattern), the T7 commit's tree either included the file accidentally (a stale working tree) or the squash-merge input missed T7's tree-change. Either way, the 12 local commits made it to main as 1 squash commit; the file deletion did not survive the merge-base computation.
 
 **Fix**: This v1.15.4 T3 commit deletes `docs/bswmd-to-ecuc-mockup.html` for real. 3 historical references intentionally retained per v1.15.3 plan:
+
 - `CHANGELOG.md` (the file's v1.11.0 feature entry + the v1.15.3 entry referencing the failed deletion)
 - `docs/superpowers/archive/plans/2026-06-18-ecuc-from-bswmd.md` (the original feature spec that the mockup illustrated)
 
