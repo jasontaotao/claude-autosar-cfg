@@ -5,6 +5,20 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.16.1 (2026-06-30) — PATCH
+
+Script-handler async writeAtomic (FIO-1 from v1.15.5 surface observations). Closes the LAST remaining sync write site in the script-engine manifest path. Code-reviewer-verified 0C/0H/2M (both MEDIUMs addressed); `pnpm verify` 7-stage gate green.
+
+- **`fix(main)`** — `src/main/ipc/script-handler.ts`: sync `writeFileSync` for the script-engine manifest migrated to async `readFile` (from `node:fs/promises`) + `writeAtomic` (from `src/main/io/writeAtomic.ts`). `loadCurrentManifest()` and `writeCurrentManifest(scripts)` are now both `Promise<...>`. 4 callers updated to `await loadCurrentManifest()` (`scriptListHandler`, `scriptSaveHandler`, `scriptDeleteHandler`, `scriptRunHandler`) + 3 callers updated to `await writeCurrentManifest(...)`. New comment block on `writeCurrentManifest` documents v1.16.1 rationale + explicit cross-reference to FIO-2 follow-up.
+- **`fix(build)`** — `vite.main.config.ts`: add `'node:fs/promises'` to `rollupOptions.external` (alongside existing `'node:fs'`). Without this, rollup errors at main-process build with `Module 'node:fs/promises' has been externalized for browser compatibility` and refuses to resolve `readFile`. Multi-line array format + comment block explaining the promise-namespaced-fs rationale.
+- **`test(main)`** — `src/main/ipc/__tests__/script-handler.test.ts`: new top-level `describe('v1.16.1 PATCH — atomic write invariant')` block with 1 invariant test: "save + update + delete leaves no .tmp-\* leftovers in the project dir". The test was originally inside `describe('script:run handler...')` (MEDIUM #1 review finding — moved out into the dedicated block).
+
+**Naming note**: this PATCH is called "v1.16.1" externally (semver-correct — first PATCH after v1.16.0 MINOR) but was tracked internally as "v1.15.6" (branch name `feature/v1-15-6-patch`, plan file, spec file, devlog). The commit message keeps the internal "v1.15.6" identifier for historical continuity; the tag, CHANGELOG entry, release notes, and GH release use "v1.16.1".
+
+**Deferred to v1.17.0 MINOR** (or paired with FIO-1 in a future PATCH per user's call): **FIO-2** — `stencilSaveHandler.ts:97` still uses raw `await fs.writeFile` (NOT `writeAtomic`). v1.15.5 C1 grep targeted sync-only (`writeFileSync`) and missed this async raw write site. v1.16.1 does not fix FIO-2 (out of scope). The `writeCurrentManifest` comment cross-references FIO-2 so future greps won't re-find the gap.
+
+Test count: v1.16.0 = 259 + 1 SKIP (verify subset) → v1.16.1 = **2505 + 2 SKIP + 0 fail** (+1 net test: the new atomic write invariant). `pnpm verify` 7-stage pipeline green (format / lint / type-check / test / build / smoke). 1 commit on `feature/v1-15-6-patch` (internal name) on top of main HEAD `6d37b00` (v1.16.0 squash). Ship method: `gh api` per v1.15.2/3/4/5 pattern (github.com:443 blocked, api.github.com reachable).
+
 ## v1.16.0 (2026-06-29) — MINOR
 
 Layering Hardening (C12 from joint review).
