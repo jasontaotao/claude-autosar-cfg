@@ -170,6 +170,10 @@ export function cType(def: BswmdParamDef): string {
   // C10 (v1.17.0): no destDialect impact in current scope.
   // Future v1.18.0 generator work will branch on this discriminator
   // to route P-PORT / R-PORT / SW-C / ECUC-MODULE-DEF dest shapes.
+  // C11 (v1.17.0): no moduleRefs impact in this switch — moduleRefs
+  // is currently consumed by renderer + parser only. Generator /
+  // emit / mutation will branch on moduleRefs in v1.18.0+ (deferred
+  // pending real consumer requirement).
   switch (def.kind) {
     case 'integer':
       return integerToCType(def.min ?? 0, def.max ?? 0);
@@ -198,6 +202,10 @@ export function cValue(value: unknown, def: BswmdParamDef): string {
   // C10 (v1.17.0): no destDialect impact in current scope.
   // Future v1.18.0 generator work will branch on this discriminator
   // to route P-PORT / R-PORT / SW-C / ECUC-MODULE-DEF dest shapes.
+  // C11 (v1.17.0): no moduleRefs impact in this switch — moduleRefs
+  // is currently consumed by renderer + parser only. Generator /
+  // emit / mutation will branch on moduleRefs in v1.18.0+ (deferred
+  // pending real consumer requirement).
   switch (def.kind) {
     case 'integer':
       return String(value);

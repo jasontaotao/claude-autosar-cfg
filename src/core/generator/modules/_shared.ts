@@ -57,6 +57,10 @@ export function renderCValue(value: unknown, kind: string): string {
   // BswModuleDef.derivedFrom field. Generator / emit / mutation /
   // slice hooks will branch on derivedFrom in v1.18.0 Batch 3 (C8
   // variant engineering).
+  // C11 (v1.17.0): no moduleRefs impact in this switch — moduleRefs
+  // is currently consumed by renderer + parser only. Generator /
+  // emit / mutation will branch on moduleRefs in v1.18.0+ (deferred
+  // pending real consumer requirement).
   switch (kind) {
     case 'integer':
       return String(value);
@@ -360,6 +364,10 @@ export function cTypeForBasicKind(kind: string): string {
   // BswModuleDef.derivedFrom field. Generator / emit / mutation /
   // slice hooks will branch on derivedFrom in v1.18.0 Batch 3 (C8
   // variant engineering).
+  // C11 (v1.17.0): no moduleRefs impact in this switch — moduleRefs
+  // is currently consumed by renderer + parser only. Generator /
+  // emit / mutation will branch on moduleRefs in v1.18.0+ (deferred
+  // pending real consumer requirement).
   switch (kind) {
     case 'boolean':
       return 'uint8';

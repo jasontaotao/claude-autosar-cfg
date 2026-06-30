@@ -25,6 +25,23 @@ import type { Result } from '../arxml/types.js';
 // ---------------------------------------------------------------------------
 
 /**
+ * C11 (v1.17.0) — one `<MODULE-REF>` entry collected by
+ * `walkPackagesForModuleRefs`.
+ *
+ * `target` is the text body of `<MODULE-REF>` (the BSWMD-relative path
+ * to the referenced module def). `source` is the parent AR-PACKAGE
+ * path that carried the `<MODULE-REF>` (for debugging / deduplication).
+ *
+ * Pre-v1.17.0 these were silently dropped by the parser; now they
+ * survive parsing so the renderer tree + future generator work can
+ * use them.
+ */
+export interface ModuleRefEntry {
+  readonly target: string;
+  readonly source: string;
+}
+
+/**
  * Parsed BSWMD document. `warnings` collects non-fatal parse observations
  * (e.g. an unknown ECUC-XXX-DEF tag was encountered) so callers can surface
  * them in the project panel without aborting the parse.
@@ -40,6 +57,19 @@ export interface BswmdDocument {
    * layer so disabled modules don't emit spurious `schema-unknown`.
    */
   readonly disabledModules?: ReadonlySet<string>;
+  /**
+   * C11 (v1.17.0) — explicit `<MODULE-REF>` attachments collected
+   * during AR-PACKAGE walk. Pre-v1.17.0 these were silently dropped
+   * by the parser; now they survive parsing and are available to
+   * the renderer tree + future generator work. OPTIONAL for
+   * back-compat — BSWMDs without any `<MODULE-REF>` element parse
+   * identically (moduleRefs is `undefined`).
+   *
+   * Source attribution: `source` is the parent AR-PACKAGE path that
+   * carried the `<MODULE-REF>`; `target` is the text body of the
+   * `<MODULE-REF>` (the referenced module path).
+   */
+  readonly moduleRefs?: readonly ModuleRefEntry[] | undefined;
 }
 
 /**
@@ -345,6 +375,14 @@ export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {
     return { ok: false, error: guard.error };
   }
 
+  // C11 (v1.17.0) — walk <MODULE-REF> elements that the existing
+  // walkPackagesForModules silently dropped. Same recursion pattern
+  // (AR-PACKAGE → ELEMENTS → MODULE-REF children). Targets are the
+  // text content of <MODULE-REF>; sources are the parent AR-PACKAGE
+  // path for debugging.
+  const moduleRefs: ModuleRefEntry[] = [];
+  walkPackagesForModuleRefs(arPackages as Record<string, unknown>, '', moduleRefs);
+
   // Sprint 13 Stage 5.D — default-value cross-check against enumerationLiterals.
   //
   // AUTOSAR allows a `<DEFAULT-VALUE>` outside its declared `<LITERALS>` set
@@ -358,7 +396,15 @@ export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {
   // choice branches are populated.
   validateModuleDefaults(modules, warnings);
 
-  return { ok: true, value: { version, modules, warnings } };
+  return {
+    ok: true,
+    value: {
+      version,
+      modules,
+      warnings,
+      moduleRefs: moduleRefs.length === 0 ? undefined : moduleRefs,
+    },
+  };
 }
 
 /**
@@ -654,6 +700,52 @@ function walkPackagesForModules(
     }
   }
   return null;
+}
+
+/**
+ * C11 (v1.17.0) — walk AR-PACKAGES to collect `<MODULE-REF>` elements.
+ *
+ * Mirrors `walkPackagesForModules` recursion: descends into nested
+ * AR-PACKAGES and walks ELEMENTS at each level, but instead of building
+ * module defs it extracts `<MODULE-REF>` children. Each `<MODULE-REF>`
+ * carries a target path (text body) and is attributed to the parent
+ * AR-PACKAGE for debugging.
+ *
+ * AR-PACKAGES are bounded by tree depth (typically < 10 levels), so no
+ * DepthGuard is needed — moduleRefs walking only recurses into
+ * AR-PACKAGES, never into ELEMENTS / container sub-trees that drove the
+ * depth-guard rationale for `walkPackagesForModules`.
+ *
+ * Empty AR-PACKAGES (no `<MODULE-REF>` children anywhere) → no entries
+ * appended; the caller decides whether to surface an empty array vs.
+ * `undefined` at the document level.
+ */
+function walkPackagesForModuleRefs(
+  node: Record<string, unknown>,
+  parentPath: string,
+  out: ModuleRefEntry[],
+): void {
+  for (const pkg of asArray<Record<string, unknown>>(node['AR-PACKAGE'])) {
+    const shortName = readShortName(pkg);
+    if (shortName === undefined) continue;
+    const path = `${parentPath}/${shortName}`;
+    const elementsRaw = pkg['ELEMENTS'];
+    if (typeof elementsRaw === 'object' && elementsRaw !== null) {
+      const moduleRefRaw = (elementsRaw as Record<string, unknown>)['MODULE-REF'];
+      if (moduleRefRaw !== undefined) {
+        for (const item of asArray<Record<string, unknown>>(moduleRefRaw)) {
+          const target = readElementText(item);
+          if (target !== '') {
+            out.push({ target, source: path });
+          }
+        }
+      }
+    }
+    const nestedRaw = pkg['AR-PACKAGES'];
+    if (typeof nestedRaw === 'object' && nestedRaw !== null) {
+      walkPackagesForModuleRefs(nestedRaw as Record<string, unknown>, path, out);
+    }
+  }
 }
 
 function walkElementsForModules(
