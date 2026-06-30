@@ -5,6 +5,17 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.17.1 (2026-06-30) — PATCH
+
+T5 M1 follow-up closure from v1.17.0 MINOR. Wires the BrowserWindow `closed` event to clear the window accessor so IPC handlers don't `webContents.send` on a destroyed window. 1 commit on `main` on top of v1.17.0 (`5ce52b7`). No deferrals.
+
+- **`fix(ipc)`** — new `registerMainWindowCloseHandler(window: BrowserWindow)` helper in `src/main/window.ts:55` wires `window.on('closed', () => setMainWindow(null))`. Wired at `src/main/index.ts:53` immediately after `setMainWindow(mainWindow)` to satisfy the documented "call exactly once per BrowserWindow lifetime" invariant. macOS re-activate path is safe — each new `createMainWindow` invocation creates a fresh handler closure bound to its own window.
+- **`test(main)`** — `src/main/__tests__/window-close-handler.test.ts` (new file, 2 tests). Tests use a duck-typed fake window (only the `on('closed', cb)` surface is needed) — no `electron` mock required. Consistent with the T5 design intent: "Tests that mock this module — without mocking `electron` — can exercise the IPC emit path in isolation." `afterEach(() => setMainWindow(null))` reset guards against module-scoped state leakage between tests.
+
+Test count: v1.17.0 = 2525 + 2 SKIP / 0 fail → v1.17.1 = **2527 + 2 SKIP / 0 fail** (+2 net). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression). Code-reviewer APPROVED (0C/0H/0M/0L).
+
+**Local variable note**: the `mainWindow: BrowserWindow | null` in `src/main/index.ts:24` is NOT nulled by the close handler. Acceptable trade-off — nothing reads it post-close (all call sites are inside `createMainWindow` or attached to the window's own webContents, which become inert on destruction), and macOS re-activation reassigns it. No memory leak; just a captured reference that becomes garbage on reassignment.
+
 ## v1.17.0 (2026-06-30) — MINOR
 
 Type Rip (Batch 1 of joint-review plan). Closes 4 carry-overs (C9 / C10 / C11 + FIO-2) + 3 Tier 1 new findings (IPC-1 + SE-7 + T3 M1 e2e tests). 7 commits on top of v1.16.1 (`4ca835e`). Batches 2 + 3 defer to v1.18.0 MINOR per spec §15.1.
