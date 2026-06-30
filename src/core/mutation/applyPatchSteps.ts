@@ -389,6 +389,32 @@ function applyJsonPatchStep(
           },
         };
       }
+      // SE-7 (v1.17.0) — shape rejection for reference params.
+      // Pre-T6, the replace op silently coerced unknown payloads via
+      // String(raw) inside coerceToParamValue's `reference` arm
+      // (see line ~491 below), risking round-trip of attacker-
+      // controlled value text as warning text. Now reject
+      // non-{value: string, dest?: string} shapes with patch-invalid.
+      // Other param types (integer/float/boolean/string/enum) retain
+      // the permissive coercion path — only reference is narrowed.
+      if (existing.type === 'reference') {
+        const v = step.value;
+        if (
+          typeof v !== 'object' ||
+          v === null ||
+          !('value' in v) ||
+          typeof (v as { readonly value: unknown }).value !== 'string'
+        ) {
+          return {
+            doc,
+            error: {
+              stepIndex: index,
+              kind: 'patch-invalid',
+              message: `replace op on reference param requires {value: string, dest?: string}, got ${describeValueType(v)}`,
+            },
+          };
+        }
+      }
       // Coerce the wire `value` (unknown) through a permissive
       // shape: numbers stay numbers, booleans stay booleans,
       // strings stay strings. Reference values are not supported
@@ -491,6 +517,20 @@ function coerceToParamValue(
       return { ...existing, value: String(raw) };
     }
   }
+}
+
+/**
+ * SE-7 (v1.17.0) — human-readable type descriptor for the
+ * `replace` op's patch-invalid error message. We avoid `String(v)`
+ * (would leak attacker text) and avoid `JSON.stringify(v)` (would
+ * double-quote object shapes); this returns a stable, content-free
+ * description.
+ */
+function describeValueType(v: unknown): string {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return 'array';
+  if (typeof v === 'object') return 'object';
+  return typeof v;
 }
 
 /**
