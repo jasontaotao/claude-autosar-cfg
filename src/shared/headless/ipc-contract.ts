@@ -261,6 +261,48 @@ export interface MutationStepWarning {
   readonly message: string;
 }
 
+// ---------------------------------------------------------------------------
+// v1.18.1 PATCH — push channel wire types
+//
+// The `HEADLESS_MUTATE_APPLIED` and `HEADLESS_VALIDATE_RESULT` channels
+// are push events (main→renderer) declared in `src/shared/ipc-contract.ts`
+// but never fired — see `src/main/ipc/register.ts:489-494` for the
+// historical gap. v1.18.1 ships the emitters in
+// `src/main/headless/push-emitters.ts`; these types define what the
+// emitters ship on the wire.
+//
+// Renderer consumption is part of the future GUI bridge (v1.19.0 MINOR
+// scope). In CLI mode (`bin/autosarcfg.mjs`) there is no main window
+// and the emitters are no-ops.
+// ---------------------------------------------------------------------------
+
+/**
+ * Wire shape for `HEADLESS_MUTATE_APPLIED` push event.
+ *
+ * Subset of `MutateResult` (line 196) sufficient for a renderer to
+ * refresh the project tree + dirty flag without re-reading the
+ * manifest. The full `MutateResult` envelope is too large for a push
+ * event (includes `durationMs`, `dryRunPreview`, `stepsTotal`,
+ * `projectPath` — all of which the renderer already knows locally).
+ */
+export interface MutateAppliedEvent {
+  /** Stable id of the patch that was applied (matches `MutateResult.patchId`). */
+  readonly patchId: string;
+  /** Number of steps the engine reported as applied. */
+  readonly applied: number;
+  /** Non-fatal diagnostics from `applyPatchSteps` (v1.18.0 Obs-3). */
+  readonly warnings: ReadonlyArray<MutationStepWarning>;
+}
+
+/**
+ * Wire shape for `HEADLESS_VALIDATE_RESULT` push event.
+ *
+ * Type-aliased to the canonical `ValidateResult` envelope — push event
+ * carries the full result so a renderer can update live validation
+ * panels without a follow-up invoke.
+ */
+export type ValidateResultEvent = ValidateResult;
+
 export type HeadlessError =
   | { readonly kind: 'file-not-found'; readonly path: string }
   | { readonly kind: 'permission-denied'; readonly path: string }
