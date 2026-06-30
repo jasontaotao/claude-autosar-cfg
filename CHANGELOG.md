@@ -5,6 +5,32 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.17.0 (2026-06-30) — MINOR
+
+Type Rip (Batch 1 of joint-review plan). Closes 4 carry-overs (C9 / C10 / C11 + FIO-2) + 3 Tier 1 new findings (IPC-1 + SE-7 + T3 M1 e2e tests). 7 commits on top of v1.16.1 (`4ca835e`). Batches 2 + 3 defer to v1.18.0 MINOR per spec §15.1.
+
+- **`feat(types)`** — `BswModuleDef.derivedFrom?: string` for `<DERIVED-FROM>` classifier attachment (C9). `ReferenceDef.destDialect?: 'P-PORT' | 'R-PORT' | 'SW-C' | 'ECUC-MODULE-DEF'` for cross-dialect discriminator (C10). `BswmdDocument.moduleRefs?: ReadonlyArray<ModuleRefEntry>` for `<MODULE-REF>` explicit attachment (C11, was previously silently dropped). All three fields OPTIONAL — no breaking changes to existing ARXML outputs.
+- **`feat(validation)`** — new BSW-SEC-005 rule (`validateVariantCoverage`) emits error for POST-BUILD parameters lacking variant coverage. Walks `containers` recursively (subContainers + choices).
+- **`feat(parser)`** — new `walkPackagesForModuleRefs` helper surfaces `<MODULE-REF>` elements at the document level. Previously silently dropped by `parseBswmd`. Mirrors `walkPackagesForModules` recursion pattern.
+- **`fix(fio)`** — `stencilSaveHandler.ts:97` migrated from `await fs.writeFile` to `await writeAtomic` (closes the 6th raw writeFile site v1.15.5 C1 missed). Keeps `path.normalize` `..` guard.
+- **`feat(ipc)`** — `SCRIPT_PROGRESS` push channel emit from `scriptRunHandler.onLog` (closes orphan subscription; new `getMainWindow`/`setMainWindow` accessor in dedicated `src/main/window.ts` module to isolate IPC handlers from boot sequence import graph).
+- **`fix(security)`** — `applyPatchSteps.replace` rejects non-`{value: string, dest?: string}` shapes on reference params with `patch-invalid` error (was silently coercing via `String(raw)`).
+
+10 exhaustive-switch consumer sites annotated with explicit "no <C9/C10/C11> impact in current scope" comments per Phase 2.5 mandate.
+
+Test count: v1.16.1 = 2505 + 2 SKIP / 0 fail → v1.17.0 = **2525 + 2 SKIP / 0 fail** (+20 net: 3 C10 + 4 C9 + 5 C11 (2 unit + 3 e2e) + 2 FIO-2 + 2 IPC-1 + 4 SE-7 — exceeds plan target of +10 due to extra defensive tests added by T1/T5/T6 implementers). `pnpm verify` 7-stage pipeline green.
+
+**Deferred to v1.18.0 MINOR** per spec §15.1:
+
+- Batch 2 (7 items): C13 AppHeader/useProjectActions split + Obs-3 ApplyResult.warnings + IPC-4/5 envelopes + PB-1/4 crash recovery + PB-3 shutdown drain + SE-1 sandbox flip
+- Batch 3 (1 item): C8 variant engineering (coupled to Obs-3 StepWarning shape)
+
+See `docs/superpowers/specs/2026-06-29-v1-17-0-minor-design.md` §15.1.
+
+**Naming note**: this MINOR is called "v1.17.0" externally (semver-correct — first MINOR after v1.16.0) but was tracked internally as the v1.17.0 cycle throughout (plan file, spec file, devlog). The commit messages keep the "v1.17.0" identifier for historical continuity; the tag, CHANGELOG entry, release notes, and GH release use "v1.17.0".
+
+**Re-spec note**: T1 implementer BLOCKED on first dispatch 2026-06-30 due to spec drift (5 fictional file paths + 3 fictional type shapes from aspirational 2026-06-29 spec). Re-spec committed `19de59e` + `ba52620` + `88caeca` (test infra baseline-fix). Phase 2.5 brief-drift correction now includes Shape 7 (file-exists + existing-type-shape verification) per `phase-2-5-brief-drift-correction.md`. All 6 implementation commits (`5c79309`, `affd184`, `76d728c`, `4ca835e`, `ba93228`, `af9445a`) plus M1 follow-up (`3cbc471`) followed the re-spec.
+
 ## v1.16.1 (2026-06-30) — PATCH
 
 Script-handler async writeAtomic (FIO-1 from v1.15.5 surface observations). Closes the LAST remaining sync write site in the script-engine manifest path. Code-reviewer-verified 0C/0H/2M (both MEDIUMs addressed); `pnpm verify` 7-stage gate green.
