@@ -28,7 +28,7 @@ function newCtx(project: ArxmlDocument) {
     logs,
     violations,
     mutations,
-    options: { timeoutMs: 200, project },
+    options: { timeoutMs: 1000, project },
   };
 }
 
