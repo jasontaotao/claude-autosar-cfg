@@ -6,6 +6,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import { registerIpcHandlers } from './ipc/register.js';
 import { logFatal } from './log.js';
 import { isAllowedExternalUrl } from './window-open-allowlist.js';
+import { setMainWindow } from './window.js';
 
 // v1.15.5 — log-only safety nets for process-wide fatal events.
 // Fire-and-forget `cacheSet` from arxml-stream + vm-runner timeouts
@@ -38,6 +39,12 @@ async function createMainWindow(): Promise<void> {
       nodeIntegration: false,
     },
   });
+
+  // v1.17.0 MINOR (T5) IPC-1 — publish the live BrowserWindow to
+  // `window.ts` so IPC handlers can read it via `getMainWindow`
+  // without importing this boot module (which calls `app.whenReady`
+  // and breaks tests that don't mock `electron`).
+  setMainWindow(mainWindow);
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();

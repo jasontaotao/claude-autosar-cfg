@@ -23,11 +23,13 @@ import * as path from 'node:path';
 
 import type { ArxmlDocument, ArxmlVersion } from '../../core/arxml/types.js';
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
+import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   ScriptDeleteRequest,
   ScriptDeleteResponse,
   ScriptListRequest,
   ScriptListResponse,
+  ScriptProgressEvent,
   ScriptRunRequest,
   ScriptRunResponse,
   ScriptSaveRequest,
@@ -38,6 +40,7 @@ import { classScriptError, validateShortName, ScriptError } from '../script/erro
 import { resolveImports } from '../script/import-resolver.js';
 import type { ScriptEntry, ScriptLog, ScriptMutation, ScriptViolation } from '../script/types.js';
 import { runInSandbox } from '../script/vm-runner.js';
+import { getMainWindow } from '../window.js';
 
 // Test-injection slot. In V0.1 the IPC handler is driven directly from
 // tests; the production wiring will replace this with the actual open-
@@ -306,10 +309,31 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   // 3. Run. V0.1: log-only scripts run against an empty ArxmlDocument.
   //    Phase C wires the actual open document in.
   const project = emptyProject();
+  // v1.17.0 MINOR (T5) IPC-1 — wire SCRIPT_PROGRESS push channel.
+  // `runInSandbox` fires `onLog` synchronously after each `ctx.log.*`
+  // call (in addition to its own `logs` sink-array push). We forward
+  // the event to the renderer via `webContents.send`. The push is
+  // best-effort: when the window is null (pre-create / post-close),
+  // the IPC `send` is skipped and the logs still land in the sink
+  // array returned to the renderer via the final `ScriptRunResult`.
+  //
+  // Snapshot the BrowserWindow ONCE before the run starts so a
+  // window close mid-run doesn't tear the listener half-way through.
+  const mainWindow = getMainWindow();
   try {
     return runInSandbox(entry, logs, violations, mutations, {
       timeoutMs: req.timeoutMs ?? 5000,
       project,
+      onLog: (runId, log) => {
+        if (mainWindow === null || mainWindow.isDestroyed()) return;
+        const event: ScriptProgressEvent = {
+          runId,
+          level: log.level,
+          message: log.message,
+          ts: log.ts,
+        };
+        mainWindow.webContents.send(IPC_CHANNELS.SCRIPT_PROGRESS, event);
+      },
     });
   } catch (e) {
     // Defensive — the runner should never throw, but if a future

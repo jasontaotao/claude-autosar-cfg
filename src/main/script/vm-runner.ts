@@ -27,6 +27,20 @@ export interface RunOptions {
   readonly timeoutMs?: number;
   /** Required: the project the script operates on. */
   readonly project: ArxmlDocument;
+  /**
+   * Optional live-progress hook. Fires synchronously after each
+   * `ctx.log.*` call (in addition to the `logs` sink-array push),
+   * allowing the caller to stream `ScriptProgressEvent`s to the
+   * renderer before `runInSandbox` returns. The first argument is
+   * the `runId` assigned at run start; the second is the `ScriptLog`
+   * line that was just emitted.
+   *
+   * Added in v1.17.0 (IPC-1) to close the orphan SCRIPT_PROGRESS
+   * push channel. The hook is invoked from inside the user-script
+   * call frame — callers MUST keep the body allocation-light
+   * (e.g. an IPC `send`) and MUST NOT throw.
+   */
+  readonly onLog?: ((runId: string, log: ScriptLog) => void) | undefined;
 }
 
 /**
@@ -71,7 +85,14 @@ export function runInSandbox(
 
   const ctx = buildScriptCtx({
     project: options.project,
-    onLog: (l) => logs.push(l),
+    onLog: (l) => {
+      logs.push(l);
+      // Fire the live-progress hook AFTER the sink push so any
+      // observer sees the logs array in sync with the events it
+      // receives. The hook is optional — most callers (tests)
+      // omit it.
+      options.onLog?.(runId, l);
+    },
     onViolation: (v) => violations.push(v),
     onMutation: (m) => mutations.push(m),
   });
