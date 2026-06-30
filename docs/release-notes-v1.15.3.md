@@ -1,0 +1,61 @@
+# v1.15.3 PATCH Èà•Ì≤î carry-over closure + docs baseline-jump
+
+**Release Date**: 2026-06-27
+**Type**: PATCH
+**Ship Commit**: `c93dbe4f654a5a97346fac0ef8d79b89b4353659` (squash-merge of PR #15)
+**Tag**: `v1.15.3`
+**Base**: v1.15.2 (`844d6e17`)
+
+## Summary
+
+Closes the 1 advisory Important (I-1) + 4 Minor follow-ups from the v1.15.2 code-review, lands the stale `docs/user-manual.html` baseline jump (v1.2.0 Èà´Ì≤í v1.15.2) that had been sitting in the local working directory since the v1.11+ BSW generator cycle, and deletes the obsolete sprint-14 `docs/bswmd-to-ecuc-mockup.html` (1454 lines). **Zero production-code changes; zero test-count delta; 0 snapshot regen; SEC1Èà•ÊèùEC4 controls intact.**
+
+## Items
+
+### Code/Test Carry-overs (from v1.15.2 code-review)
+
+- **I-1**: Remove misleading `as 'integer'` cast on the `c-type-for-kind.test.ts` unknown-kind test. Widens via `satisfies { kind: string }` + `as unknown as Parameters<typeof cTypeForKind>[0]` double-cast that preserves type-system intent without misleading the reader.
+- **M-T3-1**: Update `c-type-for-basic-kind.test.ts` header comment to describe the post-M-1.1 4-arm world (was: 5-arm pre-M-1). Cross-references the unified dispatcher's `c-type-for-kind.test.ts` test 11 where unknown-kind semantics now live.
+- **M-T4-1**: Refactor the `pipeline.test.ts` M-2.1 assertion block to use vitest's chained `.not.toContainEqual(expect.objectContaining({...}))` for the BSW-SEC-004 negative check. Same 5 invariants asserted.
+- **M-5-1**: Reformat the v1.15.2 CHANGELOG bullets to wrap-with-prose at ~100 columns (matching v1.15.1 style). No content change.
+- **M-4**: Add `@param` / `@returns` / `@example` lines to the `cTypeForKind` JSDoc in `src/core/generator/modules/_shared.ts`. Mirrors the JSDoc style of `cTypeForBasicKind`.
+
+### Stale Docs (in working dir across v1.15.0 Èà´Ì≤í v1.15.1 Èà´Ì≤í v1.15.2 cycles)
+
+- **DOC-1**: Land the stale `docs/user-manual.html` baseline jump from v1.2.0 Èà´Ì≤í v1.15.2. Manual references bumped in title + hero + brand + What's New section + ch.13 BSW code generator + ÊêÇ9.X module header parser. **+475/-11 line update** that had been sitting in the local working tree since the v1.11+ BSW generator era; this commit finally makes the manual current.
+- **DOC-2**: Delete the obsolete `docs/bswmd-to-ecuc-mockup.html` (1454 lines, sprint-14 era). The ECUC-from-BSWMD feature it mockups has long since shipped (v1.11.0 BSW code generator) and superseded. 3 historical references in `CHANGELOG.md` ËÑ≥ 2 + `docs/superpowers/archive/plans/2026-06-18-ecuc-from-bswmd.md` ËÑ≥ 1 intentionally retained.
+
+## Statistics
+
+- **Test count**: 2482 Èà´Ì≤í 2482 (zero delta)
+- **Test files**: 253 passed + 0 fail
+- **Snapshot regen**: 0
+- **SEC1Èà•ÊèùEC4 controls**: intact
+- **Coverage**: 96.01% / 86.98% / 95.58% (unchanged; no production code touched)
+- **Commits**: 12 (spec + plan + 9 implementation + 1 final-review fix), squash-merged to main
+
+## Known Follow-ups (deferred to v1.15.4)
+
+- `docs/user-manual.html:2944, 2992` Èà•Ì≤î `2472 tests Ë∑Ø 96.72% stmts` line still shows v1.15.1 number; v1.15.2 actual is 2482. Pre-existing in the stashed baseline; out of brief scope.
+- `docs/user-manual.html:2816, 2956` Èà•Ì≤î CSS / HTML developer comments still reference v1.15.1. Developer-facing only; not rendered.
+- `pipeline.test.ts:447` Èà•Ì≤î WARN bound assertion is ~120 chars single line. Prettier-3 tolerates; cosmetic.
+- `c-type-for-kind.test.ts:74-77` Èà•Ì≤î consider 1-line comment explaining `satisfies` over `as` (would be redundant commentary about commentary).
+- `c-type-for-basic-kind.test.ts:1-15` Èà•Ì≤î header block is ~5 physical lines; could be split if project standard prefers shorter comments.
+
+## Next
+
+- **v1.16.0 MINOR**: B-3 emit\*Decl + Handlebars parts + B-4 BSWMD full vendor modeling (`/EAS/` namespace + deep `<AR-PACKAGES>` + choiceContainers). Larger lift, separate spec/plan cycle.
+- **v1.15.4 PATCH**: pick up the 5 minor follow-ups above. ~1 day.
+
+## Ship Method
+
+Direct `git push` blocked (github.com:443 unreachable; proxy 127.0.0.1:7897 down). Used `gh api` work-around per v1.15.2 ship pattern:
+
+1. POST 12 commits via `git/blobs` + `git/trees` + `git/commits` (one chain per commit)
+2. POST branch ref to final commit SHA
+3. Create PR #15 via `pulls` endpoint
+4. Squash-merge via `pulls/15/merge` endpoint
+5. Create tag `v1.15.3` at squash SHA via `git/refs` endpoint
+6. Create release via `releases` endpoint
+
+Local SHAs differ from remote SHAs (same content, different git object hashes). Per v1.15.2 lesson, this is expected behavior.
