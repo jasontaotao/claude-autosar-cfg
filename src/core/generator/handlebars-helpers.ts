@@ -167,6 +167,9 @@ export function integerToCType(min: number, max: number): string {
  * Mirrors `typeToCType` in Task 7 — keep the case arms and defaults in sync.
  */
 export function cType(def: BswmdParamDef): string {
+  // C10 (v1.17.0): no destDialect impact in current scope.
+  // Future v1.18.0 generator work will branch on this discriminator
+  // to route P-PORT / R-PORT / SW-C / ECUC-MODULE-DEF dest shapes.
   switch (def.kind) {
     case 'integer':
       return integerToCType(def.min ?? 0, def.max ?? 0);
@@ -192,6 +195,9 @@ export function cType(def: BswmdParamDef): string {
  * Same switch shape as `cType` — Task 7 will mirror the literal half too.
  */
 export function cValue(value: unknown, def: BswmdParamDef): string {
+  // C10 (v1.17.0): no destDialect impact in current scope.
+  // Future v1.18.0 generator work will branch on this discriminator
+  // to route P-PORT / R-PORT / SW-C / ECUC-MODULE-DEF dest shapes.
   switch (def.kind) {
     case 'integer':
       return String(value);

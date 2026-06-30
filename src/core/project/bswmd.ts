@@ -171,6 +171,12 @@ export interface ReferenceDef {
   readonly destKind: string;
   readonly lowerMultiplicity: number;
   readonly upperMultiplicity: number | 'infinite';
+  // C10 (v1.17.0): cross-dialect discriminator — distinguishes
+  // which dialect the dest comes from so renderer + generator can
+  // route render / emit logic correctly without parsing dest shape.
+  // OPTIONAL for back-compat; existing BSWMDs without destDialect
+  // continue to parse identically.
+  readonly destDialect?: 'P-PORT' | 'R-PORT' | 'SW-C' | 'ECUC-MODULE-DEF';
 }
 
 export interface ChoiceDef {
