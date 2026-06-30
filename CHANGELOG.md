@@ -5,6 +5,30 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.0 (2026-06-30) — MINOR
+
+Batch 2 + Batch 3 carry-overs from v1.17.0 spec §15.1. **7 items shipped** (C13 deferred to v1.18.4 PATCH per spec §15.2 — 4 critical drifts caught at implementation time). 10 commits on `feature/v1-18-0-minor` branch; squash to 1 on main.
+
+- **`feat(apply)`** — `ApplyResult.warnings: ReadonlyArray<StepWarning>` + `StepWarning` interface (T1 Obs-3). New non-fatal diagnostic channel parallel to `errors`. `OneStepResult.warning?` per-step slot; `applyPatchSteps` accumulates warnings. CLI dispatcher already maps non-empty warnings to `EXIT_WARNING` (no dispatcher changes). `MutationStepWarning` wire-shape in `shared/headless/ipc-contract.ts`; `mutate.ts` populates from `result.warnings`.
+- **`fix(security)`** — `webPreferences.sandbox: false` → `true` in `src/main/index.ts:37` (T2 SE-1). OS-level Chromium sandbox engaged. Preload bridge audit test pins typed-function-only surface + no Node handles exposed.
+- **`fix(renderer)`** — `saveProject` useCallback wrapped in try/catch envelope (T3 IPC-4). Mirrors `openProjectFromDialog` envelope (IPC-5 was already done). 4 tests: happy path, write-failed envelope, thrown Error caught, thrown string caught.
+- _(C13 subdir refactor deferred — see §15.2 of spec)_
+- **`fix(main)`** — main-side crash recovery dialogs in `src/main/index.ts` (T5 PB-1). Three handlers: `render-process-gone` (error dialog + Reload/Quit), `unresponsive` (warning dialog + Wait/Reload), `gpu-process-crashed` (silent reload). All handlers log via `logFatal`.
+- **`feat(main)`** — graceful shutdown drain (T6 PB-3). New `src/main/shutdown/drain.ts` with `trackHandler` / `drainInFlightHandlers` / `_resetForTest`. `app.on('before-quit', ...)` intercepts first quit call, drains in-flight IPC handlers (currently: `scriptRunHandler` as proof-of-concept), then re-quits. `isShuttingDown` re-entrancy guard.
+- **`feat(renderer)`** — React ErrorBoundary wraps `<App />` at React tree root (T7 PB-4). Class component (React 18 has no functional equivalent). Default fallback UI: "Something went wrong" + Reset button. Complements T5 (PB-1 main-side crash handlers) — orthogonal failure modes (renderer-render vs process-gone).
+- **`feat(variant)`** — variant engineering state machine (T8 C8). New `src/core/variant/engineering.ts` with `decideVariantType(multiplicity)` + `detectVariantDowngrade(prev, next)`. New `src/core/mutation/steps/variant-downgrade.ts` emits `StepWarning { kind: 'variant-downgrade' }`. New `'variant-downgrade'` step op in `PatchStep` union, wired into `applyOneStep` switch. First consumer of `StepWarning` shape from T1.
+
+Test count: v1.17.1 = 2527 + 2 SKIP / 0 fail → v1.18.0 = **2571 + 2 SKIP / 0 fail** (+44 net across 7 items: T1 +4 + T2 +3 + T3 +4 + T5 +5 + T6 +5 + T7 +4 + T8 +19). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**C13 deferral rationale** (see spec §15.2 for full detail): Phase 0 implementation attempt surfaced 4 critical drifts — AppHeader is 1 cohesive function (not 6 sub-components), `useProjectActions.saveProject` closure shared by 5 sibling useCallbacks, `AppHeader.scripts.test.tsx` asserts monolithic DOM, T3 already created test file assuming subdir barrel. Honest scope options: Option B (co-locate helpers/types, keep bodies monolithic) or Option A (invent sub-components, public API changes). **Defer to v1.18.4 PATCH with proper re-planning.**
+
+**Deferred to v1.18.x PATCHes** (per spec §11.1):
+
+- v1.18.1 — Headless push channel emitters
+- v1.18.2 — `PROJECT_CLOSE` IPC
+- v1.18.3 — WriteAtomic fsync gap in `post-process.ts`
+- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
+
 ## v1.17.1 (2026-06-30) — PATCH
 
 T5 M1 follow-up closure from v1.17.0 MINOR. Wires the BrowserWindow `closed` event to clear the window accessor so IPC handlers don't `webContents.send` on a destroyed window. 1 commit on `main` on top of v1.17.0 (`5ce52b7`). No deferrals.

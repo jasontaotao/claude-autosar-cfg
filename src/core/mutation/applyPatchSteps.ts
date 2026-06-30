@@ -59,6 +59,8 @@ import type { ArxmlDocument, ParamValue } from '../arxml/types.js';
 import type { BswModuleDef, ContainerDef } from '../project/bswmd.js';
 import { findContainerByPath, setParamInDocument } from '../project/setters.js';
 
+import { variantDowngradeStep } from './steps/variant-downgrade.js';
+
 // ---------------------------------------------------------------------------
 // Public surface
 // ---------------------------------------------------------------------------
@@ -81,11 +83,37 @@ export interface StepError {
   readonly message: string;
 }
 
+/**
+ * v1.18.0 MINOR T1 (Obs-3) — non-fatal step diagnostic.
+ *
+ * Distinct from `StepError`: a warning does NOT abort the step
+ * nor the loop, and does NOT contribute to `errors`. The CLI
+ * dispatcher (src/cli/command-dispatcher.ts:92-97) maps a
+ * non-empty `warnings` array on the `HeadlessResult` to
+ * `EXIT_WARNING` (exit code 2).
+ *
+ * The `kind` discriminator is the contract C8 (T8) emits against;
+ * keep it open for future consumers (variant-downgrade is the
+ * first, more to follow).
+ *
+ * The optional `step` field lets the renderer drill down from the
+ * warning to the offending patch step (e.g. show a "View step"
+ * affordance). Kept optional so simple consumers (CLI) can omit it.
+ */
+export interface StepWarning {
+  readonly stepIndex: number;
+  readonly kind: 'variant-downgrade' | 'type-coercion' | 'deprecated-param' | 'cross-dialect-ref';
+  readonly message: string;
+  readonly step?: PatchStep;
+}
+
 /** Result of applying a (possibly empty) list of steps. */
 export interface ApplyResult {
   readonly doc: ArxmlDocument;
   readonly applied: number;
   readonly errors: ReadonlyArray<StepError>;
+  /** v1.18.0 Obs-3 — non-fatal diagnostics. Always empty array when no step emits a warning. */
+  readonly warnings: ReadonlyArray<StepWarning>;
 }
 
 /**
@@ -103,6 +131,7 @@ export function applyPatchSteps(
   ctx: ApplyContext = {},
 ): ApplyResult {
   const errors: StepError[] = [];
+  const warnings: StepWarning[] = [];
   let current: ArxmlDocument = doc;
   let applied = 0;
 
@@ -113,12 +142,17 @@ export function applyPatchSteps(
     current = result.doc;
     if (result.error !== null) {
       errors.push(result.error);
-    } else if (result.noChange !== true) {
-      applied += 1;
+    } else {
+      if (result.warning !== undefined) {
+        warnings.push(result.warning);
+      }
+      if (result.noChange !== true) {
+        applied += 1;
+      }
     }
   }
 
-  return { doc: current, applied, errors };
+  return { doc: current, applied, errors, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +162,14 @@ export function applyPatchSteps(
 interface OneStepResult {
   readonly doc: ArxmlDocument;
   readonly error: StepError | null;
+  /**
+   * v1.18.0 Obs-3 — non-fatal diagnostic for this step. Distinct
+   * from `error`: a warning does not mark the step as failed and
+   * does not contribute to `applied`. Multiple warnings per step
+   * are not currently supported; if a future step kind needs
+   * multiple, extend `OneStepResult` to `warnings: ReadonlyArray<…>`.
+   */
+  readonly warning?: StepWarning;
   /**
    * True when the step ran without error but the doc was NOT actually
    * mutated (e.g. a no-op `set-param` with the same value as the
@@ -155,6 +197,13 @@ function applyOneStep(
     case 'remove':
     case 'replace':
       return applyJsonPatchStep(doc, step, index, ctx);
+    case 'variant-downgrade':
+      // v1.18.0 MINOR T8 (C8) — diagnostic-only step. Does NOT
+      // mutate the doc; may emit a `StepWarning` when the
+      // multiplicity transition is a downgrade (POST-BUILD →
+      // PRE-COMPILE or POST-BUILD → LINK-TIME or PRE-COMPILE →
+      // LINK-TIME).
+      return applyVariantDowngrade(doc, step, index, ctx);
   }
 }
 
@@ -469,6 +518,55 @@ function applyJsonPatchStep(
       );
     }
   }
+}
+
+/**
+ * v1.18.0 MINOR T8 (C8) — dispatch the `variant-downgrade` step op.
+ *
+ * The step is *diagnostic-only*: it does NOT mutate the doc tree
+ * (no BSWMD edit, no container/param change). The companion helper
+ * `variantDowngradeStep` evaluates the multiplicity transition
+ * (`step.fromMultiplicity` vs `step.toMultiplicity`) and returns a
+ * `StepWarning` when the transition is a downgrade (looser variant
+ * binding). This dispatcher wraps the helper into the `OneStepResult`
+ * envelope so `applyPatchSteps`'s outer loop can push the warning
+ * into `ApplyResult.warnings` and continue.
+ *
+ * Because no mutation happens, the step is treated as a successful
+ * no-op (`noChange: true`) — it does NOT count toward the `applied`
+ * counter. The warning still surfaces, so the CLI can still map a
+ * downgrade-only patch run to EXIT_WARNING.
+ */
+function applyVariantDowngrade(
+  doc: ArxmlDocument,
+  step: {
+    readonly op: 'variant-downgrade';
+    readonly containerPath: string;
+    readonly paramName: string;
+    readonly fromMultiplicity: 'POST-BUILD' | 'PRE-COMPILE' | 'LINK-TIME';
+    readonly toMultiplicity: 'POST-BUILD' | 'PRE-COMPILE' | 'LINK-TIME';
+  },
+  index: number,
+  ctx: ApplyContext,
+): OneStepResult {
+  const r = variantDowngradeStep(ctx, step);
+  if (!r.result.ok) {
+    return {
+      doc,
+      error: {
+        stepIndex: index,
+        kind: 'patch-invalid',
+        message: r.result.error,
+      },
+    };
+  }
+  // Successful no-op (no doc mutation). Surface the warning if any.
+  return {
+    doc,
+    error: null,
+    noChange: true,
+    ...(r.warning !== undefined ? { warning: { ...r.warning, stepIndex: index, step } } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

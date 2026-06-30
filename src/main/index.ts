@@ -1,10 +1,11 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 
 import { registerIpcHandlers } from './ipc/register.js';
 import { logFatal } from './log.js';
+import { drainInFlightHandlers } from './shutdown/drain.js';
 import { isAllowedExternalUrl } from './window-open-allowlist.js';
 import { registerMainWindowCloseHandler, setMainWindow } from './window.js';
 
@@ -34,7 +35,12 @@ async function createMainWindow(): Promise<void> {
     title: 'claude-AutosarCfg',
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
-      sandbox: false,
+      // v1.18.0 MINOR T2 (SE-1) — flip OS-level Chromium sandbox ON.
+      // Safe per preload bridge audit (src/main/__tests__/sandbox-flip.test.ts):
+      // bridge exposes only typed function refs; `process.platform` is read in
+      // the preload process via getRendererPlatform() and serialized to a
+      // string before crossing contextBridge. No Node handles exposed.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -51,6 +57,76 @@ async function createMainWindow(): Promise<void> {
   // push (e.g. SCRIPT_PROGRESS) would call `webContents.send` on
   // a destroyed window — which Electron rejects.
   registerMainWindowCloseHandler(mainWindow);
+
+  // v1.18.0 MINOR T5 (PB-1) — renderer crash recovery dialogs.
+  // Three handlers cover the recoverable failure modes Electron surfaces
+  // on `webContents`:
+  //   * `render-process-gone` — renderer process exited (crashed / OOM /
+  //     killed). Hard failure, requires user choice: Reload (re-spawn the
+  //     renderer, preserving main-side state) or Quit (close the app).
+  //   * `unresponsive` — renderer stopped responding for >30s. Soft failure
+  //     (renderer may recover). Offer Wait (no action, user can keep
+  //     waiting) or Reload (force a fresh renderer).
+  //   * `gpu-process-crashed` — GPU subprocess died. Recoverable without
+  //     user intervention: a reload re-attaches a fresh GPU process. No
+  //     dialog — this is a transient infrastructure failure, not a
+  //     user-facing error.
+  // All three log via `logFatal` so post-mortem analysis can correlate
+  // the dialog with the crash payload (see src/main/log.ts).
+  //
+  // Capture `mainWindow` in a local const so the async `.then` closures
+  // don't need a non-null assertion — the dialog + reload fire after the
+  // current microtask and `mainWindow` could in principle be cleared.
+  const win = mainWindow;
+  // The webContents event overload set in @types/electron only enumerates
+  // a subset of event names (`zoom-changed` is the last overload). The
+  // three crash-recovery events here are valid runtime events but lack
+  // compile-time overloads — narrow via a typed callback signature.
+  type RenderProcessGoneDetails = { reason: string; exitCode: number };
+  interface CrashRecoveryWebContents {
+    on(
+      event: 'render-process-gone',
+      listener: (_e: unknown, details: RenderProcessGoneDetails) => void,
+    ): unknown;
+    on(event: 'unresponsive', listener: () => void): unknown;
+    on(event: 'gpu-process-crashed', listener: (_e: unknown, killed: boolean) => void): unknown;
+  }
+  const wc = win.webContents as unknown as CrashRecoveryWebContents;
+  wc.on('render-process-gone', (_e, details) => {
+    logFatal('render-process-gone', details);
+    dialog
+      .showMessageBox(win, {
+        type: 'error',
+        title: 'Renderer crashed',
+        message: `Renderer process exited unexpectedly (reason: ${details.reason}).`,
+        buttons: ['Reload', 'Quit'],
+        defaultId: 0,
+      })
+      .then(({ response }) => {
+        if (response === 0) win.webContents.reload();
+        else app.quit();
+      });
+  });
+
+  wc.on('unresponsive', () => {
+    logFatal('webContents-unresponsive', new Error('Renderer unresponsive > 30s'));
+    dialog
+      .showMessageBox(win, {
+        type: 'warning',
+        title: 'Renderer unresponsive',
+        message: 'The renderer is unresponsive. Continue waiting?',
+        buttons: ['Wait', 'Reload'],
+        defaultId: 0,
+      })
+      .then(({ response }) => {
+        if (response === 1) win.webContents.reload();
+      });
+  });
+
+  wc.on('gpu-process-crashed', (_e, killed) => {
+    logFatal('gpu-process-crashed', new Error(`GPU process crashed (killed=${killed})`));
+    win.webContents.reload();
+  });
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
@@ -85,6 +161,24 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       void createMainWindow();
     }
+  });
+});
+
+// v1.18.0 MINOR T6 (PB-3) — graceful shutdown drain.
+// Intercept the first `app.quit()` call, await in-flight IPC
+// handlers via `drainInFlightHandlers`, then re-quit. The
+// `isShuttingDown` flag is module-scoped so re-entrant `before-quit`
+// events (which Electron emits if other paths trigger quit during
+// drain) don't loop. The `before-quit` event fires AFTER
+// `window-all-closed`, so the existing non-macOS quit path still
+// drives us here — the drain intercepts the actual exit.
+let isShuttingDown = false;
+app.on('before-quit', (event) => {
+  if (isShuttingDown) return;
+  event.preventDefault();
+  isShuttingDown = true;
+  drainInFlightHandlers().finally(() => {
+    app.quit();
   });
 });
 

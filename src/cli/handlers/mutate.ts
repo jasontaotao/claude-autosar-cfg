@@ -29,6 +29,7 @@ import type {
   MutateArgs,
   MutateResult,
   MutationStepError,
+  MutationStepWarning,
 } from '../../shared/headless/ipc-contract.js';
 import { failWith } from '../command-dispatcher.js';
 import { parsePatchDocument } from '../patch-parser.js';
@@ -99,12 +100,19 @@ export async function mutateHeadlessProject(args: MutateArgs): Promise<MutateRes
   const arxmlDoc = { ...parsedDoc.value, path: projectPath };
 
   // 3. Apply each step via the renderer-agnostic engine.
-  const warnings: ReadonlyArray<{ stepIndex: number; message: string }> = [];
   const result = applyPatchSteps(arxmlDoc, doc.steps);
   const errors: MutationStepError[] = result.errors.map((e) => ({
     stepIndex: e.stepIndex,
     kind: e.kind,
     message: e.message,
+  }));
+  // v1.18.0 Obs-3 — surface non-fatal diagnostics from
+  // `applyPatchSteps` (e.g. C8 variant downgrade warning).
+  // CLI dispatcher maps a non-empty array to EXIT_WARNING.
+  const warnings: ReadonlyArray<MutationStepWarning> = result.warnings.map((w) => ({
+    stepIndex: w.stepIndex,
+    kind: w.kind,
+    message: w.message,
   }));
 
   if (errors.length > 0) {

@@ -38,6 +38,7 @@ import type {
   ScriptRunRequest,
   ScriptSaveRequest,
 } from '../../shared/types.js';
+import { trackHandler } from '../shutdown/drain.js';
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
@@ -438,8 +439,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) =>
     scriptDeleteHandler(req),
   );
+  // v1.18.0 MINOR T6 (PB-3) — wrap the SCRIPT_RUN invoke so the
+  // graceful-shutdown drain in src/main/index.ts `before-quit` can await
+  // an in-flight script execution. `scriptRunHandler` is the longest-
+  // running IPC handler (default 5s timeout, user-supplied up to 60s),
+  // so a user-triggered quit mid-run would otherwise tear down the
+  // sandbox while the manifest write is in progress — corrupting
+  // project state. Wrapping at the registration site (not inside the
+  // handler) preserves `scriptRunHandler`'s pure-function signature
+  // for direct unit testing without the drain dependency.
   ipcMain.handle(IPC_CHANNELS.SCRIPT_RUN, async (_evt, req: ScriptRunRequest) =>
-    scriptRunHandler(req),
+    trackHandler(scriptRunHandler(req)),
   );
 
   ipcMain.handle(

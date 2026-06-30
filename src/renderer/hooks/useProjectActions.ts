@@ -295,19 +295,36 @@ export function useProjectActions(): {
     if (project === null || projectPath === null) {
       return { kind: 'canceled' };
     }
-    const result = await window.autosarApi.projectSave({
-      manifestPath: projectPath,
-      manifest: project,
-      files: [],
-    });
-    switch (result.kind) {
-      case 'saved':
-        return { kind: 'ok' };
-      case 'write-failed':
-        return {
-          kind: 'error',
-          message: t(locale, 'app.error.saveProjectFailed', { message: result.message }),
-        };
+    // IPC-4 (v1.18.0) — wrap the IPC await in try/catch. Mirrors the
+    // `openProjectFromDialog` envelope (line 453-466). Pre-IPC-4 a
+    // thrown IPC rejection (main-process crash, IPC channel reset,
+    // sandbox error) propagated through React's render cycle and
+    // crashed the renderer silently — the user saw no error toast
+    // and the dirty marker stayed on. Now the rejection is converted
+    // to a ProjectActionResult `error` envelope the UI already knows
+    // how to surface.
+    try {
+      const result = await window.autosarApi.projectSave({
+        manifestPath: projectPath,
+        manifest: project,
+        files: [],
+      });
+      switch (result.kind) {
+        case 'saved':
+          return { kind: 'ok' };
+        case 'write-failed':
+          return {
+            kind: 'error',
+            message: t(locale, 'app.error.saveProjectFailed', { message: result.message }),
+          };
+      }
+    } catch (e: unknown) {
+      // Narrow `unknown` defensively — IPC channel reset can yield an
+      // Error, a bare string, or any other thrown value depending on
+      // the main-process handler. The `String(e)` fallback covers the
+      // non-Error cases so the UI always gets a displayable message.
+      const message = e instanceof Error ? e.message : String(e);
+      return { kind: 'error', message };
     }
   }, []);
 

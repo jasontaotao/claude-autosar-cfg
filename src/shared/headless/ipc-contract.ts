@@ -200,7 +200,8 @@ export interface MutateResult {
   readonly patchId: string;
   readonly stepsApplied: number;
   readonly stepsTotal: number;
-  readonly warnings: ReadonlyArray<{ readonly stepIndex: number; readonly message: string }>;
+  /** v1.18.0 Obs-3 — non-fatal step diagnostics from `applyPatchSteps`. */
+  readonly warnings: ReadonlyArray<MutationStepWarning>;
   readonly durationMs: number;
   /** Populated only when `--dry-run` is set. */
   readonly dryRunPreview?: string;
@@ -240,6 +241,21 @@ export interface StubHeadlessResult {
 
 /** A single step-level error inside a `mutation-failed` HeadlessError. */
 export interface MutationStepError {
+  readonly stepIndex: number;
+  readonly kind: string;
+  readonly message: string;
+}
+
+/**
+ * v1.18.0 MINOR T1 (Obs-3) — wire-shape for `StepWarning`.
+ *
+ * Mirrors `StepWarning` in `src/core/mutation/applyPatchSteps.ts`
+ * but omits the optional `step: PatchStep` field — the wire shape
+ * carries only what consumers (CLI, headless scripts) need. The
+ * renderer can re-derive the step context from the patch document
+ * if it needs to drill down.
+ */
+export interface MutationStepWarning {
   readonly stepIndex: number;
   readonly kind: string;
   readonly message: string;
@@ -309,6 +325,20 @@ export type PatchStep =
       readonly op: 'remove-with-cascade';
       readonly containerPath: string;
       readonly cascade: boolean;
+    }
+  // v1.18.0 MINOR T8 (C8) — variant engineering downgrade step.
+  // Carries the multiplicity transition that the param is about to
+  // undergo; `variantDowngradeStep` evaluates it and emits a
+  // `StepWarning { kind: 'variant-downgrade' }` when the transition
+  // loosens variant binding. The dispatcher wires the warning into
+  // `ApplyResult.warnings` (T1 / Obs-3). The step is a *diagnostic*
+  // op — it does NOT mutate the document.
+  | {
+      readonly op: 'variant-downgrade';
+      readonly containerPath: string;
+      readonly paramName: string;
+      readonly fromMultiplicity: 'POST-BUILD' | 'PRE-COMPILE' | 'LINK-TIME';
+      readonly toMultiplicity: 'POST-BUILD' | 'PRE-COMPILE' | 'LINK-TIME';
     };
 
 /**
