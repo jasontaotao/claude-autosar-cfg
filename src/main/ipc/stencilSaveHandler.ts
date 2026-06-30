@@ -14,11 +14,11 @@
 // no-op (`{ ok: true, value: { canceled: true } }`) — same convention
 // as the rest of the IPC surface.
 
-import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
 import { dialog } from 'electron';
 
+import { writeAtomic } from '../io/writeAtomic.js';
 import type { StencilSaveRequest, StencilSaveResponse } from '../stencil/types.js';
 
 const STENCIL_SAVE_MAX_BYTES = 32 * 1024 * 1024;
@@ -94,7 +94,11 @@ export async function handleStencilSave(req: StencilSaveRequest): Promise<Stenci
   }
 
   try {
-    await fs.writeFile(targetPath, req.xml, 'utf8');
+    // FIO-2 (v1.17.0) — route through writeAtomic so the stencil commit
+    // survives a crash mid-write (temp-file + fsync + rename atomicity).
+    // v1.15.5 C1 grep missed this site because it targeted only
+    // writeFileSync (sync form); this site used the async form.
+    await writeAtomic(targetPath, req.xml);
     return { ok: true, value: { canceled: false, path: targetPath } };
   } catch (e) {
     const errno = (e as NodeJS.ErrnoException | undefined)?.code;
