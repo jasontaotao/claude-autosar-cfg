@@ -5,6 +5,23 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.1 (2026-06-30) — PATCH
+
+Headless push channel emitters — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal. 2 commits on `feature/v1-18-1-patch` branch (T1 wire types + T2 emitters).
+
+- **`feat(headless)`** — wire types for push channel events (T1). `MutateAppliedEvent` (subset of `MutateResult`: `patchId` + `applied` + `warnings`) and `ValidateResultEvent` (type-aliases `ValidateResult`) added to `src/shared/headless/ipc-contract.ts`. Type-only addition; no consumers yet.
+- **`feat(headless)`** — push channel emitters (T2). New `src/main/headless/push-emitters.ts` exposes `emitMutateApplied(event)` + `emitValidateResult(event)`. Both snapshot `getMainWindow()`, guard with `null === null || mainWindow.isDestroyed()`, then call `mainWindow.webContents.send(channel, event)`. Mirrors the SCRIPT_PROGRESS push pattern at `src/main/ipc/script-handler.ts:312-336`. In CLI mode (standalone `bin/autosarcfg.mjs`) the emitters are no-ops because there is no main window — correct: the CLI does not own a renderer.
+
+Test count: v1.18.0 = 2571 + 2 SKIP / 0 fail → v1.18.1 = **2576 + 2 SKIP / 0 fail** (+5 net). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Future consumer**: v1.19.0 MINOR will replace `headlessRunCommandStub` with a real dispatcher that calls these emitters when a headless command completes inside the Electron main process. Renderer integration is part of the GUI bridge design.
+
+**Deferred to v1.18.x PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.18.2 — `PROJECT_CLOSE` IPC
+- v1.18.3 — WriteAtomic fsync gap in `post-process.ts`
+- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
+
 ## v1.18.0 (2026-06-30) — MINOR
 
 Batch 2 + Batch 3 carry-overs from v1.17.0 spec §15.1. **7 items shipped** (C13 deferred to v1.18.4 PATCH per spec §15.2 — 4 critical drifts caught at implementation time). 10 commits on `feature/v1-18-0-minor` branch; squash to 1 on main.
