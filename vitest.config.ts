@@ -14,6 +14,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: [resolve(__dirname, 'src/test/setup.ts')],
+    // Default vitest testTimeout (5000ms) trips a-c-2b-cli-mutate-real
+    // happy-path tests (set-param/remove/replace step) and the
+    // streamParse perf test under coverage instrumentation overhead.
+    // Bump to 30s so the slow-but-correct tests don't flake; tests
+    // that legitimately hang still fail.
+    testTimeout: 30_000,
     include: [
       'src/**/__tests__/**/*.test.ts',
       'src/**/__tests__/**/*.test.tsx',
