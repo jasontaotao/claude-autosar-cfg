@@ -80,6 +80,16 @@ export interface BswModuleDef {
    * can iterate without nullability checks.
    */
   readonly includes?: readonly string[];
+  /**
+   * C9 (v1.17.0) — derivation chain via `<DERIVED-FROM>`. When this
+   * module extends another base module def, points to the absolute
+   * path of the base module def in the BSWMD. Validator consumers
+   * branch on this field's presence (BSW-SEC-005). Generator / emit /
+   * mutation / slice hooks will wire derivedFrom in v1.18.0 Batch 3
+   * (C8 variant engineering). OPTIONAL for back-compat — omitted for
+   * the common independent-module case.
+   */
+  readonly derivedFrom?: string;
 }
 
 /**

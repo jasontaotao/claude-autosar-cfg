@@ -1223,6 +1223,12 @@ function removeElement(
  * which is the correct user-facing signal.
  */
 function zeroValueForKind(kind: ParamKind): ParamValue | null {
+  // C9 (v1.17.0): no derivedFrom impact in this switch — derived
+  // branch is a validator-only concern (BSW-SEC-005). This switch
+  // operates on ParamKind (scalar type discriminator), not on the
+  // BswModuleDef.derivedFrom field. Generator / emit / mutation /
+  // slice hooks will branch on derivedFrom in v1.18.0 Batch 3 (C8
+  // variant engineering).
   switch (kind) {
     case 'integer':
       return { type: 'integer', value: 0 };

@@ -10,6 +10,7 @@ import type {
   ArxmlReference,
   ParamValue,
 } from '../arxml/types.js';
+import type { BswModuleDef } from '../project/bswmd.js';
 
 import { normalizePath, resolveTargetPath } from './pathNormalize.js';
 export { normalizePath, tryStripTypeSegment, resolveTargetPath } from './pathNormalize.js';
@@ -955,4 +956,64 @@ function emitRefCycleError(
     message,
   };
   return closing.site.paramKey !== undefined ? { ...base, paramKey: closing.site.paramKey } : base;
+}
+
+export interface VariantCoverageWarning {
+  readonly kind: 'BSW-SEC-005';
+  readonly severity: 'error';
+  readonly message: string;
+  readonly path: string;
+}
+
+export interface VariantCoverageValue {
+  readonly paramPath: string;
+  readonly variantRef?: string;
+}
+
+interface CoverageNode {
+  readonly path: string;
+  readonly parameters: readonly { readonly path: string }[];
+  readonly multiplicityConfigClasses?: readonly { readonly configClass: string }[];
+  readonly subContainers: readonly CoverageNode[];
+  readonly choices: readonly CoverageNode[];
+}
+
+/**
+ * BSW-SEC-005 (v1.17.0) — POST-BUILD parameter without variant coverage.
+ *
+ * Walks every container's parameters, collects those whose
+ * multiplicityConfigClasses include `POST-BUILD`, and checks that at
+ * least one runtime value carries a variantRef covering the path.
+ * Recurses into subContainers + choices (same traversal pattern as
+ * `findContainerInTree` in bswmd.ts).
+ *
+ * Returns one warning per uncovered POST-BUILD param. Empty array
+ * means all POST-BUILD params have variant coverage.
+ */
+export function validateVariantCoverage(
+  values: ReadonlyArray<VariantCoverageValue>,
+  bswmd: BswModuleDef,
+): ReadonlyArray<VariantCoverageWarning> {
+  const warnings: VariantCoverageWarning[] = [];
+  const visit = (node: CoverageNode): void => {
+    const isPostBuild =
+      node.multiplicityConfigClasses?.some((m) => m.configClass === 'POST-BUILD') ?? false;
+    if (isPostBuild) {
+      for (const p of node.parameters) {
+        const covered = values.some((v) => v.paramPath === p.path && v.variantRef !== undefined);
+        if (!covered) {
+          warnings.push({
+            kind: 'BSW-SEC-005',
+            severity: 'error',
+            message: `POST-BUILD parameter ${p.path} requires variant coverage`,
+            path: p.path,
+          });
+        }
+      }
+    }
+    for (const sub of node.subContainers) visit(sub);
+    for (const ch of node.choices) visit(ch);
+  };
+  for (const c of bswmd.containers) visit(c);
+  return warnings;
 }

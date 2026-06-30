@@ -51,6 +51,12 @@ import type { McuParamDefLike } from './mcu.js';
  * upstream in the E3 validator.
  */
 export function renderCValue(value: unknown, kind: string): string {
+  // C9 (v1.17.0): no derivedFrom impact in this switch — derived
+  // branch is a validator-only concern (BSW-SEC-005). This switch
+  // operates on ParamKind (scalar type discriminator), not on the
+  // BswModuleDef.derivedFrom field. Generator / emit / mutation /
+  // slice hooks will branch on derivedFrom in v1.18.0 Batch 3 (C8
+  // variant engineering).
   switch (kind) {
     case 'integer':
       return String(value);
@@ -348,6 +354,12 @@ export function resolveIncludesForModule(
  * `c-type-for-kind.test.ts` (test 11) via the unified dispatcher.
  */
 export function cTypeForBasicKind(kind: string): string {
+  // C9 (v1.17.0): no derivedFrom impact in this switch — derived
+  // branch is a validator-only concern (BSW-SEC-005). This switch
+  // operates on ParamKind (scalar type discriminator), not on the
+  // BswModuleDef.derivedFrom field. Generator / emit / mutation /
+  // slice hooks will branch on derivedFrom in v1.18.0 Batch 3 (C8
+  // variant engineering).
   switch (kind) {
     case 'boolean':
       return 'uint8';

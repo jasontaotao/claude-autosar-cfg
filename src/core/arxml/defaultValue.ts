@@ -36,6 +36,12 @@ import type { ParamValue } from './types.js';
  */
 export function buildDefaultValue(paramDef: ParamDef): ParamValue | null {
   const def = paramDef.defaultValue;
+  // C9 (v1.17.0): no derivedFrom impact in this switch — derived
+  // branch is a validator-only concern (BSW-SEC-005). This switch
+  // operates on ParamDef.kind (scalar type discriminator), not on
+  // the BswModuleDef.derivedFrom field. Generator / emit / mutation
+  // / slice hooks will branch on derivedFrom in v1.18.0 Batch 3
+  // (C8 variant engineering).
   switch (paramDef.kind) {
     case 'integer': {
       if (typeof def === 'number') return { type: 'integer', value: Math.trunc(def) };

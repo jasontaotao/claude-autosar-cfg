@@ -307,6 +307,11 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
     // so the renderer can switch on `kind` uniformly regardless of
     // whether the failure was a thrown exception (defensive) or a
     // returned `write-failed` (normal).
+    //
+    // C9 (v1.17.0): no derivedFrom impact here — the IPC envelope
+    // discriminator is independent of BswModuleDef.derivedFrom.
+    // derivedFrom wiring in this slice will be addressed in v1.18.0
+    // Batch 3 (C8 variant engineering).
     let ipcResult:
       | { kind: 'ok' }
       | { kind: 'not-found' }
