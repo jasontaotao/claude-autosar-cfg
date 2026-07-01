@@ -398,6 +398,15 @@ export type ProjectOpenResult =
     };
 
 /**
+ * Result envelope for `PROJECT_CLOSE` (v1.18.2 PATCH). Symmetric
+ * counterpart to `ProjectOpenResult`. Currently single-kind — `closed`
+ * is returned whether or not a project was open (idempotent close,
+ * mirrors Unix `close(2)` semantics). Future failure modes (e.g.
+ * cleanup threw) would add a `failed` kind.
+ */
+export type ProjectCloseResult = { readonly kind: 'closed' };
+
+/**
  * Request payload for `PROJECT_SAVE`. The renderer sends the current
  * manifest + any files whose content has changed since the last save.
  * `files` may be empty if only the manifest changed (e.g. added a path

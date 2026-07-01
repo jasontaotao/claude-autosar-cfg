@@ -10,6 +10,13 @@ export const IPC_CHANNELS = {
   PROJECT_NEW: 'project:new',
   PROJECT_OPEN: 'project:open',
   PROJECT_SAVE: 'project:save',
+  // v1.18.2 PATCH — `PROJECT_CLOSE` channel. Symmetric counterpart to
+  // `PROJECT_OPEN` (line above). Used by the renderer to reset the
+  // open-project manifest path state (e.g. before opening a different
+  // project, or to clear the in-memory state on window reload). No `:v1`
+  // suffix: this is a state-mutation channel, not a wire-versioned surface
+  // (mirrors `SCRIPT_LIST` / `SCRIPT_RUN` convention).
+  PROJECT_CLOSE: 'project:close',
   // Sprint 12 #1 — BSWMD schema-side parser
   BSWMD_PARSE: 'bswmd:parse',
   // Sprint 12 #2 — BSWMD file reader (renderer-driven "Load BSWMD")
@@ -156,5 +163,8 @@ export const PROJECT_DELETE_ARXML = IPC_CHANNELS.PROJECT_DELETE_ARXML;
 export const HEADLESS_RUN_COMMAND = IPC_CHANNELS.HEADLESS_RUN_COMMAND;
 export const HEADLESS_MUTATE_APPLIED = IPC_CHANNELS.HEADLESS_MUTATE_APPLIED;
 export const HEADLESS_VALIDATE_RESULT = IPC_CHANNELS.HEADLESS_VALIDATE_RESULT;
+// v1.18.2 PATCH — top-level alias for PROJECT_CLOSE (mirrors PROJECT_OPEN
+// convention at the prior siblings; both compile to the same string).
+export const PROJECT_CLOSE = IPC_CHANNELS.PROJECT_CLOSE;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
