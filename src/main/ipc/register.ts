@@ -44,11 +44,8 @@ import { trackHandler } from '../shutdown/drain.js';
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
-import {
-  headlessRunCommandStub,
-  swsValidateCancelStub,
-  swsValidateStub,
-} from './headless-stubs.js';
+import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
+import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { setOpenProjectManifestPath } from './project-manifest-state.js';
@@ -505,7 +502,7 @@ export function registerIpcHandlers(): void {
   // replace the stubs with real handlers.
   ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE, swsValidateStub);
   ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE_CANCEL, swsValidateCancelStub);
-  ipcMain.handle(IPC_CHANNELS.HEADLESS_RUN_COMMAND, headlessRunCommandStub);
+  ipcMain.handle(IPC_CHANNELS.HEADLESS_RUN_COMMAND, headlessRunCommandHandler);
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import type {
   ParseBswmdResponse,
   PickDirRequest,
   PickDirResult,
+  ProjectCloseResult,
   ProjectDeleteArxmlRequest,
   ProjectDeleteArxmlResult,
   ProjectDeleteBswmdRequest,
@@ -67,6 +68,11 @@ const api = {
   projectNew: (req: ProjectNewRequest): Promise<ProjectNewResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_NEW, req),
   projectOpen: (): Promise<ProjectOpenResult> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_OPEN),
+  // v1.19.0 MINOR — wire the v1.18.2 PROJECT_CLOSE IPC into the renderer
+  // bridge so the `useProjectActions.closeProject` hook can invoke it.
+  // Idempotent: returns `{ kind: 'closed' }` whether or not a project
+  // is open (mirrors Unix `close(2)` semantics per v1.18.2 plan).
+  projectClose: (): Promise<ProjectCloseResult> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CLOSE),
   projectSave: (req: ProjectSaveRequest): Promise<ProjectSaveResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SAVE, req),
   // Sprint 12 #1 — BSWMD schema-side parser

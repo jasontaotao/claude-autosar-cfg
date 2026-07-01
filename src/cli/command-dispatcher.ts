@@ -106,6 +106,46 @@ export async function dispatchCommand(parsed: DispatchArgs): Promise<HeadlessExi
   return EXIT_SUCCESS;
 }
 
+/**
+ * v1.19.0 MINOR — GUI-mode dispatcher. Same routing as `dispatchCommand`
+ * but does NOT write to stdout/stderr (the GUI doesn't want CLI-style
+ * stdout noise) and returns the `HeadlessResult` directly (instead of
+ * an exit code) so the IPC caller can wrap it in the
+ * `HeadlessRunCommandResult` envelope.
+ *
+ * On `HeadlessFailureError`, re-throws so the IPC caller can wrap the
+ * `HeadlessFailure` envelope in the error branch. Callers should catch
+ * and convert to IPC error envelope.
+ */
+export async function dispatchCommandForGui(parsed: DispatchArgs): Promise<HeadlessResult> {
+  try {
+    switch (parsed.kind) {
+      case 'read':
+        return await readHeadlessProject(parsed.input);
+      case 'mutate':
+        return await mutateHeadlessProject(parsed.input);
+      case 'validate':
+        return await validateHeadlessProject(parsed.input);
+      case 'generate':
+        return await generateHeadlessProject(parsed.input);
+    }
+  } catch (err) {
+    if (err instanceof HeadlessFailureError) {
+      // Re-throw — caller will catch + wrap as IPC error envelope.
+      throw err;
+    }
+    // Unexpected — wrap as internal-error so the GUI sees a structured
+    // HeadlessFailure envelope (same shape as the CLI path would emit).
+    const message = err instanceof Error ? err.message : String(err);
+    throw new HeadlessFailureError({
+      ok: false,
+      code: EXIT_FATAL,
+      error: { kind: 'internal-error', message },
+      stderr: [`[autosarcfg] internal error: ${message}`],
+    });
+  }
+}
+
 function emitResult(result: HeadlessResult): void {
   // The bin entry re-encodes via the `--format` flag; for now always
   // emit JSON for downstream tooling (`autosarcfg ... | jq`).

@@ -99,6 +99,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'parseBswmd',
       'pickDir',
       'ping',
+      'projectClose',
       'projectNew',
       'projectOpen',
       'projectSave',

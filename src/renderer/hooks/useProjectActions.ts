@@ -119,6 +119,11 @@ export type { ProjectActionResult };
  *     BSWMD only. When it has 1+ dependents, pops the cascade confirm
  *     dialog and dispatches on the user's choice (cancel / only /
  *     cascade).
+ *   - `closeProject()` (v1.19.0 MINOR) — calls the v1.18.2 PROJECT_CLOSE
+ *     IPC + clears the store's project + projectPath. No dirty guard
+ *     here — the user has already decided to abandon unsaved edits
+ *     via the AppHeader close flow. Idempotent: safe to call when no
+ *     project is open.
  *
  * Dirty-guard semantics (Stage 3.2):
  *   - 'continue' → return `{ kind: 'canceled' }`, no IPC.
@@ -151,6 +156,8 @@ export function useProjectActions(): {
     directory: string,
     opts?: { readonly bswmdPaths?: readonly string[] },
   ) => Promise<ProjectActionResult>;
+  // v1.19.0 MINOR — wire v1.18.2 PROJECT_CLOSE IPC.
+  readonly closeProject: () => Promise<ProjectActionResult>;
 } {
   // -------------------------------------------------------------------------
   // `saveProject` is declared first so the dirty-guard helper can close
@@ -659,6 +666,21 @@ export function useProjectActions(): {
     [saveProject],
   );
 
+  // v1.19.0 MINOR — closeProject. Wires the v1.18.2 PROJECT_CLOSE IPC
+  // + clears the store's project + projectPath. No dirty guard here
+  // because the user has already decided to abandon unsaved edits via
+  // the AppHeader close flow (which already calls saveProject before
+  // this). Idempotent: safe to call when no project is open (returns
+  // `{ kind: 'closed' }` from main and clears no-op store state).
+  const closeProject = useCallback(async (): Promise<ProjectActionResult> => {
+    await window.autosarApi.projectClose();
+    // Clear store project state. The store's closeProject action (added
+    // in v1.6.0 era, preserved per CHANGELOG line 1543-1544) keeps
+    // documents[] + dirtyPaths so the user keeps editing in loose mode.
+    useArxmlStore.getState().closeProject();
+    return { kind: 'ok' };
+  }, []);
+
   return {
     newProject,
     openProjectFromDialog,
@@ -668,6 +690,7 @@ export function useProjectActions(): {
     removeBswmdWithFullFlow,
     deleteEcucModuleWithFullFlow,
     submitNewProject,
+    closeProject,
   };
 }
 

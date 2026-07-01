@@ -236,6 +236,35 @@ export interface StubHeadlessResult {
 }
 
 // ---------------------------------------------------------------------------
+// v1.19.0 MINOR — HeadlessRunCommand wire envelope
+//
+// Replaces `StubHeadlessResult` for the real GUI-mode dispatcher.
+// `HeadlessRunCommandRequest` carries the parsed CLI args (so the
+// dispatcher routes to the matching handler) + the patchId (so the
+// push emitter can carry it through to the renderer's
+// `MutateAppliedEvent`).
+// ---------------------------------------------------------------------------
+
+export interface HeadlessRunCommandRequest {
+  /** Parsed CLI args. Mirrors `DispatchArgs` (ParsedArgs | generate). */
+  readonly parsedArgs: HeadlessCommand;
+  /** Required for mutate commands; used in the push event payload. */
+  readonly patchId: string;
+}
+
+/**
+ * Result envelope returned by `HEADLESS_RUN_COMMAND` IPC.
+ *
+ * On success, carries the full `HeadlessResult` envelope (the renderer
+ * can switch on `result.command` to narrow). On failure, carries a
+ * `HeadlessFailure` envelope (matches the CLI-side shape; the renderer
+ * can render via the same `HeadlessErrorI18nKey` path).
+ */
+export type HeadlessRunCommandResult =
+  | { readonly kind: 'ok'; readonly result: HeadlessResult }
+  | { readonly kind: 'error'; readonly failure: HeadlessFailure };
+
+// ---------------------------------------------------------------------------
 // HeadlessError — failure envelope (per A+C spec §4 + §9)
 // ---------------------------------------------------------------------------
 
