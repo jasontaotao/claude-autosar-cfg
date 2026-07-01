@@ -5,6 +5,27 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.4 (2026-07-01) — PATCH
+
+`bswmdDeleteHandler` no-open-project branch test coverage — refines and closes the v1.18.2 PATCH §0.4 deferred "PROJECT_CLOSE defensive null-check" item. 1 commit on main.
+
+- **`test(ipc)`** — 2 characterization tests added to `src/main/ipc/__tests__/bswmdDeleteHandler.test.ts`:
+  1. `rejects all calls when no project is open (v1.18.4)` — mirrors the existing v1.15.5 coverage pattern at `projectWriteArxmlBatchHandler.path.test.ts:52-64`. Verifies the defensive null-check branch (production lines 32-34) returns `{ kind: 'invalid-path', message: 'No project is open' }` and that no IO happens.
+  2. `rejects BSWMD delete after PROJECT_CLOSE (v1.18.4 lifecycle)` — open project → BSWMD delete works → close project (state → null via `projectCloseHandler`) → subsequent BSWMD delete rejected. End-to-end v1.18.2 + v1.15.5 contract verification.
+
+**Correction to v1.18.2 CHANGELOG** ("Known limitation" entry): the v1.18.2 plan §0.4 misread the production code. The defensive null-check has been in place since v1.15.5 (commits `d9df9fb` / `e69753c`, part of path-containment work). The actual gap closed in v1.18.4 is **test coverage**, not production code. Production code is unchanged.
+
+**Why this matters**: locks in the v1.15.5 defensive contract with explicit tests. A future refactor that removes the null-check (e.g. "simplify by assuming state is always non-null") would now be caught by `pnpm verify` rather than discovered in production.
+
+Test count: v1.18.3 = 2582 + 2 SKIP / 0 fail → v1.18.4 = **2584 + 2 SKIP / 0 fail** (+2 net, matches plan forecast exactly). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Deferred to future PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.18.5 — C13 subdir refactor (with re-planning per spec §15.2; bumped from v1.18.4 due to v1.18.4 PATCH scope refinement)
+- B-3 emit\*Decl + Handlebars (defer to v1.20.0 MINOR)
+- `isPathInside` symlink-parent false positive (defer to v1.20.0)
+- Setting-file feature-flag readers async migration (defer to v1.20.0)
+
 ## v1.18.3 (2026-06-30) — PATCH
 
 WriteAtomic fsync gap closure — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal (4th-oldest carry-over). 1 commit on main.
@@ -19,8 +40,7 @@ Test count: v1.18.2 = 2580 + 2 SKIP / 0 fail → v1.18.3 = **2582 + 2 SKIP / 0 f
 
 **Deferred to v1.18.x PATCHes** (per v1.18.0 spec §11.1):
 
-- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
-- `PROJECT_CLOSE` defensive null-check in `bswmdDeleteHandler` + `projectWriteArxmlBatchHandler` (deferred from v1.18.2 — independent concern)
+- v1.18.5 — C13 subdir refactor (with re-planning per spec §15.2; bumped from v1.18.4 because v1.18.4 PATCH scope was refined to test-coverage closure)
 
 ## v1.18.2 (2026-06-30) — PATCH
 
@@ -39,8 +59,8 @@ Test count: v1.18.1 = 2576 + 2 SKIP / 0 fail → v1.18.2 = **2580 + 2 SKIP / 0 f
 
 **Deferred to v1.18.x PATCHes** (per v1.18.0 spec §11.1):
 
-- v1.18.3 — WriteAtomic fsync gap in `post-process.ts`
-- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
+- v1.18.3 — WriteAtomic fsync gap in `post-process.ts` (shipped)
+- v1.18.5 — C13 subdir refactor (with re-planning per spec §15.2)
 
 ## v1.18.1 (2026-06-30) — PATCH
 
