@@ -40,7 +40,7 @@
 import { promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import { isPathInside } from '../../shared/paths/isPathInside.js';
+import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   ProjectWriteArxmlBatchRequest,
   ProjectWriteArxmlBatchResult,
@@ -63,7 +63,7 @@ export async function projectWriteArxmlBatchHandler(
   const manifestDir = dirname(resolve(manifestPath));
   const violations: string[] = [];
   for (const f of req.files) {
-    if (!isPathInside(resolve(f.filePath), manifestDir)) {
+    if (!(await isPathInsideReal(resolve(f.filePath), manifestDir))) {
       violations.push(f.filePath);
     }
   }

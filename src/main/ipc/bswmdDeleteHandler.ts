@@ -19,7 +19,7 @@
 import { promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import { isPathInside } from '../../shared/paths/isPathInside.js';
+import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type { ProjectDeleteBswmdRequest, ProjectDeleteBswmdResult } from '../../shared/types.js';
 
 import { getOpenProjectManifestPath } from './project-manifest-state.js';
@@ -33,7 +33,7 @@ export async function bswmdDeleteHandler(
     return { kind: 'invalid-path', message: 'No project is open' };
   }
   const manifestDir = dirname(resolve(manifestPath));
-  if (!isPathInside(resolve(req.filePath), manifestDir)) {
+  if (!(await isPathInsideReal(resolve(req.filePath), manifestDir))) {
     return {
       kind: 'invalid-path',
       message: `BSWMD path escapes project directory: ${req.filePath}`,

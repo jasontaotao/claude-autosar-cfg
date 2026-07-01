@@ -7,7 +7,7 @@ import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest } from '../../core/project/manifest.js';
 import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
-import { isPathInside } from '../../shared/paths/isPathInside.js';
+import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -255,7 +255,7 @@ export function registerIpcHandlers(): void {
     const bswmds: { rel: string; path: string; content: string }[] = [];
     for (const rel of manifest.valueArxmlPaths) {
       const resolved = path.resolve(manifestDir, rel);
-      if (!isPathInside(resolved, manifestDir)) {
+      if (!(await isPathInsideReal(resolved, manifestDir))) {
         return {
           kind: 'read-failed',
           message: `Manifest valueArxmlPaths entry escapes project directory: ${rel}`,
@@ -273,7 +273,7 @@ export function registerIpcHandlers(): void {
     }
     for (const rel of manifest.bswmdPaths) {
       const resolved = path.resolve(manifestDir, rel);
-      if (!isPathInside(resolved, manifestDir)) {
+      if (!(await isPathInsideReal(resolved, manifestDir))) {
         return {
           kind: 'read-failed',
           message: `Manifest bswmdPaths entry escapes project directory: ${rel}`,
