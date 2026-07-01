@@ -905,9 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"
-            ><span class="dot"></span>v1.20.0 · 2026-07-01</span
-          >
+          <span class="hero-eyebrow"><span class="dot"></span>v1.20.0 · 2026-07-01</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -985,30 +983,35 @@
               </li>
               <li>
                 <strong>Settings feature-flag 异步化 (v1.19.1 PATCH)</strong> —
-                <code>arxml-stream/feature-flag.ts</code> +
-                <code>stencil/feature-flag.ts</code> 从 sync 切到 async
-                (<code>fs/promises</code>);cache 改为 <code>Promise&lt;FlagsConfig&gt; | null</code>;
-                所有调用方 <code>await</code>
+                <code>arxml-stream/feature-flag.ts</code> + <code>stencil/feature-flag.ts</code> 从
+                sync 切到 async (<code>fs/promises</code>);cache 改为
+                <code>Promise&lt;FlagsConfig&gt; | null</code>; 所有调用方 <code>await</code>
               </li>
               <li>
-                <strong>GUI <code>applyMutation</code> 与 CLI <code>applyPatchSteps</code>
-                引擎统一 (v1.20.0 MINOR T1 C2.4)</strong> — 脚本引擎的
-                <code>useScriptStore.applyMutation</code> 改用 CLI 同款
-                <code>applyPatchSteps</code> 引擎;删除 71 行重复的 GUI helper
-                (<code>scriptParamValueToCore</code> + <code>findParamInDoc</code>);
-                新增 <code>ScriptRunResult.warnings</code> 字段透传非致命诊断;
+                <strong
+                  >GUI <code>applyMutation</code> 与 CLI <code>applyPatchSteps</code> 引擎统一
+                  (v1.20.0 MINOR T1 C2.4)</strong
+                >
+                — 脚本引擎的 <code>useScriptStore.applyMutation</code> 改用 CLI 同款
+                <code>applyPatchSteps</code> 引擎;删除 71 行重复的 GUI helper (<code
+                  >scriptParamValueToCore</code
+                >
+                + <code>findParamInDoc</code>); 新增
+                <code>ScriptRunResult.warnings</code> 字段透传非致命诊断;
                 <code>remove-child</code> 改走 <code>remove-with-cascade { cascade: true }</code>
                 — 删除带引用的 container 时自动级联清理（不再弹 cascade 确认对话框）
               </li>
               <li>
-                <strong>Handlebars 模板直连 emit helper (v1.20.0 MINOR T2 B-3 second half)</strong> —
-                <code>cfg.h.hbs</code> / <code>cfg.c.hbs</code> / <code>pbcfg.c.hbs</code> 直接调用
-                <code>{{externDecl ...}}</code> / <code>{{constDecl ...}}</code> /
-                <code>{{loaderEntry ...}}</code>;helper 接受结构化对象输入
-                (<code>ExternDeclInput</code> / <code>ConstDeclInput</code> /
+                <strong>Handlebars 模板直连 emit helper (v1.20.0 MINOR T2 B-3 second half)</strong>
+                — <code>cfg.h.hbs</code> / <code>cfg.c.hbs</code> /
+                <code>pbcfg.c.hbs</code> 直接调用 <code>{{externDecl ...}}</code> /
+                <code>{{constDecl ...}}</code> / <code>{{loaderEntry ...}}</code>;helper
+                接受结构化对象输入 (<code>ExternDeclInput</code> / <code>ConstDeclInput</code> /
                 <code>LoaderEntryInput</code>);EcuC + Mcu 共用同一套模板,同步迁移。
-                <strong>7 个 snapshot 文件 byte-identical</strong>(<code>git diff
-                testdata/generator/</code> = empty)
+                <strong>7 个 snapshot 文件 byte-identical</strong>(<code
+                  >git diff testdata/generator/</code
+                >
+                = empty)
               </li>
             </ul>
           </section>
