@@ -5,6 +5,35 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.20.0 (2026-07-01) — MINOR
+
+GUI `applyMutation` parity with CLI + Handlebars template helper reshape. Closes the 2 remaining deferred items from the v1.18.0 §11.1 carry-over list (C2.4 GUI `applyMutation` rewrite + B-3 second half Handlebars template reshape). Internal refactor release — zero user-visible feature changes; full test + architectural cleanup of the script-engine + generator boundaries.
+
+- **`refactor(script-engine)` — T1 C2.4 GUI `applyMutation` parity**:
+  - `useScriptStore.applyMutation` now routes through the same `applyPatchSteps` engine the CLI uses, eliminating ~71 lines of duplicated GUI helpers (`scriptParamValueToCore` + `findParamInDoc`).
+  - New mapper: `src/renderer/store/helpers/scriptMutationToPatchStep.ts` (pure: `ScriptMutation` → `PatchStep`).
+  - New BSWMD context resolver: `src/renderer/store/helpers/resolveModuleDefForActiveDoc.ts` (reads `useArxmlStore.bswmdSchemas` → `moduleDef` for `applyPatchSteps` `add-child`).
+  - New `ScriptStepWarning` type + `ScriptRunResult.warnings?` field for non-fatal step diagnostics threading.
+  - **Cascade-dialog behavior change**: `remove-child` now auto-resolves inbound references via `remove-with-cascade { cascade: true }` (no UI cascade confirmation dialog — script engine cannot present one mid-script). The H2 test was rewritten to assert the new auto-cascade contract.
+  - Uses canonical `useArxmlStore.setDoc` path (not `setState({ doc })`) — triggers `displayDoc` recompute + `validationErrors` refresh + dirty flag in one call.
+  - 14 new tests: 3 mapper + 4 resolver + 6 new flow cases + 1 H1 update + 1 H2 rewrite. End state: 2611 + 6 SKIP / 0 fail.
+- **`refactor(generator)` — T2 B-3 second half Handlebars template reshape**:
+  - 3 .hbs templates (`cfg.h.hbs` / `cfg.c.hbs` / `pbcfg.c.hbs`) now call registered helpers directly: `{{externDecl this}}` / `{{constDecl this}}` / `{{loaderEntry this}}`.
+  - Helpers updated to accept object inputs (`ExternDeclInput` / `ConstDeclInput` / `LoaderEntryInput`) and wrap output in `Handlebars.SafeString` so `{{...}}` (escaped) form doesn't HTML-escape the C code.
+  - `ecuc.ts` and `mcu.ts` (both share `templates/ecuc/`) push structured input objects instead of pre-stringified decls.
+  - **Snapshot byte-identity preserved**: `git diff testdata/generator/` = empty. The 7 EcuC_Cfg.h/c + EcuC_PBcfg.c files across PreCompile-1 / Mixed-1 / Refs-1 variants regenerate to the same bytes.
+  - 3 new handlebars integration tests. End state: 2614 + 6 SKIP / 0 fail (+3 net from T1).
+
+### Behavioral changes
+
+- **GUI script `remove-child` with inbound references** now auto-cascades (deletes the target + clears the inbound `Ref` param). The previous behavior opened a cascade confirmation dialog via `pendingDelete`; the new behavior matches the CLI's `remove-with-cascade` semantics. The script engine cannot present a dialog mid-script, so auto-cascade is the correct contract. **Why**: scripts are batch operations; mid-script UI is a contract violation.
+
+### Migration notes
+
+- No data migration required. All changes are internal refactors.
+- Renderer-side `applyMutation` callers that relied on `useArxmlStore.pendingDelete` for cascade UX should migrate to the new `runResult.errorMessage` + in-memory doc update flow (cascade auto-applies; no dialog state).
+- The 7 generator snapshot files remain byte-identical; no test data updates needed.
+
 ## v1.19.1 (2026-07-01) — PATCH
 
 Generator emit-strategy migration + IPC symlink defense + feature-flag async migration. Closes 3 of 4 v1.18.0 §11.1 deferred items (B-3 / `isPathInsideReal` / feature-flag async). C2.4 GUI `applyMutation` parity deferred to v1.20.0 MINOR (high-risk rewrite of 30+ existing tests deserves dedicated cycle).

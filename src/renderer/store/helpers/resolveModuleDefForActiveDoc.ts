@@ -13,20 +13,33 @@
 // Callers pass the result through to `applyPatchSteps`; the engine
 // emits `no-bswmd-for-module` for `add-child` when context is absent.
 
-import type { BswModuleDef } from '../../core/project/bswmd.js';
+import type { ArxmlDocument } from '../../../core/arxml/types.js';
+import type { BswModuleDef, BswmdDocument } from '../../../core/project/bswmd.js';
 
 interface StateForResolver {
-  readonly doc: {
-    readonly packages: ReadonlyArray<{
-      readonly elements: ReadonlyArray<{ readonly kind: string; readonly shortName: string }>;
-    }>;
-  } | null;
-  readonly bswmdSchemas: readonly BswModuleDef[];
+  readonly doc: ArxmlDocument | null;
+  readonly bswmdSchemas: readonly BswmdDocument[];
 }
 
 export function resolveModuleDefForActiveDoc(state: StateForResolver): BswModuleDef | undefined {
   if (state.doc === null) return undefined;
-  const moduleEl = state.doc.packages.flatMap((p) => p.elements).find((e) => e.kind === 'module');
+  // `ArxmlElement` is a discriminated union; `module` and `container`
+  // arms have a required `shortName`, while `reference` / `unknown`
+  // have it optional. The type predicate filters to elements that
+  // both match the `module` kind AND guarantee a `string` shortName.
+  const moduleEl = state.doc.packages
+    .flatMap((p) => p.elements)
+    .find(
+      (e): e is Extract<typeof e, { kind: 'module' }> =>
+        e.kind === 'module' && typeof e.shortName === 'string',
+    );
   if (moduleEl === undefined) return undefined;
-  return state.bswmdSchemas.find((s) => s.shortName === moduleEl.shortName);
+  // Walk every loaded BswmdDocument, then every module inside it.
+  // The store's `bswmdSchemas` is `BswmdDocument[]` (one per
+  // BSWMD file), and each document can declare multiple modules.
+  for (const doc of state.bswmdSchemas) {
+    const match = doc.modules.find((m) => m.shortName === moduleEl.shortName);
+    if (match !== undefined) return match;
+  }
+  return undefined;
 }

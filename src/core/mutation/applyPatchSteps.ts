@@ -61,6 +61,15 @@ import { findContainerByPath, setParamInDocument } from '../project/setters.js';
 
 import { variantDowngradeStep } from './steps/variant-downgrade.js';
 
+// v1.20.0 T1 C2.4 — re-export `PatchStep` so renderer-side modules
+// (e.g. `scriptMutationToPatchStep` mapper) can declare their
+// return type as `PatchStep` without depending on the wire-shape
+// contract directly. The wire-shape lives in
+// `src/shared/headless/ipc-contract.ts`; this re-export keeps the
+// dependency chain renderer → `@core/mutation` → `@shared/headless`
+// one-way.
+export type { PatchStep } from '../../shared/headless/ipc-contract.js';
+
 // ---------------------------------------------------------------------------
 // Public surface
 // ---------------------------------------------------------------------------

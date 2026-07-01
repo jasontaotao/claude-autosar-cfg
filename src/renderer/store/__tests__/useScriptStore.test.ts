@@ -431,7 +431,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
   function makeDocWithParam(value: number): ArxmlDocument {
     return {
       path: '/tmp/test.arxml',
-      version: '4.6',
+      version: '4.6' as const,
       packages: [
         {
           shortName: 'EAS',
@@ -727,7 +727,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
     };
     const doc: ArxmlDocument = {
       path: '/tmp/cascade.arxml',
-      version: '4.6',
+      version: '4.6' as const,
       packages: [
         {
           shortName: 'EAS',
@@ -807,7 +807,7 @@ describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)',
     try {
       const doc = {
         path: '/tmp/test.arxml',
-        version: '4.6',
+        version: '4.6' as const,
         packages: [
           {
             shortName: 'EAS',
@@ -880,7 +880,7 @@ describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)',
     try {
       const doc = {
         path: '/tmp/warn.arxml',
-        version: '4.6',
+        version: '4.6' as const,
         packages: [
           {
             shortName: 'EAS',
@@ -940,7 +940,7 @@ describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)',
   it('errors: path-not-found → errorMessage set + mutations cleared + no write attempted', async () => {
     const doc = {
       path: '/tmp/nf.arxml',
-      version: '4.6',
+      version: '4.6' as const,
       packages: [
         {
           shortName: 'EAS',
@@ -1000,7 +1000,7 @@ describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)',
     try {
       const doc = {
         path: '/tmp/sf.arxml',
-        version: '4.6',
+        version: '4.6' as const,
         packages: [
           {
             shortName: 'EAS',
@@ -1117,7 +1117,7 @@ describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)',
       };
       const doc: ArxmlDocument = {
         path: '/tmp/casc-v120.arxml',
-        version: '4.6',
+        version: '4.6' as const,
         packages: [
           {
             shortName: 'EAS',
