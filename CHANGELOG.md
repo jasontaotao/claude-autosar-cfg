@@ -5,6 +5,40 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.19.0 (2026-07-01) — MINOR
+
+GUI Bridge Dispatcher — closes the GUI-bridge carry-over chain from v1.18.0 MINOR §11.1 + v1.18.1 + v1.18.2 PATCH release notes. Wires the renderer ↔ headless bridge that v1.18.0 + v1.18.x laid the foundation for. 3 items shipped + housekeeping (T0).
+
+- **`feat(gui-bridge)` — T1 Real headless dispatcher** (new file `src/main/ipc/headlessRunCommandHandler.ts`):
+  - Replaces `headlessRunCommandStub` (removed from `headless-stubs.ts`). Delegates to `cli/command-dispatcher.ts` via new `dispatchCommandForGui` helper (skips CLI stdout emission; returns `HeadlessResult` directly).
+  - Emits `MutateAppliedEvent` after successful mutate commands (consumed by renderer consumer per v1.18.1 push channel wire-up).
+  - Emits `ValidateResultEvent` after successful validate commands (consumed by renderer consumer per v1.18.1 push channel wire-up).
+  - Returns `HeadlessRunCommandResult` envelope (`ok` | `error` with `HeadlessFailure`).
+  - New IPC types: `HeadlessRunCommandRequest` + `HeadlessRunCommandResult`.
+- **`feat(gui-bridge)` — T2 Renderer closeProject hook** (in `useProjectActions.ts`):
+  - New `closeProject()` method: calls v1.18.2 PROJECT_CLOSE IPC + clears store project + projectPath state. Idempotent.
+  - Preserves documents[] + dirtyPaths (loose-mode editing per v1.6.0-era invariant).
+  - Exposed in `preload/index.ts` as `window.autosarApi.projectClose()`.
+- **`feat(gui-bridge)` — T3 SCRIPT_PROGRESS renderer consumer** (verification + documentation only — no code change):
+  - `useScriptStore.appendProgress` action exists.
+  - `useScriptActions.ts` subscribes via `window.autosarApi.onScriptProgress` + routes to `appendProgress`.
+  - Tests cover both paths. Consumer fully wired since v1.17.0 MINOR T5.
+
+**`docs(plans)` — T0 Housekeeping**: commit 6 untracked plan docs (v1.18.1-6 plans) per v1.6.9 PATCH Item 3 precedent. Bundled into v1.19.0 as preparation.
+
+**v1.18.0 §11.1 deferred list — significant progress**:
+
+- v1.18.0 SCRIPT_PROGRESS renderer consumer — closed (T3)
+- v1.18.1 `emitMutateApplied` + `emitValidateResult` main-side caller — closed (T1 dispatcher emits them)
+- v1.18.2 PROJECT_CLOSE IPC renderer consumer — closed (T2)
+- v1.6.x C2.4 carry-over (real `applyMutation` wire-up) — deferred to v1.20.0 (still needs main-process CLI refactor)
+
+Test count: v1.18.6 = 2584 + 2 SKIP / 0 fail → v1.19.0 = **2593 + 2 SKIP / 0 fail** (+9 net = 7 T1 + 3 T2 - 1 removed stub test). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Deferred to future PATCHes / MINORs** (per v1.18.0 spec §11.1):
+
+- v1.20.0 MINOR — 3-item backlog (B-3 emit\*Decl + Handlebars / `isPathInside` symlink / setting-file feature-flag async) + v1.6.x C2.4 carry-over (real `applyMutation` wire-up via main-process CLI refactor)
+
 ## v1.18.6 (2026-07-01) — PATCH
 
 `AppHeader` co-located helpers + types extraction (C13 Option B split 2/2) — closes the v1.18.0 spec §11.2 deferred C13 subdir refactor (full). Sibling to v1.18.5 (which shipped the `useProjectActions` half). Pure refactor, 0 production behavior change. 1 commit on main.
