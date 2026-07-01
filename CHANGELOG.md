@@ -5,6 +5,23 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.3 (2026-06-30) — PATCH
+
+WriteAtomic fsync gap closure — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal (4th-oldest carry-over). 1 commit on main.
+
+- **`feat(generator)`** — `writeOutputTree` now calls `fs.open(tmpPath, 'r+')` + `fh.sync()` + `fh.close()` between `writeFile` and `rename`. Mirrors the existing main-side pattern at `src/main/io/writeAtomic.ts:36-41` (which already fsyncs). Without fsync, the rename could publish a file whose content was still in the OS page cache; a power loss / OS crash between rename and flush would leave the file torn. After this change, generator output survives a crash between write and rename.
+
+**Why this matters**: the `generate` CLI sub-command (called via `autosarcfg generate ...`) writes generator output to disk. Prior to this PATCH, killing the process mid-write could leave files in a torn state (zero-byte content or truncated). Same risk class as v1.15.5 C1 (`writeAtomic` migration in main-side script handler); v1.18.3 closes the CLI-side twin.
+
+**Performance note**: fsync adds ~1-10ms per file (SSD/HDD-dependent). For generator pipelines that write dozens-to-hundreds of files, this is a non-trivial cost. Acceptable for crash-safety; if performance becomes a concern, can add a feature flag in a future PATCH.
+
+Test count: v1.18.2 = 2580 + 2 SKIP / 0 fail → v1.18.3 = **2582 + 2 SKIP / 0 fail** (+2 net, matches plan forecast exactly). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Deferred to v1.18.x PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
+- `PROJECT_CLOSE` defensive null-check in `bswmdDeleteHandler` + `projectWriteArxmlBatchHandler` (deferred from v1.18.2 — independent concern)
+
 ## v1.18.2 (2026-06-30) — PATCH
 
 PROJECT_CLOSE IPC — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal (2nd-oldest carry-over). 2 commits on main.
