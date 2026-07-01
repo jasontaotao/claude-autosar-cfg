@@ -1,5 +1,6 @@
 import Handlebars from 'handlebars';
 
+import { emitConstDecl, emitExternDecl, emitLoaderEntry } from './emit/strategy.js';
 import {
   cIdent,
   cType,
@@ -28,5 +29,30 @@ export function createEngine(): typeof Handlebars {
     bswmdPathOf(inst as { readonly path: readonly string[] }),
   );
   engine.registerHelper('partitionName', (name: unknown) => partitionName(String(name ?? '')));
+
+  // v1.20.0 T1 B-3 — register the canonical emit helpers so Handlebars
+  // templates can call them via `{{externDecl ...}}` / `{{constDecl ...}}`
+  // / `{{loaderEntry ...}}`. Templates keep their current shape for now
+  // (the v1.21.0 MINOR will reshape `cfg.h.hbs` / `cfg.c.hbs` /
+  // `pbcfg.c.hbs` to call these helpers directly). Helper parameters
+  // are positional strings for simplicity — the templates can be
+  // reshaped later without breaking the helper signatures.
+  engine.registerHelper('externDecl', (ident: unknown, cType: unknown) =>
+    emitExternDecl({ ident: String(ident ?? ''), cType: String(cType ?? ''), isArray: false }),
+  );
+  engine.registerHelper('constDecl', (ident: unknown, cType: unknown, init: unknown) =>
+    emitConstDecl({
+      ident: String(ident ?? ''),
+      def: { kind: 'integer' },
+      value: 0,
+      isArray: false,
+      cType: String(cType ?? ''),
+      cValue: String(init ?? '0'),
+    }),
+  );
+  engine.registerHelper('loaderEntry', (ident: unknown, cType: unknown) =>
+    emitLoaderEntry({ ident: String(ident ?? ''), cType: String(cType ?? ''), isArray: false }),
+  );
+
   return engine;
 }

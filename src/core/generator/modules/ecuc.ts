@@ -27,6 +27,11 @@ import type Handlebars from 'handlebars';
 
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
+import {
+  emitConstDecl,
+  emitExternDecl,
+  emitLoaderEntry,
+} from '../emit/strategy.js';
 import { cIdent } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
@@ -157,29 +162,18 @@ const GENERATOR_VERSION = '1.11.0';
 // ---------------------------------------------------------------------------
 
 /**
- * Build one `extern CONST(...) Foo;` style declaration (Link-time).
+ * v1.20.0 T1 B-3 — the three legacy helpers (emitExternDecl /
+ * emitConstDecl / emitLoaderEntry) were removed from `ecuc.ts` in
+ * favor of the canonical implementations in `emit/strategy.ts`. The
+ * private copies were a tuple-signature API; the canonical surface
+ * uses a parameter-object signature that scales to array params and
+ * keeps the runtime-copy stub logic out of `ecuc.ts`. Behaviour
+ * change: scalar PostBuild entries now emit a single `static ...;`
+ * line instead of a 2-line `static ...; + *(uint8*)...stub;` pair.
+ * The PostBuild snapshot at `testdata/generator/ecuc-expected/Mixed-1/EcuC_PBcfg.c`
+ * is regenerated to reflect the corrected contract; see
+ * `docs/release-notes/v1.20.0/README.md`.
  */
-function emitExternDecl(ident: string, cType: string): string {
-  return `extern CONST(${cType}, AUTOMATIC) ${cType} ${ident};`;
-}
-
-/**
- * Build one `CONST(...) Foo = ...;` style definition (PreCompile-time).
- */
-function emitConstDecl(ident: string, cType: string, init: string): string {
-  return `CONST(${cType}, AUTOMATIC) ${cType} ${ident} = ${init};`;
-}
-
-/**
- * Build a PostBuild loader-entry stub. Two-line: `static ...` + a
- * placeholder `*(uint8*)baseAddr+offset = value;` line.
- */
-function emitLoaderEntry(ident: string, cType: string, value: unknown, offset: number): string {
-  return [
-    `static ${cType} ${ident};`,
-    `*(uint8*)((uintptr_t)baseAddr + 0x${offset.toString(16).padStart(2, '0')}u) = ${renderCValue(value, 'integer')};`,
-  ].join('\n');
-}
 
 // ---------------------------------------------------------------------------
 // Generator
@@ -219,7 +213,6 @@ export class EcuCGenerator implements ModuleGenerator {
     const preCompileDecls: string[] = [];
     const linkDecls: string[] = [];
     const postBuildDecls: string[] = [];
-    let postBuildOffset = 0;
 
     // v1.14.0 MINOR S8 — recursive container walk (D-rev2 Senior S8).
     // Replaces the flat 1-level for-loop so nested BSWMD (e.g. EcuC
@@ -254,14 +247,24 @@ export class EcuCGenerator implements ModuleGenerator {
           if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
             // PBVAR build: load via stub.
             const initVal = value?.value ?? 0;
-            postBuildDecls.push(emitLoaderEntry(ident, cType, initVal, postBuildOffset));
-            postBuildOffset += 1;
+            postBuildDecls.push(
+              emitLoaderEntry({ ident, cType, isArray: false, value: initVal }),
+            );
           } else if (ctx.variant === 'Link') {
-            linkDecls.push(emitExternDecl(ident, cType));
+            linkDecls.push(emitExternDecl({ ident, cType, isArray: false }));
           } else {
             // PreCompile (default for any other variant too).
             const init = value ? renderCValue(value.value, pDef.kind) : '0u';
-            preCompileDecls.push(emitConstDecl(ident, cType, init));
+            preCompileDecls.push(
+              emitConstDecl({
+                ident,
+                def: pDef,
+                value: value?.value ?? 0,
+                isArray: false,
+                cType,
+                cValue: init,
+              }),
+            );
           }
         }
       },
@@ -282,8 +285,9 @@ export class EcuCGenerator implements ModuleGenerator {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind }, 'EcuC');
         const ident = cIdent(p.path);
-        postBuildDecls.push(emitLoaderEntry(ident, cType, p.value, postBuildOffset));
-        postBuildOffset += 1;
+        postBuildDecls.push(
+          emitLoaderEntry({ ident, cType, isArray: false, value: p.value }),
+        );
       }
     }
 
