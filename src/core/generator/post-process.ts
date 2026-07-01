@@ -1,4 +1,4 @@
-import { mkdir, realpath, writeFile, rename } from 'node:fs/promises';
+import { mkdir, open, realpath, writeFile, rename } from 'node:fs/promises';
 import { dirname, isAbsolute, join, sep } from 'node:path';
 
 import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from './diagnostics.js';
@@ -17,6 +17,13 @@ import { DiagnosticCode, DiagnosticSeverity, type Diagnostic } from './diagnosti
  * `realpath`, then for each artifact check that `realpath(dirname(absPath))`
  * starts with the canonicalized outDir. Escape attempts push an
  * ECUC-GEN-031 diagnostic and are skipped (no write).
+ *
+ * v1.18.3 PATCH — fsync gap closure: between `writeFile` and `rename`,
+ * we now `open` the temp in `r+` mode, `sync()` it (fsync), then
+ * `close()`. Mirrors the main-side pattern at
+ * `src/main/io/writeAtomic.ts:36-41`. Without fsync, the rename can
+ * publish a file whose content is still in the OS page cache; a power
+ * loss / OS crash between rename and flush leaves the file torn.
  */
 export async function writeOutputTree(
   artifacts: ReadonlyMap<string, string>,
@@ -72,6 +79,18 @@ export async function writeOutputTree(
       await mkdir(parentReal, { recursive: true });
       const tmpPath = `${absPath}.${process.pid}.${Date.now()}.tmp`;
       await writeFile(tmpPath, content, 'utf8');
+      // v1.18.3 PATCH — fsync the temp before rename so generator
+      // output survives a crash. Mirrors main-side `writeAtomic`
+      // pattern at `src/main/io/writeAtomic.ts:36-41`. Open a second
+      // time in `r+` so the `sync` call has a file descriptor
+      // (writeFile alone does not surface its descriptor). Close in
+      // `finally` so a sync-throw doesn't leak the handle.
+      const fh = await open(tmpPath, 'r+');
+      try {
+        await fh.sync();
+      } finally {
+        await fh.close();
+      }
       await rename(tmpPath, absPath);
     } catch (e) {
       if (diagnostics === undefined) throw e;
