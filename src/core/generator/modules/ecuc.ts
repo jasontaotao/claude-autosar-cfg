@@ -27,11 +27,7 @@ import type Handlebars from 'handlebars';
 
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
-import {
-  emitConstDecl,
-  emitExternDecl,
-  emitLoaderEntry,
-} from '../emit/strategy.js';
+import { emitConstDecl, emitExternDecl, emitLoaderEntry } from '../emit/strategy.js';
 import { cIdent } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
@@ -247,9 +243,7 @@ export class EcuCGenerator implements ModuleGenerator {
           if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
             // PBVAR build: load via stub.
             const initVal = value?.value ?? 0;
-            postBuildDecls.push(
-              emitLoaderEntry({ ident, cType, isArray: false, value: initVal }),
-            );
+            postBuildDecls.push(emitLoaderEntry({ ident, cType, isArray: false, value: initVal }));
           } else if (ctx.variant === 'Link') {
             linkDecls.push(emitExternDecl({ ident, cType, isArray: false }));
           } else {
@@ -285,9 +279,7 @@ export class EcuCGenerator implements ModuleGenerator {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind }, 'EcuC');
         const ident = cIdent(p.path);
-        postBuildDecls.push(
-          emitLoaderEntry({ ident, cType, isArray: false, value: p.value }),
-        );
+        postBuildDecls.push(emitLoaderEntry({ ident, cType, isArray: false, value: p.value }));
       }
     }
 

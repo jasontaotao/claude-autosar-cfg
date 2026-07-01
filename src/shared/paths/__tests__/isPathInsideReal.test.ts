@@ -53,47 +53,56 @@ describe('isPathInsideReal — happy path', () => {
 });
 
 describe('isPathInsideReal — symlink child escapes parent', () => {
-  it.skipIf(IS_WINDOWS)('returns false when a child symlink points outside the parent', async () => {
-    const parent = join(workDir, 'project');
-    mkdirSync(parent);
-    const other = join(workDir, 'other', 'secret.txt');
-    mkdirSync(join(workDir, 'other'), { recursive: true });
-    writeFileSync(other, 'top secret');
-    // symlink INSIDE parent → points to OUTSIDE file
-    const linkPath = join(parent, 'innocent-looking');
-    symlinkSync(other, linkPath);
+  it.skipIf(IS_WINDOWS)(
+    'returns false when a child symlink points outside the parent',
+    async () => {
+      const parent = join(workDir, 'project');
+      mkdirSync(parent);
+      const other = join(workDir, 'other', 'secret.txt');
+      mkdirSync(join(workDir, 'other'), { recursive: true });
+      writeFileSync(other, 'top secret');
+      // symlink INSIDE parent → points to OUTSIDE file
+      const linkPath = join(parent, 'innocent-looking');
+      symlinkSync(other, linkPath);
 
-    // Pure-string compare: linkPath string is inside parent string → true (vulnerable)
-    // realpath compare: linkPath real is /workDir/other/secret.txt → outside → false (safe)
-    expect(await isPathInsideReal(linkPath, parent)).toBe(false);
-  });
+      // Pure-string compare: linkPath string is inside parent string → true (vulnerable)
+      // realpath compare: linkPath real is /workDir/other/secret.txt → outside → false (safe)
+      expect(await isPathInsideReal(linkPath, parent)).toBe(false);
+    },
+  );
 
-  it.skipIf(IS_WINDOWS)('returns true for a symlink child that points INSIDE the parent (real path still inside)', async () => {
-    const parent = join(workDir, 'project');
-    mkdirSync(parent);
-    const target = join(parent, 'real-file.txt');
-    writeFileSync(target, 'data');
-    const linkPath = join(parent, 'symlink');
-    symlinkSync(target, linkPath);
+  it.skipIf(IS_WINDOWS)(
+    'returns true for a symlink child that points INSIDE the parent (real path still inside)',
+    async () => {
+      const parent = join(workDir, 'project');
+      mkdirSync(parent);
+      const target = join(parent, 'real-file.txt');
+      writeFileSync(target, 'data');
+      const linkPath = join(parent, 'symlink');
+      symlinkSync(target, linkPath);
 
-    // realpath(target) === realpath(linkPath) === target → inside parent
-    expect(await isPathInsideReal(linkPath, parent)).toBe(true);
-  });
+      // realpath(target) === realpath(linkPath) === target → inside parent
+      expect(await isPathInsideReal(linkPath, parent)).toBe(true);
+    },
+  );
 });
 
 describe('isPathInsideReal — symlinked parent', () => {
-  it.skipIf(IS_WINDOWS)('returns true for a child inside a parent that IS a symlink to a different tree', async () => {
-    const realParentDir = join(workDir, 'real-project');
-    mkdirSync(realParentDir);
-    const symlinkedParent = join(workDir, 'project');
-    symlinkSync(realParentDir, symlinkedParent);
-    const child = join(realParentDir, 'file.txt');
-    writeFileSync(child, 'data');
+  it.skipIf(IS_WINDOWS)(
+    'returns true for a child inside a parent that IS a symlink to a different tree',
+    async () => {
+      const realParentDir = join(workDir, 'real-project');
+      mkdirSync(realParentDir);
+      const symlinkedParent = join(workDir, 'project');
+      symlinkSync(realParentDir, symlinkedParent);
+      const child = join(realParentDir, 'file.txt');
+      writeFileSync(child, 'data');
 
-    // Caller passes the symlinked path. realpath(symlinkedParent) === realParentDir.
-    // realpath(child) === child. child string is inside realParentDir string → true.
-    expect(await isPathInsideReal(child, symlinkedParent)).toBe(true);
-  });
+      // Caller passes the symlinked path. realpath(symlinkedParent) === realParentDir.
+      // realpath(child) === child. child string is inside realParentDir string → true.
+      expect(await isPathInsideReal(child, symlinkedParent)).toBe(true);
+    },
+  );
 });
 
 describe('isPathInsideReal — nested symlinks', () => {

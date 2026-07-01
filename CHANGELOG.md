@@ -5,6 +5,28 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.19.1 (2026-07-01) — PATCH
+
+Generator emit-strategy migration + IPC symlink defense + feature-flag async migration. Closes 3 of 4 v1.18.0 §11.1 deferred items (B-3 / `isPathInsideReal` / feature-flag async). C2.4 GUI `applyMutation` parity deferred to v1.20.0 MINOR (high-risk rewrite of 30+ existing tests deserves dedicated cycle).
+
+- **`refactor(generator)` — T1 B-3 emit\*Decl extraction**:
+  - `src/core/generator/modules/ecuc.ts` migrated from old tuple-signature private helpers (`emitExternDecl`/`emitConstDecl`/`emitLoaderEntry`) to canonical param-object signature in `src/core/generator/emit/strategy.ts`.
+  - `src/core/generator/handlebars.ts` registers 3 new helpers (`externDecl` / `constDecl` / `loaderEntry`) for future template use.
+  - **Behavioral change (documented)**: scalar PostBuild entries now emit a single `static ...;` line instead of the legacy 2-line `static ...; + *(uint8*)...stub;` pair. `testdata/generator/ecuc-expected/Mixed-1/EcuC_PBcfg.c` regenerated.
+  - Handlebars template reshape (`*.hbs` files call the helpers directly) deferred to v1.20.0 MINOR.
+- **`feat(security)` — T2 `isPathInsideReal` symlink defense**:
+  - New async helper `src/shared/paths/isPathInsideReal.ts` follows symlinks via `realpath` before delegating to existing pure-string `isPathInside`. Falls back to string compare when `realpath` throws on non-existent paths.
+  - Wired into 3 IPC handlers: `register.ts` (project-open: valueArxmlPaths + bswmdPaths containment), `projectWriteArxmlBatchHandler.ts` (batch write), `bswmdDeleteHandler.ts` (single BSWMD delete).
+  - Defense-in-depth against attacker-controlled symlinks inside the project directory.
+- **`refactor(feature-flag)` — T3 Async migration of settings.json readers**:
+  - `src/main/arxml-stream/feature-flag.ts` + `src/main/stencil/feature-flag.ts` migrated from sync (`existsSync` / `readFileSync`) to async (`access` / `readFile` from `node:fs/promises`).
+  - Cache holds a `Promise<T>` so concurrent first-callers share the in-flight read.
+  - `featureFlagsGetHandler` async-rippled. `router.ts` awaits the flags.
+
+**Deferred to v1.20.0 MINOR**:
+
+- C2.4 GUI `applyMutation` parity — rewrite `useScriptStore.applyMutation` to route through the same `applyPatchSteps` engine as the CLI. Highest-risk item; deserves dedicated cycle with full TDD discipline + characterization tests before any rewrite.
+
 ## v1.19.0 (2026-07-01) — MINOR
 
 GUI Bridge Dispatcher — closes the GUI-bridge carry-over chain from v1.18.0 MINOR §11.1 + v1.18.1 + v1.18.2 PATCH release notes. Wires the renderer ↔ headless bridge that v1.18.0 + v1.18.x laid the foundation for. 3 items shipped + housekeeping (T0).
