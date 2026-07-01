@@ -27,6 +27,7 @@ import type {
   ProjectOpenResult,
   ProjectSaveRequest,
   ProjectSaveResult,
+  ProjectCloseResult,
   ProjectWriteArxmlBatchRequest,
   ProjectWriteArxmlBatchResult,
   ReadBswmdRequest,
@@ -51,6 +52,7 @@ import {
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { setOpenProjectManifestPath } from './project-manifest-state.js';
+import { projectCloseHandler } from './projectCloseHandler.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
 import { projectSaveHandler } from './projectSaveHandler.js';
@@ -464,6 +466,15 @@ export function registerIpcHandlers(): void {
       return projectSaveHandler(req);
     },
   );
+
+  // v1.18.2 PATCH — PROJECT_CLOSE handler. Symmetric counterpart to
+  // PROJECT_OPEN (line 214). Handler extracted to `projectCloseHandler.ts`
+  // for direct testability (mirrors `bswmdDeleteHandler` pattern).
+  // Returns `{ kind: 'closed' }` whether or not a project was open
+  // (idempotent — mirrors Unix `close(2)` semantics).
+  ipcMain.handle(IPC_CHANNELS.PROJECT_CLOSE, async (): Promise<ProjectCloseResult> => {
+    return projectCloseHandler();
+  });
 
   // v1.8.0 K — Stencil Wizard IPC. Generates a minimal valid ECUC
   // module skeleton (.arxml) for one of 4 families. Gate logic (SWS
