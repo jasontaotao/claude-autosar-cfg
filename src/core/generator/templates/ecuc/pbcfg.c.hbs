@@ -2,7 +2,7 @@
 #include "{{moduleHeader}}"
 
 {{#each loaderEntries}}
-{{{this}}}
+{{loaderEntry this}}
 {{/each}}
 
 void {{moduleShortName}}_PBcfg_Init(void* baseAddr) {

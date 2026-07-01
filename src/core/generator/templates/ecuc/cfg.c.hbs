@@ -2,15 +2,15 @@
 #include "{{moduleHeader}}"
 
 {{#each preCompileDecls}}
-{{{this}}}
+{{constDecl this}}
 {{/each}}
 
 {{#each linkDecls}}
-{{{this}}}
+{{externDecl this}}
 {{/each}}
 
 {{#each postBuildDecls}}
-{{{this}}}
+{{loaderEntry this}}
 {{/each}}
 
 {{#each choiceBlocks}}

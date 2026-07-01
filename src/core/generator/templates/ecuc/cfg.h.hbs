@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 {{#each externDecls}}
-extern {{{this}}};
+{{externDecl this}}
 {{/each}}
 
 {{#each referenceDecls}}

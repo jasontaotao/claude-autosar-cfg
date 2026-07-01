@@ -27,7 +27,7 @@ import type Handlebars from 'handlebars';
 
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
-import { emitConstDecl, emitExternDecl, emitLoaderEntry } from '../emit/strategy.js';
+import type { ConstDeclInput, ExternDeclInput, LoaderEntryInput } from '../emit/strategy.js';
 import { cIdent } from '../handlebars-helpers.js';
 import type { BswmdParamDefLite } from '../normalize.js';
 import {
@@ -206,9 +206,9 @@ export class EcuCGenerator implements ModuleGenerator {
     //   PostBuild variant  → params with PostBuild support → PostBuild
     //                        rest                    → PreCompile
     // Task 17 will swap in `paramConfigClass(def, ctx.variant)`.
-    const preCompileDecls: string[] = [];
-    const linkDecls: string[] = [];
-    const postBuildDecls: string[] = [];
+    const preCompileDecls: ConstDeclInput[] = [];
+    const linkDecls: ExternDeclInput[] = [];
+    const postBuildDecls: LoaderEntryInput[] = [];
 
     // v1.14.0 MINOR S8 — recursive container walk (D-rev2 Senior S8).
     // Replaces the flat 1-level for-loop so nested BSWMD (e.g. EcuC
@@ -243,22 +243,20 @@ export class EcuCGenerator implements ModuleGenerator {
           if (ctx.variant === 'PostBuild' && eDef.postBuildVariantSupport) {
             // PBVAR build: load via stub.
             const initVal = value?.value ?? 0;
-            postBuildDecls.push(emitLoaderEntry({ ident, cType, isArray: false, value: initVal }));
+            postBuildDecls.push({ ident, cType, isArray: false, value: initVal });
           } else if (ctx.variant === 'Link') {
-            linkDecls.push(emitExternDecl({ ident, cType, isArray: false }));
+            linkDecls.push({ ident, cType, isArray: false });
           } else {
             // PreCompile (default for any other variant too).
             const init = value ? renderCValue(value.value, pDef.kind) : '0u';
-            preCompileDecls.push(
-              emitConstDecl({
-                ident,
-                def: pDef,
-                value: value?.value ?? 0,
-                isArray: false,
-                cType,
-                cValue: init,
-              }),
-            );
+            preCompileDecls.push({
+              ident,
+              def: pDef,
+              value: value?.value ?? 0,
+              isArray: false,
+              cType,
+              cValue: init,
+            });
           }
         }
       },
@@ -279,7 +277,7 @@ export class EcuCGenerator implements ModuleGenerator {
       for (const p of pbValues) {
         const cType = cTypeForKind({ kind: p.kind }, 'EcuC');
         const ident = cIdent(p.path);
-        postBuildDecls.push(emitLoaderEntry({ ident, cType, isArray: false, value: p.value }));
+        postBuildDecls.push({ ident, cType, isArray: false, value: p.value });
       }
     }
 

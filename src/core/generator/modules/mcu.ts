@@ -26,6 +26,7 @@ import type Handlebars from 'handlebars';
 
 import { walkContainersWithAncestry } from '../emit/container.js';
 import { emitReferenceDecl } from '../emit/reference.js';
+import type { ConstDeclInput } from '../emit/strategy.js';
 import { cIdent } from '../handlebars-helpers.js';
 import {
   type GeneratedArtifact,
@@ -177,7 +178,7 @@ export class McuGenerator implements ModuleGenerator {
     // (`Module_Container_SubContainer_Param`) so nested BSWMD
     // params get distinct idents from the top-level container's
     // same-named params.
-    const preCompileDecls: string[] = [];
+    const preCompileDecls: ConstDeclInput[] = [];
     // v1.14.1 PATCH-G (G3) / v1.14.3 PATCH-I (R-1) — uses the
     // shared `walkContainersWithAncestry` helper from
     // emit/container.ts. The v1.14.0 leaf-only predecessor
@@ -197,7 +198,14 @@ export class McuGenerator implements ModuleGenerator {
           // duplicate is now deleted in favor of the canonical helper).
           const ident = cIdent(path);
           const init = value ? renderCValue(value.value, pDef.kind) : '0u';
-          preCompileDecls.push(`CONST(${cType}, AUTOMATIC) ${cType} ${ident} = ${init};`);
+          preCompileDecls.push({
+            ident,
+            def: pDef,
+            value: value?.value ?? 0,
+            isArray: false,
+            cType,
+            cValue: init,
+          });
         }
       },
     );
@@ -226,7 +234,7 @@ export class McuGenerator implements ModuleGenerator {
         name: string;
         fields: readonly { cType: string; name: string }[];
       }[],
-      externDecls: [] as readonly string[],
+      externDecls: [] as readonly { readonly ident: string; readonly cType: string }[],
       // v1.14.1 PATCH-G (G3) — render referenceDecls. Threads the
       // real BSWMD `targetType` via `bswmdParamIndex` when available,
       // matching v1.14.0 S2 EcuC behaviour (senior-review parity fix
@@ -251,8 +259,8 @@ export class McuGenerator implements ModuleGenerator {
         ctx,
       ),
       preCompileDecls,
-      linkDecls: [] as readonly string[],
-      postBuildDecls: [] as readonly string[],
+      linkDecls: [] as readonly { readonly ident: string; readonly cType: string }[],
+      postBuildDecls: [] as readonly { readonly ident: string; readonly cType: string }[],
       choiceBlocks: [] as readonly string[],
     });
 
