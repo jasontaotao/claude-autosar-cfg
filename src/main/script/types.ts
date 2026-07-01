@@ -78,10 +78,36 @@ export interface ScriptRunResult {
   readonly logs: ReadonlyArray<ScriptLog>;
   readonly violations: ReadonlyArray<ScriptViolation>;
   readonly mutations: ReadonlyArray<ScriptMutation>;
+  /**
+   * v1.20.0 T1 C2.4 — non-fatal step diagnostics surfaced by the
+   * mutation engine (`applyPatchSteps`). Mirrors the wire-shape
+   * `MutationStepWarning` in `src/shared/headless/ipc-contract.ts:287`
+   * but is renderer-agnostic. Optional for backwards compatibility
+   * with v1.19.x callers that pre-date the C2.4 rewrite.
+   */
+  readonly warnings?: ReadonlyArray<ScriptStepWarning>;
   readonly durationMs: number;
   readonly errorMessage?: string | undefined;
   readonly errorLine?: number | undefined;
   readonly errorColumn?: number | undefined;
+}
+
+/**
+ * v1.20.0 T1 C2.4 — single non-fatal step diagnostic surfaced by
+ * `applyPatchSteps`. Mirrors `MutationStepWarning` (the wire shape
+ * from `src/shared/headless/ipc-contract.ts`) but is defined in the
+ * script-types module so the renderer can type-narrow without
+ * pulling in the headless IPC contract.
+ *
+ * The `kind` discriminator is intentionally a `string` (not a
+ * literal union) so future diagnostic kinds (e.g. `variant-downgrade`,
+ * `type-coercion`) can be added without forcing renderer callers
+ * to widen the type.
+ */
+export interface ScriptStepWarning {
+  readonly stepIndex: number;
+  readonly kind: string;
+  readonly message: string;
 }
 
 /**

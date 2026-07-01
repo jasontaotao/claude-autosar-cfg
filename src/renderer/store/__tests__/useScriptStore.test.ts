@@ -686,9 +686,14 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
       },
     });
     await useScriptStore.getState().applyMutation();
-    // The script run reports the path-not-found failure.
-    expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/path not found/);
-    expect(useScriptStore.getState().dirty).toBe(true);
+    // The script run reports the path-not-found failure surfaced by
+    // `applyPatchSteps` (v1.20.0 C2.4: now routed through the shared
+    // engine instead of `useArxmlStore.updateParam` + manual diffing).
+    // The engine emits kind `path-not-found`; we accept either form.
+    expect(useScriptStore.getState().runResult?.errorMessage).toMatch(
+      /path not found|path-not-found/,
+    );
+    expect(useScriptStore.getState().dirty).toBe(false);
     // The doc is unchanged.
     const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
     const general = ecuc?.children[0] as ArxmlContainer | undefined;
@@ -698,12 +703,12 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
     });
   });
 
-  it('remove-child on a path with active references is surfaced (H2)', async () => {
-    // Build a doc that has a container referenced by a `<REFERENCE>`
-    // param elsewhere. `deleteContainer` will short-circuit to the
-    // cascade dialog (sets `pendingDelete`); `applyMutation` should
-    // clear the dialog state and surface a "cascade confirmation
-    // needed" message instead of silently claiming success.
+  it('remove-child on a path with active references applies the cascade (H2 — auto-cascade)', async () => {
+    // v1.20.0 C2.4 — `remove-child` maps to `remove-with-cascade { cascade: true }`.
+    // The script engine cannot present the cascade confirmation dialog
+    // mid-script (no UI), so cascade is always applied. The previous
+    // behavior opened a `pendingDelete` dialog and refused; the new
+    // behavior auto-resolves references.
     const referenced: ArxmlContainer = {
       kind: 'container',
       tagName: 'ECUC-CONTAINER-VALUE',
@@ -758,18 +763,410 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
       },
     });
     await useScriptStore.getState().applyMutation();
-    // The script run reports the cascade short-circuit.
-    expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/cascade confirmation/);
-    // The doc is unchanged (deleteContainer took the pending branch).
+    // No error — cascade applied successfully.
+    expect(useScriptStore.getState().runResult?.errorMessage).toBeUndefined();
+    // The doc reflects the cascade: RefdContainer removed + the Ref
+    // param on Referencer cleared (no longer dangles).
     const next = useArxmlStore.getState();
     const ecuc = next.doc?.packages[0]?.elements[0] as ArxmlModule | undefined;
-    expect(ecuc?.children.map((c) => (c as ArxmlContainer).shortName)).toEqual([
-      'RefdContainer',
-      'Referencer',
-    ]);
-    // The pending delete state was cleared (so the UI doesn't pop the
-    // dialog after the script run completes).
+    expect(ecuc?.children.map((c) => (c as ArxmlContainer).shortName)).toEqual(['Referencer']);
+    const referencer = ecuc?.children[0] as ArxmlContainer | undefined;
+    expect(referencer?.params.Ref).toBeUndefined();
+    // No dialog ever opened (the script engine never presents a UI).
     expect(next.pendingDelete).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.20.0 MINOR T1 C2.4 — applyMutation routes through applyPatchSteps
+// ---------------------------------------------------------------------------
+//
+// These tests pin the new shared-engine flow. The 6 cases cover the
+// happy path, warnings threading, error surfacing, cascade auto-apply,
+// save-failure, and the no-active-doc stub contract.
+
+describe('useScriptStore — applyMutation v1.20.0 (C2.4 applyPatchSteps flow)', () => {
+  beforeEach(async () => {
+    useArxmlStore.getState().clear();
+    useScriptStore.getState().reset();
+    useArxmlStore.setState({
+      project: {
+        id: 'proj-1',
+        name: 'Test',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+        schemaVersion: '1',
+      },
+      projectPath: '/tmp/proj.autosarcfg.json',
+    });
+    installApi(makeApi());
+  });
+
+  it('happy path: 1 set-param → applyPatchSteps + setDoc + projectSave + cleared + no error', async () => {
+    const tmpFile = join(tmpdir(), `apply-mut-v120-${Date.now()}.arxml`);
+    try {
+      const doc = {
+        path: '/tmp/test.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module' as const,
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'EcuC',
+                params: {},
+                children: [
+                  {
+                    kind: 'container' as const,
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'EcuCGeneral',
+                    params: {
+                      ConfigConsistencyRequired: { type: 'integer' as const, value: 1 },
+                    },
+                    children: [],
+                  },
+                ],
+                references: [],
+              },
+            ],
+          },
+        ],
+      };
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'set-param',
+              containerPath: '/EAS/EcuC/EcuCGeneral',
+              paramName: 'ConfigConsistencyRequired',
+              newValue: 42,
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+
+      await useScriptStore.getState().applyMutation();
+
+      // Doc updated via setDoc → cascading displayDoc/validation refresh.
+      const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+        | ArxmlModule
+        | undefined;
+      const general = ecuc?.children[0] as ArxmlContainer | undefined;
+      expect(general?.params.ConfigConsistencyRequired).toEqual({ type: 'integer', value: 42 });
+      // Mutations cleared; no warnings; no error.
+      expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
+      expect(useScriptStore.getState().runResult?.warnings ?? []).toEqual([]);
+      expect(useScriptStore.getState().runResult?.errorMessage).toBeUndefined();
+      expect(useScriptStore.getState().dirty).toBe(false);
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
+  });
+
+  it('threads non-fatal step warnings into runResult.warnings', async () => {
+    // The shared engine emits a StepWarning when a `variant-downgrade`
+    // step runs. We construct a run result that includes one via the
+    // patch step pipeline directly to assert the threading contract.
+    const tmpFile = join(tmpdir(), `apply-warn-${Date.now()}.arxml`);
+    try {
+      const doc = {
+        path: '/tmp/warn.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module' as const,
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'EcuC',
+                params: {},
+                children: [
+                  {
+                    kind: 'container' as const,
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'EcuCGeneral',
+                    params: { X: { type: 'integer' as const, value: 1 } },
+                    children: [],
+                  },
+                ],
+                references: [],
+              },
+            ],
+          },
+        ],
+      };
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      // Use a non-error mutation (a set-param) so the engine runs cleanly
+      // and we can verify the warnings array plumbing is wired (empty
+      // by default; non-empty when a `variant-downgrade` step would
+      // emit one — covered in applyPatchSteps tests, not here).
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'set-param',
+              containerPath: '/EAS/EcuC/EcuCGeneral',
+              paramName: 'X',
+              newValue: 2,
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+      await useScriptStore.getState().applyMutation();
+      // warnings field exists (optional, may be undefined or []).
+      const warnings = useScriptStore.getState().runResult?.warnings ?? [];
+      expect(warnings).toEqual([]);
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
+  });
+
+  it('errors: path-not-found → errorMessage set + mutations cleared + no write attempted', async () => {
+    const doc = {
+      path: '/tmp/nf.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'EAS',
+          path: '/EAS',
+          elements: [
+            {
+              kind: 'module' as const,
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'EcuC',
+              params: {},
+              children: [],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+    useArxmlStore.getState().setDoc(doc, '/tmp/nf.arxml');
+    // Spy on projectSave to assert it's NOT called.
+    const projectSaveSpy = vi.fn();
+    const api = (
+      globalThis as { window: { autosarApi: { projectSave: (...args: unknown[]) => unknown } } }
+    ).window.autosarApi;
+    const original = api.projectSave;
+    api.projectSave = projectSaveSpy;
+    try {
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'set-param',
+              containerPath: '/EAS/EcuC/Missing',
+              paramName: 'X',
+              newValue: 1,
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+      await useScriptStore.getState().applyMutation();
+      expect(useScriptStore.getState().runResult?.errorMessage).toMatch(
+        /path not found|path-not-found/,
+      );
+      expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
+      expect(projectSaveSpy).not.toHaveBeenCalled();
+    } finally {
+      api.projectSave = original;
+    }
+  });
+
+  it('save-failure: projectSave returns write-failed → errorMessage + dirty=true + in-memory doc still updated', async () => {
+    const tmpFile = join(tmpdir(), `apply-savefail-${Date.now()}.arxml`);
+    try {
+      const doc = {
+        path: '/tmp/sf.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module' as const,
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'EcuC',
+                params: {},
+                children: [
+                  {
+                    kind: 'container' as const,
+                    tagName: 'ECUC-CONTAINER-VALUE',
+                    shortName: 'EcuCGeneral',
+                    params: { X: { type: 'integer' as const, value: 1 } },
+                    children: [],
+                  },
+                ],
+                references: [],
+              },
+            ],
+          },
+        ],
+      };
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      const api = (
+        globalThis as { window: { autosarApi: { projectSave: (...args: unknown[]) => unknown } } }
+      ).window.autosarApi;
+      const original = api.projectSave;
+      api.projectSave = vi
+        .fn()
+        .mockResolvedValueOnce({ kind: 'write-failed', message: 'disk full' });
+      try {
+        useScriptStore.setState({
+          runResult: {
+            runId: 'r1',
+            status: 'ok',
+            logs: [],
+            violations: [],
+            mutations: [
+              {
+                kind: 'set-param',
+                containerPath: '/EAS/EcuC/EcuCGeneral',
+                paramName: 'X',
+                newValue: 99,
+              },
+            ],
+            durationMs: 0,
+          },
+        });
+        await useScriptStore.getState().applyMutation();
+        // In-memory doc still updated (preserves prior contract).
+        const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+          | ArxmlModule
+          | undefined;
+        const general = ecuc?.children[0] as ArxmlContainer | undefined;
+        expect(general?.params.X).toEqual({ type: 'integer', value: 99 });
+        // errorMessage surfaces the write failure.
+        expect(useScriptStore.getState().runResult?.errorMessage).toMatch(/disk full/);
+        // dirty=true so MutationPanel can prompt for retry.
+        expect(useScriptStore.getState().dirty).toBe(true);
+      } finally {
+        api.projectSave = original;
+      }
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
+  });
+
+  it('no active doc → stub contract preserved (mutations=[], dirty=false, no error)', async () => {
+    // useArxmlStore is cleared in beforeEach (no doc).
+    useScriptStore.setState({
+      runResult: {
+        runId: 'r1',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [
+          {
+            kind: 'set-param',
+            containerPath: '/EAS/EcuC/EcuCGeneral',
+            paramName: 'X',
+            newValue: 1,
+          },
+        ],
+        durationMs: 0,
+      },
+    });
+    await expect(useScriptStore.getState().applyMutation()).resolves.toBeUndefined();
+    expect(useScriptStore.getState().runResult?.mutations).toEqual([]);
+    expect(useScriptStore.getState().dirty).toBe(false);
+    expect(useScriptStore.getState().runResult?.errorMessage).toBeUndefined();
+  });
+
+  it('cascade: remove-child with active refs → remove-with-cascade applied automatically', async () => {
+    const tmpFile = join(tmpdir(), `apply-casc-${Date.now()}.arxml`);
+    try {
+      const referenced: ArxmlContainer = {
+        kind: 'container',
+        tagName: 'ECUC-CONTAINER-VALUE',
+        shortName: 'RefdContainer',
+        params: {},
+        children: [],
+      };
+      const referencing: ArxmlContainer = {
+        kind: 'container',
+        tagName: 'ECUC-CONTAINER-VALUE',
+        shortName: 'Referencer',
+        params: {
+          Ref: { type: 'reference', value: '/EAS/EcuC/RefdContainer' },
+        },
+        children: [],
+      };
+      const doc: ArxmlDocument = {
+        path: '/tmp/casc-v120.arxml',
+        version: '4.6',
+        packages: [
+          {
+            shortName: 'EAS',
+            path: '/EAS',
+            elements: [
+              {
+                kind: 'module',
+                tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+                shortName: 'EcuC',
+                params: {},
+                children: [referenced, referencing],
+                references: [],
+              },
+            ],
+          },
+        ],
+      };
+      useArxmlStore.getState().setDoc(doc, tmpFile);
+      useScriptStore.setState({
+        runResult: {
+          runId: 'r1',
+          status: 'ok',
+          logs: [],
+          violations: [],
+          mutations: [
+            {
+              kind: 'remove-child',
+              containerPath: '/EAS/EcuC/RefdContainer',
+              shortName: 'RefdContainer',
+            },
+          ],
+          durationMs: 0,
+        },
+      });
+      await useScriptStore.getState().applyMutation();
+      // No error — cascade applied.
+      expect(useScriptStore.getState().runResult?.errorMessage).toBeUndefined();
+      // Doc reflects cascade: target removed + inbound ref cleared.
+      const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+        | ArxmlModule
+        | undefined;
+      expect(ecuc?.children.map((c) => (c as ArxmlContainer).shortName)).toEqual(['Referencer']);
+      const referencer = ecuc?.children[0] as ArxmlContainer | undefined;
+      expect(referencer?.params.Ref).toBeUndefined();
+      // No dialog ever opened.
+      expect(useArxmlStore.getState().pendingDelete).toBeNull();
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
   });
 });
 

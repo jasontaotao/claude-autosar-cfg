@@ -26,6 +26,7 @@ export type {
   ScriptViolation,
   ScriptMutation,
   ScriptRunResult,
+  ScriptStepWarning,
   ParamSnapshot,
   ParamValue,
 } from '../../main/script/types.js';
