@@ -5,6 +5,29 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.5 (2026-07-01) — PATCH
+
+`useProjectActions` co-located helpers + types extraction (C13 Option B split 1/2) — closes the v1.18.0 spec §11.2 deferred C13 subdir refactor (half). Pure refactor, 0 production behavior change. 1 commit on main.
+
+- **`refactor(hooks)`** — extract 3 module-level helpers + 4 types from `src/renderer/hooks/useProjectActions.ts` (808 → ~660 lines, -18%) to co-located files in the existing `useProjectActions/` subdir:
+  - `useProjectActions/types.ts` (NEW, ~30 lines): `ProjectActionResult` (public), `SwitchingAction` (internal)
+  - `useProjectActions/helpers.ts` (NEW, ~141 lines): `setNewProjectDialogOpen`, `toI18nAxis`, `guardedDirtySwitch` + internal types `GuardedDirtySwitchOptions` + `GuardedDirtySwitchResult`
+  - Parent file imports helpers + types from subdir + re-exports `ProjectActionResult` for backward compatibility
+
+**No barrel re-export added** — parent file stays the public entry point. Existing callers + tests (`useProjectActions/__tests__/useProjectOpen.saveProject.test.tsx` from v1.18.0 T3 IPC-4) continue to work via the parent file path.
+
+**Why this matters**: separates the public hook API from the internal helpers + types. The main hook file can focus on the hook body; helpers + types live in dedicated modules with single responsibilities. Future refactors (v1.18.6 = AppHeader counterpart) follow the same pattern.
+
+**AppHeader counterpart deferred to v1.18.6 PATCH** — v1.18.0 §11.2 lumped both files into one PATCH. v1.18.5 splits into 2 PATCHes per "smallest-first" pattern: v1.18.5 = useProjectActions (bigger extraction, ~145 LOC moved), v1.18.6 = AppHeader (smaller extraction, ~90 LOC moved). Splitting keeps each PATCH reviewable + shippable independently.
+
+Test count: v1.18.4 = 2584 + 2 SKIP / 0 fail → v1.18.5 = **2584 + 2 SKIP / 0 fail** (+0 net, matches plan forecast exactly — pure refactor). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Deferred to future PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.18.6 — AppHeader.tsx co-located helpers + types extraction (C13 Option B split 2/2)
+- v1.19.0 MINOR — GUI bridge dispatcher (consumers of v1.18.1 push emitters + v1.18.2 PROJECT_CLOSE)
+- v1.20.0 MINOR — 3-item backlog (B-3 emit\*Decl + Handlebars / `isPathInside` symlink / setting-file feature-flag async)
+
 ## v1.18.4 (2026-07-01) — PATCH
 
 `bswmdDeleteHandler` no-open-project branch test coverage — refines and closes the v1.18.2 PATCH §0.4 deferred "PROJECT_CLOSE defensive null-check" item. 1 commit on main.
@@ -21,7 +44,8 @@ Test count: v1.18.3 = 2582 + 2 SKIP / 0 fail → v1.18.4 = **2584 + 2 SKIP / 0 f
 
 **Deferred to future PATCHes** (per v1.18.0 spec §11.1):
 
-- v1.18.5 — C13 subdir refactor (with re-planning per spec §15.2; bumped from v1.18.4 due to v1.18.4 PATCH scope refinement)
+- v1.18.5 — C13 subdir refactor (`useProjectActions` extraction; SHIPPED)
+- v1.18.6 — AppHeader.tsx co-located helpers + types extraction (C13 Option B split 2/2)
 - B-3 emit\*Decl + Handlebars (defer to v1.20.0 MINOR)
 - `isPathInside` symlink-parent false positive (defer to v1.20.0)
 - Setting-file feature-flag readers async migration (defer to v1.20.0)

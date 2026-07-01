@@ -1,6 +1,6 @@
 {
   "name": "claude-autosarcfg",
-  "version": "1.18.4",
+  "version": "1.18.5",
   "private": true,
   "description": "Standalone desktop GUI for AUTOSAR BSW configuration",
   "license": "MIT",
