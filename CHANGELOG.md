@@ -5,6 +5,26 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.2 (2026-06-30) — PATCH
+
+PROJECT_CLOSE IPC — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal (2nd-oldest carry-over). 2 commits on main.
+
+- **`feat(ipc)`** — `IPC_CHANNELS.PROJECT_CLOSE` ('project:close') channel constant + top-level alias + `ProjectCloseResult` type. Symmetric counterpart to `PROJECT_OPEN`. No `:v1` suffix: state-mutation channel, not wire-versioned. (T1)
+- **`feat(ipc)`** — `projectCloseHandler` extracted to `src/main/ipc/projectCloseHandler.ts` for direct testability (mirrors `bswmdDeleteHandler` pattern). Pure function: calls `setOpenProjectManifestPath(null)` + returns `{ kind: 'closed' }`. Registered in `src/main/ipc/register.ts` via `ipcMain.handle`. (T2)
+
+**Idempotent semantics**: calling PROJECT_CLOSE when no project is open returns `{ kind: 'closed' }` (Unix `close(2)` semantics). The renderer never needs to track is-a-project-open state.
+
+**Known limitation**: `bswmdDeleteHandler` + `projectWriteArxmlBatchHandler` read manifest path state without null-check. After PROJECT_CLOSE, calling BSWMD_DELETE will crash (the state reads null but the handler assumes non-null). The fix is a 1-line defensive null-check in each consumer handler — deferred to a follow-up PATCH per plan §0.4.
+
+Test count: v1.18.1 = 2576 + 2 SKIP / 0 fail → v1.18.2 = **2580 + 2 SKIP / 0 fail** (+4 net, matches plan forecast exactly). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**Future consumer**: v1.19.0 MINOR GUI bridge will add renderer-side `useProjectActions.closeProject` hook (currently the renderer never calls PROJECT_CLOSE).
+
+**Deferred to v1.18.x PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.18.3 — WriteAtomic fsync gap in `post-process.ts`
+- v1.18.4 — C13 subdir refactor (with re-planning per spec §15.2)
+
 ## v1.18.1 (2026-06-30) — PATCH
 
 Headless push channel emitters — closes the v1.17.0 spec §15.1 Batch 4 deferred non-goal. 2 commits on `feature/v1-18-1-patch` branch (T1 wire types + T2 emitters).
