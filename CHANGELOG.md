@@ -5,6 +5,28 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.18.6 (2026-07-01) — PATCH
+
+`AppHeader` co-located helpers + types extraction (C13 Option B split 2/2) — closes the v1.18.0 spec §11.2 deferred C13 subdir refactor (full). Sibling to v1.18.5 (which shipped the `useProjectActions` half). Pure refactor, 0 production behavior change. 1 commit on main.
+
+- **`refactor(components)`** — extract 2 module-level helpers + 3 types/consts from `src/renderer/components/AppHeader.tsx` (820 → ~710 lines, -13%) to co-located files in the existing `AppHeader/` subdir:
+  - `AppHeader/types.ts` (NEW, ~37 lines): `AppHeaderProps` (exported public API), `AppHeaderState` (internal), `INITIAL` (internal)
+  - `AppHeader/helpers.ts` (NEW, ~82 lines): `formatParseError` (ParseError → localized string), `saveAllDirty` (silent-save helper for Save All + close-project flow)
+- Parent file imports helpers + types from subdir + re-exports `AppHeaderProps` for backward compatibility
+
+**C13 Option B fully closed**: v1.18.5 shipped the `useProjectActions` half; v1.18.6 ships the `AppHeader` half. Both halves follow the same pattern: keep function bodies monolithic in parent files; extract module-level helpers + types to co-located files in existing subdirs. No barrel re-exports added.
+
+**Why this matters**: C13 was the last v1.18.0 §11.2 deferred item. Splitting across v1.18.5 + v1.18.6 PATCHes kept each refactor reviewable + shippable independently. v1.18.6 closes the 820 → ~710 AppHeader.tsx reduction (~110 LOC moved).
+
+Test count: v1.18.5 = 2584 + 2 SKIP / 0 fail → v1.18.6 = **2584 + 2 SKIP / 0 fail** (+0 net, matches plan forecast exactly — pure refactor). `pnpm verify` 8-stage pipeline green (format / lint / type-check / test / coverage / build / import-regression).
+
+**C13 fully closed** — v1.18.0 §11.2 deferred list now empty.
+
+**Deferred to future PATCHes** (per v1.18.0 spec §11.1):
+
+- v1.19.0 MINOR — GUI bridge dispatcher (consumers of v1.18.1 push emitters + v1.18.2 PROJECT_CLOSE)
+- v1.20.0 MINOR — 3-item backlog (B-3 emit\*Decl + Handlebars / `isPathInside` symlink / setting-file feature-flag async)
+
 ## v1.18.5 (2026-07-01) — PATCH
 
 `useProjectActions` co-located helpers + types extraction (C13 Option B split 1/2) — closes the v1.18.0 spec §11.2 deferred C13 subdir refactor (half). Pure refactor, 0 production behavior change. 1 commit on main.
@@ -24,7 +46,7 @@ Test count: v1.18.4 = 2584 + 2 SKIP / 0 fail → v1.18.5 = **2584 + 2 SKIP / 0 f
 
 **Deferred to future PATCHes** (per v1.18.0 spec §11.1):
 
-- v1.18.6 — AppHeader.tsx co-located helpers + types extraction (C13 Option B split 2/2)
+- v1.18.6 — AppHeader.tsx co-located helpers + types extraction (C13 Option B split 2/2; SHIPPED)
 - v1.19.0 MINOR — GUI bridge dispatcher (consumers of v1.18.1 push emitters + v1.18.2 PROJECT_CLOSE)
 - v1.20.0 MINOR — 3-item backlog (B-3 emit\*Decl + Handlebars / `isPathInside` symlink / setting-file feature-flag async)
 
