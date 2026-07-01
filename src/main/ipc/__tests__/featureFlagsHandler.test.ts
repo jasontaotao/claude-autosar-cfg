@@ -21,9 +21,9 @@ describe('featureFlagsGetHandler (v1.6.0 U + v1.8.0 K)', () => {
     mockedIsStencilWizardEnabled.mockReset();
   });
 
-  it('returns all-OFF by default (v1.6.0 ships no enabled flags)', () => {
-    mockedIsStencilWizardEnabled.mockReturnValue(false);
-    const flags = featureFlagsGetHandler();
+  it('returns all-OFF by default (v1.6.0 ships no enabled flags)', async () => {
+    mockedIsStencilWizardEnabled.mockResolvedValue(false);
+    const flags = await featureFlagsGetHandler();
     expect(flags.experimental).toEqual({
       onboarding: false,
       streaming: false,
@@ -35,19 +35,19 @@ describe('featureFlagsGetHandler (v1.6.0 U + v1.8.0 K)', () => {
     });
   });
 
-  it('returns a plain object (no fs / no IPC dependency)', () => {
-    mockedIsStencilWizardEnabled.mockReturnValue(false);
-    const a = featureFlagsGetHandler();
-    const b = featureFlagsGetHandler();
+  it('returns a plain object (no fs / no IPC dependency)', async () => {
+    mockedIsStencilWizardEnabled.mockResolvedValue(false);
+    const a = await featureFlagsGetHandler();
+    const b = await featureFlagsGetHandler();
     // Each call returns a fresh shape so callers cannot mutate the
     // module-level cache by accident.
     expect(a).not.toBe(b);
     expect(a.experimental).not.toBe(b.experimental);
   });
 
-  it('shape matches the renderer-expected FeatureFlags contract', () => {
-    mockedIsStencilWizardEnabled.mockReturnValue(false);
-    const flags = featureFlagsGetHandler();
+  it('shape matches the renderer-expected FeatureFlags contract', async () => {
+    mockedIsStencilWizardEnabled.mockResolvedValue(false);
+    const flags = await featureFlagsGetHandler();
     // All 7 keys present and boolean-typed.
     for (const key of [
       'onboarding',
@@ -62,15 +62,15 @@ describe('featureFlagsGetHandler (v1.6.0 U + v1.8.0 K)', () => {
     }
   });
 
-  it('propagates stencilWizard=true when isStencilWizardEnabled() returns true', () => {
-    mockedIsStencilWizardEnabled.mockReturnValue(true);
-    const flags = featureFlagsGetHandler();
+  it('propagates stencilWizard=true when isStencilWizardEnabled() returns true', async () => {
+    mockedIsStencilWizardEnabled.mockResolvedValue(true);
+    const flags = await featureFlagsGetHandler();
     expect(flags.experimental.stencilWizard).toBe(true);
   });
 
-  it('propagates stencilWizard=false when isStencilWizardEnabled() returns false', () => {
-    mockedIsStencilWizardEnabled.mockReturnValue(false);
-    const flags = featureFlagsGetHandler();
+  it('propagates stencilWizard=false when isStencilWizardEnabled() returns false', async () => {
+    mockedIsStencilWizardEnabled.mockResolvedValue(false);
+    const flags = await featureFlagsGetHandler();
     expect(flags.experimental.stencilWizard).toBe(false);
   });
 });

@@ -8,11 +8,14 @@
 // When OFF, the router in `./router.ts` falls back to the existing
 // DOMParser path — behavior is identical to v1.5.0.
 //
-// The lookup is sync (cached after the first read). Tests use
-// `setFlagForTest(...)` / `_resetFlagCache()` / `_setSettingsPathForTest(...)`
+// v1.20.0 MINOR T3 — sync readers migrated to async (Promise-based
+// cache). Each public function now returns `Promise<...>`. Callers
+// must `await`. The renderer's bridge in `featureFlagsHandler.ts`
+// was already async, so the surface stays the same from the renderer.
+// Tests use `setFlagForTest(...)` / `_resetFlagCache()` / `_setSettingsPathForTest(...)`
 // to override.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { Result } from '../../core/arxml/types.js';
@@ -33,7 +36,10 @@ interface SettingsFile {
 
 export type FlagKey = 'streaming' | 'indexedDb';
 
-let cached: FlagsConfig | null = null;
+// v1.20.0 T3 — cache holds a Promise so concurrent first-callers all
+// observe the same in-flight read. After settle, the resolved value is
+// reused (subsequent awaits resolve on the same microtask).
+let cached: Promise<FlagsConfig> | null = null;
 /** Test-only override map. When a key is present, it wins over the file lookup. */
 let override: { streaming?: boolean; indexedDb?: boolean } | null = null;
 /** Test-only: when set, replaces process.cwd() in the lookup path. */
@@ -48,11 +54,15 @@ function resolveCandidates(): string[] {
   return candidates;
 }
 
-function loadFromSettingsFile(): FlagsConfig {
+async function loadFromSettingsFile(): Promise<FlagsConfig> {
   for (const candidate of resolveCandidates()) {
-    if (!existsSync(candidate)) continue;
     try {
-      const raw = readFileSync(candidate, 'utf-8');
+      await access(candidate);
+    } catch {
+      continue;
+    }
+    try {
+      const raw = await readFile(candidate, 'utf-8');
       const parsed = JSON.parse(raw) as SettingsFile;
       return {
         experimental: {
@@ -67,7 +77,7 @@ function loadFromSettingsFile(): FlagsConfig {
   return { experimental: { streaming: false, indexedDb: false } };
 }
 
-function loadFlags(): FlagsConfig {
+function loadFlags(): Promise<FlagsConfig> {
   if (cached !== null) return cached;
   cached = loadFromSettingsFile();
   return cached;
@@ -83,12 +93,12 @@ function applyOverride(base: FlagsConfig): FlagsConfig {
   };
 }
 
-export function isStreamingEnabled(): boolean {
-  return applyOverride(loadFlags()).experimental.streaming;
+export async function isStreamingEnabled(): Promise<boolean> {
+  return applyOverride(await loadFlags()).experimental.streaming;
 }
 
-export function isIndexedDbEnabled(): boolean {
-  return applyOverride(loadFlags()).experimental.indexedDb;
+export async function isIndexedDbEnabled(): Promise<boolean> {
+  return applyOverride(await loadFlags()).experimental.indexedDb;
 }
 
 /**
@@ -96,12 +106,11 @@ export function isIndexedDbEnabled(): boolean {
  * returns a Result to make parse / IO failures explicit instead of
  * silently defaulting to OFF (callers can log when needed).
  */
-export function readFlags(): Result<
-  FlagsConfig,
-  { readonly kind: 'io-error'; readonly message: string }
+export async function readFlags(): Promise<
+  Result<FlagsConfig, { readonly kind: 'io-error'; readonly message: string }>
 > {
   try {
-    return { ok: true, value: applyOverride(loadFlags()) };
+    return { ok: true, value: applyOverride(await loadFlags()) };
   } catch (err) {
     return {
       ok: false,

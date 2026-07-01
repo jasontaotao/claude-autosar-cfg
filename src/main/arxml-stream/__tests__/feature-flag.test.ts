@@ -33,60 +33,60 @@ describe('feature-flag', () => {
     setFlagForTest(null);
   });
 
-  it('defaults to OFF when no settings.json exists', () => {
-    expect(isStreamingEnabled()).toBe(false);
-    expect(isIndexedDbEnabled()).toBe(false);
+  it('defaults to OFF when no settings.json exists', async () => {
+    expect(await isStreamingEnabled()).toBe(false);
+    expect(await isIndexedDbEnabled()).toBe(false);
   });
 
-  it('reads experimental.streaming=true from settings.json', () => {
+  it('reads experimental.streaming=true from settings.json', async () => {
     writeFileSync(
       join(tempDir, 'settings.json'),
       JSON.stringify({ experimental: { streaming: true, indexedDb: false } }),
     );
     _resetFlagCache();
-    expect(isStreamingEnabled()).toBe(true);
-    expect(isIndexedDbEnabled()).toBe(false);
+    expect(await isStreamingEnabled()).toBe(true);
+    expect(await isIndexedDbEnabled()).toBe(false);
   });
 
-  it('reads experimental.indexedDb=true from settings.json', () => {
+  it('reads experimental.indexedDb=true from settings.json', async () => {
     writeFileSync(
       join(tempDir, 'settings.json'),
       JSON.stringify({ experimental: { streaming: false, indexedDb: true } }),
     );
     _resetFlagCache();
-    expect(isStreamingEnabled()).toBe(false);
-    expect(isIndexedDbEnabled()).toBe(true);
+    expect(await isStreamingEnabled()).toBe(false);
+    expect(await isIndexedDbEnabled()).toBe(true);
   });
 
-  it('defaults missing keys to OFF', () => {
+  it('defaults missing keys to OFF', async () => {
     writeFileSync(join(tempDir, 'settings.json'), JSON.stringify({ experimental: {} }));
     _resetFlagCache();
-    expect(isStreamingEnabled()).toBe(false);
-    expect(isIndexedDbEnabled()).toBe(false);
+    expect(await isStreamingEnabled()).toBe(false);
+    expect(await isIndexedDbEnabled()).toBe(false);
   });
 
-  it('falls back to defaults on malformed settings.json', () => {
+  it('falls back to defaults on malformed settings.json', async () => {
     writeFileSync(join(tempDir, 'settings.json'), '{ this is not json');
     _resetFlagCache();
-    expect(isStreamingEnabled()).toBe(false);
-    expect(isIndexedDbEnabled()).toBe(false);
+    expect(await isStreamingEnabled()).toBe(false);
+    expect(await isIndexedDbEnabled()).toBe(false);
   });
 
-  it('setFlagForTest overrides settings.json for tests', () => {
+  it('setFlagForTest overrides settings.json for tests', async () => {
     writeFileSync(
       join(tempDir, 'settings.json'),
       JSON.stringify({ experimental: { streaming: true, indexedDb: true } }),
     );
     _resetFlagCache();
     setFlagForTest('streaming', false);
-    expect(isStreamingEnabled()).toBe(false);
-    expect(isIndexedDbEnabled()).toBe(true); // unchanged
+    expect(await isStreamingEnabled()).toBe(false);
+    expect(await isIndexedDbEnabled()).toBe(true); // unchanged
   });
 
-  it('setFlagForTest(null) clears the override', () => {
+  it('setFlagForTest(null) clears the override', async () => {
     setFlagForTest('streaming', true);
-    expect(isStreamingEnabled()).toBe(true);
+    expect(await isStreamingEnabled()).toBe(true);
     setFlagForTest(null);
-    expect(isStreamingEnabled()).toBe(false);
+    expect(await isStreamingEnabled()).toBe(false);
   });
 });

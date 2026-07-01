@@ -22,7 +22,7 @@
 import type { FeatureFlags } from '../../shared/ipc/featureFlags.js';
 import { isStencilWizardEnabled } from '../stencil/feature-flag.js';
 
-export function featureFlagsGetHandler(): FeatureFlags {
+export async function featureFlagsGetHandler(): Promise<FeatureFlags> {
   return {
     experimental: {
       onboarding: false,
@@ -31,7 +31,7 @@ export function featureFlagsGetHandler(): FeatureFlags {
       headlessCli: false,
       swsValidator: false,
       keyboardFirst: false,
-      stencilWizard: isStencilWizardEnabled(),
+      stencilWizard: await isStencilWizardEnabled(),
     },
   };
 }

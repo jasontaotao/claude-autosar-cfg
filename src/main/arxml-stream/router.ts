@@ -53,8 +53,8 @@ export async function routeArxmlReader(
 
   const sizeBytes = Buffer.byteLength(content, 'utf-8');
   const threshold = opts.streamingThresholdBytes ?? DEFAULT_THRESHOLD_BYTES;
-  const streamingOn = isStreamingEnabled();
-  const cacheOn = isIndexedDbEnabled();
+  const streamingOn = await isStreamingEnabled();
+  const cacheOn = await isIndexedDbEnabled();
 
   // 1. Cache lookup (only when explicitly enabled).
   if (cacheOn) {
