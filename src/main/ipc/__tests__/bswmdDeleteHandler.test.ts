@@ -37,6 +37,7 @@ import {
   setOpenProjectManifestPath,
   __resetOpenProjectManifestPathForTests,
 } from '../project-manifest-state.js';
+import { projectCloseHandler } from '../projectCloseHandler.js';
 
 let workDir: string;
 
@@ -116,5 +117,64 @@ describe('bswmd:delete handler (Sprint 17 P1)', () => {
     expect(existsSync(outside)).toBe(true);
 
     rmSync(outsideDir, { recursive: true, force: true });
+  });
+
+  // v1.18.4 PATCH — characterization test for the defensive null-check
+  // branch added in v1.15.5 (production code lines 32-34). The handler
+  // returns `{ kind: 'invalid-path', message: 'No project is open' }`
+  // when no project is open; this test locks in that contract so a
+  // future refactor cannot silently regress it.
+  //
+  // Mirrors the v1.15.5 coverage pattern at
+  // `projectWriteArxmlBatchHandler.path.test.ts:52-64`.
+  it('rejects all calls when no project is open (v1.18.4)', async () => {
+    __resetOpenProjectManifestPathForTests();
+    const p = join(workDir, 'never-deleted.bswmd.arxml');
+    writeFileSync(p, '<never/>', 'utf-8');
+
+    const r = await bswmdDeleteHandler({ filePath: p });
+
+    expect(r.kind).toBe('invalid-path');
+    if (r.kind !== 'invalid-path') throw new Error('unreachable');
+    expect(r.message).toContain('No project is open');
+
+    // The file must still exist — refusal is pre-unlink.
+    expect(existsSync(p)).toBe(true);
+  });
+
+  // v1.18.4 PATCH — lifecycle integration test. Ties together the
+  // v1.18.2 PROJECT_CLOSE handler + the v1.15.5 defensive null-check:
+  //   1. Open a project (state → /workDir/manifest.json, seeded in
+  //      beforeEach)
+  //   2. BSWMD delete works (state is non-null)
+  //   3. Close the project (state → null via projectCloseHandler)
+  //   4. Subsequent BSWMD delete is rejected with 'No project is open'
+  //
+  // Verifies the end-to-end v1.18.2 + v1.15.5 contract: PROJECT_CLOSE
+  // truly disables BSWMD delete for subsequent calls.
+  it('rejects BSWMD delete after PROJECT_CLOSE (v1.18.4 lifecycle)', async () => {
+    // Open a project — state already seeded in beforeEach
+    const before = join(workDir, 'before-close.bswmd.arxml');
+    writeFileSync(before, '<before/>', 'utf-8');
+
+    const r1 = await bswmdDeleteHandler({ filePath: before });
+    expect(r1.kind).toBe('ok');
+    expect(existsSync(before)).toBe(false);
+
+    // Close the project — state → null
+    const r2 = projectCloseHandler();
+    expect(r2.kind).toBe('closed');
+
+    // Subsequent BSWMD delete is rejected
+    const after = join(workDir, 'after-close.bswmd.arxml');
+    writeFileSync(after, '<after/>', 'utf-8');
+
+    const r3 = await bswmdDeleteHandler({ filePath: after });
+    expect(r3.kind).toBe('invalid-path');
+    if (r3.kind !== 'invalid-path') throw new Error('unreachable');
+    expect(r3.message).toContain('No project is open');
+
+    // The file must still exist — refusal is pre-unlink.
+    expect(existsSync(after)).toBe(true);
   });
 });
