@@ -1,4 +1,4 @@
-// templates helper — Sprint 13+ Stage 3.3 Task 1.
+// templates helper — Sprint 13+ Stage 3.3 Task 1 + v1.21.0 MINOR T2.
 //
 // The IPC `templates:list` returns `displayNameKey` / `descriptionKey`
 // as raw strings (the IPC layer keeps its types serializable — it
@@ -7,12 +7,15 @@
 // These helpers cast the raw key to `MessageKey` and delegate to
 // `t()` for actual rendering.
 //
-// `isTemplateAvailable` is the Stage 3.3 gate. Only `empty` is wired
-// up end-to-end (the IPC exposes the full list for future expansion);
-// `classic` and `clone` show the "coming soon" badge and are non-
-// interactive. When Stage 3.4 / 3.5 land and the corresponding
-// backend files are added, this list will flip to dynamic
-// (e.g. `template.fileCount > 0`).
+// `isTemplateAvailable` is the gate. v1.21.0 T2 flipped it from a
+// hard-coded `templateId === 'empty' || templateId === 'classic'`
+// allowlist to a data-driven check (the Stage 3.3 / 3.4 plan called
+// for this change — see the original comment at line 14; the actual
+// flip landed only after the Classic template files shipped in
+// `samples/arxml/classic/`). Empty is always available because it's
+// a zero-config starter; non-empty templates require `fileCount > 0`
+// so a broken on-disk layout (`template.json` present but no files)
+// does not render as a clickable card that copies an empty directory.
 
 import { t, type Locale, type MessageKey } from '@shared/i18n';
 
@@ -48,21 +51,26 @@ export function getTemplateDescription(locale: Locale, template: TemplateRow): s
 }
 
 /**
- * Stage 3.3 + 3.4 availability gate.
+ * v1.21.0 MINOR T2 — data-driven availability gate.
  *
- * Returns true for templates whose metadata the renderer can
- * consume end-to-end:
- *   - `empty` — always available (zero-config starter project).
- *   - `classic` — Stage 3.4 wires the BSWMD chip multi-select on
- *     top of this template, so the card is actionable. Until the
- *     main process ships template files for `classic` the IPC
- *     stub returns `bswmdPaths: []` and the chip row stays empty
- *     — the card remains clickable but creation just doesn't
- *     pre-load any BSWMDs.
- *   - `clone` — still a "coming soon" placeholder. Returns false
- *     so the card stays disabled and the "coming soon" badge
- *     shows; a future stage will wire it.
+ * Rules:
+ *   - `empty` is ALWAYS available — it's the zero-config starter and
+ *     is the only template without on-disk files by design.
+ *   - Any other template (classic, clone, future) is available iff
+ *     `fileCount > 0` — i.e. the on-disk layout actually shipped
+ *     something. A `template.json` with no accompanying value-side
+ *     ARXMLs / BSWMDs renders as "coming soon" so the user does not
+ *     hit a clickable card that copies an empty directory.
+ *   - Unknown template ids (defensive default) — returns false.
+ *
+ * The function takes the full `TemplateRow` instead of just the id
+ * because the gate decision now depends on `fileCount`, which is
+ * data the IPC carries. Templates not surfaced by the IPC (e.g. a
+ * hard-coded 'clone' fallback) cannot reach this function in the
+ * first place — the IPC `templates:list` response is the source of
+ * truth for what cards the renderer renders.
  */
-export function isTemplateAvailable(templateId: string): boolean {
-  return templateId === 'empty' || templateId === 'classic';
+export function isTemplateAvailable(template: TemplateRow): boolean {
+  if (template.id === 'empty') return true;
+  return template.fileCount > 0;
 }

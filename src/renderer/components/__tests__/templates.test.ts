@@ -1,12 +1,14 @@
-// templates helper tests — Sprint 13+ Stage 3.3 Task 1.
+// templates helper tests — Sprint 13+ Stage 3.3 Task 1 + v1.21.0
+// MINOR T2 (template availability gate).
 //
 // The IPC returns `displayNameKey` / `descriptionKey` as raw strings
 // (the IPC layer cannot import from @shared/i18n to keep its types
 // serializable). `getTemplateDisplayName` / `getTemplateDescription`
 // resolve the key to the localized string via the shared `t()` helper.
-// `isTemplateAvailable` is the hard-coded gate for Stage 3.3: only
-// `empty` is wired up; `classic` and `clone` show the "coming soon"
-// badge.
+// `isTemplateAvailable` is the data-driven gate landed in v1.21.0
+// MINOR T2: empty is always available, every other template requires
+// `fileCount > 0` so a broken on-disk layout cannot render as a
+// clickable card that copies an empty directory.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,7 +59,11 @@ describe('templates helper — getTemplateDisplayName', () => {
   });
 
   it('resolves the classic template display name in zh-CN', () => {
-    expect(getTemplateDisplayName('zh-CN', CLASSIC_TEMPLATE)).toBe('经典（即将上线）');
+    // v1.21.0 MINOR T2 — Classic is now actionable (samples/arxml/classic/
+    // ships 5 BSWMDs + 4 ECUC configs). The "(coming soon)" wording
+    // was retired from both bundles; the test locks the new copy in
+    // so a future drift is loud.
+    expect(getTemplateDisplayName('zh-CN', CLASSIC_TEMPLATE)).toBe('经典项目');
   });
 
   it('resolves the clone template display name in en', () => {
@@ -86,22 +92,34 @@ describe('templates helper — getTemplateDescription', () => {
 });
 
 describe('templates helper — isTemplateAvailable', () => {
-  it('returns true for the empty template', () => {
-    expect(isTemplateAvailable('empty')).toBe(true);
+  // v1.21.0 MINOR T2 — data-driven gate. The pre-T2 implementation
+  // hard-coded `templateId === 'empty' || templateId === 'classic'`
+  // (templates.ts:67) and never checked whether the template actually
+  // shipped files. The Stage 3.3 + 3.4 plan (per the original
+  // templates.ts:14-15 comment) was to flip this to "empty always
+  // available, non-empty requires fileCount > 0" once the Classic
+  // template files landed. T2 lands that change alongside the
+  // samples/arxml/classic/ addition.
+
+  it('returns true for the empty template (always available, even with fileCount=0)', () => {
+    expect(isTemplateAvailable(SAMPLE_TEMPLATE)).toBe(true);
   });
 
-  // Sprint 13+ Stage 3.4 — classic is now actionable (BSWMD chip
-  // multi-select is wired on top of it). Clone is still coming soon.
-  it('returns true for the classic template (Stage 3.4 wires BSWMD chips)', () => {
-    expect(isTemplateAvailable('classic')).toBe(true);
+  it('returns true for the classic template once it ships files (fileCount > 0)', () => {
+    expect(isTemplateAvailable(CLASSIC_TEMPLATE)).toBe(true);
   });
 
-  it('returns false for the clone template (coming soon)', () => {
-    expect(isTemplateAvailable('clone')).toBe(false);
+  it('returns false for the clone template (no files yet — coming soon)', () => {
+    expect(isTemplateAvailable(CLONE_TEMPLATE)).toBe(false);
   });
 
-  it('returns false for an unknown template id (defensive default)', () => {
-    expect(isTemplateAvailable('unknown-template')).toBe(false);
+  it('returns false for an empty classic template stub (defensive — fileCount must be > 0)', () => {
+    // If someone ships a template.json for `classic` but the disk
+    // layout is broken (no value-side / BSWMD files), the gate
+    // refuses to render it as actionable. Better to show "coming soon"
+    // than a clickable card that copies an empty directory.
+    const stub = { ...CLASSIC_TEMPLATE, fileCount: 0 };
+    expect(isTemplateAvailable(stub)).toBe(false);
   });
 });
 

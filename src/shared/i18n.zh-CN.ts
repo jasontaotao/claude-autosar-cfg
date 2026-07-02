@@ -239,7 +239,7 @@ export const MessagesZhCN: Messages = {
   // templates (Sprint 13 #1)
   'template.empty.displayName': '空项目',
   'template.empty.description': '从零开始创建项目',
-  'template.classic.displayName': '经典（即将上线）',
+  'template.classic.displayName': '经典项目',
   'template.classic.description': '预填常见 BSWMD 的项目模板',
   'template.clone.displayName': '克隆（即将上线）',
   'template.clone.description': '基于现有项目创建副本',

@@ -245,7 +245,7 @@ export const MessagesEn: Messages = {
   // templates (Sprint 13 #1)
   'template.empty.displayName': 'Empty Project',
   'template.empty.description': 'Start a new project from scratch',
-  'template.classic.displayName': 'Classic (coming soon)',
+  'template.classic.displayName': 'Classic Project',
   'template.classic.description': 'Project template with common BSWMD prefilled',
   'template.clone.displayName': 'Clone (coming soon)',
   'template.clone.description': 'Create a copy of an existing project',

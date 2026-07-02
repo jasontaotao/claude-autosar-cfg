@@ -39,7 +39,7 @@ interface TemplateCardProps {
 
 export function TemplateCard({ template, selected, onSelect }: TemplateCardProps): JSX.Element {
   const locale: Locale = useArxmlStore((s) => s.locale);
-  const available = isTemplateAvailable(template.id);
+  const available = isTemplateAvailable(template);
   const displayName = getTemplateDisplayName(locale, template);
   const description = getTemplateDescription(locale, template);
 
