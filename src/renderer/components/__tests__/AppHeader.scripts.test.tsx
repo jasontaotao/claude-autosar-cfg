@@ -41,6 +41,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={false}
         onToggleScriptPanel={(): void => {}}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     expect(screen.getByTestId('btn-scripts-toggle')).not.toBeNull();
@@ -54,6 +57,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={false}
         onToggleScriptPanel={onToggle}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     fireEvent.click(screen.getByTestId('btn-scripts-toggle'));
@@ -67,6 +73,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={true}
         onToggleScriptPanel={(): void => {}}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -81,6 +90,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={false}
         onToggleScriptPanel={(): void => {}}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -130,6 +142,9 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={false}
         onToggleScriptPanel={(): void => {}}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     expect(screen.queryByTestId('btn-stencil-new')).toBeNull();
@@ -161,6 +176,9 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         canSelectEcucModule={false}
         scriptPanelOpen={false}
         onToggleScriptPanel={(): void => {}}
+        onGenerate={(): void => {}}
+        canGenerate={false}
+        generateBusy={false}
       />,
     );
     // Open the dropdown so the entry is visible.

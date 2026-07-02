@@ -54,6 +54,13 @@ const noopProps = {
   canSelectEcucModule: false,
   scriptPanelOpen: false,
   onToggleScriptPanel: (): void => {},
+  // v1.21.0 MINOR T1 — BSW generate GUI entry. noopProps covers
+  // every pre-existing test that just renders the header without
+  // exercising the new button; individual tests in
+  // AppHeader.generate.test.tsx pin the button behaviour.
+  onGenerate: (): void => {},
+  canGenerate: false,
+  generateBusy: false,
 };
 
 interface MockWindowAutosarApi {
@@ -105,7 +112,8 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     const header = screen.getByTestId('app-header');
     expect(header).toBeInTheDocument();
     expect(header.className).toContain('app-header');
-    expect(screen.getByText(/claude-AutosarCfg/)).toBeInTheDocument();
+    expect(screen.getByText(/^AutosarCfg$/)).toBeInTheDocument();
+    expect(screen.getByTestId('app-logo')).toBeInTheDocument();
   });
 
   it('renders the app version on the right side, dim and monospace', async () => {

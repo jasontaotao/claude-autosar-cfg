@@ -513,4 +513,9 @@ export const MessagesZhCN: Messages = {
   'flags.keyboardFirst.label': '键盘优先模式',
   'flags.keyboardFirst.description':
     '启用 U 集群的键盘导航面板（实验性）。镜像 `experimental.keyboardFirst`。',
+  'app.generate.button': '生成代码',
+  'app.generate.buttonAria': '从当前项目生成 BSW 代码',
+  'app.generate.success': '已生成 {count} 个文件到 {outDir}',
+  'app.generate.failure': '生成失败：{message}',
+  'app.generate.needProject': '请先打开一个项目再生成代码',
 };

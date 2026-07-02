@@ -34,4 +34,13 @@ export interface AppHeaderProps {
   readonly canSelectEcucModule: boolean;
   readonly scriptPanelOpen: boolean;
   readonly onToggleScriptPanel: () => void;
+  // v1.21.0 MINOR T1 — BSW code generator GUI entry. The parent
+  // (App.tsx) owns the `useGenerateCode` hook (so it can write the
+  // success/failure toast to the global ErrorBanner). AppHeader
+  // just flips the button enabled-state and forwards the click.
+  // `canGenerate` is the disabled-state predicate — true when a
+  // project is open (the BSW generator requires a manifest path).
+  readonly onGenerate: () => void;
+  readonly canGenerate: boolean;
+  readonly generateBusy: boolean;
 }

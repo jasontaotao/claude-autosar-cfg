@@ -703,6 +703,18 @@ export interface Messages {
   readonly 'tour.coordination.validationPaused.message': string;
   readonly 'flags.keyboardFirst.label': string;
   readonly 'flags.keyboardFirst.description': string;
+
+  // --- v1.21.0 MINOR T1 — BSW generate GUI entry ---
+  // Three keys: button label (sits on the AppHeader right section next
+  // to the script-panel toggle), success toast (file count + outDir),
+  // failure toast (verbatim CLI stderr). `buttonAria` mirrors the
+  // visible label for screen-reader announcement; the en/zh-CN strings
+  // are deliberate non-translations so a tooltips lookup stays scoped.
+  readonly 'app.generate.button': string;
+  readonly 'app.generate.buttonAria': string;
+  readonly 'app.generate.success': string; // {count} {outDir}
+  readonly 'app.generate.failure': string; // {message}
+  readonly 'app.generate.needProject': string;
 }
 
 export type MessageKey = keyof Messages;

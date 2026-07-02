@@ -522,4 +522,9 @@ export const MessagesEn: Messages = {
   'flags.keyboardFirst.label': 'Keyboard-first mode',
   'flags.keyboardFirst.description':
     'Enable U cluster keyboard navigation palette (experimental). Mirrors `experimental.keyboardFirst`.',
+  'app.generate.button': 'Generate Code',
+  'app.generate.buttonAria': 'Generate BSW code from current project',
+  'app.generate.success': 'Generated {count} files to {outDir}',
+  'app.generate.failure': 'Generate failed: {message}',
+  'app.generate.needProject': 'Open a project before generating code',
 };

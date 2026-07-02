@@ -56,6 +56,9 @@ export function AppHeader({
   canSelectEcucModule,
   scriptPanelOpen,
   onToggleScriptPanel,
+  onGenerate,
+  canGenerate,
+  generateBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -685,6 +688,26 @@ export function AppHeader({
           data-testid="btn-scripts-toggle"
         >
           {t(locale, 'script.panel.title')}
+        </button>
+        {/* v1.21.0 MINOR T1 — BSW code generator GUI entry. Sits
+            between the scripts toggle and the locale switch so the
+            project-bound actions cluster on the right. Disabled
+            when no project is open (the generator requires a
+            `.autosarcfg.json` manifest path) or another action is
+            in-flight. `generateBusy` is wired from the
+            `useGenerateCode` hook's `state === 'running'` flag. */}
+        <button
+          type="button"
+          className={`app-btn app-btn-generate ${generateBusy ? 'is-busy' : ''}`}
+          onClick={onGenerate}
+          disabled={!canGenerate || generateBusy}
+          aria-label={t(locale, 'app.generate.buttonAria')}
+          title={
+            canGenerate ? t(locale, 'app.generate.button') : t(locale, 'app.generate.needProject')
+          }
+          data-testid="btn-generate"
+        >
+          {t(locale, 'app.generate.button')}
         </button>
         <button
           type="button"

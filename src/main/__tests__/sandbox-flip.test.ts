@@ -104,6 +104,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'projectOpen',
       'projectSave',
       'readBswmd',
+      'runHeadlessCommand',
       'runScript',
       'saveArxml',
       'saveScript',

@@ -6,6 +6,10 @@ import type {
   StencilSaveRequest,
   StencilSaveResponse,
 } from '../main/stencil/types.js';
+import type {
+  HeadlessRunCommandRequest,
+  HeadlessRunCommandResult,
+} from '../shared/headless/ipc-contract.js';
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
   OpenArxmlMultiResult,
@@ -176,6 +180,17 @@ const api = {
       keyboardFirst: boolean;
     };
   }> => ipcRenderer.invoke('feature-flags:get'),
+  // v1.21.0 MINOR T1 — GUI entry for the BSW code generator.
+  // Wraps the existing HEADLESS_RUN_COMMAND channel (used by the CLI
+  // dispatcher for `read` / `mutate` / `validate` / `generate`) so
+  // the renderer's Generate button can ask main to run the same
+  // pipeline the CLI runs. The result envelope is returned verbatim
+  // via the invoke response — `generate` is a synchronous-of-effect
+  // command so no push emitter is needed (mutate / validate are the
+  // only commands that emit push events; see the `result.command`
+  // switch in `headlessRunCommandHandler.ts`).
+  runHeadlessCommand: (req: HeadlessRunCommandRequest): Promise<HeadlessRunCommandResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.HEADLESS_RUN_COMMAND, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

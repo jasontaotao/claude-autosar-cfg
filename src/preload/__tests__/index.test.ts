@@ -120,3 +120,41 @@ describe('preload bridge — Sprint 14 #1 script engine (T8)', () => {
     expect(onCalls[0]?.handler).toBe(offCalls[0]?.handler);
   });
 });
+
+// v1.21.0 MINOR T1 — GUI bridge for BSW code generation.
+//
+// Closes the gap where `autosarcfg generate` worked on the CLI + IPC
+// layer (HEADLESS_RUN_COMMAND → headlessRunCommandHandler → CLI
+// dispatcher) but the renderer never exposed a way to call it. The
+// `runHeadlessCommand` wrapper threads the request payload through
+// `ipcRenderer.invoke` on the existing `HEADLESS_RUN_COMMAND` channel
+// — we don't add a new channel because the renderer already gets
+// the full GenerateResult back through the invoke response (no push
+// emitter needed; mutate/validate are the only commands that emit
+// pushes, and that's gated on the `result.command === 'mutate'` /
+// `'validate'` branches in `headlessRunCommandHandler.ts`).
+describe('preload bridge — v1.21.0 MINOR T1 BSW generate GUI entry', () => {
+  it('exposes window.autosarApi.runHeadlessCommand as a function', async () => {
+    await import('../index.js');
+    const api = mockContextBridge.exposeInMainWorld.mock.calls[0]![1] as Record<string, unknown>;
+    expect(typeof api.runHeadlessCommand).toBe('function');
+  });
+
+  it('runHeadlessCommand invokes HEADLESS_RUN_COMMAND with the request payload', async () => {
+    await import('../index.js');
+    const api = mockContextBridge.exposeInMainWorld.mock.calls[0]![1] as {
+      runHeadlessCommand: (req: unknown) => Promise<unknown>;
+    };
+    const req = {
+      parsedArgs: {
+        kind: 'generate',
+        input: { command: 'generate', projectPath: '/abs/proj.autosarcfg.json' },
+      },
+      patchId: 'generate',
+    };
+    await api.runHeadlessCommand(req);
+    expect(invokeCalls).toHaveLength(1);
+    expect(invokeCalls[0]?.channel).toBe(IPC_CHANNELS.HEADLESS_RUN_COMMAND);
+    expect(invokeCalls[0]?.payload).toEqual(req);
+  });
+});

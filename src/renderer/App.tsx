@@ -63,6 +63,7 @@ import { ScriptPanel } from './components/ScriptPanel';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
+import { useGenerateCode } from './hooks/useGenerateCode';
 import { useProjectActions } from './hooks/useProjectActions';
 import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
@@ -327,6 +328,44 @@ export function App(): JSX.Element {
   const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
   const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
   const setInfo = useArxmlStore((s) => s.setInfo);
+
+  // v1.21.0 MINOR T1 — BSW code generator GUI bridge. App owns the
+  // `useGenerateCode` hook so the success / failure toasts route
+  // through the global ErrorBanner (consistent with every other
+  // async action in App). AppHeader just owns the button enabled-
+  // state + click forwarding.
+  const generate = useGenerateCode();
+  // Top-level subscriptions so the AppHeader button can show live
+  // disabled-state. The store already keeps these in sync; we read
+  // them here once at render and let React handle the rerender.
+  const projectForGenerate = useArxmlStore((s) => s.project);
+  const projectPathForGenerate = useArxmlStore((s) => s.projectPath);
+  const handleGenerateClick = useCallback(async (): Promise<void> => {
+    const pp = projectPathForGenerate;
+    if (pp === null) {
+      setStoreError(i18nT(locale, 'app.generate.needProject'));
+      return;
+    }
+    // v1.21.0 HIGH-1 — dispatch toasts off the Promise the hook
+    // resolves, NOT off the React state captured by `generate` in
+    // this closure. Reading `generate.state` / `generate.result`
+    // inside `.then` hits the stale-closure trap (the IPC reply
+    // triggers a rerender that swaps `generate` to a new object;
+    // the captured `generate` is the pre-IPC snapshot). The hook
+    // resolves with a `GenerateOutcome` that carries the same
+    // information synchronously.
+    const outcome = await generate.generate(pp);
+    if (outcome.kind === 'ok') {
+      setInfo(
+        i18nT(locale, 'app.generate.success', {
+          count: outcome.result.files.length,
+          outDir: outcome.result.outDir,
+        }),
+      );
+    } else {
+      setStoreError(i18nT(locale, 'app.generate.failure', { message: outcome.message }));
+    }
+  }, [generate, locale, setInfo, setStoreError, projectPathForGenerate]);
   // Sprint 17 P3 T3.3 — host-side routing for the new
   // `'remove-module'` action. We pull the unified BSWMD-remove
   // hook from `useProjectActions` so the dirty-guard + 4-option
@@ -440,6 +479,9 @@ export function App(): JSX.Element {
           canSelectEcucModule={canSelectEcucModule}
           scriptPanelOpen={scriptPanelOpen}
           onToggleScriptPanel={toggleScriptPanel}
+          onGenerate={handleGenerateClick}
+          canGenerate={projectForGenerate !== null && projectPathForGenerate !== null}
+          generateBusy={generate.state === 'running'}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
