@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.20.0</title>
+    <title>claude-AutosarCfg 用户手册 · v1.21.0</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -848,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.20.0 · manual</span>
+            <span>v1.21.0 · manual</span>
           </div>
         </div>
 
@@ -905,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.20.0 · 2026-07-01</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.21.0 · 2026-07-02</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -913,7 +913,7 @@
           </p>
           <div class="hero-meta">
             <span>📦 Electron 30 · TypeScript 5 · React 18</span>
-            <span>🧪 2482 tests · 96.01% stmts</span>
+            <span>🧪 2679 tests · 96.31% stmts</span>
             <span>🪟 Windows / macOS / Linux</span>
             <span>📄 License: <strong>MIT</strong></span>
           </div>
@@ -925,21 +925,106 @@
           <!-- ============================================ -->
 
           <!-- ============================================ -->
-          <!-- WHAT'S NEW IN v1.20.0 (internal refactor release) -->
+          <!-- WHAT'S NEW IN v1.21.0 (UI / IPC / branding release) -->
           <!-- ============================================ -->
           <section id="whats-new" class="whats-new">
             <div class="wn-header">
               <span class="wn-badge">🆕 WHAT'S NEW</span>
+              <strong class="wn-version">v1.21.0</strong>
+              <span class="wn-since">since v1.20.0 · 2026-07-01 → 2026-07-02</span>
+            </div>
+            <p class="wn-intro">
+              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。v1.21.0 是
+              <strong>UI + IPC + 品牌发布</strong>，一次性关闭 5 个用户报告的 bug（CRITICAL
+              脚本界面丑 + HIGH DBC 解析器未接入 + HIGH 新建项目模板仅 Empty 可用 + MEDIUM
+              合并视图设计边界错 + MEDIUM 缺模板预览视图），并替换 App logo / Windows .exe
+              图标。完整功能与迁移说明请参阅仓库根目录 <code>CHANGELOG.md</code> ·
+              <code>docs/superpowers/plans/</code>。
+            </p>
+            <ul class="wn-list">
+              <li>
+                <strong>App logo + Windows .exe 图标 (v1.21.0 MINOR T1)</strong> — 手写一份主源 SVG
+                (<code>autosarcfg-logo.svg</code>,64×64 圆角方块 + 白色 AC wordmark,Catppuccin Mocha
+                Blue <code>#89b4fa</code>);<code>scripts/gen-icons.mjs</code> 生成 6 尺寸 PNG +
+                多尺寸 <code>.ico</code>;AppHeader 读 <code>&lt;Logo /&gt;</code> + "AutosarCfg"
+                wordmark;任务栏 / Alt-Tab / 资源管理器 / NSIS installer 全部显示 AC 方块。<strong
+                  >Vite lib mode 静默忽略 publicDir</strong
+                >—用 <code>scripts/copy-main-assets.mjs</code> post-build 复制 PNG
+              </li>
+              <li>
+                <strong>BSW 代码生成器 GUI 入口 (v1.21.0 MINOR T1)</strong> — 新
+                <code>useGenerateCode</code> hook + <code>GENERATE_CODE</code> IPC channel;返回
+                <code>GenerateOutcome</code> discriminated union (<code>success</code> /
+                <code>failure</code>);<strong
+                  >async re-entrancy 守卫用 <code>useRef</code> 而非 <code>useState</code></strong
+                >—同步可变 cell,跨 async 边界无 stale-closure 风险
+              </li>
+              <li>
+                <strong>Classic 项目模板上线 (v1.21.0 MINOR T2)</strong> —
+                <code>samples/arxml/classic/</code> 新增 1 template.json + 4 ECUC ARXMLs + 5
+                BSWMDs;<code>isTemplateAvailable</code> 改为 data-driven gate (fileCount &gt;
+                0);"(coming soon)" suffix 从 i18n 标签退役;pre-ship code-review 抓到 HIGH(label/gate
+                不一致)+ MEDIUM(stale comment)均已修复
+              </li>
+              <li>
+                <strong>ScriptPanel 4 阶段 UX 重设计 (v1.21.0 MINOR T3, CRITICAL 关闭)</strong>
+                — (1) kind 徽章显示完整本地化名 + tooltip;<strong
+                  >a11y: aria-label 替换可见文本陷阱</strong
+                >—改用 aria-describedby + sr-only span;(2) 首次使用 onboarding banner;<strong
+                  >空状态必须 gate on initialized</strong
+                >—length===0 alone 会让已有脚本用户首屏闪一下;(3) JetBrains/Linear 风深色调色
+                (#1a1d23 / #22262e / #2d323b);(4) ScriptOutput 状态图标(✓/✗ + 本地化 "OK" /
+                "Failed");14 个新 i18n key
+              </li>
+              <li>
+                <strong>DBC 解析器接入 (v1.21.0 MINOR T4, HIGH 关闭)</strong> —
+                <code>@dbc-forge/core</code> v1.7.0 装上后未接线,本次用最小可发布表面 (只读
+                viewer)接上:新 <code>DBC_OPEN</code> + <code>DBC_PARSE</code> IPC channels;<code
+                  >parseDbcHandler</code
+                >
+                返回 renderer-friendly <code>DbcSummary</code>(version + node + 消息元数据)—不把整个
+                <code>Network</code> 跨 IPC 传;AppHeader 新 "File Operations → Open DBC…" 菜单;<code
+                  >&lt;DbcViewer /&gt;</code
+                >
+                模态(stats strip + nodes chip row + 消息表 + error banner);<strong
+                  >32 MiB 容量上限 + 非字符串守卫 + 空输入视为 malformed</strong
+                >—与 ARXML / BSWMD 模式一致;<strong>模态 a11y</strong>—Escape + backdrop-click +
+                initial focus(对照 StencilWizard 模式);<strong>IPC envelope 类型安全</strong>—switch
+                + <code>never</code> exhaustive default 取代 <code>as unknown as</code> 强转
+              </li>
+              <li>
+                <strong>模板预览面板 (v1.21.0 MINOR T5, MEDIUM × 2 关闭)</strong> — 新自包含
+                <code>&lt;TemplatePreview /&gt;</code> 组件(描述 + 文件数 + BSWMD chip row
+                全部嵌入内部);修复 "合并视图设计边界错"(chip row 不再是 dialog body 顶级
+                sibling,改放预览面板内部);修复 "缺模板预览视图"(点卡片不再只是 hover 反馈);4 个新
+                i18n key;<strong>t() 不支持 ICU plural</strong>— count=0 用
+                <code>fileCountNone</code>,count&gt;0 用 <code>fileCount {count} files</code>,组件里
+                runtime branch
+              </li>
+              <li>
+                <strong>测试覆盖持续提升</strong> — <strong>2679 tests · 96.31% stmts</strong>
+                (v1.20.0 时代 2614 → +65);pnpm verify 7-stage GREEN(format / lint / type-check /
+                test / coverage / build / import-regression)
+              </li>
+            </ul>
+          </section>
+
+          <!-- ============================================ -->
+          <!-- WHAT'S NEW IN v1.20.0 (internal refactor release) -->
+          <!-- ============================================ -->
+          <section id="whats-new-v1-20" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">🆕 WHAT'S NEW (prior)</span>
               <strong class="wn-version">v1.20.0</strong>
               <span class="wn-since">since v1.15.2 · 2026-06-26 → 2026-07-01</span>
             </div>
             <p class="wn-intro">
-              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。v1.20.0 是
-              <strong>纯内部重构发布</strong>，零用户可见功能变更；下表新增 v1.16.0–v1.20.0 期间
-              已发布的核心能力（含 BSW 生成器 IPC symlink 防御、feature-flag 异步化、GUI
-              <code>applyMutation</code> 与 CLI <code>applyPatchSteps</code> 引擎统一、Handlebars
-              模板直接调用 emit helper）。完整功能与迁移说明请参阅仓库根目录
-              <code>CHANGELOG.md</code> · <code>docs/superpowers/plans/</code>。
+              v1.20.0 是 <strong>纯内部重构发布</strong>，零用户可见功能变更;核心能力见 v1.21.0
+              "WHAT'S NEW" 区累积清单。完整 v1.16.0–v1.20.0 期间已发布能力列表(BSW 生成器 IPC
+              symlink 防御、feature-flag 异步化、GUI <code>applyMutation</code> 与 CLI
+              <code>applyPatchSteps</code> 引擎统一、Handlebars 模板直接调用 emit
+              helper)请参阅仓库根目录 <code>CHANGELOG.md</code> ·
+              <code>docs/superpowers/plans/</code>。
             </p>
             <ul class="wn-list">
               <li>

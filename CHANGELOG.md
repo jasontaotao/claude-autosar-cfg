@@ -5,6 +5,79 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.21.0 (2026-07-02) — MINOR
+
+ScriptPanel UX redesign + DBC viewer wiring + Classic project template + App logo / Windows .exe icon + template preview pane. Closes the 5-bug user-reported backlog (CRITICAL ScriptPanel + HIGH DBC + HIGH Classic template + MEDIUM merge-view boundary + MEDIUM template preview). Heavy UI / IPC release — almost every renderer surface touched.
+
+- **`feat(branding)` — T1 App logo + Windows .exe icon**:
+  - Hand-written source SVG: `src/renderer/assets/autosarcfg-logo.svg` (64×64 rounded-rect, Catppuccin Mocha Blue `#89b4fa`, white "AC" wordmark).
+  - `scripts/gen-icons.mjs` (`pnpm gen-icons`) generates 6 PNG sizes (16/32/48/64/128/256) + multi-size `build/icon.ico` + favicon.
+  - `Logo.tsx` inlines the SVG as a React `<svg>` (size prop + `aria-hidden="true"`).
+  - AppHeader reads `<Logo size={20} />` + "AutosarCfg" wordmark (was `⊟` + "claude-AutosarCfg").
+  - Browser `<title>` + favicon link updated to match.
+  - `electron-builder` config gains `build.win.icon`; the NSIS installer + the unpacked `.exe` + the Start-menu + desktop shortcut all pick up the AC icon.
+  - Main process loads `assets/autosarcfg-icon.png` via `nativeImage.createFromPath`.
+  - **Vite-lib-mode publicDir gotcha**: `vite.main.config.ts` is in `lib` mode, which silently ignores `publicDir`. The fix is a post-build `scripts/copy-main-assets.mjs` that copies the PNG into `dist/main/assets/`. Tagged as a trap because the failure is silent.
+  - 7 new Logo tests + 1 manual bump + 1 release notes. End state: 2623 + 6 SKIP / 0 fail (+9 net from v1.20.0 2614).
+
+- **`feat(bsw-generate-gui)` — T1 BSW code-generator GUI entry**:
+  - New `useGenerateCode` hook returns `GenerateOutcome` discriminated union (`{kind:'success', outputs}` / `{kind:'failure', message}`).
+  - New IPC channel `GENERATE_CODE` (mirrors the script-run pattern). Main side resolves to the same outcome shape.
+  - **Re-entrancy guard via `useRef` not `useState`**: a `useState` flag would be stale-closure-prone across the async IPC `.then` boundary; a `useRef<boolean>` short-circuits synchronously with no re-render dependency.
+  - 7 new generate-button tests in AppHeader.generate. End state: 2637 + 6 SKIP / 0 fail (+7 net).
+
+- **`feat(project-templates)` — T2 Classic project template ships**:
+  - `samples/arxml/classic/` adds 1 template.json + 4 ECUC ARXMLs + 5 BSWMDs (byte-identical copy of `samples/arxml/demo-ecu/` which is preserved for SWS Validator).
+  - `isTemplateAvailable(data-driven)` gate on `TemplateCardRow` flips to true for any template with `fileCount > 0` (was hardcoded to true only for Empty).
+  - Removed "(coming soon)" suffix from retired labels (en + zh-CN).
+  - Pre-ship code-review caught HIGH (label/gate mismatch) + MEDIUM (stale comment at templates.ts:14-15). Both fixed before commit.
+  - 5 new `isTemplateAvailable` tests. End state: 2637 + 6 SKIP / 0 fail (+5 net).
+
+- **`feat(script-panel)` — T3 ScriptPanel UX redesign (CRITICAL bug closed)**:
+  - 4-phase redesign: (1) kind badges with localized full names + tooltip, (2) first-run onboarding banner, (3) JetBrains/Linear-style dark palette, (4) ✓/✗ status icons in ScriptOutput.
+  - **a11y fix**: `aria-label` on a non-interactive `<span>` REPLACES the rendered text for screen readers; switched to `aria-describedby` + sr-only span.
+  - **Flicker fix**: store-driven empty state must gate on `initialized && length === 0`, not `length === 0` alone (existing-data users see the banner for one render otherwise).
+  - **CSS hygiene**: `transition: all` replaced with explicit property lists.
+  - 14 new i18n keys (4 kind desc, 7 onboarding, 1 status.ok, 2 misc). Both en + zh-CN.
+  - 9 new ScriptPanel tests. End state: 2651 + 6 SKIP / 0 fail (+9 net).
+
+- **`feat(script-dbc)` — T4 Wire `@dbc-forge/core` parser (HIGH bug closed)**:
+  - `@dbc-forge/core` was installed in v1.7.0 Cluster 3 I but never wired to the renderer (dead code).
+  - New `DBC_OPEN` + `DBC_PARSE` IPC channels (mirror the ARXML pair).
+  - `parseDbcHandler` returns renderer-friendly `DbcSummary` (version + node list + per-message id/name/dlc/transmitter/signalCount). The full @dbc-forge `Network` is NOT streamed across IPC.
+  - `openDbcHandler` shows the OS file picker (filtered to `.dbc`).
+  - Renderer: "File Operations → Open DBC…" menu entry next to "Open ARXML…". `App.tsx` owns the parse state machine + the `DbcViewer` modal mount.
+  - `<DbcViewer />` modal: stats strip, nodes chip row, messages table, error banner. i18n for both en + zh-CN (15 keys).
+  - 32 MiB size cap, defensive non-string guard, empty input rejected as malformed.
+  - **a11y fix**: DbcViewer missing Escape + backdrop-click + initial focus → added (matches StencilWizard pattern).
+  - **Type safety fix**: `as unknown as` casts on IPC envelope bypassed the typed bridge → replaced with switch + `never` exhaustive default arm.
+  - **Z-index fix**: 2000 → 9996 (above other dialog hosts).
+  - **Loading state removed**: was rendering as broken empty error banner; dropped, added `useRef` in-flight guard.
+  - **Decoupling fix**: DBC menu gated on ARXML `state.busy` → added `dbcBusy` prop.
+  - **basename fix**: `path.split(/[\\/]/)` reimplemented basename → imported from @shared/path.
+  - 23 files / +1349 / -2 / +12 App tests + 11 preload tests. End state: 2674 + 6 SKIP / 0 fail (+16 net).
+
+- **`feat(new-project-dialog)` — T5 Template preview pane + BSWMD-chip-row boundary fix (2 MEDIUM bugs closed)**:
+  - New `<TemplatePreview />` self-contained pane: name + description + file count + (when applicable) embedded BSWMD chip row.
+  - **Boundary fix**: BSWMD chip row was a top-level dialog-body child (sibling of template row); now lives INSIDE the preview pane.
+  - **Preview fix**: clicking a card now shows description + file count, not just a hover state.
+  - 4 new i18n keys (pickFirst, fileCountNone, fileCount, preloadBswmd) for both en + zh-CN.
+  - `t()` does NOT parse ICU MessageFormat, so `count=0` uses `fileCountNone` and `count>0` uses `fileCount {count} files` — runtime branch in the component.
+  - 5 new tests. End state: 2679 + 6 SKIP / 0 fail (+5 net).
+
+### Behavioral changes
+
+- **App logo**: `⊟` glyph + "claude-AutosarCfg" wordmark → AC square + "AutosarCfg". Affects AppHeader, browser `<title>`, favicon, Windows taskbar/Alt-Tab/explorer/NSIS installer.
+- **DBC menu entry**: "File Operations → Open DBC…" is now available next to "Open ARXML…". Opens a `.dbc` file and shows a read-only viewer modal. ARXML↔DBC bridging still deferred.
+- **NewProjectDialog BSWMD chip row location**: the chip row still emits the same `.bswmd-chip-row` testid but now lives inside `data-testid="npd-template-preview"`. Tests that asserted the chip row is a direct child of `.npd-body` need to assert it is inside the preview container instead.
+- **Classic template available**: "File Operations → New Project" now offers Classic in addition to Empty. Clone still shows the retired label.
+
+### Migration notes
+
+- No data migration required. All changes are renderer / IPC / branding.
+- Renderer-side users who pinned the previous "no DBC menu entry" behavior will see a new menu item. Read-only viewer scope — DBC→ARXML and ARXML→DBC bridges still deferred.
+- The 7 generator snapshot files remain byte-identical; no test data updates needed.
+
 ## v1.20.0 (2026-07-01) — MINOR
 
 GUI `applyMutation` parity with CLI + Handlebars template helper reshape. Closes the 2 remaining deferred items from the v1.18.0 §11.1 carry-over list (C2.4 GUI `applyMutation` rewrite + B-3 second half Handlebars template reshape). Internal refactor release — zero user-visible feature changes; full test + architectural cleanup of the script-engine + generator boundaries.
