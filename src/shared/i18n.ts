@@ -180,6 +180,11 @@ export interface Messages {
   readonly 'newProject.bswmdLabel': string;
   readonly 'newProject.bswmdHint': string;
   readonly 'newProject.noBswmd': string;
+  // v1.21.0 Bug #6 + #7 — template preview pane.
+  readonly 'newProject.templatePreview.pickFirst': string;
+  readonly 'newProject.templatePreview.fileCountNone': string;
+  readonly 'newProject.templatePreview.fileCount': string; // {count}
+  readonly 'newProject.templatePreview.preloadBswmd': string;
 
   // --- confirm dialog (Sprint 12 #3 Phase 1) ---
   readonly 'confirm.unsaved.title': string;

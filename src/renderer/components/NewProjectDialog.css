@@ -260,3 +260,80 @@
   border-radius: 8px;
   min-height: 96px;
 }
+
+/* v1.21.0 Bug #6 + #7 — template preview pane.
+   One self-contained "what does this template bring" block, shown
+   under the TemplateCardRow. Previously the BSWMD chip row was a
+   separate top-level dialog child; now it lives INSIDE the preview
+   (Bug #6 boundary fix). The header (name + file count) and the
+   description give the user preview info on each card pick (Bug #7). */
+.npd-template-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 8px;
+}
+
+.npd-template-preview--empty {
+  align-items: center;
+  padding: 18px 14px;
+}
+
+.npd-template-preview-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #6c7086;
+  text-align: center;
+  font-style: italic;
+}
+
+.npd-template-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.npd-template-preview-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.npd-template-preview-files {
+  font-size: 11px;
+  font-weight: 500;
+  color: #89b4fa;
+  background: rgba(137, 180, 250, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  white-space: nowrap;
+}
+
+.npd-template-preview-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #a6adc8;
+}
+
+.npd-template-preview-bswmd {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #313244;
+}
+
+.npd-template-preview-bswmd-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

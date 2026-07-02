@@ -113,6 +113,11 @@ export const MessagesZhCN: Messages = {
   'newProject.bswmdLabel': '预填 BSWMD',
   'newProject.bswmdHint': '可多选；将随模板一并拷贝到项目目录',
   'newProject.noBswmd': '该模板未携带 BSWMD',
+  // v1.21.0 Bug #6 + #7 — 模板预览面板文案。
+  'newProject.templatePreview.pickFirst': '请先在上方选一个模板，看看它会带来什么。',
+  'newProject.templatePreview.fileCountNone': '无文件',
+  'newProject.templatePreview.fileCount': '{count} 个文件',
+  'newProject.templatePreview.preloadBswmd': '预加载的 BSWMD：',
 
   // confirm dialog
   'confirm.unsaved.title': '未保存的更改',

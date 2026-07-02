@@ -52,9 +52,9 @@ import type { TemplateListResponse } from '@shared/types';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 
-import { BswmdChipRow } from './BswmdChipRow';
 import { validateProjectName } from './NewProjectDialog.validate';
 import { TemplateCardRow } from './TemplateCardRow';
+import { TemplatePreview } from './TemplatePreview';
 import { type TemplateRow } from './templates';
 
 import './NewProjectDialog.css';
@@ -252,12 +252,11 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     name: name || '(name)',
   });
 
-  // Stage 3.4 — look up the selected template's bswmdPaths so we can
-  // render the chip row. `undefined` when the IPC hasn't resolved or
-  // the user hasn't picked a template yet.
+  // Stage 3.4 — look up the selected template (now passed to the
+  // TemplatePreview pane, which owns the BSWMD chip row internally).
+  // `undefined` when the IPC hasn't resolved or the user hasn't
+  // picked a template yet.
   const selectedTemplate = templates.find((tmpl) => tmpl.id === selectedTemplateId);
-  const selectedTemplateBswmdPaths = selectedTemplate?.bswmdPaths ?? [];
-  const showBswmdChipRow = selectedTemplate !== undefined && selectedTemplateBswmdPaths.length > 0;
 
   const handleCancel = (): void => {
     setOpen(false);
@@ -462,17 +461,19 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
             onSelect={handleTemplateSelect}
             loading={templatesLoading}
           />
-          {/* Sprint 13+ Stage 3.4 — BSWMD chip multi-select. Renders
-              only when the selected template ships BSWMDs (currently
-              only Classic). Empty / Clone / unselected suppress the
-              row entirely. */}
-          {showBswmdChipRow ? (
-            <BswmdChipRow
-              bswmdPaths={selectedTemplateBswmdPaths}
-              selectedPaths={selectedBswmdPaths}
-              onToggle={handleBswmdToggle}
-            />
-          ) : null}
+          {/* v1.21.0 Bug #6 (合并视图设计边界错) + Bug #7 (缺模板预览
+              视图) — the BswmdChipRow used to render as a separate
+              top-level dialog child. Now it lives inside the
+              TemplatePreview pane, which is the "what this template
+              brings" self-contained unit (description + file count
+              + BSWMD chips). When no template is selected, the pane
+              shows a localized "pick a template" hint. */}
+          <TemplatePreview
+            locale={locale}
+            template={selectedTemplate ?? null}
+            selectedBswmdPaths={selectedBswmdPaths}
+            onBswmdToggle={handleBswmdToggle}
+          />
         </div>
 
         <div className="npd-footer">

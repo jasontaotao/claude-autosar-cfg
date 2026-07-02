@@ -113,6 +113,13 @@ export const MessagesEn: Messages = {
   'newProject.bswmdLabel': 'Preload BSWMDs',
   'newProject.bswmdHint': 'Select multiple; they will be copied to your project',
   'newProject.noBswmd': 'This template has no BSWMD files',
+  // v1.21.0 Bug #6 + #7 — template preview pane labels.
+  'newProject.templatePreview.pickFirst': 'Pick a template above to see what it brings.',
+  // Note: t() does not support ICU plural syntax, so we ship two
+  // messages and let TemplatePreview pick the right one at runtime.
+  'newProject.templatePreview.fileCountNone': 'No files',
+  'newProject.templatePreview.fileCount': '{count} files',
+  'newProject.templatePreview.preloadBswmd': 'Pre-loaded BSWMDs:',
 
   // confirm dialog
   'confirm.unsaved.title': 'Unsaved Changes',
