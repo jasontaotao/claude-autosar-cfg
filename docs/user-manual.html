@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.21.0</title>
+    <title>claude-AutosarCfg 用户手册 · v1.22.0</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -848,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.21.0 · manual</span>
+            <span>v1.22.0 · manual</span>
           </div>
         </div>
 
@@ -905,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.21.0 · 2026-07-02</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.22.0 · 2026-07-02</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -913,7 +913,7 @@
           </p>
           <div class="hero-meta">
             <span>📦 Electron 30 · TypeScript 5 · React 18</span>
-            <span>🧪 2679 tests · 96.31% stmts</span>
+            <span>🧪 2713 tests · 96.31% stmts</span>
             <span>🪟 Windows / macOS / Linux</span>
             <span>📄 License: <strong>MIT</strong></span>
           </div>
@@ -925,11 +925,68 @@
           <!-- ============================================ -->
 
           <!-- ============================================ -->
-          <!-- WHAT'S NEW IN v1.21.0 (UI / IPC / branding release) -->
+          <!-- WHAT'S NEW IN v1.22.0 (ODX-D importer release) -->
           <!-- ============================================ -->
           <section id="whats-new" class="whats-new">
             <div class="wn-header">
               <span class="wn-badge">🆕 WHAT'S NEW</span>
+              <strong class="wn-version">v1.22.0</strong>
+              <span class="wn-since">since v1.21.0 · 2026-07-02 → 2026-07-02</span>
+            </div>
+            <p class="wn-intro">
+              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。v1.22.0 是
+              <strong>ODX-D 诊断元数据导入发布</strong>，一次性关闭 v1.21.0 carry-over 的
+              <code>ODX 完全没做</code> bug，新增 File Operations → Open ODX… 入口与只读
+              <code>&lt;OdxViewer /&gt;</code> 模态。完整功能、ship 阻塞的 real-OEM fixture
+              验证、迁移说明 请参阅仓库根目录 <code>CHANGELOG.md</code> ·
+              <code>docs/superpowers/plans/</code>。
+            </p>
+            <ul class="wn-list">
+              <li>
+                <strong>ODX-D 导入器 (v1.22.0 MINOR T1 backend)</strong> — 新
+                <code>ODX_OPEN</code> + <code>ODX_PARSE</code> IPC 通道 （镜像 v1.21.0 T4 DBC
+                双通道）；<code>parseOdxHandler</code> 用 <code>fast-xml-parser</code> 解析
+                BASE-VARIANT DIAG-LAYER； 32 MiB 容量上限 + 非字符串守卫 + 空输入视为 malformed（与
+                ARXML/BSWMD/DBC 模式一致）；renderer-friendly <code>OdxSummary</code> 投影 3
+                张平面表（DTC/DID/Routine）
+              </li>
+              <li>
+                <strong>&lt;OdxViewer /&gt; 模态 (v1.22.0 MINOR T2 UI)</strong> — 3 段 stacked
+                section（DTC 4 列表 / DID 2 列表 / Routine 2 列表）； Catppuccin Mocha 配色 +
+                z-index 9996；<strong>a11y</strong>— Escape + backdrop-click + initial focus（对照
+                v1.21.0 DbcViewer / StencilWizard 模态 pattern）；22 个新 i18n key（en +
+                zh-CN）；DTC 表头 <strong>"故障码"</strong> 列映射 <code>DISPLAY-TROUBLE-CODE</code>
+                SAE J2012 形式（e.g. P0A7D01），不是 wire-format 数字
+              </li>
+              <li>
+                <strong>"File Operations → Open ODX…" 菜单 (v1.22.0 MINOR T3 wiring)</strong> —
+                AppHeader 新增诊断数据库入口（stethoscope 🩺 图标）；App.tsx 状态机镜像 v1.21.0 T4
+                DBC 模式（独立 <code>odxModal</code> 状态 + 独立 <code>odxInFlight</code> ref + 独立
+                <code>odxBusy</code> 守卫——并发 DBC + ODX 导入互不阻塞；5 个新测试 + 4 个 AppHeader
+                test 适配新必填 prop
+              </li>
+              <li>
+                <strong>Real-OEM fixture 验证 (v1.22.0 MINOR T4 ship-blocking)</strong> —
+                <code>samples/odx/Demo_Cdd.odx-d</code> 真实 Vector CANdelaStudio ODXExport220.dll
+                15.0.0 导出（897 KB）作为 ship-blocking test fixture；T1 手工 fixture 漏掉的 3 处
+                vendor-shape 偏差（T1 code-review M2 deferred MEDIUMs）已全部修复：(1) DTC 位于
+                ECU-SHARED-DATAS 子树、(2) <code>&lt;DTCS&gt;</code> 复数 wrapper、 (3)
+                <code>&lt;TROUBLE-CODE&gt;</code> 等字段是子元素非属性
+              </li>
+              <li>
+                <strong>测试覆盖持续提升</strong> — <strong>2713 tests · 96.31% stmts</strong>
+                （v1.21.0 时代 2679 → +34）；pnpm verify 7-stage GREEN （format / lint / type-check
+                / test / coverage / build / import-regression）
+              </li>
+            </ul>
+          </section>
+
+          <!-- ============================================ -->
+          <!-- WHAT'S NEW IN v1.21.0 (UI / IPC / branding release) -->
+          <!-- ============================================ -->
+          <section id="whats-new-v1-21" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">🆕 WHAT'S NEW (prior)</span>
               <strong class="wn-version">v1.21.0</strong>
               <span class="wn-since">since v1.20.0 · 2026-07-01 → 2026-07-02</span>
             </div>

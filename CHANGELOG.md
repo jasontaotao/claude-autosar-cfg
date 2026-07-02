@@ -5,6 +5,50 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.22.0 (2026-07-02) — MINOR
+
+ODX-D diagnostic metadata importer. Closes the v1.21.0 carry-over HIGH "ODX 完全没做" bug (devlog line 88). Read-only ODX-D viewer for the 3 diagnostic surfaces (DTCs / DIDs / Routines), wired into the AppHeader File Operations menu, validated against a real Vector CANdelaStudio `.odx-d` export before ship. ARXML↔ODX bridge still deferred.
+
+- **`feat(odx-importer)` — T1 ODX backend (types+IPC+handler)**:
+  - New `ODX_OPEN` + `ODX_PARSE` IPC channels (mirrors the DBC pair).
+  - `parseOdxHandler`: pure function, no IO. 32 MiB cap (defence-in-depth), non-string guard, empty guard, XML parse try/catch, `<ODX>` root guard, shape-extraction try/catch.
+  - `openOdxHandler`: `dialog.showOpenDialog` filtered to `.odx`, reads chosen file into memory.
+  - Renderer-friendly `OdxSummary`: DTC/DID/Routine flat lists with pre-computed counts. DTCs carry `id`, `shortName`, `troubleCode` (raw wire value), `displayCode` (SAE J2012 form from `<DISPLAY-TROUBLE-CODE>`), and `text`.
+  - `fast-xml-parser` with `parseArxml`'s config + `parseTagValue: false` (T4 fix — child text stays a string instead of coercing to a number).
+  - 11 tests: cap value, at-cap boundary, non-string, empty, malformed, missing `<ODX>` root, happy path + per-field.
+
+- **`feat(odx-importer)` — T2 OdxViewer modal (DTC/DID/Routine UI)**:
+  - 3 stacked sections (DTC / DID / Routine) with the same a11y pattern as the v1.21.0 T4 DbcViewer (Escape + backdrop-click + initial focus on the close button).
+  - z-index 9996, Catppuccin Mocha palette.
+  - 22 new i18n keys (en + zh-CN): viewer title, close, 3 tab labels, 3 stats labels, 4 DTC column labels, 2 DID labels, 2 routine labels, empty hint, errorTitle, open.failed, parse.failed.
+  - 12 tests: title, stats strip, per-section row + column data, empty-state hint, close button, error state, Escape key, backdrop vs body click distinction, initial focus, zh-CN localization.
+  - Code-review fixes (2 HIGH + 2 MEDIUM landed): column header now renders raw ODX `TROUBLE-CODE`; sticky `thead` overlap removed; empty error state shows `(no message)`; test assertion strengthened.
+
+- **`feat(odx-importer)` — T3 Open ODX menu + App.tsx wiring**:
+  - AppHeader "File Operations → Open ODX…" menu entry with stethoscope icon, decoupled from the DBC entry.
+  - `odxModal` state + `odxInFlight` ref + discriminated-union switch with exhaustive `never` arm. `odxBusy` decoupled from `dbcBusy` (concurrent DBC + ODX imports do not block each other).
+  - 5 new tests + 4 existing AppHeader tests updated for required-props.
+
+- **`feat(odx-importer)` — T4 real-OEM fixture validation (M2 vendor-shape fix — ship-blocking)**:
+  - `samples/odx/Demo_Cdd.odx-d` (897 KB, Vector CANdelaStudio::ODXExport220.dll 15.0.0 export) as the ship-blocking test fixture.
+  - **3 vendor-shape fixes** (M2 from T1 code-review closed):
+    1. DTC-DOP location now walks both `DIAG-LAYER` direct and `ECU-SHARED-DATAS` subtree (the Vector shape wraps shared diagnostic data outside any specific BASE-VARIANT).
+    2. `<DTCS>` plural wrapper inside `<DTC-DOP>` is now unwrapped.
+    3. `<DTC>` field shape: `TROUBLE-CODE` / `SHORT-NAME` / `TEXT` are CHILD elements per the ODX-D spec; `attrOf()` attribute-first + child-element fallback + `parseTagValue: false` to keep numeric child text as a string.
+  - **3 code-review cleanups**: `displayCode` now maps to `<DISPLAY-TROUBLE-CODE>` (SAE J2012 form, e.g. `P0A7D01`); dedup key for ID-less DTCs falls back to `${parentId}#${index}`; dead code in `extractRoutines()` removed.
+  - 6 new real-OEM tests, one of which pins concrete values from the real file (DTC ID `_258`, SHORT-NAME `DTC0A7D01`, TROUBLE-CODE `687361`, DISPLAY-TROUBLE-CODE `P0A7D01`, TEXT contains `电池SOC`) so the next M2-class vendor-shape regression cannot slip through with only a "non-empty" assertion.
+
+### Behavioral changes
+
+- "File Operations → Open ODX…" is now available next to "Open ARXML…" and "Open DBC…". Opens a `.odx` file and shows a read-only viewer modal with 3 stacked sections (DTC / DID / Routine).
+- The `<OdxViewer />` modal renders DTCs in a 4-col table (id / DOP name / trouble code / diagnostic text); DIDs and Routines in 2-col tables. The DTC "故障码" / "Trouble code" column maps to the SAE J2012 form (e.g. `P0A7D01`) from `<DISPLAY-TROUBLE-CODE>`, not the wire-format numeric.
+- The ODX menu entry is decoupled from the DBC entry; concurrent imports do not block each other.
+
+### Migration notes
+
+- No data migration required. All changes are renderer / IPC / viewer-shape.
+- Renderer-side users who pinned the previous "no ODX menu entry" behavior will see a new menu item. Read-only viewer scope — ODX→ARXML and ARXML→ODX bridges still deferred to a v1.22.x follow-up.
+
 ## v1.21.0 (2026-07-02) — MINOR
 
 ScriptPanel UX redesign + DBC viewer wiring + Classic project template + App logo / Windows .exe icon + template preview pane. Closes the 5-bug user-reported backlog (CRITICAL ScriptPanel + HIGH DBC + HIGH Classic template + MEDIUM merge-view boundary + MEDIUM template preview). Heavy UI / IPC release — almost every renderer surface touched.
