@@ -43,7 +43,7 @@ import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t as i18nT, t } from '@shared/i18n';
 
-import type { DbcSummary } from '../shared/types';
+import type { DbcSummary, OdxSummary } from '../shared/types';
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
@@ -60,6 +60,7 @@ import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
 import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
+import { OdxViewer } from './components/OdxViewer';
 import { PromptRoot } from './components/PromptDialog';
 import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog';
 import { ScriptPanel } from './components/ScriptPanel';
@@ -516,6 +517,67 @@ export function App(): JSX.Element {
     setDbcModal({ kind: 'closed' });
   }, []);
 
+  // v1.22.0 T3 — ODX viewer state machine. Mirrors the v1.21.0 T4
+  // DBC pattern line-for-line (separate modal state, separate
+  // in-flight ref, discriminated-union switch with exhaustive
+  // narrowing). Decoupled from the DBC state so a slow DBC parse
+  // does not block ODX import (and vice versa).
+  type OdxModalState =
+    | { readonly kind: 'closed' }
+    | { readonly kind: 'open'; readonly path: string; readonly summary: OdxSummary }
+    | { readonly kind: 'error'; readonly message: string };
+  const [odxModal, setOdxModal] = useState<OdxModalState>({ kind: 'closed' });
+  // In-flight ref — survives across the awaited IPC round-trip so a
+  // concurrent click cannot race the in-flight call.
+  const odxInFlight = useRef(false);
+  const openOdxViewer = useCallback(async (): Promise<void> => {
+    if (odxInFlight.current) return;
+    odxInFlight.current = true;
+    try {
+      const api = window.autosarApi;
+      if (api === undefined) {
+        setOdxModal({ kind: 'error', message: 'openOdx API not available' });
+        return;
+      }
+      const locale = useArxmlStore.getState().locale;
+      const opened = await api.openOdx();
+      switch (opened.kind) {
+        case 'canceled':
+          setOdxModal({ kind: 'closed' });
+          return;
+        case 'read-failed':
+          setOdxModal({
+            kind: 'error',
+            message: t(locale, 'odx.open.failed', { message: opened.message }),
+          });
+          return;
+        case 'opened':
+          break;
+        default: {
+          const _exhaustive: never = opened;
+          throw new Error(`Unhandled OpenOdxResult: ${String(_exhaustive)}`);
+        }
+      }
+      const parsed = await api.parseOdx({
+        path: opened.path,
+        content: opened.content,
+      });
+      if (!parsed.ok) {
+        setOdxModal({
+          kind: 'error',
+          message: t(locale, 'odx.parse.failed', { message: parsed.error.message }),
+        });
+        return;
+      }
+      setOdxModal({ kind: 'open', path: opened.path, summary: parsed.value });
+    } finally {
+      odxInFlight.current = false;
+    }
+  }, []);
+  const closeOdxViewer = useCallback((): void => {
+    setOdxModal({ kind: 'closed' });
+  }, []);
+
   // Sprint 16 v1.6.0 W — Onboarding tour wiring. The host reads
   // the tour state + locale from the store and dispatches advance/
   // back/skip/finish actions. The TourProvider renders the overlay
@@ -558,6 +620,8 @@ export function App(): JSX.Element {
           generateBusy={generate.state === 'running'}
           onOpenDbc={openDbcViewer}
           dbcBusy={dbcInFlight.current}
+          onOpenOdx={openOdxViewer}
+          odxBusy={odxInFlight.current}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -625,6 +689,23 @@ export function App(): JSX.Element {
             error={dbcModal.kind === 'error' ? dbcModal.message : undefined}
             locale={useArxmlStore.getState().locale}
             onClose={closeDbcViewer}
+          />
+        )}
+
+        {/* v1.22.0 T3 — ODX viewer. Mirrors the DBC viewer mount:
+            root-level (backdrop above all workspace layers), z-index
+            9996 inside the modal CSS, modal only in DOM when
+            `odxModal.kind` is 'open' or 'error'. Decoupled state
+            machine from DBC so a slow DBC parse does not block ODX
+            import (and vice versa). */}
+        {odxModal.kind !== 'closed' && (
+          <OdxViewer
+            open
+            path={odxModal.kind === 'open' ? odxModal.path : ''}
+            summary={odxModal.kind === 'open' ? odxModal.summary : null}
+            error={odxModal.kind === 'error' ? odxModal.message : undefined}
+            locale={useArxmlStore.getState().locale}
+            onClose={closeOdxViewer}
           />
         )}
 

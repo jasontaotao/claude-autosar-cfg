@@ -61,6 +61,8 @@ export function AppHeader({
   generateBusy,
   onOpenDbc,
   dbcBusy,
+  onOpenOdx,
+  odxBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -566,6 +568,30 @@ export function AppHeader({
                   🗂️
                 </span>
                 {t(locale, 'app.open.dbc')}
+              </button>
+              {/* v1.22.0 T3 — "Open ODX…" entry. Closes the v1.21.0
+                  carry-over "ODX 完全没做" gap by giving the user a
+                  visible UI affordance for opening a .odx file. The
+                  parent (App.tsx) owns the parse state machine +
+                  OdxViewer modal; AppHeader just forwards the click.
+                  `odxBusy` is decoupled from `dbcBusy` so the two
+                  imports do not block each other (mirrors the
+                  v1.21.0 T4 DBC decoupling). */}
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onOpenOdx();
+                }}
+                disabled={odxBusy}
+                data-testid="btn-open-odx"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  🩺
+                </span>
+                {t(locale, 'app.open.odx')}
               </button>
               {/* Sprint 14 / Task 11 — BSWMD-to-ECUC entry point. Lives
                   under the fileOps group (matches "Open ARXML" — both

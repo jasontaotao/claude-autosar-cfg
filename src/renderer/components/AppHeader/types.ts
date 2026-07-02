@@ -52,4 +52,13 @@ export interface AppHeaderProps {
   // MEDIUM decoupling).
   readonly onOpenDbc: () => void;
   readonly dbcBusy: boolean;
+  // v1.22.0 T3 — "File Operations → Open ODX…" menu entry. Mirrors
+  // the DBC pattern: parent (App.tsx) owns the parse state machine
+  // + the OdxViewer modal; AppHeader just forwards the click.
+  // `odxBusy` is the in-flight gate (true while `openOdx → parseOdx`
+  // round-trip is in progress) — decoupled from `dbcBusy` so
+  // concurrent operations don't block each other (T3 code-review
+  // MEDIUM decoupling).
+  readonly onOpenOdx: () => void;
+  readonly odxBusy: boolean;
 }

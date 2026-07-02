@@ -128,6 +128,7 @@ export interface Messages {
   readonly 'app.open.arxml': string;
   // v1.21.0 Bug #5 — DBC file-picker menu entry (under File Operations).
   readonly 'app.open.dbc': string;
+  readonly 'app.open.odx': string;
   readonly 'app.locale.toggleAria': string; // "Switch language" / "切换语言"
 
   // --- project panel ---

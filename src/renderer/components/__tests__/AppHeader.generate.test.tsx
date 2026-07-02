@@ -47,6 +47,8 @@ function renderHeader(args: {
       generateBusy={args.generateBusy ?? false}
       onOpenDbc={(): void => {}}
       dbcBusy={false}
+      onOpenOdx={(): void => {}}
+      odxBusy={false}
     />,
   );
 }

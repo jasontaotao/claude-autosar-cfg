@@ -78,6 +78,8 @@ export const MessagesEn: Messages = {
   'app.open.arxml': 'Open ARXML…',
   // v1.21.0 Bug #5 — DBC open entry in the "File Operations" dropdown.
   'app.open.dbc': 'Open DBC…',
+  // v1.22.0 T3 — ODX open entry in the "File Operations" dropdown.
+  'app.open.odx': 'Open ODX…',
   'app.locale.toggleAria': 'Switch language',
 
   // project panel

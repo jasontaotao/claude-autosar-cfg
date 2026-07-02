@@ -33,6 +33,8 @@ function renderHeader(args: { readonly onOpenDbc?: () => void } = {}): void {
       generateBusy={false}
       onOpenDbc={args.onOpenDbc ?? ((): void => {})}
       dbcBusy={false}
+      onOpenOdx={(): void => {}}
+      odxBusy={false}
     />,
   );
 }

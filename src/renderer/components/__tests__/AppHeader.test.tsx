@@ -66,6 +66,11 @@ const noopProps = {
   // behaviour is exercised in AppHeader.dbc.test.tsx.
   onOpenDbc: (): void => {},
   dbcBusy: false,
+  // v1.22.0 T3 — "File Operations → Open ODX…" menu entry.
+  // noopProps covers pre-existing render-only tests; the menu click
+  // behaviour is exercised in AppHeader.odx.test.tsx.
+  onOpenOdx: (): void => {},
+  odxBusy: false,
 };
 
 interface MockWindowAutosarApi {

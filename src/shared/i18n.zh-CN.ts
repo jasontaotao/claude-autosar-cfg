@@ -78,6 +78,8 @@ export const MessagesZhCN: Messages = {
   'app.open.arxml': '打开 ARXML…',
   // v1.21.0 Bug #5 — DBC 打开入口，在 "文件操作" 下拉里。
   'app.open.dbc': '打开 DBC…',
+  // v1.22.0 T3 — ODX 打开入口，在 "文件操作" 下拉里。
+  'app.open.odx': '打开 ODX…',
   'app.locale.toggleAria': '切换语言',
 
   // project panel
