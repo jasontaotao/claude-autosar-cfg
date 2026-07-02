@@ -59,6 +59,8 @@ export function AppHeader({
   onGenerate,
   canGenerate,
   generateBusy,
+  onOpenDbc,
+  dbcBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -474,6 +476,7 @@ export function AppHeader({
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
+            data-testid="btn-menu-toggle"
           >
             {t(locale, 'app.menu.project')}
             <svg
@@ -542,6 +545,27 @@ export function AppHeader({
                   📄
                 </span>
                 {t(locale, 'app.open.arxml')}
+              </button>
+              {/* v1.21.0 Bug #5 — "Open DBC…" entry. Closes the v1.7.0
+                  @dbc-forge/core dead-code gap by giving the user a
+                  visible UI affordance for opening a .dbc file. The
+                  parent (App.tsx) owns the parse state machine +
+                  DbcViewer modal; AppHeader just forwards the click. */}
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onOpenDbc();
+                }}
+                disabled={dbcBusy}
+                data-testid="btn-open-dbc"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  🗂️
+                </span>
+                {t(locale, 'app.open.dbc')}
               </button>
               {/* Sprint 14 / Task 11 — BSWMD-to-ECUC entry point. Lives
                   under the fileOps group (matches "Open ARXML" — both

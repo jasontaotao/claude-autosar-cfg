@@ -44,6 +44,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         onGenerate={(): void => {}}
         canGenerate={false}
         generateBusy={false}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
       />,
     );
     expect(screen.getByTestId('btn-scripts-toggle')).not.toBeNull();
@@ -60,6 +62,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         onGenerate={(): void => {}}
         canGenerate={false}
         generateBusy={false}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
       />,
     );
     fireEvent.click(screen.getByTestId('btn-scripts-toggle'));
@@ -72,6 +76,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         onEcucModuleSelect={(): void => {}}
         canSelectEcucModule={false}
         scriptPanelOpen={true}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
         onToggleScriptPanel={(): void => {}}
         onGenerate={(): void => {}}
         canGenerate={false}
@@ -93,6 +99,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         onGenerate={(): void => {}}
         canGenerate={false}
         generateBusy={false}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -145,6 +153,8 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         onGenerate={(): void => {}}
         canGenerate={false}
         generateBusy={false}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
       />,
     );
     expect(screen.queryByTestId('btn-stencil-new')).toBeNull();
@@ -179,6 +189,8 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         onGenerate={(): void => {}}
         canGenerate={false}
         generateBusy={false}
+        onOpenDbc={(): void => {}}
+        dbcBusy={false}
       />,
     );
     // Open the dropdown so the entry is visible.

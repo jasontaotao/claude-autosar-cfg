@@ -16,6 +16,8 @@ import type {
   ParseArxmlResponse,
   ParseBswmdRequest,
   ParseBswmdResponse,
+  ParseDbcRequest,
+  ParseDbcResponse,
   PickDirRequest,
   PickDirResult,
   ProjectDeleteArxmlRequest,
@@ -46,7 +48,9 @@ import { readBswmdHandler } from './bswmdReadHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
+import { registerOpenDbcHandler } from './openDbcHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
+import { parseDbcHandler } from './parseDbcHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { setOpenProjectManifestPath } from './project-manifest-state.js';
 import { projectCloseHandler } from './projectCloseHandler.js';
@@ -131,6 +135,22 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.PARSE_ARXML,
     async (_evt, req: ParseArxmlRequest): Promise<ParseArxmlResponse> => {
       return parseArxmlHandler(req);
+    },
+  );
+
+  // v1.21.0 Bug #5 — DBC open + parse. The `dbc:open` channel shows
+  // an OS file picker filtered to .dbc and reads the chosen file into
+  // memory; `dbc:parse` parses the in-memory content via
+  // `@dbc-forge/core` (the parser installed in v1.7.0 Cluster 3 I
+  // but never wired to the renderer — closed in Bug #5). Both
+  // handlers are extracted to their own files for parity with the
+  // `parseArxmlHandler` pattern (direct testability + keeps this
+  // registration file focused).
+  registerOpenDbcHandler();
+  ipcMain.handle(
+    IPC_CHANNELS.DBC_PARSE,
+    async (_evt, req: ParseDbcRequest): Promise<ParseDbcResponse> => {
+      return parseDbcHandler(req);
     },
   );
 

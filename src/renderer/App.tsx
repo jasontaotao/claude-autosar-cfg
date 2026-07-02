@@ -36,12 +36,14 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useCallback, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
-import { t as i18nT } from '@shared/i18n';
+import { t as i18nT, t } from '@shared/i18n';
+
+import type { DbcSummary } from '../shared/types';
 
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
@@ -50,6 +52,7 @@ import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
 import type { ContextMenuAction } from './components/ContextMenu';
+import { DbcViewer } from './components/DbcViewer';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
@@ -442,6 +445,77 @@ export function App(): JSX.Element {
     setScriptPanelOpen((v) => !v);
   }, []);
 
+  // v1.21.0 Bug #5 — DBC viewer state machine. The 3-state shape
+  // (closed / open / error) replaces the earlier 4-state draft that
+  // included a 'loading' arm: post-code-review MEDIUM found the
+  // loading branch rendered as a broken empty error banner. The pick
+  // + parse IPC is fast enough that we just transition closed → open
+  // / error directly; double-click is guarded by an in-flight ref
+  // because useState's value is stale inside an awaited callback
+  // (see the closure fix in `useGenerateCode` / Bug #2 HIGH-1).
+  type DbcModalState =
+    | { readonly kind: 'closed' }
+    | { readonly kind: 'open'; readonly path: string; readonly summary: DbcSummary }
+    | { readonly kind: 'error'; readonly message: string };
+  const [dbcModal, setDbcModal] = useState<DbcModalState>({ kind: 'closed' });
+  // In-flight ref — survives across the awaited IPC round-trip so a
+  // concurrent click cannot race the in-flight call. Closes the
+  // re-entrancy gap that the `dbcModal.kind` guard left open.
+  const dbcInFlight = useRef(false);
+  const openDbcViewer = useCallback(async (): Promise<void> => {
+    if (dbcInFlight.current) return;
+    dbcInFlight.current = true;
+    try {
+      const api = window.autosarApi;
+      if (api === undefined) {
+        setDbcModal({ kind: 'error', message: 'openDbc API not available' });
+        return;
+      }
+      const locale = useArxmlStore.getState().locale;
+      const opened = await api.openDbc();
+      // Discriminated-union switch with exhaustive narrowing — adding
+      // a new variant to `OpenDbcResult` will fail the `never` arm
+      // and force the caller to handle it.
+      switch (opened.kind) {
+        case 'canceled':
+          setDbcModal({ kind: 'closed' });
+          return;
+        case 'read-failed':
+          setDbcModal({
+            kind: 'error',
+            message: t(locale, 'dbc.open.failed', { message: opened.message }),
+          });
+          return;
+        case 'opened':
+          break;
+        default: {
+          const _exhaustive: never = opened;
+          throw new Error(`Unhandled OpenDbcResult: ${String(_exhaustive)}`);
+        }
+      }
+      // 2nd IPC: parse the in-memory content. The handler caps at
+      // 32 MiB (mirroring parseArxmlHandler); the result envelope
+      // is `{ ok, value } | { ok, error: { kind, message } }`.
+      const parsed = await api.parseDbc({
+        path: opened.path,
+        content: opened.content,
+      });
+      if (!parsed.ok) {
+        setDbcModal({
+          kind: 'error',
+          message: t(locale, 'dbc.parse.failed', { message: parsed.error.message }),
+        });
+        return;
+      }
+      setDbcModal({ kind: 'open', path: opened.path, summary: parsed.value });
+    } finally {
+      dbcInFlight.current = false;
+    }
+  }, []);
+  const closeDbcViewer = useCallback((): void => {
+    setDbcModal({ kind: 'closed' });
+  }, []);
+
   // Sprint 16 v1.6.0 W — Onboarding tour wiring. The host reads
   // the tour state + locale from the store and dispatches advance/
   // back/skip/finish actions. The TourProvider renders the overlay
@@ -482,6 +556,8 @@ export function App(): JSX.Element {
           onGenerate={handleGenerateClick}
           canGenerate={projectForGenerate !== null && projectPathForGenerate !== null}
           generateBusy={generate.state === 'running'}
+          onOpenDbc={openDbcViewer}
+          dbcBusy={dbcInFlight.current}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -536,6 +612,21 @@ export function App(): JSX.Element {
           </div>
         )}
         <ArxmlPanel />
+
+        {/* v1.21.0 Bug #5 — DBC viewer. Mounted at the root so the
+            backdrop + modal sit above every workspace layer (same
+            z-index strategy as the dialog hosts below). The modal is
+            only in the DOM when `dbcModal.kind` is 'open' or 'error'. */}
+        {dbcModal.kind !== 'closed' && (
+          <DbcViewer
+            open
+            path={dbcModal.kind === 'open' ? dbcModal.path : ''}
+            summary={dbcModal.kind === 'open' ? dbcModal.summary : null}
+            error={dbcModal.kind === 'error' ? dbcModal.message : undefined}
+            locale={useArxmlStore.getState().locale}
+            onClose={closeDbcViewer}
+          />
+        )}
 
         {/* Dialog hosts (Sprint 12 #2 + Sprint 12 #3). Mounted at the
           root so their portals (rendering into document.body) sit on

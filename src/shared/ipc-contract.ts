@@ -147,6 +147,19 @@ export const IPC_CHANNELS = {
   // any future feature that needs "write this string to a user-chosen
   // path". Same `:v1` versioning policy.
   STENCIL_SAVE_V1: 'stencil:save:v1',
+  // v1.21.0 Bug #5 — DBC file picker. Renderer asks main to show a
+  // single-file picker filtered to .dbc and returns the chosen file's
+  // path + content (or `canceled`). Mirrors the `OPEN_ARXML` channel
+  // shape. The IPC envelope is intentionally narrow — a future
+  // "load by path without dialog" use case can introduce a separate
+  // channel rather than overloading this one.
+  DBC_OPEN: 'dbc:open',
+  // v1.21.0 Bug #5 — DBC parse. Renderer feeds the file content
+  // already read into memory; main parses via `@dbc-forge/core` and
+  // returns a renderer-friendly summary (see `DbcSummary` in
+  // `src/shared/types.ts`). No `:v1` suffix because Bug #5 is the
+  // first cut; a breaking change here would land before v1.22 anyway.
+  DBC_PARSE: 'dbc:parse',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

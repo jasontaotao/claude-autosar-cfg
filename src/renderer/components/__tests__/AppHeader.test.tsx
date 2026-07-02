@@ -61,6 +61,11 @@ const noopProps = {
   onGenerate: (): void => {},
   canGenerate: false,
   generateBusy: false,
+  // v1.21.0 Bug #5 — "File Operations → Open DBC…" menu entry.
+  // noopProps covers pre-existing render-only tests; the menu click
+  // behaviour is exercised in AppHeader.dbc.test.tsx.
+  onOpenDbc: (): void => {},
+  dbcBusy: false,
 };
 
 interface MockWindowAutosarApi {

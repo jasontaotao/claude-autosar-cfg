@@ -128,6 +128,71 @@ export interface ParseArxmlRequest {
 
 export type ParseArxmlResponse = Result<ArxmlDocument, ParseError>;
 
+// v1.21.0 Bug #5 — DBC parser wiring. The `@dbc-forge/core` package
+// was installed in v1.7.0 Cluster 3 I and a smoke test confirmed the
+// dependency boundary, but no IPC / UI was ever built — the parser
+// has been "installed but not wired" (dead code) since v1.7.0. Bug #5
+// exposes it through a minimal IPC + viewer surface; full ARXML↔DBC
+// bridging remains a separate roadmap item.
+//
+// We do NOT re-export the full `@dbc-forge/core` `Network` shape
+// across the IPC boundary. DBC networks can have hundreds of
+// attributes / value tables / signal groups that the GUI does not
+// render — streaming the full Network would inflate the IPC payload
+// for no UX benefit. Instead the handler returns a renderer-friendly
+// summary (counts + per-message identifiers + node list); a future
+// "open in detail view" affordance can introduce a second channel that
+// streams the full Network if needed.
+
+/**
+ * Lightweight summary of one DBC message — what the GUI's
+ * `<DbcViewer />` shows in the messages table. NOT a 1:1 mirror of
+ * `@dbc-forge/core`'s `Message` type; fields the GUI does not
+ * display are omitted.
+ */
+export interface DbcMessageSummary {
+  readonly id: number;
+  readonly name: string;
+  readonly dlc: number;
+  readonly transmitter: string;
+  readonly signalCount: number;
+}
+
+/**
+ * Renderer-friendly summary of a parsed DBC network.
+ * `messageCount` / `nodeCount` are pre-computed so the viewer header
+ * does not have to re-derive them on every render.
+ */
+export interface DbcSummary {
+  readonly version: string;
+  readonly nodeCount: number;
+  readonly messageCount: number;
+  readonly nodes: readonly string[];
+  readonly messages: readonly DbcMessageSummary[];
+}
+
+/** Discriminated union for the file-picker result (mirrors `OpenArxmlResult`). */
+export type OpenDbcResult =
+  | { readonly kind: 'canceled' }
+  | { readonly kind: 'opened'; readonly path: string; readonly content: string }
+  | { readonly kind: 'read-failed'; readonly message: string };
+
+/** Parse request — content already in memory (mirrors `ParseArxmlRequest`). */
+export interface ParseDbcRequest {
+  readonly path: string;
+  readonly content: string;
+}
+
+export type ParseDbcResponse =
+  | { readonly ok: true; readonly value: DbcSummary }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly kind: 'dbc-malformed' | 'dbc-too-large';
+        readonly message: string;
+      };
+    };
+
 export interface SaveArxmlRequest {
   readonly doc: ArxmlDocument;
   readonly defaultName?: string;

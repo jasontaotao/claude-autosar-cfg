@@ -15,10 +15,13 @@ import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
   OpenBswmdResult,
+  OpenDbcResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
   ParseBswmdResponse,
+  ParseDbcRequest,
+  ParseDbcResponse,
   PickDirRequest,
   PickDirResult,
   ProjectCloseResult,
@@ -66,6 +69,13 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.OPEN_ARXML_MULTI, opts),
   parseArxml: (req: ParseArxmlRequest): Promise<ParseArxmlResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.PARSE_ARXML, req),
+  // v1.21.0 Bug #5 — DBC open + parse. Closes the "DBC 解析器装上未
+  // 接入" gap from v1.7.0. The renderer wires these into the
+  // "File Operations → Open DBC…" menu entry and the <DbcViewer />
+  // modal.
+  openDbc: (): Promise<OpenDbcResult> => ipcRenderer.invoke(IPC_CHANNELS.DBC_OPEN),
+  parseDbc: (req: ParseDbcRequest): Promise<ParseDbcResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DBC_PARSE, req),
   saveArxml: (req: SaveArxmlRequest): Promise<SaveArxmlResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.SAVE_ARXML, req),
   // Sprint 11 Phase 1 — project manifest IO

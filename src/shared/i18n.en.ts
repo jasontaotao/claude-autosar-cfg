@@ -76,6 +76,8 @@ export const MessagesEn: Messages = {
   'app.menu.projectManage': 'Project',
   'app.menu.fileOps': 'File Operations',
   'app.open.arxml': 'Open ARXML…',
+  // v1.21.0 Bug #5 — DBC open entry in the "File Operations" dropdown.
+  'app.open.dbc': 'Open DBC…',
   'app.locale.toggleAria': 'Switch language',
 
   // project panel
@@ -401,6 +403,20 @@ export const MessagesEn: Messages = {
   // The icon (✓) + label are now the primary signal; pre-v1.21.0 the
   // banner was a coloured bar with no label.
   'script.status.ok': 'OK',
+  // v1.21.0 Bug #5 — DbcViewer read-only modal labels.
+  'dbc.viewer.title': 'DBC Network',
+  'dbc.viewer.close': 'Close',
+  'dbc.viewer.version': 'Version',
+  'dbc.viewer.nodes': 'Nodes',
+  'dbc.viewer.messages': 'Messages',
+  'dbc.viewer.column.id': 'ID',
+  'dbc.viewer.column.name': 'Name',
+  'dbc.viewer.column.dlc': 'DLC',
+  'dbc.viewer.column.transmitter': 'Transmitter',
+  'dbc.viewer.column.signals': 'Signals',
+  'dbc.viewer.errorTitle': 'DBC parse failed',
+  'dbc.open.failed': 'Open DBC failed: {message}',
+  'dbc.parse.failed': 'Parse DBC failed: {message}',
   'script.violation.group': 'Script validations',
   'error.applyMutation.plan-invalid': 'Invalid mutation plan: {violations}',
   'error.applyMutation.reference-cycle': 'Reference cycle detected: {from} → {to}',

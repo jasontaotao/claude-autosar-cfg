@@ -45,6 +45,8 @@ function renderHeader(args: {
       onGenerate={args.onGenerate ?? ((): void => {})}
       canGenerate={args.canGenerate ?? false}
       generateBusy={args.generateBusy ?? false}
+      onOpenDbc={(): void => {}}
+      dbcBusy={false}
     />,
   );
 }

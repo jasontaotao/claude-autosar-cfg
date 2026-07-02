@@ -43,4 +43,13 @@ export interface AppHeaderProps {
   readonly onGenerate: () => void;
   readonly canGenerate: boolean;
   readonly generateBusy: boolean;
+  // v1.21.0 Bug #5 — "File Operations → Open DBC…" menu entry. The
+  // parent (App.tsx) owns the parse state machine and the modal; the
+  // header just forwards the click. `dbcBusy` is the in-flight gate
+  // (true while `openDbc → parseDbc` round-trip is in progress) so
+  // the menu entry's `disabled` is scoped to DBC busy only — ARXML
+  // save / open in-flight does not block DBC open (Bug #5 code-review
+  // MEDIUM decoupling).
+  readonly onOpenDbc: () => void;
+  readonly dbcBusy: boolean;
 }

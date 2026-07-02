@@ -126,6 +126,8 @@ export interface Messages {
   readonly 'app.menu.projectManage': string;
   readonly 'app.menu.fileOps': string;
   readonly 'app.open.arxml': string;
+  // v1.21.0 Bug #5 — DBC file-picker menu entry (under File Operations).
+  readonly 'app.open.dbc': string;
   readonly 'app.locale.toggleAria': string; // "Switch language" / "切换语言"
 
   // --- project panel ---
@@ -541,6 +543,20 @@ export interface Messages {
   readonly 'script.onboarding.kindFreeHint': string;
   // v1.21.0 Bug #2 — explicit "OK" label for the success status badge.
   readonly 'script.status.ok': string;
+  // v1.21.0 Bug #5 — DbcViewer modal labels (title, columns, error).
+  readonly 'dbc.viewer.title': string;
+  readonly 'dbc.viewer.close': string;
+  readonly 'dbc.viewer.version': string;
+  readonly 'dbc.viewer.nodes': string;
+  readonly 'dbc.viewer.messages': string;
+  readonly 'dbc.viewer.column.id': string;
+  readonly 'dbc.viewer.column.name': string;
+  readonly 'dbc.viewer.column.dlc': string;
+  readonly 'dbc.viewer.column.transmitter': string;
+  readonly 'dbc.viewer.column.signals': string;
+  readonly 'dbc.viewer.errorTitle': string;
+  readonly 'dbc.open.failed': string; // {message}
+  readonly 'dbc.parse.failed': string; // {message}
   readonly 'script.error.syntax': string;
   readonly 'script.error.runtime': string;
   readonly 'script.error.timeout': string;

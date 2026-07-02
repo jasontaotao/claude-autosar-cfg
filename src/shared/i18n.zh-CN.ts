@@ -76,6 +76,8 @@ export const MessagesZhCN: Messages = {
   'app.menu.projectManage': '项目管理',
   'app.menu.fileOps': '文件操作',
   'app.open.arxml': '打开 ARXML…',
+  // v1.21.0 Bug #5 — DBC 打开入口，在 "文件操作" 下拉里。
+  'app.open.dbc': '打开 DBC…',
   'app.locale.toggleAria': '切换语言',
 
   // project panel
@@ -387,6 +389,20 @@ export const MessagesZhCN: Messages = {
   'script.error.import': 'import 解析失败',
   // v1.21.0 Bug #2 — 成功状态的明确文案。
   'script.status.ok': '成功',
+  // v1.21.0 Bug #5 — DbcViewer 只读弹窗文案。
+  'dbc.viewer.title': 'DBC 网络',
+  'dbc.viewer.close': '关闭',
+  'dbc.viewer.version': '版本',
+  'dbc.viewer.nodes': '节点',
+  'dbc.viewer.messages': '报文',
+  'dbc.viewer.column.id': 'ID',
+  'dbc.viewer.column.name': '名称',
+  'dbc.viewer.column.dlc': 'DLC',
+  'dbc.viewer.column.transmitter': '发送节点',
+  'dbc.viewer.column.signals': '信号数',
+  'dbc.viewer.errorTitle': 'DBC 解析失败',
+  'dbc.open.failed': '打开 DBC 失败：{message}',
+  'dbc.parse.failed': '解析 DBC 失败：{message}',
   'script.violation.group': '脚本校验',
   'error.applyMutation.plan-invalid': '无效的变更计划: {violations}',
   'error.applyMutation.reference-cycle': '检测到引用循环: {from} → {to}',
