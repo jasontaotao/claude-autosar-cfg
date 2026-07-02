@@ -35,10 +35,10 @@ const MINIMAL_ODX = `<?xml version="1.0" encoding="UTF-8"?>
     <DIAG-LAYER ID="DL_BaseVariant" SHORT-NAME="BaseVariant">
       <DTC-DOPS>
         <DTC-DOP ID="DTC_001" SHORT-NAME="DTC_EngineOverheat">
-          <DTC TROUBLE-CODE="0x123456" SHORT-NAME="P0123" TEXT="Engine coolant temperature too high"/>
+          <DTC ID="DTC_001_001" TROUBLE-CODE="0x123456" SHORT-NAME="P0123" TEXT="Engine coolant temperature too high"/>
         </DTC-DOP>
         <DTC-DOP ID="DTC_002" SHORT-NAME="DTC_BatteryLow">
-          <DTC TROUBLE-CODE="0xABCDEF" SHORT-NAME="P0562" TEXT="System voltage low"/>
+          <DTC ID="DTC_002_001" TROUBLE-CODE="0xABCDEF" SHORT-NAME="P0562" TEXT="System voltage low"/>
         </DTC-DOP>
       </DTC-DOPS>
       <DATA-OBJECT-PROPS>
@@ -93,12 +93,21 @@ describe('parseOdxHandler (T1)', () => {
     if (!res.ok) return;
     const dtc = res.value.dtcs[0];
     expect(dtc).toBeDefined();
-    expect(dtc?.id).toBe('DTC_001');
-    expect(dtc?.shortName).toBe('DTC_EngineOverheat');
-    // Trouble code: parser preserves raw (0x123456) and renders a
-    // hex-without-prefix display value.
+    expect(dtc?.id).toBe('DTC_001_001');
+    // T4 real-fixture fix: the parser now prefers the `<DTC>`'s own
+    // SHORT-NAME over the DTC-DOP's. The hand-crafted T1 fixture
+    // puts `SHORT-NAME="P0123"` on the DTC element (the SAE J2012
+    // code) and the DOP-name on the DTC-DOP; the real Vector
+    // export does the same. Assert the SAE J2012 form is surfaced.
+    expect(dtc?.shortName).toBe('P0123');
+    // Trouble code: parser preserves the raw wire value (0x123456
+    // in the hand-crafted fixture, decimal in the real Vector
+    // export — both forms supported via the child-element fallback).
     expect(dtc?.troubleCode).toBe('0x123456');
-    expect(dtc?.displayCode).toBe('123456');
+    // displayCode is now the SAE J2012 form from
+    // <DISPLAY-TROUBLE-CODE>; the hand-crafted fixture has none
+    // so the field is empty (real Vector files populate it).
+    expect(dtc?.displayCode).toBe('');
   });
 
   it('happy path: DID fields populated (id, shortName)', () => {

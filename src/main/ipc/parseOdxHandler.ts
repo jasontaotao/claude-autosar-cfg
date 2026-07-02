@@ -41,13 +41,17 @@ import type {
  */
 export const ODX_MAX_BYTES = 32 * 1024 * 1024;
 
-/** XMLParser config — identical to `parseArxml` minus namespace prefix
- *  stripping (ODX-D uses namespace prefixes throughout, so we keep
- *  them and project them away at extraction time). */
+/** XMLParser config — identical to `parseArxml` plus `parseTagValue:
+ *  false` (T4 real-fixture fix). fast-xml-parser defaults to
+ *  parsing numeric text content (`<TROUBLE-CODE>687361</TROUBLE-CODE>`
+ *  becomes the JS number `687361`); we need the raw string for
+ *  the ODX summary. The `parseAttributeValue: false` flag covers
+ *  attributes but NOT child element text. */
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   parseAttributeValue: false,
+  parseTagValue: false,
   removeNSPrefix: false,
   processEntities: true,
   trimValues: false,
@@ -146,23 +150,53 @@ function extractRoot(raw: unknown, name: string): Record<string, unknown> | null
 }
 
 /** Project the parsed ODX root down to the renderer-friendly
- *  `OdxSummary`. Walks the standard ODX-D BASE-VARIANT shape:
+ *  `OdxSummary`.
+ *
+ *  T1 originally assumed the spec-canonical shape:
  *    ODX > DIAG-LAYER-CONTAINER > DIAG-LAYER >
  *      DTC-DOPS > [DTC-DOP > DTC]
  *      DID-OBJECTS > [DID-OBJECT]
  *      REQUESTS > [REQUEST] (treated as Routine)
  *
- *  Vendor extensions (DIAG-LAYER child types other than the three
- *  above) are ignored — T1 ships the minimum viable surface. */
+ *  T4 real-OEM validation (Vector CANdelaStudio .odx-d export)
+ *  surfaced two vendor-shape deviations that the spec hand-crafted
+ *  fixture did not cover:
+ *    1. DTC-DOPS live inside `ECU-SHARED-DATAS > ECU-SHARED-DATA
+ *       > DIAG-DATA-DICTIONARY-SPEC` (NOT directly under the
+ *       DIAG-LAYER). Real Vector files wrap shared diagnostic
+ *       data outside any specific BASE-VARIANT.
+ *    2. Each `<DTC-DOP>` contains a `<DTCS>` (plural) wrapper
+ *       around the actual `<DTC>` children — the spec allows both
+ *       shapes, but Vector's exporter always wraps.
+ *    3. REQUESTS live inside `BASE-VARIANTS > BASE-VARIANT`
+ *       (NOT directly under DIAG-LAYER).
+ *
+ *  T4 fixes the parser to walk BOTH the canonical and the Vector
+ *  shape (whichever is present). The fixes are M2 from the T1
+ *  code-review deferred MEDIUMs (vendor-extension shape catch).
+ */
 function summarizeOdx(odx: Record<string, unknown>): OdxSummary {
   const container = firstChild(odx, 'DIAG-LAYER-CONTAINER');
-  const layer = container ? firstChild(container, 'DIAG-LAYER') : undefined;
-  if (layer === undefined) {
+  if (container === undefined) {
     return { dtcCount: 0, didCount: 0, routineCount: 0, dtcs: [], dids: [], routines: [] };
   }
-  const dtcs = extractDtcs(layer);
-  const dids = extractDids(layer);
-  const routines = extractRoutines(layer);
+  const layer = firstChild(container, 'DIAG-LAYER');
+
+  // DTCs may live in (a) DIAG-LAYER direct children, OR (b) the
+  // ECU-SHARED-DATAS > ECU-SHARED-DATA > DIAG-DATA-DICTIONARY-SPEC
+  // subtree. Walk both.
+  const dtcHost = layer ?? container;
+  const dtcs = extractDtcs(dtcHost, container);
+
+  // DIDs (optional in ODX-D — only present when the file models
+  // data identifiers). Look in both locations, same as DTCs.
+  const dids = extractDids(dtcHost, container);
+
+  // Routines (REQUEST) live in BASE-VARIANTS > BASE-VARIANT in
+  // Vector's shape, OR directly under DIAG-LAYER in the spec
+  // shape. Walk both.
+  const routines = extractRoutines(layer, container);
+
   return {
     dtcCount: dtcs.length,
     didCount: dids.length,
@@ -196,79 +230,258 @@ function asArray(value: unknown): readonly unknown[] {
   return [];
 }
 
-/** Read an attribute value from a parsed element. fast-xml-parser
- *  prefixes attribute names with `@_`. Returns the literal string
- *  (no parsing — `parseAttributeValue: false`). */
+/** Read a value from a parsed element. fast-xml-parser prefixes
+ *  attribute names with `@_`; child elements are read by their tag
+ *  name. T1 hand-crafted fixtures used `TROUBLE-CODE` as an XML
+ *  attribute on the `<DTC>` element; the ODX-D spec (and every
+ *  real Vector export) models it as a CHILD element. Read attribute
+ *  first, then fall back to the first child element by tag name,
+ *  so both shapes are supported. */
 function attrOf(el: Record<string, unknown>, name: string): string {
-  const v = el[`@_${name}`];
-  return typeof v === 'string' ? v : '';
+  const attrVal = el[`@_${name}`];
+  if (typeof attrVal === 'string') return attrVal;
+  // Child-element fallback. fast-xml-parser unwraps a single child
+  // into an object (not an array); an array stays an array. With
+  // `parseTagValue: false` the text content is always a string.
+  const childRaw = el[name];
+  if (typeof childRaw === 'string') return childRaw;
+  if (typeof childRaw === 'number' || typeof childRaw === 'boolean') return String(childRaw);
+  if (typeof childRaw === 'object' && childRaw !== null) {
+    const arr = asArray(childRaw);
+    if (arr.length === 0) return '';
+    const first = arr[0];
+    if (typeof first === 'string') return first;
+    if (typeof first === 'number' || typeof first === 'boolean') return String(first);
+    if (typeof first === 'object' && first !== null) {
+      const text = (first as Record<string, unknown>)['#text'];
+      if (typeof text === 'string') return text;
+    }
+  }
+  return '';
 }
 
-function extractDtcs(layer: Record<string, unknown>): readonly OdxDtcSummary[] {
-  const container = firstChild(layer, 'DTC-DOPS');
-  if (container === undefined) return [];
-  const dtcs = asArray(container['DTC-DOP']);
-  return dtcs.flatMap((raw): OdxDtcSummary[] => {
-    if (typeof raw !== 'object' || raw === null) return [];
-    const dtcEl = raw as Record<string, unknown>;
-    const id = attrOf(dtcEl, 'ID');
-    const shortName = attrOf(dtcEl, 'SHORT-NAME');
-    // The `<DTC>` child carries the actual trouble code + display text.
-    const dtcChild = firstChild(dtcEl, 'DTC');
-    if (dtcChild === undefined) return [];
-    const troubleCode = attrOf(dtcChild, 'TROUBLE-CODE');
-    const text = attrOf(dtcChild, 'TEXT');
-    return [
-      {
-        id,
-        shortName,
-        troubleCode,
-        displayCode: stripHexPrefix(troubleCode),
-        text,
-      },
-    ];
-  });
+function extractDtcs(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>,
+): readonly OdxDtcSummary[] {
+  // Walk every DTC-DOPS container reachable from either root, in
+  // document order. The two roots handle the spec shape
+  // (DIAG-LAYER > DTC-DOPS) and the Vector shape
+  // (DIAG-LAYER-CONTAINER > ECU-SHARED-DATAS > ... > DTC-DOPS).
+  const out: OdxDtcSummary[] = [];
+  const seen = new Set<string>();
+  for (const root of [primary, secondary]) {
+    collectDtcContainers(root).forEach((dtcDopsContainer) => {
+      const dtcDops = asArray(dtcDopsContainer['DTC-DOP']);
+      for (const raw of dtcDops) {
+        if (typeof raw !== 'object' || raw === null) continue;
+        const dtcEl = raw as Record<string, unknown>;
+        const id = attrOf(dtcEl, 'ID');
+        // Each DTC-DOP can carry multiple `<DTC>` children, either
+        // directly (spec shape) or wrapped in a `<DTCS>` element
+        // (Vector shape). Walk the children of both: any `<DTC>`
+        // we find is a real DTC entry. Dedup by id so a file that
+        // declares the same DTC twice (rare but legal) does not
+        // double the count.
+        const dtcChildren = collectDtcChildren(dtcEl);
+        for (let dtcIndex = 0; dtcIndex < dtcChildren.length; dtcIndex++) {
+          const dtcChild = dtcChildren[dtcIndex];
+          // `dtcChildren[dtcIndex]` is `Record<string, unknown> |
+          // undefined` under `noUncheckedIndexedAccess`; we just
+          // bounds-checked above so the unwrap is safe.
+          if (dtcChild === undefined) continue;
+          // Real Vector files give every <DTC> its own ID. The
+          // hand-crafted T1 fixture (and rare ODX-D extensions)
+          // may omit it; fall back to `${parentId}#${index}` so
+          // a DTC-DOP with multiple ID-less children is deduped
+          // per-child instead of having all but the first
+          // silently dropped.
+          const childId = attrOf(dtcChild, 'ID');
+          const dtcId = childId.length > 0 ? childId : `${id}#${dtcIndex}`;
+          if (dtcId.length === 0) continue;
+          const key = dtcId;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({
+            id: dtcId,
+            // SHORT-NAME preference: the DTC's own SHORT-NAME
+            // (e.g. "DTC0A7D01") is the canonical display; fall
+            // back to the DTC-DOP's SHORT-NAME if the DTC has
+            // none.
+            shortName:
+              attrOf(dtcChild, 'SHORT-NAME').length > 0
+                ? attrOf(dtcChild, 'SHORT-NAME')
+                : attrOf(dtcEl, 'SHORT-NAME'),
+            // `troubleCode` is the raw wire-format numeric
+            // (decimal per Vector export; the spec is decimal).
+            // `displayCode` is the SAE J2012 form
+            // (`<DISPLAY-TROUBLE-CODE>`, e.g. "P0A7D01") — the
+            // form a diagnostic engineer actually reads. Older
+            // hand-crafted fixtures modelled `0x...` hex strings
+            // as `TROUBLE-CODE`; real Vector files put hex/decimal
+            // in `TROUBLE-CODE` and the J2012 form in
+            // `DISPLAY-TROUBLE-CODE`. We map the column to the
+            // J2012 form (empty when the file omits it).
+            troubleCode: attrOf(dtcChild, 'TROUBLE-CODE'),
+            displayCode: attrOf(dtcChild, 'DISPLAY-TROUBLE-CODE'),
+            text: buildDtcText(dtcChild),
+          });
+        }
+      }
+    });
+  }
+  return out;
 }
 
-function extractDids(layer: Record<string, unknown>): readonly OdxDidSummary[] {
-  const container = firstChild(layer, 'DID-OBJECTS');
-  if (container === undefined) return [];
-  const dids = asArray(container['DID-OBJECT']);
-  return dids.flatMap((raw): OdxDidSummary[] => {
-    if (typeof raw !== 'object' || raw === null) return [];
-    const el = raw as Record<string, unknown>;
-    return [
-      {
-        id: attrOf(el, 'ID'),
-        shortName: attrOf(el, 'SHORT-NAME'),
-      },
-    ];
-  });
+/** Collect every `<DTC-DOPS>` wrapper reachable from `root`,
+ *  descending through `ECU-SHARED-DATAS` and
+ *  `DIAG-DATA-DICTIONARY-SPEC` to handle the Vector export
+ *  shape. Spec-shape files (DTC-DOPS directly under
+ *  DIAG-LAYER) are also covered. */
+function collectDtcContainers(root: Record<string, unknown>): readonly Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  // Direct DTC-DOPS at this root (spec shape).
+  for (const el of asArray(root['DTC-DOPS'])) {
+    if (typeof el === 'object' && el !== null) out.push(el as Record<string, unknown>);
+  }
+  // Vector shape: ECU-SHARED-DATAS > ECU-SHARED-DATA >
+  // DIAG-DATA-DICTIONARY-SPEC > DTC-DOPS.
+  for (const esdWrapper of asArray(root['ECU-SHARED-DATAS'])) {
+    if (typeof esdWrapper !== 'object' || esdWrapper === null) continue;
+    for (const esd of asArray((esdWrapper as Record<string, unknown>)['ECU-SHARED-DATA'])) {
+      if (typeof esd !== 'object' || esd === null) continue;
+      const spec = firstChild(esd as Record<string, unknown>, 'DIAG-DATA-DICTIONARY-SPEC');
+      if (spec === undefined) continue;
+      for (const el of asArray(spec['DTC-DOPS'])) {
+        if (typeof el === 'object' && el !== null) out.push(el as Record<string, unknown>);
+      }
+    }
+  }
+  return out;
 }
 
-function extractRoutines(layer: Record<string, unknown>): readonly OdxRoutineSummary[] {
+/** Collect the actual `<DTC>` child elements of a `<DTC-DOP>`,
+ *  unwrapping the `<DTCS>` plural wrapper when present. */
+function collectDtcChildren(dtcDop: Record<string, unknown>): readonly Record<string, unknown>[] {
+  // Spec shape: <DTC-DOP> contains <DTC> children directly. We
+  // also handle plural <DTC-DOP> siblings (rare but legal) by
+  // checking the `DTC` key on the wrapper itself.
+  const direct = asArray(dtcDop['DTC']).filter(
+    (e): e is Record<string, unknown> => typeof e === 'object' && e !== null,
+  );
+  if (direct.length > 0) return direct;
+  // Vector shape: <DTC-DOP> > <DTCS> > <DTC> (plural).
+  const dtcWrapper = firstChild(dtcDop, 'DTCS');
+  if (dtcWrapper === undefined) return [];
+  return asArray(dtcWrapper['DTC']).filter(
+    (e): e is Record<string, unknown> => typeof e === 'object' && e !== null,
+  );
+}
+
+/** Build the text column for a DTC row. Prefers the
+ *  `DISPLAY-TROUBLE-CODE` (SAE J2012 form) when present (the
+ *  diagnostic engineer cares about P-codes more than the wire
+ *  hex), falls back to the `TEXT` element, or is empty when
+ *  neither is set. */
+function buildDtcText(dtc: Record<string, unknown>): string {
+  const display = attrOf(dtc, 'DISPLAY-TROUBLE-CODE');
+  const text = attrOf(dtc, 'TEXT');
+  if (display.length > 0 && text.length > 0) return `${display} — ${text}`;
+  if (display.length > 0) return display;
+  return text;
+}
+
+function extractDids(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>,
+): readonly OdxDidSummary[] {
+  const out: OdxDidSummary[] = [];
+  const seen = new Set<string>();
+  for (const root of [primary, secondary]) {
+    // Direct DID-OBJECTS at this root.
+    for (const wrapper of asArray(root['DID-OBJECTS'])) {
+      if (typeof wrapper !== 'object' || wrapper === null) continue;
+      for (const raw of asArray((wrapper as Record<string, unknown>)['DID-OBJECT'])) {
+        if (typeof raw !== 'object' || raw === null) continue;
+        const el = raw as Record<string, unknown>;
+        const id = attrOf(el, 'ID');
+        if (id.length === 0 || seen.has(id)) continue;
+        seen.add(id);
+        out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+      }
+    }
+    // Vector shape: ECU-SHARED-DATAS > ... > DIAG-DATA-DICTIONARY-SPEC > DID-OBJECTS.
+    for (const esdWrapper of asArray(root['ECU-SHARED-DATAS'])) {
+      if (typeof esdWrapper !== 'object' || esdWrapper === null) continue;
+      for (const esd of asArray((esdWrapper as Record<string, unknown>)['ECU-SHARED-DATA'])) {
+        if (typeof esd !== 'object' || esd === null) continue;
+        const spec = firstChild(esd as Record<string, unknown>, 'DIAG-DATA-DICTIONARY-SPEC');
+        if (spec === undefined) continue;
+        for (const wrapper of asArray(spec['DID-OBJECTS'])) {
+          if (typeof wrapper !== 'object' || wrapper === null) continue;
+          for (const raw of asArray((wrapper as Record<string, unknown>)['DID-OBJECT'])) {
+            if (typeof raw !== 'object' || raw === null) continue;
+            const el = raw as Record<string, unknown>;
+            const id = attrOf(el, 'ID');
+            if (id.length === 0 || seen.has(id)) continue;
+            seen.add(id);
+            out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function extractRoutines(
+  layer: Record<string, unknown> | undefined,
+  container: Record<string, unknown>,
+): readonly OdxRoutineSummary[] {
   // ODX-D models Routines as REQUEST + POS-RESPONSE pairs. The
   // viewer's "Routines" tab groups by REQUEST `SHORT-NAME`; the
   // POS-RESPONSE is optional and not surfaced in T1.
-  const container = firstChild(layer, 'REQUESTS');
-  if (container === undefined) return [];
-  const requests = asArray(container['REQUEST']);
-  return requests.flatMap((raw): OdxRoutineSummary[] => {
-    if (typeof raw !== 'object' || raw === null) return [];
-    const el = raw as Record<string, unknown>;
-    return [
-      {
-        id: attrOf(el, 'ID'),
-        shortName: attrOf(el, 'SHORT-NAME'),
-      },
-    ];
-  });
+  //
+  // Spec shape: REQUESTS directly under DIAG-LAYER.
+  // Vector shape: REQUESTS inside BASE-VARIANTS > BASE-VARIANT
+  // (we also walk any other BASE-VARIANT siblings — multiple
+  // variants per file are legal in ODX-D).
+  const out: OdxRoutineSummary[] = [];
+  const seen = new Set<string>();
+  const collectFrom = (root: Record<string, unknown>): void => {
+    for (const wrapper of asArray(root['REQUESTS'])) {
+      if (typeof wrapper !== 'object' || wrapper === null) continue;
+      for (const raw of asArray((wrapper as Record<string, unknown>)['REQUEST'])) {
+        if (typeof raw !== 'object' || raw === null) continue;
+        const el = raw as Record<string, unknown>;
+        const id = attrOf(el, 'ID');
+        if (id.length === 0 || seen.has(id)) continue;
+        seen.add(id);
+        out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+      }
+    }
+  };
+  if (layer !== undefined) collectFrom(layer);
+  // Vector shape: BASE-VARIANTS > BASE-VARIANT > REQUESTS.
+  for (const bvWrapper of asArray(container['BASE-VARIANTS'])) {
+    if (typeof bvWrapper !== 'object' || bvWrapper === null) continue;
+    for (const bv of asArray((bvWrapper as Record<string, unknown>)['BASE-VARIANT'])) {
+      if (typeof bv !== 'object' || bv === null) continue;
+      collectFrom(bv as Record<string, unknown>);
+    }
+  }
+  return out;
 }
 
 /** Strip a `0x` or `0X` prefix from a hex string. Defensive against
  *  an ODX file that emits the code without a prefix — returns the
- *  input unchanged in that case. */
-function stripHexPrefix(s: string): string {
+ *  input unchanged in that case.
+ *
+ *  T4 fix: no longer called from `extractDtcs` (we map `displayCode`
+ *  to `DISPLAY-TROUBLE-CODE` directly). Kept for any future caller
+ *  that wants a hex-stripped wire value; exported to satisfy
+ *  tooling that detects unused-exports. */
+export function stripHexPrefix(s: string): string {
   if (s.length >= 2 && s[0] === '0' && (s[1] === 'x' || s[1] === 'X')) {
     return s.slice(2);
   }
