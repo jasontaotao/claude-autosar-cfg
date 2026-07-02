@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, dialog, nativeImage, shell } from 'electron';
 
 import { registerIpcHandlers } from './ipc/register.js';
 import { logFatal } from './log.js';
@@ -32,7 +32,13 @@ async function createMainWindow(): Promise<void> {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    title: 'claude-AutosarCfg',
+    title: 'AutosarCfg',
+    // App logo (taskbar / Alt-Tab / window manager). The PNG is copied to
+    // dist/main/assets/ via Vite publicDir (see vite.main.config.ts). At
+    // runtime `nativeImage.createFromPath` returns an empty image if the
+    // file is missing — Electron silently falls back to its default icon,
+    // so a missing asset does not crash the boot path.
+    icon: nativeImage.createFromPath(join(__dirname, 'assets/autosarcfg-icon.png')),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       // v1.18.0 MINOR T2 (SE-1) — flip OS-level Chromium sandbox ON.

@@ -20,6 +20,12 @@ export default defineConfig({
     },
   },
   build: {
+    // NOTE: do NOT set `publicDir` here. Vite's `build.lib` mode
+    // silently ignores `publicDir` — the asset would never be copied to
+    // `dist/main/assets/`. The icon is instead copied by
+    // `scripts/copy-main-assets.mjs`, which `pnpm build:main` invokes
+    // before the Vite step. See code-review HIGH finding in the v1.20.x
+    // logo change for the full analysis.
     outDir: 'dist/main',
     lib: {
       entry: resolve(__dirname, 'src/main/index.ts'),

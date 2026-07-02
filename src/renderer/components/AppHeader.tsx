@@ -46,6 +46,7 @@ import { useArxmlStore } from '../store/useArxmlStore';
 import { formatParseError, saveAllDirty } from './AppHeader/helpers.js';
 import { INITIAL, type AppHeaderProps, type AppHeaderState } from './AppHeader/types.js';
 import { confirm } from './ConfirmDialog.js';
+import { Logo } from './Logo.js';
 import { StencilWizard } from './StencilWizard/StencilWizard.js';
 
 export type { AppHeaderProps };
@@ -446,10 +447,8 @@ export function AppHeader({
   return (
     <header className="app-header" data-testid="app-header" data-tour-id="app-header">
       <div className="app-header-left">
-        <span className="app-logo" aria-hidden="true">
-          ⊟
-        </span>
-        <span className="app-name">claude-AutosarCfg</span>
+        <Logo size={20} />
+        <span className="app-name">AutosarCfg</span>
         {/* Sprint 13+ — removed the active-doc basename + dirty marker
             (app-doc-name) and AUTOSAR version chip (app-doc-version)
             because the user considers them "ecuc 内容层级" — noise on

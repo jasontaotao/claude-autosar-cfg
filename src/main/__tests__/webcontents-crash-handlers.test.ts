@@ -89,6 +89,14 @@ vi.mock('electron', () => {
     shell: {
       openExternal: vi.fn(),
     },
+    // v1.20.x — App logo wiring in `src/main/index.ts:createMainWindow`
+    // uses `nativeImage.createFromPath(...)` to load the 32x32 PNG. The
+    // production Electron returns a NativeImage stub when the file is
+    // absent (silently empty), so the mock returns a minimal shape that
+    // satisfies `BrowserWindow`'s constructor contract.
+    nativeImage: {
+      createFromPath: vi.fn(() => ({ isEmpty: () => false })),
+    },
   };
 });
 

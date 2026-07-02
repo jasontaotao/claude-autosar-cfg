@@ -58,9 +58,13 @@ body,
 }
 
 .app-logo {
-  font-size: 16px;
-  color: #38bdf8;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.app-logo svg {
+  display: block;
 }
 
 .app-name {
