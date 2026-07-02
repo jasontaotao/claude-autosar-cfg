@@ -18,6 +18,8 @@ import type {
   ParseBswmdResponse,
   ParseDbcRequest,
   ParseDbcResponse,
+  ParseOdxRequest,
+  ParseOdxResponse,
   PickDirRequest,
   PickDirResult,
   ProjectDeleteArxmlRequest,
@@ -49,8 +51,10 @@ import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
+import { registerOpenOdxHandler } from './openOdxHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { parseDbcHandler } from './parseDbcHandler.js';
+import { parseOdxHandler } from './parseOdxHandler.js';
 import { pickDirHandler } from './pickDirHandler.js';
 import { setOpenProjectManifestPath } from './project-manifest-state.js';
 import { projectCloseHandler } from './projectCloseHandler.js';
@@ -151,6 +155,22 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.DBC_PARSE,
     async (_evt, req: ParseDbcRequest): Promise<ParseDbcResponse> => {
       return parseDbcHandler(req);
+    },
+  );
+
+  // v1.22.0 T1 — ODX open + parse. Mirrors the DBC handler pair
+  // above. The `odx:open` channel shows an OS file picker filtered
+  // to .odx/.pdx and reads the chosen file into memory; `odx:parse`
+  // parses the in-memory content via the hand-rolled XML reader in
+  // `parseOdxHandler.ts` (closes the v1.21.0 carry-over "ODX
+  // 完全没做" gap from devlog line 88). Both handlers are extracted
+  // to their own files for parity with the `parseDbcHandler` pattern
+  // (direct testability + keeps this registration file focused).
+  registerOpenOdxHandler();
+  ipcMain.handle(
+    IPC_CHANNELS.ODX_PARSE,
+    async (_evt, req: ParseOdxRequest): Promise<ParseOdxResponse> => {
+      return parseOdxHandler(req);
     },
   );
 

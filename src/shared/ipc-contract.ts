@@ -160,6 +160,17 @@ export const IPC_CHANNELS = {
   // `src/shared/types.ts`). No `:v1` suffix because Bug #5 is the
   // first cut; a breaking change here would land before v1.22 anyway.
   DBC_PARSE: 'dbc:parse',
+  // v1.22.0 T1 — ODX file picker. Renderer asks main to show a
+  // single-file picker filtered to .odx / .pdx and returns the chosen
+  // file's path + content (or `canceled`). Mirrors the `dbc:open`
+  // channel shape — see `openDbcHandler.ts` for the pattern.
+  ODX_OPEN: 'odx:open',
+  // v1.22.0 T1 — ODX parse. Renderer feeds the file content already
+  // read into memory; main parses the ODX-D XML via
+  // `fast-xml-parser` (mirrors `parseArxmlHandler`) and projects a
+  // renderer-friendly summary (see `OdxSummary` in
+  // `src/shared/types.ts`).
+  ODX_PARSE: 'odx:parse',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

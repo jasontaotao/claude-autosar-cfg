@@ -16,12 +16,15 @@ import type {
   OpenArxmlResult,
   OpenBswmdResult,
   OpenDbcResult,
+  OpenOdxResult,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
   ParseBswmdResponse,
   ParseDbcRequest,
   ParseDbcResponse,
+  ParseOdxRequest,
+  ParseOdxResponse,
   PickDirRequest,
   PickDirResult,
   ProjectCloseResult,
@@ -76,6 +79,13 @@ const api = {
   openDbc: (): Promise<OpenDbcResult> => ipcRenderer.invoke(IPC_CHANNELS.DBC_OPEN),
   parseDbc: (req: ParseDbcRequest): Promise<ParseDbcResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.DBC_PARSE, req),
+  // v1.22.0 T1 — ODX open + parse. Closes the v1.21.0 carry-over
+  // "ODX 完全没做" gap. The renderer wires these into the
+  // "File Operations → Open ODX…" menu entry and the <OdxViewer />
+  // modal (T2 + T3).
+  openOdx: (): Promise<OpenOdxResult> => ipcRenderer.invoke(IPC_CHANNELS.ODX_OPEN),
+  parseOdx: (req: ParseOdxRequest): Promise<ParseOdxResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ODX_PARSE, req),
   saveArxml: (req: SaveArxmlRequest): Promise<SaveArxmlResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.SAVE_ARXML, req),
   // Sprint 11 Phase 1 — project manifest IO
