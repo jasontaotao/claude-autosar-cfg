@@ -190,6 +190,7 @@ export function ScriptPanel({ onCommitMutation }: ScriptPanelProps = {}): JSX.El
           selectedId={selectedId}
           locale={locale}
           busy={busy}
+          initialized={initialized}
           onSelect={handleSelect}
           onNew={handleNew}
           onDelete={handleDelete}

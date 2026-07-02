@@ -349,6 +349,16 @@ export const MessagesZhCN: Messages = {
   'script.panel.toggle': '显示/隐藏脚本面板',
   'script.lib.title': '脚本库',
   'script.lib.empty': '还没有脚本，点 + 新建',
+  // v1.21.0 Bug #2 — 首次打开时的引导。脚本库为空时显示，让用户
+  // 知道脚本是什么、各种 kind 干什么，不用离开面板去找文档。
+  'script.onboarding.title': '什么是脚本？',
+  'script.onboarding.description':
+    '脚本可以读取已加载的 ARXML，标记违反规则的地方、生成可应用到项目的变更，或只是输出一份汇总报告。选一种 kind，写 JavaScript，引擎会自动处理剩下的事。',
+  'script.onboarding.cta': '创建第一个脚本',
+  'script.onboarding.kindValidatorHint': '标记违规',
+  'script.onboarding.kindTransformerHint': '生成可应用的变更',
+  'script.onboarding.kindReportHint': '生成汇总报告',
+  'script.onboarding.kindFreeHint': '混合使用以上功能',
   'script.lib.new': '新建',
   'script.lib.delete': '删除',
   'script.editor.save': '保存',
@@ -365,10 +375,18 @@ export const MessagesZhCN: Messages = {
   'script.kind.transformer': '转换',
   'script.kind.report': '报告',
   'script.kind.free': '自由',
+  // v1.21.0 Bug #2 — kind 用途说明。鼠标悬停 badge 时通过 title 提示，
+  // 不用离开面板也能理解每种 kind 干什么。
+  'script.kind.validator.desc': '读取已加载的 ARXML，标记违反规则的地方（不修改任何数据）',
+  'script.kind.transformer.desc': '生成一组变更（mutations），可选择应用到项目或放弃',
+  'script.kind.report.desc': '生成汇总报告（只输出日志，不输出校验项和变更）',
+  'script.kind.free.desc': '通用脚本，可以混合输出日志、校验项和变更',
   'script.error.syntax': '语法错误',
   'script.error.runtime': '运行时错误',
   'script.error.timeout': '脚本超时',
   'script.error.import': 'import 解析失败',
+  // v1.21.0 Bug #2 — 成功状态的明确文案。
+  'script.status.ok': '成功',
   'script.violation.group': '脚本校验',
   'error.applyMutation.plan-invalid': '无效的变更计划: {violations}',
   'error.applyMutation.reference-cycle': '检测到引用循环: {from} → {to}',

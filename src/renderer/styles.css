@@ -23,6 +23,26 @@ body,
 }
 
 /* ------------------------------------------------------------------ */
+/* Screen-reader-only utility                                         */
+/* ------------------------------------------------------------------ */
+/* Hides content visually while keeping it in the accessibility tree
+   so screen readers announce it. Used by ScriptKindBadge (Bug #2
+   HIGH-1 fix) to attach the kind-purpose description without
+   replacing the visible kind name — see ScriptKindBadge.tsx for the
+   aria-describedby pattern. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ */
 /* App shell                                                          */
 /* ------------------------------------------------------------------ */
 .app-shell {

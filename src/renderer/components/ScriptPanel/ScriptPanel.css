@@ -1,61 +1,97 @@
-/* ScriptPanel — Sprint 14 #1 Phase C (T14) — 3-column layout host. */
+/* ScriptPanel — Sprint 14 #1 Phase C (T14) — 3-column layout host.
+ *
+ * v1.21.0 Bug #2 (CRITICAL: 脚本界面丑 + 不知道干啥) — visual redesign.
+ *
+ * Pre-v1.21.0 the CSS was a copy of VS Code's default dark palette
+ * with hard-coded fallback hex values (e.g. `#1e1e1e`, `#3c3c3c`) and
+ * 11-12px font sizes with 6-10px padding — too cramped and too
+ * generic. The user reported both ugliness and confusion ("界面丑" /
+ * "不知道干啥").
+ *
+ * The redesign keeps the dark theme (the centre column houses a
+ * CodeMirror one-dark editor, so a light panel would clash) but
+ * lifts it to a coherent JetBrains / Linear-style dark surface:
+ *   - Palette: layered greys (#1a1d23 surface / #22262e panel-header
+ *     / #2d323b border) — small enough deltas to read as one surface
+ *     but big enough to give each zone a distinct purpose.
+ *   - Typography: 14px / 600 for headers, 13px / 500 for body, 12px
+ *     for log/mono. Was 11-12px / 400-600 with no clear hierarchy.
+ *   - Spacing rhythm: 10-16px padding instead of 6-10px. The column
+ *     padding tripled so the kind badge + name don't crowd the row
+ *     edges.
+ *   - Hover / selected states: every interactive row carries a clear
+ *     left accent bar on hover + a tinted background on selection,
+ *     modelled on `.tree [role='treeitem'][aria-selected='true']` in
+ *     styles.css so it matches the rest of the app's selection
+ *     grammar.
+ */
 
 .script-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-surface, #1e1e1e);
-  color: var(--color-text, #d4d4d4);
-  border-left: 1px solid var(--color-border, #3c3c3c);
+  background: #1a1d23;
+  color: #e4e6eb;
+  border-left: 1px solid #2d323b;
   overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .script-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border, #3c3c3c);
-  background: var(--color-panel-header, #252526);
+  padding: 10px 14px;
+  border-bottom: 1px solid #2d323b;
+  background: #22262e;
 }
 
 .script-panel-header h2 {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #f1f3f5;
 }
 
 .script-panel-header-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .script-panel-header-actions button {
-  padding: 3px 10px;
+  padding: 4px 12px;
   font-size: 12px;
-  background: var(--color-button-bg, #0e639c);
-  color: var(--color-button-fg, #ffffff);
-  border: 1px solid var(--color-button-border, transparent);
-  border-radius: 3px;
+  font-weight: 500;
+  background: #3b82f6;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 4px;
   cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.script-panel-header-actions button:hover:not(:disabled) {
+  background: #2563eb;
 }
 
 .script-panel-header-actions button:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .script-panel-body {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(180px, 22%) 1fr minmax(220px, 28%);
+  grid-template-columns: minmax(200px, 24%) 1fr minmax(240px, 30%);
   overflow: hidden;
 }
 
 .script-library,
 .script-editor-host,
 .script-output {
-  border-right: 1px solid var(--color-border, #3c3c3c);
+  border-right: 1px solid #2d323b;
   overflow: auto;
   min-width: 0;
 }
@@ -70,113 +106,171 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border, #3c3c3c);
+  padding: 12px 14px;
+  border-bottom: 1px solid #2d323b;
 }
 
 .script-library-header h3,
 .script-output-header h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #b4b8bf;
 }
 
 .script-btn-new {
-  padding: 2px 8px;
+  padding: 4px 10px;
   font-size: 12px;
+  font-weight: 500;
   background: transparent;
-  color: inherit;
-  border: 1px solid var(--color-border, #3c3c3c);
-  border-radius: 3px;
+  color: #e4e6eb;
+  border: 1px solid #3d424b;
+  border-radius: 4px;
   cursor: pointer;
+  /* Bug #2 code-review MEDIUM — explicit properties (not `all`) so
+     future contributors adding a property to this rule don't get an
+     unwanted animated transition. */
+  transition:
+    background 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.script-btn-new:hover:not(:disabled) {
+  background: #2d323b;
+  border-color: #4d525b;
+}
+
+.script-btn-new:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .script-library-filter {
   display: flex;
-  gap: 4px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border, #3c3c3c);
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #2d323b;
+  flex-wrap: wrap;
 }
 
 .script-filter-chip {
-  padding: 2px 8px;
+  padding: 3px 10px;
   font-size: 11px;
+  font-weight: 500;
   background: transparent;
-  color: inherit;
-  border: 1px solid var(--color-border, #3c3c3c);
-  border-radius: 3px;
+  color: #b4b8bf;
+  border: 1px solid #3d424b;
+  border-radius: 12px;
   cursor: pointer;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
+}
+
+.script-filter-chip:hover:not(.is-active) {
+  background: #2d323b;
+  color: #e4e6eb;
 }
 
 .script-filter-chip.is-active {
-  background: var(--color-button-bg, #0e639c);
-  color: var(--color-button-fg, #ffffff);
+  background: #3b82f6;
+  color: #ffffff;
   border-color: transparent;
 }
 
 .script-library-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 6px 0;
 }
 
 .script-library-row {
   display: flex;
   align-items: center;
   padding: 0;
+  border-left: 3px solid transparent;
+  transition:
+    background-color 0.08s ease,
+    border-left-color 0.08s ease;
+}
+
+.script-library-row:hover {
+  background: #22262e;
 }
 
 .script-library-row.is-selected {
-  background: var(--color-row-selected, #094771);
+  background: rgba(59, 130, 246, 0.12);
+  border-left-color: #3b82f6;
 }
 
 .script-library-row-main {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 10px;
+  padding: 10px 14px;
   background: transparent;
   color: inherit;
   border: none;
   cursor: pointer;
   text-align: left;
+  font: inherit;
 }
 
 .script-library-name {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: #f1f3f5;
 }
 
 .script-library-row-delete {
-  padding: 0 8px;
+  padding: 0 12px;
   font-size: 16px;
   background: transparent;
-  color: inherit;
+  color: #8a8f99;
   border: none;
   cursor: pointer;
+  transition: color 0.1s ease;
+}
+
+.script-library-row-delete:hover:not(:disabled) {
+  color: #f87171;
+}
+
+.script-library-row-delete:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .script-library-empty {
-  padding: 12px;
-  font-size: 12px;
-  color: var(--color-muted, #888);
+  padding: 16px 14px;
+  font-size: 13px;
+  color: #8a8f99;
 }
 
-/* Kind badge */
+/* Kind badge — see ScriptKindBadge.tsx for the visible-label change.
+   The chip now renders the full kind name (was a 1-letter abbr); the
+   per-kind background colour is preserved for at-a-glance scan. */
 .script-kind-badge {
   display: inline-block;
-  width: 18px;
+  padding: 2px 8px;
+  min-width: 18px;
   height: 18px;
-  line-height: 18px;
+  line-height: 14px;
   text-align: center;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 3px;
+  border-radius: 9px;
   color: #ffffff;
+  white-space: nowrap;
+  cursor: help;
+  letter-spacing: 0.01em;
 }
 
 .script-kind-validator {
@@ -195,10 +289,95 @@
   background: #757575;
 }
 
+/* Onboarding banner (v1.21.0 Bug #2).
+   Shown in the library column when scripts.length === 0 — replaces
+   the old terse "click + to create one" hint with a 4-kind cheat
+   sheet + CTA. */
+.script-onboarding {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: linear-gradient(180deg, #1f232b 0%, #1a1d23 100%);
+  border-top: 1px solid #2d323b;
+}
+
+.script-onboarding-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f3f5;
+  letter-spacing: 0.01em;
+}
+
+.script-onboarding-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #b4b8bf;
+}
+
+.script-onboarding-kinds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.script-onboarding-kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition:
+    background 0.1s ease,
+    border-left-color 0.1s ease;
+}
+
+.script-onboarding-kind:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-left-color: #3d424b;
+}
+
+.script-onboarding-kind-hint {
+  font-size: 12px;
+  color: #d4d6db;
+  flex: 1;
+}
+
+.script-onboarding-cta {
+  appearance: none;
+  margin-top: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #3b82f6;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.script-onboarding-cta:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.script-onboarding-cta:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Editor */
 .script-editor-host {
   display: flex;
   flex-direction: column;
+  background: #1e1e1e;
 }
 
 .script-editor-mount {
@@ -209,55 +388,130 @@
 
 /* Output */
 .script-output-status {
-  padding: 6px 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  border-bottom: 1px solid #2d323b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.script-output-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   font-size: 12px;
-  border-bottom: 1px solid var(--color-border, #3c3c3c);
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .script-output-status-ok {
-  background: rgba(67, 160, 71, 0.15);
+  background: rgba(67, 160, 71, 0.12);
   color: #81c784;
+}
+.script-output-status-ok .script-output-status-icon {
+  background: #43a047;
+  color: #ffffff;
 }
 
 .script-output-status-runtime-error,
 .script-output-status-syntax-error,
-.script-output-status-timeout {
-  background: rgba(244, 67, 54, 0.15);
-  color: #e57373;
+.script-output-status-timeout,
+.script-output-status-import-error {
+  background: rgba(244, 67, 54, 0.12);
+  color: #ff8a80;
+}
+.script-output-status-runtime-error .script-output-status-icon,
+.script-output-status-syntax-error .script-output-status-icon,
+.script-output-status-timeout .script-output-status-icon,
+.script-output-status-import-error .script-output-status-icon {
+  background: #e53935;
+  color: #ffffff;
+}
+
+/* Bug #2 code-review HIGH-2 fix — the status banner renders an
+   extra `<span class="script-output-status-detail">` for the
+   `result.errorMessage` (runtime stack traces, parser line numbers,
+   etc.). Without this rule the detail rendered at default span
+   width and overflowed the narrow right column (minmax(240px,
+   30%)). The rule:
+     - takes the remaining flex space (flex: 1, min-width: 0)
+     - truncates with ellipsis on the single-line display
+     - shows the full message on hover via `title` (already wired in
+       ScriptOutput.tsx) and via `white-space: normal` if the user
+       resizes the column wide enough. */
+.script-output-status-detail {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #ff8a80;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
 }
 
 .script-output-section {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--color-border, #3c3c3c);
+  padding: 8px 14px;
+  border-bottom: 1px solid #2d323b;
 }
 
 .script-output-section summary {
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b4b8bf;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.script-output-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.script-output-section summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.1s ease;
+}
+
+.script-output-section[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .script-log-list,
 .script-violation-list,
 .script-mutation-list {
   list-style: none;
-  margin: 4px 0 0;
+  margin: 6px 0 0;
   padding: 0;
 }
 
 .script-log-line,
 .script-violation,
 .script-mutation {
-  padding: 4px 6px;
+  padding: 6px 8px;
   font-size: 12px;
-  border-bottom: 1px solid var(--color-border-soft, #2d2d2d);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  border-bottom: 1px solid #262a31;
+  line-height: 1.5;
 }
 
 .script-log-level {
   display: inline-block;
   min-width: 50px;
-  font-weight: 600;
-  opacity: 0.8;
+  font-weight: 700;
+  opacity: 0.85;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
 }
 
 .script-log-info {
@@ -282,44 +536,66 @@
 
 .script-output-footer {
   display: flex;
-  gap: 6px;
-  padding: 6px 10px;
-  border-top: 1px solid var(--color-border, #3c3c3c);
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid #2d323b;
 }
 
 .script-output-commit,
 .script-output-discard {
-  padding: 3px 10px;
+  padding: 5px 12px;
   font-size: 12px;
+  font-weight: 500;
   background: transparent;
-  color: inherit;
-  border: 1px solid var(--color-border, #3c3c3c);
-  border-radius: 3px;
+  color: #e4e6eb;
+  border: 1px solid #3d424b;
+  border-radius: 4px;
   cursor: pointer;
+  transition: all 0.1s ease;
 }
 
 .script-output-commit:not(:disabled) {
-  background: var(--color-button-bg, #0e639c);
-  color: var(--color-button-fg, #ffffff);
+  background: #3b82f6;
+  color: #ffffff;
   border-color: transparent;
+}
+
+.script-output-commit:not(:disabled):hover {
+  background: #2563eb;
+}
+
+.script-output-discard:hover:not(:disabled) {
+  background: #2d323b;
 }
 
 .script-output-commit:disabled,
 .script-output-discard:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .script-output-clear {
-  padding: 2px 6px;
+  padding: 3px 8px;
   font-size: 11px;
   background: transparent;
-  color: inherit;
-  border: 1px solid var(--color-border, #3c3c3c);
-  border-radius: 3px;
+  color: #b4b8bf;
+  border: 1px solid #3d424b;
+  border-radius: 4px;
   cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.script-output-clear:hover:not(:disabled) {
+  background: #2d323b;
+  color: #e4e6eb;
+}
+
+.script-output-clear:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .muted {
-  color: var(--color-muted, #888);
+  color: #8a8f99;
+  font-style: italic;
 }

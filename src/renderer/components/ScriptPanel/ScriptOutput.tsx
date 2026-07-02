@@ -54,19 +54,41 @@ export function ScriptOutput({
           className={`script-output-status script-output-status-${result.status}`}
           data-testid={`script-output-status-${result.status}`}
         >
-          {result.status !== 'ok' && (
-            <strong>
-              {result.status === 'runtime-error'
+          {/*
+            v1.21.0 Bug #2 — icon + localised label, not a coloured bar.
+            Pre-v1.21.0 the banner was a single coloured stripe with a
+            short "Runtime error:" / "OK · 12ms" prefix; users couldn't
+            tell at a glance which status was which because the colours
+            were similar in the cramped 11-12px typography. The new
+            design renders a circular icon (`✓` for ok, `✗` for any
+            error) + the localised label, so even a colour-blind user
+            or a narrow panel width gives an unambiguous signal.
+          */}
+          <span
+            className="script-output-status-icon"
+            data-testid="script-output-status-icon"
+            aria-hidden="true"
+          >
+            {result.status === 'ok' ? '✓' : '✗'}
+          </span>
+          <span className="script-output-status-label">
+            {result.status === 'ok'
+              ? t(locale, 'script.status.ok')
+              : result.status === 'runtime-error'
                 ? t(locale, 'script.error.runtime')
                 : result.status === 'syntax-error'
                   ? t(locale, 'script.error.syntax')
                   : result.status === 'timeout'
                     ? t(locale, 'script.error.timeout')
                     : t(locale, 'script.error.import')}
-              :{' '}
-            </strong>
+            {' · '}
+            {result.durationMs}ms
+          </span>
+          {result.errorMessage !== undefined && result.errorMessage.length > 0 && (
+            <span className="script-output-status-detail" title={result.errorMessage}>
+              {result.errorMessage}
+            </span>
           )}
-          {result.errorMessage ?? `${result.status} · ${result.durationMs}ms`}
         </div>
       )}
       <details open className="script-output-section" data-testid="script-output-logs">

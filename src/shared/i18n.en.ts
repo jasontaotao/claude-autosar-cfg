@@ -357,6 +357,17 @@ export const MessagesEn: Messages = {
   'script.panel.toggle': 'Show/hide Scripts panel',
   'script.lib.title': 'Script library',
   'script.lib.empty': 'No scripts yet. Click + to create one.',
+  // v1.21.0 Bug #2 — first-run onboarding banner. Shown when the
+  // script library is empty so the user learns what scripts are and
+  // what each kind does without leaving the panel.
+  'script.onboarding.title': 'What are scripts?',
+  'script.onboarding.description':
+    'Scripts read your loaded ARXML and either flag rule violations, generate mutations you can apply to the project, or just produce a summary report. Pick a kind and write JavaScript — the engine handles the rest.',
+  'script.onboarding.cta': 'Create your first script',
+  'script.onboarding.kindValidatorHint': 'Flag rule violations',
+  'script.onboarding.kindTransformerHint': 'Generate changes to apply',
+  'script.onboarding.kindReportHint': 'Generate a summary report',
+  'script.onboarding.kindFreeHint': 'Mix any of the above',
   'script.lib.new': 'New',
   'script.lib.delete': 'Delete',
   'script.editor.save': 'Save',
@@ -373,10 +384,23 @@ export const MessagesEn: Messages = {
   'script.kind.transformer': 'Transformer',
   'script.kind.report': 'Report',
   'script.kind.free': 'Free',
+  // v1.21.0 Bug #2 — kind purpose descriptions. Surfaced via the
+  // badge's `title` tooltip so the user can hover a kind to learn
+  // what it does without leaving the panel.
+  'script.kind.validator.desc':
+    'Reads the loaded ARXML and flags rule violations (no changes applied)',
+  'script.kind.transformer.desc':
+    'Generates a set of mutations to apply back to the project (commit / discard)',
+  'script.kind.report.desc': 'Generates a summary report (logs only, no violations, no mutations)',
+  'script.kind.free.desc': 'General-purpose script — can mix logs, violations, and mutations',
   'script.error.syntax': 'Syntax error',
   'script.error.runtime': 'Runtime error',
   'script.error.timeout': 'Script timeout',
   'script.error.import': 'Import parse failed',
+  // v1.21.0 Bug #2 — explicit "OK" label for the success status badge.
+  // The icon (✓) + label are now the primary signal; pre-v1.21.0 the
+  // banner was a coloured bar with no label.
+  'script.status.ok': 'OK',
   'script.violation.group': 'Script validations',
   'error.applyMutation.plan-invalid': 'Invalid mutation plan: {violations}',
   'error.applyMutation.reference-cycle': 'Reference cycle detected: {from} → {to}',

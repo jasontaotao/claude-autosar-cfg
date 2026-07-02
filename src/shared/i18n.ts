@@ -525,6 +525,22 @@ export interface Messages {
   readonly 'script.kind.transformer': string;
   readonly 'script.kind.report': string;
   readonly 'script.kind.free': string;
+  // v1.21.0 Bug #2 — kind purpose descriptions. Surfaced via the
+  // kind badge's `title` tooltip.
+  readonly 'script.kind.validator.desc': string;
+  readonly 'script.kind.transformer.desc': string;
+  readonly 'script.kind.report.desc': string;
+  readonly 'script.kind.free.desc': string;
+  // v1.21.0 Bug #2 — first-run onboarding banner (empty library).
+  readonly 'script.onboarding.title': string;
+  readonly 'script.onboarding.description': string;
+  readonly 'script.onboarding.cta': string;
+  readonly 'script.onboarding.kindValidatorHint': string;
+  readonly 'script.onboarding.kindTransformerHint': string;
+  readonly 'script.onboarding.kindReportHint': string;
+  readonly 'script.onboarding.kindFreeHint': string;
+  // v1.21.0 Bug #2 — explicit "OK" label for the success status badge.
+  readonly 'script.status.ok': string;
   readonly 'script.error.syntax': string;
   readonly 'script.error.runtime': string;
   readonly 'script.error.timeout': string;
