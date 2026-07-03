@@ -19,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('confirm.cascade.* i18n contract (CascadeConfirmDialog for ECUC container delete)', () => {
   it('localizes the cascade dialog via confirm.cascade keys (zh-CN)', async () => {
-    const { t, MessagesZhCN } = await import('../../../shared/i18n.js');
+    const { t, MessagesZhCN } = await import('../../../shared/i18n/index.js');
     expect(t('zh-CN', 'confirm.cascade.title', { name: 'Can.arxml' })).toBe("删除 'Can.arxml'?");
     expect(MessagesZhCN['confirm.cascade.only']).toBe('仅删容器');
     expect(MessagesZhCN['confirm.cascade.cascade']).toBe('一并删引用');
