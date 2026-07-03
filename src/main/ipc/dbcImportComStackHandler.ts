@@ -41,6 +41,7 @@ import type { BswModuleDef, BswmdError } from '../../core/project/bswmd.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type { DbcImportComStackRequest, DbcImportComStackResponse } from '../../shared/types.js';
+import { writeAtomic } from '../io/writeAtomic.js';
 
 import { dbcParseForBridgeHandler, DBC_MAX_BYTES } from './dbcParseForBridgeHandler.js';
 import { getOpenProjectManifestPath } from './project-manifest-state.js';
@@ -376,6 +377,29 @@ export async function dbcImportComStackHandler(
     };
   }
 
+  // ---- 4a. Validate targetNode against the parsed DBC nodes ------------
+  // Code-review HIGH-2 — `targetNode` drives the T2 mapper's Tx-vs-Rx
+  // dispatch by matching `msg.transmitter`. If it is not a DBC `BU_`
+  // node name (typo, empty string, or — most commonly — an EcuC
+  // `<ECU-INSTANCE>` shortName like `ECM_DEMO` which is NOT a DBC
+  // concept), the bridge silently routes every message into the Rx
+  // branch and produces a broken result with no diagnostic.
+  //
+  // The fix is to fail fast at handler entry with a message that
+  // lists the actually-available DBC nodes so the T4 wizard can
+  // surface a "Did you mean …" hint. The check runs AFTER
+  // `dbcParseForBridgeHandler` succeeds so we have access to the
+  // parsed `nodes` array.
+  if (req.targetNode !== undefined && !parseRes.value.nodes.includes(req.targetNode)) {
+    return {
+      ok: false,
+      error: {
+        kind: 'read-failed',
+        message: `targetNode '${req.targetNode}' is not a DBC node. Available nodes: ${parseRes.value.nodes.join(', ')}`,
+      },
+    };
+  }
+
   // ---- 5. Read the 3 ECUC files + load BSWMDs in parallel ----------------
   const [texts, bswmdRes] = await Promise.all([
     Promise.all([
@@ -463,10 +487,9 @@ export async function dbcImportComStackHandler(
  * per-file). Extracted so the handler's Promise.allSettled sees one
  * rejection per failed file.
  */
-async function writeFileWithAtomicityCheck(outcome: BridgeFileOutcome): Promise<void> {
-  const { writeAtomic } = await import('../io/writeAtomic.js');
+const writeFileWithAtomicityCheck = async (outcome: BridgeFileOutcome): Promise<void> => {
   await writeAtomic(outcome.path, outcome.serialized);
-}
+};
 
 export { formatParseError, formatSerializeError };
 

@@ -26,6 +26,12 @@
 //      first run may add ≥0 entries, second run MUST add 0 of each
 //      (the T2 mapper dedups by container shortName; this exercises
 //      the no-partial-write path).
+//   5. targetNode validator — passing a node name that is NOT in the
+//      DBC `BU_` set MUST fail fast with `kind: 'read-failed'` and a
+//      message listing the available nodes (code-review HIGH-2 fix;
+//      without the validator, an unknown node silently routes every
+//      message into the Rx branch and the bridge produces a broken
+//      result).
 
 import {
   copyFileSync,
@@ -256,6 +262,40 @@ describe('dbcImportComStackHandler (T3)', () => {
     expect(second.value.addedCounts.com).toBe(0);
     expect(second.value.addedCounts.canIf).toBe(0);
     expect(second.value.addedCounts.pduR).toBe(0);
+  });
+
+  it('targetNode validator: rejects unknown DBC node names with read-failed + available-list', async () => {
+    // Code-review HIGH-2 — the T2 mapper uses `targetNode` to dispatch
+    // Tx vs Rx by matching `msg.transmitter`. If `targetNode` is not a
+    // DBC `BU_` node name (e.g. a typo, an empty string, or the
+    // EcuC `ECU-INSTANCE` shortName which is NOT a DBC concept), the
+    // bridge silently routes every message into the Rx branch and
+    // produces a broken result with no diagnostic.
+    //
+    // powertrain-typical.dbc declares `BU_: ECM TCM` (verified at
+    // pre-ship fixture audit). Passing 'NONEXISTENT' (or any string
+    // outside {ECM, TCM}) MUST fail fast at handler entry with
+    // `kind: 'read-failed'` and a message that lists the available
+    // nodes so the T4 wizard can surface a useful diagnostic.
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const res = await dbcImportComStackHandler({
+      dbcContent: seeded.dbcContent,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'NONEXISTENT',
+    });
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.kind).toBe('read-failed');
+    expect(res.error.message).toMatch(/targetNode.*not a DBC node/i);
+    // Message must list the actually-available nodes so the wizard
+    // can render a "Did you mean …" hint. Both `ECM` and `TCM` are
+    // declared in powertrain-typical.dbc's `BU_` line.
+    expect(res.error.message).toContain('ECM');
+    expect(res.error.message).toContain('TCM');
   });
 });
 

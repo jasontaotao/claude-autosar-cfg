@@ -360,12 +360,26 @@ export interface DbcImportComStackRequest {
    */
   readonly manifest: ProjectManifest;
   /**
-   * Optional ECU-instance node name used by the T2 mapper to dispatch
+   * Optional DBC `BU_` node name used by the T2 mapper to dispatch
    * Tx vs Rx. Messages whose `transmitter` equals `targetNode` are
    * added as CanIf Tx Pdus; others as Rx Pdus. If omitted, the
    * bridge falls back to the legacy "treat every message as Tx"
-   * behavior. T4 (future wizard) will pass the active project's
-   * `<ECU-INSTANCE>` shortName here.
+   * behavior.
+   *
+   * **CRITICAL — semantic constraint**: `targetNode` MUST be a DBC
+   * `BU_` node name (one of the entries in `DbcSummary.nodes`),
+   * matching `msg.transmitter` exactly. It is NOT the EcuC
+   * `<ECU-INSTANCE>` shortName (which is a different AUTOSAR
+   * concept — e.g. `ECM_DEMO`, NOT `ECM`). The T4 wizard MUST
+   * source `targetNode` from the parsed DBC summary's `nodes` field
+   * and let the user pick one — never auto-derive from the active
+   * project's EcuC instance.
+   *
+   * The handler enforces this at runtime: if `targetNode` is
+   * provided AND not present in the parsed DBC's `nodes`, the
+   * handler returns `kind: 'read-failed'` with a message listing
+   * the available nodes (so the wizard can surface a "Did you mean
+   * …" hint).
    */
   readonly targetNode?: string;
 }
