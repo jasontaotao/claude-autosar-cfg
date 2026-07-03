@@ -615,7 +615,6 @@ export const MessagesEn: Messages = {
   'dbc.import.confirm.applying': 'Applying…',
   'dbc.import.close': 'Close',
   'dbc.import.error.read': 'Failed to read DBC file: {message}',
-  'dbc.import.error.parse': 'Failed to parse DBC file: {message}',
   'dbc.import.error.bridge': 'Bridge mapping failed: {message}',
   'dbc.import.error.write': 'Failed to write 3 ARXML files: {message}',
   'dbc.import.success': 'Successfully imported {count} messages',

@@ -794,7 +794,6 @@ export interface Messages {
   readonly 'dbc.import.confirm.applying': string;
   readonly 'dbc.import.close': string;
   readonly 'dbc.import.error.read': string; // {message}
-  readonly 'dbc.import.error.parse': string; // {message}
   readonly 'dbc.import.error.bridge': string; // {message}
   readonly 'dbc.import.error.write': string; // {message}
   readonly 'dbc.import.success': string; // {count}

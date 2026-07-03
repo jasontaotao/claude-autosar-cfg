@@ -598,7 +598,6 @@ export const MessagesZhCN: Messages = {
   'dbc.import.confirm.applying': '正在应用…',
   'dbc.import.close': '关闭',
   'dbc.import.error.read': '读取 DBC 文件失败：{message}',
-  'dbc.import.error.parse': '解析 DBC 文件失败：{message}',
   'dbc.import.error.bridge': '桥映射失败：{message}',
   'dbc.import.error.write': '写入 3 个 ARXML 文件失败：{message}',
   'dbc.import.success': '成功导入 {count} 条消息',
