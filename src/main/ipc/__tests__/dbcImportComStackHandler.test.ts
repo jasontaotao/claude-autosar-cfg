@@ -38,6 +38,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  promises as fs,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -45,7 +47,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // TDD RED — this import MUST fail until `dbcImportComStackHandler.ts`
 // is created in Step 4.
@@ -305,3 +307,188 @@ describe('dbcImportComStackHandler (T3)', () => {
 // the root). Kept here as a guard for the next T3 iteration that
 // may need to pre-create a `bswmd/` subdir.
 void mkdirSync;
+
+// ---------------------------------------------------------------------------
+// v1.23.1 T1 — 2-phase cross-file atomic write tests.
+//
+// The handler MUST commit all 3 ECUC files atomically. The current
+// implementation uses `Promise.allSettled([writeAtomic, writeAtomic,
+// writeAtomic])` which leaves the project half-bridged if any single
+// rename fails. The new design uses a 2-phase commit with snapshot
+// rollback — the tests below prove the contract end-to-end against the
+// real demo-ecu fixture.
+//
+// The most valuable test is the partial-failure rollback test (it
+// proves the cross-file atomic guarantee actually works by simulating
+// a rename failure on the 2nd file and asserting the 1st file is
+// restored from the in-memory snapshot).
+// ---------------------------------------------------------------------------
+
+describe('dbCImportComStackHandler 2-phase write (T1)', () => {
+  it('happy path: writes all 3 files atomically and returns ok with non-zero counts', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const res = await dbcImportComStackHandler({
+      dbcContent: seeded.dbcContent,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'ECM',
+    });
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(
+      res.value.addedCounts.com + res.value.addedCounts.canIf + res.value.addedCounts.pduR,
+    ).toBeGreaterThan(0);
+  });
+
+  it('partial failure on file 2: returns write-failed with rolledBack=true and restores CanIf', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    // Snapshot the original CanIf content so we can assert it is restored
+    // after the rollback.
+    const canIfPath = join(seeded.workDir, 'CanIf_Config.arxml');
+    const originalCanIf = readFileSync(canIfPath, 'utf-8');
+
+    // Spy on fs.rename to fail on the 2nd call (the canIf rename).
+    const renameSpy = vi.spyOn(fs, 'rename');
+    let callCount = 0;
+    renameSpy.mockImplementation(async (src, dst) => {
+      callCount++;
+      if (callCount === 2) throw new Error('simulated AV hold');
+      const actual = await vi.importActual<typeof fs>('node:fs/promises');
+      await actual.rename(src, dst);
+    });
+
+    try {
+      const res = await dbcImportComStackHandler({
+        dbcContent: seeded.dbcContent,
+        projectManifestPath: seeded.projectManifestPath,
+        manifest: makeManifest(),
+        targetNode: 'ECM',
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.kind).toBe('write-failed');
+      if (res.error.kind !== 'write-failed') return;
+      expect(res.error.rolledBack).toBe(true);
+      // Verify CanIf was rolled back to the original content.
+      const afterCanIf = readFileSync(canIfPath, 'utf-8');
+      expect(afterCanIf).toBe(originalCanIf);
+    } finally {
+      renameSpy.mockRestore();
+    }
+  });
+
+  it('rollback failure: returns write-failed with rolledBack=false', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    // Spy on fs.rename to fail on the 2nd call (canIf rename).
+    const renameSpy = vi.spyOn(fs, 'rename');
+    let renameCount = 0;
+    renameSpy.mockImplementation(async (src, dst) => {
+      renameCount++;
+      if (renameCount === 2) throw new Error('simulated rename failure');
+      const actual = await vi.importActual<typeof fs>('node:fs/promises');
+      await actual.rename(src, dst);
+    });
+
+    // The handler reuses `writeAtomic` for rollback. `writeAtomic` calls
+    // `fs.mkdir`, `fs.writeFile`, `fs.open`, `fs.sync`, and `fs.rename`.
+    // We force every writeAtomic to fail by stubbing `fs.writeFile` for
+    // the rollback path. Since the spy on `fs.writeFile` would also
+    // affect the initial tmp-file phase, we use a call counter that
+    // lets the first 3 writeFile calls (the initial tmp writes) succeed
+    // and rejects subsequent ones (the rollback writes).
+    const writeFileSpy = vi.spyOn(fs, 'writeFile');
+    let writeFileCount = 0;
+    const actualFs = await vi.importActual<typeof fs>('node:fs/promises');
+    writeFileSpy.mockImplementation(async (...args) => {
+      writeFileCount++;
+      // Allow the first 3 writeFile calls (initial tmp writes for
+      // com/canIf/pduR) to pass through. Reject anything after — that
+      // means the rollback writeAtomic calls fail.
+      if (writeFileCount <= 3) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (actualFs.writeFile as any)(...args);
+      }
+      throw new Error('simulated disk full during rollback');
+    });
+
+    try {
+      const res = await dbcImportComStackHandler({
+        dbcContent: seeded.dbcContent,
+        projectManifestPath: seeded.projectManifestPath,
+        manifest: makeManifest(),
+        targetNode: 'ECM',
+      });
+
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.kind).toBe('write-failed');
+      if (res.error.kind !== 'write-failed') return;
+      // Rollback failed → at least one of the 3 writeAtomic rollback
+      // calls rejected → rolledBack = false.
+      expect(res.error.rolledBack).toBe(false);
+    } finally {
+      renameSpy.mockRestore();
+      writeFileSpy.mockRestore();
+    }
+  });
+
+  it('no tmp files leaked after success', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const res = await dbcImportComStackHandler({
+      dbcContent: seeded.dbcContent,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'ECM',
+    });
+    expect(res.ok).toBe(true);
+
+    // No `*.tmp.<pid>` files should remain in the project dir after a
+    // successful commit (the renames moved them to the targets and the
+    // defensive unlink pass should have nothing to do).
+    const files = readdirSync(seeded.workDir);
+    const leakedTmps = files.filter((f) => /\.tmp\.\d+$/.test(f));
+    expect(leakedTmps).toEqual([]);
+  });
+
+  it('no tmp files leaked after partial failure + rollback', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const renameSpy = vi.spyOn(fs, 'rename');
+    let callCount = 0;
+    renameSpy.mockImplementation(async (src, dst) => {
+      callCount++;
+      if (callCount === 2) throw new Error('simulated AV hold');
+      const actual = await vi.importActual<typeof fs>('node:fs/promises');
+      await actual.rename(src, dst);
+    });
+
+    try {
+      const res = await dbcImportComStackHandler({
+        dbcContent: seeded.dbcContent,
+        projectManifestPath: seeded.projectManifestPath,
+        manifest: makeManifest(),
+        targetNode: 'ECM',
+      });
+      expect(res.ok).toBe(false);
+    } finally {
+      renameSpy.mockRestore();
+    }
+
+    // After partial failure + rollback, no `*.tmp.<pid>` files should
+    // remain in the project dir.
+    const files = readdirSync(seeded.workDir);
+    const leakedTmps = files.filter((f) => /\.tmp\.\d+$/.test(f));
+    expect(leakedTmps).toEqual([]);
+  });
+});

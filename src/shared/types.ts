@@ -414,10 +414,16 @@ export type DbcImportComStackResponse =
     }
   | {
       readonly ok: false;
-      readonly error: {
-        readonly kind: 'read-failed' | 'bridge-failed' | 'write-failed';
-        readonly message: string;
-      };
+      readonly error:
+        | {
+            readonly kind: 'read-failed' | 'bridge-failed';
+            readonly message: string;
+          }
+        | {
+            readonly kind: 'write-failed';
+            readonly message: string;
+            readonly rolledBack: boolean;
+          };
     };
 
 export interface SaveArxmlRequest {

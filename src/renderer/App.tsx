@@ -830,7 +830,20 @@ export function App(): JSX.Element {
                     : res.error.kind === 'write-failed'
                       ? 'dbc.import.error.write'
                       : 'dbc.import.error.read';
-                setStoreError(t(loc, key, { message: res.error.message }));
+                const baseMessage = t(loc, key, { message: res.error.message });
+                // v1.23.1 T1 — the 2-phase write reports `rolledBack` so
+                // the user knows whether the project is in a clean
+                // state (rolledBack=true) or partially-bridged
+                // (rolledBack=false — they need to check git status).
+                if (res.error.kind === 'write-failed') {
+                  setStoreError(
+                    res.error.rolledBack
+                      ? `${baseMessage} (rolled back — project unchanged, please retry)`
+                      : `${baseMessage} (rolled back partially — please check git status)`,
+                  );
+                } else {
+                  setStoreError(baseMessage);
+                }
                 throw new Error(res.error.message);
               }
               // Success — surface a confirmation toast AND reload the

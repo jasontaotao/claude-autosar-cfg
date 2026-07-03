@@ -10,8 +10,8 @@
 //   3. for each of the 3 ECUC value-side files: parse → apply patches
 //      (with the matching module's BSWMD as `moduleDef`) → serialize →
 //      collect new content
-//   4. write all 3 files atomically via `writeAtomic` (per-file tmp +
-//      rename)
+//   4. write all 3 files atomically via 2-phase commit (tmp + serial
+//      rename + snapshot rollback on rename failure)
 //
 // Failure modes (all return `{ ok: false, error: { kind, message } }`):
 //   - `read-failed`   — DB cap exceeded / malformed, manifest missing,
@@ -414,6 +414,14 @@ export async function dbcImportComStackHandler(
     return { ok: false, error: { kind: 'read-failed', message: bswmdRes.message } };
   }
 
+  // ---- 5a. v1.23.1 T1 — Snapshot the 3 original file contents ----------
+  // The 2-phase write below commits all 3 files via tmp+rename. If any
+  // rename fails after a previous rename succeeded, the project would
+  // be left half-bridged. To avoid that, we capture the original
+  // content of each file in memory (already in scope from step 5) so
+  // the rollback path can restore the originals via `writeAtomic`.
+  const originals = { com: comText, canIf: canIfText, pduR: pduRText };
+
   // ---- 6. Run the pure T2 mapper to get the patch plan ----------------
   // v1.23.0 T3 — `DbcToComStackInput.targetNode` is `readonly`, so we
   // build the input object in one expression that conditionally carries
@@ -449,25 +457,99 @@ export async function dbcImportComStackHandler(
     };
   }
 
-  // ---- 8. Write all 3 files atomically (per-file tmp + rename) ----------
-  const writeResults = await Promise.allSettled([
-    writeFileWithAtomicityCheck(com),
-    writeFileWithAtomicityCheck(canIf),
-    writeFileWithAtomicityCheck(pduR),
-  ]);
-  const failedWrites = writeResults.filter(
-    (r): r is PromiseRejectedResult => r.status === 'rejected',
-  );
-  if (failedWrites.length > 0) {
-    const first = failedWrites[0];
-    const message =
-      first === undefined
-        ? 'unknown write failure'
-        : first.reason instanceof Error
-          ? first.reason.message
-          : String(first.reason);
-    return { ok: false, error: { kind: 'write-failed', message } };
+  // ---- 8. v1.23.1 T1 — 2-phase cross-file atomic write + snapshot rollback ----
+  // Phase 1: write 3 tmp files in parallel (each is `{path}.tmp.{pid}`).
+  // Phase 2: rename each tmp to its target, serially. If any rename
+  //          fails, snapshot-rollback all 3 files using `writeAtomic`
+  //          with the in-memory originals. Clean up any leftover tmp
+  //          files. The return shape carries `rolledBack: boolean` so
+  //          the renderer can render a precise user-facing diagnostic.
+  const pid = process.pid;
+  const comPath = com.path;
+  const canIfPath = canIf.path;
+  const pduRPath = pduR.path;
+  const tmpCom = `${comPath}.tmp.${pid}`;
+  const tmpCanIf = `${canIfPath}.tmp.${pid}`;
+  const tmpPduR = `${pduRPath}.tmp.${pid}`;
+
+  // PHASE 1 — write 3 tmp files in parallel.
+  try {
+    await Promise.all([
+      fs.writeFile(tmpCom, com.serialized, 'utf-8'),
+      fs.writeFile(tmpCanIf, canIf.serialized, 'utf-8'),
+      fs.writeFile(tmpPduR, pduR.serialized, 'utf-8'),
+    ]);
+  } catch (e) {
+    // Tmp write failed — best-effort cleanup of any partial tmp files.
+    await Promise.allSettled([
+      fs.unlink(tmpCom).catch(() => undefined),
+      fs.unlink(tmpCanIf).catch(() => undefined),
+      fs.unlink(tmpPduR).catch(() => undefined),
+    ]);
+    const message = e instanceof Error ? e.message : String(e);
+    // Tmp-write failure means no rename has run, so the originals are
+    // still on disk. rolledBack=true (no-op rollback — originals are
+    // already intact).
+    return {
+      ok: false,
+      error: { kind: 'write-failed', message, rolledBack: true },
+    };
   }
+
+  // PHASE 2 — atomic rename in serial (so we can rollback between
+  // failures). Track which specific rename failed.
+  const renames: ReadonlyArray<{
+    readonly tmp: string;
+    readonly target: string;
+    readonly file: 'com' | 'canIf' | 'pduR';
+  }> = [
+    { tmp: tmpCom, target: comPath, file: 'com' },
+    { tmp: tmpCanIf, target: canIfPath, file: 'canIf' },
+    { tmp: tmpPduR, target: pduRPath, file: 'pduR' },
+  ];
+  let phase2Failed: { file: 'com' | 'canIf' | 'pduR'; message: string } | null = null;
+  for (const r of renames) {
+    try {
+      await fs.rename(r.tmp, r.target);
+    } catch (e) {
+      phase2Failed = {
+        file: r.file,
+        message: e instanceof Error ? e.message : String(e),
+      };
+      break;
+    }
+  }
+
+  if (phase2Failed !== null) {
+    // PHASE 3 — best-effort rollback using the in-memory snapshot.
+    // Reuse `writeAtomic` (tmp + rename) so each rollback is itself
+    // atomic — a partial rollback cannot itself leave a file mid-write.
+    const rollbackResults = await Promise.allSettled([
+      writeAtomic(comPath, originals.com),
+      writeAtomic(canIfPath, originals.canIf),
+      writeAtomic(pduRPath, originals.pduR),
+    ]);
+    // Clean up any leftover tmp files (the failed rename left its
+    // tmp behind; the others were already moved to the targets).
+    await Promise.allSettled([
+      fs.unlink(tmpCom).catch(() => undefined),
+      fs.unlink(tmpCanIf).catch(() => undefined),
+      fs.unlink(tmpPduR).catch(() => undefined),
+    ]);
+    const rolledBack = rollbackResults.every((r) => r.status === 'fulfilled');
+    return {
+      ok: false,
+      error: { kind: 'write-failed', message: phase2Failed.message, rolledBack },
+    };
+  }
+
+  // Success — defensive cleanup of any tmp files (should already be
+  // moved, but unlink is a no-op if the path is gone).
+  await Promise.allSettled([
+    fs.unlink(tmpCom).catch(() => undefined),
+    fs.unlink(tmpCanIf).catch(() => undefined),
+    fs.unlink(tmpPduR).catch(() => undefined),
+  ]);
 
   // ---- 9. Build addedCounts from each file's `applied` counter --------
   return {
@@ -481,15 +563,6 @@ export async function dbcImportComStackHandler(
     },
   };
 }
-
-/**
- * Write a `BridgeFileOutcome` to disk via `writeAtomic` (tmp + rename
- * per-file). Extracted so the handler's Promise.allSettled sees one
- * rejection per failed file.
- */
-const writeFileWithAtomicityCheck = async (outcome: BridgeFileOutcome): Promise<void> => {
-  await writeAtomic(outcome.path, outcome.serialized);
-};
 
 export { formatParseError, formatSerializeError };
 
