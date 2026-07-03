@@ -5,6 +5,59 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.23.0 (2026-07-03) — MINOR
+
+DBC→Com-Stack bridge. Closes the long-standing "I need 80 ComIPdus and I don't want to hand-type them" gap that every Classic AUTOSAR toolchain solves (DaVinci Network Designer, tresos AutoSAR Configurator, ETAS BSW editor). New `DBC_IMPORT_COM_STACK` IPC + 3-step wizard ingests a DBC file and writes 3 ARXML files (Com / CanIf / PduR) atomically. Validated end-to-end against the bundled demo-ECU + real `powertrain-typical.dbc` from `dbc-forge`. Read-only ODX viewer (v1.22.0) and DBC viewer (v1.21.0) unchanged.
+
+- **`feat(dbc-bridge)` — T1 Extended DBC parser with signal-level detail**:
+  - New `dbcParseForBridgeHandler` IPC handler re-parses a DBC file with per-signal metadata retained (startBit, length, byteOrder, valueType, factor, offset, min, max, unit, receivers).
+  - `DbcSummaryWithSignals = DbcSummary & { signals: readonly DbcSignalSummary[] }`. The existing `parseDbcHandler` (v1.21.0) stays unchanged for the read-only viewer.
+  - `DBC_MAX_BYTES = 32 MiB` cap.
+  - 5 tests: cap value, at-cap boundary, non-string, empty, malformed, happy path + per-field.
+
+- **`feat(dbc-bridge)` — T2 Pure mapper `dbcToComStack`**:
+  - Pure function: `DbcSummaryWithSignals` + 3 ECUC value-side ARXML strings → `DbcBridgePlan = { comPatches; canIfPatches; pduRPatches }`. No IO, no React state.
+  - **Idempotent** by container shortName in each ECUC file.
+  - `targetNode?: string` parameter for Rx/Tx dispatch (per DBC `BU_` node name, NOT EcuC instance name).
+  - **ARXML path discovery** at runtime via `discoverPrimaryContainer(arxml, moduleName)` — no hardcoded path constants.
+  - **`kind` discriminator** on `add-child` patches (com-ipdu / com-signal / canif-tx-pdu / canif-rx-pdu / pdur-route). Mutation engine ignores the field; tests filter by `kind`.
+  - 14 unit tests (5 hand-crafted + 5 fix-validation + 4 dispatched by implementer) + 2 real-OEM tests using `samples/dbc/powertrain-typical.dbc` (real `dbc-forge` vendor export).
+  - 5 ship-blockers caught by code review: hardcoded path constants (CRITICAL) → ARXML discovery; parser `buildContainer` `<CONTAINERS>` wrapper fix; `kind` discriminator; real-OEM test didn't actually exercise idempotency (added `EngState` to demo-ecu Com_Config.arxml); Rx direction always treated as Tx (`targetNode` parameter).
+
+- **`feat(dbc-bridge)` — T3 IPC handler `dbcImportComStack` with 3-file atomic write**:
+  - New `DBC_IMPORT_COM_STACK = 'dbc:importComStack'` IPC channel + types.
+  - Orchestrates: parse DBC (T1) → call `dbcToComStack` (T2) → parse each ECUC ARXML → apply patch steps via `applyPatchSteps` → serialize → write all 3 files via `writeAtomic` (tmp + rename per file).
+  - Optional `targetNode?: string` for Rx/Tx dispatch. Runtime validator: `targetNode` not in `dbc.nodes` → `kind: 'read-failed'` with "Available nodes: ECM, TCM" message.
+  - 4 tests: input validation, cap exceeded, real-OEM round-trip (com=1, canIf=0, pduR=2 on demo-ecu), idempotency re-run returns 0 counts.
+  - 3 sibling-fixes bundled: T2 `parentPath` semantics, `bswmd.ts:1144` `buildContainer` `<CONTAINERS>` fix, phantom ComSignal adds (BSWMD doesn't declare `ComSignal` — advisory filter at IPC layer).
+  - 2 ship-blockers caught by code review: `await import(...)` was inconsistent with peer handlers (FIX-BEFORE-NEXT → static import) + `targetNode` semantic mismatch with EcuC `ECU-INSTANCE` (FIX-BEFORE-NEXT → validator + JSDoc).
+
+- **`feat(dbc-bridge)` — T4 3-step wizard UI + menu wiring**:
+  - `DbcImportWizard` modal: **SelectDbc** (file picker) → **PreviewMapping** (DBC messages + targetNode dropdown) → **ConfirmApply** (3-file write + project reload).
+  - targetNode dropdown populated from `dbc.nodes` (DBC `BU_` names), not from active project's EcuC instance name.
+  - Wired into AppHeader File Operations menu as "Import DBC → Com Stack…" (📥).
+  - 16 i18n keys (en + zh-CN) — final contract after dropping 3 dead-weight keys (`step.select`, `error.parse` x2).
+  - 6 wizard tests + 4 AppHeader test files updated for new props.
+  - 2 fix waves: (a) wired 11 i18n keys (CRITICAL) + added `PROJECT_RELOAD` IPC (HIGH) + fixed success count to `com + canIf + pduR` total (HIGH); (b) dropped `dbc.import.error.parse` dead-weight key (HIGH).
+
+- **`feat(ipc)` — `PROJECT_RELOAD` non-dialog variant**:
+  - New `PROJECT_RELOAD = 'project:reload'` IPC channel. Re-reads the manifest by path (no dialog), reads all `valueArxmlPaths` + `bswmdPaths` files, returns `{ kind: 'ok', manifest, files: [...] }`.
+  - 6 tests: happy / missing manifest / malformed JSON / missing ref / path traversal / mixed docs+bswmds.
+  - Sandbox-flip test extended to assert `'projectReload'` is on the allowlist.
+
+### Behavioral changes
+
+- "File Operations → Import DBC → Com Stack…" is now available. 3-step wizard: select DBC → preview mapping (with targetNode dropdown for Rx/Tx dispatch) → confirm apply.
+- The wizard calls the new `DBC_IMPORT_COM_STACK` IPC, which writes 3 ECUC value-side ARXML files (Com / CanIf / PduR) atomically per-file. After successful apply, the in-memory project store is reloaded via the new `PROJECT_RELOAD` IPC.
+- Existing read-only DBC viewer (v1.21.0 DbcViewer) and ODX viewer (v1.22.0 OdxViewer) are unchanged.
+- `DbcSummary.signals` field is now optional (added by `dbcParseForBridgeHandler`, omitted by `parseDbcHandler`).
+
+### Migration notes
+
+- No data migration required. All changes are renderer / IPC / backend.
+- `useArxmlStore.openProject` callers that previously triggered a full project reload via `project:open` (dialog) can now use `project:reload` (non-dialog).
+- **3-file write is per-file atomic, not transactional.** If `writeAtomic` fails on the 2nd of 3 files (AV scan, network drive teardown), the first file is already committed; the user sees "imported N + open project failed" toasts. To rollback, re-import the previous DBC (idempotent dedup) or manually revert from version control. **Documented limitation**; v1.23.1 PATCH will add transactional wrap.
+
 ## v1.22.0 (2026-07-02) — MINOR
 
 ODX-D diagnostic metadata importer. Closes the v1.21.0 carry-over HIGH "ODX 完全没做" bug (devlog line 88). Read-only ODX-D viewer for the 3 diagnostic surfaces (DTCs / DIDs / Routines), wired into the AppHeader File Operations menu, validated against a real Vector CANdelaStudio `.odx-d` export before ship. ARXML↔ODX bridge still deferred.

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.22.0</title>
+    <title>claude-AutosarCfg 用户手册 · v1.23.0</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -848,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.22.0 · manual</span>
+            <span>v1.23.0 · manual</span>
           </div>
         </div>
 
@@ -905,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.22.0 · 2026-07-02</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.23.0 · 2026-07-03</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -923,6 +923,87 @@
           <!-- ============================================ -->
           <!-- CHAPTER 1: 入门 / GETTING STARTED             -->
           <!-- ============================================ -->
+
+          <!-- ============================================ -->
+          <!-- WHAT'S NEW IN v1.23.0 (DBC→Com-Stack bridge) -->
+          <!-- ============================================ -->
+          <section id="whats-new" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">🆕 WHAT'S NEW</span>
+              <strong class="wn-version">v1.23.0</strong>
+              <span class="wn-since">since v1.22.0 · 2026-07-02 → 2026-07-03</span>
+            </div>
+            <p class="wn-intro">
+              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。v1.23.0 是
+              <strong>DBC→Com-Stack 桥接发布</strong>，把 v1.21.0 的只读
+              <code>&lt;DbcViewer /&gt;</code> 升级为可写的"导入向导" — 一次性批量写入
+              <code>Com_Config.arxml</code> + <code>CanIf_Config.arxml</code> +
+              <code>PduR_Config.arxml</code> 三个 ECUC value-side 文件，关闭 OEM Com-stack
+              配置里"我要 80 个 ComIPdu 又不想手敲"的真实痛点。完整功能、ship 阻塞的 real-DBC
+              fixture 验证、迁移说明 请参阅仓库根目录 <code>CHANGELOG.md</code> ·
+              <code>docs/release-notes/v1.23.0/README.md</code>。
+            </p>
+            <ul class="wn-list">
+              <li>
+                <strong>扩展 DBC 解析器 (v1.23.0 MINOR T1 backend)</strong> — 新
+                <code>dbcParseForBridgeHandler</code> IPC handler 在解析 DBC 时保留逐信号元数据
+                （<code>startBit</code>、<code>length</code>、<code>byteOrder</code>、
+                <code>valueType</code>、<code>factor</code>、<code>offset</code>、<code>min</code>、
+                <code>max</code>、<code>unit</code>、<code>receivers</code>）；新
+                <code
+                  >DbcSummaryWithSignals = DbcSummary &amp; { signals: readonly DbcSignalSummary[]
+                  }</code
+                >； v1.21.0 既有 <code>parseDbcHandler</code>（只读 viewer 用）保持不变
+              </li>
+              <li>
+                <strong>纯映射器 <code>dbcToComStack</code> (v1.23.0 MINOR T2 core)</strong> —
+                纯函数：<code>DbcSummaryWithSignals</code> + 3 个 ECUC value-side ARXML 字符串 →
+                <code>DbcBridgePlan = { comPatches; canIfPatches; pduRPatches }</code>；无 IO 无
+                React state；<strong>按容器 shortName 幂等</strong
+                >（重跑向导不产生重复实例）；运行时 <code>discoverPrimaryContainer()</code> 走 ARXML
+                自身 ECUC module 的第一个子节点 解析容器路径（不写死 <code>CanIfInitConfig</code> /
+                <code>PduRRoutingTables</code> 等常量）；<code>add-child</code> patch 上加
+                <code>kind</code> discriminator （com-ipdu / com-signal / canif-tx-pdu /
+                canif-rx-pdu / pdur-route）— mutation engine 忽略该字段，测试按
+                <code>kind</code> 过滤；可选 <code>targetNode?: string</code> 参数控制 Rx/Tx
+                分派（按 DBC <code>BU_</code> 节点名，<strong>不是</strong> EcuC
+                <code>&lt;ECU-INSTANCE&gt;</code> shortName）
+              </li>
+              <li>
+                <strong>3 文件原子写入 IPC handler (v1.23.0 MINOR T3 orchestration)</strong> — 新
+                <code>DBC_IMPORT_COM_STACK = 'dbc:importComStack'</code> IPC 通道；handler
+                串联：parse DBC → 调 <code>dbcToComStack</code> → 解析 3 个 ECUC ARXML →
+                <code>applyPatchSteps</code> 应用 → 序列化 → 用既有
+                <code>writeAtomic</code> 工具（tmp + rename per file）写 3 个文件；可选
+                <code>targetNode</code> 运行时校验（不在 <code>dbc.nodes</code> 内 → 返回
+                <code>read-failed</code> + "Available nodes: ECM, TCM"）；附带 3 个 sibling 修复（T2
+                <code>parentPath</code> 语义、<code>bswmd.ts:1144</code>
+                <code>buildContainer</code> 读 <code>&lt;CONTAINERS&gt;</code> wrapper、phantom
+                ComSignal adds 走 advisory 过滤 — 后两个是真实 demo-ecu 文件才能暴露的 latent bug）
+              </li>
+              <li>
+                <strong>3 步向导 + 菜单接线 (v1.23.0 MINOR T4 UI)</strong> — 新
+                <code>&lt;DbcImportWizard /&gt;</code> 模态：<strong>SelectDbc</strong>（选文件）→
+                <strong>PreviewMapping</strong>（预览消息 + <code>targetNode</code> 下拉框，DBC
+                <code>BU_</code> 节点名驱动）→ <strong>ConfirmApply</strong>（3 文件写入 + project
+                reload）；AppHeader File Operations 菜单新增"Import DBC → Com Stack…" 入口（📥
+                图标）；16 个 i18n key（en + zh-CN，最终清理掉 3 个 dead-weight key
+                <code>step.select</code> / <code>error.parse</code>）；新
+                <code>PROJECT_RELOAD</code> IPC 通道（<strong>非对话框</strong>变体 — 既有
+                <code>project:open</code> 仍弹 OS 文件选择器，<code>project:reload</code> 直接按
+                path 重新读 manifest，apply 成功 后 App.tsx 自动调用以刷新内存中的 store；6 个
+                projectReloadHandler 测试覆盖 正常/丢失/malformed/路径逃逸/混合 docs+bswmds 等场景
+              </li>
+              <li>
+                <strong>测试覆盖持续提升</strong> — <strong>2751 tests · 96.31% stmts</strong>
+                （v1.22.0 时代 2713 → +38）；pnpm verify 7-stage GREEN （format / lint / type-check
+                / test / coverage / build / import-regression）；真实 DBC fixture
+                <code>samples/dbc/powertrain-typical.dbc</code>（real <code>dbc-forge</code> vendor
+                export：2 节点 / 2 消息 / 4 信号）+ 既有 <code>samples/arxml/demo-ecu/</code>
+                （3 个 BSWMD + 3 个 ECUC value-side 文件）端到端 round-trip
+              </li>
+            </ul>
+          </section>
 
           <!-- ============================================ -->
           <!-- WHAT'S NEW IN v1.22.0 (ODX-D importer release) -->
