@@ -83,7 +83,18 @@ export interface DbcToComStackInput {
  *   the file is unparseable / malformed / module-not-found.
  */
 function discoverPrimaryContainer(arxml: string, moduleName: string): string | null {
-  const docRes = parseArxml(arxml);
+  let docRes;
+  try {
+    docRes = parseArxml(arxml);
+  } catch (e) {
+    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
+    // mode instead of silently returning null. The bridge falls back
+    // to BSWMD canonical names in the caller.
+    console.warn(
+      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName} (discoverPrimaryContainer): ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return null;
+  }
   if (!docRes.ok) return null;
   const mod = findEcucModuleByShortName(docRes.value, moduleName);
   if (mod === null) return null;
@@ -106,7 +117,18 @@ function extractExistingChildShortNames(
   primaryContainer: string,
 ): Set<string> {
   const out = new Set<string>();
-  const docRes = parseArxml(arxml);
+  let docRes;
+  try {
+    docRes = parseArxml(arxml);
+  } catch (e) {
+    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
+    // mode instead of silently returning an empty Set. The bridge
+    // falls back to "treat as empty" dedup behavior in the caller.
+    console.warn(
+      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName}/${primaryContainer} (extractExistingChildShortNames): ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return out;
+  }
   if (!docRes.ok) return out;
   const mod = findEcucModuleByShortName(docRes.value, moduleName);
   if (mod === null) return out;
@@ -134,7 +156,17 @@ function extractExistingGrandchildShortNames(
   subContainer: string,
 ): Set<string> {
   const out = new Set<string>();
-  const docRes = parseArxml(arxml);
+  let docRes;
+  try {
+    docRes = parseArxml(arxml);
+  } catch (e) {
+    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
+    // mode instead of silently returning an empty Set.
+    console.warn(
+      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName}/${primaryContainer}/${subContainer} (extractExistingGrandchildShortNames): ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return out;
+  }
   if (!docRes.ok) return out;
   const mod = findEcucModuleByShortName(docRes.value, moduleName);
   if (mod === null) return out;
@@ -197,7 +229,17 @@ const CANIF_TX_SUBCANONICAL = 'CanIfTxPduCfgs';
 const CANIF_RX_SUBCANONICAL = 'CanIfRxPduCfgs';
 
 function discoverCanIfSubContainers(arxml: string, primaryContainer: string): CanIfSubContainers {
-  const docRes = parseArxml(arxml);
+  let docRes;
+  try {
+    docRes = parseArxml(arxml);
+  } catch (e) {
+    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
+    // mode instead of silently returning canonical defaults.
+    console.warn(
+      `[dbCToComStack] parseArxml failed for ARXML at /CanIf/${primaryContainer} (discoverCanIfSubContainers): ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
+  }
   if (!docRes.ok) return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
   const mod = findEcucModuleByShortName(docRes.value, CANIF_MODULE);
   if (mod === null) return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };

@@ -10,9 +10,10 @@
 // (Blocker #4 — real-OEM idempotency fidelity — lives in the .real.test.ts
 // file because it requires fixture mutation.)
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DbcSummaryWithSignals } from '../../../main/ipc/dbcParseForBridgeHandler.js';
+import * as parserModule from '../../arxml/parser.js';
 import { parseArxml } from '../../arxml/parser.js';
 import type { ArxmlContainer, ArxmlModule } from '../../arxml/types.js';
 import { dbcToComStack } from '../dbcToComStack.js';
@@ -278,5 +279,144 @@ describe('dbcToComStack fixes (T2 blockers)', () => {
       (p) => p.op === 'add-child' && p.kind === 'canif-rx-pdu',
     );
     expect(rxAdds).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------
+// v1.23.1 T3 — dead-code cleanups (3 MEDIUMs from T2 fix review).
+//
+//   MEDIUM #1: pin the empty-DBC edge-case contract (messages:[] and
+//              signals:[]). The existing `?.filter ?? []` already
+//              handles these defensively; the tests pin the contract.
+//
+//   MEDIUM #2: extractExistingChildShortNames must surface a
+//              console.warn when parseArxml throws (instead of
+//              silently returning an empty Set). Tests below cover
+//              both the throw path (spy on parseArxml) and the
+//              normal-return path (real XML).
+//
+//   MEDIUM #3: focused walk test for discoverPrimaryContainer with a
+//              nested ECUC module structure (Com > Com > ComConfig).
+// ---------------------------------------------------------------------
+
+describe('dbCToComStack edge cases (v1.23.1 T3)', () => {
+  it('empty DBC (messages: []) returns all-empty plan without throwing', () => {
+    const emptyDbc: DbcSummaryWithSignals = {
+      version: '',
+      nodeCount: 0,
+      messageCount: 0,
+      nodes: [],
+      messages: [],
+      signals: [],
+    };
+    const plan = dbcToComStack({
+      dbc: emptyDbc,
+      comConfig: REAL_COM,
+      canIfConfig: REAL_CANIF,
+      pduRConfig: REAL_PDUR,
+    });
+    expect(plan.comPatches).toHaveLength(0);
+    expect(plan.canIfPatches).toHaveLength(0);
+    expect(plan.pduRPatches).toHaveLength(0);
+  });
+
+  it('empty DBC (signals: [] but messages non-empty) adds ComIPdu without ComSignal children', () => {
+    const noSignalsDbc: DbcSummaryWithSignals = {
+      version: 'v1',
+      nodeCount: 2,
+      messageCount: 1,
+      nodes: ['ECM', 'TCM'],
+      messages: [{ id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 0 }],
+      signals: [],
+    };
+    const plan = dbcToComStack({
+      dbc: noSignalsDbc,
+      comConfig: REAL_COM,
+      canIfConfig: REAL_CANIF,
+      pduRConfig: REAL_PDUR,
+    });
+    const ipduAdds = plan.comPatches.filter(
+      (p): p is Extract<typeof p, { shortName: string }> =>
+        p.op === 'add-child' && (p as { kind?: string }).kind === 'com-ipdu',
+    );
+    const signalAdds = plan.comPatches.filter(
+      (p) => p.op === 'add-child' && (p as { kind?: string }).kind === 'com-signal',
+    );
+    expect(ipduAdds).toHaveLength(1);
+    expect(ipduAdds[0]?.shortName).toBe('EngState');
+    expect(signalAdds).toHaveLength(0);
+  });
+});
+
+describe('extractExistingChildShortNames console.warn (v1.23.1 T3)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('logs console.warn when parseArxml throws on the comConfig path', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Force parseArxml to throw — production parseArxml is a Result-returning
+    // function that never throws, so we override the export to simulate an
+    // unexpected synchronous throw (defensive try/catch is the correct shape).
+    vi.spyOn(parserModule, 'parseArxml').mockImplementation(() => {
+      throw new Error('forced throw for test');
+    });
+
+    dbcToComStack({
+      dbc: SAMPLE_DBC,
+      comConfig: REAL_COM,
+      canIfConfig: REAL_CANIF,
+      pduRConfig: REAL_PDUR,
+      targetNode: 'ECM',
+    });
+
+    expect(warnSpy).toHaveBeenCalled();
+    // The warn message must identify which slot failed — the comConfig slot
+    // is one of the four ARXML inputs the bridge reads.
+    const firstCallArgs = warnSpy.mock.calls[0] ?? [];
+    const firstArg = String(firstCallArgs[0] ?? '');
+    expect(firstArg).toMatch(/parseArxml|comConfig|com/i);
+  });
+});
+
+describe('discoverPrimaryContainer focused walk (v1.23.1 T3)', () => {
+  it('walks nested ECUC module (Com > Com > ComConfig) and adds both DBC messages as new', () => {
+    // Nested ECUC module structure: top-level AR-PACKAGE > ECUC-MODULE-
+    // CONFIGURATION-VALUES (shortName=Com) > CONTAINERS > ComConfig.
+    const nestedCom = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Com</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Com</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/Com</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ComConfig</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/Com/ComConfig</DEFINITION-REF>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+    const plan = dbcToComStack({
+      dbc: SAMPLE_DBC,
+      comConfig: nestedCom,
+      canIfConfig: REAL_CANIF,
+      pduRConfig: REAL_PDUR,
+      targetNode: 'ECM',
+    });
+    // Both DBC messages (EngState + TransState) must be added as new
+    // because the nested ComConfig is empty.
+    const ipduAdds = plan.comPatches.filter(
+      (p): p is Extract<typeof p, { shortName: string }> =>
+        p.op === 'add-child' && (p as { kind?: string }).kind === 'com-ipdu',
+    );
+    expect(ipduAdds).toHaveLength(2);
+    expect(ipduAdds.map((p) => p.shortName).sort()).toEqual(['EngState', 'TransState']);
   });
 });
