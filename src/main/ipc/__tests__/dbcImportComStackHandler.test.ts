@@ -455,8 +455,16 @@ describe('dbCImportComStackHandler 2-phase write (T1)', () => {
     // No `*.tmp.<pid>` files should remain in the project dir after a
     // successful commit (the renames moved them to the targets and the
     // defensive unlink pass should have nothing to do).
+    //
+    // v1.23.1 T1 code-review MEDIUM-2 — broadened the regex to catch
+    // BOTH the handler's phase-1 naming `{path}.tmp.{pid}` (dot pid)
+    // AND `writeAtomic`'s naming `{path}.tmp-{pid}-{ts}` (dash pid-ts,
+    // used by the rollback path). The two namespaces do not overlap
+    // (`/tmp[.-]\d+/` matches both `.tmp.123` and `tmp-456-789`),
+    // so a leak from either source now surfaces here instead of
+    // passing silently through the test gate.
     const files = readdirSync(seeded.workDir);
-    const leakedTmps = files.filter((f) => /\.tmp\.\d+$/.test(f));
+    const leakedTmps = files.filter((f) => /tmp[.-]\d+/.test(f));
     expect(leakedTmps).toEqual([]);
   });
 
@@ -486,9 +494,11 @@ describe('dbCImportComStackHandler 2-phase write (T1)', () => {
     }
 
     // After partial failure + rollback, no `*.tmp.<pid>` files should
-    // remain in the project dir.
+    // remain in the project dir. See MEDIUM-2 above for why the
+    // regex matches both the handler's `.tmp.{pid}` and
+    // `writeAtomic`'s `.tmp-{pid}-{ts}` namespaces.
     const files = readdirSync(seeded.workDir);
-    const leakedTmps = files.filter((f) => /\.tmp\.\d+$/.test(f));
+    const leakedTmps = files.filter((f) => /tmp[.-]\d+/.test(f));
     expect(leakedTmps).toEqual([]);
   });
 });

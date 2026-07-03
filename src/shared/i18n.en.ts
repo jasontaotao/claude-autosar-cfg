@@ -617,5 +617,14 @@ export const MessagesEn: Messages = {
   'dbc.import.error.read': 'Failed to read DBC file: {message}',
   'dbc.import.error.bridge': 'Bridge mapping failed: {message}',
   'dbc.import.error.write': 'Failed to write 3 ARXML files: {message}',
+  // v1.23.1 T1 code-review MEDIUM-1 — see i18n.ts for the rationale.
+  // The {message} placeholder interpolates the underlying error
+  // (e.g. EACCES, EBUSY) and the parenthetical tells the user the
+  // outcome so they know whether retrying is safe (rolledBack=true)
+  // or whether they need to audit git status (partial rollback).
+  'dbc.import.error.write.rolledBack':
+    'Failed to write 3 ARXML files: {message} (rolled back — project unchanged, please retry)',
+  'dbc.import.error.write.partial':
+    'Failed to write 3 ARXML files: {message} (rolled back partially — please check git status)',
   'dbc.import.success': 'Successfully imported {count} messages',
 };

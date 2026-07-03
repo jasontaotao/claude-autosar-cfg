@@ -600,5 +600,10 @@ export const MessagesZhCN: Messages = {
   'dbc.import.error.read': '读取 DBC 文件失败：{message}',
   'dbc.import.error.bridge': '桥映射失败：{message}',
   'dbc.import.error.write': '写入 3 个 ARXML 文件失败：{message}',
+  // v1.23.1 T1 code-review MEDIUM-1 — see i18n.ts for the rationale.
+  'dbc.import.error.write.rolledBack':
+    '写入 3 个 ARXML 文件失败：{message}（已回滚，项目未变更，请重试）',
+  'dbc.import.error.write.partial':
+    '写入 3 个 ARXML 文件失败：{message}（部分回滚，请检查 git 状态）',
   'dbc.import.success': '成功导入 {count} 条消息',
 };

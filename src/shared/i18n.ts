@@ -796,6 +796,15 @@ export interface Messages {
   readonly 'dbc.import.error.read': string; // {message}
   readonly 'dbc.import.error.bridge': string; // {message}
   readonly 'dbc.import.error.write': string; // {message}
+  // v1.23.1 T1 — 2-phase write reports `rolledBack` so the user knows
+  // whether the project is in a clean state (rolledBack=true) or
+  // partially-bridged (rolledBack=false — they need to check git
+  // status). Split into 2 keys to keep the localiser in control of
+  // the user-facing diagnostic (replaces the hardcoded English
+  // template-string concatenation in App.tsx:841-842 flagged by
+  // code-review as MEDIUM-1).
+  readonly 'dbc.import.error.write.rolledBack': string; // {message}
+  readonly 'dbc.import.error.write.partial': string; // {message}
   readonly 'dbc.import.success': string; // {count}
 }
 

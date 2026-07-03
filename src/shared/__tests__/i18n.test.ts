@@ -549,6 +549,28 @@ describe('i18n — Sprint 14 ECUC ARXML Import (18 keys, spec §7.5)', () => {
     expect(t('en', 'app.import.undoLastCommit')).toBe('Undo last import');
   });
 
+  // v1.23.1 T1 code-review MEDIUM-1 — `rolledBack` diagnostic in
+  // App.tsx:841-842 was hardcoded English. Split into 2 i18n keys
+  // (rolledBack=true vs rolledBack=false/partial) so the localiser
+  // owns the user-facing text.
+  it('renders dbc.import.error.write.rolledBack with {message} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'dbc.import.error.write.rolledBack', { message: 'EACCES' })).toBe(
+      '写入 3 个 ARXML 文件失败：EACCES（已回滚，项目未变更，请重试）',
+    );
+    expect(t('en', 'dbc.import.error.write.rolledBack', { message: 'EACCES' })).toBe(
+      'Failed to write 3 ARXML files: EACCES (rolled back — project unchanged, please retry)',
+    );
+  });
+
+  it('renders dbc.import.error.write.partial with {message} (zh-CN + en)', () => {
+    expect(t('zh-CN', 'dbc.import.error.write.partial', { message: 'EBUSY' })).toBe(
+      '写入 3 个 ARXML 文件失败：EBUSY（部分回滚，请检查 git 状态）',
+    );
+    expect(t('en', 'dbc.import.error.write.partial', { message: 'EBUSY' })).toBe(
+      'Failed to write 3 ARXML files: EBUSY (rolled back partially — please check git status)',
+    );
+  });
+
   it('missing key in one bundle is caught by the parity assertion', () => {
     // Sanity: the bundle parity loop above iterates ALL_KEYS (computed
     // from MessagesZhCN at test-load time). If we forget to add a new

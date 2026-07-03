@@ -835,11 +835,14 @@ export function App(): JSX.Element {
                 // the user knows whether the project is in a clean
                 // state (rolledBack=true) or partially-bridged
                 // (rolledBack=false — they need to check git status).
+                // The localiser owns the diagnostic text via 2
+                // dedicated keys (code-review MEDIUM-1: previously a
+                // hardcoded English template-string concatenation).
                 if (res.error.kind === 'write-failed') {
                   setStoreError(
                     res.error.rolledBack
-                      ? `${baseMessage} (rolled back — project unchanged, please retry)`
-                      : `${baseMessage} (rolled back partially — please check git status)`,
+                      ? t(loc, 'dbc.import.error.write.rolledBack', { message: res.error.message })
+                      : t(loc, 'dbc.import.error.write.partial', { message: res.error.message }),
                   );
                 } else {
                   setStoreError(baseMessage);
