@@ -71,6 +71,12 @@ const noopProps = {
   // behaviour is exercised in AppHeader.odx.test.tsx.
   onOpenOdx: (): void => {},
   odxBusy: false,
+  // v1.23.0 T4 — "File Operations → Import DBC → Com Stack…" menu
+  // entry. noopProps covers pre-existing render-only tests; the
+  // menu click behaviour is exercised in AppHeader.dbcImport.test.tsx
+  // (added in T4 if needed — the wizard itself owns the user flow).
+  onOpenDbcImport: (): void => {},
+  dbcImportBusy: false,
 };
 
 interface MockWindowAutosarApi {

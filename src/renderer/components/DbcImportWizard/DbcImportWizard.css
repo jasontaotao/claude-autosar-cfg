@@ -1,0 +1,182 @@
+/* DbcImportWizard — v1.23.0 T4 (3-Step Wizard UI + Menu Wiring).
+ *
+ * Backdrop + modal pattern mirrors DbcViewer / OdxViewer /
+ * StencilWizard: full-viewport backdrop at z-index above the
+ * workspace, centred card with header + body. Catppuccin Mocha
+ * palette per the plan brief (z-index 9998 — above other dialog
+ * hosts except NewProjectDialog at 9999 so an unfinished import
+ * cannot block a "New Project" click).
+ */
+
+.dbc-wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+.dbc-wizard-modal {
+  background: #1e1e2e; /* Catppuccin Mocha base */
+  color: #cdd6f4; /* Catppuccin Mocha text */
+  border-radius: 8px;
+  min-width: 520px;
+  max-width: 720px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dbc-wizard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dbc-wizard-title {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #cdd6f4;
+}
+
+.dbc-wizard-close {
+  background: transparent;
+  color: #cdd6f4;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.dbc-wizard-close:hover {
+  color: #f38ba8;
+}
+
+.dbc-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dbc-wizard-step-title {
+  font-size: 1rem;
+  margin: 0 0 0.25rem 0;
+  color: #cdd6f4;
+}
+
+.dbc-wizard-step-desc {
+  margin: 0 0 0.5rem 0;
+  color: #a6adc8;
+}
+
+.dbc-wizard-messages {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  background: #181825; /* Catppuccin Mocha mantle */
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}
+
+.dbc-wizard-message {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #313244;
+  font-size: 0.9rem;
+}
+
+.dbc-wizard-message:last-child {
+  border-bottom: none;
+}
+
+.dbc-wizard-msg-name {
+  font-weight: 600;
+  color: #f9e2af; /* Catppuccin Mocha yellow */
+}
+
+.dbc-wizard-msg-id {
+  color: #89b4fa; /* Catppuccin Mocha blue */
+  font-family: ui-monospace, monospace;
+}
+
+.dbc-wizard-msg-meta {
+  color: #a6adc8;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.dbc-wizard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.dbc-wizard-field-label {
+  font-size: 0.85rem;
+  color: #a6adc8;
+}
+
+.dbc-wizard-select {
+  background: #181825;
+  color: #cdd6f4;
+  border: 1px solid #45475a; /* Catppuccin Mocha surface1 */
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.dbc-wizard-warning {
+  background: #45475a;
+  color: #f9e2af;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.dbc-wizard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.dbc-wizard-btn {
+  background: #313244; /* Catppuccin Mocha surface0 */
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.dbc-wizard-btn:hover:not(:disabled) {
+  background: #45475a;
+}
+
+.dbc-wizard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dbc-wizard-btn-primary {
+  background: #89b4fa; /* Catppuccin Mocha blue */
+  color: #1e1e2e;
+  border-color: #89b4fa;
+}
+
+.dbc-wizard-btn-primary:hover:not(:disabled) {
+  background: #74c7ec; /* Catppuccin Mocha sapphire */
+  border-color: #74c7ec;
+}

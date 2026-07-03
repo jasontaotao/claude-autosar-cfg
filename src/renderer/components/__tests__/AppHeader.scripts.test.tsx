@@ -48,6 +48,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
       />,
     );
     expect(screen.getByTestId('btn-scripts-toggle')).not.toBeNull();
@@ -68,6 +70,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
       />,
     );
     fireEvent.click(screen.getByTestId('btn-scripts-toggle'));
@@ -84,6 +88,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
         onToggleScriptPanel={(): void => {}}
         onGenerate={(): void => {}}
         canGenerate={false}
@@ -109,6 +115,8 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -165,6 +173,8 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
       />,
     );
     expect(screen.queryByTestId('btn-stencil-new')).toBeNull();
@@ -203,6 +213,8 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         dbcBusy={false}
         onOpenOdx={(): void => {}}
         odxBusy={false}
+        onOpenDbcImport={(): void => {}}
+        dbcImportBusy={false}
       />,
     );
     // Open the dropdown so the entry is visible.

@@ -52,6 +52,7 @@ import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
 import type { ContextMenuAction } from './components/ContextMenu';
+import { DbcImportWizard } from './components/DbcImportWizard';
 import { DbcViewer } from './components/DbcViewer';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -578,6 +579,79 @@ export function App(): JSX.Element {
     setOdxModal({ kind: 'closed' });
   }, []);
 
+  // v1.23.0 T4 — DBC→Com-Stack 3-step wizard state machine. Mirrors
+  // the v1.21.0 T4 DBC + v1.22.0 T3 ODX pattern line-for-line
+  // (separate modal state, separate in-flight ref). The wizard's
+  // state is a 3-arm union: closed (not mounted), pick (Step 1
+  // — user picks a DBC file), and preview (Step 2 + 3 — the host
+  // has the parsed DBC summary and passes it down as `initialDbc`).
+  // The 'pick' arm hosts the openDbc → parseDbc round-trip so the
+  // wizard can present a single button that drives the entire
+  // upstream flow.
+  type DbcImportState =
+    | { readonly kind: 'closed' }
+    | { readonly kind: 'pick' }
+    | {
+        readonly kind: 'preview';
+        readonly summary: DbcSummary;
+        readonly content: string;
+      };
+  const [dbcImportState, setDbcImportState] = useState<DbcImportState>({ kind: 'closed' });
+  const dbcImportInFlight = useRef(false);
+  const openDbcImportWizard = useCallback(async (): Promise<void> => {
+    if (dbcImportInFlight.current) return;
+    dbcImportInFlight.current = true;
+    try {
+      const api = window.autosarApi;
+      if (api === undefined) {
+        setStoreError('openDbc API not available');
+        return;
+      }
+      const locale = useArxmlStore.getState().locale;
+      const opened = await api.openDbc();
+      switch (opened.kind) {
+        case 'canceled':
+          // User dismissed the dialog — do not open the wizard at all.
+          // The T4 brief calls for a 3-step wizard that ONLY appears
+          // after a successful DBC pick; if the user cancels at the
+          // OS dialog, we return to the workspace with no modal.
+          return;
+        case 'read-failed':
+          setStoreError(t(locale, 'dbc.open.failed', { message: opened.message }));
+          return;
+        case 'opened':
+          break;
+        default: {
+          const _exhaustive: never = opened;
+          throw new Error(`Unhandled OpenDbcResult: ${String(_exhaustive)}`);
+        }
+      }
+      const parsed = await api.parseDbc({
+        path: opened.path,
+        content: opened.content,
+      });
+      if (!parsed.ok) {
+        setStoreError(t(locale, 'dbc.parse.failed', { message: parsed.error.message }));
+        return;
+      }
+      // Transition to the 'preview' arm — the wizard lands directly
+      // on Step 2 (Preview) because the host has already done the
+      // open + parse round-trip. The DbcSummary is the source of
+      // truth for the targetNode dropdown; we keep the raw content
+      // in the state so the Apply handler can ship it to the IPC.
+      setDbcImportState({
+        kind: 'preview',
+        summary: parsed.value,
+        content: opened.content,
+      });
+    } finally {
+      dbcImportInFlight.current = false;
+    }
+  }, [setStoreError]);
+  const closeDbcImportWizard = useCallback((): void => {
+    setDbcImportState({ kind: 'closed' });
+  }, []);
+
   // Sprint 16 v1.6.0 W — Onboarding tour wiring. The host reads
   // the tour state + locale from the store and dispatches advance/
   // back/skip/finish actions. The TourProvider renders the overlay
@@ -622,6 +696,8 @@ export function App(): JSX.Element {
           dbcBusy={dbcInFlight.current}
           onOpenOdx={openOdxViewer}
           odxBusy={odxInFlight.current}
+          onOpenDbcImport={openDbcImportWizard}
+          dbcImportBusy={dbcImportInFlight.current}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -706,6 +782,69 @@ export function App(): JSX.Element {
             error={odxModal.kind === 'error' ? odxModal.message : undefined}
             locale={useArxmlStore.getState().locale}
             onClose={closeOdxViewer}
+          />
+        )}
+
+        {/* v1.23.0 T4 — DBC→Com-Stack 3-step wizard. Mounted at the
+            root so the backdrop + modal sit above every workspace
+            layer (z-index 9998 inside the wizard CSS). The wizard
+            lands directly on the Preview step (Step 2) because the
+            host (App.tsx) already completed the openDbc → parseDbc
+            round-trip in `openDbcImportWizard` before transitioning
+            the state. The Apply handler calls the v1.23.0 T3 IPC
+            and reloads the project on success so the updated
+            Com/CanIf/PduR ARXMLs are re-parsed into the store. */}
+        {dbcImportState.kind === 'preview' && (
+          <DbcImportWizard
+            onClose={closeDbcImportWizard}
+            initialDbc={dbcImportState.summary}
+            dbcContent={dbcImportState.content}
+            onApply={async (dbcContent: string, targetNode: string): Promise<void> => {
+              const api = window.autosarApi;
+              if (api === undefined) {
+                throw new Error('dbcImportComStack API not available');
+              }
+              // Re-read project / projectPath at apply time (not
+              // subscribed) so a stale closure never ships a stale
+              // manifest to the IPC. The store is the SoT.
+              const state = useArxmlStore.getState();
+              const proj = state.project;
+              const projPath = state.projectPath;
+              const loc = state.locale;
+              if (proj === null || projPath === null) {
+                throw new Error('No project open');
+              }
+              const res = await api.dbcImportComStack({
+                dbcContent,
+                projectManifestPath: projPath,
+                manifest: proj,
+                targetNode,
+              });
+              if (!res.ok) {
+                // Map the typed error kind to a localized toast key.
+                const key =
+                  res.error.kind === 'bridge-failed'
+                    ? 'dbc.import.error.bridge'
+                    : res.error.kind === 'write-failed'
+                      ? 'dbc.import.error.write'
+                      : 'dbc.import.error.read';
+                setStoreError(t(loc, key, { message: res.error.message }));
+                throw new Error(res.error.message);
+              }
+              // Success — surface a confirmation toast. The next user
+              // action (e.g. saving, validating, switching to an
+              // ARXML tab) re-reads the on-disk files automatically
+              // because the store pulls fresh content for each doc
+              // at revalidation time. A programmatic project reload
+              // is NOT possible today because the `project:open` IPC
+              // is dialog-only (pops an OS file picker); a future
+              // v1.23.x follow-up can introduce a `project:reload`
+              // channel that re-reads the manifest by path. T4's
+              // contract is "apply succeeded" — the visible 3-file
+              // write is the user's signal.
+              setInfo(t(loc, 'dbc.import.success', { count: res.value.addedCounts.com }));
+              closeDbcImportWizard();
+            }}
           />
         )}
 

@@ -599,4 +599,25 @@ export const MessagesEn: Messages = {
   'app.generate.success': 'Generated {count} files to {outDir}',
   'app.generate.failure': 'Generate failed: {message}',
   'app.generate.needProject': 'Open a project before generating code',
+
+  // --- v1.23.0 MINOR T4 — DBC→Com-Stack 3-step wizard ---
+  'dbc.import.wizard.title': 'Import DBC → Com Stack',
+  'dbc.import.step.select': 'Select DBC file',
+  'dbc.import.step.preview': 'Preview mapping',
+  'dbc.import.step.confirm': 'Confirm apply',
+  'dbc.import.menu.label': 'Import DBC → Com Stack…',
+  'dbc.import.menu.icon': '📥',
+  'dbc.import.select.button': 'Select DBC file…',
+  'dbc.import.preview.messages': '{count} messages will be imported',
+  'dbc.import.preview.next': 'Next',
+  'dbc.import.confirm.warning':
+    'This will write 3 ARXML files (Com / CanIf / PduR) atomically for target node {targetNode}.',
+  'dbc.import.confirm.apply': 'Apply',
+  'dbc.import.confirm.applying': 'Applying…',
+  'dbc.import.close': 'Close',
+  'dbc.import.error.read': 'Failed to read DBC file: {message}',
+  'dbc.import.error.parse': 'Failed to parse DBC file: {message}',
+  'dbc.import.error.bridge': 'Bridge mapping failed: {message}',
+  'dbc.import.error.write': 'Failed to write 3 ARXML files: {message}',
+  'dbc.import.success': 'Successfully imported {count} messages',
 };

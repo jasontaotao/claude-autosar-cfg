@@ -63,6 +63,8 @@ export function AppHeader({
   dbcBusy,
   onOpenOdx,
   odxBusy,
+  onOpenDbcImport,
+  dbcImportBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -592,6 +594,33 @@ export function AppHeader({
                   🩺
                 </span>
                 {t(locale, 'app.open.odx')}
+              </button>
+              {/* v1.23.0 T4 — "Import DBC → Com Stack…" entry. Sits
+                  under the fileOps group, between ODX and the BSWMD
+                  picker, because it is an "importer" verb (mutates
+                  project state) rather than a "viewer" verb (the
+                  read-only DbcViewer above). The 📥 icon
+                  distinguishes it from the 🗂️ DbcViewer icon.
+                  `dbcImportBusy` is decoupled from `dbcBusy` /
+                  `odxBusy` so a slow wizard round-trip does not
+                  block other file-ops. The parent (App.tsx) owns
+                  the openDbc → parseDbc flow + the DbcImportWizard
+                  state machine + the v1.23.0 T3 IPC apply. */}
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onOpenDbcImport();
+                }}
+                disabled={dbcImportBusy}
+                data-testid="btn-import-dbc-com"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  📥
+                </span>
+                {t(locale, 'dbc.import.menu.label')}
               </button>
               {/* Sprint 14 / Task 11 — BSWMD-to-ECUC entry point. Lives
                   under the fileOps group (matches "Open ARXML" — both

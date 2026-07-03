@@ -773,6 +773,32 @@ export interface Messages {
   readonly 'app.generate.success': string; // {count} {outDir}
   readonly 'app.generate.failure': string; // {message}
   readonly 'app.generate.needProject': string;
+
+  // --- v1.23.0 MINOR T4 — DBC→Com-Stack 3-step wizard ---
+  // 18 keys covering the wizard modal (3 step titles + descriptions,
+  // 2 button labels, 4 error envelopes, 1 success toast, 1 close
+  // label) AND the AppHeader menu entry that opens it. The menu
+  // entry is distinct from `app.open.dbc` (which only opens the
+  // read-only DbcViewer) — `dbc.import.menu.label` triggers the
+  // full T3 IPC pipeline.
+  readonly 'dbc.import.wizard.title': string;
+  readonly 'dbc.import.step.select': string;
+  readonly 'dbc.import.step.preview': string;
+  readonly 'dbc.import.step.confirm': string;
+  readonly 'dbc.import.menu.label': string;
+  readonly 'dbc.import.menu.icon': string;
+  readonly 'dbc.import.select.button': string;
+  readonly 'dbc.import.preview.messages': string; // {count}
+  readonly 'dbc.import.preview.next': string;
+  readonly 'dbc.import.confirm.warning': string; // {targetNode}
+  readonly 'dbc.import.confirm.apply': string;
+  readonly 'dbc.import.confirm.applying': string;
+  readonly 'dbc.import.close': string;
+  readonly 'dbc.import.error.read': string; // {message}
+  readonly 'dbc.import.error.parse': string; // {message}
+  readonly 'dbc.import.error.bridge': string; // {message}
+  readonly 'dbc.import.error.write': string; // {message}
+  readonly 'dbc.import.success': string; // {count}
 }
 
 export type MessageKey = keyof Messages;

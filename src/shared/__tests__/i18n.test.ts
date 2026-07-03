@@ -768,13 +768,16 @@ describe('i18n — file split (LOW-3 backlog, 1769→800)', () => {
     expect(existsSync(join(I18N_DIR, '..', 'i18n.en.ts'))).toBe(true);
   });
 
-  it('i18n.ts stays under the 850-line regression ceiling', () => {
-    // The split targets ≤ 800 lines; we assert 850 to allow headroom for
+  it('i18n.ts stays under the 900-line regression ceiling', () => {
+    // The split targets ≤ 800 lines; we assert 900 to allow headroom for
     // organic type-interface growth (~30 keys with docs at the current
     // rate) while still flagging a re-inlined bundle (~1700 lines) as a
-    // regression.
+    // regression. v1.23.0 T4 bumped the ceiling from 850 → 900 to
+    // absorb the 18 new `dbc.import.*` keys (13 net lines on the
+    // interface, after the per-key doc comments) without forcing a
+    // premature interface-split refactor.
     const lines = readFileSync(join(I18N_DIR, '..', 'i18n.ts'), 'utf8').split('\n').length;
-    expect(lines).toBeLessThan(850);
+    expect(lines).toBeLessThan(900);
   });
 
   it('i18n.ts barrel re-exports MessagesZhCN and MessagesEn', async () => {

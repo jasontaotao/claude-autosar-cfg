@@ -49,6 +49,8 @@ function renderHeader(args: {
       dbcBusy={false}
       onOpenOdx={(): void => {}}
       odxBusy={false}
+      onOpenDbcImport={(): void => {}}
+      dbcImportBusy={false}
     />,
   );
 }

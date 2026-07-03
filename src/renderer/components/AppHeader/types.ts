@@ -61,4 +61,15 @@ export interface AppHeaderProps {
   // MEDIUM decoupling).
   readonly onOpenOdx: () => void;
   readonly odxBusy: boolean;
+  // v1.23.0 T4 — "File Operations → Import DBC → Com Stack…" menu
+  // entry. The parent (App.tsx) owns the openDbc → parseDbc round
+  // trip + the DbcImportWizard state machine + the v1.23.0 T3 IPC
+  // apply handler. AppHeader just forwards the click + renders the
+  // icon + label. `dbcImportBusy` is the in-flight gate (true while
+  // the openDbc → parseDbc round-trip is in progress OR the wizard's
+  // apply is running) — decoupled from `dbcBusy` (read-only viewer)
+  // and `odxBusy` so the three importer/viewer operations can run
+  // independently without false-disabled menu entries.
+  readonly onOpenDbcImport: () => void;
+  readonly dbcImportBusy: boolean;
 }

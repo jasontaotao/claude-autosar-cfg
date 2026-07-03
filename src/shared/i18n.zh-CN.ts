@@ -582,4 +582,25 @@ export const MessagesZhCN: Messages = {
   'app.generate.success': '已生成 {count} 个文件到 {outDir}',
   'app.generate.failure': '生成失败：{message}',
   'app.generate.needProject': '请先打开一个项目再生成代码',
+
+  // --- v1.23.0 MINOR T4 — DBC→Com-Stack 3-step wizard ---
+  'dbc.import.wizard.title': '导入 DBC → Com 栈',
+  'dbc.import.step.select': '选择 DBC 文件',
+  'dbc.import.step.preview': '预览映射',
+  'dbc.import.step.confirm': '确认应用',
+  'dbc.import.menu.label': '导入 DBC → Com 栈…',
+  'dbc.import.menu.icon': '📥',
+  'dbc.import.select.button': '选择 DBC 文件…',
+  'dbc.import.preview.messages': '将导入 {count} 条消息',
+  'dbc.import.preview.next': '下一步',
+  'dbc.import.confirm.warning':
+    '此操作将原子写入 3 个 ARXML 文件（Com / CanIf / PduR），目标节点 {targetNode}。',
+  'dbc.import.confirm.apply': '应用',
+  'dbc.import.confirm.applying': '正在应用…',
+  'dbc.import.close': '关闭',
+  'dbc.import.error.read': '读取 DBC 文件失败：{message}',
+  'dbc.import.error.parse': '解析 DBC 文件失败：{message}',
+  'dbc.import.error.bridge': '桥映射失败：{message}',
+  'dbc.import.error.write': '写入 3 个 ARXML 文件失败：{message}',
+  'dbc.import.success': '成功导入 {count} 条消息',
 };
