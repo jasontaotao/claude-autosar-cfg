@@ -158,6 +158,42 @@ export interface DbcMessageSummary {
   readonly signalCount: number;
 }
 
+// v1.23.0 T1 — Extended DBC parser types.
+// The existing `parseDbcHandler` returns a signal-summary-free
+// `DbcSummary`; the Com-stack bridge (`dbcParseForBridgeHandler`)
+// needs per-signal metadata (startBit, length, byteOrder, valueType,
+// factor, offset, min, max, unit, receivers) to generate Com-signal
+// mappings. We add an optional `signals` field on `DbcSummary` so the
+// bridge can return the extended shape while the viewer continues to
+// consume the signal-free shape (the field is omitted, not empty).
+//
+// `DbcSignalSummary` mirrors dbc-forge's `Signal` shape (verified in
+// `vendor/dbc-forge/packages/core/src/model/signal.ts`): `byteOrder`
+// is the literal string `'little-endian' | 'big-endian'` and
+// `valueType` is narrowed to `'signed' | 'unsigned'` because the
+// AUTOSAR Com-signal universe has only those two (dbc-forge's
+// `'float' | 'double'` cases map to `'unsigned'` upstream and are out
+// of scope for v1.23.0).
+
+/**
+ * Renderer-friendly projection of a single DBC signal. Populated by
+ * `dbcParseForBridgeHandler`; omitted by `parseDbcHandler`.
+ */
+export interface DbcSignalSummary {
+  readonly messageId: number;
+  readonly name: string;
+  readonly startBit: number;
+  readonly length: number;
+  readonly byteOrder: 'little-endian' | 'big-endian';
+  readonly valueType: 'signed' | 'unsigned';
+  readonly factor: number;
+  readonly offset: number;
+  readonly min: number;
+  readonly max: number;
+  readonly unit: string;
+  readonly receivers: readonly string[];
+}
+
 /**
  * Renderer-friendly summary of a parsed DBC network.
  * `messageCount` / `nodeCount` are pre-computed so the viewer header
@@ -169,6 +205,13 @@ export interface DbcSummary {
   readonly messageCount: number;
   readonly nodes: readonly string[];
   readonly messages: readonly DbcMessageSummary[];
+  /**
+   * Optional signal-level detail — populated by
+   * `dbcParseForBridgeHandler`, omitted by the viewer-side
+   * `parseDbcHandler`. Field is OPTIONAL (not always present) so the
+   * existing `DbcSummary` consumers see no runtime shape change.
+   */
+  readonly signals?: readonly DbcSignalSummary[];
 }
 
 /** Discriminated union for the file-picker result (mirrors `OpenArxmlResult`). */
