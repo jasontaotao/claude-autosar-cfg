@@ -5,14 +5,13 @@
 // isolates the mapper's per-message / per-signal bookkeeping from
 // the demo-ecu file shape.
 //
-// NOTE on fixture shape: the project parser (`buildContainer` in
-// `src/core/arxml/parser.ts:418`) reads `<SUB-CONTAINERS>` at the
-// top level of each `ECUC-CONTAINER-VALUE`, NOT nested inside
-// `<CONTAINERS>`. The minimal fixtures below use that shape so the
-// idempotency test can detect a pre-existing EngState. Real BSWMD
-// emitters wrap the same content inside `<CONTAINERS>`; the demo-ecu
-// fixtures exercise that wrap — the real-OEM test (separate file)
-// covers that shape.
+// NOTE on fixture shape: real OEM BSWMD-derived value-side ARXMLs
+// (including `samples/arxml/demo-ecu/`) wrap child containers in
+// `<CONTAINERS>` rather than `<SUB-CONTAINERS>`. The hand-crafted
+// fixtures below intentionally use the legacy `<SUB-CONTAINERS>`
+// shape so this file stays focused on the mapper's bookkeeping;
+// the real-OEM test (separate file) exercises the `<CONTAINERS>`
+// wrap + parser's CONTAINERS-walker.
 
 import { describe, expect, it } from 'vitest';
 
@@ -55,7 +54,16 @@ const MINIMAL_CANIF_CONFIG = `<?xml version="1.0" encoding="UTF-8"?>
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>CanIfInitConfig</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/CanIf/CanIfInitConfig</DEFINITION-REF>
-              <SUB-CONTAINERS></SUB-CONTAINERS>
+              <SUB-CONTAINERS>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>CanIfTxPduCfgs</SHORT-NAME>
+                  <SUB-CONTAINERS></SUB-CONTAINERS>
+                </ECUC-CONTAINER-VALUE>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>CanIfRxPduCfgs</SHORT-NAME>
+                  <SUB-CONTAINERS></SUB-CONTAINERS>
+                </ECUC-CONTAINER-VALUE>
+              </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
           </CONTAINERS>
         </ECUC-MODULE-CONFIGURATION-VALUES>
@@ -158,58 +166,61 @@ const SAMPLE_DBC_SUMMARY: DbcSummaryWithSignals = {
 };
 
 describe('dbcToComStack (T2 unit)', () => {
-  it('generates add-child patches for ComIPdu (one per DBC message)', () => {
+  it('generates com-ipdu add-child patches (one per DBC message)', () => {
     const plan = dbcToComStack({
       dbc: SAMPLE_DBC_SUMMARY,
       comConfig: MINIMAL_COM_CONFIG,
       canIfConfig: MINIMAL_CANIF_CONFIG,
       pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // A ComIPdu add-child's parentPath is `/Com/Com/ComConfig/<MsgName>`
-    // (4 non-empty segments: Com/Com/ComConfig/MsgName); a ComSignal
-    // add-child's parentPath is `/Com/Com/ComConfig/<MsgName>/<SigName>`
-    // (5 non-empty segments). Filter ComIPdus by segment count.
+    // #3 (HIGH) — filter by `kind`, not by parentPath segment count.
     const comIpduAdds = plan.comPatches.filter(
-      (p): p is Extract<typeof p, { parentPath: string; shortName: string }> => {
-        if (p.op !== 'add-child') return false;
-        const segments = p.parentPath.split('/').filter((s) => s.length > 0);
-        return segments.length === 4;
-      },
+      (p): p is Extract<typeof p, { kind?: string }> =>
+        p.op === 'add-child' && (p as { kind?: string }).kind === 'com-ipdu',
     );
     expect(comIpduAdds).toHaveLength(2);
     expect(comIpduAdds[0]?.shortName).toBe('EngState');
     expect(comIpduAdds[1]?.shortName).toBe('TransState');
   });
 
-  it('generates ComSignal patches under each ComIPdu', () => {
+  it('generates com-signal add-child patches under each com-ipdu', () => {
     const plan = dbcToComStack({
       dbc: SAMPLE_DBC_SUMMARY,
       comConfig: MINIMAL_COM_CONFIG,
       canIfConfig: MINIMAL_CANIF_CONFIG,
       pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // ComSignal add-childs have parentPath with 5 non-empty segments
-    // (Com/Com/ComConfig/<MsgName>/<SigName>).
-    const comSignalAdds = plan.comPatches.filter((p) => {
-      if (p.op !== 'add-child') return false;
-      const segments = p.parentPath.split('/').filter((s) => s.length > 0);
-      return segments.length === 5;
-    });
-    // 4 signals total, but only those attached to new ComIPdus (no existing ComIPdus)
+    const comSignalAdds = plan.comPatches.filter(
+      (p): p is Extract<typeof p, { kind?: string }> =>
+        p.op === 'add-child' && (p as { kind?: string }).kind === 'com-signal',
+    );
+    // 4 signals total (2 per message × 2 messages)
     expect(comSignalAdds).toHaveLength(4);
   });
 
-  it('generates CanIfTxPduCfg + CanIfRxPduCfg patches', () => {
+  it('generates CanIfTxPduCfg + CanIfRxPduCfg patches based on targetNode', () => {
     const plan = dbcToComStack({
       dbc: SAMPLE_DBC_SUMMARY,
       comConfig: MINIMAL_COM_CONFIG,
       canIfConfig: MINIMAL_CANIF_CONFIG,
       pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // EngState is Tx from ECM -> CanIfTxPduCfg
-    // TransState is Tx from TCM -> CanIfTxPduCfg (transmitter is ECM/TCM = bus-side Tx)
-    const canIfAdds = plan.canIfPatches.filter((p) => p.op === 'add-child');
-    expect(canIfAdds.length).toBeGreaterThanOrEqual(2);
+    // EngState (transmitter=ECM) → Tx; TransState (transmitter=TCM) → Rx.
+    const txAdds = plan.canIfPatches.filter(
+      (p): p is Extract<typeof p, { shortName: string }> =>
+        p.op === 'add-child' && p.kind === 'canif-tx-pdu',
+    );
+    const rxAdds = plan.canIfPatches.filter(
+      (p): p is Extract<typeof p, { shortName: string }> =>
+        p.op === 'add-child' && p.kind === 'canif-rx-pdu',
+    );
+    expect(txAdds).toHaveLength(1);
+    expect(txAdds[0]?.shortName).toBe('EngState');
+    expect(rxAdds).toHaveLength(1);
+    expect(rxAdds[0]?.shortName).toBe('TransState');
   });
 
   it('generates PduRRoutingPath for each ComIPdu', () => {
@@ -218,12 +229,16 @@ describe('dbcToComStack (T2 unit)', () => {
       comConfig: MINIMAL_COM_CONFIG,
       canIfConfig: MINIMAL_CANIF_CONFIG,
       pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    const pduRAdds = plan.pduRPatches.filter((p) => p.op === 'add-child');
-    expect(pduRAdds.length).toBeGreaterThanOrEqual(2);
+    const pduRAdds = plan.pduRPatches.filter(
+      (p): p is Extract<typeof p, { shortName: string }> => p.op === 'add-child',
+    );
+    expect(pduRAdds).toHaveLength(2);
+    expect(pduRAdds.map((p) => p.shortName).sort()).toEqual(['EngState', 'TransState']);
   });
 
-  it('idempotency: re-run on Com_Config already containing EngState skips that message', () => {
+  it('idempotency: pre-existing EngState in ComConfig is skipped', () => {
     const comConfigWithExisting = MINIMAL_COM_CONFIG.replace(
       '<SUB-CONTAINERS></SUB-CONTAINERS>',
       `<SUB-CONTAINERS>
@@ -238,19 +253,48 @@ describe('dbcToComStack (T2 unit)', () => {
       comConfig: comConfigWithExisting,
       canIfConfig: MINIMAL_CANIF_CONFIG,
       pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // ComIPdus have 4-segment parentPath (Com/Com/ComConfig/MsgName);
-    // ComSignals have 5-segment parentPath.
     const comIpduAdds = plan.comPatches.filter(
-      (p): p is Extract<typeof p, { parentPath: string; shortName: string }> => {
-        if (p.op !== 'add-child') return false;
-        const segments = p.parentPath.split('/').filter((s) => s.length > 0);
-        return segments.length === 4;
-      },
+      (p): p is Extract<typeof p, { kind?: string; shortName: string }> =>
+        p.op === 'add-child' && (p as { kind?: string }).kind === 'com-ipdu',
     );
     const engStateAdds = comIpduAdds.filter((p) => p.shortName === 'EngState');
     expect(engStateAdds).toHaveLength(0);
     // TransState still added
     expect(comIpduAdds.find((p) => p.shortName === 'TransState')).toBeDefined();
+  });
+
+  it('discovers legacy shortNames (CanIfInitConfig / PduRRoutingTables) from the value-side file', () => {
+    // #1 (CRITICAL) — the bridge reads container shortNames from the
+    // parsed ARXML, not from hardcoded constants. The legacy
+    // CanIfInitConfig / PduRRoutingTables hand-crafted shape must be
+    // discovered too.
+    const plan = dbcToComStack({
+      dbc: SAMPLE_DBC_SUMMARY,
+      comConfig: MINIMAL_COM_CONFIG,
+      canIfConfig: MINIMAL_CANIF_CONFIG,
+      pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
+    });
+    // parentPath must use the discovered shortName, not a hardcoded one.
+    const txAdd = plan.canIfPatches.find(
+      (p): p is Extract<typeof p, { parentPath: string }> =>
+        p.op === 'add-child' && p.kind === 'canif-tx-pdu',
+    );
+    const txParent = txAdd?.parentPath;
+    expect(txParent).toContain('CanIfInitConfig');
+    expect(txParent).not.toContain('CanIfInitCfg');
+    const pduRAdd = plan.pduRPatches.find(
+      (p): p is Extract<typeof p, { parentPath: string }> => p.op === 'add-child',
+    );
+    const pduRParent = pduRAdd?.parentPath;
+    if (pduRParent !== undefined) {
+      expect(pduRParent).toContain('PduRRoutingTables');
+      expect(pduRParent).not.toContain('PduRRoutingPaths');
+    } else {
+      // Confirm the first pduR patch exists (parentPath is add-child specific).
+      expect(plan.pduRPatches.length).toBeGreaterThan(0);
+    }
   });
 });

@@ -391,6 +391,18 @@ export type PatchStep =
       readonly parentPath: string;
       readonly shortName: string;
       readonly definitionRef?: string;
+      /**
+       * v1.23.0 T2 — semantic discriminator for the add-child step.
+       *
+       * Discriminates the container class this step is creating so tests
+       * (and downstream consumers) can filter plans without resorting to
+       * parentPath-segment-count heuristics. The mutation engine
+       * (`src/core/mutation/applyPatchSteps.ts:applyAddChild`) ignores
+       * this field — it uses `parentPath` + `definitionRef` to locate
+       * the BSWMD def. `kind` is purely advisory metadata for the
+       * DBC→Com-Stack bridge plan + tests.
+       */
+      readonly kind?: 'com-ipdu' | 'com-signal' | 'canif-tx-pdu' | 'canif-rx-pdu' | 'pdur-route';
     }
   | {
       readonly op: 'remove-with-cascade';

@@ -9,20 +9,10 @@
 // note, hand-crafted fixtures alone are insufficient for shipping a
 // bridge that will face real OEM DBC / ECUC shapes.
 //
-// Failure mode coverage:
-//   - test 1: ensures the parser + mapper combo produces a non-empty
-//     plan when fed real OEM DBC + real demo-ecu ARXML (catches
-//     parseArxml / findByPath regressions, definitionRef typos, etc.)
-//   - test 2: ensures both messages from the real DBC round-trip into
-//     the plan (proves signal-level summary + per-message patch
-//     generation works end-to-end on the real fixture).
-//
-// Idempotency on the real Com_Config (which carries pre-existing
-// ComIPdu_1 / ComIPdu_2 names distinct from EngState / TransState)
-// is not asserted here — those names do not collide with the DBC
-// message names, so the plan will simply add EngState / TransState
-// alongside the existing ComIPdus. The unit test's idempotency check
-// uses an explicit fixture that pre-pends EngState.
+// v1.23.0 T2 fix-brief #4 — the demo-ecu `Com_Config.arxml` fixture
+// now carries a pre-existing `EngState` ComIPdu (matching the
+// powertrain-typical.dbc `EngState` message) so idempotency is
+// actually exercised against real files.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -59,14 +49,16 @@ describe('dbcToComStack (T2 real-OEM)', () => {
       comConfig: COM_CONFIG,
       canIfConfig: CANIF_CONFIG,
       pduRConfig: PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // EngState + TransState = 2 messages
-    expect(plan.comPatches.length).toBeGreaterThanOrEqual(2);
-    expect(plan.canIfPatches.length).toBeGreaterThanOrEqual(2);
-    expect(plan.pduRPatches.length).toBeGreaterThanOrEqual(2);
+    // At least the unique TransState message produces ComIPdu + signal
+    // patches (EngState is skipped due to idempotency).
+    expect(plan.comPatches.length).toBeGreaterThanOrEqual(1);
+    expect(plan.canIfPatches.length).toBeGreaterThanOrEqual(1);
+    expect(plan.pduRPatches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('idempotency on real demo-ecu Com_Config (which has 2 ComIPdus): skips existing', () => {
+  it('idempotency on real demo-ecu Com_Config: pre-existing EngState is skipped', () => {
     const dbcRes = dbcParseForBridgeHandler({
       path: DBC_PATH,
       content: readFileSync(DBC_PATH, 'utf-8'),
@@ -78,13 +70,19 @@ describe('dbcToComStack (T2 real-OEM)', () => {
       comConfig: COM_CONFIG,
       canIfConfig: CANIF_CONFIG,
       pduRConfig: PDUR_CONFIG,
+      targetNode: 'ECM',
     });
-    // Both messages have unique names; should add both as new
+    // #4 (HIGH) — assert EngState is NOT in the add-child plan (the
+    // demo-ecu Com_Config fixture pre-carries an EngState ComIPdu,
+    // added in the v1.23.0 T2 fix-brief).
     const ipduAdds = plan.comPatches.filter(
       (p): p is Extract<typeof p, { shortName: string }> =>
         p.op === 'add-child' && 'shortName' in p,
     );
-    expect(ipduAdds.find((p) => p.shortName === 'EngState')).toBeDefined();
-    expect(ipduAdds.find((p) => p.shortName === 'TransState')).toBeDefined();
+    const engStateAdds = ipduAdds.filter((p) => p.shortName === 'EngState');
+    expect(engStateAdds).toHaveLength(0);
+    // TransState still added (no collision in the fixture).
+    const transStateAdds = ipduAdds.filter((p) => p.shortName === 'TransState');
+    expect(transStateAdds.length).toBeGreaterThanOrEqual(1);
   });
 });

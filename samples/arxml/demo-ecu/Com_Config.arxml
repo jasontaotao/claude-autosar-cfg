@@ -6,6 +6,11 @@
   This violation is intentional and documented in demo.autosarcfg.json
   so the welcome card tooltip can surface "Demo ECU has 1 intentional
   SWS violation for tour demo purposes".
+
+  v1.23.0 T2 — the third ComIPdu is named "EngState" so the
+  DBC→Com-Stack bridge (which produces EngState from
+  powertrain-typical.dbc) actually exercises idempotency: re-running
+  the bridge MUST NOT duplicate this pre-existing ComIPdu.
 -->
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00050.xsd">
   <AR-PACKAGES>
@@ -37,6 +42,16 @@
                     <ECUC-NUMERICAL-PARAM-VALUE>
                       <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/Com/ComConfig/ComIPdu/ComPduId</DEFINITION-REF>
                       <VALUE>42</VALUE>
+                    </ECUC-NUMERICAL-PARAM-VALUE>
+                  </PARAMETER-VALUES>
+                </ECUC-CONTAINER-VALUE>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>EngState</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/Com/ComConfig/ComIPdu</DEFINITION-REF>
+                  <PARAMETER-VALUES>
+                    <ECUC-NUMERICAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/Com/ComConfig/ComIPdu/ComPduId</DEFINITION-REF>
+                      <VALUE>272</VALUE>
                     </ECUC-NUMERICAL-PARAM-VALUE>
                   </PARAMETER-VALUES>
                 </ECUC-CONTAINER-VALUE>

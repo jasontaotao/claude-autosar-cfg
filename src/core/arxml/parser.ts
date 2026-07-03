@@ -416,7 +416,18 @@ function buildContainer(
     }
   }
   const subContainers = item['SUB-CONTAINERS'];
+  const containers = item['CONTAINERS'];
   const children: ArxmlElement[] = [];
+  // v1.23.0 T2 fix (HIGH #2) — read BOTH `<CONTAINERS>` and
+  // `<SUB-CONTAINERS>` so children wrapped in either form surface as
+  // siblings. Mirrors `buildModule` at lines 361-369 which already
+  // reads both. Real OEM demo-ecu ARXMLs wrap sub-container children
+  // inside `<CONTAINERS>`; prior code only read `<SUB-CONTAINERS>`,
+  // leaving those containers with zero children and silently masking
+  // idempotency dedup in the DBC→Com-Stack bridge.
+  if (typeof containers === 'object' && containers !== null) {
+    for (const c of walkElements(containers as Record<string, unknown>, path)) children.push(c);
+  }
   if (typeof subContainers === 'object' && subContainers !== null) {
     for (const c of walkElements(subContainers as Record<string, unknown>, path)) children.push(c);
   }
