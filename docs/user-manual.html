@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.23.0</title>
+    <title>claude-AutosarCfg 用户手册 · v1.23.1</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -848,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.23.0 · manual</span>
+            <span>v1.23.1 · manual</span>
           </div>
         </div>
 
@@ -905,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.23.0 · 2026-07-03</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.23.1 · 2026-07-03</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -923,6 +923,75 @@
           <!-- ============================================ -->
           <!-- CHAPTER 1: 入门 / GETTING STARTED             -->
           <!-- ============================================ -->
+
+          <!-- ============================================ -->
+          <!-- WHAT'S NEW IN v1.23.1 (PATCH: cross-file atomic + i18n split) -->
+          <!-- ============================================ -->
+          <section id="whats-new" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">🆕 WHAT'S NEW</span>
+              <strong class="wn-version">v1.23.1</strong>
+              <span class="wn-since">since v1.23.0 · 2026-07-03 → 2026-07-03</span>
+            </div>
+            <p class="wn-intro">
+              本手册以下章节仍以 <strong>v1.2.0 baseline</strong> 编写。v1.23.1 是
+              <strong>3 个 v1.23.0 延期项的清理 PATCH</strong>：(1) DBC 桥的跨文件原子写入 (snapshot
+              + 2-phase commit + rollback)，(2) <code>i18n.ts</code> 869 行 → 7 个 cluster
+              文件拆分，(3) v1.23.0 T2 fix-review 留下的 3 个 dead-code MEDIUM 清理。 零 breaking
+              change；所有 v1.23.0 caller 一行不动继续工作。完整说明 请参阅
+              <code>docs/release-notes/v1.23.1/README.md</code>。
+            </p>
+            <ul class="wn-list">
+              <li>
+                <strong>DBC 桥跨文件原子写入 (v1.23.1 PATCH T1)</strong> — 把 v1.23.0 的
+                <code>Promise.allSettled</code> + per-file <code>writeAtomic</code> 替换为 2-phase
+                commit + snapshot rollback：Phase 0 内存备份原内容 → Phase 1 并行写
+                <code>{path}.tmp.{pid}</code> → Phase 2 串行 atomic rename（每步 try-catch
+                跟踪哪个文件挂）→ Phase 3 任一 rename 失败则用 <code>writeAtomic</code> 回写
+                snapshot。<code>DbcImportComStackResponse.write-failed</code> arm 新增
+                <code>rolledBack: boolean</code>，让 App.tsx 区分显示
+                <strong>"已回滚, 项目未变, 请重试"</strong> 或
+                <strong>"部分回滚, 请检查 git 状态"</strong>（后者仅在回滚本身也挂时出现， 极
+                rare）。5 个新测试覆盖：happy path / partial failure / rollback failure /
+                tmp-leak-success / tmp-leak-rollback
+              </li>
+              <li>
+                <strong><code>i18n.ts</code> 869 行 → 7 个 cluster 文件 (v1.23.1 PATCH T2)</strong>
+                — 旧文件 511+2=513 keys 散在 35 个 namespace，逼近 900 行天花板。按
+                <strong>功能 cluster</strong> 拆分（不是按 namespace 拆 35 个文件）：
+                <code>app.ts</code> (74 keys / 89 行) + <code>dialog.ts</code> (38/57) +
+                <code>editor.ts</code> (140/181) + <code>validation.ts</code> (83/111) +
+                <code>dbc.ts</code> (31/49) + <code>odx.ts</code> (20/28) +
+                <code>misc.ts</code> (112/129)。最大 <code>editor.ts</code> 181 行 （远低于 300 行
+                ceiling）。新 barrel <code>src/shared/i18n/index.ts</code>
+                re-export 全部 public symbols。
+                <strong>21 行 backward-compat shim</strong> 留在
+                <code>src/shared/i18n.ts</code> 让现有 6 个 caller file （<code
+                  >DbcImportWizard</code
+                >
+                / <code>AppHeader</code> / <code>App.tsx</code> / <code>OdxViewer</code> 等）import
+                <code>'@shared/i18n'</code> 继续工作 — 0 caller 改动。 7 个新 ceiling test 验证每个
+                cluster 文件 &lt; 300 行； 88 个 i18n parity test 验证 513 keys × 2 locales 一致
+              </li>
+              <li>
+                <strong>3 个 dead-code MEDIUM 清理 (v1.23.1 PATCH T3)</strong> — 关闭 v1.23.0 T2
+                fix-review 留下的 3 个延期 MEDIUM：(1) 空 DBC 边界 （<code>messages: []</code> /
+                <code>signals: []</code> 不 throw） — 2 个 test 锁定
+                <code>?.filter ?? []</code> 防御性逻辑； (2) <code>parseArxml</code> 失败时
+                <code>console.warn</code> 提示 — 4 个 call site 加 try-catch + 统一日志格式
+                <code
+                  >[dbCToComStack] parseArxml failed for ARXML at /&lt;path&gt;: &lt;msg&gt;</code
+                >， dev mode 不再静默吞错；(3) <code>discoverPrimaryContainer</code> 嵌套 ECUC
+                module walk 的 focused regression test
+              </li>
+              <li>
+                <strong>测试覆盖持续提升</strong> — <strong>2769 tests · 96.31% stmts</strong>
+                （v1.23.0 时代 2751 → +18：T1 5 个 + T2 7 个 ceiling + T3 4 个 + T1-fix 2 个新增
+                i18n key 触发的 parity test）；pnpm verify 7-stage GREEN （format / lint /
+                type-check / test / coverage / build / import-regression）
+              </li>
+            </ul>
+          </section>
 
           <!-- ============================================ -->
           <!-- WHAT'S NEW IN v1.23.0 (DBC→Com-Stack bridge) -->

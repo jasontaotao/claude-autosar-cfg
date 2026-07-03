@@ -5,6 +5,45 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.23.1 (2026-07-03) — PATCH
+
+3 deferred items from the v1.23.0 ship cycle closed: cross-file atomic write for the DBC bridge IPC, i18n interface split (869 lines → 7 cluster files), 3 dead-code MEDIUMs from the v1.23.0 T2 fix-review. No breaking changes; backwards compatible with v1.23.0.
+
+- **`fix(bridge)` — T1 Cross-File Atomic Write**:
+  - `dbCImportComStackHandler` replaced `Promise.allSettled` + per-file `writeAtomic` with 2-phase commit + snapshot rollback.
+  - **Phase 0 (snapshot)**: capture 3 original file contents in memory (already done by the IPC step).
+  - **Phase 1**: write 3 tmp files in parallel (`{path}.tmp.{pid}`).
+  - **Phase 2**: atomic rename each tmp → target, in serial. Per-rename try-catch tracks which file failed.
+  - **Phase 3** (only on phase-2 failure): best-effort rollback via `writeAtomic` on each of 3 files using the snapshot. `Promise.allSettled` determines `rolledBack: boolean` from rollback outcomes.
+  - `DbcImportComStackResponse.write-failed` arm extended with `rolledBack: boolean` so the renderer can show "rolled back, project unchanged, please retry" or "rolled back partially, please check git status".
+  - 5 new tests: happy path, partial-failure-rollback, rollback-failure, tmp-leak-success, tmp-leak-rollback.
+  - 2-MEDIUM fix wave: added 2 i18n keys (`dbc.import.error.write.rolledBack` and `.partial`) so the diagnostic message is fully localized for zh-CN users (not mixed-language parenthetical). Broadened the tmp-leak regex to match both `tmp.{pid}` and `tmp-{pid}-{ts}` patterns.
+
+- **`refactor(i18n)` — T2 i18n Interface Split (869 → 7 cluster files)**:
+  - `src/shared/i18n.ts` was 869 lines (approaching the 900-line ceiling). 513 keys (511 original + 2 from T1) across 35 namespaces. Split into 7 cluster files by **functional group**, not by namespace.
+  - 7 clusters: `app.ts` (74 keys), `dialog.ts` (38), `editor.ts` (140), `validation.ts` (83), `dbc.ts` (31), `odx.ts` (20), `misc.ts` (112). Largest is `editor.ts` at 181 lines, well under the 300-line ceiling.
+  - The barrel `src/shared/i18n/index.ts` re-exports `Messages`, `MessagesEn`, `MessagesZhCN`, `Locale`, `DEFAULT_LOCALE`, `SUPPORTED_LOCALES`, `MESSAGES_BY_LOCALE`, and `t()`.
+  - A 21-line backward-compat shim at `src/shared/i18n.ts` forwards all public symbols from the new barrel so existing callers (`DbcImportWizard`, `AppHeader`, `App.tsx`, `OdxViewer`, etc.) that import from `'@shared/i18n'` continue to work without changes.
+  - 7 new tests in `i18n.ceiling.test.ts` (one per cluster, `it.each` asserting each per-cluster file < 300 lines). The existing 88-assertion i18n parity test continues to pass (now verifies 513 keys × 2 locales).
+
+- **`test(bridge)` — T3 Dead-Code Cleanups (3 MEDIUMs from v1.23.0 T2 fix-review)**:
+  - **Empty DBC edge case** — `dbCToComStack` with `messages: []` or `signals: []` (with non-empty messages) does not throw. 2 unit tests pin the defensive `?.filter ?? []` contract.
+  - **`parseArxml` throw surfacing** — `extractExistingChildShortNames` and 3 sibling call sites now wrap `parseArxml` in try-catch with `console.warn("[dbCToComStack] parseArxml failed for ARXML at /<path>: <message>")`. Dev mode surfaces parse errors instead of silently returning empty Sets.
+  - **Focused walk test for `discoverPrimaryContainer`** — nested ECUC module structure (Com > Com > ComConfig) now has a regression test that pins the walk contract.
+  - 4 new tests in `dbCToComStack.fixes.test.ts` (empty-messages, empty-signals, parseArxml-throw-warns, nested-walk).
+
+### Behavioral changes
+
+- **DBC bridge write failure**: when a write fails mid-bridge, the project is now rolled back to its pre-bridge state (the 3 ECUC files are unchanged). User sees a localized error toast. In the rare case where rollback also fails, the user sees a "rolled back partially, please check git status" warning.
+- **i18n path structure internal change**: existing callers continue to import from `'@shared/i18n'` (via the 21-line compat shim). The shim is a transition aid; future PATCH cycles should migrate callers to the new folder import path and delete the shim.
+
+### Migration notes
+
+- No data migration required. All changes are backwards compatible.
+- `DbcImportComStackResponse.write-failed` arm now carries `rolledBack: boolean`. The wizard's `App.tsx:841-842` switch renders the new field with two localized messages: `dbc.import.error.write.rolledBack` (rolled back, project unchanged) and `dbc.import.error.write.partial` (rolled back partially, please check git). Both keys are in en + zh-CN.
+- i18n import path: existing callers that import from `'@shared/i18n'` continue to work via the 21-line compat shim. New code should import from `'@shared/i18n'` (no `.js` suffix, resolves to the new folder). The shim is documented as a transition aid and will be deleted in a future PATCH cycle.
+- No new external dependencies, no deprecations, no removed features.
+
 ## v1.23.0 (2026-07-03) — MINOR
 
 DBC→Com-Stack bridge. Closes the long-standing "I need 80 ComIPdus and I don't want to hand-type them" gap that every Classic AUTOSAR toolchain solves (DaVinci Network Designer, tresos AutoSAR Configurator, ETAS BSW editor). New `DBC_IMPORT_COM_STACK` IPC + 3-step wizard ingests a DBC file and writes 3 ARXML files (Com / CanIf / PduR) atomically. Validated end-to-end against the bundled demo-ECU + real `powertrain-typical.dbc` from `dbc-forge`. Read-only ODX viewer (v1.22.0) and DBC viewer (v1.21.0) unchanged.
