@@ -585,7 +585,6 @@ export const MessagesZhCN: Messages = {
 
   // --- v1.23.0 MINOR T4 — DBC→Com-Stack 3-step wizard ---
   'dbc.import.wizard.title': '导入 DBC → Com 栈',
-  'dbc.import.step.select': '选择 DBC 文件',
   'dbc.import.step.preview': '预览映射',
   'dbc.import.step.confirm': '确认应用',
   'dbc.import.menu.label': '导入 DBC → Com 栈…',

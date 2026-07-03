@@ -602,7 +602,6 @@ export const MessagesEn: Messages = {
 
   // --- v1.23.0 MINOR T4 — DBC→Com-Stack 3-step wizard ---
   'dbc.import.wizard.title': 'Import DBC → Com Stack',
-  'dbc.import.step.select': 'Select DBC file',
   'dbc.import.step.preview': 'Preview mapping',
   'dbc.import.step.confirm': 'Confirm apply',
   'dbc.import.menu.label': 'Import DBC → Com Stack…',

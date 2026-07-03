@@ -18,6 +18,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { t } from '@shared/i18n';
 import type { DbcSummary } from '@shared/types';
 
 import { DbcImportWizard } from '../DbcImportWizard';
@@ -39,7 +40,7 @@ describe('DbcImportWizard (v1.23.0 T4)', () => {
   afterEach(() => cleanup());
 
   it('step 1 (SelectDbc) renders by default with a pick-file CTA', () => {
-    render(<DbcImportWizard onClose={vi.fn()} onApply={vi.fn()} />);
+    render(<DbcImportWizard onClose={vi.fn()} onApply={vi.fn()} locale="en" />);
     expect(screen.getByTestId('dbc-wizard-title').textContent).toMatch(/Import DBC/i);
     expect(screen.getByTestId('dbc-wizard-step-select')).not.toBeNull();
     expect(screen.getByTestId('dbc-wizard-pick-file')).not.toBeNull();
@@ -137,5 +138,42 @@ describe('DbcImportWizard (v1.23.0 T4)', () => {
     );
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // v1.23.0 PATCH — CRITICAL i18n wiring (T4 review). 13 of 18 keys were
+  // unused; the wizard rendered hardcoded English. Verify that the
+  // wizard now resolves its visible text via t(locale, key) so a
+  // zh-CN-locale user sees the localized strings.
+  it('renders localized strings via t(locale, key) — no hardcoded English on zh-CN', () => {
+    render(<DbcImportWizard onClose={vi.fn()} onApply={vi.fn()} locale="zh-CN" />);
+    expect(screen.getByTestId('dbc-wizard-title').textContent).toBe(
+      t('zh-CN', 'dbc.import.wizard.title'),
+    );
+    expect(screen.getByTestId('dbc-wizard-close').getAttribute('aria-label')).toBe(
+      t('zh-CN', 'dbc.import.close'),
+    );
+    expect(screen.getByTestId('dbc-wizard-pick-file').textContent).toBe(
+      t('zh-CN', 'dbc.import.select.button'),
+    );
+  });
+
+  it('renders localized preview/confirm labels on en locale', () => {
+    render(
+      <DbcImportWizard
+        initialDbc={SAMPLE_SUMMARY}
+        dbcContent={SAMPLE_DBC_CONTENT}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+        locale="en"
+      />,
+    );
+    // Preview step title
+    expect(screen.getByTestId('dbc-wizard-step-preview').textContent).toContain(
+      t('en', 'dbc.import.step.preview'),
+    );
+    // Next button label
+    expect(screen.getByTestId('dbc-wizard-next').textContent).toBe(
+      t('en', 'dbc.import.preview.next'),
+    );
   });
 });

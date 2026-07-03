@@ -31,6 +31,8 @@ import type {
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
+  ProjectReloadRequest,
+  ProjectReloadResponse,
   ProjectSaveRequest,
   ProjectSaveResult,
   ProjectCloseResult,
@@ -63,6 +65,7 @@ import { setOpenProjectManifestPath } from './project-manifest-state.js';
 import { projectCloseHandler } from './projectCloseHandler.js';
 import { projectDeleteArxmlHandler } from './projectDeleteArxmlHandler.js';
 import { projectNewHandler } from './projectNewHandler.js';
+import { projectReloadHandler } from './projectReloadHandler.js';
 import { projectSaveHandler } from './projectSaveHandler.js';
 import { projectWriteArxmlBatchHandler } from './projectWriteArxmlBatchHandler.js';
 import { saveArxmlHandler } from './saveArxmlHandler.js';
@@ -558,6 +561,22 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.DBC_IMPORT_COM_STACK,
     async (_evt, req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> => {
       return dbcImportComStackHandler(req);
+    },
+  );
+
+  // v1.23.0 PATCH (HIGH-1) — `project:reload` handler. Non-dialog
+  // counterpart to PROJECT_OPEN: takes an already-known manifest path
+  // and re-reads the manifest + every referenced ARXML/BSWMD. Used by
+  // the T4 DBC→Com-Stack apply handler so the user sees fresh ECUC
+  // values immediately after the bridge writes 3 files — without
+  // popping the OS file picker that PROJECT_OPEN requires. The
+  // handler is extracted to `projectReloadHandler.ts` for parity with
+  // `projectCloseHandler` / `bswmdDeleteHandler` (direct testability
+  // without the full ipcMain round-trip).
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_RELOAD,
+    async (_evt, req: ProjectReloadRequest): Promise<ProjectReloadResponse> => {
+      return projectReloadHandler(req);
     },
   );
 }

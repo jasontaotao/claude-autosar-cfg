@@ -37,6 +37,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { t, type Locale } from '@shared/i18n';
 import type { DbcSummary } from '@shared/types';
 
 import './DbcImportWizard.css';
@@ -70,6 +71,14 @@ export interface DbcImportWizardProps {
    * presentational so the IPC orchestration stays in one place.
    */
   readonly onPickDbc?: () => void;
+  /**
+   * Locale bound to the host's `useArxmlStore`. Drives the
+   * `t(locale, key)` calls in the JSX so a zh-CN user sees the
+   * Chinese strings (the v1.23.0 T4 CRITICAL fix — pre-fix the
+   * wizard rendered hardcoded English regardless of locale).
+   * Defaults to `'zh-CN'` to keep the existing call sites unchanged.
+   */
+  readonly locale?: Locale;
 }
 
 export function DbcImportWizard({
@@ -78,6 +87,7 @@ export function DbcImportWizard({
   initialDbc,
   dbcContent = '',
   onPickDbc,
+  locale = 'zh-CN',
 }: DbcImportWizardProps): JSX.Element {
   // Step routing. When the host supplies `initialDbc` we land
   // directly on the Preview step (the host already did the
@@ -149,14 +159,14 @@ export function DbcImportWizard({
       >
         <header className="dbc-wizard-header">
           <h2 id="dbc-wizard-title" className="dbc-wizard-title" data-testid="dbc-wizard-title">
-            Import DBC → Com Stack
+            {t(locale, 'dbc.import.wizard.title')}
           </h2>
           <button
             ref={closeButtonRef}
             type="button"
             className="dbc-wizard-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t(locale, 'dbc.import.close')}
             data-testid="dbc-wizard-close"
           >
             ×
@@ -175,15 +185,15 @@ export function DbcImportWizard({
               }}
               data-testid="dbc-wizard-pick-file"
             >
-              Select DBC file…
+              {t(locale, 'dbc.import.select.button')}
             </button>
           </section>
         )}
         {step === 'preview' && initialDbc !== undefined && (
           <section className="dbc-wizard-step" data-testid="dbc-wizard-step-preview">
-            <h3 className="dbc-wizard-step-title">Preview mapping</h3>
+            <h3 className="dbc-wizard-step-title">{t(locale, 'dbc.import.step.preview')}</h3>
             <p className="dbc-wizard-step-desc">
-              {initialDbc.messages.length} messages will be imported.
+              {t(locale, 'dbc.import.preview.messages', { count: initialDbc.messages.length })}
             </p>
             <ul className="dbc-wizard-messages">
               {initialDbc.messages.map((m) => (
@@ -236,17 +246,16 @@ export function DbcImportWizard({
                 disabled={targetNode.length === 0}
                 data-testid="dbc-wizard-next"
               >
-                Next
+                {t(locale, 'dbc.import.preview.next')}
               </button>
             </div>
           </section>
         )}
         {step === 'confirm' && (
           <section className="dbc-wizard-step" data-testid="dbc-wizard-step-confirm">
-            <h3 className="dbc-wizard-step-title">Confirm apply</h3>
+            <h3 className="dbc-wizard-step-title">{t(locale, 'dbc.import.step.confirm')}</h3>
             <p className="dbc-wizard-warning" data-testid="dbc-wizard-warning">
-              This will write 3 ARXML files (Com / CanIf / PduR) atomically for target node{' '}
-              <strong>{targetNode}</strong>.
+              {t(locale, 'dbc.import.confirm.warning', { targetNode })}
             </p>
             <div className="dbc-wizard-actions">
               <button
@@ -269,7 +278,9 @@ export function DbcImportWizard({
                 disabled={applying}
                 data-testid="dbc-wizard-apply"
               >
-                {applying ? 'Applying…' : 'Apply'}
+                {applying
+                  ? t(locale, 'dbc.import.confirm.applying')
+                  : t(locale, 'dbc.import.confirm.apply')}
               </button>
             </div>
           </section>

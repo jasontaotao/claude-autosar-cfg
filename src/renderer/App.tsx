@@ -42,6 +42,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t as i18nT, t } from '@shared/i18n';
+import { toManifestRelative } from '@shared/path';
 
 import type { DbcSummary, OdxSummary } from '../shared/types';
 
@@ -799,6 +800,7 @@ export function App(): JSX.Element {
             onClose={closeDbcImportWizard}
             initialDbc={dbcImportState.summary}
             dbcContent={dbcImportState.content}
+            locale={useArxmlStore.getState().locale}
             onApply={async (dbcContent: string, targetNode: string): Promise<void> => {
               const api = window.autosarApi;
               if (api === undefined) {
@@ -831,18 +833,68 @@ export function App(): JSX.Element {
                 setStoreError(t(loc, key, { message: res.error.message }));
                 throw new Error(res.error.message);
               }
-              // Success — surface a confirmation toast. The next user
-              // action (e.g. saving, validating, switching to an
-              // ARXML tab) re-reads the on-disk files automatically
-              // because the store pulls fresh content for each doc
-              // at revalidation time. A programmatic project reload
-              // is NOT possible today because the `project:open` IPC
-              // is dialog-only (pops an OS file picker); a future
-              // v1.23.x follow-up can introduce a `project:reload`
-              // channel that re-reads the manifest by path. T4's
-              // contract is "apply succeeded" — the visible 3-file
-              // write is the user's signal.
-              setInfo(t(loc, 'dbc.import.success', { count: res.value.addedCounts.com }));
+              // Success — surface a confirmation toast AND reload the
+              // project so the store re-parses the 3 freshly-written
+              // ARXMLs + any BSWMDs. Without the reload, the user
+              // sees stale ECUC values until they manually reopen
+              // the project. `project:reload` is the non-dialog
+              // counterpart to `project:open` (T4 PATCH HIGH-1):
+              // takes the already-known manifest path and re-reads
+              // the bundle in one round-trip.
+              //
+              // Split the response's flat `files[]` back into docs
+              // vs BSWMDs so `useArxmlStore.openProject` can consume
+              // it in the same shape `useProjectActions.openProject`
+              // supplies (matches by manifest-relative `rel` for docs,
+              // by absolute path for BSWMDs).
+              try {
+                const reload = await api.projectReload({ manifestPath: projPath });
+                if (reload.kind === 'read-failed') {
+                  // Don't fail the apply — the 3-file write already
+                  // succeeded. Surface the reload failure as a
+                  // localized warning so the user knows the in-memory
+                  // store is stale and can manually reopen.
+                  setStoreError(t(loc, 'app.error.openProjectFailed', { message: reload.message }));
+                } else {
+                  const docs: { rel: string; path: string; content: string }[] = [];
+                  const bswmds: { rel: string; path: string; content: string }[] = [];
+                  const docsRelSet = new Set(proj.valueArxmlPaths);
+                  for (const f of reload.files) {
+                    const rel = toManifestRelative(projPath, f.path) ?? f.path;
+                    if (docsRelSet.has(rel)) {
+                      docs.push({ rel, path: f.path, content: f.content });
+                    } else {
+                      bswmds.push({ rel, path: f.path, content: f.content });
+                    }
+                  }
+                  useArxmlStore.getState().openProject({
+                    manifestPath: projPath,
+                    manifest: reload.manifest,
+                    docs,
+                    bswmds,
+                  });
+                }
+              } catch (reloadErr) {
+                // Belt-and-braces — `projectReload` is async + IPC;
+                // a hard reject (channel missing, etc.) should not
+                // sink the apply-success toast.
+                setStoreError(
+                  t(loc, 'app.error.openProjectFailed', {
+                    message: reloadErr instanceof Error ? reloadErr.message : String(reloadErr),
+                  }),
+                );
+              }
+              // HIGH-2 (v1.23.0 PATCH) — total added counts across all
+              // 3 ECUC files (Com / CanIf / PduR). The Preview step
+              // shows "N messages will be imported" using
+              // `dbc.messages.length`; matching the success toast to
+              // the same total (not just `com`) keeps the contract
+              // honest if the bridge drops a message at CanIf/PduR.
+              const totalAdded =
+                res.value.addedCounts.com +
+                res.value.addedCounts.canIf +
+                res.value.addedCounts.pduR;
+              setInfo(t(loc, 'dbc.import.success', { count: totalAdded }));
               closeDbcImportWizard();
             }}
           />

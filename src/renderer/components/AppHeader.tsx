@@ -618,7 +618,7 @@ export function AppHeader({
                 data-testid="btn-import-dbc-com"
               >
                 <span className="app-dropdown-icon" aria-hidden="true">
-                  📥
+                  {t(locale, 'dbc.import.menu.icon')}
                 </span>
                 {t(locale, 'dbc.import.menu.label')}
               </button>

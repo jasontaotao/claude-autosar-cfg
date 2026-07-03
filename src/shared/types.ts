@@ -699,6 +699,47 @@ export type ProjectOpenResult =
 export type ProjectCloseResult = { readonly kind: 'closed' };
 
 /**
+ * v1.23.0 PATCH (HIGH-1) — `PROJECT_RELOAD` request payload. The
+ * non-dialog counterpart to `PROJECT_OPEN`: takes an already-known
+ * absolute manifest path and re-reads it + every referenced
+ * value-side ARXML + BSWMD from disk. Used by the T4
+ * `DBC→Com-Stack` apply handler so the user sees fresh ECUC values
+ * immediately after a successful bridge — without popping the OS
+ * file picker that `PROJECT_OPEN` requires.
+ *
+ * Mirrors the same shape as `PROJECT_OPEN`'s read-side payload, minus
+ * the dialog-driven `path: string` (already supplied).
+ */
+export interface ProjectReloadRequest {
+  readonly manifestPath: string;
+}
+
+/**
+ * v1.23.0 PATCH (HIGH-1) — `PROJECT_RELOAD` response envelope.
+ *
+ * Success: `{ kind: 'ok', manifest, files }` — `manifest` is the
+ * parsed `ProjectManifest`; `files` is a flat array of every ARXML +
+ * BSWMD the manifest references, each carrying the absolute `path`
+ * and the `content` string. The renderer's `useArxmlStore.openProject`
+ * action reuses this bundle verbatim (splitting by kind is the
+ * store's job).
+ *
+ * Failure: `{ kind: 'read-failed', message }` — IO error, JSON parse
+ * error, path-containment violation, or a referenced file missing
+ * from disk.
+ */
+export type ProjectReloadResponse =
+  | {
+      readonly kind: 'ok';
+      readonly manifest: ProjectManifest;
+      readonly files: ReadonlyArray<{
+        readonly path: string;
+        readonly content: string;
+      }>;
+    }
+  | { readonly kind: 'read-failed'; readonly message: string };
+
+/**
  * Request payload for `PROJECT_SAVE`. The renderer sends the current
  * manifest + any files whose content has changed since the last save.
  * `files` may be empty if only the manifest changed (e.g. added a path

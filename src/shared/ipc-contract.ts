@@ -181,6 +181,13 @@ export const IPC_CHANNELS = {
   // suffix because this is v1.23.0's first cut of the bridge surface;
   // a breaking change would land before v1.24 anyway).
   DBC_IMPORT_COM_STACK: 'dbc:importComStack',
+  // v1.23.0 PATCH (HIGH-1) — project:reload. Non-dialog counterpart
+  // to PROJECT_OPEN: takes an already-known absolute manifest path and
+  // re-reads the manifest + every referenced ARXML/BSWMD. Used by the
+  // T4 DBC→Com-Stack apply handler so the user sees fresh ECUC values
+  // immediately after the bridge writes 3 files — without popping the
+  // OS file picker that PROJECT_OPEN requires.
+  PROJECT_RELOAD: 'project:reload',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
@@ -203,5 +210,8 @@ export const DBC_IMPORT_COM_STACK = IPC_CHANNELS.DBC_IMPORT_COM_STACK;
 // v1.18.2 PATCH — top-level alias for PROJECT_CLOSE (mirrors PROJECT_OPEN
 // convention at the prior siblings; both compile to the same string).
 export const PROJECT_CLOSE = IPC_CHANNELS.PROJECT_CLOSE;
+// v1.23.0 PATCH (HIGH-1) — top-level alias for PROJECT_RELOAD (mirrors
+// the PROJECT_OPEN / PROJECT_CLOSE alias convention above).
+export const PROJECT_RELOAD = IPC_CHANNELS.PROJECT_RELOAD;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

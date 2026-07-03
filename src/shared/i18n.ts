@@ -782,7 +782,6 @@ export interface Messages {
   // read-only DbcViewer) — `dbc.import.menu.label` triggers the
   // full T3 IPC pipeline.
   readonly 'dbc.import.wizard.title': string;
-  readonly 'dbc.import.step.select': string;
   readonly 'dbc.import.step.preview': string;
   readonly 'dbc.import.step.confirm': string;
   readonly 'dbc.import.menu.label': string;

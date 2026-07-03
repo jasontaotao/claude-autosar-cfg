@@ -37,6 +37,8 @@ import type {
   ProjectNewRequest,
   ProjectNewResult,
   ProjectOpenResult,
+  ProjectReloadRequest,
+  ProjectReloadResponse,
   ProjectSaveRequest,
   ProjectSaveResult,
   ProjectWriteArxmlBatchRequest,
@@ -99,6 +101,17 @@ const api = {
   // Idempotent: returns `{ kind: 'closed' }` whether or not a project
   // is open (mirrors Unix `close(2)` semantics per v1.18.2 plan).
   projectClose: (): Promise<ProjectCloseResult> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CLOSE),
+  // v1.23.0 PATCH (HIGH-1) — `project:reload`. Non-dialog counterpart
+  // to `projectOpen`: takes an already-known manifest path and
+  // re-reads the manifest + every referenced ARXML/BSWMD. Used by the
+  // T4 DBC→Com-Stack apply handler so the user sees fresh ECUC values
+  // immediately after the bridge writes 3 files — without popping the
+  // OS file picker that `projectOpen` requires. The IPC envelope is
+  // intentionally narrow (manifestPath only); the response carries the
+  // full bundle so the renderer's `useArxmlStore.openProject` can
+  // consume it verbatim.
+  projectReload: (req: ProjectReloadRequest): Promise<ProjectReloadResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_RELOAD, req),
   projectSave: (req: ProjectSaveRequest): Promise<ProjectSaveResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SAVE, req),
   // Sprint 12 #1 — BSWMD schema-side parser
