@@ -4,7 +4,7 @@
 // the subdir so the main component file can stay focused on the JSX body.
 // C13 Option B split 2/2.
 
-import { t, type Locale } from '../../../shared/i18n.js';
+import { t, type Locale } from '../../../shared/i18n/index.js';
 import { basename } from '../../../shared/path.js';
 import type { ParseError } from '../../../shared/types.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';

@@ -6,8 +6,8 @@
 // handler — Task 8 wires `invokeSwsValidatorRun`; this component is
 // purely presentational.
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 interface GateToggleProps {
   readonly checked: boolean;

@@ -9,7 +9,7 @@
 //
 // Naming convention for rule ids: `SWS_<MODULE>_<NAME>` (e.g. SWS_COM_PDUID_UNIQUE).
 
-import type { Locale } from '../../shared/i18n.js';
+import type { Locale } from '../../shared/i18n/index.js';
 import type {
   NormalizedDocument,
   NormalizedElement,

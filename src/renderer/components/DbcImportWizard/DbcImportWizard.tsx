@@ -37,7 +37,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { t, type Locale } from '@shared/i18n';
+import { t, type Locale } from '@shared/i18n/index.js';
 import type { DbcSummary } from '@shared/types';
 
 import './DbcImportWizard.css';

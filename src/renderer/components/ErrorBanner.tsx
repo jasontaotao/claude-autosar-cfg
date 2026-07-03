@@ -23,7 +23,7 @@
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 

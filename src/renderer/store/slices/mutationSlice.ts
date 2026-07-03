@@ -17,7 +17,7 @@ import {
 import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlDocument } from '@core/arxml/types';
 import { validateProjectForRenderer } from '@core/validation';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import {
   findChildContainerDef,

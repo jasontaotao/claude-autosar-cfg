@@ -18,7 +18,7 @@
 
 import type { JSX } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import { basename } from '@shared/path';
 
 // useProjectActions used to be destructured here for the loose-mode

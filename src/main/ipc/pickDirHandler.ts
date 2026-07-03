@@ -24,7 +24,7 @@
 
 import { dialog } from 'electron';
 
-import { t, type Locale } from '../../shared/i18n.js';
+import { t, type Locale } from '../../shared/i18n/index.js';
 import type { PickDirRequest, PickDirResult } from '../../shared/types.js';
 
 export async function pickDirHandler(req: PickDirRequest): Promise<PickDirResult> {

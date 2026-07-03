@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import type { ScriptKind, ScriptSummary } from '@shared/script/types';
 
 import { ScriptKindBadge } from './ScriptKindBadge';

@@ -34,7 +34,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import type { Locale } from '@shared/i18n.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import {

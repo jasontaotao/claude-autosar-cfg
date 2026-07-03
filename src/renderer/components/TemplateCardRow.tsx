@@ -22,8 +22,8 @@
 //   - the loading skeleton (it tracks `loading` directly so we
 //     don't need a separate prop for that state)
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';
 

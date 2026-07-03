@@ -8,7 +8,7 @@ import type { StateCreator } from 'zustand';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import { parseBswmd } from '@core/project/bswmd.js';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 

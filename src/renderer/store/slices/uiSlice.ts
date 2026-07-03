@@ -7,7 +7,7 @@ import type { StateCreator } from 'zustand';
 
 import type { ReferenceHit } from '@core/arxml/mutation.js';
 import type { ArxmlDocument } from '@core/arxml/types';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import type { CombinedDocumentWarning } from '../helpers/combinedDoc.js';
 import { computeDisplayDoc } from '../helpers/combinedDoc.js';

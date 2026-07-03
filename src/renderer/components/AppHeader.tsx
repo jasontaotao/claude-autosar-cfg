@@ -36,7 +36,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { t } from '../../shared/i18n.js';
+import { t } from '../../shared/i18n/index.js';
 import { basename } from '../../shared/path.js';
 import type { ParseArxmlResponse } from '../../shared/types.js';
 import { useProjectActions } from '../hooks/useProjectActions';

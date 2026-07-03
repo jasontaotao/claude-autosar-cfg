@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import type { ScriptKind, ScriptSummary } from '@shared/script/types';
 
 import { useScriptActions } from '../../hooks/useScriptActions';

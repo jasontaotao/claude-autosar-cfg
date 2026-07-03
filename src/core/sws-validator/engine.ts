@@ -10,8 +10,8 @@
 // the engine silently returns `[]` (no warning, no error). This is the
 // expected behavior during a W tour, not a failure mode.
 
-import { DEFAULT_LOCALE, t } from '../../shared/i18n.js';
-import type { Locale } from '../../shared/i18n.js';
+import { DEFAULT_LOCALE, t } from '../../shared/i18n/index.js';
+import type { Locale } from '../../shared/i18n/index.js';
 
 import type { RuleRegistry } from './RuleRegistry.js';
 import { buildValidationContext } from './context.js';

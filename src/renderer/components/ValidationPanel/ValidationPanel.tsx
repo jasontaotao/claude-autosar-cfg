@@ -13,8 +13,8 @@
 
 import type { JSX } from 'react';
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { useSwsValidatorStore } from '../../store/useSwsValidatorStore.js';

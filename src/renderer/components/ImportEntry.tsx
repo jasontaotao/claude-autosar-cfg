@@ -32,7 +32,7 @@ import { useCallback, useState } from 'react';
 import type { JSX } from 'react';
 
 import type { ArxmlDocument } from '@core/arxml/types';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 

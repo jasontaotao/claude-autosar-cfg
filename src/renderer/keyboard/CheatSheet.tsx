@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
-import { t, type MessageKey } from '@shared/i18n';
+import { t, type MessageKey } from '@shared/i18n/index.js';
 
 import type { CommandCategory } from './ShortcutRegistry.js';
 

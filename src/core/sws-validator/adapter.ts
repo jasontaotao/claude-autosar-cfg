@@ -9,7 +9,7 @@
 // (e.g. v1.7.0 N ASPICE traceability) can reuse the same translator.
 
 import type { ValidatorResult } from '../../shared/headless/ipc-contract.js';
-import { t, type Locale } from '../../shared/i18n.js';
+import { t, type Locale } from '../../shared/i18n/index.js';
 
 import type { InternalValidatorResult, Severity } from './types.js';
 

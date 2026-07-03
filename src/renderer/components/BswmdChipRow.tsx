@@ -22,8 +22,8 @@
 // absolute path and decides whether to add or remove it. This
 // keeps the chip row's behaviour deterministic and unit-testable.
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';
 

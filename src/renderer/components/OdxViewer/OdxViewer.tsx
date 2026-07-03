@@ -32,8 +32,8 @@
 
 import { useEffect, useRef } from 'react';
 
-import { t } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 import { basename } from '@shared/path';
 import type { OdxSummary } from '@shared/types';
 

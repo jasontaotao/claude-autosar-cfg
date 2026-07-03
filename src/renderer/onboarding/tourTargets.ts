@@ -7,7 +7,7 @@
 //   - resolveTourTarget 返回 DOMRect 或 null (centered fallback)
 //   - 业务注释中文, 技术 API 注释英文
 
-import type { MessageKey } from '@shared/i18n';
+import type { MessageKey } from '@shared/i18n/index.js';
 
 export type TourStepPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center';
 

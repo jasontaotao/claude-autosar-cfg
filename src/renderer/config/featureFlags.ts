@@ -12,7 +12,7 @@
 // KeymapProvider mount and short-circuit on false (per U spec §6.4 —
 // zero-overhead when OFF).
 
-import type { Locale } from '../../shared/i18n.js';
+import type { Locale } from '../../shared/i18n/index.js';
 import type { FeatureFlags } from '../../shared/ipc/featureFlags.js';
 
 export type FeatureFlagsResponse = FeatureFlags;

@@ -18,7 +18,7 @@
 import { findByPath, findByPathMultiDoc } from '@core/arxml/path';
 import type { ArxmlElement, ParamValue } from '@core/arxml/types';
 import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
 

@@ -34,8 +34,8 @@ import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
 import { getContainerDefByPath } from '@core/project/bswmd.js';
 import type { BswModuleDef } from '@core/project/bswmd.js';
-import { t } from '@shared/i18n.js';
-import type { Locale } from '@shared/i18n.js';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { resolveContainerTarget, useArxmlStore } from '../store/useArxmlStore.js';
 

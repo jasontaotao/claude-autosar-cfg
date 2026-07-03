@@ -5,7 +5,7 @@
 // Callers iterate it to build the ShortcutRegistry, palette entries,
 // and cheat sheet sections.
 
-import type { MessageKey } from '@shared/i18n';
+import type { MessageKey } from '@shared/i18n/index.js';
 
 import type { Command } from '../ShortcutRegistry.js';
 import type { CommandCategory } from '../types.js';

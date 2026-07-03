@@ -23,8 +23,8 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import { t } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { OptionalAddPlaceholder } from './OptionalAddPlaceholder.js';
 import { TreeNode } from './TreeNode.js';

@@ -27,7 +27,7 @@ import type { JSX } from 'react';
 
 import { buildModuleDiff } from '@core/import/diff';
 import type { ImportResolution } from '@core/import/types';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 

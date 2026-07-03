@@ -46,8 +46,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 import type { TemplateListResponse } from '@shared/types';
 
 import { useArxmlStore } from '../store/useArxmlStore';

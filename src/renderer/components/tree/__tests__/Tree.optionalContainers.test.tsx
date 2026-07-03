@@ -27,7 +27,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArxmlDocument } from '@core/arxml/types.js';
 import type { BswModuleDef, BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
-import type { Locale } from '@shared/i18n.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { Tree } from '../Tree.js';
 import type { ArxmlStoreApi } from '../Tree.js';

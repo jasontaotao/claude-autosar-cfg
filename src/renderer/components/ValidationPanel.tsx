@@ -17,7 +17,7 @@
 import type { JSX } from 'react';
 
 import type { ValidationError } from '@core/validation';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 import { useScriptStore } from '../store/useScriptStore';

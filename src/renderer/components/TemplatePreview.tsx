@@ -26,8 +26,8 @@
 // Pure presentational. The host (NewProjectDialog) owns the
 // selected-template state and the BSWMD selection.
 
-import { t } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { BswmdChipRow } from './BswmdChipRow';
 import type { TemplateRow } from './templates';

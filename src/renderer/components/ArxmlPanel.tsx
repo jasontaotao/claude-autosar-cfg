@@ -20,7 +20,7 @@
 import type { JSX } from 'react';
 
 import type { ArxmlElement } from '@core/arxml/types.js';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore';
 

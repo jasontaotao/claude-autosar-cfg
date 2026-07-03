@@ -23,8 +23,8 @@
 //
 // Pure presentational — no state, no store access.
 
-import { t } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 import type { ScriptKind } from '@shared/script/types';
 
 export interface ScriptKindBadgeProps {

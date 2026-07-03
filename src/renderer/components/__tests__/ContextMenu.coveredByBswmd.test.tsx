@@ -42,7 +42,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import type { Locale } from '@shared/i18n.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { closeContextMenu, ContextMenuRoot, openContextMenu } from '../ContextMenu.js';

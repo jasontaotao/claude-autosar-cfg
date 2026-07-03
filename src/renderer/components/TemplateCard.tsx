@@ -17,8 +17,8 @@
 // state. The card is focusable (it's a real `<button>`) so keyboard
 // users can Tab into it after the name input.
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';
 

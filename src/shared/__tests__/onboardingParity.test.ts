@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MessagesZhCN, MessagesEn } from '../i18n.js';
+import { MessagesZhCN, MessagesEn } from '../i18n/index.js';
 
 const W_KEYS: readonly string[] = [
   // 20 onboarding keys

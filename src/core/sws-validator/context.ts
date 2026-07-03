@@ -5,7 +5,7 @@
 // Pure / sync / no I/O. Builders operate on `NormalizedDocument` (v1.5.1
 // PR(4)) + `SchemaLayer` (Sprint 12 #2).
 
-import type { Locale } from '../../shared/i18n.js';
+import type { Locale } from '../../shared/i18n/index.js';
 import type {
   NormalizedDocument,
   NormalizedElement,

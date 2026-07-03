@@ -34,7 +34,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Locale } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
 import type { TemplateListResponse } from '@shared/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';

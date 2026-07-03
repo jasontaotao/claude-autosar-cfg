@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import type { CommandCategory } from './ShortcutRegistry.js';
 import { trapFocus } from './a11y/focusTrap.js';

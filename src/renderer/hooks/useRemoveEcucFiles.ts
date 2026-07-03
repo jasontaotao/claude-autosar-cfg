@@ -38,7 +38,7 @@ import { useCallback } from 'react';
 
 import { findEcucModuleByShortName } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
-import { t } from '@shared/i18n.js';
+import { t } from '@shared/i18n/index.js';
 import type { ProjectDeleteArxmlResult } from '@shared/types.js';
 
 import { confirm } from '../components/ConfirmDialog.js';

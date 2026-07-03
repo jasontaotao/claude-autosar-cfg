@@ -15,7 +15,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Locale } from '@shared/i18n.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import type { ContextMenuAction, ContextMenuTarget } from '../ContextMenu.js';
 import { closeContextMenu, ContextMenuRoot, openContextMenu } from '../ContextMenu.js';

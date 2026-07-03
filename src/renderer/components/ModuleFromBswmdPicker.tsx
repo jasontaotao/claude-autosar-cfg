@@ -35,7 +35,7 @@ import { resolveCollisionFilename } from '@core/arxml/skeleton.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
 import { getActiveModules } from '@core/project/bswmd.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import { t } from '@shared/i18n.js';
+import { t } from '@shared/i18n/index.js';
 import { bswmdKeyFor } from '@shared/path.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';

@@ -22,7 +22,7 @@
 
 import type { JSX, MouseEvent as ReactMouseEvent } from 'react';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 
 import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';

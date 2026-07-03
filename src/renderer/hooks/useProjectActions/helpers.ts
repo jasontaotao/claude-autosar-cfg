@@ -4,8 +4,8 @@
 // in the subdir so the main hook file can stay focused on the hook body.
 // C13 Option B split 1/2.
 
-import type { Locale } from '../../../shared/i18n.js';
-import { t } from '../../../shared/i18n.js';
+import type { Locale } from '../../../shared/i18n/index.js';
+import { t } from '../../../shared/i18n/index.js';
 import { confirm } from '../../components/ConfirmDialog.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 

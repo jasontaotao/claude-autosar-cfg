@@ -41,7 +41,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 
 import { findFirstEcucModule } from '@core/arxml/path.js';
 import type { PickedModule } from '@core/arxml/skeleton.js';
-import { t as i18nT, t } from '@shared/i18n';
+import { t as i18nT, t } from '@shared/i18n/index.js';
 import { toManifestRelative } from '@shared/path';
 
 import type { DbcSummary, OdxSummary } from '../shared/types';

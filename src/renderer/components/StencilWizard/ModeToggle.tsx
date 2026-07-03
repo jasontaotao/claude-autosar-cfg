@@ -4,8 +4,8 @@
 // the state. Mirrors the inline `<input type="radio">` pattern used in
 // `DiffTable.tsx` so we don't pull in a radio-group library.
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import type { StencilMode } from '../../../main/stencil/types.js';
 

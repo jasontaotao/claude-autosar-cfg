@@ -6,8 +6,8 @@
 // bundle (`stencil.family.*`); default option order matches the
 // builder dispatcher in `src/main/stencil/builder.ts`.
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import type { StencilFamily } from '../../../main/stencil/types.js';
 

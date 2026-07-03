@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseArxml } from '@core/arxml/parser.js';
 import type { ArxmlDocument, ArxmlElement, ArxmlModule, ArxmlPackage } from '@core/arxml/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import type { Locale } from '@shared/i18n.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import { Tree } from '../Tree.js';
 import type { ArxmlStoreApi } from '../Tree.js';

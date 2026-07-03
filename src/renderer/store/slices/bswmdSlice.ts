@@ -11,7 +11,7 @@ import type { StateCreator } from 'zustand';
 import type { ArxmlDocument } from '@core/arxml/types';
 import { parseBswmd } from '@core/project/bswmd.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import { dirname as sharedDirname, toManifestRelative } from '@shared/path';
 
 import {

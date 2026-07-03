@@ -4,8 +4,8 @@
 
 import type { StateCreator } from 'zustand';
 
-import { DEFAULT_LOCALE } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { DEFAULT_LOCALE } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 
 import type { ArxmlState } from '../useArxmlStore.js';
 

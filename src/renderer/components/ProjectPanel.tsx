@@ -22,8 +22,8 @@ import type { JSX, ReactNode } from 'react';
 import { useMemo } from 'react';
 
 import type { BswmdDocument } from '@core/project/bswmd.js';
-import { t } from '@shared/i18n';
-import type { Locale } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
 import { basename, bswmdKeyFor } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 

@@ -18,7 +18,7 @@
 
 import { type JSX } from 'react';
 
-import { t, type Locale } from '@shared/i18n';
+import { t, type Locale } from '@shared/i18n/index.js';
 
 import { type TourIpcContract } from '../../lib/TourIpcContract.js';
 

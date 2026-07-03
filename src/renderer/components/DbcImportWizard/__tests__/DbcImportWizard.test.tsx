@@ -18,7 +18,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { t } from '@shared/i18n';
+import { t } from '@shared/i18n/index.js';
 import type { DbcSummary } from '@shared/types';
 
 import { DbcImportWizard } from '../DbcImportWizard';

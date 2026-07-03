@@ -11,8 +11,8 @@
 
 import { useEffect, useState } from 'react';
 
-import type { Locale } from '@shared/i18n';
-import { t } from '@shared/i18n';
+import type { Locale } from '@shared/i18n/index.js';
+import { t } from '@shared/i18n/index.js';
 
 import { TOUR_STEPS, resolveTourTarget, type TourStepDef } from './tourTargets.js';
 

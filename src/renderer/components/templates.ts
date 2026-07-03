@@ -17,7 +17,7 @@
 // so a broken on-disk layout (`template.json` present but no files)
 // does not render as a clickable card that copies an empty directory.
 
-import { t, type Locale, type MessageKey } from '@shared/i18n';
+import { t, type Locale, type MessageKey } from '@shared/i18n/index.js';
 
 /** Minimal shape of a template row, as returned by the IPC. */
 export interface TemplateRow {
