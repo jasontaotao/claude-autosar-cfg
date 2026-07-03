@@ -14,8 +14,13 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { t, MessagesZhCN, MessagesEn } from '../i18n.js';
-import type { Locale, MessageKey, Messages } from '../i18n.js';
+// v1.23.1 T2 — `i18n` is now a directory with `index.ts` barrel.
+// The barrel re-exports the same public API (t, MESSAGES_BY_LOCALE,
+// Locale, DEFAULT_LOCALE, SUPPORTED_LOCALES, MessageKey, Messages,
+// MessagesEn, MessagesZhCN), so callers can keep importing from
+// `@shared/i18n`. Test imports point directly at the barrel.
+import { t, MessagesZhCN, MessagesEn } from '../i18n/index.js';
+import type { Locale, MessageKey, Messages } from '../i18n/index.js';
 
 const I18N_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -782,35 +787,80 @@ export type { Messages };
 // the bundles (or grows i18n.ts back beyond 900 lines) fails this test.
 // -----------------------------------------------------------------------------
 
-describe('i18n — file split (LOW-3 backlog, 1769→800)', () => {
-  it('i18n.ts is split into per-locale bundle files', () => {
-    // Sanity: the split files exist on disk. If a refactor inlines the
-    // bundles back into i18n.ts, this fails first.
-    expect(existsSync(join(I18N_DIR, '..', 'i18n.zh-CN.ts'))).toBe(true);
-    expect(existsSync(join(I18N_DIR, '..', 'i18n.en.ts'))).toBe(true);
+describe('i18n — file split (v1.23.1 T2, 869→7-cluster barrel)', () => {
+  it('i18n is split into a barrel + 7 cluster type files', () => {
+    // Sanity: the cluster split files exist on disk. If a refactor inlines
+    // the bundle back into a single file, this fails first.
+    for (const cluster of ['app', 'dialog', 'editor', 'validation', 'dbc', 'odx', 'misc']) {
+      expect(existsSync(join(I18N_DIR, '..', 'i18n', `${cluster}.ts`))).toBe(true);
+      expect(existsSync(join(I18N_DIR, '..', 'i18n.en', `${cluster}.ts`))).toBe(true);
+      expect(existsSync(join(I18N_DIR, '..', 'i18n.zh-CN', `${cluster}.ts`))).toBe(true);
+    }
+    expect(existsSync(join(I18N_DIR, '..', 'i18n', 'index.ts'))).toBe(true);
+    expect(existsSync(join(I18N_DIR, '..', 'i18n', 'types.ts'))).toBe(true);
   });
 
-  it('i18n.ts stays under the 900-line regression ceiling', () => {
-    // The split targets ≤ 800 lines; we assert 900 to allow headroom for
-    // organic type-interface growth (~30 keys with docs at the current
-    // rate) while still flagging a re-inlined bundle (~1700 lines) as a
-    // regression. v1.23.0 T4 bumped the ceiling from 850 → 900 to
-    // absorb the 18 new `dbc.import.*` keys (13 net lines on the
-    // interface, after the per-key doc comments) without forcing a
-    // premature interface-split refactor.
-    const lines = readFileSync(join(I18N_DIR, '..', 'i18n.ts'), 'utf8').split('\n').length;
-    expect(lines).toBeLessThan(900);
+  it('every per-cluster type file stays under the 300-line ceiling', () => {
+    // v1.23.1 T2 — post-split ceiling per cluster file. Was 900 lines
+    // on the monolithic `i18n.ts`; the cluster split targets ≤300
+    // lines per cluster file (largest is editor at ~120 keys × 2
+    // line/avg). If a cluster balloons back, this fails first.
+    const clusters = ['app', 'dialog', 'editor', 'validation', 'dbc', 'odx', 'misc'];
+    for (const cluster of clusters) {
+      const lines = readFileSync(join(I18N_DIR, '..', 'i18n', `${cluster}.ts`), 'utf8').split(
+        '\n',
+      ).length;
+      expect(lines, `${cluster}.ts`).toBeLessThan(300);
+    }
   });
 
-  it('i18n.ts barrel re-exports MessagesZhCN and MessagesEn', async () => {
-    // Importing from the locale files directly + comparing references
-    // proves the barrel re-export is identity-preserving (not a copy).
-    // MessagesZhCN / MessagesEn are already statically imported at the
-    // top of this file (the barrel is `../i18n.js`); only the bundle
-    // modules need dynamic import for the cross-module reference check.
-    const { MessagesZhCN: zhFromBundle } = await import('../i18n.zh-CN.js');
-    const { MessagesEn: enFromBundle } = await import('../i18n.en.js');
-    expect(MessagesZhCN).toBe(zhFromBundle);
-    expect(MessagesEn).toBe(enFromBundle);
+  it('i18n barrel re-exports MessagesZhCN and MessagesEn with identical key sets', async () => {
+    // v1.23.1 T2 — the barrel composes MessagesZhCN / MessagesEn
+    // from 7 per-cluster bundles via spread. Object identity is no
+    // longer preserved (spread produces a new object), so this test
+    // pins the next-best invariant: the barrel's bundle covers the
+    // same key set as the per-cluster bundles (enforced by the
+    // interface assignment at compile time). The runtime check
+    // below confirms Object.keys(MessagesEn) and the union of the
+    // 7 per-cluster en bundles match.
+    const { AppEn } = await import('../i18n.en/app.js');
+    const { DialogEn } = await import('../i18n.en/dialog.js');
+    const { EditorEn } = await import('../i18n.en/editor.js');
+    const { ValidationEn } = await import('../i18n.en/validation.js');
+    const { DbcEn } = await import('../i18n.en/dbc.js');
+    const { OdxEn } = await import('../i18n.en/odx.js');
+    const { MiscEn } = await import('../i18n.en/misc.js');
+
+    const unionKeys = new Set([
+      ...Object.keys(AppEn),
+      ...Object.keys(DialogEn),
+      ...Object.keys(EditorEn),
+      ...Object.keys(ValidationEn),
+      ...Object.keys(DbcEn),
+      ...Object.keys(OdxEn),
+      ...Object.keys(MiscEn),
+    ]);
+    const barrelKeys = Object.keys(MessagesEn);
+    expect(barrelKeys.sort()).toEqual([...unionKeys].sort());
+
+    const { AppZhCN } = await import('../i18n.zh-CN/app.js');
+    const { DialogZhCN } = await import('../i18n.zh-CN/dialog.js');
+    const { EditorZhCN } = await import('../i18n.zh-CN/editor.js');
+    const { ValidationZhCN } = await import('../i18n.zh-CN/validation.js');
+    const { DbcZhCN } = await import('../i18n.zh-CN/dbc.js');
+    const { OdxZhCN } = await import('../i18n.zh-CN/odx.js');
+    const { MiscZhCN } = await import('../i18n.zh-CN/misc.js');
+
+    const unionKeysZh = new Set([
+      ...Object.keys(AppZhCN),
+      ...Object.keys(DialogZhCN),
+      ...Object.keys(EditorZhCN),
+      ...Object.keys(ValidationZhCN),
+      ...Object.keys(DbcZhCN),
+      ...Object.keys(OdxZhCN),
+      ...Object.keys(MiscZhCN),
+    ]);
+    const barrelKeysZh = Object.keys(MessagesZhCN);
+    expect(barrelKeysZh.sort()).toEqual([...unionKeysZh].sort());
   });
 });
