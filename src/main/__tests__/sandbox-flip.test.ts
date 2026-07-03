@@ -83,6 +83,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
     const keys = Object.keys(api as Record<string, unknown>).sort();
     expect(keys).toEqual([
       'copyTemplate',
+      'dbcImportComStack',
       'deleteArxml',
       'deleteBswmd',
       'deleteScript',

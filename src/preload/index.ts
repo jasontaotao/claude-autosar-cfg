@@ -17,6 +17,8 @@ import type {
   OpenBswmdResult,
   OpenDbcResult,
   OpenOdxResult,
+  DbcImportComStackRequest,
+  DbcImportComStackResponse,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -211,6 +213,16 @@ const api = {
   // switch in `headlessRunCommandHandler.ts`).
   runHeadlessCommand: (req: HeadlessRunCommandRequest): Promise<HeadlessRunCommandResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.HEADLESS_RUN_COMMAND, req),
+  // v1.23.0 T3 — DBC→Com-Stack bridge IPC. Renderer wires this into the
+  // T4 wizard (the next MINOR). The handler orchestrates the full
+  // pipeline: parse DBC (T1) → call the pure mapper (T2) → parse 3
+  // ECUC files → apply patches → write all 3 atomically. Returns ok
+  // with `addedCounts: { com, canIf, pduR }` or a discriminated error.
+  // The IPC envelope is intentionally narrow — a future "re-bridge
+  // without re-parsing" affordance can introduce a separate channel
+  // rather than overloading this one.
+  dbcImportComStack: (req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DBC_IMPORT_COM_STACK, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

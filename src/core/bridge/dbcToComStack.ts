@@ -259,16 +259,26 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
     if (!existingComIpdu.has(msg.name)) {
       comPatches.push({
         op: 'add-child',
-        parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}/${msg.name}`,
+        // v1.23.0 T3 fix — `parentPath` is the path to the EXISTING
+        // parent container that the new instance will be added under
+        // (mirrors `applyPatchSteps`'s `findParentContainerDef` lookup
+        // at src/core/mutation/applyPatchSteps.ts:703-714). The new
+        // instance's name lives in `shortName`, NOT in `parentPath`.
+        // The pre-T3 mapper appended `msg.name` to `parentPath`, which
+        // broke `findParentContainerDef` once `applyPatchSteps` was
+        // called with a real `moduleDef` (T1+T2 only call it on the
+        // patch PLAN — T3 actually applies the patches).
+        parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}`,
         shortName: msg.name,
         definitionRef: `/AUTOSAR/Com/${comPrimary}/ComIPdu`,
         kind: 'com-ipdu',
       });
-      // ComSignal children
+      // ComSignal children — same fix: parentPath is the parent
+      // container (the new ComIPdu), `shortName` is the new signal.
       for (const sig of signals) {
         comPatches.push({
           op: 'add-child',
-          parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}/${msg.name}/${sig.name}`,
+          parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}/${msg.name}`,
           shortName: sig.name,
           definitionRef: `/AUTOSAR/Com/${comPrimary}/ComIPdu/ComSignal`,
           kind: 'com-signal',
@@ -283,7 +293,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       if (!existingCanIfTx.has(msg.name)) {
         canIfPatches.push({
           op: 'add-child',
-          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.txSubName}/${msg.name}`,
+          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.txSubName}`,
           shortName: msg.name,
           definitionRef: `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.txSubName}/CanIfTxPduCfg`,
           kind: 'canif-tx-pdu',
@@ -293,7 +303,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       if (!existingCanIfRx.has(msg.name)) {
         canIfPatches.push({
           op: 'add-child',
-          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.rxSubName}/${msg.name}`,
+          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.rxSubName}`,
           shortName: msg.name,
           definitionRef: `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.rxSubName}/CanIfRxPduCfg`,
           kind: 'canif-rx-pdu',
@@ -305,7 +315,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
     if (!existingPduRRoutes.has(msg.name)) {
       pduRPatches.push({
         op: 'add-child',
-        parentPath: `/${PDUR_MODULE}/${PDUR_MODULE}/${pduRPrimary}/${msg.name}`,
+        parentPath: `/${PDUR_MODULE}/${PDUR_MODULE}/${pduRPrimary}`,
         shortName: msg.name,
         definitionRef: `/AUTOSAR/PduR/${pduRPrimary}/PduRRoutingPath`,
         kind: 'pdur-route',

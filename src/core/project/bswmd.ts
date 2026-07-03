@@ -1141,6 +1141,23 @@ function buildContainer(
     }
   }
   const subContainers: ContainerDef[] = [];
+  // v1.23.0 T3 fix — read BOTH `<CONTAINERS>` and `<SUB-CONTAINERS>`
+  // so BSWMD sub-container children wrapped in either form surface as
+  // siblings of the parent. Mirrors the v1.23.0 T2 fix in
+  // `src/core/arxml/parser.ts:418-433` (which solved the same bug for
+  // value-side ARXMLs). Real OEM demo-ecu BSWMDs (Vector-style
+  // `<CONTAINERS>` shorthand) wrap children directly inside
+  // `<CONTAINERS>` rather than the longer-form `<SUB-CONTAINERS>`;
+  // the prior code only read `<SUB-CONTAINERS>`, leaving
+  // `parent.subContainers` empty and silently breaking
+  // `findParentContainerDef` in `applyPatchSteps.ts:703-714` (the
+  // bridge's BSWMD-driven child-def lookup).
+  const containersRaw = item['CONTAINERS'];
+  if (typeof containersRaw === 'object' && containersRaw !== null) {
+    subContainers.push(
+      ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
+    );
+  }
   const subRaw = item['SUB-CONTAINERS'];
   if (typeof subRaw === 'object' && subRaw !== null) {
     subContainers.push(

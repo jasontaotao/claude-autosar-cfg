@@ -12,6 +12,8 @@ import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
   OpenBswmdResult,
+  DbcImportComStackRequest,
+  DbcImportComStackResponse,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -47,6 +49,7 @@ import { trackHandler } from '../shutdown/drain.js';
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
+import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
@@ -543,6 +546,20 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE, swsValidateStub);
   ipcMain.handle(IPC_CHANNELS.SWS_VALIDATE_CANCEL, swsValidateCancelStub);
   ipcMain.handle(IPC_CHANNELS.HEADLESS_RUN_COMMAND, headlessRunCommandHandler);
+
+  // v1.23.0 T3 — DBC→Com-Stack bridge handler. Single invoke that
+  // orchestrates the full pipeline: parse DBC (T1) → call the pure
+  // mapper (T2) → parse each of the 3 ECUC files → apply patches →
+  // write all 3 atomically. Returns the total added counts per file
+  // (com / canIf / pduR). The renderer wires this into the T4 wizard
+  // (the next MINOR). See `dbcImportComStackHandler.ts` for the
+  // full pipeline + idempotency semantics.
+  ipcMain.handle(
+    IPC_CHANNELS.DBC_IMPORT_COM_STACK,
+    async (_evt, req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> => {
+      return dbcImportComStackHandler(req);
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

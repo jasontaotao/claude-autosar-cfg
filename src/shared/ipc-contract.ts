@@ -171,6 +171,16 @@ export const IPC_CHANNELS = {
   // renderer-friendly summary (see `OdxSummary` in
   // `src/shared/types.ts`).
   ODX_PARSE: 'odx:parse',
+  // v1.23.0 T3 — DBC→Com-Stack bridge. Orchestrates the full pipeline:
+  // re-parse DBC (T1) → pure mapper (T2) → parse each of 3 ECUC
+  // ARXMLs → apply patches → write all 3 files via the existing
+  // `project:writeArxmlBatch` channel. Renderer supplies the DBC
+  // content (already read from disk by `dbc:open`); main reads the
+  // 3 ECUC value-side files from the manifest directory. Channel
+  // name follows the unsuffixed v1.22.0 ODX/DBC convention (no `:v1`
+  // suffix because this is v1.23.0's first cut of the bridge surface;
+  // a breaking change would land before v1.24 anyway).
+  DBC_IMPORT_COM_STACK: 'dbc:importComStack',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
@@ -187,6 +197,9 @@ export const PROJECT_DELETE_ARXML = IPC_CHANNELS.PROJECT_DELETE_ARXML;
 export const HEADLESS_RUN_COMMAND = IPC_CHANNELS.HEADLESS_RUN_COMMAND;
 export const HEADLESS_MUTATE_APPLIED = IPC_CHANNELS.HEADLESS_MUTATE_APPLIED;
 export const HEADLESS_VALIDATE_RESULT = IPC_CHANNELS.HEADLESS_VALIDATE_RESULT;
+// v1.23.0 T3 — top-level alias for DBC_IMPORT_COM_STACK (mirrors the
+// sibling alias convention above). Both compile to the same string.
+export const DBC_IMPORT_COM_STACK = IPC_CHANNELS.DBC_IMPORT_COM_STACK;
 // v1.18.2 PATCH — top-level alias for PROJECT_CLOSE (mirrors PROJECT_OPEN
 // convention at the prior siblings; both compile to the same string).
 export const PROJECT_CLOSE = IPC_CHANNELS.PROJECT_CLOSE;
