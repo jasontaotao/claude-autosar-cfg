@@ -45,4 +45,12 @@ export const DbcEn: DbcMessages = {
   'dbc.import.error.write.partial':
     'Failed to write 3 ARXML files: {message} (rolled back partially — please check git status)',
   'dbc.import.success': 'Successfully imported {count} messages',
+
+  // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.
+  'odx.export.diagnosticExtract.button': 'Export Diagnostic Extract',
+  'odx.export.diagnosticExtract.exporting': 'Exporting…',
+  'odx.export.diagnosticExtract.success.title': 'Diagnostic Extract Exported',
+  'odx.export.diagnosticExtract.success.body':
+    'Generated {dtcCount} DemEvents, {didCount} DIDs, {routineCount} Routines.',
+  'odx.export.diagnosticExtract.error': 'Export failed: {error}',
 };

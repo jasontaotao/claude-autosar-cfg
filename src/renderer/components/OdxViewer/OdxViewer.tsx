@@ -50,6 +50,10 @@ export interface OdxViewerProps {
   readonly error?: string;
   readonly locale: Locale;
   readonly onClose: () => void;
+  /** v1.24.0 MINOR T3 — fires when user clicks "Export Diagnostic Extract". */
+  readonly onExport: () => void;
+  /** v1.24.0 MINOR T3 — true while the export IPC round-trip is in flight; disables the button. */
+  readonly exporting: boolean;
 }
 
 export function OdxViewer({
@@ -59,6 +63,8 @@ export function OdxViewer({
   error,
   locale,
   onClose,
+  onExport,
+  exporting,
 }: OdxViewerProps): JSX.Element | null {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -116,6 +122,28 @@ export function OdxViewer({
             ×
           </button>
         </header>
+        {/* v1.24.0 MINOR T3 — Export Diagnostic Extract button.
+            Disabled while the export IPC round-trip is in flight
+            (`exporting`) or when there's no parsed summary yet
+            (null/error arm above renders the error banner instead
+            of the tables). Click fires `onExport` so the host
+            (App.tsx) can drive the T2 IPC handler. */}
+        <button
+          type="button"
+          className="odx-viewer-export"
+          onClick={onExport}
+          disabled={exporting || summary === null}
+          aria-label={
+            exporting
+              ? t(locale, 'odx.export.diagnosticExtract.exporting')
+              : t(locale, 'odx.export.diagnosticExtract.button')
+          }
+          data-testid="odx-viewer-export"
+        >
+          {exporting
+            ? t(locale, 'odx.export.diagnosticExtract.exporting')
+            : t(locale, 'odx.export.diagnosticExtract.button')}
+        </button>
         {summary === null ? (
           <div className="odx-viewer-error" data-testid="odx-viewer-error">
             <strong>{t(locale, 'odx.viewer.errorTitle')}:</strong> {error ?? '(no message)'}

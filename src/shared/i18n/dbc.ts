@@ -46,4 +46,17 @@ export interface DbcMessages {
   readonly 'dbc.import.error.write.rolledBack': string; // {message}
   readonly 'dbc.import.error.write.partial': string; // {message}
   readonly 'dbc.import.success': string; // {count}
+
+  // --- v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI ---
+  // v1.23.0 T4 placed DBC-cluster UI strings here (not a separate
+  // `odx.*` cluster) because the keys describe the same DBC-import
+  // flow. T3 keeps the same pattern: these keys drive the new
+  // Export Diagnostic Extract button in OdxViewer + the success
+  // dialog that surfaces 2 ARXML file paths + counts after the
+  // T2 IPC handler returns ok=true.
+  readonly 'odx.export.diagnosticExtract.button': string;
+  readonly 'odx.export.diagnosticExtract.exporting': string;
+  readonly 'odx.export.diagnosticExtract.success.title': string;
+  readonly 'odx.export.diagnosticExtract.success.body': string; // {dtcCount} {didCount} {routineCount}
+  readonly 'odx.export.diagnosticExtract.error': string; // {error}
 }

@@ -55,6 +55,7 @@ import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
 import type { ContextMenuAction } from './components/ContextMenu';
 import { DbcImportWizard } from './components/DbcImportWizard';
 import { DbcViewer } from './components/DbcViewer';
+import { DiagnosticExtractSuccessDialog } from './components/DiagnosticExtractSuccessDialog';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
@@ -580,6 +581,112 @@ export function App(): JSX.Element {
     setOdxModal({ kind: 'closed' });
   }, []);
 
+  // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
+  //
+  // Mirrors the v1.23.0 T4 DBC wizard / v1.22.0 T3 ODX viewer pattern:
+  // a discriminated union for the success dialog state (closed /
+  // open-with-payload), plus a separate `diagExtractExporting` ref
+  // that survives across the awaited IPC round-trip so a concurrent
+  // click cannot race the in-flight call.
+  //
+  // The "exporting" flag is a useState (not useRef) so the OdxViewer
+  // button can read its live value and re-render the disabled label
+  // (button text switches to "Exporting…" / "导出中…"). The button's
+  // own disabled-when-exporting gate is the in-flight guard; the
+  // ref-based `odxInFlight` only protects the upstream ODX-parse
+  // round-trip, not this export leg.
+  //
+  // Three response branches (mirrors the T2 envelope):
+  //   1. ok: true → open success dialog with demPath/dcmPath/stats
+  //   2. ok: false + kind: 'read-failed' → store error toast
+  //   3. ok: false + kind: 'write-failed' → store error toast (with
+  //      rolledBack split per the v1.23.1 T1 L1 i18n-bypass-pattern
+  //      lesson — localiser owns the diagnostic text)
+  type DiagExtractModalState =
+    | { readonly kind: 'closed' }
+    | {
+        readonly kind: 'open';
+        readonly demPath: string;
+        readonly dcmPath: string;
+        readonly stats: {
+          readonly dtcCount: number;
+          readonly didCount: number;
+          readonly routineCount: number;
+        };
+      };
+  const [diagExtractModal, setDiagExtractModal] = useState<DiagExtractModalState>({
+    kind: 'closed',
+  });
+  const [diagExtractExporting, setDiagExtractExporting] = useState(false);
+  const handleExportOdxDiagnosticExtract = useCallback(async (): Promise<void> => {
+    if (odxModal.kind !== 'open') return; // only meaningful while a parsed ODX is loaded
+    if (diagExtractExporting) return;
+    const api = window.autosarApi;
+    if (api === undefined) {
+      setStoreError('importDiagnosticExtract API not available');
+      return;
+    }
+    // The outputDir targets a project-relative path. We strip the
+    // manifest filename off `projectPath` to derive `projectDir` and
+    // then append `samples/arxml/diagnostic-extract/`. The T2 handler
+    // creates the Dem_Extract.arxml + Dcm_Extract.arxml inside that
+    // directory (or returns read-failed if the dir doesn't exist).
+    // Per the brief, a user-selected path is out-of-scope for v1.24.0;
+    // the project-relative default is the single source of truth.
+    const state = useArxmlStore.getState();
+    const projectPath = state.projectPath;
+    const locale = state.locale;
+    const projectDir = projectPath !== null ? projectPath.replace(/[\\/][^\\/]+$/, '') : '';
+    const outputDir =
+      projectDir.length > 0
+        ? `${projectDir}/samples/arxml/diagnostic-extract`
+        : `${odxModal.path.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
+    setDiagExtractExporting(true);
+    try {
+      const res = await api.importDiagnosticExtract({
+        odxPath: odxModal.path,
+        outputDir,
+      });
+      if (res.ok) {
+        setDiagExtractModal({ kind: 'open', ...res.value });
+        return;
+      }
+      // Failure path — branched by error kind so the localiser owns
+      // every diagnostic string (v1.23.1 T1 L1 i18n-bypass-pattern).
+      switch (res.error.kind) {
+        case 'read-failed':
+          setStoreError(
+            t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message }),
+          );
+          return;
+        case 'write-failed':
+          // Same `rolledBack` split as the DBC wizard (v1.23.1 T1
+          // MEDIUM-1) — rolledBack=true means project is in a clean
+          // state; rolledBack=false means the user needs to audit
+          // git status because partial state may remain on disk.
+          if (res.error.rolledBack) {
+            setStoreError(
+              `${t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message })} (rolled back — project unchanged, please retry)`,
+            );
+          } else {
+            setStoreError(
+              `${t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message })} (rolled back partially — please check git status)`,
+            );
+          }
+          return;
+        default: {
+          const _exhaustive: never = res.error;
+          void _exhaustive;
+        }
+      }
+    } finally {
+      setDiagExtractExporting(false);
+    }
+  }, [odxModal, diagExtractExporting, setStoreError]);
+  const closeDiagExtractDialog = useCallback((): void => {
+    setDiagExtractModal({ kind: 'closed' });
+  }, []);
+
   // v1.23.0 T4 — DBC→Com-Stack 3-step wizard state machine. Mirrors
   // the v1.21.0 T4 DBC + v1.22.0 T3 ODX pattern line-for-line
   // (separate modal state, separate in-flight ref). The wizard's
@@ -783,6 +890,25 @@ export function App(): JSX.Element {
             error={odxModal.kind === 'error' ? odxModal.message : undefined}
             locale={useArxmlStore.getState().locale}
             onClose={closeOdxViewer}
+            onExport={handleExportOdxDiagnosticExtract}
+            exporting={diagExtractExporting}
+          />
+        )}
+
+        {/* v1.24.0 MINOR T3 — Diagnostic Extract success dialog.
+            Mounted at the root so its z-index 9997 sits above the
+            OdxViewer (9996). Only in DOM while `diagExtractModal.kind`
+            is 'open' — the dialog is dismissable via the close
+            button, Escape, or backdrop-click (mirrors OdxViewer
+            a11y pattern). */}
+        {diagExtractModal.kind === 'open' && (
+          <DiagnosticExtractSuccessDialog
+            open
+            demPath={diagExtractModal.demPath}
+            dcmPath={diagExtractModal.dcmPath}
+            stats={diagExtractModal.stats}
+            locale={useArxmlStore.getState().locale}
+            onClose={closeDiagExtractDialog}
           />
         )}
 

@@ -1,0 +1,109 @@
+/* DiagnosticExtractSuccessDialog — v1.24.0 MINOR T3.
+   Read-only confirmation modal shown after the ODX→Diagnostic
+   Extract IPC handler returns ok=true. Mirrors the v1.22.0 T2
+   OdxViewer / v1.21.0 T4 DbcViewer Catppuccin Mocha palette +
+   z-index 9997 (above OdxViewer 9996 so it can stack on top
+   during the brief window between OdxViewer close + dialog open). */
+
+.diag-extract-success-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.diag-extract-success-card {
+  background: #313244; /* --color-surface */
+  border: 1px solid #45475a; /* --color-border */
+  border-radius: 12px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  color: #cdd6f4; /* --color-text */
+  padding: 24px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.diag-extract-success-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #a6e3a1; /* green = success accent */
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+}
+
+.diag-extract-success-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cdd6f4;
+}
+
+.diag-extract-success-paths {
+  margin: 0;
+  padding: 12px 14px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diag-extract-success-path-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.diag-extract-success-path-row dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c7086;
+  font-weight: 500;
+  margin: 0;
+}
+
+.diag-extract-success-path-row dd {
+  margin: 0;
+}
+
+.diag-extract-success-path-row code {
+  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  color: #89b4fa;
+  word-break: break-all;
+  user-select: text;
+}
+
+.diag-extract-success-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.diag-extract-success-close {
+  appearance: none;
+  padding: 6px 16px;
+  background: #89b4fa;
+  color: #1e1e2e;
+  border: 1px solid #89b4fa;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.diag-extract-success-close:hover {
+  background: #b4befe;
+  border-color: #b4befe;
+}

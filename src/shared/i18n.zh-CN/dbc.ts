@@ -41,4 +41,12 @@ export const DbcZhCN: DbcMessages = {
   'dbc.import.error.write.partial':
     '写入 3 个 ARXML 文件失败：{message}（部分回滚，请检查 git 状态）',
   'dbc.import.success': '成功导入 {count} 条消息',
+
+  // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.
+  'odx.export.diagnosticExtract.button': '导出诊断抽取',
+  'odx.export.diagnosticExtract.exporting': '导出中…',
+  'odx.export.diagnosticExtract.success.title': '诊断抽取已导出',
+  'odx.export.diagnosticExtract.success.body':
+    '已生成 {dtcCount} 个 DemEvent、{didCount} 个 DID、{routineCount} 个 Routine。',
+  'odx.export.diagnosticExtract.error': '导出失败：{error}',
 };

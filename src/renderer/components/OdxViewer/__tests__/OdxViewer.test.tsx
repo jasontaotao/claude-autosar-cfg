@@ -79,6 +79,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     expect(screen.getByTestId('odx-viewer-title').textContent).toMatch(/diag\.odx/);
@@ -92,6 +94,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     const stats = screen.getByTestId('odx-viewer-stats').textContent;
@@ -110,6 +114,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     expect(screen.getByTestId('odx-dtc-DTC_001')).not.toBeNull();
@@ -133,6 +139,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     expect(screen.getByTestId('odx-did-DID_001')).not.toBeNull();
@@ -149,6 +157,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     expect(screen.getByTestId('odx-routine-REQ_001')).not.toBeNull();
@@ -165,6 +175,8 @@ describe('OdxViewer (T2)', () => {
         summary={EMPTY_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     // "no DTCs" hint appears (the exact wording depends on i18n key).
@@ -182,6 +194,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={onClose}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     fireEvent.click(screen.getByTestId('odx-viewer-close'));
@@ -197,6 +211,8 @@ describe('OdxViewer (T2)', () => {
         error="ODX parse failed: missing <ODX> root"
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     expect(screen.getByTestId('odx-viewer-error')).not.toBeNull();
@@ -213,6 +229,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={onClose}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -228,6 +246,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={onClose}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     const backdrop = screen.getByTestId('odx-viewer');
@@ -246,6 +266,8 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="en"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -261,9 +283,55 @@ describe('OdxViewer (T2)', () => {
         summary={SAMPLE_SUMMARY}
         locale="zh-CN"
         onClose={vi.fn()}
+        onExport={vi.fn()}
+        exporting={false}
       />,
     );
     const title = screen.getByTestId('odx-viewer-title').textContent ?? '';
     expect(title).toMatch(/ODX/);
+  });
+});
+
+// v1.24.0 MINOR T3 — Export Diagnostic Extract button wiring.
+//
+// The button lives inside the OdxViewer modal footer; clicking it
+// fires `onExport()` so App.tsx can run the T2 IPC handler
+// (`window.autosarApi.importDiagnosticExtract(...)`). The button is
+// disabled when summary is null (no parsed data to export) or while
+// exporting (in-flight IPC round-trip). Mirrors the v1.23.0 T4
+// DBC-wizard apply-button disable gating.
+describe('OdxViewer — Export Diagnostic Extract button (v1.24.0 T3)', () => {
+  const baseProps = {
+    open: true,
+    path: '/x.odx-d',
+    summary: SAMPLE_SUMMARY,
+    locale: 'en' as const,
+    onClose: vi.fn(),
+    onExport: vi.fn(),
+    exporting: false,
+  } as const;
+
+  it('renders Export Diagnostic Extract button when summary is loaded', () => {
+    render(<OdxViewer {...baseProps} />);
+    expect(screen.getByRole('button', { name: /Export Diagnostic Extract/i })).toBeInTheDocument();
+  });
+
+  it('disables Export button when summary is null', () => {
+    render(<OdxViewer {...baseProps} summary={null} error="x" />);
+    const btn = screen.getByRole('button', { name: /Export Diagnostic Extract/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it('calls onExport when clicked', () => {
+    const onExport = vi.fn();
+    render(<OdxViewer {...baseProps} onExport={onExport} />);
+    fireEvent.click(screen.getByRole('button', { name: /Export Diagnostic Extract/i }));
+    expect(onExport).toHaveBeenCalledOnce();
+  });
+
+  it('disables Export button while exporting is in flight', () => {
+    render(<OdxViewer {...baseProps} exporting={true} />);
+    const btn = screen.getByRole('button', { name: /Exporting/i });
+    expect(btn).toBeDisabled();
   });
 });

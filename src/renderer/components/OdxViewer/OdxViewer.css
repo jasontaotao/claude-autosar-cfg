@@ -77,6 +77,37 @@
   line-height: 1.5;
 }
 
+/* v1.24.0 MINOR T3 — Export Diagnostic Extract button. Sits below
+   the header, right-aligned; disabled state matches the rest of the
+   modal's chrome (50% opacity, no hover). */
+.odx-viewer-export {
+  appearance: none;
+  margin: 14px 20px 4px;
+  align-self: flex-end;
+  padding: 6px 14px;
+  background: #89b4fa;
+  color: #1e1e2e;
+  border: 1px solid #89b4fa;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.odx-viewer-export:hover:not(:disabled) {
+  background: #b4befe;
+  border-color: #b4befe;
+}
+
+.odx-viewer-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .odx-viewer-stats {
   display: flex;
   gap: 24px;
