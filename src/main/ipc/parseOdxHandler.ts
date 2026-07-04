@@ -190,7 +190,10 @@ function summarizeOdx(odx: Record<string, unknown>): OdxSummary {
 
   // DIDs (optional in ODX-D — only present when the file models
   // data identifiers). Look in both locations, same as DTCs.
-  const dids = extractDids(dtcHost, container);
+  // v1.24.0 T4 real-OEM fix: also walk REQUESTS and pick out
+  // SERVICE-ID = 0x22 (ReadDataByIdentifier) — Vector .odx-d
+  // files model DIDs that way.
+  const dids = extractDids(dtcHost, container, layer, container);
 
   // Routines (REQUEST) live in BASE-VARIANTS > BASE-VARIANT in
   // Vector's shape, OR directly under DIAG-LAYER in the spec
@@ -394,6 +397,8 @@ function buildDtcText(dtc: Record<string, unknown>): string {
 function extractDids(
   primary: Record<string, unknown>,
   secondary: Record<string, unknown>,
+  layer: Record<string, unknown> | undefined,
+  container: Record<string, unknown>,
 ): readonly OdxDidSummary[] {
   const out: OdxDidSummary[] = [];
   const seen = new Set<string>();
@@ -431,6 +436,44 @@ function extractDids(
       }
     }
   }
+  // v1.24.0 T4 real-OEM fix: Vector .odx-d files model DIDs as
+  // REQUEST entries with `SERVICE-ID` CODED-VALUE = 0x22
+  // (ReadDataByIdentifier), NOT as standalone `<DID-OBJECT>`
+  // elements. Walk REQUESTS alongside the standalone-DID walk
+  // and pick out the 0x22 ones. Dedup by REQUEST `ID` so a
+  // declaration that appears both as a `<DID-OBJECT>` and a
+  // REQUEST (rare but legal) does not double the count.
+  const seenReqs = new Set<string>();
+  const collectDidsFrom = (root: Record<string, unknown>): void => {
+    for (const wrapper of asArray(root['REQUESTS'])) {
+      if (typeof wrapper !== 'object' || wrapper === null) continue;
+      for (const raw of asArray((wrapper as Record<string, unknown>)['REQUEST'])) {
+        if (typeof raw !== 'object' || raw === null) continue;
+        const el = raw as Record<string, unknown>;
+        const id = attrOf(el, 'ID');
+        if (id.length === 0 || seenReqs.has(id)) continue;
+        seenReqs.add(id);
+        const sid = serviceIdOf(el);
+        // 0x22 = ReadDataByIdentifier (UDS SID 0x22 = decimal 34).
+        // 0x2E (0x2E = 46, DynamicDefineDataIdentifier) is
+        // intentionally NOT a Diagnostic Extract DID — it
+        // defines a DID at runtime. Skip.
+        if (sid !== 0x22) continue;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+      }
+    }
+  };
+  if (layer !== undefined) collectDidsFrom(layer);
+  // Vector shape: BASE-VARIANTS > BASE-VARIANT > REQUESTS.
+  for (const bvWrapper of asArray(container['BASE-VARIANTS'])) {
+    if (typeof bvWrapper !== 'object' || bvWrapper === null) continue;
+    for (const bv of asArray((bvWrapper as Record<string, unknown>)['BASE-VARIANT'])) {
+      if (typeof bv !== 'object' || bv === null) continue;
+      collectDidsFrom(bv as Record<string, unknown>);
+    }
+  }
   return out;
 }
 
@@ -446,6 +489,23 @@ function extractRoutines(
   // Vector shape: REQUESTS inside BASE-VARIANTS > BASE-VARIANT
   // (we also walk any other BASE-VARIANT siblings — multiple
   // variants per file are legal in ODX-D).
+  //
+  // v1.24.0 T4 real-OEM fix: a Vector .odx-d file declares ALL
+  // UDS services (ReadDataByIdentifier, ReadDTCInformation,
+  // SecurityAccess, …) as REQUEST entries — not just Routines.
+  // The hand-crafted T1 fixture used a REQUEST with no SERVICE-ID
+  // param (the legacy interpretation was "every REQUEST is a
+  // Routine"). Real OEM files distinguish them via the first
+  // `<PARAM SEMANTIC="SERVICE-ID"><CODED-VALUE>` child:
+  //   - 0x22 (34, ReadDataByIdentifier)  → DID-shaped request
+  //   - 0x31 (49, RoutineControl)        → Routine
+  //   - any other / missing              → ignored (not a
+  //     Diagnostic Extract candidate)
+  //
+  // Backward compat: a REQUEST with no SERVICE-ID param keeps
+  // the T1 behavior of being classified as a Routine. This
+  // preserves the hand-crafted fixture (1 REQUEST → 1 routine)
+  // without forcing a fixture rewrite.
   const out: OdxRoutineSummary[] = [];
   const seen = new Set<string>();
   const collectFrom = (root: Record<string, unknown>): void => {
@@ -456,6 +516,15 @@ function extractRoutines(
         const el = raw as Record<string, unknown>;
         const id = attrOf(el, 'ID');
         if (id.length === 0 || seen.has(id)) continue;
+        const sid = serviceIdOf(el);
+        // 0x31 = RoutineControl: a real Routine.
+        // missing/0x00 = legacy shape; treat as Routine (T1 fixture).
+        // 0x22 = ReadDataByIdentifier: this is a DID-shaped request,
+        // surfaced through `extractDids` instead — do NOT emit it
+        // from the routine walk.
+        // 0x2E (DynamicDefineDataIdentifier) is intentionally not
+        // emitted; the Diagnostic Extract bridge does not model it.
+        if (sid !== null && sid !== 0x31 && sid !== 0x00) continue;
         seen.add(id);
         out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
       }
@@ -471,6 +540,32 @@ function extractRoutines(
     }
   }
   return out;
+}
+
+/** UDS SERVICE-ID (the first byte of every UDS request). Read
+ *  from the first `<PARAM SEMANTIC="SERVICE-ID">` child's
+ *  `<CODED-VALUE>`. Returns `null` when the REQUEST has no
+ *  SERVICE-ID param, or when the value cannot be parsed as a
+ *  non-negative integer. */
+function serviceIdOf(request: Record<string, unknown>): number | null {
+  // The fast-xml-parser shape is:
+  //   REQUEST > PARAMS > PARAM (array of records)
+  // `PARAMS` is itself an object with a `PARAM` child. Descend
+  // into the PARAM array before searching for SERVICE-ID.
+  const paramsObj = request['PARAMS'];
+  if (typeof paramsObj !== 'object' || paramsObj === null) return null;
+  const params = asArray((paramsObj as Record<string, unknown>)['PARAM']);
+  for (const p of params) {
+    if (typeof p !== 'object' || p === null) continue;
+    const pRec = p as Record<string, unknown>;
+    const semantic = pRec['@_SEMANTIC'];
+    if (semantic !== 'SERVICE-ID') continue;
+    const coded = attrOf(pRec, 'CODED-VALUE');
+    if (coded.length === 0) return null;
+    const n = Number.parseInt(coded, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 /** Strip a `0x` or `0X` prefix from a hex string. Defensive against
