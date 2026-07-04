@@ -60,3 +60,59 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
     }
   });
 });
+
+// v1.24.x PATCH — T3 real-OEM DID data regression (SHIP-BLOCKING).
+// Pins concrete <DCM-DSP-DID-DATA> output against the real
+// Vector CANdelaStudio export (samples/odx/Demo_Cdd.odx-d). All
+// 34 0x22 REQUESTs have a DID-value PARAM whose <DIAG-CODED-TYPE>
+// has BASE-DATA-TYPE=A_UINT32 + BIT-LENGTH=16, with no explicit
+// BASE-TYPE-ENCODING (the mapper emits 'NONE' as default).
+// Pre-flight confirmed: RQ_CellVolt_JG_Read (DID 258, REQUEST ID
+// _444, lines 10137-10180 in Demo_Cdd.odx-d).
+describe('odxImportDiagnosticExtractHandler — v1.24.x PATCH DID data (T3 real-OEM)', () => {
+  it('emits <DCM-DSP-DID-DATA> for all 34 DIDs from Demo_Cdd.odx-d', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'odx-bridge-real-'));
+    try {
+      const result = await odxImportDiagnosticExtractHandler({
+        odxPath: FIXTURE_PATH,
+        outputDir: tmpDir,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const { readFileSync } = await import('node:fs');
+      const dcmContent = readFileSync(result.value.dcmPath, 'utf8');
+      // One <DCM-DSP-DID-DATA> block per DID with data.
+      const matches = dcmContent.match(/<DCM-DSP-DID-DATA>/g) ?? [];
+      expect(matches.length).toBe(result.value.stats.didCount);
+      expect(matches.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('pins concrete DIAG-CODED-TYPE for RQ_CellVolt_JG_Read (DID 258) from Demo_Cdd.odx-d', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'odx-bridge-real-'));
+    try {
+      const result = await odxImportDiagnosticExtractHandler({
+        odxPath: FIXTURE_PATH,
+        outputDir: tmpDir,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const { readFileSync } = await import('node:fs');
+      const dcmContent = readFileSync(result.value.dcmPath, 'utf8');
+      // Concrete pre-flight values (Demo_Cdd.odx-d lines 10142-10180):
+      //   REQUEST SHORT-NAME     = RQ_CellVolt_JG_Read
+      //   DID-value PARAM        = SEMANTIC=ID, CODED-VALUE=258, BYTE-POSITION=1
+      //   DIAG-CODED-TYPE        = BASE-DATA-TYPE=A_UINT32 (xsi:type=STANDARD-LENGTH-TYPE)
+      //                            BIT-LENGTH=16, no explicit BASE-TYPE-ENCODING
+      //                            (mapper default 'NONE' is emitted).
+      expect(dcmContent).toContain('<SHORT-NAME>RQ_CellVolt_JG_Read</SHORT-NAME>');
+      expect(dcmContent).toContain('<DIAG-CODED-TYPE>A_UINT32</DIAG-CODED-TYPE>');
+      expect(dcmContent).toContain('<BASE-TYPE-ENCODING>NONE</BASE-TYPE-ENCODING>');
+      expect(dcmContent).toContain('<BIT-LENGTH>16</BIT-LENGTH>');
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
