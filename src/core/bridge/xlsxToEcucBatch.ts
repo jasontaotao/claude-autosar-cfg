@@ -12,24 +12,17 @@
 // Throws on unrecognized sheet (YAGNI guard) or empty shortName.
 
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
+import type { EcucInstanceRow } from '../../shared/types.js';
+
+export type { EcucInstanceRow };
 
 const SHEET_TO_PARENT_PATH = {
   ComIPdu: 'Com/ComConfig/ComIpdu',
   ComSignal: 'Com/ComConfig/ComSignal',
   CanIfTxPdu: 'CanIf/CanIfConfig/CanIfTxPdu',
   CanIfRxPdu: 'CanIf/CanIfConfig/CanIfRxPdu',
-  PduRRoutingPath: 'PduR/PduRRoutingTables/PduRRoutingPath',
+  PduRRoutingPath: 'PduR/PduRRoutingPaths/PduRRoutingPath',
 } as const;
-
-// Folds the local T1 type with the T2-shared shape. T2 will replace this
-// with `import type { EcucInstanceRow } from '../../shared/types.js'` and
-// delete the local copy. Keep it small to limit drift risk.
-export type EcucInstanceRow = {
-  readonly sheet: keyof typeof SHEET_TO_PARENT_PATH;
-  readonly shortName: string;
-  readonly definitionRef?: string;
-  readonly params: Readonly<Record<string, string | number | boolean | null>>;
-};
 
 export function xlsxToEcucBatch(rows: readonly EcucInstanceRow[]): PatchStep[] {
   const steps: PatchStep[] = [];
