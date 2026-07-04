@@ -178,3 +178,107 @@ describe('parseOdxHandler (T1)', () => {
     expect(res.error.kind).toBe('odx-malformed');
   });
 });
+
+// New fixture: ODX-D with a 0x22 REQUEST that has DIAG-CODED-TYPE.
+const ODX_WITH_DID_DATA = `<?xml version="1.0" encoding="UTF-8"?>
+<ODX MODEL-VERSION="2.2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <DIAG-LAYER-CONTAINER>
+    <DIAG-LAYER ID="DL_Base" SHORT-NAME="BaseVariant">
+      <DTC-DOPS/>
+      <DID-OBJECTS/>
+      <REQUESTS>
+        <REQUEST ID="REQ_RDBI" SHORT-NAME="RDBI_DID_F186">
+          <PARAMS>
+            <PARAM SEMANTIC="SERVICE-ID" BYTE-POSITION="0">
+              <CODED-VALUE>34</CODED-VALUE>
+              <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE">
+                <BIT-LENGTH>8</BIT-LENGTH>
+              </DIAG-CODED-TYPE>
+            </PARAM>
+            <PARAM SEMANTIC="DATA-PARAM" BYTE-POSITION="1">
+              <CODED-VALUE>61446</CODED-VALUE>
+              <DIAG-CODED-TYPE BASE-TYPE-ENCODING="NONE" BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE">
+                <BIT-LENGTH>16</BIT-LENGTH>
+              </DIAG-CODED-TYPE>
+            </PARAM>
+          </PARAMS>
+        </REQUEST>
+        <REQUEST ID="REQ_NOSVC" SHORT-NAME="Routine_Check">
+          <PARAMS>
+            <PARAM SEMANTIC="DATA-ID" BYTE-POSITION="0"/>
+          </PARAMS>
+        </REQUEST>
+      </REQUESTS>
+    </DIAG-LAYER>
+  </DIAG-LAYER-CONTAINER>
+</ODX>
+`;
+
+describe('parseOdxHandler (v1.24.x PATCH — ODX-INSTANCE DID data)', () => {
+  it('surfaces DIAG-CODED-TYPE from 0x22 REQUEST DID-value PARAM', () => {
+    const res = parseOdxHandler({ path: '/x.odx-d', content: ODX_WITH_DID_DATA });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // The 0x22 REQUEST (SERVICE-ID CODED-VALUE=34) is classified as a DID.
+    // Expect exactly 1 DID with data populated.
+    const didsWithData = res.value.dids.filter((d) => d.data !== undefined);
+    expect(didsWithData.length).toBe(1);
+    expect(didsWithData[0]!.data).toEqual({
+      dataType: 'A_UINT32',
+      encoding: 'NONE',
+      bitLength: 16,
+    });
+  });
+
+  it('falls back gracefully when 0x22 REQUEST has no DIAG-CODED-TYPE', () => {
+    // Custom fixture with a 0x22 REQUEST that has only SERVICE-ID PARAM
+    // (no DID-value PARAM with DIAG-CODED-TYPE).
+    const ODX_NO_DID_DATA = `<?xml version="1.0"?>
+<ODX>
+  <DIAG-LAYER-CONTAINER>
+    <DIAG-LAYER ID="DL" SHORT-NAME="B">
+      <DTC-DOPS/>
+      <DID-OBJECTS/>
+      <REQUESTS>
+        <REQUEST ID="R" SHORT-NAME="R">
+          <PARAMS>
+            <PARAM SEMANTIC="SERVICE-ID">
+              <CODED-VALUE>34</CODED-VALUE>
+            </PARAM>
+          </PARAMS>
+        </REQUEST>
+      </REQUESTS>
+    </DIAG-LAYER>
+  </DIAG-LAYER-CONTAINER>
+</ODX>
+`;
+    const res = parseOdxHandler({ path: '/x.odx-d', content: ODX_NO_DID_DATA });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // 1 DID (the 0x22 REQUEST), but data is undefined.
+    expect(res.value.dids.length).toBe(1);
+    expect(res.value.dids[0]!.data).toBeUndefined();
+  });
+
+  it('handles DIDs from <DID-OBJECT> (legacy spec shape) without DIAG-CODED-TYPE', () => {
+    // Reuse the existing MINIMAL_ODX fixture from the T1 describe block.
+    // It has 1 DID (DID_VIN_Read) from <DID-OBJECT>; data should be undefined.
+    const res = parseOdxHandler({ path: '/tmp/min.odx', content: MINIMAL_ODX });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.dids.length).toBe(1);
+    expect(res.value.dids[0]!.shortName).toBe('DID_VIN_Read');
+    expect(res.value.dids[0]!.data).toBeUndefined();
+  });
+
+  it('classifies 0x22 REQUEST as DID (not Routine) and surfaces data', () => {
+    // ODX_WITH_DID_DATA has 1 DID (0x22 REQUEST) + 1 Routine (no SERVICE-ID).
+    // Total: didCount=1, routineCount=1.
+    const res = parseOdxHandler({ path: '/x.odx-d', content: ODX_WITH_DID_DATA });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.didCount).toBe(1);
+    expect(res.value.routineCount).toBe(1);
+    expect(res.value.routines[0]!.shortName).toBe('Routine_Check');
+  });
+});

@@ -261,12 +261,28 @@ export interface OdxDtcSummary {
   readonly text: string;
 }
 
+/** ODX `<DIAG-CODED-TYPE>` from a 0x22 REQUEST's DID-value PARAM. */
+export interface OdxDidData {
+  /** `BASE-DATA-TYPE` attribute (e.g. `"A_UINT32"`, `"A_ASCIISTRING"`). */
+  readonly dataType: string;
+  /** `BASE-TYPE-ENCODING` attribute (e.g. `"NONE"`, `"2C"`, `"IEEE-FLOAT32"`). */
+  readonly encoding: string;
+  /** Optional `<BIT-LENGTH>` child (e.g. `16` for 2-byte data). */
+  readonly bitLength?: number;
+}
+
 /** Renderer-friendly projection of a single ODX `<DID-OBJECT>`. */
 export interface OdxDidSummary {
   /** ODX `DID-OBJECT` `ID` attribute. */
   readonly id: string;
   /** ODX `DID-OBJECT` `SHORT-NAME`. */
   readonly shortName: string;
+  /**
+   * Optional DIAG-CODED-TYPE from the 0x22 REQUEST's DID-value PARAM
+   * (v1.24.x PATCH). Absent for DIDs from `<DID-OBJECT>` (legacy spec
+   * shape) or 0x22 REQUESTs without DIAG-CODED-TYPE.
+   */
+  readonly data?: OdxDidData;
 }
 
 /** Renderer-friendly projection of a single ODX `<REQUEST>` (Routine). */

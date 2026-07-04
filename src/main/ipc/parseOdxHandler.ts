@@ -25,6 +25,7 @@
 import { XMLParser } from 'fast-xml-parser';
 
 import type {
+  OdxDidData,
   OdxDidSummary,
   OdxDtcSummary,
   OdxRoutineSummary,
@@ -461,7 +462,18 @@ function extractDids(
         if (sid !== 0x22) continue;
         if (seen.has(id)) continue;
         seen.add(id);
-        out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+        // v1.24.x PATCH: capture DIAG-CODED-TYPE from the 0x22
+        // REQUEST's DID-value PARAM (the PARAM whose SEMANTIC
+        // is neither SERVICE-ID nor SUBFUNCTION). The legacy
+        // hand-crafted fixtures model DIDs without this data,
+        // so the `data` field is OPTIONAL — the helper returns
+        // `null` when no DIAG-CODED-TYPE is found.
+        const data = extractDidDataFromRequestParams(el['PARAMS']);
+        if (data !== null) {
+          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), data });
+        } else {
+          out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+        }
       }
     }
   };
@@ -475,6 +487,53 @@ function extractDids(
     }
   }
   return out;
+}
+
+/**
+ * v1.24.x PATCH — Extract DIAG-CODED-TYPE from a 0x22 REQUEST's
+ * DID-value PARAM. The DID-value PARAM is the one whose SEMANTIC
+ * attribute is NOT 'SERVICE-ID' and NOT 'SUBFUNCTION'.
+ *
+ * Returns null if no DIAG-CODED-TYPE is found (legacy hand-crafted
+ * fixtures have DIDs without this data; the field is OPTIONAL).
+ *
+ * The caller passes `REQUEST.PARAMS` (the object containing the
+ * `PARAM` array). The fast-xml-parser wraps the PARAMs under a
+ * `PARAMS` object with a `PARAM` child, so we descend one level.
+ */
+function extractDidDataFromRequestParams(params: unknown): OdxDidData | null {
+  if (typeof params !== 'object' || params === null) return null;
+  const paramsObj = params as Record<string, unknown>;
+  const paramList = asArray(paramsObj['PARAM']);
+  for (const param of paramList) {
+    if (typeof param !== 'object' || param === null) continue;
+    const p = param as Record<string, unknown>;
+    // Skip SERVICE-ID and SUBFUNCTION PARAMs.
+    if (p['@_SEMANTIC'] === 'SERVICE-ID' || p['@_SEMANTIC'] === 'SUBFUNCTION') continue;
+    // Found the DID-value PARAM. Extract its DIAG-CODED-TYPE.
+    const dct = p['DIAG-CODED-TYPE'];
+    if (typeof dct !== 'object' || dct === null) continue;
+    const dctObj = dct as Record<string, unknown>;
+    const dataType = dctObj['@_BASE-DATA-TYPE'];
+    const encoding = dctObj['@_BASE-TYPE-ENCODING'];
+    if (typeof dataType !== 'string') continue;
+    // BIT-LENGTH may come back as a number or string depending on
+    // parser config; coerce defensively.
+    let bitLength: number | undefined;
+    const rawBitLength = dctObj['BIT-LENGTH'];
+    if (typeof rawBitLength === 'number') {
+      bitLength = rawBitLength;
+    } else if (typeof rawBitLength === 'string' && rawBitLength.length > 0) {
+      const parsed = Number(rawBitLength);
+      if (Number.isFinite(parsed)) bitLength = parsed;
+    }
+    return {
+      dataType,
+      encoding: typeof encoding === 'string' ? encoding : 'NONE',
+      ...(bitLength !== undefined ? { bitLength } : {}),
+    };
+  }
+  return null;
 }
 
 function extractRoutines(
