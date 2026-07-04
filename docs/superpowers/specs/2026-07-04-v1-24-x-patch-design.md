@@ -34,6 +34,7 @@ User constraint (still applies): "只要ODX->arxml 就好了啊，不需要arxml
 ## Scope
 
 **In scope (v1.24.x PATCH)**:
+
 - Extend `parseOdxHandler.extractDids` to walk 0x22 REQUEST's PARAMS and extract `<DIAG-CODED-TYPE>` from the DID-value PARAM
 - Extend `OdxDidSummary` interface in `src/shared/types.ts` with optional `data` field
 - Update `odxToDiagnosticExtract.buildDcmContent` to emit `<DCM-DSP-DID-DATA>` block when `data` is present
@@ -42,6 +43,7 @@ User constraint (still applies): "只要ODX->arxml 就好了啊，不需要arxml
 - Release notes + CHANGELOG + tag v1.24.x + gh release
 
 **Out of scope (deferred to v1.24.x.x PATCH or v1.25.0 MINOR)**:
+
 - PHYSICAL-TYPE / SCALING / COMPU-METHOD
 - xsi:type disambiguation
 - Routine data (start/stop, request/response)
@@ -87,6 +89,7 @@ Real Vector .odx-d (.odx-d)
 ```
 
 Fields we capture:
+
 - `BASE-DATA-TYPE` (required): e.g. `A_UINT8`, `A_UINT16`, `A_UINT32`, `A_ASCIISTRING`, `A_FLOAT32`, etc.
 - `BASE-TYPE-ENCODING` (required): e.g. `NONE-DEFINED`, `2C` (two's complement), `IEEE-FLOAT32`, etc.
 - `<BIT-LENGTH>` (optional): bit length. If absent, omit from output.
@@ -123,11 +126,13 @@ No change from v1.24.0. The same `<AR-PACKAGES>` → `<AR-PACKAGE>` → `<ELEMEN
 ### T1: Extend `parseOdxHandler` + `OdxDidSummary`
 
 **Files**:
+
 - Modify: `src/main/ipc/parseOdxHandler.ts` (extend `extractDids` to walk 0x22 REQUEST PARAMS and extract DIAG-CODED-TYPE)
 - Modify: `src/shared/types.ts` (extend `OdxDidSummary` with optional `data` field + new `OdxDidData` interface)
 - Modify: `src/main/ipc/__tests__/parseOdxHandler.test.ts` (extend T1 hand-crafted fixture with a 0x22 REQUEST that has DIAG-CODED-TYPE; **+4 new tests**)
 
 **Tests** (4 new):
+
 1. `extractDids surfaces DIAG-CODED-TYPE from 0x22 REQUEST's DID-value PARAM` (uses hand-crafted fixture with a 0x22 REQUEST)
 2. `extractDids falls back gracefully when 0x22 REQUEST has no DIAG-CODED-TYPE` (e.g., a 0x22 REQUEST with only SERVICE-ID + SUBFUNCTION PARAMS)
 3. `extractDids handles DIDs from <DID-OBJECT> (legacy spec shape) without DIAG-CODED-TYPE` (preserves v1.22.0 behavior)
@@ -136,10 +141,12 @@ No change from v1.24.0. The same `<AR-PACKAGES>` → `<AR-PACKAGE>` → `<ELEMEN
 ### T2: Update mapper + emit `<DCM-DSP-DID-DATA>` block
 
 **Files**:
+
 - Modify: `src/core/bridge/odxToDiagnosticExtract.ts` (extend `buildDcmContent` to emit `<DCM-DSP-DID-DATA>` when `data` is present)
 - Modify: `src/core/bridge/__tests__/odxToDiagnosticExtract.test.ts` (**+3 new tests**)
 
 **Tests** (3 new):
+
 1. `emits <DCM-DSP-DID-DATA> with all 3 fields when data has bitLength`
 2. `emits <DCM-DSP-DID-DATA> without <BIT-LENGTH> when data.bitLength is undefined`
 3. `does NOT emit <DCM-DSP-DID-DATA> block when data is undefined (backward-compat)`
@@ -147,17 +154,20 @@ No change from v1.24.0. The same `<AR-PACKAGES>` → `<AR-PACKAGE>` → `<ELEMEN
 ### T3: Real-OEM fixture regression test (ship-blocking)
 
 **Files**:
+
 - Modify: `src/main/ipc/__tests__/odxImportDiagnosticExtractHandler.real.test.ts` (extend existing v1.24.0 T4 test with DID data assertions) **OR** create a new `odxImportDiagnosticExtractHandler.real.did-data.test.ts` (**+1 new ship-blocking test**)
 
 **Decision**: extend the existing T4 test (cleaner — single test file per real-OEM fixture). Add 1-2 new `it()` blocks for DID data regression.
 
 **Tests** (1-2 new):
+
 1. `DCM-DSP-DID-DATA populated from Demo_Cdd.odx-d's 0x22 REQUESTs` (verify 34 DIDs have `<DCM-DSP-DID-DATA>` blocks; verify at least 1 DID has expected DIAG-CODED-TYPE values)
 2. `Specific DID F186 (or another known DID) has expected concrete DIAG-CODED-TYPE` (pin 1-2 DIDs to their exact BASE-DATA-TYPE + BASE-TYPE-ENCODING + BIT-LENGTH values)
 
 ### T4: Ship (release notes + tag + gh release)
 
 **Files**:
+
 - Create: `docs/release-notes/v1.24.x/README.md`
 - Modify: `CHANGELOG.md` (add v1.24.x row above v1.24.0)
 - Modify: `docs/user-manual.html` (bump baseline version to v1.24.x)
@@ -169,21 +179,25 @@ No change from v1.24.0. The same `<AR-PACKAGES>` → `<AR-PACKAGE>` → `<ELEMEN
 ## Test plan
 
 **T1 unit tests** (4 new):
+
 - Hand-crafted fixture with 0x22 REQUEST that has DIAG-CODED-TYPE
 - Fallback when 0x22 REQUEST has no DIAG-CODED-TYPE
 - Legacy `<DID-OBJECT>` path preserved
 - Type check for optional `data` field
 
 **T2 unit tests** (3 new):
+
 - DCM-DSP-DID-DATA with all 3 fields
 - DCM-DSP-DID-DATA without BIT-LENGTH
 - No DCM-DSP-DID-DATA when data is undefined (backward-compat)
 
 **T3 real-OEM tests** (1-2 new):
+
 - All 34 DIDs have DIAG-CODED-TYPE blocks
 - 1-2 specific DIDs pinned to concrete values
 
 **Backward-compat tests** (no new — must continue to pass):
+
 - v1.22.0 T1 hand-crafted fixture: 11 tests
 - v1.24.0 T1: 12 tests
 - v1.24.0 T2: 8 tests
