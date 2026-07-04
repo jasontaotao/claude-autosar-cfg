@@ -1,7 +1,7 @@
 # v1.25.0 MINOR — Excel → Com-Stack ECUC 批量创建
 
 > **Ship date:** 2026-07-05
-> **Commit:** {{ship-hash}}
+> **Commit:** 980d04a0acdee8652a1610dd2edcaf202dc190b4
 > **Tag:** v1.25.0
 > **Tests:** 2831 + 6 SKIP / 0 fail (+18 net from v1.24.1's 2813)
 
