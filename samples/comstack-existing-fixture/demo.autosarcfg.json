@@ -1,0 +1,5 @@
+{
+  "manifestVersion": "1",
+  "bswmdPaths": ["Com.bswmd.arxml", "CanIf.bswmd.arxml", "PduR.bswmd.arxml"],
+  "valueArxmlPaths": ["Com_Config.arxml", "CanIf_Config.arxml", "PduR_Config.arxml"]
+}
