@@ -5,6 +5,12 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.25.0 (2026-07-05) — MINOR
+
+**Excel → Com-Stack ECUC 批量创建** — Adds a 3-step wizard (DownloadTemplate → UploadAndPreview → Commit) for batch-creating Com-stack value-side instances from a user-authored `.xlsx`. 5 instance kinds: ComIPdu / ComSignal / CanIfTxPdu / CanIfRxPdu / PduRRoutingPath. Per-row collision control (overwrite/skip, default skip). New devDep: xlsx (SheetJS, dynamic-imported). 3 IPC handlers + 1 pure mapper + 1 React wizard + 12 i18n keys × 2 locales. Real-OEM 75-row Vector-derived fixture as SHIP-BLOCKING regression. +18 net tests. 2831 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
+
+**Known issue**: integer values matching a parameter's BSWMD `<DEFAULT-VALUE>` are emitted without a redundant `<VALUE>` element on round-trip (standard AUTOSAR convention; not a data mutation).
+
 ## v1.24.1 (2026-07-04) — PATCH
 
 **ODX-INSTANCE DID data** — Closes the v1.24.0 "DID data (length, scaling, encoding)" carry-over. The ODX→Diagnostic Extract bridge now captures `<DIAG-CODED-TYPE>` from 0x22 REQUESTs and emits `<DCM-DSP-DID-DATA>` blocks in the Dcm_Extract.arxml output. `OdxDidSummary.data` is OPTIONAL (backward-compat with v1.22.0's 11 hand-crafted tests). +9 net tests. 2813 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
