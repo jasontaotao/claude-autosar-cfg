@@ -90,6 +90,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'getAppVersion',
       'getFeatureFlags',
       'getPlatform',
+      'importDiagnosticExtract',
       'listScripts',
       'listTemplates',
       'onScriptProgress',

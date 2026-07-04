@@ -19,6 +19,8 @@ import type {
   OpenOdxResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
+  OdxImportDiagExtractRequest,
+  OdxImportDiagExtractResponse,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -236,6 +238,19 @@ const api = {
   // rather than overloading this one.
   dbcImportComStack: (req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.DBC_IMPORT_COM_STACK, req),
+  // v1.24.0 T2 — ODX→Diagnostic Extract bridge. Takes a path-based
+  // request `{ odxPath, outputDir }`; the handler re-parses the
+  // .odx-d file via v1.22.0's `odx:parse` channel (path-based to keep
+  // the IPC payload small) and writes 2 ARXML files atomically
+  // (Dem_Extract.arxml + Dcm_Extract.arxml) into outputDir. Returns
+  // ok with `{ demPath, dcmPath, stats }` or a discriminated error
+  // (`read-failed` for missing/unparseable input, `write-failed`
+  // for atomic-write failure with `rolledBack: boolean` per the
+  // v1.23.1 T1 contract).
+  importDiagnosticExtract: (
+    req: OdxImportDiagExtractRequest,
+  ): Promise<OdxImportDiagExtractResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ODX_IMPORT_DIAGNOSTIC_EXTRACT, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

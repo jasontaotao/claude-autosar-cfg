@@ -181,6 +181,15 @@ export const IPC_CHANNELS = {
   // suffix because this is v1.23.0's first cut of the bridge surface;
   // a breaking change would land before v1.24 anyway).
   DBC_IMPORT_COM_STACK: 'dbc:importComStack',
+  // v1.24.0 T2 — ODX→Diagnostic Extract bridge. Orchestrates the
+  // full pipeline: re-parse .odx-d via v1.22.0's `odx:parse` channel
+  // → call the pure T1 mapper (`odxToDiagnosticExtract`) → write 2
+  // ARXML files (Dem_Extract.arxml + Dcm_Extract.arxml) atomically.
+  // Channel name follows the unsuffixed v1.22.0 ODX / v1.23.0 DBC
+  // convention (no `:v1` suffix because this is v1.24.0's first cut
+  // of the bridge surface; a breaking change would land before v1.25
+  // anyway).
+  ODX_IMPORT_DIAGNOSTIC_EXTRACT: 'odx:importDiagnosticExtract',
   // v1.23.0 PATCH (HIGH-1) — project:reload. Non-dialog counterpart
   // to PROJECT_OPEN: takes an already-known absolute manifest path and
   // re-reads the manifest + every referenced ARXML/BSWMD. Used by the

@@ -14,6 +14,8 @@ import type {
   OpenBswmdResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
+  OdxImportDiagExtractRequest,
+  OdxImportDiagExtractResponse,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -55,6 +57,7 @@ import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
+import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
 import { registerOpenOdxHandler } from './openOdxHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
@@ -561,6 +564,21 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.DBC_IMPORT_COM_STACK,
     async (_evt, req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> => {
       return dbcImportComStackHandler(req);
+    },
+  );
+
+  // v1.24.0 T2 — ODX→Diagnostic Extract bridge handler. Single
+  // invoke that orchestrates the full pipeline: pre-flight (outputDir
+  // exists + writable) → re-parse .odx-d via v1.22.0's parseOdxHandler
+  // → call the pure T1 mapper (`odxToDiagnosticExtract`) → write 2
+  // ARXML files (Dem_Extract.arxml + Dcm_Extract.arxml) via the
+  // 2-phase atomic write helper (`writeAtomic`) with snapshot
+  // rollback. The renderer wires this into the T3 wizard. See
+  // `odxImportDiagnosticExtractHandler.ts` for the full pipeline.
+  ipcMain.handle(
+    IPC_CHANNELS.ODX_IMPORT_DIAGNOSTIC_EXTRACT,
+    async (_evt, req: OdxImportDiagExtractRequest): Promise<OdxImportDiagExtractResponse> => {
+      return odxImportDiagnosticExtractHandler(req);
     },
   );
 
