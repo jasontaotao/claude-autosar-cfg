@@ -76,15 +76,20 @@ function buildDemContent(odx: OdxSummary): string {
 /**
  * Build Dcm Diagnostic Extract: one DCM-DSP-DID per DID + one DCM-DSP-ROUTINE per Routine.
  * DcmDspDidInfo / DcmDspRoutineInfo are BSWMD-coupled; user adds manually post-merge.
+ *
+ * v1.24.x PATCH: emit <DCM-DSP-DID-DATA> block when DID has data (BASE-DATA-TYPE,
+ * BASE-TYPE-ENCODING, optional BIT-LENGTH from the 0x22 REQUEST's DID-value PARAM).
  */
 function buildDcmContent(odx: OdxSummary): string {
   const dids = odx.dids
-    .map(
-      (did) =>
-        `    <DCM-DSP-DID>
-      <SHORT-NAME>${escapeXmlText(did.shortName)}</SHORT-NAME>
-    </DCM-DSP-DID>`,
-    )
+    .map((did) => {
+      const dataBlock = did.data
+        ? `\n      <DCM-DSP-DID-DATA>\n        <DIAG-CODED-TYPE>${escapeXmlText(did.data.dataType)}</DIAG-CODED-TYPE>\n        <BASE-TYPE-ENCODING>${escapeXmlText(did.data.encoding)}</BASE-TYPE-ENCODING>${did.data.bitLength !== undefined ? `\n        <BIT-LENGTH>${did.data.bitLength}</BIT-LENGTH>` : ''}\n      </DCM-DSP-DID-DATA>`
+        : '';
+      return `    <DCM-DSP-DID>
+      <SHORT-NAME>${escapeXmlText(did.shortName)}</SHORT-NAME>${dataBlock}
+    </DCM-DSP-DID>`;
+    })
     .join('\n');
   const routines = odx.routines
     .map(
