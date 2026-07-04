@@ -59,4 +59,13 @@ export interface DbcMessages {
   readonly 'odx.export.diagnosticExtract.success.title': string;
   readonly 'odx.export.diagnosticExtract.success.body': string; // {dtcCount} {didCount} {routineCount}
   readonly 'odx.export.diagnosticExtract.error': string; // {error}
+  // v1.24.0 T3.1 — 2-phase write reports `rolledBack` so the user knows
+  // whether the project is in a clean state (rolledBack=true) or
+  // whether partial state may remain on disk (rolledBack=false).
+  // Mirrors the v1.23.1 T1 MEDIUM-1 fix shape from the DBC wizard;
+  // the alternative (template-string concatenation with hardcoded
+  // English parenthetical) breaks zh-CN users per the v1.23.1 T1 L1
+  // i18n-bypass anti-pattern lesson.
+  readonly 'odx.export.diagnosticExtract.error.write.rolledBack': string; // {message}
+  readonly 'odx.export.diagnosticExtract.error.write.partial': string; // {message}
 }

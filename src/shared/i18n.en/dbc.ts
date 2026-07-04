@@ -53,4 +53,14 @@ export const DbcEn: DbcMessages = {
   'odx.export.diagnosticExtract.success.body':
     'Generated {dtcCount} DemEvents, {didCount} DIDs, {routineCount} Routines.',
   'odx.export.diagnosticExtract.error': 'Export failed: {error}',
+  // v1.24.0 T3.1 — mirrors the v1.23.1 T1 MEDIUM-1 DBC wizard
+  // 2-key split. The {message} placeholder interpolates the
+  // underlying error (e.g. EACCES, EBUSY) and the parenthetical
+  // tells the user the outcome so they know whether retrying is
+  // safe (rolledBack=true) or whether they need to audit git
+  // status (partial rollback).
+  'odx.export.diagnosticExtract.error.write.rolledBack':
+    'Export diagnostic extract failed: {message} (rolled back — project unchanged, please retry)',
+  'odx.export.diagnosticExtract.error.write.partial':
+    'Export diagnostic extract failed: {message} (rolled back partially — please check git status)',
 };

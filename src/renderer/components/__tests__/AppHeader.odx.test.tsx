@@ -226,3 +226,121 @@ describe('App.tsx — Diagnostic Extract state machine (v1.24.0 T3)', () => {
     ).toBeInTheDocument();
   });
 });
+
+// v1.24.0 MINOR T3.1 — regression tests for the i18n-bypass fix.
+// T3 shipped rolledBack error message via template-string
+// concatenation with a hardcoded English parenthetical, which broke
+// zh-CN users. T3.1 splits the message into 2 fully-translated keys
+// (rolledBack + partial), mirroring the v1.23.1 T1 MEDIUM-1 DBC
+// wizard fix. These tests pin the rolledBack=true and rolledBack=false
+// branches in zh-CN so the regression cannot reappear.
+describe('App.tsx — Diagnostic Extract rolledBack split (v1.24.0 T3.1)', () => {
+  function installWriteFailedStub(rolledBack: boolean): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const api = (globalThis as any).window.autosarApi ?? {};
+    const stub = {
+      openOdx: api.openOdx ?? vi.fn(),
+      parseOdx: api.parseOdx ?? vi.fn(),
+      importDiagnosticExtract: vi.fn().mockResolvedValue({
+        ok: false,
+        error: {
+          kind: 'write-failed',
+          message: 'EACCES: permission denied',
+          rolledBack,
+        },
+      }),
+    };
+    if (stub.openOdx.mock.calls.length === 0) {
+      stub.openOdx.mockResolvedValue({
+        kind: 'opened',
+        path: '/tmp/diag.odx-d',
+        content: '<ODX>stub</ODX>',
+      });
+    }
+    if (stub.parseOdx.mock.calls.length === 0) {
+      const summary: OdxSummary = {
+        dtcCount: 1,
+        didCount: 0,
+        routineCount: 0,
+        dtcs: [
+          {
+            id: 'DTC_A',
+            shortName: 'DTC_A',
+            troubleCode: '0xA',
+            displayCode: 'A',
+            text: 'text',
+          },
+        ],
+        dids: [],
+        routines: [],
+      };
+      stub.parseOdx.mockResolvedValue({ ok: true, value: summary });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).window.autosarApi = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...(api as any),
+      ...stub,
+    };
+  }
+
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+  });
+
+  afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).window.autosarApi;
+    cleanup();
+  });
+
+  it('renders rolledBack-true message in zh-CN when write fails with full rollback', async () => {
+    useArxmlStore.getState().setLocale('zh-CN');
+    installWriteFailedStub(true);
+
+    render(<App />);
+
+    // Drive the ODX flow: open menu → Open ODX… → wait for viewer → click Export.
+    fireEvent.click(screen.getByTestId('btn-menu-toggle'));
+    fireEvent.click(screen.getByTestId('btn-open-odx'));
+    await waitFor(() => {
+      expect(screen.getByTestId('odx-viewer-export')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('odx-viewer-export'));
+    });
+
+    // Assert the translated key was used — "已回滚" — NOT the
+    // broken English parenthetical "(rolled back — ...)" which
+    // the previous v1.24.0 T3 template-string concatenation
+    // surfaced to zh-CN users.
+    await waitFor(() => {
+      expect(screen.getByText(/已回滚/)).toBeInTheDocument();
+    });
+    // Sanity check: the English parenthetical must NOT appear.
+    expect(screen.queryByText(/rolled back — project unchanged/)).toBeNull();
+  });
+
+  it('renders rolledBack-false message in zh-CN when write fails with partial rollback', async () => {
+    useArxmlStore.getState().setLocale('zh-CN');
+    installWriteFailedStub(false);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByTestId('btn-menu-toggle'));
+    fireEvent.click(screen.getByTestId('btn-open-odx'));
+    await waitFor(() => {
+      expect(screen.getByTestId('odx-viewer-export')).toBeInTheDocument();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('odx-viewer-export'));
+    });
+
+    // Assert the translated key was used — "部分回滚" — NOT the
+    // broken English parenthetical "(rolled back partially — ...)".
+    await waitFor(() => {
+      expect(screen.getByText(/部分回滚/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/rolled back partially/)).toBeNull();
+  });
+});

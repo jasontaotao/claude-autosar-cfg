@@ -49,4 +49,12 @@ export const DbcZhCN: DbcMessages = {
   'odx.export.diagnosticExtract.success.body':
     '已生成 {dtcCount} 个 DemEvent、{didCount} 个 DID、{routineCount} 个 Routine。',
   'odx.export.diagnosticExtract.error': '导出失败：{error}',
+  // v1.24.0 T3.1 — mirrors the v1.23.1 T1 MEDIUM-1 DBC wizard
+  // 2-key split. Both keys are 100% translated, no template-string
+  // concatenation with hardcoded English parenthetical (per v1.23.1
+  // T1 L1 i18n-bypass-pattern lesson).
+  'odx.export.diagnosticExtract.error.write.rolledBack':
+    '导出诊断抽取失败：{message}（已回滚，项目未变更，请重试）',
+  'odx.export.diagnosticExtract.error.write.partial':
+    '导出诊断抽取失败：{message}（部分回滚，请检查 git 状态）',
 };

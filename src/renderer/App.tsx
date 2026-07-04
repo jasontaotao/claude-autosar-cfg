@@ -660,17 +660,23 @@ export function App(): JSX.Element {
           );
           return;
         case 'write-failed':
-          // Same `rolledBack` split as the DBC wizard (v1.23.1 T1
-          // MEDIUM-1) — rolledBack=true means project is in a clean
-          // state; rolledBack=false means the user needs to audit
-          // git status because partial state may remain on disk.
+          // v1.24.0 T3.1 — 2-key split (rolledBack vs partial) mirrors
+          // the v1.23.1 T1 MEDIUM-1 DBC-wizard fix. Each branch is
+          // fully translated; no hardcoded English parenthetical
+          // (zh-CN users were seeing the English parenthetical
+          // concatenated to the translated base message per the
+          // v1.23.1 T1 L1 i18n-bypass anti-pattern lesson).
           if (res.error.rolledBack) {
             setStoreError(
-              `${t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message })} (rolled back — project unchanged, please retry)`,
+              t(locale, 'odx.export.diagnosticExtract.error.write.rolledBack', {
+                message: res.error.message,
+              }),
             );
           } else {
             setStoreError(
-              `${t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message })} (rolled back partially — please check git status)`,
+              t(locale, 'odx.export.diagnosticExtract.error.write.partial', {
+                message: res.error.message,
+              }),
             );
           }
           return;
