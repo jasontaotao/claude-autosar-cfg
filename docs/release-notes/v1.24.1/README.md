@@ -1,7 +1,7 @@
 # v1.24.1 PATCH — ODX-INSTANCE DID Data
 
 > **Ship date:** 2026-07-04
-> **Commit:** {{ship-hash}}
+> **Commit:** 7e87913c8c6f04df0adfae4ef9e60c0b281b4c6d
 > **Tag:** v1.24.1
 > **Tests:** 2813 + 6 SKIP / 0 fail (+9 net from v1.24.0's 2804)
 
