@@ -118,6 +118,9 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'stencilGenerate',
       'stencilSave',
       'writeArxmlBatch',
+      'xlsxCommitBatch',
+      'xlsxParseBatch',
+      'xlsxWriteBatchTemplate',
     ]);
 
     // Every exposed value must be a function — not a Node global, not an

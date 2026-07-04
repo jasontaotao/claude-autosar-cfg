@@ -197,6 +197,20 @@ export const IPC_CHANNELS = {
   // immediately after the bridge writes 3 files — without popping the
   // OS file picker that PROJECT_OPEN requires.
   PROJECT_RELOAD: 'project:reload',
+  // v1.25.0 T5 — Excel→Com-Stack ECUC batch import. 3-IPC surface:
+  //   - xlsx:writeBatchTemplate — emit a BSWMD-derived starter .xlsx
+  //                                (renderer saves via a Blob anchor)
+  //   - xlsx:parseBatch         — parse the user's filled-in .xlsx
+  //                                and report per-row collisions
+  //   - xlsx:commitBatch        — apply patches + atomic 3-file write
+  //                                with per-row overwrite/skip control
+  // Renderer wires these into the XlsxBatchWizard modal (T5). No
+  // `:v1` suffix — this is v1.25.0's first cut; a breaking change
+  // would land before v1.26 anyway (mirrors the v1.23.0 / v1.24.0
+  // DBC/ODX bridge convention).
+  XLSX_WRITE_BATCH_TEMPLATE: 'xlsx:writeBatchTemplate',
+  XLSX_PARSE_BATCH: 'xlsx:parseBatch',
+  XLSX_COMMIT_BATCH: 'xlsx:commitBatch',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
@@ -222,5 +236,10 @@ export const PROJECT_CLOSE = IPC_CHANNELS.PROJECT_CLOSE;
 // v1.23.0 PATCH (HIGH-1) — top-level alias for PROJECT_RELOAD (mirrors
 // the PROJECT_OPEN / PROJECT_CLOSE alias convention above).
 export const PROJECT_RELOAD = IPC_CHANNELS.PROJECT_RELOAD;
+// v1.25.0 T5 — top-level aliases for the 3 XLSX batch IPC channels
+// (mirrors the DBC_IMPORT_COM_STACK alias convention above).
+export const XLSX_WRITE_BATCH_TEMPLATE = IPC_CHANNELS.XLSX_WRITE_BATCH_TEMPLATE;
+export const XLSX_PARSE_BATCH = IPC_CHANNELS.XLSX_PARSE_BATCH;
+export const XLSX_COMMIT_BATCH = IPC_CHANNELS.XLSX_COMMIT_BATCH;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

@@ -51,6 +51,8 @@ function renderHeader(args: {
       odxBusy={false}
       onOpenDbcImport={(): void => {}}
       dbcImportBusy={false}
+      onOpenXlsxBatch={(): void => {}}
+      xlsxBatchBusy={false}
     />,
   );
 }

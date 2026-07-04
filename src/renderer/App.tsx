@@ -67,6 +67,7 @@ import { OdxViewer } from './components/OdxViewer';
 import { PromptRoot } from './components/PromptDialog';
 import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog';
 import { ScriptPanel } from './components/ScriptPanel';
+import { XlsxBatchWizard } from './components/XlsxBatchWizard';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
@@ -766,6 +767,32 @@ export function App(): JSX.Element {
     setDbcImportState({ kind: 'closed' });
   }, []);
 
+  // v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-step wizard. Open/close
+  // flag lives here (mirrors the DbcImportWizard / OdxViewer / diag-
+  // extract pattern). The wizard owns the 3-IPC round-trip internally;
+  // the host only owns open/close + the per-error / per-success
+  // toast callbacks + the post-commit `project:reload` flow.
+  //
+  // The wizard mounts only when `xlsxBatchWizardOpen === true` so the
+  // SheetJS bundle stays out of the main bundle (lazy import would
+  // land in a future optimization — for v1.25.0 the IPC handlers do
+  // the SheetJS work in main, not the renderer).
+  const [xlsxBatchWizardOpen, setXlsxBatchWizardOpen] = useState(false);
+  const xlsxBatchInFlight = useRef(false);
+  const openXlsxBatchWizard = useCallback(async (): Promise<void> => {
+    if (xlsxBatchInFlight.current) return;
+    const state = useArxmlStore.getState();
+    const projPath = state.projectPath;
+    if (projPath === null) {
+      setStoreError(i18nT(locale, 'app.generate.needProject'));
+      return;
+    }
+    setXlsxBatchWizardOpen(true);
+  }, [locale, setStoreError]);
+  const closeXlsxBatchWizard = useCallback((): void => {
+    setXlsxBatchWizardOpen(false);
+  }, []);
+
   // Sprint 16 v1.6.0 W — Onboarding tour wiring. The host reads
   // the tour state + locale from the store and dispatches advance/
   // back/skip/finish actions. The TourProvider renders the overlay
@@ -812,6 +839,8 @@ export function App(): JSX.Element {
           odxBusy={odxInFlight.current}
           onOpenDbcImport={openDbcImportWizard}
           dbcImportBusy={dbcImportInFlight.current}
+          onOpenXlsxBatch={openXlsxBatchWizard}
+          xlsxBatchBusy={xlsxBatchInFlight.current}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -1044,6 +1073,81 @@ export function App(): JSX.Element {
                 res.value.addedCounts.pduR;
               setInfo(t(loc, 'dbc.import.success', { count: totalAdded }));
               closeDbcImportWizard();
+            }}
+          />
+        )}
+
+        {/* v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-step wizard.
+            Mounted at the root so the backdrop + modal sit above
+            every workspace layer (z-index 9997 inside the wizard
+            CSS — sits below DbcImportWizard at 9998 so an unfinished
+            import cannot block a DBC import click). The wizard
+            owns the 3-IPC round-trip internally (writeBatchTemplate
+            / parseBatch / commitBatch); the host only owns
+            open/close + per-error / per-success toasts + the
+            post-commit project reload (mirrors the v1.23.0 T4 DBC
+            wizard pattern). */}
+        {xlsxBatchWizardOpen && (
+          <XlsxBatchWizard
+            onClose={closeXlsxBatchWizard}
+            projectManifestPath={useArxmlStore.getState().projectPath ?? ''}
+            locale={useArxmlStore.getState().locale}
+            onError={(message: string): void => {
+              setStoreError(message);
+            }}
+            onSuccess={(summary: string): void => {
+              setInfo(summary);
+              // Post-commit project reload — mirrors the v1.23.0 T4
+              // DBC wizard's reload flow so the store re-parses the
+              // freshly-written Com / CanIf / PduR ARXMLs. Without
+              // the reload, the user sees stale ECUC values until
+              // they manually reopen the project.
+              const api = window.autosarApi;
+              if (api !== undefined) {
+                const projPath = useArxmlStore.getState().projectPath;
+                if (projPath !== null) {
+                  void api
+                    .projectReload({ manifestPath: projPath })
+                    .then((reload) => {
+                      if (reload.kind === 'read-failed') {
+                        setStoreError(
+                          t(useArxmlStore.getState().locale, 'app.error.openProjectFailed', {
+                            message: reload.message,
+                          }),
+                        );
+                      } else {
+                        const proj = useArxmlStore.getState().project;
+                        if (proj !== null) {
+                          const docs: { rel: string; path: string; content: string }[] = [];
+                          const bswmds: { rel: string; path: string; content: string }[] = [];
+                          const docsRelSet = new Set(proj.valueArxmlPaths);
+                          for (const f of reload.files) {
+                            const rel = toManifestRelative(projPath, f.path) ?? f.path;
+                            if (docsRelSet.has(rel)) {
+                              docs.push({ rel, path: f.path, content: f.content });
+                            } else {
+                              bswmds.push({ rel, path: f.path, content: f.content });
+                            }
+                          }
+                          useArxmlStore.getState().openProject({
+                            manifestPath: projPath,
+                            manifest: reload.manifest,
+                            docs,
+                            bswmds,
+                          });
+                        }
+                      }
+                    })
+                    .catch((reloadErr: unknown) => {
+                      setStoreError(
+                        t(useArxmlStore.getState().locale, 'app.error.openProjectFailed', {
+                          message:
+                            reloadErr instanceof Error ? reloadErr.message : String(reloadErr),
+                        }),
+                      );
+                    });
+                }
+              }
             }}
           />
         )}

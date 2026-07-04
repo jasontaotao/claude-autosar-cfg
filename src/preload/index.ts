@@ -61,6 +61,12 @@ import type {
   TemplateCopyRequest,
   TemplateCopyResponse,
   TemplateListResponse,
+  XlsxParseBatchRequest,
+  XlsxParseBatchResponse,
+  XlsxWriteBatchTemplateRequest,
+  XlsxWriteBatchTemplateResponse,
+  XlsxCommitBatchRequest,
+  XlsxCommitBatchResponse,
 } from '../shared/types.js';
 
 import { getRendererPlatform } from './platform.js';
@@ -251,6 +257,20 @@ const api = {
     req: OdxImportDiagExtractRequest,
   ): Promise<OdxImportDiagExtractResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.ODX_IMPORT_DIAGNOSTIC_EXTRACT, req),
+  // v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-IPC surface. The
+  // renderer wires these into the XlsxBatchWizard modal. Mirrors the
+  // v1.23.0 T3 / v1.24.0 T2 DBC/ODX bridge pattern: each handler is
+  // an isolated pure module on the main side and a 1-line invoke
+  // wrapper here. `Uint8Array` payloads survive the IPC boundary
+  // intact (verified by the T4 ship-blocking test).
+  xlsxWriteBatchTemplate: (
+    req: XlsxWriteBatchTemplateRequest,
+  ): Promise<XlsxWriteBatchTemplateResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XLSX_WRITE_BATCH_TEMPLATE, req),
+  xlsxParseBatch: (req: XlsxParseBatchRequest): Promise<XlsxParseBatchResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XLSX_PARSE_BATCH, req),
+  xlsxCommitBatch: (req: XlsxCommitBatchRequest): Promise<XlsxCommitBatchResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XLSX_COMMIT_BATCH, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

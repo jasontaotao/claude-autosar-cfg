@@ -1,0 +1,156 @@
+/* XlsxBatchWizard — v1.25.0 T5 (3-Step Wizard UI).
+ *
+ * Backdrop + modal pattern mirrors DbcImportWizard / OdxViewer /
+ * StencilWizard: full-viewport backdrop at z-index above the
+ * workspace, centred card with header + body. Catppuccin Mocha
+ * palette per the DbcImportWizard baseline (z-index 9997 — sits
+ * below DbcImportWizard at 9998 so an unfinished import cannot
+ * block a DBC import click, but above the 9996 OdxViewer and 9995
+ * BswmdPickerRoot layers).
+ */
+
+.xlsx-wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9997;
+}
+
+.xlsx-wizard-modal {
+  background: #1e1e2e; /* Catppuccin Mocha base */
+  color: #cdd6f4; /* Catppuccin Mocha text */
+  border-radius: 8px;
+  min-width: 560px;
+  max-width: 760px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.xlsx-wizard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.xlsx-wizard-title {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #cdd6f4;
+}
+
+.xlsx-wizard-close {
+  background: transparent;
+  color: #cdd6f4;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.xlsx-wizard-close:hover {
+  color: #f38ba8;
+}
+
+.xlsx-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.xlsx-wizard-step-title {
+  font-size: 1rem;
+  margin: 0 0 0.25rem 0;
+  color: #cdd6f4;
+}
+
+.xlsx-wizard-step-desc {
+  margin: 0 0 0.5rem 0;
+  color: #a6adc8;
+}
+
+.xlsx-wizard-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.xlsx-wizard-file {
+  background: #181825;
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.xlsx-wizard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  background: #181825;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.xlsx-wizard-table th,
+.xlsx-wizard-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #313244;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.xlsx-wizard-table th {
+  background: #313244;
+  color: #cdd6f4;
+  font-weight: 600;
+}
+
+.xlsx-wizard-table tr:last-child td {
+  border-bottom: none;
+}
+
+.xlsx-wizard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.xlsx-wizard-btn {
+  background: #313244; /* Catppuccin Mocha surface0 */
+  color: #cdd6f4;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.xlsx-wizard-btn:hover:not(:disabled) {
+  background: #45475a;
+}
+
+.xlsx-wizard-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.xlsx-wizard-btn-primary {
+  background: #89b4fa; /* Catppuccin Mocha blue */
+  color: #1e1e2e;
+  border-color: #89b4fa;
+}
+
+.xlsx-wizard-btn-primary:hover:not(:disabled) {
+  background: #74c7ec; /* Catppuccin Mocha sapphire */
+  border-color: #74c7ec;
+}

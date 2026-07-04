@@ -37,6 +37,8 @@ function renderHeader(args: { readonly onOpenDbc?: () => void } = {}): void {
       odxBusy={false}
       onOpenDbcImport={(): void => {}}
       dbcImportBusy={false}
+      onOpenXlsxBatch={(): void => {}}
+      xlsxBatchBusy={false}
     />,
   );
 }

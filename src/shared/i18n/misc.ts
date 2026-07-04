@@ -126,4 +126,35 @@ export interface MiscMessages {
   readonly 'stencil.badge.template': string;
   readonly 'stencil.badge.templateAria': string; // {name}
   readonly 'stencil.success.saved': string; // {name}
+
+  // --- v1.25.0 MINOR T5 — Excel→Com-Stack ECUC batch wizard ---
+  // 3-step React modal driven by 3 IPCs
+  // (xlsx:writeBatchTemplate / xlsx:parseBatch / xlsx:commitBatch).
+  // Every user-visible string in `XlsxBatchWizard.tsx` resolves via
+  // `t(locale, key)` — no template-string English fallback (the
+  // v1.23.1 T1 L1 + v1.24.0 T3.1 i18n-bypass lessons are explicit on
+  // this point). The `*.menu.*` keys drive the AppHeader entry that
+  // opens the modal; `*.wizard.*` drive the modal body; `*.error.*`
+  // drive per-kind failure toasts; `*.success.*` drive the commit
+  // summary toast.
+  readonly 'xlsxBatch.menu.label': string;
+  readonly 'xlsxBatch.menu.icon': string;
+  readonly 'xlsxBatch.wizard.title': string;
+  readonly 'xlsxBatch.wizard.close': string;
+  readonly 'xlsxBatch.wizard.step1.download': string;
+  readonly 'xlsxBatch.wizard.step1.busy': string;
+  readonly 'xlsxBatch.wizard.step2.upload': string;
+  readonly 'xlsxBatch.wizard.step2.collision': string;
+  readonly 'xlsxBatch.wizard.step2.collisionOverwrite': string;
+  readonly 'xlsxBatch.wizard.step2.collisionSkip': string;
+  readonly 'xlsxBatch.wizard.step3.commit': string;
+  readonly 'xlsxBatch.wizard.step3.committing': string;
+  readonly 'xlsxBatch.wizard.step3.summary': string; // {added} {overwritten} {skipped}
+  readonly 'xlsxBatch.wizard.back': string;
+  readonly 'xlsxBatch.wizard.next': string;
+  readonly 'xlsxBatch.error.read': string; // {message}
+  readonly 'xlsxBatch.error.parse': string; // {message}
+  readonly 'xlsxBatch.error.bridge': string; // {message}
+  readonly 'xlsxBatch.error.write': string; // {message}
+  readonly 'xlsxBatch.error.no-module-def': string;
 }

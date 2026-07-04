@@ -65,6 +65,8 @@ export function AppHeader({
   odxBusy,
   onOpenDbcImport,
   dbcImportBusy,
+  onOpenXlsxBatch,
+  xlsxBatchBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -621,6 +623,33 @@ export function AppHeader({
                   {t(locale, 'dbc.import.menu.icon')}
                 </span>
                 {t(locale, 'dbc.import.menu.label')}
+              </button>
+              {/* v1.25.0 T5 — "Batch create ECUC from Excel…" entry.
+                  Sits under fileOps, immediately after the DBC import
+                  entry, because it is the sibling batch importer verb
+                  (writes 3 ECUC files atomically per the v1.25.0 T2/T3
+                  IPC surface). The 📊 icon distinguishes it from the
+                  📥 DBC-import icon. `xlsxBatchBusy` is decoupled from
+                  `dbcImportBusy` / `odxBusy` / `dbcBusy` so the 4
+                  importer/viewer operations can run independently
+                  without false-disabled menu entries. The parent
+                  (App.tsx) owns the XlsxBatchWizard open flag + the
+                  3-IPC pipeline. */}
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void onOpenXlsxBatch();
+                }}
+                disabled={xlsxBatchBusy}
+                data-testid="btn-import-xlsx-batch"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  {t(locale, 'xlsxBatch.menu.icon')}
+                </span>
+                {t(locale, 'xlsxBatch.menu.label')}
               </button>
               {/* Sprint 14 / Task 11 — BSWMD-to-ECUC entry point. Lives
                   under the fileOps group (matches "Open ARXML" — both

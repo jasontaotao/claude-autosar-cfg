@@ -72,4 +72,15 @@ export interface AppHeaderProps {
   // independently without false-disabled menu entries.
   readonly onOpenDbcImport: () => void;
   readonly dbcImportBusy: boolean;
+  // v1.25.0 T5 — "File Operations → Batch create ECUC from Excel…"
+  // menu entry. The parent (App.tsx) owns the XlsxBatchWizard open
+  // flag + the 3-IPC pipeline (writeBatchTemplate / parseBatch /
+  // commitBatch) — AppHeader just forwards the click + renders the
+  // icon + label. `xlsxBatchBusy` is the in-flight gate (true while
+  // any of the 3 IPC round-trips is in progress) so a user can't
+  // double-open the wizard while the previous instance is still
+  // resolving. Decoupled from `dbcImportBusy` / `odxBusy` so the
+  // 3 importer surfaces (DBC / ODX / XLSX) can run independently.
+  readonly onOpenXlsxBatch: () => void;
+  readonly xlsxBatchBusy: boolean;
 }

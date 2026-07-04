@@ -48,6 +48,12 @@ import type {
   ScriptListRequest,
   ScriptRunRequest,
   ScriptSaveRequest,
+  XlsxParseBatchRequest,
+  XlsxParseBatchResponse,
+  XlsxWriteBatchTemplateRequest,
+  XlsxWriteBatchTemplateResponse,
+  XlsxCommitBatchRequest,
+  XlsxCommitBatchResponse,
 } from '../../shared/types.js';
 import { trackHandler } from '../shutdown/drain.js';
 
@@ -81,6 +87,9 @@ import {
 import { registerStencilHandler } from './stencilHandler.js';
 import { handleStencilSave } from './stencilSaveHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
+import { xlsxEcucBatchImportHandler } from './xlsxEcucBatchImportHandler.js';
+import { xlsxEcucBatchParseHandler } from './xlsxEcucBatchParseHandler.js';
+import { xlsxEcucBatchWriteBatchTemplateHandler } from './xlsxEcucBatchTemplateHandler.js';
 
 /**
  * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
@@ -595,6 +604,32 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.PROJECT_RELOAD,
     async (_evt, req: ProjectReloadRequest): Promise<ProjectReloadResponse> => {
       return projectReloadHandler(req);
+    },
+  );
+
+  // v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-IPC surface. The
+  // renderer wires these into the XlsxBatchWizard modal. The
+  // handlers are the pure modules added by T2/T3 (already passing
+  // the ship-blocking 75-row real-OEM fixture per T4). Re-exported
+  // here unchanged so the renderer can dispatch them via the same
+  // `ipcRenderer.invoke(IPC_CHANNELS.XLSX_*)` shape used by every
+  // other channel above.
+  ipcMain.handle(
+    IPC_CHANNELS.XLSX_WRITE_BATCH_TEMPLATE,
+    async (_evt, req: XlsxWriteBatchTemplateRequest): Promise<XlsxWriteBatchTemplateResponse> => {
+      return xlsxEcucBatchWriteBatchTemplateHandler(req);
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.XLSX_PARSE_BATCH,
+    async (_evt, req: XlsxParseBatchRequest): Promise<XlsxParseBatchResponse> => {
+      return xlsxEcucBatchParseHandler(req);
+    },
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.XLSX_COMMIT_BATCH,
+    async (_evt, req: XlsxCommitBatchRequest): Promise<XlsxCommitBatchResponse> => {
+      return xlsxEcucBatchImportHandler(req);
     },
   );
 }

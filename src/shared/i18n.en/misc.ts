@@ -129,4 +129,27 @@ export const MiscEn: MiscMessages = {
   'stencil.badge.template': 'Template',
   'stencil.success.saved': 'Saved to {name}',
   'stencil.badge.templateAria': '{name} is a template file',
+
+  // v1.25.0 T5 — Excel→Com-Stack ECUC batch wizard
+  'xlsxBatch.menu.label': 'Batch-create ECUC from Excel…',
+  'xlsxBatch.menu.icon': '📊',
+  'xlsxBatch.wizard.title': 'Batch-create ECUC instances from Excel',
+  'xlsxBatch.wizard.close': 'Close',
+  'xlsxBatch.wizard.step1.download': 'Download starter template (from project BSWMD)',
+  'xlsxBatch.wizard.step1.busy': 'Generating template…',
+  'xlsxBatch.wizard.step2.upload': 'Upload your filled-in .xlsx',
+  'xlsxBatch.wizard.step2.collision': 'Collision',
+  'xlsxBatch.wizard.step2.collisionOverwrite': 'Overwrite',
+  'xlsxBatch.wizard.step2.collisionSkip': 'Skip',
+  'xlsxBatch.wizard.step3.commit': 'Preview collisions and commit',
+  'xlsxBatch.wizard.step3.committing': 'Committing…',
+  'xlsxBatch.wizard.step3.summary':
+    'Added: {added} · Overwritten: {overwritten} · Skipped: {skipped}',
+  'xlsxBatch.wizard.back': 'Back',
+  'xlsxBatch.wizard.next': 'Next',
+  'xlsxBatch.error.read': 'Failed to read .xlsx: {message}',
+  'xlsxBatch.error.parse': 'Failed to parse .xlsx: {message}',
+  'xlsxBatch.error.bridge': 'BSWMD validation failed: {message}',
+  'xlsxBatch.error.write': 'Failed to write the 3 ECUC files: {message}',
+  'xlsxBatch.error.no-module-def': 'Project is missing Com / CanIf / PduR ECUC files',
 };

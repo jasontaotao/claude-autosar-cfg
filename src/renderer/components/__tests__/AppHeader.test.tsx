@@ -77,6 +77,12 @@ const noopProps = {
   // (added in T4 if needed — the wizard itself owns the user flow).
   onOpenDbcImport: (): void => {},
   dbcImportBusy: false,
+  // v1.25.0 T5 — "File Operations → Batch create ECUC from Excel…"
+  // menu entry. noopProps covers pre-existing render-only tests; the
+  // menu click behaviour is exercised in the XlsxBatchWizard test
+  // suite (the wizard itself owns the user flow).
+  onOpenXlsxBatch: (): void => {},
+  xlsxBatchBusy: false,
 };
 
 interface MockWindowAutosarApi {
