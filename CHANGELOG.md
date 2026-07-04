@@ -5,6 +5,14 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.23.2 (2026-07-03) — PATCH
+
+**i18n shim cleanup** — mass-migrated 51 caller files to explicit
+`@shared/i18n/index.js` folder path, added shim-must-not-exist regression
+test, deleted the 21-line compat shim left over from v1.23.1 T2. Pure
+refactor; +1 net test (regression test for shim absence). 2770 + 6 SKIP /
+0 fail.
+
 ## v1.23.1 (2026-07-03) — PATCH
 
 3 deferred items from the v1.23.0 ship cycle closed: cross-file atomic write for the DBC bridge IPC, i18n interface split (869 lines → 7 cluster files), 3 dead-code MEDIUMs from the v1.23.0 T2 fix-review. No breaking changes; backwards compatible with v1.23.0.
