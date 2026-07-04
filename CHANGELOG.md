@@ -5,6 +5,18 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.24.0 (2026-07-04) — MINOR
+
+**ODX → Diagnostic Extract ARXML bridge** — Closes the v1.22.0 carry-over.
+Pure mapper + IPC handler with 2-phase atomic write + UI Export button +
+success dialog. Real-OEM fixture validation against
+`samples/odx/Demo_Cdd.odx-d` (99 DemEvents / 4 DcmRoutines / 34 DcmDids +
+DTC `_258` regression). Plus a latent parser bug surfaced during T4:
+REQUEST services are now classified by UDS SERVICE-ID (0x22 = DID,
+0x31 = Routine, others = ignore). 5 new i18n keys × 2 locales (+ T3.1
+split for the rolledBack error path). +34 net tests.
+2804 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
+
 ## v1.23.2 (2026-07-03) — PATCH
 
 **i18n shim cleanup** — mass-migrated 51 caller files to explicit
