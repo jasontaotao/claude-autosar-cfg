@@ -5,6 +5,10 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.24.1 (2026-07-04) — PATCH
+
+**ODX-INSTANCE DID data** — Closes the v1.24.0 "DID data (length, scaling, encoding)" carry-over. The ODX→Diagnostic Extract bridge now captures `<DIAG-CODED-TYPE>` from 0x22 REQUESTs and emits `<DCM-DSP-DID-DATA>` blocks in the Dcm_Extract.arxml output. `OdxDidSummary.data` is OPTIONAL (backward-compat with v1.22.0's 11 hand-crafted tests). +9 net tests. 2813 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
+
 ## v1.24.0 (2026-07-04) — MINOR
 
 **ODX → Diagnostic Extract ARXML bridge** — Closes the v1.22.0 carry-over.
