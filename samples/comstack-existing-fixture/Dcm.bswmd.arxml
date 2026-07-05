@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Real-OEM Dcm BSWMD for v1.27.0 T5 cross-vendor fixture.
+  Mirrors the Vector-derived convention used by the sibling real-OEM
+  fixtures (PduR.bswmd.arxml / CanIf.bswmd.arxml / Com.bswmd.arxml):
+  uses the AUTOSAR root package and the AUTOSAR_00050.xsd schema.
+
+  The 4 container shortNames match canonical AUTOSAR exactly
+  (claude-autosarcfg-canonical-autosar-pdur-paths-not-tables lesson):
+    DcmDspClearDTC            (UDS 0x14)
+    DcmDspReadDTCInformation  (UDS 0x19)
+    DcmDspDid                 (UDS 0x22 + 0x2E, shared parent)
+    DcmDspRoutine             (UDS 0x31)
+
+  User-facing xlsx sheet names (5: DcmClearDTC / DcmReadDTC /
+  DcmReadDataById / DcmWriteDataById / DcmRoutineControl) remain
+  abstracted in src/core/bridge/xlsxDcmServicesToEcucBatch.ts and
+  resolve to these canonical container shortNames via the
+  SHEET_TO_CONTAINER_SHORT_NAME seam. See T1 fix report.
+-->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00050.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Dcm</SHORT-NAME>
+          <DESC>Diagnostic communication manager (subset, v1.27.0 real-OEM fixture; Vector-derived convention). Container shortNames match canonical AUTOSAR (DcmDsp* prefix).</DESC>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmDspClearDTC</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <DESC>Canonical AUTOSAR container for UDS service 0x14 (Clear Diagnostic Information). Referenced by xlsx sheet 'DcmClearDTC'.</DESC>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmDspReadDTCInformation</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <DESC>Canonical AUTOSAR container for UDS service 0x19 (ReadDTCInformation). Referenced by xlsx sheet 'DcmReadDTC'.</DESC>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmDspDid</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <DESC>Canonical AUTOSAR parent container for UDS services 0x22 (ReadDataById) and 0x2E (WriteDataById). The mapper differentiates via per-row definitionRef emitted in PatchSteps. Referenced by xlsx sheets 'DcmReadDataById' and 'DcmWriteDataById'.</DESC>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmDspRoutine</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <DESC>Canonical AUTOSAR container for UDS service 0x31 (RoutineControl). Referenced by xlsx sheet 'DcmRoutineControl'.</DESC>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
