@@ -53,12 +53,7 @@ The wizard's Step 1 "Download starter template" now works against the demo proje
 
 ## Known Consequences (documented, not regressions)
 
-The bridge code (`src/core/bridge/xlsxToEcucBatch.ts:24`) hardcodes `PduR/PduRRoutingPaths/PduRRoutingPath` (pre-T3 demo shape). T3's enriched PduR BSWMD declares the AUTOSAR-spec-correct `PduRRoutingTables` (note the `s`). As a result:
-
-- `xlsxEcucBatchImportHandler.test.ts`: PduR `add-child` resolves to `path-not-found` → soft-filtered → `perFile.PduR === 0` post-T3 (was `>= 1` pre-T3). Test assertion relaxed from `>= 1` to `>= 0` per spec Risks option (b).
-- `dbcImportComStackHandler.test.ts`: same relaxation (`addedCounts.pduR >= 1` → `>= 0`).
-
-This is a **known consequence of enrichment**, not a regression. The fix (bridge realignment) is deferred to a follow-up PATCH (likely v1.25.x PATCH T5 or v1.26.0 MINOR) to keep v1.25.1 focused on the 3 close-out follow-ups.
+**Closed in v1.25.2 PATCH** (commit `49ef5d9` + `ab10d95`). Re-attribution: the framing in the original v1.25.1 release notes described this as "bridge mapper realignment deferred" — that framing was incorrect. The actual root cause was that v1.25.1 T3 itself introduced a **misnomer** by renaming the demo-ecu BSWMD's container from canonical `PduRRoutingPaths` to non-canonical `PduRRoutingTables`. The mapper, value file, and real-OEM fixture all use canonical `PduRRoutingPaths`. v1.25.2 PATCH T1 reverted the BSWMD back to canonical `PduRRoutingPaths`, and the 2 test assertions relaxed in v1.25.1 (per spec Risks option (b)) are restored to `>= 1`. No further follow-up required.
 
 ## Migration Notes
 
@@ -71,7 +66,6 @@ For users of the demo project: the enriched BSWMDs are backward-compatible at th
 - `translateStepPath` split (YAGNI single caller)
 - `.csv` format support (independent PATCH if demand materializes)
 - Dcm services generator (v1.26.0 MINOR; was blocked until C1 fixed — now unblocked)
-- Bridge mapper realignment to AUTOSAR-spec `PduRRoutingTables` (follow-up PATCH)
 
 ## Test Results
 
@@ -87,5 +81,4 @@ For users of the demo project: the enriched BSWMDs are backward-compatible at th
 ## Next Steps
 
 - v1.26.0 MINOR: Dcm services (0x14/0x19/0x22/0x2E/0x31) generator (unblocked now that C1 is fixed)
-- Follow-up PATCH: bridge mapper realignment to `PduRRoutingTables` (closes the documented known consequence)
 - v1.25.x PATCH (future): `.csv` support if demand materializes

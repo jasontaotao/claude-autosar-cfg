@@ -72,3 +72,47 @@ The demo-ecu BSWMD currently declares `ComPduId` without `<DEFAULT-VALUE>0</DEFA
 - Type-check: 0 errors
 - Lint: 0 errors
 - Format: clean
+
+---
+
+## Addendum (2026-07-05) — v1.25.1 T3 Misnomer Reverted in v1.25.2 PATCH
+
+> **Addendum date:** 2026-07-05
+> **Cross-reference:** [v1.25.2 PATCH release notes](../v1.25.2/README.md) (commit `49ef5d9` + `ab10d95`)
+
+### Re-attribution
+
+This errata originally documented v1.25.1 PATCH T2 (path-prefix fix) as the resolution to the integer-default concern. v1.25.1 PATCH T3 was treated as a separate, additive DX-only enrichment — 3 demo BSWMDs now declare all 5 Com-stack kinds × ≥3 params × `<DEFAULT-VALUE>` blocks. T3 was framed as a "known consequence" for v1.25.1: the bridge mapper's hardcoded path was said to be misaligned with the T3-enriched BSWMD's container name.
+
+The framing was inverted. The actual situation:
+
+| Surface | Path used | Source |
+| --- | --- | --- |
+| `xlsxToEcucBatch.ts:24` (mapper) | `PduR/PduRRoutingPaths/PduRRoutingPath` | Production code (pre-v1.25.1) |
+| `samples/arxml/demo-ecu/PduR_Config.arxml` (value file) | `PduRRoutingPaths` | Pre-v1.25.1 demo |
+| `samples/comstack-existing-fixture/PduR.bswmd.arxml:20` (real-OEM fixture) | `PduRRoutingPaths` | Vector-derived OEM |
+| Canonical AUTOSAR (`AUTOSAR_MOD_ECUConfigurationParameters.arxml:155998`) | `PduRRoutingPaths` | AUTOSAR spec |
+| v1.25.1 T3 demo-ecu BSWMD (post-T3) | `PduRRoutingTables` | **v1.25.1 T3 introduced this** |
+
+T3 renamed the demo-ecu BSWMD's container from canonical `PduRRoutingPaths` to non-canonical `PduRRoutingTables`. The mapper (already correct) was unchanged. The 2 test assertions relaxed in v1.25.1 (per spec Risks option (b)) were relaxed in response to a regression T3 itself introduced — not in response to an enrichment that needed subsequent realignment.
+
+### v1.25.2 PATCH T1 Fix
+
+Reverts the BSWMD misnomer. Single-line fix in `samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml:14`: `PduRRoutingTables` → `PduRRoutingPaths`. Effects:
+
+- PduR `add-child` steps now resolve correctly via the engine's `findContainerByPath` (the container exists in the BSWMD with the name the mapper expects).
+- PduR instances land in the committed ARXML (were silently filtered as `path-not-found` in v1.25.1).
+- The 2 test assertions relaxed in v1.25.1 PATCH (`perFile.PduR >= 0` and `addedCounts.pduR >= 0`) are restored to `>= 1`. The "known consequence" comment blocks are removed.
+
+Mapper (already canonical) and value file (already canonical) are unchanged. A separate T1 review nit (`ab10d95`) aligned a stale header comment in `xlsxToEcucBatch.ts:9` that referenced the planned-but-wrong mapper edit; the comment now matches the canonical code.
+
+### Process Lesson
+
+The v1.25.1 spec framed the bridge mapper realignment as "deferred to follow-up PATCH" rather than catching the BSWMD misnomer at design-review time. The T3 enrichment would have been caught earlier if the spec had cross-referenced the canonical AUTOSAR + real-OEM fixture + value-file path when declaring the BSWMD enrichment. v1.26.0 PATCH spec template will include a "BSWMD enrichment cross-reference check" as a mandatory review item.
+
+### Test Summary (v1.25.2)
+
+- Full suite: 2834 + 6 SKIP / 0 fail (0 net change from v1.25.1; assertion restoration only)
+- Type-check: 0 errors
+- Lint: 0 errors
+- Format: clean

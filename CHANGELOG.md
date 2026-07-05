@@ -5,6 +5,12 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.25.2 (2026-07-05) — PATCH
+
+**Demo-ecu BSWMD misnomer reverted** — Reverts a misnomer introduced in v1.25.1 PATCH T3. The T3 enrichment renamed the demo-ecu PduR BSWMD's container from canonical `PduRRoutingPaths` to non-canonical `PduRRoutingTables`. Canonical AUTOSAR + real-OEM fixture + value file + mapper all use `PduRRoutingPaths`; T3's renaming caused PduR `add-child` steps to silently fail with `path-not-found`. v1.25.2 T1 reverts the BSWMD (`samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml:14`: `Tables` → `Paths`). The 2 test assertions relaxed in v1.25.1 (`perFile.PduR >= 0` + `addedCounts.pduR >= 0`) are restored to `>= 1`. The "known consequence" framing in v1.25.1 release notes was itself inverted — corrected via addendum to `docs/release-notes/v1.25.0/errata.md` and updated "Known Consequences" section in `docs/release-notes/v1.25.1/README.md`. **0 net test change**. 2834 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
+
+**Deferral noted**: bridge mapper still hardcodes BSWMD-side paths — future BSWMD shape changes can re-introduce the same drift. Proper long-term fix (BSWMD-driven dynamic lookup) is v1.26.0 MINOR scope. Process lesson captured: future BSWMD enrichment specs require a "canonical AUTOSAR + real-OEM + value-file + mapper cross-reference check" review item.
+
 ## v1.25.1 (2026-07-05) — PATCH
 
 **Close-out 3 follow-ups** — (1) T1 dead-code cleanup in `xlsxEcucBatchParseHandler` (1 import + 4 lines); (2) T2 integer-default cosmetic root-cause-based fix — actual bug was missing `/<docRootPkg>/` prefix in `xlsxEcucBatchImportHandler.translateStepPath` (T4 misdiagnosis dis-proved; see `docs/release-notes/v1.25.0/errata.md`); fix lands via `prefixDocRootPath` helper + doc-aware path anchoring in `applyStepsToFile`; (3) T3 demo BSWMD enrichment — all 5 Com-stack kinds × ≥3 params × `<DEFAULT-VALUE>` blocks (load-bearing for post-T2 set-param landing). +3 net tests. **2834 + 6 SKIP / 0 fail**. pnpm verify 7-stage GREEN.
