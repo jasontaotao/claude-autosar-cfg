@@ -30,6 +30,20 @@ describe('parseDemoBswmds', () => {
     expect(result.has('EcuC')).toBe(true);
     expect(result.has('PduR')).toBe(true);
   });
+
+  it('parses all 6 demo-ecu BSWMDs including the new Dcm module', () => {
+    const input = new Map<string, string>([
+      ['Com', loadDemoBswmd('Com')],
+      ['CanIf', loadDemoBswmd('CanIf')],
+      ['ComM', loadDemoBswmd('ComM')],
+      ['EcuC', loadDemoBswmd('EcuC')],
+      ['PduR', loadDemoBswmd('PduR')],
+      ['Dcm', loadDemoBswmd('Dcm')],
+    ]);
+    const result = parseDemoBswmds(input);
+    expect(result.size).toBe(6);
+    expect(result.has('Dcm')).toBe(true);
+  });
 });
 
 describe('parseDemoBswmds — edge cases', () => {

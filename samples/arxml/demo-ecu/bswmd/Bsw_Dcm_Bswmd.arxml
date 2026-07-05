@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-4.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Dcm</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Dcm</SHORT-NAME>
+          <DESCIPTION>Demo-ecu Dcm module definition (v1.27.0 ship fixture).</DESCIPTION>
+          <CONTAINERS>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmClearDTC</SHORT-NAME>
+              <DESCIPTION>UDS service 0x14 — Clear Diagnostic Information.</DESCIPTION>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmReadDTC</SHORT-NAME>
+              <DESCIPTION>UDS service 0x19 — Read DTC Information.</DESCIPTION>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmReadDataById</SHORT-NAME>
+              <DESCIPTION>UDS service 0x22 — Read Data By Identifier (references DcmDspDid).</DESCIPTION>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmWriteDataById</SHORT-NAME>
+              <DESCIPTION>UDS service 0x2E — Write Data By Identifier (references DcmDspDid).</DESCIPTION>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>DcmRoutineControl</SHORT-NAME>
+              <DESCIPTION>UDS service 0x31 — Routine Control (references DcmDspRoutine).</DESCIPTION>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
+          </CONTAINERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
