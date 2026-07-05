@@ -13,7 +13,6 @@ import { promises as fs } from 'node:fs';
 import type * as XLSXType from 'xlsx';
 
 import { parseArxml } from '../../core/arxml/parser.js';
-import { xlsxToEcucBatch } from '../../core/bridge/xlsxToEcucBatch.js';
 import type {
   EcucInstanceRow,
   XlsxParseBatchRequest,
@@ -215,11 +214,6 @@ export async function xlsxEcucBatchParseHandler(
       collisions[`${inst.sheet}:${inst.shortName}`] = true;
     }
   }
-
-  // Touch xlsxToEcucBatch to keep the import used (T2 doesn't call the
-  // mapper here, but the import documents that this handler's output feeds
-  // T1's mapper downstream via the commit handler).
-  void xlsxToEcucBatch;
 
   return {
     ok: true,
