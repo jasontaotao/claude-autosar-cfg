@@ -5,6 +5,12 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.27.0 (2026-07-06) — MINOR
+
+**Dcm services generator (ODX + xlsx integrated)** — Adds a new IPC handler `dcmConfigHandler` that combines v1.24.0's `odxToDiagnosticExtract.dcmContent` (ODX-derived DIDs + Routines) with xlsx-configured Dcm service instances (5 UDS kinds: 0x14/0x19/0x22/0x2E/0x31) into a single Dcm-Config ARXML. Builds on v1.26.0's BSWMD-driven mapper infrastructure. Adds ODX-Dcm linkage validation as a NEW error class (fail-fast vs. silent path-not-found masking). New `samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml` + `samples/comstack-existing-fixture/Dcm.bswmd.arxml` fixtures; both use canonical AUTOSAR service container shortNames per `claude-autosarcfg-canonical-autosar-always-verify` lesson. **2857 + 6 SKIP / 0 fail** (~16 net new). pnpm verify 7-stage GREEN.
+
+**Deferral noted**: Dem services generator (DTC mapping + debouncing) deferred to v1.28.0 MINOR. DcmDsl / Security access / NRC customization deferred to v1.28.0+.
+
 ## v1.26.0 (2026-07-05) — MINOR
 
 **Xlsx mapper BSWMD-driven refactor** — Eliminates the hardcoded `SHEET_TO_PARENT_PATH` const at `src/core/bridge/xlsxToEcucBatch.ts:13-25`. The bridge mapper now derives BSWMD-side parent paths from the canonical BSWMD at call time via the existing `lookupContainerDef` infrastructure. Closes the structural cause of the v1.25.1 PATCH T3 misnomer regression (and the subsequent v1.25.2 BSWMD revert).
