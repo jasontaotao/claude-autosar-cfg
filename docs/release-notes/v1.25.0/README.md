@@ -42,7 +42,7 @@ Closes the v1.24.1 release notes "Next Steps" item that was carried over from v1
 
 ## Known Issues
 
-- **Integer-default cosmetic** — When a `.xlsx` cell encodes an integer value that exactly matches the BSWMD `<DEFAULT-VALUE>` for that parameter, the ARXML serializer omits the redundant `<VALUE>` element on write-back. This is the conventional AUTOSAR behaviour (don't emit defaults) and is not a data-mutation bug — diffing the resulting ARXML against the pre-import version will show zero changes for that parameter. Customers who need to force-write defaults can move the cell to a value one off, then back.
+- **Integer-default regression (root cause re-attributed by T2)** — When a `.xlsx` cell encodes an integer (or textual) value, the resulting ARXML commit may not reflect the user's value for that parameter; instead the BSWMD `<DEFAULT-VALUE>` is emitted. T2 diagnostic confirms this is NOT an `applySetParam` integer no-op as T4 suspected — the engine + serializer layers are correct when given faithful paths. The actual root cause is a path-prefix bug in `src/main/ipc/xlsxEcucBatchImportHandler.ts:translateStepPath` (missing leading `/`), which causes `findContainerByPath` to reject every `set-param` step with `path-not-found`. Containers are still created via `add-child` with BSWMD defaults via `fillParamsFromBswmd`, which masks the bug for any param whose user value equals its BSWMD default. The T4 75-row ship-blocking test inadvertently masked the issue because `ComIPduDirection` defaults to `SEND` and the test's textual-pin assertion matches that default. Fix deferred to a future patch (out of scope for v1.25.x PATCH T2). See [errata.md](./errata.md) for full details.
 
 ## Test Results
 

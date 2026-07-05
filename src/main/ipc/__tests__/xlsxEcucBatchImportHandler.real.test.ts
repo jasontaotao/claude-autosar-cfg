@@ -273,4 +273,81 @@ describe('xlsxEcucBatchImportHandler (v1.25.0 T4 — real-OEM 75-row)', () => {
       cleanup(fx.workDir);
     }
   }, 60_000);
+
+  // -------------------------------------------------------------------------
+  // 3. v1.25.x PATCH T2 regression — ComPduId integer default lands as
+  //    `<VALUE>1</VALUE>` through the FULL import handler (template →
+  //    parse → commit). Pins the integer-default surface that T4 review
+  //    misdiagnosed as a latent `applySetParam` no-op. The diagnostic in
+  //    `src/core/__tests__/c1-integer-default-diagnostic.test.ts`
+  //    confirmed the engine + serializer pipeline correctly lands
+  //    integer values that differ from BSWMD defaults; this case pins
+  //    the same invariant at the IPC handler integration boundary.
+  //
+  //    Per the v1.25.0 errata (docs/release-notes/v1.25.0/errata.md),
+  //    the original "latent bug" attribution was disproved by the T2
+  //    diagnostic. This test stays as a regression guard for any future
+  //    change to the engine or serializer that re-introduces an
+  //    integer-default no-op.
+  // -------------------------------------------------------------------------
+
+  it('ComPduId=1 integer lands as <VALUE>1</VALUE> in committed ARXML (T2 integer-default regression)', async () => {
+    const fx = seedFixture();
+    try {
+      // Build a single-row `.xlsx` programmatically with ComIPdu
+      // Pdu_Engine_Speed carrying ComPduId=1. Re-uses the existing
+      // template + parse pipeline so the path through the import
+      // handler is identical to production.
+      const tmpl = await xlsxEcucBatchWriteBatchTemplateHandler({
+        projectManifestPath: fx.manifestPath,
+      });
+      expect(tmpl.ok).toBe(true);
+      if (!tmpl.ok) return;
+
+      const parsed = await xlsxEcucBatchParseHandler({
+        projectManifestPath: fx.manifestPath,
+        xlsxBytes: new Uint8Array(readFileSync(FIXTURE_XLSX)),
+      });
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) return;
+
+      // Locate the first ComIPdu row and override its ComPduId to 1.
+      // The fixture declares ComPduId with DEFAULT-VALUE=0, so a
+      // value of 1 differs from the default and exercises the
+      // integer-default surface end-to-end.
+      const instances = parsed.value.instances.map((row) =>
+        row.sheet === 'ComIPdu' && row.shortName === 'Pdu_Engine_Speed'
+          ? { ...row, params: { ...row.params, ComPduId: 1 } }
+          : row,
+      );
+
+      const overwriteAll: Record<string, 'overwrite'> = {};
+      for (const inst of instances) {
+        overwriteAll[`${inst.sheet}:${inst.shortName}`] = 'overwrite';
+      }
+      const commit = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: overwriteAll,
+      });
+      expect(commit.ok).toBe(true);
+      if (!commit.ok) return;
+
+      // Pin the integer-default surface: Pdu_Engine_Speed's
+      // <PARAMETER-VALUES> block must contain <VALUE>1</VALUE> for
+      // the ComPduId param, not the BSWMD <DEFAULT-VALUE>0</DEFAULT-VALUE>.
+      const comText = readFileSync(fx.comPath, 'utf-8');
+      const pduBlock = comText.match(
+        /<SHORT-NAME>Pdu_Engine_Speed<\/SHORT-NAME>([\s\S]*?)<\/ECUC-CONTAINER-VALUE>/,
+      );
+      expect(pduBlock).not.toBeNull();
+      if (pduBlock !== null) {
+        expect(pduBlock[0]).toMatch(
+          /<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[^<]*ComPduId<\/DEFINITION-REF>\s*<VALUE>1<\/VALUE>/,
+        );
+      }
+    } finally {
+      cleanup(fx.workDir);
+    }
+  }, 60_000);
 });
