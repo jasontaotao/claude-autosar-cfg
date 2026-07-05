@@ -7,16 +7,10 @@ import { describe, it, expect } from 'vitest';
 
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 
-const DEMO_BSWMD_DIR = resolve(
-  __dirname,
-  '../../../../samples/arxml/demo-ecu/bswmd',
-);
+const DEMO_BSWMD_DIR = resolve(__dirname, '../../../../samples/arxml/demo-ecu/bswmd');
 
 function loadDemoBswmd(moduleShortName: string): string {
-  return readFileSync(
-    resolve(DEMO_BSWMD_DIR, `Bsw_${moduleShortName}_Bswmd.arxml`),
-    'utf-8',
-  );
+  return readFileSync(resolve(DEMO_BSWMD_DIR, `Bsw_${moduleShortName}_Bswmd.arxml`), 'utf-8');
 }
 
 describe('parseDemoBswmds', () => {
