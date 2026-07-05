@@ -1,7 +1,7 @@
 # v1.26.0 MINOR — Xlsx Mapper BSWMD-Driven Refactor
 
 > **Ship date:** 2026-07-05
-> **Commit:** 18b245c21c3abc4e45d96b1f3d43ce17744c41ac
+> **Commit:** e8d798fdac148c7ebcef8c92f537cd9563266aa9
 > **Tag:** v1.26.0
 > **Tests:** 2841 + 6 SKIP / 0 fail (~7 net new from v1.25.2's 2834)
 
