@@ -70,10 +70,19 @@ function applyStepsToFile(
 ): { ok: true; value: FileOutcome } | { ok: false; message: string } {
   const docRes = parseArxml(sourceText);
   if (!docRes.ok) return { ok: false, message: `parse failed: ${formatParseError(docRes.error)}` };
+  // Prepend `/<docRootPkg>/` so the mutation engine's
+  // `findContainerByPath` can resolve the BSWMD-relative paths emitted
+  // by `xlsxToEcucBatch` + `translateStepPath`. Without this prefix,
+  // `set-param` steps are rejected with `path-not-found` (T2 diagnostic
+  // root cause). The mapper / translator don't have doc context, so we
+  // inject the package root here.
+  const docRootPkg = docRes.value.packages[0]?.shortName;
+  const resolvedSteps =
+    docRootPkg !== undefined ? steps.map((s) => prefixDocRootPath(s, docRootPkg)) : steps;
   // `exactOptionalPropertyTypes: true` requires us to conditionally
   // include `moduleDef` rather than passing `{ moduleDef: undefined }`.
   const ctx = moduleDef !== undefined ? { moduleDef } : {};
-  const applyRes = applyPatchSteps(docRes.value, steps, ctx);
+  const applyRes = applyPatchSteps(docRes.value, resolvedSteps, ctx);
   // Same filter as `dbcImportComStackHandler:230` — `path-not-found`
   // and `no-bswmd-for-module` are advisory (skipped silently) because
   // the bridge doesn't have BSWMD context for every Com-stack kind
@@ -118,6 +127,41 @@ function formatSerializeError(err: SerializeError): string {
  * paths). Without this translator the e2e returns 0 added for every
  * row.
  */
+/**
+ * Prepend `/<docRootPkg>/` to every path in a step so the mutation
+ * engine's `findContainerByPath` (which walks doc paths starting with
+ * `/<pkg.shortName>` and uses strict equality) can resolve the path.
+ *
+ * Without this prefix, the mapper's BSWMD-relative paths (e.g.
+ * `Com/ComConfig/Pdu_Diag`) are rejected with `path-not-found`. The
+ * bug was masked when the user value happened to equal the BSWMD
+ * `<DEFAULT-VALUE>` populated by `fillParamsFromBswmd` at
+ * `add-child` time — so the v1.25.0 75-row fixture's `SEND` enum
+ * assertion (BSWMD default) passed even though `set-param` silently
+ * failed. Real-OEM ComPduId integer assignments (=1, =2, ...) bypassed
+ * the default and exposed the bug.
+ */
+function prefixDocRootPath(step: PatchStep, docRootPkg: string): PatchStep {
+  const prefix = `/${docRootPkg}`;
+  if (step.op === 'add-child') {
+    return {
+      ...step,
+      parentPath: step.parentPath.startsWith(prefix)
+        ? step.parentPath
+        : `${prefix}/${step.parentPath}`,
+    };
+  }
+  if (step.op === 'set-param') {
+    return {
+      ...step,
+      containerPath: step.containerPath.startsWith(prefix)
+        ? step.containerPath
+        : `${prefix}/${step.containerPath}`,
+    };
+  }
+  return step;
+}
+
 function translateStepPath(step: PatchStep, moduleDef: BswModuleDef): PatchStep {
   if (step.op === 'add-child') {
     // T1 mapper emits parentPath as a 3-segment path that includes
