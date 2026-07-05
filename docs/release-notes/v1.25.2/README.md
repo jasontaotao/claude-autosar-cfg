@@ -1,7 +1,7 @@
 # v1.25.2 PATCH — Demo-ecu BSWMD Misnomer Reverted
 
 > **Ship date:** 2026-07-05
-> **Commit:** 17742eb0c049af13d4cb63a2c59d49a74be608be
+> **Commit:** 0d6e116bdd7054165ad9f53cc6a7cc8d45f14249
 > **Tag:** v1.25.2
 > **Tests:** 2834 + 6 SKIP / 0 fail (0 net change from v1.25.1's 2834)
 
