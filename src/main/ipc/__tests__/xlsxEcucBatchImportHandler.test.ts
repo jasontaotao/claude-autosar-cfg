@@ -230,27 +230,16 @@ describe('xlsxEcucBatchImportHandler (v1.25.0 T2 — round-trip e2e)', () => {
         {
           sheet: 'ComIPdu',
           shortName: 'NewPdu',
-          // v1.25.x PATCH T2: the demo-ecu BSWMD's ComPduId parameter
-          // has no <DEFAULT-VALUE> block (pre-T3 enrichment), so
-          // `fillParamsFromBswmd` skips it and the new container's
-          // params map stays empty. Post-T2 path-prefix fix, set-param
-          // now lands correctly — but it lands on an empty params
-          // map, which surfaces `param-not-found` as a fatal error.
-          // Pre-T2, the path-not-found filter soft-failed ALL
-          // set-param steps (including the ones with bogus param
-          // names), so the test could use `param:ComHandleId` and
-          // still expect ok=true.
-          //
-          // To exercise the post-T2 pipeline against the un-enriched
-          // demo BSWMD, we omit params entirely (just add-child).
-          // T3 will add <DEFAULT-VALUE> blocks; a follow-up test can
-          // then assert that param assignments land correctly.
+          // Demo BSWMD's ComPduId lacks <DEFAULT-VALUE> blocks, so
+          // fillParamsFromBswmd leaves the new container's params map
+          // empty. To keep round-trip deterministic, we omit params
+          // and assert only add-child lands (>= 1).
           params: {},
         },
         {
           sheet: 'PduRRoutingPath',
           shortName: 'NewRoute',
-          // PduR BSWMD declares no params (T3 will enrich).
+          // PduR BSWMD declares no params.
           params: {},
         },
       ];
@@ -278,13 +267,6 @@ describe('xlsxEcucBatchImportHandler (v1.25.0 T2 — round-trip e2e)', () => {
       expect(res.value.skipped).toBe(0);
       expect(res.value.perFile.Com).toBeGreaterThanOrEqual(1);
       expect(res.value.perFile.PduR).toBeGreaterThanOrEqual(1);
-      // v1.25.x PATCH T2: post-path-prefix fix, set-param steps that
-      // resolved correctly now count toward `added`. The demo-ecu
-      // BSWMD has no <DEFAULT-VALUE> blocks (pre-T3 enrichment), so
-      // fillParamsFromBswmd leaves params empty → set-param would
-      // fail with `param-not-found`. We exercise add-child only here.
-      // T3 will add <DEFAULT-VALUE> blocks; a follow-up test will
-      // then assert set-param landing.
 
       const afterCom = readFileSync(fx.comPath, 'utf-8');
       const afterPduR = readFileSync(fx.pduRPath, 'utf-8');
