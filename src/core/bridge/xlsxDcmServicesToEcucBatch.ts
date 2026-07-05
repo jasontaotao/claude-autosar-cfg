@@ -21,22 +21,23 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
 import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
+import type { DcmServiceKind } from './dcmConfigPipeline.js';
+
 export type { EcucInstanceRow };
 
-type DcmSheetKind =
-  | 'DcmClearDTC'
-  | 'DcmReadDTC'
-  | 'DcmReadDataById'
-  | 'DcmWriteDataById'
-  | 'DcmRoutineControl';
+// v1.27.0 T4 — T2 mapper used a private `DcmSheetKind` (same 5-element
+// union as T3's `DcmServiceKind`). T3 review flagged the duplication;
+// re-export the canonical name from T3 so the mapper, the orchestrator,
+// and the IPC handler all share one source of truth.
+export type DcmSheetKind = DcmServiceKind;
 
-const SHEET_TO_MODULE = {
+const SHEET_TO_MODULE: Readonly<Record<DcmSheetKind, string>> = {
   DcmClearDTC: 'Dcm',
   DcmReadDTC: 'Dcm',
   DcmReadDataById: 'Dcm',
   DcmWriteDataById: 'Dcm',
   DcmRoutineControl: 'Dcm',
-} as const;
+};
 
 const SHEET_TO_CONTAINER_SHORT_NAME: Readonly<Record<DcmSheetKind, string>> = {
   DcmClearDTC: 'DcmDspClearDTC',
@@ -66,14 +67,14 @@ export function xlsxDcmServicesToEcucBatch(
     if (bswmd === undefined) {
       throw new Error(
         `BSWMD map missing module '${moduleShortName}' (needed by sheet '${row.sheet}'). ` +
-        `Provided modules: ${Array.from(bswmds.keys()).join(', ') || '<empty>'}`,
+          `Provided modules: ${Array.from(bswmds.keys()).join(', ') || '<empty>'}`,
       );
     }
     const containerDef = lookupContainerDef(bswmd, lookupKey);
     if (containerDef === null) {
       throw new Error(
         `Container '${lookupKey}' not found in BSWMD module '${moduleShortName}'. ` +
-        `Verify the BSWMD declares this canonical AUTOSAR container shortName.`,
+          `Verify the BSWMD declares this canonical AUTOSAR container shortName.`,
       );
     }
     const parentPath = containerDef.path;
