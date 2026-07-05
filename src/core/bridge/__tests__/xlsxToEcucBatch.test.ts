@@ -15,19 +15,20 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { type BswModuleDef } from '../../project/bswmd.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 import { xlsxToEcucBatch, type EcucInstanceRow } from '../xlsxToEcucBatch.js';
 
 const DEMO_BSWMD_DIR = resolve(__dirname, '../../../../samples/arxml/demo-ecu/bswmd');
 
-function demoBswmds(): ReadonlyMap<string, ReturnType<typeof parseDemoBswmds> extends ReadonlyMap<string, infer V> ? V : never> {
+function demoBswmds(): ReadonlyMap<string, BswModuleDef> {
   return parseDemoBswmds(
     new Map([
       ['Com', readFileSync(resolve(DEMO_BSWMD_DIR, 'Bsw_Com_Bswmd.arxml'), 'utf-8')],
       ['CanIf', readFileSync(resolve(DEMO_BSWMD_DIR, 'Bsw_CanIf_Bswmd.arxml'), 'utf-8')],
       ['PduR', readFileSync(resolve(DEMO_BSWMD_DIR, 'Bsw_PduR_Bswmd.arxml'), 'utf-8')],
     ]),
-  ) as ReadonlyMap<string, ReturnType<typeof parseDemoBswmds> extends ReadonlyMap<string, infer V> ? V : never>;
+  );
 }
 
 describe('xlsxToEcucBatch (v1.25.0 T1 — pure mapper)', () => {

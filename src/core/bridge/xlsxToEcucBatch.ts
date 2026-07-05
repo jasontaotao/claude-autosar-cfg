@@ -59,6 +59,11 @@ export function xlsxToEcucBatch(
           `Verify the BSWMD declares this container shortName.`,
       );
     }
+    // Strip the BSWMD's package-root segment (`/<docRootPkg>/`). This assumes the
+    // BSWMD module's package root matches the runtime value-side doc's package
+    // shortName (currently always `AUTOSAR` for demo + real-OEM fixtures). If a
+    // future BSWMD lives under a different package root than its value-side doc,
+    // this strip will over-strip — defer to v1.27.0 for consolidation.
     // `ContainerDef.path` is BSWMD-absolute (`/AUTOSAR/Com/ComConfig/ComIPdu`);
     // the mutation engine and downstream pipeline expect BSWMD-relative
     // paths (`Com/ComConfig/ComIPdu`). Strip the `/<docRootPkg>/` prefix so

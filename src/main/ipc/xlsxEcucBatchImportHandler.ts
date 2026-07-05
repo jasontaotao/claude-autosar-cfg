@@ -374,7 +374,9 @@ export async function xlsxEcucBatchImportHandler(
   // 6. Run T1 mapper per file → PatchStep[].
   // v1.26.0 T2 — pass the BSWMD map loaded in step 4 above so the
   // mapper's lookupContainerDef can resolve sheet-name → container-path.
-  // T3 may refactor this to use parseDemoBswmds for a stricter contract.
+  // T3 (scope-reduced): parseDemoBswmds swap is optional — current bswmdDefs
+  // produces an equivalent BswModuleDef shape. Documented for future
+  // consolidation (v1.27.0+); not changing in v1.26.0.
   const stepSets: Record<ComStackFile, PatchStep[]> = {
     Com: xlsxToEcucBatch(split['Com'], bswmdDefs),
     CanIf: xlsxToEcucBatch(split['CanIf'], bswmdDefs),
