@@ -6,7 +6,7 @@
       <ELEMENTS>
         <ECUC-MODULE-DEF>
           <SHORT-NAME>Com</SHORT-NAME>
-          <DESC>Communication module (subset for Demo ECU)</DESC>
+          <DESC>Communication module (subset for Demo ECU; enriched v1.25.x PATCH for XlsxBatchWizard template download)</DESC>
           <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
           <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
           <CONTAINERS>
@@ -26,7 +26,61 @@
                       <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
                       <MIN>0</MIN>
                       <MAX>65535</MAX>
+                      <DEFAULT-VALUE>0</DEFAULT-VALUE>
                     </ECUC-INTEGER-PARAM-DEF>
+                    <ECUC-INTEGER-PARAM-DEF>
+                      <SHORT-NAME>ComBitPosition</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <MIN>0</MIN>
+                      <MAX>63</MAX>
+                      <DEFAULT-VALUE>0</DEFAULT-VALUE>
+                    </ECUC-INTEGER-PARAM-DEF>
+                    <ECUC-ENUMERATION-PARAM-DEF>
+                      <SHORT-NAME>ComIPduDirection</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <LITERALS>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>SEND</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>RECEIVE</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                      </LITERALS>
+                      <DEFAULT-VALUE>SEND</DEFAULT-VALUE>
+                    </ECUC-ENUMERATION-PARAM-DEF>
+                  </PARAMETERS>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>ComSignal</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>65536</UPPER-MULTIPLICITY>
+                  <PARAMETERS>
+                    <ECUC-INTEGER-PARAM-DEF>
+                      <SHORT-NAME>ComBitPosition</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <MIN>0</MIN>
+                      <MAX>63</MAX>
+                      <DEFAULT-VALUE>0</DEFAULT-VALUE>
+                    </ECUC-INTEGER-PARAM-DEF>
+                    <ECUC-ENUMERATION-PARAM-DEF>
+                      <SHORT-NAME>ComSignalDirection</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <LITERALS>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>SEND</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>RECEIVE</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                      </LITERALS>
+                      <DEFAULT-VALUE>SEND</DEFAULT-VALUE>
+                    </ECUC-ENUMERATION-PARAM-DEF>
+                    <ECUC-ENUMERATION-PARAM-DEF>
+                      <SHORT-NAME>ComErrorNotification</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <LITERALS>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>NONE</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                        <ECUC-ENUMERATION-LITERAL-DEF><SHORT-NAME>APPLICATION</SHORT-NAME></ECUC-ENUMERATION-LITERAL-DEF>
+                      </LITERALS>
+                      <DEFAULT-VALUE>NONE</DEFAULT-VALUE>
+                    </ECUC-ENUMERATION-PARAM-DEF>
                   </PARAMETERS>
                 </ECUC-PARAM-CONF-CONTAINER-DEF>
               </CONTAINERS>
