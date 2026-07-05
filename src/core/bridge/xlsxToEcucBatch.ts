@@ -6,7 +6,7 @@
 //   ComSignal       → Com/ComConfig/ComSignal
 //   CanIfTxPdu      → CanIf/CanIfConfig/CanIfTxPdu
 //   CanIfRxPdu      → CanIf/CanIfConfig/CanIfRxPdu
-//   PduRRoutingPath → PduR/PduRRoutingTables/PduRRoutingPath
+//   PduRRoutingPath → PduR/PduRRoutingPaths/PduRRoutingPath
 //
 // One row → one `add-child` + zero-or-more `set-param` steps.
 // Throws on unrecognized sheet (YAGNI guard) or empty shortName.
