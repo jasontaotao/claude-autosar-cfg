@@ -131,19 +131,19 @@ samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml
 
 ## Components
 
-| File | Action | Approx lines |
-|---|---|---|
-| `src/main/ipc/xlsxEcucBatchParseHandler.ts` | T1: delete 6 lines (import + void block) | -6 |
-| `src/core/__tests__/c1-integer-default-diagnostic.test.ts` | T2: NEW | 80-120 |
-| `src/main/ipc/__tests__/xlsxEcucBatchImportHandler.real.test.ts` | T2: append 1 regression test | +30-50 |
-| Per-fix file (T2 branch dependent) | T2: modify one of `xlsxToEcucBatch.ts` / `serializer.ts` / `applyPatchSteps.ts` | 1-20 |
-| `samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml` | T3: add 2 params + 1 container | +30 |
-| `samples/arxml/demo-ecu/bswmd/Bsw_CanIf_Bswmd.arxml` | T3: add 1 container tree | +30 |
-| `samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml` | T3: add 1 container tree | +30 |
-| `src/main/ipc/__tests__/xlsxEcucBatchTemplateHandler.real.demo-ecu.test.ts` | T3: NEW | 60-100 |
-| `docs/release-notes/v1.25.1/README.md` | T4: NEW (or update v1.25.0 with errata if PATCH scope is small) | 60-100 |
-| `CHANGELOG.md` | T4: add v1.25.1 row | +5 |
-| `docs/user-manual.html` | T4: bump baseline to v1.25.1 | +1-2 |
+| File                                                                        | Action                                                                          | Approx lines |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------ |
+| `src/main/ipc/xlsxEcucBatchParseHandler.ts`                                 | T1: delete 6 lines (import + void block)                                        | -6           |
+| `src/core/__tests__/c1-integer-default-diagnostic.test.ts`                  | T2: NEW                                                                         | 80-120       |
+| `src/main/ipc/__tests__/xlsxEcucBatchImportHandler.real.test.ts`            | T2: append 1 regression test                                                    | +30-50       |
+| Per-fix file (T2 branch dependent)                                          | T2: modify one of `xlsxToEcucBatch.ts` / `serializer.ts` / `applyPatchSteps.ts` | 1-20         |
+| `samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml`                          | T3: add 2 params + 1 container                                                  | +30          |
+| `samples/arxml/demo-ecu/bswmd/Bsw_CanIf_Bswmd.arxml`                        | T3: add 1 container tree                                                        | +30          |
+| `samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml`                         | T3: add 1 container tree                                                        | +30          |
+| `src/main/ipc/__tests__/xlsxEcucBatchTemplateHandler.real.demo-ecu.test.ts` | T3: NEW                                                                         | 60-100       |
+| `docs/release-notes/v1.25.1/README.md`                                      | T4: NEW (or update v1.25.0 with errata if PATCH scope is small)                 | 60-100       |
+| `CHANGELOG.md`                                                              | T4: add v1.25.1 row                                                             | +5           |
+| `docs/user-manual.html`                                                     | T4: bump baseline to v1.25.1                                                    | +1-2         |
 
 No new IPC, no new shared types, no new devDeps.
 
@@ -163,62 +163,74 @@ T2 branch B (serializer option) adds an optional `emitExplicitDefaults?: boolean
 ## Testing strategy
 
 **T1 tests**:
+
 - Full `pnpm vitest run` must preserve 2831 + 6 SKIP / 0 fail (0 net change; pure deletion).
 
 **T2 tests**:
+
 - 1 diagnostic test: ~50 lines, runs the pipeline end-to-end, prints intermediate outputs to console, asserts which root-cause branch is active. **This test stays in the suite as a regression guard** even after the fix lands.
 - 1 regression test: pins `ComPduId=1` (integer) landing as `<VALUE>1</VALUE>` in the output ARXML. Appended to `xlsxEcucBatchImportHandler.real.test.ts`.
 - Full `pnpm vitest run` target: 2831 + 6 SKIP / 0 fail + 2 net (diagnostic + regression) = ~2833.
 
 **T3 tests**:
+
 - 1 regression test (`xlsxEcucBatchTemplateHandler.real.demo-ecu.test.ts`): builds the demo-ecu fixture (manifest + 3 BSWMDs + 3 stub value ARXMLs), calls `xlsxEcucBatchWriteBatchTemplateHandler`, parses the returned bytes via SheetJS, asserts all 5 sheet names present + each sheet has ≥3 header columns.
 - Full `pnpm vitest run` target: 2833 + 6 SKIP / 0 fail + 1 net = ~2834.
 - **DBC bridge impact**: The v1.23.0 DBC bridge's `path-not-found` filter previously suppressed `add-child` steps for kinds the demo BSWMDs didn't declare (ComSignal / CanIfTxPdu / CanIfRxPdu / PduRRoutingPath). After T3 enrichment, these steps will SUCCEED. This is **expected behavior change**, not a regression — DBC bridge tests will likely shift in count but should still pass. If any DBC test fails, document the failure as part of T3 review; do NOT silently revert the BSWMD enrichment.
 
 **T4 ship**:
+
 - `pnpm verify` 7-stage GREEN (replaces the v1.25.0 verify run).
 - Tag `v1.25.1` at ship commit, gh release with 40-char SHA per MEMORY.md `gh API 推 commit workflow`.
 
 **Backward-compat tests** (no new — must continue to pass):
+
 - v1.23.x (57 tests), v1.24.x (44 tests), v1.25.x (2831 tests baseline) — total 2932+ existing tests must remain GREEN.
 
 ## Tasks (4 total)
 
 ### T1: Dead code cleanup
+
 **Files**: `src/main/ipc/xlsxEcucBatchParseHandler.ts`
 **Commits**: 1
 **Tests**: 0 net (pure deletion)
 **Duration estimate**: ~15 min
 
 ### T2: C1 diagnosis + root-cause-based fix
+
 **Files**:
+
 - NEW: `src/core/__tests__/c1-integer-default-diagnostic.test.ts` (diagnostic + regression in one)
 - MODIFY: per root-cause branch — one of `src/core/bridge/xlsxToEcucBatch.ts` / `src/core/arxml/serializer.ts` / `src/core/mutation/applyPatchSteps.ts`
 - MODIFY: `src/main/ipc/__tests__/xlsxEcucBatchImportHandler.real.test.ts` (append regression)
-**Commits**: 1-2 (diagnostic commit + fix commit)
-**Tests**: +2 net (diagnostic + regression)
-**Duration estimate**: ~1-2 hours depending on root cause
+  **Commits**: 1-2 (diagnostic commit + fix commit)
+  **Tests**: +2 net (diagnostic + regression)
+  **Duration estimate**: ~1-2 hours depending on root cause
 
 ### T3: Demo BSWMD enrichment
+
 **Files**:
+
 - MODIFY: `samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml`
 - MODIFY: `samples/arxml/demo-ecu/bswmd/Bsw_CanIf_Bswmd.arxml`
 - MODIFY: `samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml`
 - NEW: `src/main/ipc/__tests__/xlsxEcucBatchTemplateHandler.real.demo-ecu.test.ts`
-**Commits**: 2 (BSWMD commit + test commit)
-**Tests**: +1 net
-**Duration estimate**: ~1 hour
+  **Commits**: 2 (BSWMD commit + test commit)
+  **Tests**: +1 net
+  **Duration estimate**: ~1 hour
 
 ### T4: Ship
+
 **Files**:
+
 - CREATE: `docs/release-notes/v1.25.1/README.md`
 - MODIFY: `CHANGELOG.md`
 - MODIFY: `docs/user-manual.html`
 - TAG: `v1.25.1` at ship commit
 - GH release: `v1.25.1`
-**Commits**: 1
-**Tests**: 0 net
-**Duration estimate**: ~30 min
+  **Commits**: 1
+  **Tests**: 0 net
+  **Duration estimate**: ~30 min
 
 ## Risks
 
