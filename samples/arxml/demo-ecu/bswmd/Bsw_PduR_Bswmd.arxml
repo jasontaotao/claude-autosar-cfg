@@ -11,7 +11,7 @@
           <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
           <CONTAINERS>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>PduRRoutingTables</SHORT-NAME>
+              <SHORT-NAME>PduRRoutingPaths</SHORT-NAME>
               <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
               <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
               <CONTAINERS>
