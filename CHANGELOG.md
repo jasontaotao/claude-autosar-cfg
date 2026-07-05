@@ -5,6 +5,12 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.26.0 (2026-07-05) — MINOR
+
+**Xlsx mapper BSWMD-driven refactor** — Eliminates the hardcoded `SHEET_TO_PARENT_PATH` const at `src/core/bridge/xlsxToEcucBatch.ts:13-25`. The bridge mapper now derives BSWMD-side parent paths from the canonical BSWMD at call time via the existing `lookupContainerDef` infrastructure. Closes the structural cause of the v1.25.1 PATCH T3 misnomer regression (and the subsequent v1.25.2 BSWMD revert).
+
+3 new fail-fast error classes surface at mapper construction time (vs. v1.25.x's silent `path-not-found` soft-filter). New helper `parseDemoBswmds` parses BSWMD ARXML into `ReadonlyMap<string, BswModuleDef>`. BSWMD enrichment cross-reference invariant enforced (per `claude-autosarcfg-canonical-autosar-pdur-paths-not-tables` lesson from v1.25.0 errata). **2841 + 6 SKIP / 0 fail** (~7 net new). pnpm verify 7-stage GREEN.
+
 ## v1.25.2 (2026-07-05) — PATCH
 
 **Demo-ecu BSWMD misnomer reverted** — Reverts a misnomer introduced in v1.25.1 PATCH T3. The T3 enrichment renamed the demo-ecu PduR BSWMD's container from canonical `PduRRoutingPaths` to non-canonical `PduRRoutingTables`. Canonical AUTOSAR + real-OEM fixture + value file + mapper all use `PduRRoutingPaths`; T3's renaming caused PduR `add-child` steps to silently fail with `path-not-found`. v1.25.2 T1 reverts the BSWMD (`samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml:14`: `Tables` → `Paths`). The 2 test assertions relaxed in v1.25.1 (`perFile.PduR >= 0` + `addedCounts.pduR >= 0`) are restored to `>= 1`. The "known consequence" framing in v1.25.1 release notes was itself inverted — corrected via addendum to `docs/release-notes/v1.25.0/errata.md` and updated "Known Consequences" section in `docs/release-notes/v1.25.1/README.md`. **0 net test change**. 2834 + 6 SKIP / 0 fail. pnpm verify 7-stage GREEN.
