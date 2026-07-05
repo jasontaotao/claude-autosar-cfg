@@ -1,12 +1,14 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, copyFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { xlsxEcucBatchWriteBatchTemplateHandler } from '../xlsxEcucBatchTemplateHandler.js';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import {
   __resetOpenProjectManifestPathForTests,
   setOpenProjectManifestPath,
 } from '../project-manifest-state.js';
+import { xlsxEcucBatchWriteBatchTemplateHandler } from '../xlsxEcucBatchTemplateHandler.js';
 
 const DEMO_PROJECT = 'samples/arxml/demo-ecu';
 const COM_BSWMD = `${DEMO_PROJECT}/bswmd/Bsw_Com_Bswmd.arxml`;
@@ -29,11 +31,7 @@ describe('xlsxEcucBatchTemplateHandler (v1.25.x PATCH T3 — demo-ecu fixture)',
       JSON.stringify(
         {
           manifestVersion: '1',
-          bswmdPaths: [
-            'Com.bswmd.arxml',
-            'CanIf.bswmd.arxml',
-            'PduR.bswmd.arxml',
-          ],
+          bswmdPaths: ['Com.bswmd.arxml', 'CanIf.bswmd.arxml', 'PduR.bswmd.arxml'],
           valueArxmlPaths: ['Com_Config.arxml', 'CanIf_Config.arxml', 'PduR_Config.arxml'],
         },
         null,
