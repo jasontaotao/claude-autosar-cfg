@@ -16,10 +16,7 @@ import { dcmConfigPipeline } from '../dcmConfigPipeline.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 
 const DEMO_DCM_BSWMD = readFileSync(
-  resolve(
-    __dirname,
-    '../../../../samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
-  ),
+  resolve(__dirname, '../../../../samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
   'utf-8',
 );
 

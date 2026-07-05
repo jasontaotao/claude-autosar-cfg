@@ -86,10 +86,7 @@ function resolveOdxReference(
  * The diff message includes available alternatives (first 10 DID shortNames
  * or all Routine shortNames) so users can correct the .xlsx row directly.
  */
-function validateOdxLinkage(
-  odx: OdxSummary,
-  rows: readonly EcucInstanceRow[],
-): void {
+function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): void {
   for (const row of rows) {
     const params = row.params as Readonly<Record<string, string | number | boolean | null>>;
     // Cast through `unknown` because EcucInstanceRow.sheet is the narrow
@@ -102,7 +99,10 @@ function validateOdxLinkage(
       if (typeof didRef === 'string' && didRef.length > 0) {
         if (resolveOdxReference(odx, 'didRef', didRef) === null) {
           const { dids } = collectOdxDidsAndRoutines(odx);
-          const sample = dids.slice(0, 10).map((d) => d.shortName).join(', ');
+          const sample = dids
+            .slice(0, 10)
+            .map((d) => d.shortName)
+            .join(', ');
           const more = dids.length > 10 ? ` (and ${dids.length - 10} more)` : '';
           throw new Error(
             `ODX-Dcm linkage broken: Sheet '${row.sheet}', row '${row.shortName}': ` +
@@ -132,7 +132,9 @@ function validateOdxLinkage(
  * (the T2 mapper catches them with a regex-stable error before we
  * get here in production; this loop is best-effort count only).
  */
-function tallyServiceCounts(rows: readonly EcucInstanceRow[]): Readonly<Record<DcmServiceKind, number>> {
+function tallyServiceCounts(
+  rows: readonly EcucInstanceRow[],
+): Readonly<Record<DcmServiceKind, number>> {
   const counts: Record<DcmServiceKind, number> = {
     DcmClearDTC: 0,
     DcmReadDTC: 0,
