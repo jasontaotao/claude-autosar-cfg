@@ -77,7 +77,25 @@ export function xlsxDcmServicesToEcucBatch(
           `Verify the BSWMD declares this canonical AUTOSAR container shortName.`,
       );
     }
-    const parentPath = containerDef.path;
+    // v1.27.x PATCH — strip the BSWMD's package-root segment (`/Dcm/...`).
+    // `ContainerDef.path` is BSWMD-absolute (constructed in
+    // `core/project/bswmd.ts:678,962` from the BSWMD package walk);
+    // the mutation engine + the handler-side `prefixDocRootPath` expect
+    // BSWMD-relative paths so the extract-doc's package root can be
+    // re-applied cleanly. Pre-patch, emitting the absolute path caused
+    // a doubled prefix at apply time (`/DiagExtract//Dcm/...`) →
+    // `path-not-found`. Mirrors `xlsxToEcucBatch.ts:71`.
+    //
+    // TODO (out-of-scope for v1.27.x PATCH): the regex strips exactly
+    // one leading `/<segment>/`. This works for fixtures where the
+    // module sits directly under the package root (2-segment path
+    // `/<pkg>/<module>`), but would over-strip if a future BSWMD nests
+    // the module under `/<pkg>/<intermediate>/<module>`. The identical
+    // pattern at `xlsxToEcucBatch.ts:71` has the same latent
+    // limitation; both should be consolidated into a single
+    // `stripBswmdPackageRoot(absolutePath, moduleShortName)` helper as
+    // a separate refactor.
+    const parentPath = containerDef.path.replace(/^\/[^/]+\//, '');
     const containerPath = `${parentPath}/${row.shortName}`;
     const addChildBase = {
       op: 'add-child' as const,

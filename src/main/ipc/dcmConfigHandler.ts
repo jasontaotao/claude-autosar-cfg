@@ -34,7 +34,8 @@ import { serializeArxml } from '../../core/arxml/serializer.js';
 import { dcmConfigPipeline, type DcmConfigResult } from '../../core/bridge/dcmConfigPipeline.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
-import { applyPatchSteps } from '../../core/mutation/applyPatchSteps.js';
+import { applyPatchSteps, type ApplyContext } from '../../core/mutation/applyPatchSteps.js';
+import type { BswModuleDef } from '../../core/project/bswmd.js';
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
@@ -123,6 +124,7 @@ function walkUpForFixture(start: string): string | null {
 function applyPatchesToExtract(
   extractXml: string,
   serviceSteps: readonly PatchStep[],
+  dcmModuleDef: BswModuleDef,
 ): { ok: true; value: string } | { ok: false; message: string } {
   const docRes = parseArxml(extractXml);
   if (!docRes.ok) {
@@ -146,19 +148,28 @@ function applyPatchesToExtract(
     docRootPkg !== undefined
       ? serviceSteps.map((s) => prefixDocRootPath(s, docRootPkg))
       : serviceSteps;
-  const applyRes = applyPatchSteps(docRes.value, resolvedSteps);
-  // `path-not-found` and `no-bswmd-for-module` are advisory (skipped
-  // silently) — mirrors the Com-stack handler's filter at
-  // `xlsxEcucBatchImportHandler:90-94`. The Dcm mapper's
-  // BSWMD-driven container lookup should rarely hit these, but the
-  // filter keeps the bridge robust against future shape changes.
-  const fatal = applyRes.errors.filter(
-    (e) => e.kind !== 'path-not-found' && e.kind !== 'no-bswmd-for-module',
-  );
-  if (fatal.length > 0) {
+  // v1.27.x PATCH — pass `moduleDef` so `applyAddChild` can validate the
+  // new container against the BSWMD schema. Without it, every
+  // `add-child` step fails with `no-bswmd-for-module` (see
+  // `core/mutation/applyPatchSteps.ts:288-297`). The handler has Dcm
+  // BSWMD context (from `dcmConfigPipeline`'s pre-flight check), so we
+  // narrow the parameter to `BswModuleDef` (required) rather than
+  // optional — same shape as `xlsxEcucBatchImportHandler.applyStepsToFile`.
+  const ctx: ApplyContext = { moduleDef: dcmModuleDef };
+  const applyRes = applyPatchSteps(docRes.value, resolvedSteps, ctx);
+  // v1.27.x PATCH — spec §275 (2026-07-05-v1-27-0-minor-design.md:275):
+  // "All 5 fail-fast errors are thrown inside `dcmConfigPipeline` or
+  // `dcmConfigHandler` — never emitted as patches that get silently
+  // filtered". Pre-patch, the filter at lines 155-156 (now removed)
+  // silently swallowed `path-not-found` + `no-bswmd-for-module`,
+  // returning `ok: true` with silently-missing data. Any non-empty
+  // error set now fails fast via `IpcResult.error`.
+  if (applyRes.errors.length > 0) {
     return {
       ok: false,
-      message: `Patch application failed: ${fatal.map((e) => `${e.kind}: ${e.message}`).join('; ')}`,
+      message: `Patch application failed: ${applyRes.errors
+        .map((e) => `${e.kind}: ${e.message}`)
+        .join('; ')}`,
     };
   }
   const serRes = serializeArxml(applyRes.doc, { sourceArxml: extractXml });
@@ -268,7 +279,13 @@ export async function dcmConfigHandler(
 
     // 6. Apply the service patches to the ODX-derived extract doc and
     //    serialize. This stitches both halves into a single ARXML.
-    const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps);
+    //    `dcmConfigPipeline` (step 4) already pre-flight-checks that the
+    //    Dcm BSWMD is present (it throws `BSWMD map missing module 'Dcm'`
+    //    which is caught by the outer `try`/`catch` below and surfaced
+    //    as `IpcResult.error`). The non-null assertion narrows the type
+    //    for `applyPatchesToExtract`'s required `BswModuleDef` parameter.
+    const dcmModuleDef = bswmds.get('Dcm')!;
+    const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps, dcmModuleDef);
     if (!patched.ok) {
       return { ok: false, error: { message: patched.message } };
     }

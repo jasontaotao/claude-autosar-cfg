@@ -141,6 +141,43 @@ describe('xlsxDcmServicesToEcucBatch — fail-fast errors', () => {
 // the seam must resolve identically in every vendor's BSWMD that
 // declares them (per the claude-autosarcfg-canonical-autosar-pdur-paths-not-tables
 // lesson learned at v1.25.2 PATCH T1).
+// v1.27.x PATCH — bug-guard: parentPath must be BSWMD-relative (no
+// leading `/`), so the handler-side `prefixDocRootPath` can re-apply
+// the extract-doc's package root cleanly. Pre-patch, the mapper emitted
+// the BSWMD-absolute path (`/Dcm/...`), which produced a doubled prefix
+// (`/DiagExtract//Dcm/...`) at apply time → `path-not-found`. The
+// existing `stringContaining(...)` assertions masked the bug because
+// they only check the suffix substring.
+describe('xlsxDcmServicesToEcucBatch — BSWMD-relative path invariant', () => {
+  const cases: readonly { sheet: string; shortName: string; expectedSuffix: string }[] = [
+    { sheet: 'DcmClearDTC', shortName: 'ClearOne', expectedSuffix: '/DcmDspClearDTC' },
+    { sheet: 'DcmReadDTC', shortName: 'ReadOne', expectedSuffix: '/DcmDspReadDTCInformation' },
+    { sheet: 'DcmReadDataById', shortName: 'ReadDidOne', expectedSuffix: '/DcmDspDid' },
+    { sheet: 'DcmWriteDataById', shortName: 'WriteDidOne', expectedSuffix: '/DcmDspDid' },
+    { sheet: 'DcmRoutineControl', shortName: 'RoutineOne', expectedSuffix: '/DcmDspRoutine' },
+  ];
+  for (const c of cases) {
+    it(`emits BSWMD-relative parentPath for ${c.sheet}`, () => {
+      const rows = [
+        { sheet: c.sheet, shortName: c.shortName, params: {} },
+      ] as unknown as readonly EcucInstanceRow[];
+      const steps = xlsxDcmServicesToEcucBatch(rows, dcmBswmds());
+      const addChild = steps.find((s) => s.op === 'add-child');
+      expect(addChild).toBeDefined();
+      const parentPath = (addChild as { parentPath: string }).parentPath;
+      // BSWMD-relative: no leading slash (otherwise the handler-side
+      // `prefixDocRootPath` produces a doubled prefix like
+      // `/DiagExtract//Dcm/...` and the mutation engine returns
+      // `path-not-found`).
+      expect(parentPath.startsWith('/')).toBe(false);
+      // Anchored to module shortName (`Dcm/...`) and ends at the
+      // canonical AUTOSAR container shortName.
+      expect(parentPath.startsWith('Dcm/')).toBe(true);
+      expect(parentPath.endsWith(c.expectedSuffix)).toBe(true);
+    });
+  }
+});
+
 describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () => {
   const REAL_OEM_BSWMD_PATH = resolve(
     __dirname,
