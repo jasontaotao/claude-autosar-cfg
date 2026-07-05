@@ -1,7 +1,7 @@
 # v1.25.1 PATCH — Close-out 3 Follow-ups
 
 > **Ship date:** 2026-07-05
-> **Commit:** a62d0dbb53990700bd33c2b0c95905cb51412838
+> **Commit:** 5634023f3615472a8d4bbda3b32d713e2cf652f9
 > **Tag:** v1.25.1
 > **Tests:** 2834 + 6 SKIP / 0 fail (+3 net from v1.25.0's 2831)
 
