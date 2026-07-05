@@ -5,6 +5,7 @@ import { parseArxml } from '../arxml/parser.js';
 import { serializeArxml } from '../arxml/serializer.js';
 import { xlsxToEcucBatch } from '../bridge/xlsxToEcucBatch.js';
 import { applyPatchSteps } from '../mutation/applyPatchSteps.js';
+import { parseBswmd } from '../project/bswmd.js';
 
 // Inline BSWMD fragment declaring ComIPdu with ComPduId integer param
 // having DEFAULT-VALUE=0 (the case the diagnostic must exercise).
@@ -19,7 +20,7 @@ const COM_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
             <SHORT-NAME>ComConfig</SHORT-NAME>
             <CONTAINERS>
               <ECUC-PARAM-CONF-CONTAINER-DEF>
-                <SHORT-NAME>ComIpdu</SHORT-NAME>
+                <SHORT-NAME>ComIPdu</SHORT-NAME>
                 <PARAMETERS>
                   <ECUC-INTEGER-PARAM-DEF>
                     <SHORT-NAME>ComPduId</SHORT-NAME>
@@ -64,17 +65,19 @@ describe('C1 integer-default diagnostic (v1.25.x PATCH T2)', () => {
       },
     ];
     // Branch A check: does mapper emit set-param?
-    const rawSteps = xlsxToEcucBatch(rows);
+    // v1.26.0 T2 — parse BSWMD first and pass to mapper so lookupContainerDef
+    // can resolve the ComIPdu container.
+    const bswmdRes = parseBswmd(COM_BSWMD);
+    expect(bswmdRes.ok).toBe(true);
+    if (!bswmdRes.ok) return;
+    const moduleDef = bswmdRes.value.modules[0]!;
+    const bswmds = new Map([[moduleDef.shortName, moduleDef]]);
+    const rawSteps = xlsxToEcucBatch(rows, bswmds);
     const setParamSteps = rawSteps.filter((s) => s.op === 'set-param');
     console.log('[DIAGNOSTIC] PatchSteps emitted (raw):', JSON.stringify(rawSteps, null, 2));
     expect(setParamSteps.length).toBeGreaterThan(0); // Branch A fails if no set-param emitted
 
     // Branch B/C check: does engine mutation + serialization land the value?
-    const { parseBswmd } = await import('../project/bswmd.js');
-    const bswmdRes = parseBswmd(COM_BSWMD);
-    expect(bswmdRes.ok).toBe(true);
-    if (!bswmdRes.ok) return;
-    const moduleDef = bswmdRes.value.modules[0]!;
 
     // Mirror the import handler's `translateStepPath`: strip the leaf
     // container-def segment so the engine's `findParentContainerDef`
