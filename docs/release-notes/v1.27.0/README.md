@@ -1,7 +1,7 @@
 # v1.27.0 MINOR — Dcm Services Generator (ODX + xlsx Integrated)
 
 > **Ship date:** 2026-07-06
-> **Commit:** {{ship-hash}}
+> **Commit:** f04348bea34d86d946916b75b3dbd7ed1fbd470d
 > **Tag:** v1.27.0
 > **Tests:** 2857 + 6 SKIP / 0 fail (~16 net new from v1.26.0's 2841)
 
