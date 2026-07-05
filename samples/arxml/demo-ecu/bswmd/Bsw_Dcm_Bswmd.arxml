@@ -6,27 +6,23 @@
       <ELEMENTS>
         <ECUC-MODULE-DEF>
           <SHORT-NAME>Dcm</SHORT-NAME>
-          <DESCIPTION>Demo-ecu Dcm module definition (v1.27.0 ship fixture).</DESCIPTION>
+          <DESC>Demo-ecu Dcm module definition (v1.27.0 ship fixture). Container shortNames match canonical AUTOSAR (DcmDsp* prefix per the claude-autosarcfg-canonical-autosar-pdur-paths-not-tables lesson). The xlsx sheet names (DcmClearDTC / DcmReadDTC / DcmReadDataById / DcmWriteDataById / DcmRoutineControl) are abstracted; the SHEET_TO_CONTAINER_SHORT_NAME seam in src/core/bridge/xlsxDcmServicesToEcucBatch.ts maps them to these canonical container shortNames.</DESC>
           <CONTAINERS>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>DcmClearDTC</SHORT-NAME>
-              <DESCIPTION>UDS service 0x14 — Clear Diagnostic Information.</DESCIPTION>
+              <SHORT-NAME>DcmDspClearDTC</SHORT-NAME>
+              <DESC>Canonical AUTOSAR container for UDS service 0x14 (Clear Diagnostic Information). Referenced by xlsx sheet 'DcmClearDTC'.</DESC>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>DcmReadDTC</SHORT-NAME>
-              <DESCIPTION>UDS service 0x19 — Read DTC Information.</DESCIPTION>
+              <SHORT-NAME>DcmDspReadDTCInformation</SHORT-NAME>
+              <DESC>Canonical AUTOSAR container for UDS service 0x19 (ReadDTCInformation). Referenced by xlsx sheet 'DcmReadDTC'.</DESC>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>DcmReadDataById</SHORT-NAME>
-              <DESCIPTION>UDS service 0x22 — Read Data By Identifier (references DcmDspDid).</DESCIPTION>
+              <SHORT-NAME>DcmDspDid</SHORT-NAME>
+              <DESC>Canonical AUTOSAR parent container for UDS services 0x22 (ReadDataById) and 0x2E (WriteDataById). The mapper differentiates via per-row definitionRef emitted in PatchSteps. Referenced by xlsx sheets 'DcmReadDataById' and 'DcmWriteDataById'.</DESC>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>DcmWriteDataById</SHORT-NAME>
-              <DESCIPTION>UDS service 0x2E — Write Data By Identifier (references DcmDspDid).</DESCIPTION>
-            </ECUC-PARAM-CONF-CONTAINER-DEF>
-            <ECUC-PARAM-CONF-CONTAINER-DEF>
-              <SHORT-NAME>DcmRoutineControl</SHORT-NAME>
-              <DESCIPTION>UDS service 0x31 — Routine Control (references DcmDspRoutine).</DESCIPTION>
+              <SHORT-NAME>DcmDspRoutine</SHORT-NAME>
+              <DESC>Canonical AUTOSAR container for UDS service 0x31 (RoutineControl). Referenced by xlsx sheet 'DcmRoutineControl'.</DESC>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
           </CONTAINERS>
         </ECUC-MODULE-DEF>
