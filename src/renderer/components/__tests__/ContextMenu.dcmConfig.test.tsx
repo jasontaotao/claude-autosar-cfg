@@ -9,7 +9,7 @@
 //   3. Clicking the entry emits a `generate-dcm-config` action with
 //      the target's path
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ContextMenuRoot, openContextMenu } from '../ContextMenu.js';
@@ -27,7 +27,9 @@ afterEach(() => {
 });
 
 function openAt(kind: 'bswmd', path: string, shortName: string): void {
-  openContextMenu({ kind, path, shortName }, 100, 100);
+  act(() => {
+    openContextMenu({ kind, path, shortName }, 100, 100);
+  });
 }
 
 describe('ContextMenu dcm-config (v1.31.0 PATCH T6)', () => {

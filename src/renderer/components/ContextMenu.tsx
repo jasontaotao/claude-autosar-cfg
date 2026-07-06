@@ -71,7 +71,11 @@ export type ContextMenuAction =
   | { readonly type: 'delete-container'; readonly path: string; readonly name: string }
   | { readonly type: 'delete-reference'; readonly path: string }
   | { readonly type: 'remove-module'; readonly path: string }
-  | { readonly type: 'delete-module'; readonly path: string; readonly name: string };
+  | { readonly type: 'delete-module'; readonly path: string; readonly name: string }
+  // v1.31.0 PATCH T6 — "Generate Dcm Config" entry. Surfaced in the
+  // BSWMD right-click menu when target.path matches the Dcm BSWMD
+  // regex. The host (App.tsx) routes this to useDcmConfigLauncher.
+  | { readonly type: 'generate-dcm-config'; readonly path: string };
 
 // ---------------------------------------------------------------------------
 // Module-level state cell — the menu's "open or closed" + position.
@@ -361,6 +365,22 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
       disabled: false,
       cssClass: 'context-menu-item context-menu-item-delete',
       build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
+    });
+  }
+  // v1.31.0 PATCH T6 — "Generate Dcm Config" entry. Shown when the
+  // BSWMD's path matches the Dcm BSWMD filename regex. The host
+  // (App.tsx) routes the emitted `generate-dcm-config` action to
+  // the dcm-config launcher (T7). Mirrors the hasDcmBswmd predicate
+  // used by the AppHeader dcmConfig dropdown entry (T5).
+  const isDcmBswmd = /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(target.path);
+  if (isDcmBswmd) {
+    items.push({
+      id: 'generate-dcm-config',
+      label: t(locale, 'dcmConfig.action.generate'),
+      ariaLabel: t(locale, 'dcmConfig.action.generateAria', { name: target.shortName }),
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-action',
+      build: () => ({ type: 'generate-dcm-config', path: target.path }),
     });
   }
   return items;
