@@ -13,6 +13,7 @@ import { describe, it, expect } from 'vitest';
 import type { EcucInstanceRow, OdxSummary } from '../../../shared/types.js';
 import { type BswModuleDef } from '../../project/bswmd.js';
 import { dcmConfigPipeline } from '../dcmConfigPipeline.js';
+import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 
 const DEMO_DCM_BSWMD = readFileSync(
@@ -21,7 +22,7 @@ const DEMO_DCM_BSWMD = readFileSync(
 );
 
 function makeDcmBswmds(): Map<string, BswModuleDef> {
-  return new Map(parseDemoBswmds(new Map([['Dcm', DEMO_DCM_BSWMD]])));
+  return new Map(parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, DEMO_DCM_BSWMD]])));
 }
 
 // Minimal OdxSummary fixture with 3 DIDs + 1 Routine, matching the

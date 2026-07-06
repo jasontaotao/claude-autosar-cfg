@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
+import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 
 const DEMO_BSWMD_DIR = resolve(__dirname, '../../../../samples/arxml/demo-ecu/bswmd');
@@ -38,11 +39,11 @@ describe('parseDemoBswmds', () => {
       ['ComM', loadDemoBswmd('ComM')],
       ['EcuC', loadDemoBswmd('EcuC')],
       ['PduR', loadDemoBswmd('PduR')],
-      ['Dcm', loadDemoBswmd('Dcm')],
+      [DCM_MODULE_SHORT_NAME, loadDemoBswmd(DCM_MODULE_SHORT_NAME)],
     ]);
     const result = parseDemoBswmds(input);
     expect(result.size).toBe(6);
-    expect(result.has('Dcm')).toBe(true);
+    expect(result.has(DCM_MODULE_SHORT_NAME)).toBe(true);
   });
 });
 

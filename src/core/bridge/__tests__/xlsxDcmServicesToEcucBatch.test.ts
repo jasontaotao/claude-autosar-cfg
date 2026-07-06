@@ -18,6 +18,7 @@ import { describe, it, expect } from 'vitest';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
 import { type BswModuleDef } from '../../project/bswmd.js';
+import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../xlsxDcmServicesToEcucBatch.js';
 
@@ -26,7 +27,7 @@ function loadDcmBswmd(): string {
   return readFileSync(resolve(DEMO_BSWMD_DIR, 'Bsw_Dcm_Bswmd.arxml'), 'utf-8');
 }
 function dcmBswmds(): Map<string, BswModuleDef> {
-  const map = parseDemoBswmds(new Map([['Dcm', loadDcmBswmd()]]));
+  const map = parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, loadDcmBswmd()]]));
   return new Map(map);
 }
 
@@ -43,7 +44,7 @@ describe('xlsxDcmServicesToEcucBatch', () => {
       // v1.27.2 PATCH — module-level add with definitionRef pointing at
       // the canonical AUTOSAR container definition. Pre-patch emitted
       // `parentPath: 'Dcm/DcmDspClearDTC'` (leaf-parent add).
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: '/Dcm/Dcm/DcmDspClearDTC',
     });
   });
@@ -56,7 +57,7 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ReadAllDTC',
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: '/Dcm/Dcm/DcmDspReadDTCInformation',
     });
   });
@@ -74,7 +75,7 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ReadVbatt',
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: '/Dcm/Dcm/DcmDspDid',
     });
     expect(steps[1]).toMatchObject({
@@ -92,7 +93,7 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'WriteVin',
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: '/Dcm/Dcm/DcmDspDid',
     });
   });
@@ -110,7 +111,7 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'EraseMemory',
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: '/Dcm/Dcm/DcmDspRoutine',
     });
     expect(steps[1]).toMatchObject({
@@ -204,7 +205,7 @@ describe('xlsxDcmServicesToEcucBatch — module-level add + definitionRef invari
       // `findParentContainerDef` has a synthetic-parent fallback for
       // 1-segment paths anchored to the module shortName
       // (`applyPatchSteps.ts:706-722`).
-      expect(child.parentPath).toBe('Dcm');
+      expect(child.parentPath).toBe(DCM_MODULE_SHORT_NAME);
       expect(child.parentPath.startsWith('/')).toBe(false);
       // definitionRef points at the BSWMD-side container definition so
       // `findChildDefForAdd` can resolve the leaf child via the
@@ -222,7 +223,7 @@ describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () =>
 
   function realOemDcmBswmds(): Map<string, BswModuleDef> {
     const xml = readFileSync(REAL_OEM_BSWMD_PATH, 'utf-8');
-    const parsed = parseDemoBswmds(new Map([['Dcm', xml]]));
+    const parsed = parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, xml]]));
     return new Map(parsed);
   }
 
@@ -244,7 +245,7 @@ describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () =>
       // AUTOSAR root package (`/AUTOSAR/Dcm/...`), so the prefix differs
       // from the demo-ecu's `Dcm` package root, but the leaf
       // `DcmDspDid` shortName is canonical.
-      parentPath: 'Dcm',
+      parentPath: DCM_MODULE_SHORT_NAME,
       definitionRef: expect.stringMatching(/\/DcmDspDid$/),
     });
     expect(steps[1]).toMatchObject({
@@ -300,8 +301,12 @@ describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () =>
           (realAddChild as { parentPath: string; definitionRef: string }).definitionRef,
       ).toMatch(new RegExp(`/${c.canonicalContainer}$`));
       // Both add-child steps should be module-level (parentPath === 'Dcm').
-      expect(demoAddChild && (demoAddChild as { parentPath: string }).parentPath).toBe('Dcm');
-      expect(realAddChild && (realAddChild as { parentPath: string }).parentPath).toBe('Dcm');
+      expect(demoAddChild && (demoAddChild as { parentPath: string }).parentPath).toBe(
+        DCM_MODULE_SHORT_NAME,
+      );
+      expect(realAddChild && (realAddChild as { parentPath: string }).parentPath).toBe(
+        DCM_MODULE_SHORT_NAME,
+      );
     }
   });
 });

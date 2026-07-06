@@ -32,6 +32,7 @@ import { resolve as pathResolve } from 'node:path';
 import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
 import { dcmConfigPipeline, type DcmConfigResult } from '../../core/bridge/dcmConfigPipeline.js';
+import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
 import { applyPatchSteps, type ApplyContext } from '../../core/mutation/applyPatchSteps.js';
@@ -264,7 +265,7 @@ export async function dcmConfigHandler(
     // 3. Locate + parse T1's Dcm BSWMD fixture.
     const dcmBswmdPath = locateDcmBswmdPath(args.odxPath);
     const dcmBswmdXml = readFileSync(dcmBswmdPath, 'utf-8');
-    const bswmds = parseDemoBswmds(new Map([['Dcm', dcmBswmdXml]]));
+    const bswmds = parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, dcmBswmdXml]]));
 
     // 4. Run T3 orchestrator (validates ODX-Dcm linkage, produces
     //    ODX-derived dcmConfigXml, tallies service kinds).
@@ -284,7 +285,7 @@ export async function dcmConfigHandler(
     //    which is caught by the outer `try`/`catch` below and surfaced
     //    as `IpcResult.error`). The non-null assertion narrows the type
     //    for `applyPatchesToExtract`'s required `BswModuleDef` parameter.
-    const dcmModuleDef = bswmds.get('Dcm')!;
+    const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME)!;
     const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps, dcmModuleDef);
     if (!patched.ok) {
       return { ok: false, error: { message: patched.message } };

@@ -25,6 +25,7 @@ import type {
 } from '../../shared/types.js';
 import type { BswModuleDef } from '../project/bswmd.js';
 
+import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 import { odxToDiagnosticExtract } from './odxToDiagnosticExtract.js';
 
 export type DcmServiceKind =
@@ -184,10 +185,10 @@ export async function dcmConfigPipeline(
   // 3. BSWMD presence check. T4 needs Dcm module to resolve xlsx paths;
   //    surface the same error message here so the orchestrator's contract
   //    is self-contained (T4 can rely on the orchestrator's validation).
-  const dcmBswmd = request.bswmds.get('Dcm');
+  const dcmBswmd = request.bswmds.get(DCM_MODULE_SHORT_NAME);
   if (dcmBswmd === undefined) {
     throw new Error(
-      `BSWMD map missing module 'Dcm' (needed for Dcm service configs). ` +
+      `BSWMD map missing module '${DCM_MODULE_SHORT_NAME}' (needed for Dcm service configs). ` +
         `Provided modules: ${Array.from(request.bswmds.keys()).join(', ') || '<empty>'}`,
     );
   }

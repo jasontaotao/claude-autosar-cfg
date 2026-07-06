@@ -284,6 +284,45 @@ describe('applyPatchSteps', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]?.kind).toBe('no-bswmd-for-module');
     });
+
+    // v1.27.3 PATCH — regression lock-in for the v1.27.2 1-segment
+    // synthetic-parent fallback boundary (code-review MEDIUM).
+    //
+    // The v1.27.2 PATCH extended `findParentContainerDef` with a
+    // 1-segment synthetic-parent fallback so the Dcm mapper can add
+    // module-level siblings via `parentPath: 'Dcm'` (see
+    // `xlsxDcmServicesToEcucBatch.ts:50-150` + release notes §"Why
+    // module-level add over leaf-parent add"). The fallback condition
+    // is STRICT equality on `moduleDef.shortName` — a 1-segment
+    // `parentPath` that names a different module must NOT silently
+    // resolve through it. If the fallback ever softened to
+    // `startsWith` or any prefix-tolerant match, a cross-vendor
+    // project could mis-attribute sibling containers to the wrong
+    // module — silent data corruption on the merged ARXML output.
+    //
+    // We exercise the boundary through the public `applyPatchSteps`
+    // API rather than the unexported `findParentContainerDef`
+    // directly. With `makeComModule().shortName === 'Com'` and a
+    // 1-segment `parentPath: 'PduR'`, the resolved path must fall
+    // through `findParentContainerDef`'s `segments.length < 2 →
+    // return null` branch (line ~737) and surface as
+    // `kind: 'path-not-found'` with the offending path in the
+    // message (set at `applyAddChild` line 320).
+    it('returns path-not-found when 1-segment parentPath does not match moduleDef.shortName (v1.27.3 cross-module negative)', () => {
+      const doc = makeComDoc();
+      const moduleDef = makeComModule(); // .shortName === 'Com'
+      const step: PatchStep = {
+        op: 'add-child',
+        parentPath: 'PduR', // 1-segment, intentionally does NOT match moduleDef.shortName
+        shortName: 'PduRRoutingPath_Test',
+        definitionRef: '/PduR/PduRRoutingPath',
+      };
+      const result = applyPatchSteps(doc, [step], { moduleDef });
+      expect(result.applied).toBe(0);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.kind).toBe('path-not-found');
+      expect(result.errors[0]?.message).toMatch(/PduR/);
+    });
   });
 
   describe('remove-with-cascade (AUTOSAR extension)', () => {

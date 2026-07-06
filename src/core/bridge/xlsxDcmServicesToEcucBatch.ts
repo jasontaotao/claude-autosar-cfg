@@ -22,6 +22,7 @@ import type { EcucInstanceRow } from '../../shared/types.js';
 import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
 import type { DcmServiceKind } from './dcmConfigPipeline.js';
+import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 
 export type { EcucInstanceRow };
 
@@ -32,11 +33,11 @@ export type { EcucInstanceRow };
 export type DcmSheetKind = DcmServiceKind;
 
 const SHEET_TO_MODULE: Readonly<Record<DcmSheetKind, string>> = {
-  DcmClearDTC: 'Dcm',
-  DcmReadDTC: 'Dcm',
-  DcmReadDataById: 'Dcm',
-  DcmWriteDataById: 'Dcm',
-  DcmRoutineControl: 'Dcm',
+  DcmClearDTC: DCM_MODULE_SHORT_NAME,
+  DcmReadDTC: DCM_MODULE_SHORT_NAME,
+  DcmReadDataById: DCM_MODULE_SHORT_NAME,
+  DcmWriteDataById: DCM_MODULE_SHORT_NAME,
+  DcmRoutineControl: DCM_MODULE_SHORT_NAME,
 };
 
 const SHEET_TO_CONTAINER_SHORT_NAME: Readonly<Record<DcmSheetKind, string>> = {
