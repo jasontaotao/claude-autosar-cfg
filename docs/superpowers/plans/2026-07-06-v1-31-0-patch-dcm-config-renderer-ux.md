@@ -14,7 +14,7 @@
 
 - **IPC surface unchanged**: no new channel, no `DcmConfigRequest` / `DcmConfigResponse` shape change. v1.30.0 `error.message` prefixes are the contract.
 - **Error classes (6)**: `bswmdUnreadable`, `odxUnreadable`, `odxParseFailed`, `bswmdMapMissing`, `atomicWriteFailed`, `unexpected`. Regex order matters — anchored prefixes first, `BSWMD map missing` substring match last because it's propagated from a different layer.
-- **i18n bundles**: 11 new keys in `src/shared/i18n/odx.ts` (type) + `src/shared/i18n.zh-CN/odx.ts` + `src/shared/i18n.en/odx.ts` (values). zh-CN + en coverage mandatory; 22 new translation strings.
+- **i18n bundles**: 13 new keys in `src/shared/i18n/odx.ts` (type) + `src/shared/i18n.zh-CN/odx.ts` + `src/shared/i18n.en/odx.ts` (values). zh-CN + en coverage mandatory; 26 new translation strings.
 - **Test coverage**: 80%+ per project default; DcmConfigSuccessDialog / DcmConfigErrorToast are presentational (≥80% behaviour). `useDcmConfigLauncher` hook ≥85%. `AppHeader` integration smoke + 1 disabled-state per gate. `ContextMenu` integration covers Dcm path / non-Dcm path / action emission.
 - **TDD discipline**: write failing test → run (must FAIL) → implement minimal code → run (must PASS) → commit. NO production code without a failing test first.
 - **Frequent commits**: each task ends with a `git commit` of the test + implementation together. Conventional commits prefix `feat:` / `test:` / `chore:` / `i18n:` / `refactor:`.
@@ -30,29 +30,29 @@
 
 ### Files to create
 
-| Path | Responsibility |
-|---|---|
-| `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` | Presentational: render `outputPath` + service counts when `open` |
-| `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css` | Scoped styles (parity `DiagnosticExtractSuccessDialog.css`) |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | TDD: render + close behaviours (5 cases) |
-| `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx` | Presentational: render error class with localized message, auto-dismiss 8s |
-| `src/renderer/components/dcmConfig/DcmConfigErrorToast.css` | Scoped styles (fixed bottom-right) |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx` | TDD: 6 classes render + auto-dismiss + close button |
-| `src/renderer/hooks/useDcmConfigLauncher.ts` | Hook: state machine + IPC + error classifier |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` | TDD: 6 transitions + classifyError 6 cases + re-entrancy |
-| `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx` | TDD: button render + 3 disabled gates + click fires callback |
-| `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx` | TDD: Dcm path visible / non-Dcm hidden / action emission |
+| Path                                                                          | Responsibility                                                             |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                | Presentational: render `outputPath` + service counts when `open`           |
+| `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`                | Scoped styles (parity `DiagnosticExtractSuccessDialog.css`)                |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | TDD: render + close behaviours (5 cases)                                   |
+| `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx`                   | Presentational: render error class with localized message, auto-dismiss 8s |
+| `src/renderer/components/dcmConfig/DcmConfigErrorToast.css`                   | Scoped styles (fixed bottom-right)                                         |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx`    | TDD: 6 classes render + auto-dismiss + close button                        |
+| `src/renderer/hooks/useDcmConfigLauncher.ts`                                  | Hook: state machine + IPC + error classifier                               |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                   | TDD: 6 transitions + classifyError 6 cases + re-entrancy                   |
+| `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx`              | TDD: button render + 3 disabled gates + click fires callback               |
+| `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx`            | TDD: Dcm path visible / non-Dcm hidden / action emission                   |
 
 ### Files to modify
 
-| Path | Change |
-|---|---|
-| `src/shared/i18n/odx.ts` | Add 11 new keys to `OdxMessages` interface |
-| `src/shared/i18n.zh-CN/odx.ts` | Add 11 zh-CN values to `OdxZhCN` |
-| `src/shared/i18n.en/odx.ts` | Add 11 en values to `OdxEn` |
-| `src/renderer/components/AppHeader/types.ts` | Add `onOpenDcmConfig: () => void` + `dcmConfigBusy: boolean` |
-| `src/renderer/components/AppHeader.tsx` | Destructure new props, render dropdown entry with gates |
-| `src/renderer/components/ContextMenu.tsx` | Add `'generate-dcm-config'` to `ContextMenuAction` union; extend `buildBswmdItems` to push entry when path matches Dcm regex |
+| Path                                         | Change                                                                                                                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `src/shared/i18n/odx.ts`                     | Add 13 new keys to `OdxMessages` interface                                                                                   |
+| `src/shared/i18n.zh-CN/odx.ts`               | Add 11 zh-CN values to `OdxZhCN`                                                                                             |
+| `src/shared/i18n.en/odx.ts`                  | Add 11 en values to `OdxEn`                                                                                                  |
+| `src/renderer/components/AppHeader/types.ts` | Add `onOpenDcmConfig: () => void` + `dcmConfigBusy: boolean`                                                                 |
+| `src/renderer/components/AppHeader.tsx`      | Destructure new props, render dropdown entry with gates                                                                      |
+| `src/renderer/components/ContextMenu.tsx`    | Add `'generate-dcm-config'` to `ContextMenuAction` union; extend `buildBswmdItems` to push entry when path matches Dcm regex |
 
 ### Test count delta
 
@@ -80,6 +80,7 @@ Expected: 7-stage pipeline GREEN, EXIT=0. Test count baseline: 2888 + 7 SKIP / 0
 - [ ] **Step 2: Read the spec**
 
 Open `docs/superpowers/specs/2026-07-06-v1-31-0-patch-dcm-config-renderer-ux-design.md` end-to-end. Confirm:
+
 - §3 T1-T4 match the 4 deliverables in this plan
 - §6 Testing test list matches the test files in §File Structure
 - §7 Decision Log D1-D6 are accepted (no pending questions)
@@ -98,9 +99,10 @@ No commit in this task — verification only.
 
 ---
 
-## Task 1: i18n keys (11 new keys across 3 files)
+## Task 1: i18n keys (13 new keys across 3 files)
 
 **Files:**
+
 - Modify: `src/shared/i18n/odx.ts:1-28`
 - Modify: `src/shared/i18n.zh-CN/odx.ts:1-25`
 - Modify: `src/shared/i18n.en/odx.ts:1-25`
@@ -108,12 +110,13 @@ No commit in this task — verification only.
 **Goal:** Add the 11 i18n keys + zh-CN + en values needed by T2, T3, T5, T6. The keys are NOT tested directly here — they are tested in the components that consume them (T2, T3, T5, T6). This task exists so the keys compile and `t(locale, key)` returns non-empty strings for downstream tests.
 
 **Interfaces:**
+
 - Consumes: existing `OdxMessages` interface from `src/shared/i18n/odx.ts`
-- Produces: 11 new keys on `OdxMessages` + values in `OdxZhCN` + `OdxEn`
+- Produces: 13 new keys on `OdxMessages` + values in `OdxZhCN` + `OdxEn`
 
 - [ ] **Step 1: Extend `OdxMessages` interface**
 
-In `src/shared/i18n/odx.ts`, append the 11 keys to the interface body (before the closing `}`):
+In `src/shared/i18n/odx.ts`, append the 13 keys to the interface body (before the closing `}`):
 
 ```ts
 export interface OdxMessages {
@@ -189,7 +192,7 @@ Expected: 0 errors. If TS complains about missing keys in `OdxZhCN` or `OdxEn`, 
 
 ```bash
 git add src/shared/i18n/odx.ts src/shared/i18n.zh-CN/odx.ts src/shared/i18n.en/odx.ts
-git commit -m "i18n: v1.31.0 PATCH — 11 new keys for Dcm config renderer UX (6 error classes + success + actions + 1 app menu)"
+git commit -m "i18n: v1.31.0 PATCH — 13 new keys for Dcm config renderer UX (success + 6 error classes + actions + 1 app menu)"
 ```
 
 ---
@@ -197,6 +200,7 @@ git commit -m "i18n: v1.31.0 PATCH — 11 new keys for Dcm config renderer UX (6
 ## Task 2: DcmConfigSuccessDialog (TDD)
 
 **Files:**
+
 - Create: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`
 - Create: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`
 - Create: `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`
@@ -204,6 +208,7 @@ git commit -m "i18n: v1.31.0 PATCH — 11 new keys for Dcm config renderer UX (6
 **Goal:** Ship a parity-with-`DiagnosticExtractSuccessDialog` modal that renders the `DcmConfigHandlerResult` (`outputPath` + service counts + `appliedStepCount`).
 
 **Interfaces:**
+
 - Consumes: `DcmConfigHandlerResult` from `src/shared/types.ts` (v1.30.0); `Locale` from `src/shared/i18n/index.js`; `t(locale, key, params)` helper
 - Produces: `<DcmConfigSuccessDialog>` React component (default-named export, see step 3)
 
@@ -335,9 +340,7 @@ export interface DcmConfigSuccessDialogProps {
   readonly onClose: () => void;
 }
 
-export function DcmConfigSuccessDialog(
-  props: DcmConfigSuccessDialogProps,
-): JSX.Element | null {
+export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
   const { open, result, locale, onClose } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -527,6 +530,7 @@ git commit -m "feat(renderer): v1.31.0 PATCH T1 — DcmConfigSuccessDialog (pari
 ## Task 3: DcmConfigErrorToast (TDD)
 
 **Files:**
+
 - Create: `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx`
 - Create: `src/renderer/components/dcmConfig/DcmConfigErrorToast.css`
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx` (new)
@@ -534,6 +538,7 @@ git commit -m "feat(renderer): v1.31.0 PATCH T1 — DcmConfigSuccessDialog (pari
 **Goal:** Ship a 6-class toast with localized messages + 8-second auto-dismiss.
 
 **Interfaces:**
+
 - Consumes: 6 error class keys from `src/shared/i18n/odx.ts` (added in T1); `Locale`
 - Produces: `<DcmConfigErrorToast>` component
 
@@ -709,9 +714,7 @@ const CLASS_KEY_TO_I18N: Readonly<Record<DcmConfigErrorClass, string>> = {
   unexpected: 'odx.export.dcmConfig.error.unexpected',
 };
 
-export function DcmConfigErrorToast(
-  props: DcmConfigErrorToastProps,
-): JSX.Element | null {
+export function DcmConfigErrorToast(props: DcmConfigErrorToastProps): JSX.Element | null {
   const { error, locale, onDismiss } = props;
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
@@ -824,12 +827,14 @@ git commit -m "feat(renderer): v1.31.0 PATCH T2 — DcmConfigErrorToast (6 class
 ## Task 4: useDcmConfigLauncher hook (TDD)
 
 **Files:**
+
 - Create: `src/renderer/hooks/useDcmConfigLauncher.ts`
 - Create: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`
 
 **Goal:** Ship the state machine + IPC + error classifier. Consumed by AppHeader (T5) and indirectly by ContextMenu (T6).
 
 **Interfaces:**
+
 - Consumes: `window.autosarApi.dcmConfig` (exposed in v1.30.0); `DcmConfigHandlerResult` + `DcmConfigResponse` from `src/shared/types.ts`; `DcmConfigErrorClass` from `DcmConfigErrorToast.tsx`
 - Produces: `useDcmConfigLauncher()` hook returning `{ state, open, closeDialog, dismissToast }`
 
@@ -930,7 +935,7 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     ['BSWMD file unreadable: x', 'bswmdUnreadable'],
     ['ODX file unreadable: x', 'odxUnreadable'],
     ['ODX parse failed: x', 'odxParseFailed'],
-    ['BSWMD map missing module \'Dcm\'', 'bswmdMapMissing'],
+    ["BSWMD map missing module 'Dcm'", 'bswmdMapMissing'],
     ['Atomic write failed: x', 'atomicWriteFailed'],
     ['Some unknown error', 'unexpected'],
   ] as const)('classifyError maps %s to %s', (message, expected) => {
@@ -1255,6 +1260,7 @@ git commit -m "feat(renderer): v1.31.0 PATCH T3 — useDcmConfigLauncher hook (s
 ## Task 5: AppHeader integration (TDD)
 
 **Files:**
+
 - Modify: `src/renderer/components/AppHeader/types.ts:32-86`
 - Modify: `src/renderer/components/AppHeader.tsx:54-70, 578-633`
 - Create: `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx`
@@ -1262,6 +1268,7 @@ git commit -m "feat(renderer): v1.31.0 PATCH T3 — useDcmConfigLauncher hook (s
 **Goal:** Add `onOpenDcmConfig` + `dcmConfigBusy` props; render the dropdown entry with 3 disabled gates (`dcmConfigBusy` / `!odxLoaded` / `!hasDcmBswmd`).
 
 **Interfaces:**
+
 - Consumes: `useDcmConfigLauncher` (T4); `useArxmlStore` (existing) for `activeDocumentPath` + `manifest.bswmdPaths` derivation
 - Produces: new dropdown entry in AppHeader
 
@@ -1426,12 +1433,14 @@ git commit -m "feat(renderer): v1.31.0 PATCH T4 — AppHeader 'Open Dcm Config' 
 ## Task 6: ContextMenu integration (TDD)
 
 **Files:**
+
 - Modify: `src/renderer/components/ContextMenu.tsx:67-74` (action union), `:338-367` (buildBswmdItems)
 - Create: `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx`
 
 **Goal:** Add a "Generate Dcm Config" entry in the BSWMD right-click menu when the right-clicked BSWMD path matches the Dcm BSWMD regex.
 
 **Interfaces:**
+
 - Consumes: `useArxmlStore` for `bswmdSchemas` (existing); `target.path` matches the Dcm regex
 - Produces: `ContextMenuAction` union extension with `'generate-dcm-config'`
 
@@ -1515,22 +1524,22 @@ Expected: FAIL with "Unable to find a menuitem with testid 'context-menu-item-ge
 In `src/renderer/components/ContextMenu.tsx`, modify the `buildBswmdItems` function (around line 338-367). Inside the function, AFTER the existing `remove-module` item push, append:
 
 ```ts
-  // v1.31.0 PATCH — "Generate Dcm Config" entry. Shown when the
-  // BSWMD's path matches the Dcm BSWMD filename regex. The
-  // host (AppHeader) routes the emitted `generate-dcm-config`
-  // action to the dcm config launcher (T3).
-  const isDcmBswmd = /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(target.path);
-  if (isDcmBswmd) {
-    items.push({
-      id: 'generate-dcm-config',
-      label: t(locale, 'dcmConfig.action.generate'),
-      ariaLabel: t(locale, 'dcmConfig.action.generateAria', { name: target.shortName }),
-      disabled: false,
-      cssClass: 'context-menu-item context-menu-item-action',
-      build: () => ({ type: 'generate-dcm-config', path: target.path }),
-    });
-  }
-  return items;
+// v1.31.0 PATCH — "Generate Dcm Config" entry. Shown when the
+// BSWMD's path matches the Dcm BSWMD filename regex. The
+// host (AppHeader) routes the emitted `generate-dcm-config`
+// action to the dcm config launcher (T3).
+const isDcmBswmd = /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(target.path);
+if (isDcmBswmd) {
+  items.push({
+    id: 'generate-dcm-config',
+    label: t(locale, 'dcmConfig.action.generate'),
+    ariaLabel: t(locale, 'dcmConfig.action.generateAria', { name: target.shortName }),
+    disabled: false,
+    cssClass: 'context-menu-item context-menu-item-action',
+    build: () => ({ type: 'generate-dcm-config', path: target.path }),
+  });
+}
+return items;
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -1562,6 +1571,7 @@ git commit -m "feat(renderer): v1.31.0 PATCH T4 — ContextMenu 'Generate Dcm Co
 ## Task 7: App.tsx wiring + final verification + tag
 
 **Files:**
+
 - Modify: `src/renderer/components/App.tsx` (or wherever the parent component is that wires AppHeader's props)
 - Modify: `docs/release-notes/v1.31.0/README.md` (new)
 

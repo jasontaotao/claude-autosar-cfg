@@ -5,6 +5,7 @@
 > **Baseline**: v1.30.0 MINOR (`83953d9`)
 > **Spec author**: brainstorming flow (2026-07-06)
 > **Related**:
+>
 > - [v1.30.0 MINOR — dcmConfig IPC bridge wiring](2026-07-06-v1-30-0-minor-dcm-config-IPC-bridge-wiring-design.md) (parent — wires the IPC)
 > - [v1.24.0 T3 DiagnosticExtractSuccessDialog pattern](../../release-notes/v1.24.0/README.md#t3) (parity reference for Success Dialog)
 > - [v1.23.0 DBC Import Wizard](../../release-notes/v1.23.0/README.md) (anti-pattern — wizard is over-engineered for this PATCH)
@@ -70,14 +71,14 @@ v1.30.0 MINOR shipped the `dcm:config` IPC channel end-to-end (channel registrat
 
 ### Component placement
 
-| Component | Path | Type |
-|---|---|---|
-| `DcmConfigSuccessDialog` | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` | NEW presentational |
-| `DcmConfigErrorToast` | `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx` | NEW presentational |
-| `useDcmConfigLauncher` | `src/renderer/hooks/useDcmConfigLauncher.ts` | NEW custom hook |
-| `AppHeader` integration | `src/renderer/components/AppHeader.tsx` + `AppHeader/types.ts` | MODIFY |
-| `ContextMenu` integration | `src/renderer/components/ContextMenu.tsx` | MODIFY |
-| i18n keys | `src/shared/i18n/odx.ts` + `src/shared/i18n.zh-CN/odx.ts` + `src/shared/i18n.en/odx.ts` | MODIFY |
+| Component                 | Path                                                                                    | Type               |
+| ------------------------- | --------------------------------------------------------------------------------------- | ------------------ |
+| `DcmConfigSuccessDialog`  | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                          | NEW presentational |
+| `DcmConfigErrorToast`     | `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx`                             | NEW presentational |
+| `useDcmConfigLauncher`    | `src/renderer/hooks/useDcmConfigLauncher.ts`                                            | NEW custom hook    |
+| `AppHeader` integration   | `src/renderer/components/AppHeader.tsx` + `AppHeader/types.ts`                          | MODIFY             |
+| `ContextMenu` integration | `src/renderer/components/ContextMenu.tsx`                                               | MODIFY             |
+| i18n keys                 | `src/shared/i18n/odx.ts` + `src/shared/i18n.zh-CN/odx.ts` + `src/shared/i18n.en/odx.ts` | MODIFY             |
 
 The new `dcmConfig/` component folder mirrors the v1.30.0 minimal-trigger pattern (single folder, co-located CSS + tests).
 
@@ -98,18 +99,18 @@ export interface DcmConfigSuccessDialogProps {
   readonly onClose: () => void;
 }
 
-export function DcmConfigSuccessDialog(
-  props: DcmConfigSuccessDialogProps,
-): JSX.Element | null;
+export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null;
 ```
 
 **Rendered content**:
+
 - Title: `t(locale, 'odx.export.dcmConfig.success.title')`
 - Body: `t(locale, 'odx.export.dcmConfig.success.body', { dspCount, routineCount, appliedStepCount })`
 - Paths: `<dl>` with single `outputPath` (no dem/dcm split — single output)
 - Close button + Escape + backdrop click
 
 **a11y** (parity):
+
 - `role="dialog"` + `aria-modal="true"` + `aria-labelledby="dcm-config-success-title"`
 - Escape closes
 - Backdrop click closes; inner card `stopPropagation` prevents file-path click from dismissing
@@ -136,12 +137,11 @@ export interface DcmConfigErrorToastProps {
   readonly onDismiss: () => void;
 }
 
-export function DcmConfigErrorToast(
-  props: DcmConfigErrorToastProps,
-): JSX.Element | null;
+export function DcmConfigErrorToast(props: DcmConfigErrorToastProps): JSX.Element | null;
 ```
 
 **Behavior**:
+
 - Fixed bottom-right (`position: fixed; right: 24px; bottom: 24px;`)
 - 8-second auto-dismiss via `setTimeout` in `useEffect` with cleanup
 - Close button for immediate dismiss
@@ -150,21 +150,21 @@ export function DcmConfigErrorToast(
 
 **i18n keys** (all added to `src/shared/i18n/odx.ts`, with zh-CN + en bundles):
 
-| Key | zh-CN (summary) | en (summary) |
-|---|---|---|
-| `odx.export.dcmConfig.error.bswmdUnreadable` | 无法读取 BSWMD 文件:`{message}` | Cannot read BSWMD file: `{message}` |
-| `odx.export.dcmConfig.error.odxUnreadable` | 无法读取 ODX 文件:`{message}` | Cannot read ODX file: `{message}` |
-| `odx.export.dcmConfig.error.odxParseFailed` | ODX 解析失败:`{message}` | ODX parse failed: `{message}` |
-| `odx.export.dcmConfig.error.bswmdMapMissing` | BSWMD 缺少 Dcm 模块:`{message}` | BSWMD missing Dcm module: `{message}` |
-| `odx.export.dcmConfig.error.atomicWriteFailed` | 写入失败:`{message}` | Write failed: `{message}` |
-| `odx.export.dcmConfig.error.unexpected` | 发生意外错误:`{message}` | Unexpected error: `{message}` |
-| `odx.export.dcmConfig.error.dismiss` | 关闭 | Dismiss |
-| `dcmConfig.action.generate` | 生成 Dcm 配置 | Generate Dcm Config |
-| `dcmConfig.action.generateAria` | 生成 Dcm 配置 `{name}` | Generate Dcm Config for `{name}` |
-| `dcmConfig.error.noDcmBswmd` | 需先加载 Dcm BSWMD | Requires a Dcm BSWMD to be loaded |
-| `app.open.dcmConfig` | 打开 Dcm 配置 | Open Dcm Config |
+| Key                                            | zh-CN (summary)                 | en (summary)                          |
+| ---------------------------------------------- | ------------------------------- | ------------------------------------- |
+| `odx.export.dcmConfig.error.bswmdUnreadable`   | 无法读取 BSWMD 文件:`{message}` | Cannot read BSWMD file: `{message}`   |
+| `odx.export.dcmConfig.error.odxUnreadable`     | 无法读取 ODX 文件:`{message}`   | Cannot read ODX file: `{message}`     |
+| `odx.export.dcmConfig.error.odxParseFailed`    | ODX 解析失败:`{message}`        | ODX parse failed: `{message}`         |
+| `odx.export.dcmConfig.error.bswmdMapMissing`   | BSWMD 缺少 Dcm 模块:`{message}` | BSWMD missing Dcm module: `{message}` |
+| `odx.export.dcmConfig.error.atomicWriteFailed` | 写入失败:`{message}`            | Write failed: `{message}`             |
+| `odx.export.dcmConfig.error.unexpected`        | 发生意外错误:`{message}`        | Unexpected error: `{message}`         |
+| `odx.export.dcmConfig.error.dismiss`           | 关闭                            | Dismiss                               |
+| `dcmConfig.action.generate`                    | 生成 Dcm 配置                   | Generate Dcm Config                   |
+| `dcmConfig.action.generateAria`                | 生成 Dcm 配置 `{name}`          | Generate Dcm Config for `{name}`      |
+| `dcmConfig.error.noDcmBswmd`                   | 需先加载 Dcm BSWMD              | Requires a Dcm BSWMD to be loaded     |
+| `app.open.dcmConfig`                           | 打开 Dcm 配置                   | Open Dcm Config                       |
 
-11 keys × 2 locales = 22 new translation strings (existing pattern: see v1.24.0 DiagnosticExtractSuccessDialog for `odx.export.diagnosticExtract.*` precedent).
+11 rows in the table (each row = 1 unique key) = 11 unique keys; the table actually enumerates 13 keys (1+1+6+1+2+1+1). 13 keys × 2 locales = 26 new translation strings. (Post-T1-review correction: T1 brief prose said "11" but code-block enumerated 13; the actual count landed is 13, matching the code block.)
 
 ### T3 — `useDcmConfigLauncher` hook
 
@@ -180,11 +180,7 @@ export interface DcmConfigLauncherState {
 
 export interface DcmConfigLauncher {
   readonly state: DcmConfigLauncherState;
-  open(args: {
-    odxPath: string;
-    xlsxRows: readonly EcucInstanceRow[];
-    bswmdPath?: string;
-  }): void;
+  open(args: { odxPath: string; xlsxRows: readonly EcucInstanceRow[]; bswmdPath?: string }): void;
   closeDialog(): void;
   dismissToast(): void;
 }
@@ -207,11 +203,11 @@ pending ──(open again)──> IGNORED (no state change — prevents double-f
 
 ```ts
 function classifyError(message: string): DcmConfigErrorClass {
-  if (/^BSWMD file unreadable:/.test(message))  return 'bswmdUnreadable';
-  if (/^ODX file unreadable:/.test(message))    return 'odxUnreadable';
-  if (/^ODX parse failed:/.test(message))       return 'odxParseFailed';
-  if (/BSWMD map missing/.test(message))        return 'bswmdMapMissing';
-  if (/^Atomic write failed:/.test(message))    return 'atomicWriteFailed';
+  if (/^BSWMD file unreadable:/.test(message)) return 'bswmdUnreadable';
+  if (/^ODX file unreadable:/.test(message)) return 'odxUnreadable';
+  if (/^ODX parse failed:/.test(message)) return 'odxParseFailed';
+  if (/BSWMD map missing/.test(message)) return 'bswmdMapMissing';
+  if (/^Atomic write failed:/.test(message)) return 'atomicWriteFailed';
   return 'unexpected';
 }
 ```
@@ -219,6 +215,7 @@ function classifyError(message: string): DcmConfigErrorClass {
 The 5 anchored prefixes map 1:1 to v1.30.0 handler `error.message` literal sites; `BSWMD map missing` is substring-matched because the v1.30.0 handler propagates this from `dcmConfigPipeline` (not a literal prefix in the handler itself).
 
 **`open()` flow**:
+
 1. `setState({ mode: 'pending', result: null, error: null, dialogOpen: false, toastVisible: false })`
 2. `const res = await window.autosarApi.dcmConfig({ odxPath, xlsxRows, bswmdPath })`
 3. `if (res.ok)`: `setState({ mode: 'success', result: res.value, dialogOpen: true, toastVisible: false })`
@@ -258,6 +255,7 @@ export interface AppHeaderProps {
 ```
 
 **Gate derivation** — all 3 selectors live in AppHeader (matches the existing pattern: AppHeader already subscribes to `useArxmlStore` for `filePath` and `doc`):
+
 - `dcmConfigBusy` ← `useDcmConfigLauncher().state.mode === 'pending'`
 - `odxLoaded` ← derived in AppHeader: `useArxmlStore((s) => s.activeDocumentPath ?? '').endsWith('.odx')` (case-insensitive)
 - `hasDcmBswmd` ← derived in AppHeader: `useArxmlStore((s) => s.manifest?.bswmdPaths.some((p) => /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(p)) ?? false)`
@@ -267,13 +265,15 @@ export interface AppHeaderProps {
 #### ContextMenu new entry
 
 **Action union extension** (`src/renderer/components/ContextMenu.tsx`):
+
 ```ts
 export type ContextMenuAction =
   // ... 既有 ...
-  | { readonly type: 'generate-dcm-config'; readonly path: string };
+  { readonly type: 'generate-dcm-config'; readonly path: string };
 ```
 
 **`buildBswmdItems` extension** (in `ContextMenu.tsx`):
+
 ```ts
 function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly MenuItemSpec[] {
   const items: MenuItemSpec[] = [
@@ -296,6 +296,7 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
 ```
 
 **AppHeader.handleAction branch**:
+
 ```ts
 case 'generate-dcm-config':
   onOpenDcmConfig();
@@ -303,6 +304,7 @@ case 'generate-dcm-config':
 ```
 
 **`onOpenDcmConfig` source** — the AppHeader callback needs the ODX path + xlsx rows. Two inputs:
+
 - `odxPath` ← `useArxmlStore.getState().activeDocumentPath` (assumed to end with `.odx` because the button is gated on `odxLoaded`). If the store field is not directly accessible, AppHeader passes the value via the props chain from App.tsx (AppHeader already does this for `filePath`).
 - `xlsxRows` ← read from the v1.25.0 Excel→Com-Stack batch store state. The exact field name is identified during implementation (candidate: `useArxmlStore.getState().xlsxLastImport?.rows ?? []`); the plan-time investigation in T4-Task 1 confirms the field. If no xlsx data is present, the launcher is called with an empty array — the v1.30.0 handler then surfaces `ODX-Dcm linkage broken` (v1.30.0 PATCH is a PATCH, not a feature to teach xlsx imports).
 
@@ -352,23 +354,23 @@ t=2   IPC returns → setState(success) — first call wins
 
 ## 5. Out of Scope (deferred to v1.32.0+)
 
-| Item | Why deferred |
-|---|---|
+| Item                                                                | Why deferred                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DcmConfigResponse` envelope → discriminated `error.kind` migration | Semver-major IPC change; the 1.31.0 PATCH keeps `{ message, cause? }` stable. Renderer regex-matches the 6 message prefixes (D5). v1.32.0 MINOR should add `kind` + consumers, and v1.33.0 PATCH can drop the regex once parity is confirmed. |
-| Dedicated ODX file picker | `openOdx()` (v1.22.0) is already in AppHeader; the Dcm config flow reads `activeDocumentPath` to derive the ODX. A new picker is duplicate UX. |
-| Project-manifest-driven `bswmdPath` auto-population | `bswmdPath` can be supplied manually (or omitted → sample-fixture discovery). Auto-population is a UX nicety; not a PATCH blocker. |
-| Multi-step wizard | The trigger is single-button; no input aggregation needed. DBC Import Wizard is the anti-pattern (over-engineered for this op). |
-| `DcmConfigTrigger` → `App.tsx` top-level mount | AppHeader is the established entry point (parity with `openOdx`, `openDbc`). If a future feature needs a 3rd entry point, lift to App. |
+| Dedicated ODX file picker                                           | `openOdx()` (v1.22.0) is already in AppHeader; the Dcm config flow reads `activeDocumentPath` to derive the ODX. A new picker is duplicate UX.                                                                                                |
+| Project-manifest-driven `bswmdPath` auto-population                 | `bswmdPath` can be supplied manually (or omitted → sample-fixture discovery). Auto-population is a UX nicety; not a PATCH blocker.                                                                                                            |
+| Multi-step wizard                                                   | The trigger is single-button; no input aggregation needed. DBC Import Wizard is the anti-pattern (over-engineered for this op).                                                                                                               |
+| `DcmConfigTrigger` → `App.tsx` top-level mount                      | AppHeader is the established entry point (parity with `openOdx`, `openDbc`). If a future feature needs a 3rd entry point, lift to App.                                                                                                        |
 
 ## 6. Testing
 
-| Test file | What it pins |
-|---|---|
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | open/close + Escape + backdrop click + autofocus close button; renders `outputPath` and 5 service kind counts; i18n both locales (zh-CN + en) |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx` | 6 class messages render correctly (snapshot of localized string); auto-dismiss 8s (with `vi.useFakeTimers`); Close button immediate; null error → returns null |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` | state machine transitions (idle→pending→success/error→idle); classifyError unit (6 cases); re-entrancy guard (open while pending is no-op); IPC mock returns ok/failure paths |
-| `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx` | button rendered; `dcmConfigBusy` disables; `onOpenDcmConfig` called on click; `disabled` when `!odxLoaded \|\| !hasDcmBswmd` |
-| `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx` | `kind: 'bswmd'` + `path: 'Bsw_Dcm_Bswmd.arxml'` → entry visible; `kind: 'bswmd'` + `path: 'Bsw_Com_Bswmd.arxml'` → entry NOT visible; clicking the entry fires `generate-dcm-config` action with the path |
+| Test file                                                                     | What it pins                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | open/close + Escape + backdrop click + autofocus close button; renders `outputPath` and 5 service kind counts; i18n both locales (zh-CN + en)                                                             |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx`    | 6 class messages render correctly (snapshot of localized string); auto-dismiss 8s (with `vi.useFakeTimers`); Close button immediate; null error → returns null                                            |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                   | state machine transitions (idle→pending→success/error→idle); classifyError unit (6 cases); re-entrancy guard (open while pending is no-op); IPC mock returns ok/failure paths                             |
+| `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx`              | button rendered; `dcmConfigBusy` disables; `onOpenDcmConfig` called on click; `disabled` when `!odxLoaded \|\| !hasDcmBswmd`                                                                              |
+| `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx`            | `kind: 'bswmd'` + `path: 'Bsw_Dcm_Bswmd.arxml'` → entry visible; `kind: 'bswmd'` + `path: 'Bsw_Com_Bswmd.arxml'` → entry NOT visible; clicking the entry fires `generate-dcm-config` action with the path |
 
 Target test count delta: **+12~16** tests. Baseline 2888 + 7 SKIP → expected **2900+ + 7 SKIP** / 0 fail.
 
@@ -383,13 +385,13 @@ Target test count delta: **+12~16** tests. Baseline 2888 + 7 SKIP → expected *
 
 ## 8. Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| `classifyError` regex drifts from v1.30.0 handler message literals | Low | Medium | The 6 prefixes are pinned by v1.30.0 spec §T3; handler tests already cover them; launcher test asserts all 6 classes |
-| ContextMenu + AppHeader double-fire race | Medium | Low | Re-entrancy guard in launcher (`if (state.mode === 'pending') return;`); race does not corrupt state |
-| i18n key missing in zh-CN or en bundle | Low | Low | Test asserts `t(locale, key)` returns non-empty string for both locales across all 11 new keys |
-| `hasDcmBswmd` regex false-positive (e.g. a BSWMD named `BCM_Dcm_Compat.arxml`) | Low | Low | v1.31.0 PATCH is conservative — false-positive just shows the entry when the actual `Bsw_Dcm` BSWMD is needed; the IPC `BSWMD file unreadable` error class surfaces the real issue at click time. v1.32.0+ can refine to BSWMD-parse-based detection. |
-| `xlsxRows` source field name in `useArxmlStore` is identified at plan-time T4-Task 1 | Medium | Medium | AppHeader derives the value at integration time; if the field does not exist, the launcher is called with `[]` and the handler surfaces a clear `ODX-Dcm linkage broken` error (no feature work in 1.31.0 PATCH) |
+| Risk                                                                                 | Likelihood | Impact | Mitigation                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------ | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `classifyError` regex drifts from v1.30.0 handler message literals                   | Low        | Medium | The 6 prefixes are pinned by v1.30.0 spec §T3; handler tests already cover them; launcher test asserts all 6 classes                                                                                                                                  |
+| ContextMenu + AppHeader double-fire race                                             | Medium     | Low    | Re-entrancy guard in launcher (`if (state.mode === 'pending') return;`); race does not corrupt state                                                                                                                                                  |
+| i18n key missing in zh-CN or en bundle                                               | Low        | Low    | Test asserts `t(locale, key)` returns non-empty string for both locales across all 13 new keys                                                                                                                                                        |
+| `hasDcmBswmd` regex false-positive (e.g. a BSWMD named `BCM_Dcm_Compat.arxml`)       | Low        | Low    | v1.31.0 PATCH is conservative — false-positive just shows the entry when the actual `Bsw_Dcm` BSWMD is needed; the IPC `BSWMD file unreadable` error class surfaces the real issue at click time. v1.32.0+ can refine to BSWMD-parse-based detection. |
+| `xlsxRows` source field name in `useArxmlStore` is identified at plan-time T4-Task 1 | Medium     | Medium | AppHeader derives the value at integration time; if the field does not exist, the launcher is called with `[]` and the handler surfaces a clear `ODX-Dcm linkage broken` error (no feature work in 1.31.0 PATCH)                                      |
 
 ## 9. Open Questions (resolved during brainstorming)
 
