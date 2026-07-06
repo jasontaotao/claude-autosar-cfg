@@ -119,6 +119,24 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             toastVisible: true,
           });
         }
+      } catch (e) {
+        // v1.31.1 PATCH — defensive IPC try/catch (T4 whole-branch
+        // review Minor plan-mandated). The IPC envelope is in
+        // practice guaranteed (the handler always returns a
+        // DcmConfigResponse), but if the bridge ever throws (e.g.
+        // contextBridge serialization failure on a malformed
+        // bswmdPath argument), surface it as an `unexpected`
+        // toast so the user gets feedback instead of an unhandled
+        // rejection. The `finally` block below still releases the
+        // re-entrancy ref so subsequent open() calls work.
+        const message = e instanceof Error ? e.message : String(e);
+        setState({
+          mode: 'error',
+          result: null,
+          error: { message, classKey: classifyError(message) },
+          dialogOpen: false,
+          toastVisible: true,
+        });
       } finally {
         inFlightRef.current = false;
       }

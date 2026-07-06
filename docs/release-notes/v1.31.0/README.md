@@ -54,7 +54,7 @@ Custom hook owning the state machine + IPC + error classifier. Re-entrancy guard
 - `src/shared/i18n.zh-CN/app.ts` (MODIFIED — 1 key added)
 - `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (NEW — 6 cases)
 - `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx` (NEW — 11 cases)
-- `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.tsx` (NEW — 12 cases)
+- `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (NEW — 12 cases; JSX-free hook test stays `.ts`)
 - `src/renderer/components/__tests__/AppHeader.dcmConfig.test.tsx` (NEW — 4 cases)
 - `src/renderer/components/__tests__/ContextMenu.dcmConfig.test.tsx` (NEW — 3 cases)
 

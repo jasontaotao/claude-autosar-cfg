@@ -99,7 +99,7 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             onClick={onClose}
             data-testid="dcm-config-success-close"
           >
-            Close
+            {t(locale, 'odx.export.dcmConfig.success.close')}
           </button>
         </div>
       </div>

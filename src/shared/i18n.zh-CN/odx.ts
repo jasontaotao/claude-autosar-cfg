@@ -27,6 +27,7 @@ export const OdxZhCN: OdxMessages = {
   'odx.export.dcmConfig.success.title': 'Dcm 配置生成成功',
   'odx.export.dcmConfig.success.body':
     '已生成 Dcm 配置：{dspCount} 个 DID + {routineCount} 个例程，共应用 {appliedStepCount} 个步骤',
+  'odx.export.dcmConfig.success.close': '关闭',
   'odx.export.dcmConfig.error.bswmdUnreadable': '无法读取 BSWMD 文件：{message}',
   'odx.export.dcmConfig.error.odxUnreadable': '无法读取 ODX 文件：{message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX 解析失败：{message}',
@@ -38,4 +39,5 @@ export const OdxZhCN: OdxMessages = {
   'dcmConfig.action.generateAria': '为 {name} 生成 Dcm 配置',
   'dcmConfig.error.noDcmBswmd': '需要先加载 Dcm BSWMD',
   'app.open.dcmConfig': '打开 Dcm 配置',
+  'app.open.dcmConfig.busy': '生成中…',
 };

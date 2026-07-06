@@ -70,6 +70,7 @@ import { ScriptPanel } from './components/ScriptPanel';
 import { XlsxBatchWizard } from './components/XlsxBatchWizard';
 import { DcmConfigErrorToast } from './components/dcmConfig/DcmConfigErrorToast';
 import { DcmConfigSuccessDialog } from './components/dcmConfig/DcmConfigSuccessDialog';
+import { isDcmBswmdPath } from './components/dcmConfig/regex';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
@@ -191,9 +192,11 @@ export function App(): JSX.Element {
   const dcmLauncher = useDcmConfigLauncher();
   const odxPath = useArxmlStore((s) => s.activeDocumentPath ?? '');
   const odxLoaded = odxPath.toLowerCase().endsWith('.odx');
+  // v1.31.1 PATCH — shared Dcm BSWMD path predicate (D4 trade-off:
+  // filename regex 1000x faster than parsing BSWMD; see
+  // `dcmConfig/regex.ts` for the trade-off discussion).
   const hasDcmBswmd = useArxmlStore(
-    (s) =>
-      s.project?.bswmdPaths.some((p: string) => /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(p)) ?? false,
+    (s) => s.project?.bswmdPaths.some((p) => isDcmBswmdPath(p)) ?? false,
   );
   const canOpenDcmConfig = odxLoaded && hasDcmBswmd;
   const handleOpenDcmConfig = useCallback((): void => {
@@ -1283,12 +1286,12 @@ export function App(): JSX.Element {
         <DcmConfigSuccessDialog
           open={dcmLauncher.state.dialogOpen}
           result={dcmLauncher.state.result!}
-          locale={useArxmlStore.getState().locale}
+          locale={locale}
           onClose={dcmLauncher.closeDialog}
         />
         <DcmConfigErrorToast
           error={dcmLauncher.state.error}
-          locale={useArxmlStore.getState().locale}
+          locale={locale}
           onDismiss={dcmLauncher.dismissToast}
         />
       </div>

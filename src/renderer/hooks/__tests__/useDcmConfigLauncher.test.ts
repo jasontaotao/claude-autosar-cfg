@@ -182,4 +182,46 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     expect(result.current.state.mode).toBe('idle');
     expect(result.current.state.toastVisible).toBe(false);
   });
+
+  // v1.31.1 PATCH — defensive IPC try/catch (T4 whole-branch Minor
+  // plan-mandated). If the bridge throws (rejected promise), the
+  // hook must surface an `unexpected` toast + release the
+  // re-entrancy ref so a subsequent open() can proceed.
+  it('surfaces unexpected toast when IPC bridge throws', async () => {
+    invokeMock.mockRejectedValue(new Error('IPC bridge exploded'));
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
+    });
+
+    expect(result.current.state.mode).toBe('error');
+    expect(result.current.state.toastVisible).toBe(true);
+    expect(result.current.state.dialogOpen).toBe(false);
+    expect(result.current.state.error?.classKey).toBe('unexpected');
+    expect(result.current.state.error?.message).toContain('IPC bridge exploded');
+
+    // Re-entrancy ref released — a fresh open() can fire.
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: result.current.state.result ?? {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+    await act(async () => {
+      await result.current.open({ odxPath: '/y.odx', xlsxRows: [] });
+    });
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
 });

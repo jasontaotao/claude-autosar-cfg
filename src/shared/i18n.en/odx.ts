@@ -27,6 +27,7 @@ export const OdxEn: OdxMessages = {
   'odx.export.dcmConfig.success.title': 'Dcm Config Generated',
   'odx.export.dcmConfig.success.body':
     'Generated Dcm config: {dspCount} DIDs + {routineCount} routines, {appliedStepCount} steps applied',
+  'odx.export.dcmConfig.success.close': 'Close',
   'odx.export.dcmConfig.error.bswmdUnreadable': 'Cannot read BSWMD file: {message}',
   'odx.export.dcmConfig.error.odxUnreadable': 'Cannot read ODX file: {message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX parse failed: {message}',
@@ -38,4 +39,5 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.action.generateAria': 'Generate Dcm Config for {name}',
   'dcmConfig.error.noDcmBswmd': 'Requires a Dcm BSWMD to be loaded',
   'app.open.dcmConfig': 'Open Dcm Config',
+  'app.open.dcmConfig.busy': 'Generating…',
 };

@@ -28,6 +28,7 @@ export interface OdxMessages {
   // v1.31.0 PATCH — Dcm config renderer UX (Success Dialog + Error Toast)
   readonly 'odx.export.dcmConfig.success.title': string;
   readonly 'odx.export.dcmConfig.success.body': string; // {dspCount, routineCount, appliedStepCount}
+  readonly 'odx.export.dcmConfig.success.close': string;
   readonly 'odx.export.dcmConfig.error.bswmdUnreadable': string; // {message}
   readonly 'odx.export.dcmConfig.error.odxUnreadable': string; // {message}
   readonly 'odx.export.dcmConfig.error.odxParseFailed': string; // {message}
@@ -39,4 +40,5 @@ export interface OdxMessages {
   readonly 'dcmConfig.action.generateAria': string; // {name}
   readonly 'dcmConfig.error.noDcmBswmd': string;
   readonly 'app.open.dcmConfig': string;
+  readonly 'app.open.dcmConfig.busy': string;
 }

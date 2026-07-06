@@ -627,7 +627,13 @@ export function AppHeader({
                   onOpenDcmConfig();
                 }}
                 disabled={dcmConfigBusy || !canOpenDcmConfig}
-                title={!canOpenDcmConfig ? t(locale, 'dcmConfig.error.noDcmBswmd') : undefined}
+                title={
+                  dcmConfigBusy
+                    ? t(locale, 'app.open.dcmConfig.busy')
+                    : !canOpenDcmConfig
+                      ? t(locale, 'dcmConfig.error.noDcmBswmd')
+                      : undefined
+                }
                 data-testid="btn-open-dcm-config"
               >
                 <span className="app-dropdown-icon" aria-hidden="true">

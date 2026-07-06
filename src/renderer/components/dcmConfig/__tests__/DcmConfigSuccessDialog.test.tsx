@@ -75,4 +75,12 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     fireEvent.click(screen.getByTestId('dcm-config-success-dialog'));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  // v1.31.1 PATCH — close-button label is i18n'd (was hardcoded "Close").
+  it.each(['en', 'zh-CN'] as const)('renders localized close label for locale %s', (locale) => {
+    render(<DcmConfigSuccessDialog {...baseProps} locale={locale} />);
+    const close = screen.getByTestId('dcm-config-success-close');
+    const expected = locale === 'en' ? 'Close' : '关闭';
+    expect(close.textContent).toBe(expected);
+  });
 });

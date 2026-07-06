@@ -73,4 +73,17 @@ describe('AppHeader dcm-config (v1.31.0 PATCH T4)', () => {
     // understands why the entry is greyed out.
     expect(btn.getAttribute('title')).toBeTruthy();
   });
+
+  // v1.31.1 PATCH — busy title surfaces "生成中…" (zh-CN default) so
+  // the user sees the in-flight reason distinct from the
+  // missing-prereq reason. The store default locale is zh-CN;
+  // a follow-up test could swap the store locale to en to assert
+  // the en translation.
+  it('surfaces localized busy title when dcmConfigBusy is true', () => {
+    render(<AppHeader {...baseProps} dcmConfigBusy={true} />);
+    fireEvent.click(screen.getByTestId('btn-menu-toggle'));
+    const btn = screen.getByTestId('btn-open-dcm-config');
+    expect(btn).toBeDisabled();
+    expect(btn.getAttribute('title')).toBe('生成中…');
+  });
 });

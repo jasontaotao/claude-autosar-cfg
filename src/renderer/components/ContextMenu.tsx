@@ -31,6 +31,8 @@ import type { Locale } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../store/useArxmlStore.js';
 
+import { isDcmBswmdPath } from './dcmConfig/regex.js';
+
 import './ContextMenu.css';
 
 // ---------------------------------------------------------------------------
@@ -367,13 +369,12 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
       build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
     });
   }
-  // v1.31.0 PATCH T6 — "Generate Dcm Config" entry. Shown when the
-  // BSWMD's path matches the Dcm BSWMD filename regex. The host
+  // v1.31.1 PATCH — "Generate Dcm Config" entry. Shown when the
+  // BSWMD's path matches the shared Dcm BSWMD predicate (extracted
+  // from the v1.31.0 inline regex to `dcmConfig/regex.ts`). The host
   // (App.tsx) routes the emitted `generate-dcm-config` action to
-  // the dcm-config launcher (T7). Mirrors the hasDcmBswmd predicate
-  // used by the AppHeader dcmConfig dropdown entry (T5).
-  const isDcmBswmd = /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(target.path);
-  if (isDcmBswmd) {
+  // the dcm-config launcher (T7).
+  if (isDcmBswmdPath(target.path)) {
     items.push({
       id: 'generate-dcm-config',
       label: t(locale, 'dcmConfig.action.generate'),
