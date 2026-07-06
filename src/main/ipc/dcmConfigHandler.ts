@@ -29,15 +29,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
-import { parseArxml } from '../../core/arxml/parser.js';
-import { serializeArxml } from '../../core/arxml/serializer.js';
+import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
 import { dcmConfigPipeline, type DcmConfigResult } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
-import { applyPatchSteps, type ApplyContext } from '../../core/mutation/applyPatchSteps.js';
-import type { BswModuleDef } from '../../core/project/bswmd.js';
-import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
 
@@ -121,92 +117,13 @@ function walkUpForFixture(start: string): string | null {
  *
  * Errors from any of the three are propagated as IpcResult.error by
  * the caller.
+ *
+ * v1.28.0 MINOR — the patch + serialize + prefix-strip logic was
+ * promoted to `src/core/arxml/extractPatch.ts` as
+ * `applyPatchesToExtract` so the v1.27.5 PATCH real-OEM end-to-end
+ * test could import the same wrapper (eliminating ~10 LoC of
+ * inline duplication). The IPC handler now imports it at file top.
  */
-function applyPatchesToExtract(
-  extractXml: string,
-  serviceSteps: readonly PatchStep[],
-  dcmModuleDef: BswModuleDef,
-): { ok: true; value: string } | { ok: false; message: string } {
-  const docRes = parseArxml(extractXml);
-  if (!docRes.ok) {
-    // `unsupported-version` carries `version` instead of `message`;
-    // other variants carry `message`. Normalize to a string.
-    const detail =
-      'message' in docRes.error
-        ? docRes.error.message
-        : `version=${'version' in docRes.error ? docRes.error.version : '<unknown>'}`;
-    return {
-      ok: false,
-      message: `Failed to parse ODX-extract ARXML: ${docRes.error.kind} ${detail}`,
-    };
-  }
-  // Prepend `/<docRootPkg>/` so the mutation engine's
-  // `findContainerByPath` can resolve the BSWMD-relative paths emitted
-  // by `xlsxDcmServicesToEcucBatch`. Mirrors
-  // `xlsxEcucBatchImportHandler.applyStepsToFile:79-81`.
-  const docRootPkg = docRes.value.packages[0]?.shortName;
-  const resolvedSteps =
-    docRootPkg !== undefined
-      ? serviceSteps.map((s) => prefixDocRootPath(s, docRootPkg))
-      : serviceSteps;
-  // v1.27.x PATCH — pass `moduleDef` so `applyAddChild` can validate the
-  // new container against the BSWMD schema. Without it, every
-  // `add-child` step fails with `no-bswmd-for-module` (see
-  // `core/mutation/applyPatchSteps.ts:288-297`). The handler has Dcm
-  // BSWMD context (from `dcmConfigPipeline`'s pre-flight check), so we
-  // narrow the parameter to `BswModuleDef` (required) rather than
-  // optional — same shape as `xlsxEcucBatchImportHandler.applyStepsToFile`.
-  const ctx: ApplyContext = { moduleDef: dcmModuleDef };
-  const applyRes = applyPatchSteps(docRes.value, resolvedSteps, ctx);
-  // v1.27.x PATCH — spec §275 (2026-07-05-v1-27-0-minor-design.md:275):
-  // "All 5 fail-fast errors are thrown inside `dcmConfigPipeline` or
-  // `dcmConfigHandler` — never emitted as patches that get silently
-  // filtered". Pre-patch, the filter at lines 155-156 (now removed)
-  // silently swallowed `path-not-found` + `no-bswmd-for-module`,
-  // returning `ok: true` with silently-missing data. Any non-empty
-  // error set now fails fast via `IpcResult.error`.
-  if (applyRes.errors.length > 0) {
-    return {
-      ok: false,
-      message: `Patch application failed: ${applyRes.errors
-        .map((e) => `${e.kind}: ${e.message}`)
-        .join('; ')}`,
-    };
-  }
-  const serRes = serializeArxml(applyRes.doc, { sourceArxml: extractXml });
-  if (!serRes.ok) {
-    return {
-      ok: false,
-      message: `Serialize failed: ${serRes.error.kind} at ${serRes.error.path}: ${serRes.error.message}`,
-    };
-  }
-  return { ok: true, value: serRes.value };
-}
-
-/** Prepend `/<docRootPkg>/` to step paths so the mutation engine can
- *  resolve BSWMD-relative paths. Mirrors the same helper in
- *  `xlsxEcucBatchImportHandler:144-163`. */
-function prefixDocRootPath(step: PatchStep, docRootPkg: string): PatchStep {
-  const prefix = `/${docRootPkg}`;
-  if (step.op === 'add-child') {
-    return {
-      ...step,
-      parentPath: step.parentPath.startsWith(prefix)
-        ? step.parentPath
-        : `${prefix}/${step.parentPath}`,
-    };
-  }
-  if (step.op === 'set-param') {
-    return {
-      ...step,
-      containerPath: step.containerPath.startsWith(prefix)
-        ? step.containerPath
-        : `${prefix}/${step.containerPath}`,
-    };
-  }
-  return step;
-}
-
 export interface DcmConfigHandlerArgs {
   /** Absolute path of the ODX-D file on disk. */
   readonly odxPath: string;

@@ -20,6 +20,8 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
 import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
+import { stripBswmdPackageRoot } from './pathUtils.js';
+
 export type { EcucInstanceRow };
 
 const SHEET_TO_MODULE = {
@@ -68,8 +70,10 @@ export function xlsxToEcucBatch(
     // the mutation engine and downstream pipeline expect BSWMD-relative
     // paths (`Com/ComConfig/ComIPdu`). Strip the `/<docRootPkg>/` prefix so
     // T3's `prefixDocRootPath` re-applies it cleanly.
-    const relativePath = containerDef.path.replace(/^\/[^/]+\//, '');
-    const parentPath = relativePath;
+    // v1.28.0 MINOR — use the shared `stripBswmdPackageRoot` helper
+    // (`core/bridge/pathUtils.ts`) instead of inline regex; lets a future
+    // mapper-shape alignment MINOR replace the strip logic in one place.
+    const parentPath = stripBswmdPackageRoot(containerDef.path);
 
     // buildComIPduStep / buildComSignalStep / etc. are kept as inline branches
     // (no helper file) because their body is 4 lines each and inlining keeps

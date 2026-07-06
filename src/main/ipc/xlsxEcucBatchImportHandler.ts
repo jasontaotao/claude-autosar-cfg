@@ -19,6 +19,7 @@
 
 import { promises as fs } from 'node:fs';
 
+import { prefixDocRootPath } from '../../core/arxml/extractPatch.js';
 import type { ParseError } from '../../core/arxml/parser.js';
 import { parseArxml } from '../../core/arxml/parser.js';
 import type { SerializeError } from '../../core/arxml/serializer.js';
@@ -127,40 +128,15 @@ function formatSerializeError(err: SerializeError): string {
  * paths). Without this translator the e2e returns 0 added for every
  * row.
  */
-/**
- * Prepend `/<docRootPkg>/` to every path in a step so the mutation
- * engine's `findContainerByPath` (which walks doc paths starting with
- * `/<pkg.shortName>` and uses strict equality) can resolve the path.
- *
- * Without this prefix, the mapper's BSWMD-relative paths (e.g.
- * `Com/ComConfig/Pdu_Diag`) are rejected with `path-not-found`. The
- * bug was masked when the user value happened to equal the BSWMD
- * `<DEFAULT-VALUE>` populated by `fillParamsFromBswmd` at
- * `add-child` time — so the v1.25.0 75-row fixture's `SEND` enum
- * assertion (BSWMD default) passed even though `set-param` silently
- * failed. Real-OEM ComPduId integer assignments (=1, =2, ...) bypassed
- * the default and exposed the bug.
- */
-function prefixDocRootPath(step: PatchStep, docRootPkg: string): PatchStep {
-  const prefix = `/${docRootPkg}`;
-  if (step.op === 'add-child') {
-    return {
-      ...step,
-      parentPath: step.parentPath.startsWith(prefix)
-        ? step.parentPath
-        : `${prefix}/${step.parentPath}`,
-    };
-  }
-  if (step.op === 'set-param') {
-    return {
-      ...step,
-      containerPath: step.containerPath.startsWith(prefix)
-        ? step.containerPath
-        : `${prefix}/${step.containerPath}`,
-    };
-  }
-  return step;
-}
+
+// v1.28.0 MINOR — `prefixDocRootPath` was promoted to
+// `src/core/arxml/extractPatch.ts` (alongside the wrapper
+// `applyPatchesToExtract`) so the IPC handler and the v1.27.5 PATCH
+// real-OEM end-to-end test could share the same implementation.
+// This file keeps `applyStepsToFile` (its return shape is
+// `FileOutcome`-bearing, different from `applyPatchesToExtract`'s
+// bare-string return) but delegates the prefix-strip to the shared
+// helper imported above.
 
 function translateStepPath(step: PatchStep, moduleDef: BswModuleDef): PatchStep {
   if (step.op === 'add-child') {

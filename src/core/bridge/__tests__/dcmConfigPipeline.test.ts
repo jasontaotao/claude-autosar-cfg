@@ -10,11 +10,8 @@ import { resolve } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
-import type { PatchStep } from '../../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow, OdxSummary } from '../../../shared/types.js';
-import { parseArxml } from '../../arxml/parser.js';
-import { serializeArxml } from '../../arxml/serializer.js';
-import { applyPatchSteps } from '../../mutation/applyPatchSteps.js';
+import { applyPatchesToExtract } from '../../arxml/extractPatch.js';
 import type { BswModuleDef } from '../../project/bswmd.js';
 import { dcmConfigPipeline } from '../dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
@@ -186,64 +183,23 @@ describe('dcmConfigPipeline — real-OEM end-to-end (v1.27.5)', () => {
     const serviceSteps = xlsxDcmServicesToEcucBatch(xlsxRows, bswmds);
     expect(serviceSteps.length).toBe(4); // 2 add-child + 2 set-param(didRef/routineRef)
 
-    // 3. Stitch phase — replicate the IPC handler's `applyPatchesToExtract`
-    //    wrapper (dcmConfigHandler.ts:125-184, function-scoped internal —
-    //    no public export). The wrapper has TWO behaviors beyond a bare
-    //    applyPatchSteps call that are required for end-to-end correctness:
-    //      (a) Prepend `/<docRootPkg>/` to `parentPath` / `containerPath`
-    //          on every step so the mutation engine's `findContainerByPath`
-    //          resolves BSWMD-relative paths the mapper emits.
-    //      (b) Pass the source ARXML to `serializeArxml` so namespace
-    //          declarations and XML preamble are preserved.
-    // If this test starts failing after a future refactor of the IPC
-    // handler's wrapper, the right fix is to update BOTH the wrapper
-    // AND this test (TBD in v1.28.0 MINOR — extract the wrapper to a
-    // shared module that both the IPC handler and this test import).
-    const docRes = parseArxml(pipeline.dcmConfigXml);
-    expect(docRes.ok).toBe(true);
-    if (!docRes.ok) {
-      throw new Error(`parseArxml failed: ${JSON.stringify(docRes.error)}`);
-    }
-    const extractDoc = docRes.value;
-    const docRootPkg = extractDoc.packages[0]?.shortName;
-    expect(docRootPkg).toBeDefined();
-    const docRootPrefix = docRootPkg !== undefined ? `/${docRootPkg}` : '';
-    const prefixedSteps: readonly PatchStep[] = serviceSteps.map((s) => {
-      if (docRootPrefix === '') return s;
-      if (s.op === 'add-child') {
-        return {
-          ...s,
-          parentPath: s.parentPath.startsWith(docRootPrefix)
-            ? s.parentPath
-            : `${docRootPrefix}/${s.parentPath}`,
-        };
-      }
-      if (s.op === 'set-param') {
-        return {
-          ...s,
-          containerPath: s.containerPath.startsWith(docRootPrefix)
-            ? s.containerPath
-            : `${docRootPrefix}/${s.containerPath}`,
-        };
-      }
-      return s;
-    });
+    // 3. Stitch phase — call the SAME `applyPatchesToExtract` wrapper
+    //    the IPC handler uses (`src/core/arxml/extractPatch.ts`,
+    //    promoted from `dcmConfigHandler.ts:125-184` in v1.28.0 MINOR
+    //    specifically so this test could import it). Eliminates the
+    //    ~10 LoC of inline prefix-strip + serialize-with-sourceArxml
+    //    that v1.27.5 PATCH originally had to duplicate.
     const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME);
     expect(dcmModuleDef).toBeDefined();
     if (dcmModuleDef === undefined) {
       throw new Error('expected real-OEM Dcm BSWMD to be loaded');
     }
-    const patched = applyPatchSteps(extractDoc, prefixedSteps, {
-      moduleDef: dcmModuleDef,
-    });
-    expect(patched.errors).toEqual([]);
-    expect(patched.applied).toBe(4);
-    const serRes = serializeArxml(patched.doc, { sourceArxml: pipeline.dcmConfigXml });
-    expect(serRes.ok).toBe(true);
-    if (!serRes.ok) {
-      throw new Error(`serializeArxml failed: ${JSON.stringify(serRes.error)}`);
+    const patched = applyPatchesToExtract(pipeline.dcmConfigXml, serviceSteps, dcmModuleDef);
+    expect(patched.ok).toBe(true);
+    if (!patched.ok) {
+      throw new Error(`applyPatchesToExtract failed: ${patched.message}`);
     }
-    const finalXml = serRes.value;
+    const finalXml = patched.value;
 
     // 4. Asserts — both halves stitched in one ARXML string.
     // (a) ODX-derived shortNames + xlsx service shortNames all present.

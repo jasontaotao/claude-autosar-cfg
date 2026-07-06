@@ -21,6 +21,7 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
 import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
+import { addChildSiblingStep } from './addChildSiblingStep.js';
 import type { DcmServiceKind } from './dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 
@@ -103,32 +104,21 @@ export function xlsxDcmServicesToEcucBatch(
     // the module's top-level containers as its `subContainers`, which
     // `findChildDefForAdd` then matches against the `definitionRef` tail.
     //
-    // TODO (out-of-scope for v1.27.2): the Com-stack mapper
-    // (`xlsxToEcucBatch.ts:71`) still uses the old strip-prefix idiom.
-    // Consolidation of the two mapper shapes into a single
-    // `addChildSiblingStep({ moduleShortName, containerShortName, instanceShortName, instanceDefRef })`
-    // helper is a separate refactor.
-    const parentPath = moduleShortName;
-    const containerPath = `${parentPath}/${row.shortName}`;
-    const addChildBase = {
-      op: 'add-child' as const,
-      parentPath,
-      shortName: row.shortName,
-      // Always emit `definitionRef` so the mutation engine can resolve
-      // the leaf-container child def via the BSWMD-side definition path
-      // (see `applyPatchSteps.ts:677-680`).
-      definitionRef: containerDef.path,
-    };
-    steps.push(addChildBase);
-    for (const [paramName, value] of Object.entries(row.params)) {
-      if (value === null || value === undefined) continue;
-      steps.push({
-        op: 'set-param',
-        containerPath,
-        paramName,
-        value: value as string | number | boolean,
-      });
-    }
+    // v1.28.0 MINOR — extracts the [add-child + per-param set-param]
+    // emission into the `addChildSiblingStep` helper at
+    // `core/bridge/addChildSiblingStep.ts`, closing the v1.27.2
+    // release notes §"Out of Scope (deferred)" TODO that suggested
+    // this same helper. Com-stack mapper-shape alignment (the other
+    // half of that TODO) is deferred to a future MINOR with explicit
+    // pre-flight design.
+    steps.push(
+      ...addChildSiblingStep({
+        moduleShortName,
+        instanceShortName: row.shortName,
+        containerDefPath: containerDef.path,
+        instanceParams: row.params,
+      }),
+    );
   }
   return steps;
 }
