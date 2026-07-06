@@ -191,12 +191,11 @@ export function addContainer(
       // `name-conflict` (line 665-667) because the seeded entry occupies
       // the key but lacks the `dest` attribute the canonical reference
       // shape carries. Mirrors `addReference` exactly.
-      seededParams[ref.shortName] = {
-        type: 'reference',
+      seededParams[ref.shortName] = makeReferenceParamValue({
         value: '',
         dest: ref.destKind,
         definitionRef: ref.path,
-      };
+      });
     }
   }
   const newContainer: ArxmlContainer = {
@@ -611,6 +610,36 @@ export function addParameter(
 }
 
 /**
+ * Construct a `ParamValue` of `type: 'reference'`. Single source of
+ * truth for the reference-param shape — called by `addContainer`
+ * (auto-seed at container-creation time, so follow-up `set-param`
+ * on a reference like `didRef` can resolve the key) and by
+ * `addReference`'s fresh-write branch (explicit-pick path).
+ *
+ * The `dest` field is ALWAYS emitted (matches `addReference`'s
+ * canonical shape). The `definitionRef` is emitted only when
+ * non-empty — pre-v1.27.2 PATCH `addContainer` did NOT emit `dest`
+ * which broke `addReference`'s idempotent-overwrite detection
+ * (the auto-seeded placeholder would lack `dest` and look
+ * semantically distinct from a freshly-built reference); this
+ * helper guarantees the two construction sites stay in lockstep.
+ *
+ * NOTE: `addReference`'s idempotent-overwrite branch
+ * (mutation.ts:690-697) intentionally does NOT use this helper —
+ * it preserves the existing entry's `definitionRef` when the
+ * incoming `refDef.path === ''` (defensive against malformed
+ * BSWMD input), which is the inverse of this helper's behavior.
+ */
+function makeReferenceParamValue(opts: {
+  readonly value: string;
+  readonly dest: ReferenceDef['destKind'];
+  readonly definitionRef: string;
+}): ParamValue {
+  const base: ParamValue = { type: 'reference', value: opts.value, dest: opts.dest };
+  return opts.definitionRef !== '' ? { ...base, definitionRef: opts.definitionRef } : base;
+}
+
+/**
  * Strip the module-prefix from a value-side container path so the remainder
  * is a relative sub-path accepted by `getContainerDefByPath`. We locate the
  * module's `shortName` (last occurrence) inside the value-side path rather
@@ -707,17 +736,11 @@ export function addReference(
     }
     return { ok: false, error: { kind: 'name-conflict', shortName: refDef.shortName } };
   }
-  const value: ParamValue = {
-    type: 'reference',
+  const nextValue: ParamValue = makeReferenceParamValue({
     value: '',
     dest: refDef.destKind,
-  };
-  // Sprint 16c #2 — same `definitionRef` stamping as `addParameter`. The
-  // serializer's reference-param path also writes DEFINITION-REF from
-  // `value.definitionRef`; falling back to the synthesized placeholder
-  // here would defeat the T3 fix for user-added references too.
-  const nextValue: ParamValue =
-    refDef.path !== '' ? ({ ...value, definitionRef: refDef.path } as ParamValue) : value;
+    definitionRef: refDef.path,
+  });
   const nextParams: Readonly<Record<string, ParamValue>> = {
     ...parent.params,
     [refDef.shortName]: nextValue,

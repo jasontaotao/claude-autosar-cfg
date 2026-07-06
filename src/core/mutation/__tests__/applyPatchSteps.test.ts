@@ -308,6 +308,53 @@ describe('applyPatchSteps', () => {
     // return null` branch (line ~737) and surface as
     // `kind: 'path-not-found'` with the offending path in the
     // message (set at `applyAddChild` line 320).
+    // v1.27.4 PATCH — positive control for the 1-segment /
+    // 2-segment `parentPath` synthetic-parent fallback boundary
+    // (sibling of the v1.27.3 cross-module negative test).
+    //
+    // Pins the SUCCESS path for the synthetic-parent fallback:
+    // when `parentPath` reduces (via segment matching + module
+    // shortName check) to the module-level form, the fallback
+    // surface at `applyPatchSteps.ts:725-758` must expose the
+    // module's top-level `subContainers` so the follow-up
+    // `findChildDefForAdd` step can resolve the child's
+    // `definitionRef` tail. If the synthetic-parent fallback ever
+    // drops its `subContainers` exposure (e.g. by refactor that
+    // "simplifies" the empty `subContainers: []` branch) this
+    // test breaks loud; mapper integration tests would also break
+    // but the failure would be more diffuse. The unit test pins
+    // the contract directly.
+    //
+    // We exercise via the 2-segment `/EcucDefs/Com` form rather
+    // than the 1-segment `'Com'` form because makeComDoc places
+    // the Com module under the `EcucDefs` package — the 2-segment
+    // path resolves the module via `findContainerByPath` and
+    // triggers the synthetic-parent via the
+    // `subSegments.length === 0` branch (line 746-758).
+    it('exercises module-level synthetic-parent fallback when 2-segment parentPath resolves to module (v1.27.4 positive control)', () => {
+      const doc = makeComDoc();
+      const moduleDef = makeComModule(); // .shortName === 'Com'
+      const step: PatchStep = {
+        op: 'add-child',
+        parentPath: '/EcucDefs/Com',
+        shortName: 'ComGeneral_NewSibling',
+        definitionRef: '/D/Com/ComGeneral',
+      };
+      const result = applyPatchSteps(doc, [step], { moduleDef });
+      expect(result.errors).toEqual([]);
+      expect(result.applied).toBe(1);
+      // The new doc carries the new sibling container under Com,
+      // alongside the existing ComGeneral / ComConfig children.
+      const comModule = findChild(result.doc, 'Com');
+      expect(comModule).toBeDefined();
+      if (comModule === undefined) {
+        throw new Error('expected Com module');
+      }
+      const newSibling = findChildByShortName(comModule, 'ComGeneral_NewSibling');
+      expect(newSibling).toBeDefined();
+      expect(newSibling?.kind).toBe('container');
+    });
+
     it('returns path-not-found when 1-segment parentPath does not match moduleDef.shortName (v1.27.3 cross-module negative)', () => {
       const doc = makeComDoc();
       const moduleDef = makeComModule(); // .shortName === 'Com'
