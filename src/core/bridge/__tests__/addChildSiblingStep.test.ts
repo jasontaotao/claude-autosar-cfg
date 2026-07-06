@@ -131,4 +131,141 @@ describe('addChildSiblingStep', () => {
       .map((s) => (s as Extract<PatchStep, { op: 'set-param' }>).paramName);
     expect(setParamSteps).toEqual(['routineRef', 'numericParam', 'zeroString']);
   });
+
+  // v1.29.0 MINOR — Com-stack mapper shape alignment. The helper now
+  // accepts an optional `parentPath` (caller-provided leaf-parent path)
+  // and an optional `containerDefPath` (omits `definitionRef` key when
+  // absent). The Dcm mapper's existing call sites remain valid because
+  // `moduleShortName` and `containerDefPath` are still accepted (now
+  // as optional fields with the old semantics).
+
+  it('emits add-child with caller-provided parentPath instead of moduleShortName', () => {
+    // Arrange — Com-stack mapper passes a multi-segment leaf-parent path.
+    const input = {
+      parentPath: 'Com/ComConfig/ComIPdu',
+      instanceShortName: 'TxPdu_Foo',
+      containerDefPath: '/AUTOSAR/EcuCDefs/Com/ComConfig/ComIPdu',
+      instanceParams: {},
+    };
+
+    // Act
+    const [step] = addChildSiblingStep(input) as [Extract<PatchStep, { op: 'add-child' }>];
+
+    // Assert — caller-provided parentPath wins; moduleShortName is not
+    // consulted at all.
+    expect(step.parentPath).toBe('Com/ComConfig/ComIPdu');
+    expect(step.shortName).toBe('TxPdu_Foo');
+  });
+
+  it('containerDefPath omitted → add-child has no definitionRef key', () => {
+    // Arrange — Com-stack mapper's `row.definitionRef === undefined` case.
+    const input = {
+      parentPath: 'Com/ComConfig/ComIPdu',
+      instanceShortName: 'Pdu_Engine',
+      instanceParams: {},
+    };
+
+    // Act
+    const [step] = addChildSiblingStep(input) as [Extract<PatchStep, { op: 'add-child' }>];
+
+    // Assert — no `definitionRef` key at all (not `definitionRef: undefined`).
+    expect(step).not.toHaveProperty('definitionRef');
+    expect(Object.keys(step)).toEqual(['op', 'parentPath', 'shortName']);
+  });
+
+  it('containerDefPath explicitly undefined is treated identically to omitted', () => {
+    // Arrange — explicit `containerDefPath: undefined` should match the
+    // omitted case (matches Com-stack mapper's conditional-spread idiom).
+    const input = {
+      parentPath: 'Com/ComConfig/ComIPdu',
+      instanceShortName: 'Pdu_Engine',
+      containerDefPath: undefined,
+      instanceParams: {},
+    };
+
+    // Act
+    const [step] = addChildSiblingStep(input) as [Extract<PatchStep, { op: 'add-child' }>];
+
+    // Assert — same emission as the omitted case.
+    expect(step).not.toHaveProperty('definitionRef');
+  });
+
+  it('empty-definitionRef-string is still emitted (not skipped)', () => {
+    // Arrange — empty-string is NOT null/undefined, so it should pass through
+    // (preserves the v1.28.1 test 4 contract).
+    const input = {
+      moduleShortName: 'Dcm',
+      instanceShortName: 'EmptyRef',
+      containerDefPath: '',
+      instanceParams: {},
+    };
+
+    // Act
+    const [step] = addChildSiblingStep(input) as [Extract<PatchStep, { op: 'add-child' }>];
+
+    // Assert — `definitionRef: ''` is preserved verbatim.
+    expect(step.definitionRef).toBe('');
+  });
+
+  it('throws when neither parentPath nor moduleShortName provided', () => {
+    // Arrange — no parent path resolution possible.
+    const input = {
+      instanceShortName: 'NoPath',
+      instanceParams: {},
+    };
+
+    // Act + Assert
+    expect(() => addChildSiblingStep(input)).toThrow(
+      /either .parentPath. or .moduleShortName. must be provided/,
+    );
+  });
+
+  it('parentPath takes precedence over moduleShortName when both provided', () => {
+    // Arrange — caller-provided parentPath wins over moduleShortName.
+    const input = {
+      parentPath: 'X/Y',
+      moduleShortName: 'Dcm',
+      instanceShortName: 'Precedence',
+      containerDefPath: '/some/ref',
+      instanceParams: {},
+    };
+
+    // Act
+    const [step] = addChildSiblingStep(input) as [Extract<PatchStep, { op: 'add-child' }>];
+
+    // Assert — caller-provided parentPath wins; helper does not error.
+    expect(step.parentPath).toBe('X/Y');
+    expect(step.definitionRef).toBe('/some/ref');
+  });
+
+  it('skips param entries whose value is undefined (mirror of null-skip)', () => {
+    // Arrange — the Com-stack mapper's legacy in-line loop skips BOTH
+    // null and undefined; the helper's contract (after v1.29.0) must
+    // match this. (The Com-stack mapper calls the helper with
+    // `instanceParams: row.params` where row.params is typed more
+    // permissively than the helper's input, so `undefined` can leak in.)
+    const input = {
+      parentPath: 'Com/ComConfig/ComIPdu',
+      instanceShortName: 'TxPdu_Foo',
+      containerDefPath: '/AUTOSAR/EcuCDefs/Com/ComConfig/ComIPdu',
+      instanceParams: {
+        txMode: 'MIXED',
+        nullParam: null,
+        // The typed AddChildSiblingStepInput.instanceParams forbids
+        // undefined, but the helper's defensive guard (per spec §3.2
+        // + Risk §8) must still skip them.
+      } as Record<string, string | number | boolean | null>,
+    };
+
+    // Act
+    const steps = addChildSiblingStep(
+      input as unknown as Parameters<typeof addChildSiblingStep>[0],
+    );
+
+    // Assert — 1 add-child + 1 set-param (txMode only; nullParam dropped).
+    expect(steps).toHaveLength(2);
+    const setParamStep = steps[1] as Extract<PatchStep, { op: 'set-param' }>;
+    expect(setParamStep.paramName).toBe('txMode');
+    expect(setParamStep.value).toBe('MIXED');
+  });
 });

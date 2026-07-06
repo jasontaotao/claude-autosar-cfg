@@ -1,73 +1,109 @@
 // core/bridge/addChildSiblingStep.ts
 //
-// Single source of truth for the Dcm xlsx mapper's "add-child + per-
-// param set-param" PatchStep emission. Promoted from
-// `xlsxDcmServicesToEcucBatch.ts:111-131` (inline construction) in
-// v1.28.0 MINOR to close the v1.27.2 release notes §"Out of Scope"
-// TODO at `xlsxDcmServicesToEcucBatch.ts:106-110`:
+// Single source of truth for both mappers' "add-child + per-param set-param"
+// PatchStep emission. Promoted from
+// `xlsxDcmServicesToEcucBatch.ts:111-131` (inline Dcm construction) in
+// v1.28.0 MINOR; extended in v1.29.0 MINOR to absorb the Com-stack mapper's
+// in-line emission (`xlsxToEcucBatch.ts:82-99`).
 //
-//   TODO (out-of-scope for v1.27.2): the Com-stack mapper
-//   (`xlsxToEcucBatch.ts:71`) still uses the old strip-prefix idiom.
-//   Consolidation of the two mapper shapes into a single
-//   `addChildSiblingStep({ moduleShortName, containerShortName, instanceShortName, instanceDefRef })`
-//   helper is a separate refactor.
+// Two callers; two shapes — both supported by the helper's input type:
 //
-// v1.28.0 MINOR closes THIS half of that TODO (Dcm mapper consumes
-// the helper; emits module-level sibling + definitionRef shape per
-// v1.27.2 PATCH). The Com-stack mapper-shape alignment is a larger
-// refactor that changes the Mapper emit shape (and pipeline
-// semantics) — deferred to a future MINOR with explicit pre-flight
-// design (§"Out of Scope (deferred)" in v1.28.0 release notes).
+//   Dcm mapper (xlsxDcmServicesToEcucBatch.ts):
+//     { moduleShortName: 'Dcm', containerDefPath: '/Dcm/...', instanceShortName, instanceParams }
+//     → parentPath derived from moduleShortName (1-segment); definitionRef
+//       ALWAYS emitted.
+//
+//   Com-stack mapper (xlsxToEcucBatch.ts):
+//     { parentPath: 'Com/ComConfig/ComIPdu' (multi-segment), containerDefPath: '/AUTOSAR/...' (optional),
+//       instanceShortName, instanceParams }
+//     → parentPath caller-provided; definitionRef conditionally emitted
+//       (omitted when containerDefPath is undefined).
+//
+// Precedence rules (v1.29.0 spec §1.4 / §6):
+//   - `parentPath` may be provided INSTEAD OF `moduleShortName` (Com-stack style).
+//     `parentPath` may also be provided ALONGSIDE `moduleShortName` (defensive);
+//     parentPath wins in that case.
+//   - Neither provided → throw (fail-fast per project rule).
+//   - `containerDefPath === undefined` → emit add-child WITHOUT a `definitionRef`
+//     key (no `definitionRef: undefined` form).
+//   - Empty-string `containerDefPath` is NOT null/undefined — emitted verbatim.
+//
+// v1.27.2 PATCH release-notes TODO at `xlsxDcmServicesToEcucBatch.ts:106-110`
+// proposed this exact consolidation; v1.28.0 closed the Dcm-half; v1.29.0
+// closes the Com-stack-half.
 
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 
 /**
- * Inputs for the module-level "add a new sibling instance" emission.
+ * Resolve the emitted `add-child.parentPath` with precedence:
+ *   1. caller-provided `parentPath` wins (Com-stack mapper shape).
+ *   2. fall back to `moduleShortName` (Dcm mapper shape).
+ *   3. neither → throw (fail-fast per project rule).
  *
- *   - `moduleShortName` — the AUTOSAR module's `<SHORT-NAME>`; also
- *     used as the `parentPath` of the `add-child` step (one-segment,
- *     matching the v1.27.2 synthetic-parent fallback boundary).
- *   - `instanceShortName` — the new container instance's name (the
- *     `SHORT-NAME` of the freshly-added `<ECUC-CONTAINER-VALUE>`).
- *   - `containerDefPath` — the BSWMD-side `ECUC-PARAM-CONF-CONTAINER-DEF`
- *     path (the `definitionRef` emitted on the step).
- *   - `instanceParams` — xlsx-row params. Only defined, non-null
- *     values become `set-param` steps (null/undefined are skipped,
- *     matching v1.27.2 mapper's pre-patch behavior).
+ * The two `if (X !== undefined) return X;` branches guarantee
+ * TypeScript narrows `string` on each return path; this avoids the
+ * `string | undefined` leftover that `??` produces under
+ * `exactOptionalPropertyTypes: true`.
  */
-export interface AddChildSiblingStepInput {
-  readonly moduleShortName: string;
-  readonly instanceShortName: string;
-  readonly containerDefPath: string;
-  readonly instanceParams: Readonly<Record<string, string | number | boolean | null>>;
+function resolveParentPath(input: AddChildSiblingStepInput): string {
+  if (input.parentPath !== undefined) return input.parentPath;
+  if (input.moduleShortName !== undefined) return input.moduleShortName;
+  throw new Error('addChildSiblingStep: either `parentPath` or `moduleShortName` must be provided');
 }
 
 /**
- * Build the `[add-child + set-param × N]` PatchStep sequence that
- * installs a new sibling instance under the named module. One
- * `add-child` step (with `definitionRef` pointing at the leaf
- * container def) plus one `set-param` per non-null
- * `instanceParams` entry.
+ * Inputs for "add a new sibling instance" emission. Either `parentPath`
+ * (caller-provided multi-segment leaf-parent path) or `moduleShortName`
+ * (1-segment module-level derivation) MUST be provided; exactly one of
+ * the two is the typical case but both are accepted (parentPath wins).
+ *
+ * `containerDefPath` is optional: when omitted (or explicitly undefined)
+ * the emitted `add-child` step has no `definitionRef` key.
+ *
+ * NOTE: `| undefined` is explicit on the optional fields because the
+ * project compiles with `exactOptionalPropertyTypes: true` — callers
+ * may either OMIT the property or PASS it as `undefined`. Both are
+ * treated identically (the helper resolves `undefined → "not provided"`).
+ */
+export interface AddChildSiblingStepInput {
+  readonly instanceShortName: string;
+  readonly instanceParams: Readonly<Record<string, string | number | boolean | null>>;
+  readonly parentPath?: string | undefined;
+  readonly moduleShortName?: string | undefined;
+  readonly containerDefPath?: string | undefined;
+}
+
+/**
+ * Build the `[add-child + set-param × N]` PatchStep sequence that installs
+ * a new sibling instance at the resolved `parentPath`. One `add-child`
+ * step (optionally with `definitionRef`) plus one `set-param` per
+ * non-null, non-undefined `instanceParams` entry.
  */
 export function addChildSiblingStep(input: AddChildSiblingStepInput): readonly PatchStep[] {
-  const containerPath = `${input.moduleShortName}/${input.instanceShortName}`;
-  const steps: PatchStep[] = [
-    {
-      op: 'add-child',
-      parentPath: input.moduleShortName,
-      shortName: input.instanceShortName,
-      // Always emit `definitionRef` so the mutation engine's
-      // `findChildDefForAdd` (`core/mutation/applyPatchSteps.ts:677-680`)
-      // can resolve the leaf-container child def via the BSWMD-side
-      // definition path. Pre-v1.27.2, the mapper emitted a leaf-parent
-      // add (`parentPath: 'Dcm/DcmDspDid'`) without a definitionRef,
-      // which failed after the synthetic-parent fallback tightened to
-      // 1-segment module-level paths.
-      definitionRef: input.containerDefPath,
-    },
-  ];
+  // Resolve `parentPath` with strict TS narrowing (see `resolveParentPath`).
+  const parentPath = resolveParentPath(input);
+
+  const containerPath = `${parentPath}/${input.instanceShortName}`;
+
+  // Build the `add-child` step. Conditional `definitionRef` is the
+  // Com-stack mapper's affordance; emitting `definitionRef: undefined`
+  // would pollute `Object.keys(step)` semantics, so we omit the key
+  // entirely when the value is absent (conditional-spread idiom — same
+  // pattern the legacy Com-stack mapper used at `xlsxToEcucBatch.ts:86`).
+  const addChildStep: PatchStep = {
+    op: 'add-child',
+    parentPath,
+    shortName: input.instanceShortName,
+    ...(input.containerDefPath !== undefined && { definitionRef: input.containerDefPath }),
+  };
+
+  const steps: PatchStep[] = [addChildStep];
+
   for (const [paramName, value] of Object.entries(input.instanceParams)) {
-    if (value === null) continue;
+    // Skip both `null` AND `undefined` to preserve the legacy Com-stack
+    // mapper's behavior (`xlsxToEcucBatch.ts` line 92 — `if (value === null
+    // || value === undefined) continue;`). v1.29.0 spec §8 Risk #4.
+    if (value === null || value === undefined) continue;
     steps.push({
       op: 'set-param',
       containerPath,
