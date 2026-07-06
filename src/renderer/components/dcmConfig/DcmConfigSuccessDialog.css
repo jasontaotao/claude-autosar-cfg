@@ -1,0 +1,74 @@
+.dcm-config-success-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dcm-config-success-card {
+  background: var(--color-surface, #fff);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 560px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.dcm-config-success-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.dcm-config-success-body {
+  margin: 0 0 16px;
+  color: var(--color-text-secondary, #555);
+}
+
+.dcm-config-success-paths {
+  margin: 0 0 16px;
+  padding: 12px;
+  background: var(--color-surface-muted, #f5f5f5);
+  border-radius: 4px;
+}
+
+.dcm-config-success-path-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.dcm-config-success-path-row dt {
+  font-weight: 600;
+  min-width: 40px;
+}
+
+.dcm-config-success-path-row dd {
+  margin: 0;
+  flex: 1;
+}
+
+.dcm-config-success-path-row code {
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.dcm-config-success-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dcm-config-success-close {
+  padding: 6px 16px;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 4px;
+  background: var(--color-surface, #fff);
+  cursor: pointer;
+}
+
+.dcm-config-success-close:hover {
+  background: var(--color-surface-hover, #f0f0f0);
+}

@@ -1,0 +1,108 @@
+// DcmConfigSuccessDialog — v1.31.0 PATCH T1.
+//
+// Shown after a successful dcm:config IPC. Surfaces the single
+// outputPath + the 5 service-kind counts + appliedStepCount so
+// the user can locate the freshly-written Dcm_Config.arxml.
+//
+// Parity with v1.24.0 T3 DiagnosticExtractSuccessDialog (a11y +
+// i18n). The single output simplifies the paths section (no
+// dem/dcm split).
+//
+// i18n: all user-facing strings go through t(locale, key, params)
+// per the v1.23.1 T1 L1 i18n-bypass-pattern lesson.
+
+import { useEffect, useRef } from 'react';
+
+import { t } from '@shared/i18n/index.js';
+import type { Locale } from '@shared/i18n/index.js';
+import type { DcmConfigHandlerResult } from '@shared/types.js';
+
+import './DcmConfigSuccessDialog.css';
+
+export interface DcmConfigSuccessDialogProps {
+  /** Render-gate — when false, the modal is not in the DOM. */
+  readonly open: boolean;
+  /** v1.30.0 MINOR handler result (outputPath + 5 service counts + appliedStepCount). */
+  readonly result: DcmConfigHandlerResult;
+  readonly locale: Locale;
+  readonly onClose: () => void;
+}
+
+export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
+  const { open, result, locale, onClose } = props;
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="dcm-config-success-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dcm-config-success-title"
+      data-testid="dcm-config-success-dialog"
+      onClick={onClose}
+    >
+      <div
+        className="dcm-config-success-card"
+        onClick={(e): void => {
+          e.stopPropagation();
+        }}
+      >
+        <h2
+          id="dcm-config-success-title"
+          className="dcm-config-success-title"
+          data-testid="dcm-config-success-title"
+        >
+          {t(locale, 'odx.export.dcmConfig.success.title')}
+        </h2>
+        <p className="dcm-config-success-body" data-testid="dcm-config-success-body">
+          {t(locale, 'odx.export.dcmConfig.success.body', {
+            dspCount: result.odxLinkedDcmDspCount,
+            routineCount: result.odxLinkedRoutineCount,
+            appliedStepCount: result.appliedStepCount,
+          })}
+        </p>
+        <dl className="dcm-config-success-paths" data-testid="dcm-config-success-paths">
+          <div className="dcm-config-success-path-row">
+            <dt>Dcm</dt>
+            <dd>
+              <code>{result.outputPath}</code>
+            </dd>
+          </div>
+        </dl>
+        <div className="dcm-config-success-actions">
+          <button
+            ref={closeButtonRef}
+            type="button"
+            className="dcm-config-success-close"
+            onClick={onClose}
+            data-testid="dcm-config-success-close"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
