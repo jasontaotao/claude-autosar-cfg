@@ -1320,6 +1320,7 @@ const baseProps = {
   onOpenXlsxBatch: vi.fn(),
   xlsxBatchBusy: false,
   onOpenDcmConfig: vi.fn(),
+  canOpenDcmConfig: true,
   dcmConfigBusy: false,
 };
 
@@ -1394,40 +1395,7 @@ Locate the existing dropdown group containing the `Open ODX` button (search for 
 </button>
 ```
 
-(The `odxLoaded` + `hasDcmBswmd` gates are computed by AppHeader before passing `dcmConfigBusy` to the button — or, if easier, the `disabled` is widened to `dcmConfigBusy || !odxLoaded || !hasDcmBswmd` and the parent passes the booleans. For 1.31.0 PATCH, the simplest approach is: AppHeader accepts only `dcmConfigBusy` and a single `canOpenDcmConfig` boolean (combining `odxLoaded && hasDcmBswmd`). The parent (App.tsx) computes `canOpenDcmConfig`.)
-
-Refine step 1's props: REPLACE the 2 new props with:
-
-```ts
-  // v1.31.0 PATCH — "File Operations → Open Dcm Config…" menu entry.
-  // `canOpenDcmConfig` is the combined gate (odxLoaded && hasDcmBswmd);
-  // the parent (App.tsx) derives it from the store. `dcmConfigBusy` is
-  // the in-flight gate. AppHeader is responsible for `disabled` only;
-  // click forwarding is the parent's job.
-  readonly onOpenDcmConfig: () => void;
-  readonly canOpenDcmConfig: boolean;
-  readonly dcmConfigBusy: boolean;
-```
-
-And the button:
-
-```tsx
-<button
-  type="button"
-  onClick={() => void onOpenDcmConfig()}
-  disabled={dcmConfigBusy || !canOpenDcmConfig}
-  title={
-    !canOpenDcmConfig
-      ? t(locale, 'dcmConfig.error.noDcmBswmd')
-      : undefined
-  }
-  data-testid="btn-open-dcm-config"
->
-  {t(locale, 'app.open.dcmConfig')}
-</button>
-```
-
-Update step 1's test props accordingly: change `onOpenDcmConfig: vi.fn()` to include `canOpenDcmConfig: true` in `baseProps`. Add a test for `canOpenDcmConfig: false` → disabled.
+(The `odxLoaded` + `hasDcmBswmd` gates are combined by the parent (App.tsx) into a single `canOpenDcmConfig` boolean and passed to AppHeader. AppHeader just widens the button's `disabled` to `dcmConfigBusy || !canOpenDcmConfig`. The test props in step 1 already include `canOpenDcmConfig: true` so the disabled-state test below works without prop surgery.)
 
 - [ ] **Step 6: Run test to verify it passes**
 
