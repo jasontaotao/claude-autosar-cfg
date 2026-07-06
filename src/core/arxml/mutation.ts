@@ -168,12 +168,43 @@ export function addContainer(
   // spec-compliant ECUC-CONTAINER-VALUE (with <DEFINITION-REF> +
   // <PARAMETER-VALUES>) for every added instance, including the
   // `_1`/`_2`/`_N` multi-instance suffixes from Step 3.
+  //
+  // v1.27.2 PATCH — also seed empty reference params. Pre-patch, the
+  // container was created with no reference params in `params[]`, so a
+  // follow-up `set-param` on a reference like `didRef` / `routineRef`
+  // would fail with `param-not-found` (the param key was absent in the
+  // new container's params map). The mapper path (xlsx → add-child +
+  // set-param on the freshly-added container) requires reference params
+  // to be present at add time. The skeleton factory (`generateEcucSkeleton`)
+  // does NOT route through `addContainer` — it builds its own
+  // ArxmlContainer literals with `params: fillParamsFromBswmd(c)` — so
+  // the existing `skeleton.test.ts` invariant `skips reference params
+  // (use addReference separately)` is preserved.
+  const baseParams = fillParamsFromBswmd(childContainerDef);
+  const seededParams: Record<string, ParamValue> = { ...baseParams };
+  for (const ref of childContainerDef.references) {
+    if (seededParams[ref.shortName] === undefined) {
+      // v1.27.2 PATCH (code-review HIGH fix) — include `dest: ref.destKind`
+      // so the seeded reference has the same shape as one created via
+      // `addReference` (`mutation.ts:668-672`). Without `dest`, a user
+      // who later calls `addReference` on the same shortName would hit
+      // `name-conflict` (line 665-667) because the seeded entry occupies
+      // the key but lacks the `dest` attribute the canonical reference
+      // shape carries. Mirrors `addReference` exactly.
+      seededParams[ref.shortName] = {
+        type: 'reference',
+        value: '',
+        dest: ref.destKind,
+        definitionRef: ref.path,
+      };
+    }
+  }
   const newContainer: ArxmlContainer = {
     kind: 'container',
     tagName: 'ECUC-CONTAINER-VALUE',
     shortName: effectiveShortName,
     definitionRef: childContainerDef.path,
-    params: fillParamsFromBswmd(childContainerDef),
+    params: seededParams,
     description: childContainerDef.desc,
     // Multi-instance instances do NOT pre-create sub-containers —
     // the user adds them individually. Matches the skeleton's
@@ -640,6 +671,40 @@ export function addReference(
     }
   }
   if (Object.prototype.hasOwnProperty.call(parent.params, refDef.shortName)) {
+    // v1.27.2 PATCH (code-review MEDIUM fix) — `addContainer` auto-seeds
+    // empty reference params for every reference declared on the
+    // BSWMD-side child container (so follow-up `set-param` on a
+    // reference like `didRef` resolves `target.params[ref.shortName]`).
+    // A user who then opens the reference picker and explicitly calls
+    // `addReference` on the same shortName would hit `name-conflict`.
+    // Detect that case (existing entry is the empty-seeded placeholder
+    // for the same `destKind`) and treat it as an idempotent overwrite
+    // rather than a conflict.
+    const existing: ParamValue | undefined = parent.params[refDef.shortName];
+    if (
+      existing !== undefined &&
+      existing.type === 'reference' &&
+      existing.value === '' &&
+      existing.dest === refDef.destKind
+    ) {
+      // Idempotent: the existing entry is the auto-seeded placeholder
+      // for this exact reference (same `destKind`). Replace its value
+      // with the new one — which carries the user-supplied target path
+      // — and splice back into the doc.
+      const nextValue: ParamValue =
+        refDef.path !== ''
+          ? ({ ...existing, value: '', definitionRef: refDef.path } as ParamValue)
+          : existing;
+      const nextParams: Readonly<Record<string, ParamValue>> = {
+        ...parent.params,
+        [refDef.shortName]: nextValue,
+      };
+      const nextParent: ArxmlModule | ArxmlContainer =
+        parent.kind === 'module'
+          ? { ...parent, params: nextParams }
+          : { ...parent, params: nextParams };
+      return { ok: true, value: replaceElement(doc, pkg, parent, nextParent) };
+    }
     return { ok: false, error: { kind: 'name-conflict', shortName: refDef.shortName } };
   }
   const value: ParamValue = {

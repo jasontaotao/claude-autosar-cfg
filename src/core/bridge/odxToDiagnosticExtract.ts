@@ -74,32 +74,74 @@ function buildDemContent(odx: OdxSummary): string {
 }
 
 /**
- * Build Dcm Diagnostic Extract: one DCM-DSP-DID per DID + one DCM-DSP-ROUTINE per Routine.
- * DcmDspDidInfo / DcmDspRoutineInfo are BSWMD-coupled; user adds manually post-merge.
+ * Build Dcm Diagnostic Extract: one `<ECUC-CONTAINER-VALUE>` of `<DcmDspDid>`
+ * type per DID + one `<ECUC-CONTAINER-VALUE>` of `<DcmDspRoutine>` type per
+ * Routine. Each carries a `<DEFINITION-REF>` pointing at the BSWMD-side
+ * container definition so the v1.27.0 Dcm config pipeline can apply
+ * xlsx service `add-child` siblings against this extract doc.
  *
- * v1.24.x PATCH: emit <DCM-DSP-DID-DATA> block when DID has data (BASE-DATA-TYPE,
- * BASE-TYPE-ENCODING, optional BIT-LENGTH from the 0x22 REQUEST's DID-value PARAM).
+ * **v1.27.2 PATCH**: shape changed from data-spec elements (`<DCM-DSP-DID>`,
+ * `<DCM-DSP-ROUTINE>`) to AUTOSAR-canonical service container instances
+ * (`<ECUC-CONTAINER-VALUE>` with `<DEFINITION-REF DEST="...">`). The old
+ * shape was correct per v1.24.0 spec ("DID → DcmDspDid; user adds manually
+ * post-merge"), but v1.27.0 spec §96 mandates the container-instance shape
+ * so that the Dcm config IPC's xlsx mapper can `add-child` siblings
+ * against the same extract doc. BSWMD-side container defs (`DcmDspDid`,
+ * `DcmDspRoutine`) are ECUC-PARAM-CONF-CONTAINER-DEF (leaf), so the
+ * sibling relationship via module-level add (with `definitionRef`) is
+ * the correct AUTOSAR idiom — not add-child to the leaf container.
+ *
+ * The `<DCM-DSP-DID-DATA>` block (BASE-DATA-TYPE / BASE-TYPE-ENCODING /
+ * optional BIT-LENGTH from v1.24.x PATCH) is preserved verbatim inside
+ * the `<ECUC-CONTAINER-VALUE>` body, so the round-trip information
+ * (DID encoding metadata) is unchanged. The `<DCM-DSP-ROUTINE>` inner
+ * block is similarly preserved.
  */
 function buildDcmContent(odx: OdxSummary): string {
   const dids = odx.dids
     .map((did) => {
       const dataBlock = did.data
-        ? `\n      <DCM-DSP-DID-DATA>\n        <DIAG-CODED-TYPE>${escapeXmlText(did.data.dataType)}</DIAG-CODED-TYPE>\n        <BASE-TYPE-ENCODING>${escapeXmlText(did.data.encoding)}</BASE-TYPE-ENCODING>${did.data.bitLength !== undefined ? `\n        <BIT-LENGTH>${did.data.bitLength}</BIT-LENGTH>` : ''}\n      </DCM-DSP-DID-DATA>`
+        ? `\n        <DCM-DSP-DID-DATA>\n          <DIAG-CODED-TYPE>${escapeXmlText(did.data.dataType)}</DIAG-CODED-TYPE>\n          <BASE-TYPE-ENCODING>${escapeXmlText(did.data.encoding)}</BASE-TYPE-ENCODING>${did.data.bitLength !== undefined ? `\n          <BIT-LENGTH>${did.data.bitLength}</BIT-LENGTH>` : ''}\n        </DCM-DSP-DID-DATA>`
         : '';
-      return `    <DCM-DSP-DID>
-      <SHORT-NAME>${escapeXmlText(did.shortName)}</SHORT-NAME>${dataBlock}
-    </DCM-DSP-DID>`;
+      return `      <ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>${escapeXmlText(did.shortName)}</SHORT-NAME>
+        <DEFINITION-REF DEST="DCM-DSP-DID">/Dcm/DcmDspDid</DEFINITION-REF>${dataBlock}
+      </ECUC-CONTAINER-VALUE>`;
     })
     .join('\n');
   const routines = odx.routines
     .map(
       (r) =>
-        `    <DCM-DSP-ROUTINE>
-      <SHORT-NAME>${escapeXmlText(r.shortName)}</SHORT-NAME>
-    </DCM-DSP-ROUTINE>`,
+        `      <ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>${escapeXmlText(r.shortName)}</SHORT-NAME>
+        <DEFINITION-REF DEST="DCM-DSP-ROUTINE">/Dcm/DcmDspRoutine</DEFINITION-REF>
+        <DCM-DSP-ROUTINE>
+          <SHORT-NAME>${escapeXmlText(r.shortName)}</SHORT-NAME>
+        </DCM-DSP-ROUTINE>
+      </ECUC-CONTAINER-VALUE>`,
     )
     .join('\n');
-  return wrapWithEnvelope([dids, routines].filter(Boolean).join('\n'));
+  const containersXml = [dids, routines].filter(Boolean).join('\n');
+  // v1.27.2 PATCH — wrap the ODX-extracted ECUC-CONTAINER-VALUEs inside
+  // an `ECUC-MODULE-CONFIGURATION-VALUES` element with `<SHORT-NAME>Dcm</SHORT-NAME>`.
+  // The wrapper is required so the v1.27.0 Dcm config pipeline's xlsx
+  // mapper (`add-child` to module `Dcm`) can resolve the parent element
+  // via `findByPath` (`/DiagExtract/Dcm`). Pre-patch, the extract put
+  // `<DCM-DSP-DID>` data-spec elements directly under `DiagExtract/
+  // ELEMENTS` with no module wrapper, so `addContainer` failed
+  // `locateParent` because there was no `Dcm` element to attach to.
+  //
+  // The DEM half (`buildDemContent`) does NOT need this wrapper —
+  // DEM-EVENT-PARAMETER elements are top-level AR-PACKAGE/ELEMENTS
+  // children by AUTOSAR convention (no module-config wrapper).
+  const dcmModule = `    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Dcm</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Dcm/Dcm</DEFINITION-REF>
+      <CONTAINERS>
+${containersXml}
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>`;
+  return wrapWithEnvelope(dcmModule);
 }
 
 export function odxToDiagnosticExtract(

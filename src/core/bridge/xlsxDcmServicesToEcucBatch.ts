@@ -77,31 +77,46 @@ export function xlsxDcmServicesToEcucBatch(
           `Verify the BSWMD declares this canonical AUTOSAR container shortName.`,
       );
     }
-    // v1.27.x PATCH — strip the BSWMD's package-root segment (`/Dcm/...`).
-    // `ContainerDef.path` is BSWMD-absolute (constructed in
-    // `core/project/bswmd.ts:678,962` from the BSWMD package walk);
-    // the mutation engine + the handler-side `prefixDocRootPath` expect
-    // BSWMD-relative paths so the extract-doc's package root can be
-    // re-applied cleanly. Pre-patch, emitting the absolute path caused
-    // a doubled prefix at apply time (`/DiagExtract//Dcm/...`) →
-    // `path-not-found`. Mirrors `xlsxToEcucBatch.ts:71`.
+    // v1.27.2 PATCH — switch from leaf-parent add (`Dcm/DcmDspDid`) to
+    // module-level sibling add (`Dcm` + `definitionRef`).
     //
-    // TODO (out-of-scope for v1.27.x PATCH): the regex strips exactly
-    // one leading `/<segment>/`. This works for fixtures where the
-    // module sits directly under the package root (2-segment path
-    // `/<pkg>/<module>`), but would over-strip if a future BSWMD nests
-    // the module under `/<pkg>/<intermediate>/<module>`. The identical
-    // pattern at `xlsxToEcucBatch.ts:71` has the same latent
-    // limitation; both should be consolidated into a single
-    // `stripBswmdPackageRoot(absolutePath, moduleShortName)` helper as
-    // a separate refactor.
-    const parentPath = containerDef.path.replace(/^\/[^/]+\//, '');
+    // BSWMD's `DcmDspDid` / `DcmDspRoutine` / `DcmDspClearDTC` /
+    // `DcmDspReadDTCInformation` are all `ECUC-PARAM-CONF-CONTAINER-DEF`
+    // (leaf, no sub-containers). AUTOSAR convention: a leaf container
+    // cannot host children; only the module (or a non-leaf container)
+    // can host multiple container instances. By emitting `parentPath:
+    // 'Dcm'` (the module shortName), the mapper creates new
+    // `<ECUC-CONTAINER-VALUE>` of the canonical type as siblings of the
+    // ODX-extracted instances (which themselves live under the same
+    // module after v1.27.2's `buildDcmContent` rewrite).
+    //
+    // The `definitionRef` tells `findChildDefForAdd`
+    // (`core/mutation/applyPatchSteps.ts:658-701`) which BSWMD-side
+    // container def to instantiate — it side-steps the leaf
+    // container's empty `subContainers` / `choices` arrays that would
+    // otherwise defeat the permissive fallback.
+    //
+    // The mutation engine's `findParentContainerDef` already handles
+    // module-level parents via a synthetic-parent fallback
+    // (`applyPatchSteps.ts:714-732`) — the new synthetic parent exposes
+    // the module's top-level containers as its `subContainers`, which
+    // `findChildDefForAdd` then matches against the `definitionRef` tail.
+    //
+    // TODO (out-of-scope for v1.27.2): the Com-stack mapper
+    // (`xlsxToEcucBatch.ts:71`) still uses the old strip-prefix idiom.
+    // Consolidation of the two mapper shapes into a single
+    // `addChildSiblingStep({ moduleShortName, containerShortName, instanceShortName, instanceDefRef })`
+    // helper is a separate refactor.
+    const parentPath = moduleShortName;
     const containerPath = `${parentPath}/${row.shortName}`;
     const addChildBase = {
       op: 'add-child' as const,
       parentPath,
       shortName: row.shortName,
-      ...(row.definitionRef !== undefined && { definitionRef: row.definitionRef }),
+      // Always emit `definitionRef` so the mutation engine can resolve
+      // the leaf-container child def via the BSWMD-side definition path
+      // (see `applyPatchSteps.ts:677-680`).
+      definitionRef: containerDef.path,
     };
     steps.push(addChildBase);
     for (const [paramName, value] of Object.entries(row.params)) {

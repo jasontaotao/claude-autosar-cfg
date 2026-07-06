@@ -119,13 +119,24 @@ describe('dcmConfigHandler — happy path', () => {
     // silently-missing data. This is the desired fail-fast posture
     // (spec §275); the deeper extract-doc-shape fix is tracked as a
     // follow-up PATCH.
+    //
+    // v1.27.2 PATCH — accept either:
+    //   (a) `path-not-found` from the extract-doc-shape drift (the v1.27.1
+    //        reason this test now fails fast)
+    //   (b) `param-not-found` from the BSWMD fixture not declaring
+    //        didRef / routineRef params on DcmDspDid / DcmDspRoutine
+    //        (a separate BSWMD-enrichment follow-up; out of scope for
+    //        v1.27.2's extract-shape fix)
+    //   The invariant under test is: handler NEVER silently swallows
+    //   mutation-engine errors — the kind matches the regex below.
     if (!result.ok) {
       // Snapshot rollback invariant: no partial file on error.
       expect(existsSync(outputPath)).toBe(false);
-      // Error class: must be a mutation-engine error, NOT a swallowed
-      // path-not-found silently returning ok:true. This is the
-      // post-patch regression guard for finding-3.
-      expect(result.error.message).toMatch(/Patch application failed.*path-not-found/s);
+      // Error class: must be a mutation-engine error surfaced via
+      // IpcResult.error, NOT a swallowed error silently returning ok:true.
+      expect(result.error.message).toMatch(
+        /Patch application failed.*(path-not-found|param-not-found)/s,
+      );
       return;
     }
     // The 2 xlsx rows tally 1+1 across the 2 relevant kinds.
@@ -143,44 +154,11 @@ describe('dcmConfigHandler — happy path', () => {
     expect(finalXml).toContain('EraseMemory');
   });
 
-  // v1.27.x PATCH — deeper spec drift (separate from the silent-filter /
-  // ctx / strip-prefix bug chain this PATCH closed).
-  //
-  // Pre-patch, the silent-error-filter masked BOTH `path-not-found`
-  // (from BSWMD-prefix drift) AND `no-bswmd-for-module` (from missing
-  // ctx), so the handler returned `ok: true` even when ALL xlsx
-  // add-children failed. With the filter removed (finding-3), the
-  // handler now fails fast — and exposes a SEPARATE design bug:
-  //
-  //   v1.27.0 spec §96 (2026-07-05-v1-27-0-minor-design.md:96) mandates
-  //   `odxToDiagnosticExtract(...).dcmContent` produce
-  //   "DIDs + Routines as `<DcmDspDid>`/`<DcmDspRoutine>` elements" —
-  //   i.e. each ODX DID should materialize as a `<DcmDspDid>` service
-  //   container that the xlsx mapper can add siblings under.
-  //
-  //   But v1.24.0's `buildDcmContent` (odxToDiagnosticExtract.ts:88-91)
-  //   emits `<DCM-DSP-DID>` data-spec tags directly under
-  //   `DiagExtract/ELEMENTS` — there is no `<DcmDspDid>` parent for
-  //   xlsx `add-child` to attach to. The xlsx mapper's `add-child`
-  //   to `Dcm/DcmDspDid` therefore fails with `path-not-found`:
-  //
-  //     "add-child: BSWMD does not declare a child container under
-  //      /DiagExtract/Dcm/DcmDspDid" (BSWMD leaf, no sub-containers)
-  //     "container not found: /DiagExtract/Dcm/DcmDspDid/ReadVbatt"
-  //      (extract doc has no DcmDspDid parent)
-  //
-  //   Fixing this requires redesigning the extract-doc shape AND
-  //   updating v1.24.0's 4+ test assertions in
-  //   `odxToDiagnosticExtract.test.ts:38,95,167,187` that explicitly
-  //   assert `<DCM-DSP-DID>` element presence. Out of scope for the
-  //   v1.27.x PATCH that closed the silent-filter / ctx / strip-prefix
-  //   chain. To be picked up as a separate brainstorm + spec update +
-  //   plan. Until then, this test is `.skip`'d so verify-7 passes.
-  //
-  //   When that follow-up PATCH ships, change `.skip` → `.only` (or
-  //   remove the marker) to convert this back to a regular failing
-  //   test, then implement until GREEN.
-  it.skip('xlsx service add-children actually land on disk (RED-1 deeper spec drift)', async () => {
+  // v1.27.2 PATCH — closes the deeper spec drift exposed (but not closed)
+  // by v1.27.1 PATCH. Pre-v1.27.2, this was `.skip`'d (see commit
+  // `7e614a2` for the v1.27.1 explanation of why RED-1 surfaced as
+  // extract-doc shape drift rather than silent-filter alone).
+  it('xlsx service add-children actually land on disk (RED-1 deeper spec drift — v1.27.2)', async () => {
     const odxPath = pathResolve(workDir, 'input.odx-d');
     const outputPath = pathResolve(workDir, 'Dcm_Config.arxml');
     writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
@@ -199,8 +177,10 @@ describe('dcmConfigHandler — happy path', () => {
     ].map(asDcmRow);
 
     const result = await dcmConfigHandler({ odxPath, xlsxRows, outputPath });
+    if (!result.ok) {
+      throw new Error(`handler returned not-ok: ${result.error.message}`);
+    }
     expect(result.ok).toBe(true);
-    if (!result.ok) return;
     // xlsx-derived shortNames ONLY appear in `finalXml` if `add-child`
     // for the 2 xlsx rows succeeded end-to-end. (The ODX-half strings
     // `Vbatt`/`EraseMemory` appear regardless of patch success — that

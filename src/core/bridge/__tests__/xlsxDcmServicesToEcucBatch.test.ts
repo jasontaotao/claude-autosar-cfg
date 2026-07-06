@@ -40,7 +40,11 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ClearEmissions',
-      parentPath: expect.stringContaining('DcmDspClearDTC'), // canonical AUTOSAR container
+      // v1.27.2 PATCH — module-level add with definitionRef pointing at
+      // the canonical AUTOSAR container definition. Pre-patch emitted
+      // `parentPath: 'Dcm/DcmDspClearDTC'` (leaf-parent add).
+      parentPath: 'Dcm',
+      definitionRef: '/Dcm/Dcm/DcmDspClearDTC',
     });
   });
 
@@ -52,7 +56,8 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ReadAllDTC',
-      parentPath: expect.stringContaining('DcmDspReadDTCInformation'), // canonical AUTOSAR container
+      parentPath: 'Dcm',
+      definitionRef: '/Dcm/Dcm/DcmDspReadDTCInformation',
     });
   });
 
@@ -69,7 +74,8 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ReadVbatt',
-      parentPath: expect.stringContaining('DcmDspDid'), // canonical AUTOSAR parent (shared by 0x22 + 0x2E)
+      parentPath: 'Dcm',
+      definitionRef: '/Dcm/Dcm/DcmDspDid',
     });
     expect(steps[1]).toMatchObject({
       op: 'set-param',
@@ -86,10 +92,8 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'WriteVin',
-      // Canonical AUTOSAR uses DcmDspDid as the SHARED parent for both 0x22
-      // and 0x2E; differentiation happens via per-row definitionRef, not
-      // container shortName. See plan Step 2.1 + SHEET_TO_CONTAINER_SHORT_NAME.
-      parentPath: expect.stringContaining('DcmDspDid'),
+      parentPath: 'Dcm',
+      definitionRef: '/Dcm/Dcm/DcmDspDid',
     });
   });
 
@@ -103,6 +107,12 @@ describe('xlsxDcmServicesToEcucBatch', () => {
     ] as unknown as readonly EcucInstanceRow[];
     const steps = xlsxDcmServicesToEcucBatch(rows, dcmBswmds());
     expect(steps.length).toBe(2);
+    expect(steps[0]).toMatchObject({
+      op: 'add-child',
+      shortName: 'EraseMemory',
+      parentPath: 'Dcm',
+      definitionRef: '/Dcm/Dcm/DcmDspRoutine',
+    });
     expect(steps[1]).toMatchObject({
       op: 'set-param',
       paramName: 'routineRef',
@@ -148,32 +158,58 @@ describe('xlsxDcmServicesToEcucBatch — fail-fast errors', () => {
 // (`/DiagExtract//Dcm/...`) at apply time → `path-not-found`. The
 // existing `stringContaining(...)` assertions masked the bug because
 // they only check the suffix substring.
-describe('xlsxDcmServicesToEcucBatch — BSWMD-relative path invariant', () => {
-  const cases: readonly { sheet: string; shortName: string; expectedSuffix: string }[] = [
-    { sheet: 'DcmClearDTC', shortName: 'ClearOne', expectedSuffix: '/DcmDspClearDTC' },
-    { sheet: 'DcmReadDTC', shortName: 'ReadOne', expectedSuffix: '/DcmDspReadDTCInformation' },
-    { sheet: 'DcmReadDataById', shortName: 'ReadDidOne', expectedSuffix: '/DcmDspDid' },
-    { sheet: 'DcmWriteDataById', shortName: 'WriteDidOne', expectedSuffix: '/DcmDspDid' },
-    { sheet: 'DcmRoutineControl', shortName: 'RoutineOne', expectedSuffix: '/DcmDspRoutine' },
+describe('xlsxDcmServicesToEcucBatch — module-level add + definitionRef invariant', () => {
+  const cases: readonly {
+    sheet: string;
+    shortName: string;
+    expectedDefinitionRef: string;
+  }[] = [
+    {
+      sheet: 'DcmClearDTC',
+      shortName: 'ClearOne',
+      expectedDefinitionRef: '/Dcm/Dcm/DcmDspClearDTC',
+    },
+    {
+      sheet: 'DcmReadDTC',
+      shortName: 'ReadOne',
+      expectedDefinitionRef: '/Dcm/Dcm/DcmDspReadDTCInformation',
+    },
+    {
+      sheet: 'DcmReadDataById',
+      shortName: 'ReadDidOne',
+      expectedDefinitionRef: '/Dcm/Dcm/DcmDspDid',
+    },
+    {
+      sheet: 'DcmWriteDataById',
+      shortName: 'WriteDidOne',
+      expectedDefinitionRef: '/Dcm/Dcm/DcmDspDid',
+    },
+    {
+      sheet: 'DcmRoutineControl',
+      shortName: 'RoutineOne',
+      expectedDefinitionRef: '/Dcm/Dcm/DcmDspRoutine',
+    },
   ];
   for (const c of cases) {
-    it(`emits BSWMD-relative parentPath for ${c.sheet}`, () => {
+    it(`emits module-level add + definitionRef for ${c.sheet}`, () => {
       const rows = [
         { sheet: c.sheet, shortName: c.shortName, params: {} },
       ] as unknown as readonly EcucInstanceRow[];
       const steps = xlsxDcmServicesToEcucBatch(rows, dcmBswmds());
       const addChild = steps.find((s) => s.op === 'add-child');
       expect(addChild).toBeDefined();
-      const parentPath = (addChild as { parentPath: string }).parentPath;
-      // BSWMD-relative: no leading slash (otherwise the handler-side
-      // `prefixDocRootPath` produces a doubled prefix like
-      // `/DiagExtract//Dcm/...` and the mutation engine returns
-      // `path-not-found`).
-      expect(parentPath.startsWith('/')).toBe(false);
-      // Anchored to module shortName (`Dcm/...`) and ends at the
-      // canonical AUTOSAR container shortName.
-      expect(parentPath.startsWith('Dcm/')).toBe(true);
-      expect(parentPath.endsWith(c.expectedSuffix)).toBe(true);
+      const child = addChild as { parentPath: string; definitionRef: string };
+      // Module-level add: parentPath is the module shortName, NOT a
+      // BSWMD-relative container path. The mutation engine's
+      // `findParentContainerDef` has a synthetic-parent fallback for
+      // 1-segment paths anchored to the module shortName
+      // (`applyPatchSteps.ts:706-722`).
+      expect(child.parentPath).toBe('Dcm');
+      expect(child.parentPath.startsWith('/')).toBe(false);
+      // definitionRef points at the BSWMD-side container definition so
+      // `findChildDefForAdd` can resolve the leaf child via the
+      // `definitionRef` branch.
+      expect(child.definitionRef).toBe(c.expectedDefinitionRef);
     });
   }
 });
@@ -203,7 +239,13 @@ describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () =>
     expect(steps[0]).toMatchObject({
       op: 'add-child',
       shortName: 'ReadBattery',
-      parentPath: expect.stringContaining('DcmDspDid'), // canonical AUTOSAR parent shared by 0x22 + 0x2E
+      // v1.27.2 PATCH — module-level add with definitionRef pointing
+      // at the canonical container def. The real-OEM BSWMD uses the
+      // AUTOSAR root package (`/AUTOSAR/Dcm/...`), so the prefix differs
+      // from the demo-ecu's `Dcm` package root, but the leaf
+      // `DcmDspDid` shortName is canonical.
+      parentPath: 'Dcm',
+      definitionRef: expect.stringMatching(/\/DcmDspDid$/),
     });
     expect(steps[1]).toMatchObject({
       op: 'set-param',
@@ -234,18 +276,32 @@ describe('xlsxDcmServicesToEcucBatch — real-OEM cross-vendor invariant', () =>
       ] as unknown as readonly EcucInstanceRow[];
       const demoSteps = xlsxDcmServicesToEcucBatch(rows, demo);
       const realSteps = xlsxDcmServicesToEcucBatch(rows, realOem);
-      // Both parentPaths must end with the canonical container shortName
-      // — that is the cross-vendor invariant under test. Narrow the
-      // PatchStep union to the 'add-child' variant before reading
-      // parentPath (other variants carry no parentPath field).
+      // v1.27.2 PATCH — cross-vendor invariant now asserts that the
+      // `definitionRef` carries the canonical container shortName, not
+      // the `parentPath` (which is module-level `'Dcm'` in both BSWMDs).
+      // The full prefix differs (demo uses package name `'Dcm'`, real-
+      // OEM uses the AUTOSAR root package `'AUTOSAR'`); the leaf
+      // container shortName is the canonical AUTOSAR spell — that is
+      // what must match across vendors.
       const demoAddChild = demoSteps.find(
-        (s): s is Extract<typeof s, { parentPath: string }> => s.op === 'add-child',
+        (s): s is Extract<typeof s, { definitionRef: string }> => s.op === 'add-child',
       );
       const realAddChild = realSteps.find(
-        (s): s is Extract<typeof s, { parentPath: string }> => s.op === 'add-child',
+        (s): s is Extract<typeof s, { definitionRef: string }> => s.op === 'add-child',
       );
-      expect(demoAddChild?.parentPath).toMatch(new RegExp(`/${c.canonicalContainer}$`));
-      expect(realAddChild?.parentPath).toMatch(new RegExp(`/${c.canonicalContainer}$`));
+      // TypeScript narrowing needs the full step shape (not just
+      // definitionRef), otherwise `?.definitionRef` resolves to `never`.
+      expect(
+        demoAddChild &&
+          (demoAddChild as { parentPath: string; definitionRef: string }).definitionRef,
+      ).toMatch(new RegExp(`/${c.canonicalContainer}$`));
+      expect(
+        realAddChild &&
+          (realAddChild as { parentPath: string; definitionRef: string }).definitionRef,
+      ).toMatch(new RegExp(`/${c.canonicalContainer}$`));
+      // Both add-child steps should be module-level (parentPath === 'Dcm').
+      expect(demoAddChild && (demoAddChild as { parentPath: string }).parentPath).toBe('Dcm');
+      expect(realAddChild && (realAddChild as { parentPath: string }).parentPath).toBe('Dcm');
     }
   });
 });

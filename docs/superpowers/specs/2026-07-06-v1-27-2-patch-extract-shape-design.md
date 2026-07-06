@@ -34,13 +34,13 @@ BSWMD declares `DcmDspDid` as an `ECUC-PARAM-CONF-CONTAINER-DEF` — a leaf conf
 
 ### Component breakdown
 
-| Component | File | Change |
-|-----------|------|--------|
-| `buildDcmContent` | `src/core/bridge/odxToDiagnosticExtract.ts:83-103` | Rewrite to emit `<ECUC-CONTAINER-VALUE>` of `<DcmDspDid>` type (and `<DcmDspRoutine>` for Routines), with `<DEFINITION-REF>` + preserved `<DCM-DSP-DID-DATA>` / `<DCM-DSP-ROUTINE>` blocks |
-| `xlsxDcmServicesToEcucBatch` mapper | `src/core/bridge/xlsxDcmServicesToEcucBatch.ts:50-100` | Change `parentPath` from `containerDef.path.replace(/^\/[^/]+\//, '')` to module shortName `'Dcm'`; always emit `definitionRef` per row's SHEET_TO_CONTAINER_SHORT_NAME mapping |
-| Mapper invariant tests | `src/core/bridge/__tests__/xlsxDcmServicesToEcucBatch.test.ts:151-179` | Update 5 invariant tests: `parentPath === 'Dcm'` + `definitionRef === '/Dcm/<canonical>'` |
-| Extract tests | `src/core/bridge/__tests__/odxToDiagnosticExtract.test.ts:38,95,167,187` | Update 4 assertions: from `<DCM-DSP-DID>` element presence to `<ECUC-CONTAINER-VALUE>` with `<DEFINITION-REF DEST="DCM-DSP-DID">` presence; preserve data-block assertions |
-| Dcm config handler test | `src/main/ipc/__tests__/dcmConfigHandler.test.ts` | Activate `.skip` RED-1 test (`.skip` → active). Verify xlsx service add-children land on disk (`ReadVbatt` / `StartErase` in `finalXml`). |
+| Component                           | File                                                                     | Change                                                                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `buildDcmContent`                   | `src/core/bridge/odxToDiagnosticExtract.ts:83-103`                       | Rewrite to emit `<ECUC-CONTAINER-VALUE>` of `<DcmDspDid>` type (and `<DcmDspRoutine>` for Routines), with `<DEFINITION-REF>` + preserved `<DCM-DSP-DID-DATA>` / `<DCM-DSP-ROUTINE>` blocks |
+| `xlsxDcmServicesToEcucBatch` mapper | `src/core/bridge/xlsxDcmServicesToEcucBatch.ts:50-100`                   | Change `parentPath` from `containerDef.path.replace(/^\/[^/]+\//, '')` to module shortName `'Dcm'`; always emit `definitionRef` per row's SHEET_TO_CONTAINER_SHORT_NAME mapping            |
+| Mapper invariant tests              | `src/core/bridge/__tests__/xlsxDcmServicesToEcucBatch.test.ts:151-179`   | Update 5 invariant tests: `parentPath === 'Dcm'` + `definitionRef === '/Dcm/<canonical>'`                                                                                                  |
+| Extract tests                       | `src/core/bridge/__tests__/odxToDiagnosticExtract.test.ts:38,95,167,187` | Update 4 assertions: from `<DCM-DSP-DID>` element presence to `<ECUC-CONTAINER-VALUE>` with `<DEFINITION-REF DEST="DCM-DSP-DID">` presence; preserve data-block assertions                 |
+| Dcm config handler test             | `src/main/ipc/__tests__/dcmConfigHandler.test.ts`                        | Activate `.skip` RED-1 test (`.skip` → active). Verify xlsx service add-children land on disk (`ReadVbatt` / `StartErase` in `finalXml`).                                                  |
 
 ### Data flow
 
@@ -74,10 +74,12 @@ Same as v1.27.1 PATCH (silent-filter removed in commit `7e614a2`; spec §275 fai
 ### Testing
 
 **Pre-patch tests that need updating** (4 + 5):
+
 - `odxToDiagnosticExtract.test.ts:38,95,167,187` — assert `<DCM-DSP-DID>` element presence → update to assert `<ECUC-CONTAINER-VALUE>` with `<DEFINITION-REF>` presence.
 - `xlsxDcmServicesToEcucBatch.test.ts:151-179` — assert `parentPath.endsWith('/DcmDspDid')` → update to `parentPath === 'Dcm'` + `definitionRef === '/Dcm/DcmDspDid'`.
 
 **New / activated tests**:
+
 - `dcmConfigHandler.test.ts` — activate the v1.27.1 `.skip` RED-1 test ("xlsx service add-children actually land on disk"). Verify `ReadVbatt` / `StartErase` appear in `finalXml`. Snapshot rollback still required.
 - `xlsxDcmServicesToEcucBatch.test.ts` — strengthen invariant tests with explicit `definitionRef` assertions.
 

@@ -35,8 +35,12 @@ describe('odxToDiagnosticExtract — empty OdxSummary', () => {
     const result = odxToDiagnosticExtract({ odx: emptyOdx });
     expect(result.dcmContent).toContain('<ELEMENTS>');
     expect(result.dcmContent).toContain('</ELEMENTS>');
-    expect(result.dcmContent).not.toContain('<DCM-DSP-DID>');
-    expect(result.dcmContent).not.toContain('<DCM-DSP-ROUTINE>');
+    // v1.27.2 PATCH — output switched from `<DCM-DSP-DID>` data-spec
+    // elements to `<ECUC-CONTAINER-VALUE>` service-container instances
+    // wrapped in `<ECUC-MODULE-CONFIGURATION-VALUES>`. Empty OdxSummary
+    // still emits the module wrapper but no container-value children.
+    expect(result.dcmContent).not.toContain('<ECUC-CONTAINER-VALUE>');
+    expect(result.dcmContent).toContain('<ECUC-MODULE-CONFIGURATION-VALUES>');
   });
 });
 
@@ -90,12 +94,22 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
     expect(result.demContent).toContain('<DISPLAY-CODE>0x789ABC</DISPLAY-CODE>');
   });
 
-  it('emits one DCM-DSP-DID per DID + one DCM-DSP-ROUTINE per Routine', () => {
+  it('emits one ECUC-CONTAINER-VALUE per DID + one ECUC-CONTAINER-VALUE per Routine (v1.27.2 shape)', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdx });
-    const didMatches = result.dcmContent.match(/<DCM-DSP-DID>/g) ?? [];
-    const routineMatches = result.dcmContent.match(/<DCM-DSP-ROUTINE>/g) ?? [];
-    expect(didMatches.length).toBe(1);
-    expect(routineMatches.length).toBe(1);
+    // v1.27.2 PATCH — switched from `<DCM-DSP-DID>` / `<DCM-DSP-ROUTINE>`
+    // data-spec elements (1 each) to `<ECUC-CONTAINER-VALUE>` service-
+    // container instances (1 each) wrapped in
+    // `<ECUC-MODULE-CONFIGURATION-VALUES>`. The DID / Routine counts
+    // are preserved; the element name changes.
+    const containerMatches = result.dcmContent.match(/<ECUC-CONTAINER-VALUE>/g) ?? [];
+    const dspDidRefMatches = result.dcmContent.match(/DEST="DCM-DSP-DID"/g) ?? [];
+    const dspRoutineRefMatches = result.dcmContent.match(/DEST="DCM-DSP-ROUTINE"/g) ?? [];
+    expect(containerMatches.length).toBe(2);
+    expect(dspDidRefMatches.length).toBe(1);
+    expect(dspRoutineRefMatches.length).toBe(1);
+    // Module wrapper is present, anchored to the Dcm module shortName.
+    expect(result.dcmContent).toContain('<ECUC-MODULE-CONFIGURATION-VALUES>');
+    expect(result.dcmContent).toContain('<SHORT-NAME>Dcm</SHORT-NAME>');
   });
 
   it('emits XML-escaped TEXT when present', () => {
@@ -166,8 +180,12 @@ const sampleOdxWithData: OdxSummary = {
 describe('odxToDiagnosticExtract — DID data (v1.24.x PATCH)', () => {
   it('emits <DCM-DSP-DID-DATA> with all 3 fields when data has bitLength', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdxWithData });
+    // v1.27.2 PATCH — indentation increased by 2 spaces because the
+    // DCM-DSP-DID-DATA block is now nested inside an
+    // ECUC-MODULE-CONFIGURATION-VALUES wrapper. The data fields
+    // themselves are unchanged.
     expect(result.dcmContent).toContain(
-      '<DCM-DSP-DID-DATA>\n        <DIAG-CODED-TYPE>A_UINT32</DIAG-CODED-TYPE>\n        <BASE-TYPE-ENCODING>NONE</BASE-TYPE-ENCODING>\n        <BIT-LENGTH>16</BIT-LENGTH>\n      </DCM-DSP-DID-DATA>',
+      '<DCM-DSP-DID-DATA>\n          <DIAG-CODED-TYPE>A_UINT32</DIAG-CODED-TYPE>\n          <BASE-TYPE-ENCODING>NONE</BASE-TYPE-ENCODING>\n          <BIT-LENGTH>16</BIT-LENGTH>\n        </DCM-DSP-DID-DATA>',
     );
   });
 
@@ -184,18 +202,21 @@ describe('odxToDiagnosticExtract — DID data (v1.24.x PATCH)', () => {
     expect(result.dcmContent).not.toContain('<BIT-LENGTH>');
   });
 
-  it('does NOT emit <DCM-DSP-DID-DATA> block when data is undefined (backward-compat)', () => {
+  it('does NOT emit <DCM-DSP-DID-DATA> block when data is undefined (backward-compat, v1.27.2 shape)', () => {
     // DID_002 in sampleOdxWithData has no data field.
     const result = odxToDiagnosticExtract({ odx: sampleOdxWithData });
-    // Count <DCM-DSP-DID-DATA> blocks: should be 1 (only for DID_F186).
+    // v1.27.2 PATCH — the `<DCM-DSP-DID-DATA>` inner block is preserved
+    // verbatim inside each `<ECUC-CONTAINER-VALUE>` of `<DcmDspDid>` type.
+    // The forward-compat invariant: count `<DCM-DSP-DID-DATA>` blocks
+    // (should be 1, only for DID_F186), and confirm DID_VIN's container
+    // does NOT contain a data block.
     const matches = result.dcmContent.match(/<DCM-DSP-DID-DATA>/g) ?? [];
     expect(matches.length).toBe(1);
-    // DID_VIN should still appear with just <SHORT-NAME>.
+    // DID_VIN should still appear as an ECUC-CONTAINER-VALUE with just SHORT-NAME.
     expect(result.dcmContent).toContain('<SHORT-NAME>DID_VIN</SHORT-NAME>');
-    // But no <DCM-DSP-DID-DATA> for DID_VIN (just the SHORT-NAME closing tag).
-    // Anchor DID_VIN's own block: forbid passing through an intermediate </DCM-DSP-DID> before reaching the VIN SHORT-NAME.
+    // Anchor DID_VIN's own block: forbid a DCM-DSP-DID-DATA child inside it.
     const vinBlock = result.dcmContent.match(
-      /\n {4}<DCM-DSP-DID>(?:(?!<\/DCM-DSP-DID>)[\s\S])*?<SHORT-NAME>DID_VIN<\/SHORT-NAME>[\s\S]*?<\/DCM-DSP-DID>/,
+      /\n {6}<ECUC-CONTAINER-VALUE>(?:(?!<\/ECUC-CONTAINER-VALUE>)[\s\S])*?<SHORT-NAME>DID_VIN<\/SHORT-NAME>[\s\S]*?<\/ECUC-CONTAINER-VALUE>/,
     );
     expect(vinBlock).not.toBeNull();
     if (vinBlock) {

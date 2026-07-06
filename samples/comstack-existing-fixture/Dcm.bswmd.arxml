@@ -46,6 +46,17 @@
               <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
               <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
               <DESC>Canonical AUTOSAR parent container for UDS services 0x22 (ReadDataById) and 0x2E (WriteDataById). The mapper differentiates via per-row definitionRef emitted in PatchSteps. Referenced by xlsx sheets 'DcmReadDataById' and 'DcmWriteDataById'.</DESC>
+              <REFERENCES>
+                <ECUC-REFERENCE-DEF>
+                  <SHORT-NAME>didRef</SHORT-NAME>
+                  <DESC>Reference to the ODX-extracted DCM-DSP-DID data instance this service reads from.</DESC>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <REFERENCE-VALUES>
+                    <ECUC-REFERENCE-VALUE DEST="DCM-DSP-DID">/Dcm/DcmDspDid</ECUC-REFERENCE-VALUE>
+                  </REFERENCE-VALUES>
+                </ECUC-REFERENCE-DEF>
+              </REFERENCES>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
             <ECUC-PARAM-CONF-CONTAINER-DEF>
               <SHORT-NAME>DcmDspRoutine</SHORT-NAME>

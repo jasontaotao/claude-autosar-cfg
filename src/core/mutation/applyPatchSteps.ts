@@ -332,6 +332,17 @@ function applyAddChild(
       },
     };
   }
+  // v1.27.2 PATCH — reference-param seeding happens inside
+  // `coreAddContainer` (`core/arxml/mutation.ts:170-189`), which
+  // populates empty reference params on the freshly-added container so
+  // follow-up `set-param` steps (typical of the xlsx mapper) can
+  // resolve `target.params[step.paramName]` instead of returning
+  // `param-not-found`. The `skeleton.test.ts` invariant `skips
+  // reference params (use addReference separately)` is preserved
+  // because `generateEcucSkeleton` does NOT route through `addContainer`
+  // — it builds its own ArxmlContainer literals via
+  // `fillParamsFromBswmd(c)` directly (see
+  // `core/arxml/skeleton.ts:215, 271`).
   return { doc: result.value, error: null };
 }
 
@@ -702,6 +713,27 @@ function findChildDefForAdd(
 
 function findParentContainerDef(moduleDef: BswModuleDef, parentPath: string): ContainerDef | null {
   const segments = parentPath.split('/').filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  // v1.27.2 PATCH — support module-level add via 1-segment parentPath
+  // (e.g. mapper emits `parentPath: 'Dcm'` to add ECUC-CONTAINER-VALUE
+  // siblings of ODX-extracted DcmDspDid instances). Pre-patch, only
+  // 2+-segment paths were accepted; this blocked the Dcm mapper from
+  // sibling-add against the module. The synthetic parent below exposes
+  // the module's top-level containers as `subContainers`, which
+  // `findChildDefForAdd` then matches against the step's `definitionRef`
+  // tail to resolve the BSWMD-side container def.
+  if (segments.length === 1 && segments[0] === moduleDef.shortName) {
+    return {
+      shortName: moduleDef.shortName,
+      path: moduleDef.path,
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      subContainers: moduleDef.containers,
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+  }
   if (segments.length < 2) return null;
   let subSegments: string[] = [];
   if (segments[1] === moduleDef.shortName) {
@@ -712,13 +744,8 @@ function findParentContainerDef(moduleDef: BswModuleDef, parentPath: string): Co
     return null;
   }
   if (subSegments.length === 0) {
-    // Module-level parent — wrap the module's top-level
-    // containers in a synthetic parent? No — the wire's
-    // `parentPath` for a module-level add has the module
-    // shortName, and the caller's intent is to add a sibling.
-    // For simplicity (and the spec's 1-level limit) we return
-    // a synthetic parent that exposes the module's top-level
-    // containers as its `subContainers`.
+    // Module-level parent (2-segment form, e.g. `Dcm/Dcm`) — same
+    // synthetic-parent fallback as the 1-segment form above.
     return {
       shortName: moduleDef.shortName,
       path: moduleDef.path,
