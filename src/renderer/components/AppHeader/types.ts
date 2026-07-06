@@ -83,4 +83,15 @@ export interface AppHeaderProps {
   // 3 importer surfaces (DBC / ODX / XLSX) can run independently.
   readonly onOpenXlsxBatch: () => void;
   readonly xlsxBatchBusy: boolean;
+  // v1.31.0 PATCH — "File Operations → Open Dcm Config…" menu entry.
+  // Mirrors the DBC / ODX / XLSX pattern: parent (App.tsx) owns the
+  // launcher hook + the modal/toast state; AppHeader just forwards
+  // the click + renders the icon + label. `dcmConfigBusy` is the
+  // in-flight gate (true while the dcm:config IPC round-trip is in
+  // progress) — decoupled from the other importer/viewer busy flags
+  // so the 4 importer surfaces (DBC / ODX / XLSX / DCM-CONFIG) can
+  // run independently without false-disabled menu entries.
+  readonly onOpenDcmConfig: () => void;
+  readonly canOpenDcmConfig: boolean;
+  readonly dcmConfigBusy: boolean;
 }

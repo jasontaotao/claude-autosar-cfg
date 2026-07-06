@@ -67,6 +67,9 @@ export function AppHeader({
   dbcImportBusy,
   onOpenXlsxBatch,
   xlsxBatchBusy,
+  onOpenDcmConfig,
+  canOpenDcmConfig,
+  dcmConfigBusy,
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
@@ -596,6 +599,41 @@ export function AppHeader({
                   🩺
                 </span>
                 {t(locale, 'app.open.odx')}
+              </button>
+              {/* v1.31.0 PATCH — "Open Dcm Config…" entry. Sits under
+                  fileOps, immediately after ODX, because it is the
+                  DCM-configurator launcher (writes the demConfig
+                  configuration per the dcm:config IPC channel). The
+                  parent (App.tsx) owns the useDcmConfigLauncher
+                  hook + the success-dialog / error-toast state; this
+                  header just forwards the click + renders the label.
+                  `dcmConfigBusy` is the in-flight gate (true while
+                  the dcm:config IPC round-trip is in progress) —
+                  decoupled from `xlsxBatchBusy` / `dbcImportBusy` /
+                  `odxBusy` / `dbcBusy` so the 5 importer/viewer
+                  operations can run independently without false-
+                  disabled menu entries. `canOpenDcmConfig` is the
+                  combined gate (odxLoaded AND hasDcmBswmd) computed
+                  by the parent; when false, the button is disabled
+                  with a title explaining the missing-prerequisite
+                  reason (matches the v1.22.0 T3 ODX empty-state
+                  UX contract). */}
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenDcmConfig();
+                }}
+                disabled={dcmConfigBusy || !canOpenDcmConfig}
+                title={!canOpenDcmConfig ? t(locale, 'dcmConfig.error.noDcmBswmd') : undefined}
+                data-testid="btn-open-dcm-config"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  ⚙️
+                </span>
+                {t(locale, 'app.open.dcmConfig')}
               </button>
               {/* v1.23.0 T4 — "Import DBC → Com Stack…" entry. Sits
                   under the fileOps group, between ODX and the BSWMD
