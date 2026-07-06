@@ -53,6 +53,9 @@ function renderHeader(args: {
       dbcImportBusy={false}
       onOpenXlsxBatch={(): void => {}}
       xlsxBatchBusy={false}
+      onOpenDcmConfig={(): void => {}}
+      canOpenDcmConfig={false}
+      dcmConfigBusy={false}
     />,
   );
 }

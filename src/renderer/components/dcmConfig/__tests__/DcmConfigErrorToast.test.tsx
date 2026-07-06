@@ -15,7 +15,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DcmConfigErrorToast, type DcmConfigErrorClass } from '../DcmConfigErrorToast.js';
 
 describe('DcmConfigErrorToast (v1.31.0 PATCH T2)', () => {
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    // `vi.useFakeTimers()` returns `VitestUtils`; under the project's
+    // vitest version the implicit-void return of the `beforeEach`
+    // hook callback is typed as `Awaitable<HookCleanupCallback>`,
+    // which rejects the utils object. Discard the return value
+    // explicitly so the hook callback type-checks.
+    vi.useFakeTimers();
+  });
   afterEach(() => {
     cleanup();
     vi.useRealTimers();

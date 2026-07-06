@@ -83,6 +83,12 @@ const noopProps = {
   // suite (the wizard itself owns the user flow).
   onOpenXlsxBatch: (): void => {},
   xlsxBatchBusy: false,
+  // v1.31.0 PATCH T7 — dcm:config dropdown entry. noopProps
+  // covers pre-existing render-only tests; the menu click
+  // behaviour is exercised in AppHeader.dcmConfig.test.tsx.
+  onOpenDcmConfig: (): void => {},
+  canOpenDcmConfig: false,
+  dcmConfigBusy: false,
 };
 
 interface MockWindowAutosarApi {

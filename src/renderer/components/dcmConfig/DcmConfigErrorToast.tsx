@@ -13,7 +13,7 @@
 import { useEffect, useRef } from 'react';
 
 import { t } from '@shared/i18n/index.js';
-import type { Locale } from '@shared/i18n/index.js';
+import type { Locale, MessageKey } from '@shared/i18n/index.js';
 
 import './DcmConfigErrorToast.css';
 
@@ -33,7 +33,7 @@ export interface DcmConfigErrorToastProps {
 
 const AUTO_DISMISS_MS = 8000;
 
-const CLASS_KEY_TO_I18N: Readonly<Record<DcmConfigErrorClass, string>> = {
+const CLASS_KEY_TO_I18N: Readonly<Record<DcmConfigErrorClass, MessageKey>> = {
   bswmdUnreadable: 'odx.export.dcmConfig.error.bswmdUnreadable',
   odxUnreadable: 'odx.export.dcmConfig.error.odxUnreadable',
   odxParseFailed: 'odx.export.dcmConfig.error.odxParseFailed',

@@ -52,6 +52,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcImportBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     expect(screen.getByTestId('btn-scripts-toggle')).not.toBeNull();
@@ -76,6 +79,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcImportBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     fireEvent.click(screen.getByTestId('btn-scripts-toggle'));
@@ -100,6 +106,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         generateBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -125,6 +134,9 @@ describe('AppHeader scripts toggle (S14#1 T14)', () => {
         dbcImportBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     const btn = screen.getByTestId('btn-scripts-toggle');
@@ -185,6 +197,9 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         dbcImportBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     expect(screen.queryByTestId('btn-stencil-new')).toBeNull();
@@ -227,6 +242,9 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
         dbcImportBusy={false}
         onOpenXlsxBatch={(): void => {}}
         xlsxBatchBusy={false}
+        onOpenDcmConfig={(): void => {}}
+        canOpenDcmConfig={false}
+        dcmConfigBusy={false}
       />,
     );
     // Open the dropdown so the entry is visible.

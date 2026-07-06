@@ -25,7 +25,8 @@ export const OdxEn: OdxMessages = {
   'odx.parse.failed': 'Parse ODX failed: {message}',
   // v1.31.0 PATCH — Dcm config renderer UX
   'odx.export.dcmConfig.success.title': 'Dcm Config Generated',
-  'odx.export.dcmConfig.success.body': 'Generated Dcm config: {dspCount} DIDs + {routineCount} routines, {appliedStepCount} steps applied',
+  'odx.export.dcmConfig.success.body':
+    'Generated Dcm config: {dspCount} DIDs + {routineCount} routines, {appliedStepCount} steps applied',
   'odx.export.dcmConfig.error.bswmdUnreadable': 'Cannot read BSWMD file: {message}',
   'odx.export.dcmConfig.error.odxUnreadable': 'Cannot read ODX file: {message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX parse failed: {message}',

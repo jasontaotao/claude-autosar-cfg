@@ -25,7 +25,8 @@ export const OdxZhCN: OdxMessages = {
   'odx.parse.failed': '解析 ODX 失败：{message}',
   // v1.31.0 PATCH — Dcm config renderer UX
   'odx.export.dcmConfig.success.title': 'Dcm 配置生成成功',
-  'odx.export.dcmConfig.success.body': '已生成 Dcm 配置：{dspCount} 个 DID + {routineCount} 个例程，共应用 {appliedStepCount} 个步骤',
+  'odx.export.dcmConfig.success.body':
+    '已生成 Dcm 配置：{dspCount} 个 DID + {routineCount} 个例程，共应用 {appliedStepCount} 个步骤',
   'odx.export.dcmConfig.error.bswmdUnreadable': '无法读取 BSWMD 文件：{message}',
   'odx.export.dcmConfig.error.odxUnreadable': '无法读取 ODX 文件：{message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX 解析失败：{message}',

@@ -68,8 +68,11 @@ import { PromptRoot } from './components/PromptDialog';
 import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog';
 import { ScriptPanel } from './components/ScriptPanel';
 import { XlsxBatchWizard } from './components/XlsxBatchWizard';
+import { DcmConfigErrorToast } from './components/dcmConfig/DcmConfigErrorToast';
+import { DcmConfigSuccessDialog } from './components/dcmConfig/DcmConfigSuccessDialog';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
+import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useGenerateCode } from './hooks/useGenerateCode';
 import { useProjectActions } from './hooks/useProjectActions';
@@ -159,6 +162,49 @@ export function App(): JSX.Element {
   const canSelectEcucModule = useArxmlStore((s) => s.bswmdSchemas.length > 0 && s.project !== null);
   const locale = useArxmlStore((s) => s.locale);
   const setStoreError = useArxmlStore((s) => s.setError);
+
+  // v1.31.0 PATCH T7 — App.tsx wiring for the dcm:config renderer UX.
+  //
+  // The launcher hook owns the in-flight ref + state machine + error
+  // classifier. We (the parent) only derive the 3 gate values and
+  // forward clicks to `launcher.open()`. The 3 gates:
+  //
+  //   1. `odxPath` — the active document path. We coerce null → ''
+  //      so `endsWith('.odx')` is safe.
+  //   2. `odxLoaded` — derived from `odxPath`. Cheap filename check.
+  //   3. `hasDcmBswmd` — derived from `manifest.bswmdPaths`. Regex
+  //      match on filename (D4: no BSWMD parse in the renderer —
+  //      see spec for trade-off discussion). When no project is open
+  //      (`s.project === null`) the `?.` chain returns undefined, and
+  //      the `?? false` collapses it to the disabled default.
+  //
+  // `canOpenDcmConfig` is the AND of (2) and (3) — both gates must
+  // be green for the AppHeader dropdown entry to be enabled.
+  //
+  // The launcher's `state.result!` non-null assertion on the dialog
+  // is safe: the launcher's success-path state-machine transition
+  // always sets `result` BEFORE `dialogOpen: true`, and the dialog's
+  // own `if (!open) return null` gate ensures `result` is never read
+  // when it is still null. A T2 unit test pins the dialog's null
+  // gate; the state machine invariant is documented at the prop
+  // type level (`result: DcmConfigHandlerResult` is non-nullable).
+  const dcmLauncher = useDcmConfigLauncher();
+  const odxPath = useArxmlStore((s) => s.activeDocumentPath ?? '');
+  const odxLoaded = odxPath.toLowerCase().endsWith('.odx');
+  const hasDcmBswmd = useArxmlStore(
+    (s) =>
+      s.project?.bswmdPaths.some((p: string) => /Dcm\.arxml$|Dcm_.*\.arxml$/i.test(p)) ?? false,
+  );
+  const canOpenDcmConfig = odxLoaded && hasDcmBswmd;
+  const handleOpenDcmConfig = useCallback((): void => {
+    // Per spec §3 T4: xlsxRows derives from the v1.25.0 store field
+    // (`useArxmlStore.getState().xlsxLastImport?.rows ?? []`). v1.31.0
+    // is a PATCH — no feature work to teach xlsx imports. When the
+    // user has not loaded an xlsx, the launcher is called with `[]`
+    // and the v1.30.0 handler surfaces `ODX-Dcm linkage broken` (the
+    // dedicated error class for the no-rows case).
+    void dcmLauncher.open({ odxPath, xlsxRows: [] });
+  }, [dcmLauncher, odxPath]);
   // Sprint 14 / T13 — viewMode three-state guard. While
   // viewMode === 'import-merged' the import-merged panel mounts in
   // the left column and the Save / Combined UI affordances are
@@ -421,6 +467,16 @@ export function App(): JSX.Element {
           // module shortName used in the i18n target interpolation.
           void deleteEcucModuleWithFullFlow(action.path, action.name);
           return;
+        case 'generate-dcm-config':
+          // v1.31.0 PATCH T7 — ContextMenu "Generate Dcm Config"
+          // entry. Mirrors the AppHeader dropdown path: route
+          // through the same launcher hook so the success dialog
+          // and error toast are owned by a single state machine.
+          // The action only fires when the BSWMD path matched the
+          // Dcm regex (T6 ContextMenu gate), so we forward
+          // action.path verbatim.
+          void dcmLauncher.open({ odxPath, xlsxRows: [] });
+          return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
           // added without a handler.
@@ -436,6 +492,8 @@ export function App(): JSX.Element {
       setInfo,
       locale,
       removeBswmdWithFullFlow,
+      dcmLauncher,
+      odxPath,
     ],
   );
 
@@ -841,6 +899,9 @@ export function App(): JSX.Element {
           dbcImportBusy={dbcImportInFlight.current}
           onOpenXlsxBatch={openXlsxBatchWizard}
           xlsxBatchBusy={xlsxBatchInFlight.current}
+          onOpenDcmConfig={handleOpenDcmConfig}
+          canOpenDcmConfig={canOpenDcmConfig}
+          dcmConfigBusy={dcmLauncher.state.mode === 'pending'}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
@@ -1210,6 +1271,26 @@ export function App(): JSX.Element {
           component decoupled from the other's update path. */}
         <BswmdPickerRoot />
         <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
+        {/* v1.31.0 PATCH T7 — Dcm config renderer UX. Both components
+            are presentational; the launcher hook owns the state
+            machine. The success dialog is unconditionally mounted
+            but the component itself early-returns null when `open`
+            is false (see T2 DcmConfigSuccessDialog.tsx:55), so the
+            non-null assertion on `launcher.state.result!` is safe —
+            see the state machine invariant note above. The error
+            toast follows the same pattern (T1 DcmConfigErrorToast.tsx
+            returns null when error is null). */}
+        <DcmConfigSuccessDialog
+          open={dcmLauncher.state.dialogOpen}
+          result={dcmLauncher.state.result!}
+          locale={useArxmlStore.getState().locale}
+          onClose={dcmLauncher.closeDialog}
+        />
+        <DcmConfigErrorToast
+          error={dcmLauncher.state.error}
+          locale={useArxmlStore.getState().locale}
+          onDismiss={dcmLauncher.dismissToast}
+        />
       </div>
     </TourProvider>
   );
