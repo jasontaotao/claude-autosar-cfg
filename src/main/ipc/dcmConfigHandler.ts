@@ -205,7 +205,7 @@ export async function dcmConfigHandler(
     const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME)!;
     const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps, dcmModuleDef);
     if (!patched.ok) {
-      return { ok: false, error: { message: patched.message } };
+      return { ok: false, error: { message: patched.error } };
     }
     const finalXml = patched.value;
 

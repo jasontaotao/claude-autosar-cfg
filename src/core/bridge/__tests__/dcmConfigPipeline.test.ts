@@ -197,7 +197,7 @@ describe('dcmConfigPipeline — real-OEM end-to-end (v1.27.5)', () => {
     const patched = applyPatchesToExtract(pipeline.dcmConfigXml, serviceSteps, dcmModuleDef);
     expect(patched.ok).toBe(true);
     if (!patched.ok) {
-      throw new Error(`applyPatchesToExtract failed: ${patched.message}`);
+      throw new Error(`applyPatchesToExtract failed: ${patched.error}`);
     }
     const finalXml = patched.value;
 

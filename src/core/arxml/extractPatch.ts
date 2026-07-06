@@ -8,11 +8,11 @@
 // the same wrapper — eliminating ~10 LoC of inline prefix-strip +
 // serialize-with-sourceArxml logic from the test.
 //
-// Returns a `Result<{ xml } | { message: string }>`-shaped envelope
-// to match the IPC handler's existing error-propagation conventions.
-// Callers that need richer error metadata can switch to a typed
-// `Result` in a follow-up MINOR; for now the message-string form
-// is sufficient for both the IPC surface and the end-to-end test.
+// v1.28.1 PATCH — return type migrated from the local ad-hoc
+// `{ ok, value/message }` envelope to the project-standard `Result<T>`
+// (`core/arxml/types.ts`). The IPC handler (`dcmConfigHandler.ts`) and
+// the real-OEM end-to-end test (`dcmConfigPipeline.test.ts`) consume
+// the new `error` field; all callers now share one envelope type.
 
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import { applyPatchSteps, type ApplyContext } from '../mutation/applyPatchSteps.js';
@@ -20,6 +20,7 @@ import type { BswModuleDef } from '../project/bswmd.js';
 
 import { parseArxml } from './parser.js';
 import { serializeArxml } from './serializer.js';
+import type { Result } from './types.js';
 
 /**
  * Apply a sequence of PatchSteps to a parsed ODX-extract ARXML and
@@ -38,7 +39,7 @@ export function applyPatchesToExtract(
   extractXml: string,
   serviceSteps: readonly PatchStep[],
   dcmModuleDef: BswModuleDef,
-): { ok: true; value: string } | { ok: false; message: string } {
+): Result<string> {
   const docRes = parseArxml(extractXml);
   if (!docRes.ok) {
     // `unsupported-version` carries `version` instead of `message`;
@@ -49,7 +50,7 @@ export function applyPatchesToExtract(
         : `version=${'version' in docRes.error ? docRes.error.version : '<unknown>'}`;
     return {
       ok: false,
-      message: `Failed to parse ODX-extract ARXML: ${docRes.error.kind} ${detail}`,
+      error: `Failed to parse ODX-extract ARXML: ${docRes.error.kind} ${detail}`,
     };
   }
   const docRootPkg = docRes.value.packages[0]?.shortName;
@@ -62,7 +63,7 @@ export function applyPatchesToExtract(
   if (applyRes.errors.length > 0) {
     return {
       ok: false,
-      message: `Patch application failed: ${applyRes.errors
+      error: `Patch application failed: ${applyRes.errors
         .map((e) => `${e.kind}: ${e.message}`)
         .join('; ')}`,
     };
@@ -71,7 +72,7 @@ export function applyPatchesToExtract(
   if (!serRes.ok) {
     return {
       ok: false,
-      message: `Serialize failed: ${serRes.error.kind} at ${serRes.error.path}: ${serRes.error.message}`,
+      error: `Serialize failed: ${serRes.error.kind} at ${serRes.error.path}: ${serRes.error.message}`,
     };
   }
   return { ok: true, value: serRes.value };

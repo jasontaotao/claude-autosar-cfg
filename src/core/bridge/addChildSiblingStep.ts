@@ -67,12 +67,12 @@ export function addChildSiblingStep(input: AddChildSiblingStepInput): readonly P
     },
   ];
   for (const [paramName, value] of Object.entries(input.instanceParams)) {
-    if (value === null || value === undefined) continue;
+    if (value === null) continue;
     steps.push({
       op: 'set-param',
       containerPath,
       paramName,
-      value: value as string | number | boolean,
+      value,
     });
   }
   return steps;
