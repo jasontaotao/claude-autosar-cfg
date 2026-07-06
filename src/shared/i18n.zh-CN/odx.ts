@@ -23,4 +23,18 @@ export const OdxZhCN: OdxMessages = {
   'odx.viewer.errorTitle': 'ODX 解析失败',
   'odx.open.failed': '打开 ODX 失败：{message}',
   'odx.parse.failed': '解析 ODX 失败：{message}',
+  // v1.31.0 PATCH — Dcm config renderer UX
+  'odx.export.dcmConfig.success.title': 'Dcm 配置生成成功',
+  'odx.export.dcmConfig.success.body': '已生成 Dcm 配置：{dspCount} 个 DID + {routineCount} 个例程，共应用 {appliedStepCount} 个步骤',
+  'odx.export.dcmConfig.error.bswmdUnreadable': '无法读取 BSWMD 文件：{message}',
+  'odx.export.dcmConfig.error.odxUnreadable': '无法读取 ODX 文件：{message}',
+  'odx.export.dcmConfig.error.odxParseFailed': 'ODX 解析失败：{message}',
+  'odx.export.dcmConfig.error.bswmdMapMissing': 'BSWMD 缺少 Dcm 模块：{message}',
+  'odx.export.dcmConfig.error.atomicWriteFailed': '写入失败：{message}',
+  'odx.export.dcmConfig.error.unexpected': '发生意外错误：{message}',
+  'odx.export.dcmConfig.error.dismiss': '关闭',
+  'dcmConfig.action.generate': '生成 Dcm 配置',
+  'dcmConfig.action.generateAria': '为 {name} 生成 Dcm 配置',
+  'dcmConfig.error.noDcmBswmd': '需要先加载 Dcm BSWMD',
+  'app.open.dcmConfig': '打开 Dcm 配置',
 };

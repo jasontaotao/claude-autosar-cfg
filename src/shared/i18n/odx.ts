@@ -25,4 +25,18 @@ export interface OdxMessages {
   readonly 'odx.viewer.errorTitle': string;
   readonly 'odx.open.failed': string; // {message}
   readonly 'odx.parse.failed': string; // {message}
+  // v1.31.0 PATCH — Dcm config renderer UX (Success Dialog + Error Toast)
+  readonly 'odx.export.dcmConfig.success.title': string;
+  readonly 'odx.export.dcmConfig.success.body': string; // {dspCount, routineCount, appliedStepCount}
+  readonly 'odx.export.dcmConfig.error.bswmdUnreadable': string; // {message}
+  readonly 'odx.export.dcmConfig.error.odxUnreadable': string; // {message}
+  readonly 'odx.export.dcmConfig.error.odxParseFailed': string; // {message}
+  readonly 'odx.export.dcmConfig.error.bswmdMapMissing': string; // {message}
+  readonly 'odx.export.dcmConfig.error.atomicWriteFailed': string; // {message}
+  readonly 'odx.export.dcmConfig.error.unexpected': string; // {message}
+  readonly 'odx.export.dcmConfig.error.dismiss': string;
+  readonly 'dcmConfig.action.generate': string;
+  readonly 'dcmConfig.action.generateAria': string; // {name}
+  readonly 'dcmConfig.error.noDcmBswmd': string;
+  readonly 'app.open.dcmConfig': string;
 }
