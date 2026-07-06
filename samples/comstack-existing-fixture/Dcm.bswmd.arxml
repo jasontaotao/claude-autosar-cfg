@@ -49,11 +49,11 @@
               <REFERENCES>
                 <ECUC-REFERENCE-DEF>
                   <SHORT-NAME>didRef</SHORT-NAME>
-                  <DESC>Reference to the ODX-extracted DCM-DSP-DID data instance this service reads from.</DESC>
+                  <DESC>Reference to the ODX-extracted DCM-DSP-DID data instance this service reads from. v1.27.5 PATCH — value path corrected to use the AUTOSAR root-package prefix (/AUTOSAR/...) which the real-OEM BSWMD's AR-PACKAGE/SHORT-NAME=AUTOSAR declares. v1.27.2 PATCH release notes said both demo-ecu + real-OEM got the REFERENCES enrichment but the value path retained the demo-ecu prefix; v1.27.5 PATCH's end-to-end test caught the drift.</DESC>
                   <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
                   <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
                   <REFERENCE-VALUES>
-                    <ECUC-REFERENCE-VALUE DEST="DCM-DSP-DID">/Dcm/DcmDspDid</ECUC-REFERENCE-VALUE>
+                    <ECUC-REFERENCE-VALUE DEST="DCM-DSP-DID">/AUTOSAR/Dcm/DcmDspDid</ECUC-REFERENCE-VALUE>
                   </REFERENCE-VALUES>
                 </ECUC-REFERENCE-DEF>
               </REFERENCES>
@@ -63,6 +63,17 @@
               <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
               <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
               <DESC>Canonical AUTOSAR container for UDS service 0x31 (RoutineControl). Referenced by xlsx sheet 'DcmRoutineControl'.</DESC>
+              <REFERENCES>
+                <ECUC-REFERENCE-DEF>
+                  <SHORT-NAME>routineRef</SHORT-NAME>
+                  <DESC>Reference to the ODX-extracted DCM-DSP-ROUTINE data instance this service controls. v1.27.5 PATCH — closes the partial-fixture-enrichment gap left by v1.27.2 PATCH (which added didRef to DcmDspDid but accidentally skipped routineRef on DcmDspRoutine in the real-OEM BSWMD; v1.27.2 release notes Out-of-Scope section listed the routineRef enrichment but the in-file edit was incomplete).</DESC>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <REFERENCE-VALUES>
+                    <ECUC-REFERENCE-VALUE DEST="DCM-DSP-ROUTINE">/AUTOSAR/Dcm/DcmDspRoutine</ECUC-REFERENCE-VALUE>
+                  </REFERENCE-VALUES>
+                </ECUC-REFERENCE-DEF>
+              </REFERENCES>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
           </CONTAINERS>
         </ECUC-MODULE-DEF>

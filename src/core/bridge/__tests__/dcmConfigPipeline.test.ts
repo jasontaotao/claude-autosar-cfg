@@ -10,11 +10,16 @@ import { resolve } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
 
+import type { PatchStep } from '../../../shared/headless/ipc-contract.js';
 import type { EcucInstanceRow, OdxSummary } from '../../../shared/types.js';
-import { type BswModuleDef } from '../../project/bswmd.js';
+import { parseArxml } from '../../arxml/parser.js';
+import { serializeArxml } from '../../arxml/serializer.js';
+import { applyPatchSteps } from '../../mutation/applyPatchSteps.js';
+import type { BswModuleDef } from '../../project/bswmd.js';
 import { dcmConfigPipeline } from '../dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';
+import { xlsxDcmServicesToEcucBatch } from '../xlsxDcmServicesToEcucBatch.js';
 
 const DEMO_DCM_BSWMD = readFileSync(
   resolve(__dirname, '../../../../samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
@@ -107,5 +112,164 @@ describe('dcmConfigPipeline', () => {
         bswmds: new Map(), // missing Dcm
       }),
     ).rejects.toThrow(/BSWMD map missing module 'Dcm'/);
+  });
+});
+
+// v1.27.5 PATCH — real-OEM end-to-end coverage through the FULL
+// pipeline (orchestrator + mapper + mutation engine + serializer).
+//
+// Pre-v1.27.5, the v1.27.0 T5 cross-vendor invariant was exercised
+// at the MAPPER level (`xlsxDcmServicesToEcucBatch.test.ts`
+// describe `real-OEM cross-vendor invariant`) — proving the mapper
+// emits equivalent patch steps regardless of BSWMD provenance. But
+// the orchestrator's link against real-OEM BSWMD, and the mutation
+// engine + serializer pipeline against a real-OEM-derived extract
+// doc, had no end-to-end test. If any layer silently diverged on
+// the real-OEM path (e.g., a BSWMD-side container-path prefix
+// mismatch that the unit tests didn't catch), the merged ARXML
+// would be structurally wrong.
+//
+// This test runs the production sequence end-to-end:
+//   1. `parseDemoBswmds` against the real-OEM Dcm BSWMD fixture.
+//   2. `dcmConfigPipeline` (ODX-Dcm linkage validation + extract).
+//   3. `xlsxDcmServicesToEcucBatch` → service PatchSteps.
+//   4. `applyPatchSteps` to the extract ARXML document.
+//   5. `serializeArxml` → finalXml.
+//
+// Asserts:
+//   (a) Both ODX-derived shortNames (Vbatt / EngTemp / Vin / EraseMemory)
+//       AND xlsx service shortNames (ReadVbatt / StartErase) land in
+//       the same serialized XML string.
+//   (b) The real-OEM BSWMD-derived DEFINITION-REF carries the
+//       `/AUTOSAR/...` path prefix (distinguishing real-OEM from
+//       demo-ecu in the output).
+describe('dcmConfigPipeline — real-OEM end-to-end (v1.27.5)', () => {
+  const REAL_OEM_DCM_BSWMD = readFileSync(
+    resolve(__dirname, '../../../../samples/comstack-existing-fixture/Dcm.bswmd.arxml'),
+    'utf-8',
+  );
+
+  function realOemDcmBswmds(): Map<string, BswModuleDef> {
+    return new Map(parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, REAL_OEM_DCM_BSWMD]])));
+  }
+
+  it('runs the production pipeline end-to-end against real-OEM Dcm BSWMD', async () => {
+    const bswmds = realOemDcmBswmds();
+    const xlsxRows = [
+      {
+        sheet: 'DcmReadDataById',
+        shortName: 'ReadVbatt',
+        params: { didRef: 'Vbatt' },
+      },
+      {
+        sheet: 'DcmRoutineControl',
+        shortName: 'StartErase',
+        params: { routineRef: 'EraseMemory' },
+      },
+    ] as unknown as readonly EcucInstanceRow[];
+
+    // 1. Orchestrator: ODX-Dcm linkage validation + ODX extract.
+    const pipeline = await dcmConfigPipeline({
+      odx: FIXTURE_ODX,
+      xlsxRows,
+      bswmds,
+    });
+    expect(pipeline.odxLinkedDcmDspCount).toBe(3);
+    expect(pipeline.odxLinkedRoutineCount).toBe(1);
+    // The ODX extract is a standalone ARXML string — it carries the
+    // container VALUES (not refs to the original ODX content) so the
+    // downstream patch pipeline has a mutable target.
+    expect(pipeline.dcmConfigXml).toContain('Vbatt');
+    expect(pipeline.dcmConfigXml).toContain('EraseMemory');
+
+    // 2. Mapper: xlsx service PatchSteps against the same real-OEM BSWMD.
+    const serviceSteps = xlsxDcmServicesToEcucBatch(xlsxRows, bswmds);
+    expect(serviceSteps.length).toBe(4); // 2 add-child + 2 set-param(didRef/routineRef)
+
+    // 3. Stitch phase — replicate the IPC handler's `applyPatchesToExtract`
+    //    wrapper (dcmConfigHandler.ts:125-184, function-scoped internal —
+    //    no public export). The wrapper has TWO behaviors beyond a bare
+    //    applyPatchSteps call that are required for end-to-end correctness:
+    //      (a) Prepend `/<docRootPkg>/` to `parentPath` / `containerPath`
+    //          on every step so the mutation engine's `findContainerByPath`
+    //          resolves BSWMD-relative paths the mapper emits.
+    //      (b) Pass the source ARXML to `serializeArxml` so namespace
+    //          declarations and XML preamble are preserved.
+    // If this test starts failing after a future refactor of the IPC
+    // handler's wrapper, the right fix is to update BOTH the wrapper
+    // AND this test (TBD in v1.28.0 MINOR — extract the wrapper to a
+    // shared module that both the IPC handler and this test import).
+    const docRes = parseArxml(pipeline.dcmConfigXml);
+    expect(docRes.ok).toBe(true);
+    if (!docRes.ok) {
+      throw new Error(`parseArxml failed: ${JSON.stringify(docRes.error)}`);
+    }
+    const extractDoc = docRes.value;
+    const docRootPkg = extractDoc.packages[0]?.shortName;
+    expect(docRootPkg).toBeDefined();
+    const docRootPrefix = docRootPkg !== undefined ? `/${docRootPkg}` : '';
+    const prefixedSteps: readonly PatchStep[] = serviceSteps.map((s) => {
+      if (docRootPrefix === '') return s;
+      if (s.op === 'add-child') {
+        return {
+          ...s,
+          parentPath: s.parentPath.startsWith(docRootPrefix)
+            ? s.parentPath
+            : `${docRootPrefix}/${s.parentPath}`,
+        };
+      }
+      if (s.op === 'set-param') {
+        return {
+          ...s,
+          containerPath: s.containerPath.startsWith(docRootPrefix)
+            ? s.containerPath
+            : `${docRootPrefix}/${s.containerPath}`,
+        };
+      }
+      return s;
+    });
+    const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME);
+    expect(dcmModuleDef).toBeDefined();
+    if (dcmModuleDef === undefined) {
+      throw new Error('expected real-OEM Dcm BSWMD to be loaded');
+    }
+    const patched = applyPatchSteps(extractDoc, prefixedSteps, {
+      moduleDef: dcmModuleDef,
+    });
+    expect(patched.errors).toEqual([]);
+    expect(patched.applied).toBe(4);
+    const serRes = serializeArxml(patched.doc, { sourceArxml: pipeline.dcmConfigXml });
+    expect(serRes.ok).toBe(true);
+    if (!serRes.ok) {
+      throw new Error(`serializeArxml failed: ${JSON.stringify(serRes.error)}`);
+    }
+    const finalXml = serRes.value;
+
+    // 4. Asserts — both halves stitched in one ARXML string.
+    // (a) ODX-derived shortNames + xlsx service shortNames all present.
+    for (const shortName of ['Vbatt', 'EngTemp', 'Vin', 'EraseMemory']) {
+      expect(finalXml).toContain(shortName);
+    }
+    for (const shortName of ['ReadVbatt', 'StartErase']) {
+      expect(finalXml).toContain(shortName);
+    }
+    // (b) Real-OEM BSWMD signature: the DEFINITION-REF for DcmDspDid
+    //     carries the `/AUTOSAR/` path prefix that the demo-ecu fixture
+    //     uses `/Dcm/` instead. Asserting one expected occurrence is
+    //     sufficient to distinguish real-OEM provenance — multiple
+    //     would be redundant.
+    expect(finalXml).toMatch(/\/AUTOSAR\/Dcm\/DcmDspDid/);
+    // (c) Real-OEM routine reference: same AUTOSAR-prefix logic for
+    //     DcmDspRoutine. Companion to (b); would have failed pre-fix
+    //     because DcmDspRoutine lacked `<REFERENCES>` (v1.27.2
+    //     PATCH's partial-fixture-enrichment gap).
+    expect(finalXml).toMatch(/\/AUTOSAR\/Dcm\/DcmDspRoutine/);
+    // NOTE: We do NOT assert `<DCM-DSP-DID-DATA>` here because
+    // `buildDcmContent` only emits that block when the ODX DID
+    // carries a `data` field (`odxToDiagnosticExtract.ts:103-104`).
+    // The shared `FIXTURE_ODX` used by all describe blocks in this
+    // file has DIDs without `data`. The data-block round-trip is
+    // independently covered by `odxToDiagnosticExtract.test.ts`'s
+    // dedicated shape tests (v1.27.2 PATCH).
   });
 });
