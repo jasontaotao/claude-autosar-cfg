@@ -14,6 +14,8 @@ import type {
   OpenBswmdResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
+  DcmConfigRequest,
+  DcmConfigResponse,
   OdxImportDiagExtractRequest,
   OdxImportDiagExtractResponse,
   ParseArxmlRequest,
@@ -60,6 +62,7 @@ import { trackHandler } from '../shutdown/drain.js';
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
+import { dcmConfigHandler } from './dcmConfigHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
@@ -630,6 +633,18 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.XLSX_COMMIT_BATCH,
     async (_evt, req: XlsxCommitBatchRequest): Promise<XlsxCommitBatchResponse> => {
       return xlsxEcucBatchImportHandler(req);
+    },
+  );
+
+  // v1.30.0 MINOR — Dcm config bridge. Wires v1.27.0 T4's
+  // dcmConfigHandler (existing-but-unregistered since v1.27.0) into
+  // the IPC bridge. Channel name follows the unsuffixed
+  // v1.22.0/v1.23.0/v1.24.0 ODX-bridge convention (no `:v1`).
+  // First channel in a new dcm:* namespace.
+  ipcMain.handle(
+    IPC_CHANNELS.DCM_CONFIG,
+    async (_evt, req: DcmConfigRequest): Promise<DcmConfigResponse> => {
+      return dcmConfigHandler(req);
     },
   );
 }

@@ -211,6 +211,13 @@ export const IPC_CHANNELS = {
   XLSX_WRITE_BATCH_TEMPLATE: 'xlsx:writeBatchTemplate',
   XLSX_PARSE_BATCH: 'xlsx:parseBatch',
   XLSX_COMMIT_BATCH: 'xlsx:commitBatch',
+  // v1.30.0 MINOR — Dcm config bridge. First channel in a new dcm:*
+  // namespace. Wires the v1.27.0 T4 dcmConfigHandler (existing-but-
+  // unregistered since v1.27.0) into the IPC bridge so the renderer
+  // can drive the ODX + xlsx → Dcm_Config.arxml pipeline. Channel
+  // name follows the unsuffixed v1.22.0/v1.23.0/v1.24.0 ODX-bridge
+  // convention (no `:v1` suffix — additive on the wire).
+  DCM_CONFIG: 'dcm:config',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
@@ -241,5 +248,7 @@ export const PROJECT_RELOAD = IPC_CHANNELS.PROJECT_RELOAD;
 export const XLSX_WRITE_BATCH_TEMPLATE = IPC_CHANNELS.XLSX_WRITE_BATCH_TEMPLATE;
 export const XLSX_PARSE_BATCH = IPC_CHANNELS.XLSX_PARSE_BATCH;
 export const XLSX_COMMIT_BATCH = IPC_CHANNELS.XLSX_COMMIT_BATCH;
+// v1.30.0 MINOR — top-level re-export alias for DCM_CONFIG.
+export const DCM_CONFIG = IPC_CHANNELS.DCM_CONFIG;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

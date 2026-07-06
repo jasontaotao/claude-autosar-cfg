@@ -99,13 +99,13 @@ export type DcmConfigResponse = IpcResult<DcmConfigHandlerResult>;
 
 ### 1.3 Convention check
 
-| Aspect | `xlsx:ecuc:batch:*` | `dcm:config` (new) |
-|---|---|---|
-| Channel namespace | `xlsx:ecuc:batch:*` | `dcm:*` |
-| Request type suffix | `Xlsx*Request` | `DcmConfigRequest` |
-| Response envelope | discriminated `error.kind` | `IpcResult<T>` |
-| Type location | `shared/types.ts` | `shared/types.ts` (new) |
-| Handler file | `xlsxEcucBatch*Handler.ts` | `dcmConfigHandler.ts` (existing) |
+| Aspect              | `xlsx:ecuc:batch:*`        | `dcm:config` (new)               |
+| ------------------- | -------------------------- | -------------------------------- |
+| Channel namespace   | `xlsx:ecuc:batch:*`        | `dcm:*`                          |
+| Request type suffix | `Xlsx*Request`             | `DcmConfigRequest`               |
+| Response envelope   | discriminated `error.kind` | `IpcResult<T>`                   |
+| Type location       | `shared/types.ts`          | `shared/types.ts` (new)          |
+| Handler file        | `xlsxEcucBatch*Handler.ts` | `dcmConfigHandler.ts` (existing) |
 
 **Dcm bridge keeps the `IpcResult<T>` envelope (same as v1.27.0 T4 introduced). No migration of the existing handler to a discriminated error envelope in v1.30.0 — that's 1.31.0+ scope.**
 
@@ -177,13 +177,13 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
 
 ## 4. Behavior table for bswmdPath
 
-| `bswmdPath` | `locateDcmBswmdPath` | Behavior | Result |
-|---|---|---|---|
-| provided, file exists, parseable | (not called) | Handler reads `bswmdPath` directly. Skips discovery. | `{ok: true, value: ...}` with `appliedStepCount` |
-| provided, file exists, **malformed** | (not called) | `parseDemoBswmds` throws on parse error. Caught by outer `try/catch` in handler. | `{ok: false, error: {message: 'BSWMD map missing module ...' or parse message}}` |
-| provided, file **not found** (ENOENT) | (not called) | `readFileSync` throws ENOENT. Caught by outer `try/catch`. | `{ok: false, error: {message: 'Atomic write failed: ...'}}` (the existing step-1 catch is `readFileSync` on `odxXml`; the bswmd read at step 3 has no try/catch wrapper, so it surfaces via the catch-all — see migration step 4) |
-| **omitted** | success | Reads sample fixture at `walkUpForFixture` hit. | `{ok: true, value: ...}` (unchanged from v1.27.0) |
-| **omitted** | throws (fixture missing) | Caught by outer `try/catch`. | `{ok: false, error: {message: 'Dcm BSWMD fixture not found via discovery...'}}` (unchanged) |
+| `bswmdPath`                           | `locateDcmBswmdPath`     | Behavior                                                                         | Result                                                                                                                                                                                                                            |
+| ------------------------------------- | ------------------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| provided, file exists, parseable      | (not called)             | Handler reads `bswmdPath` directly. Skips discovery.                             | `{ok: true, value: ...}` with `appliedStepCount`                                                                                                                                                                                  |
+| provided, file exists, **malformed**  | (not called)             | `parseDemoBswmds` throws on parse error. Caught by outer `try/catch` in handler. | `{ok: false, error: {message: 'BSWMD map missing module ...' or parse message}}`                                                                                                                                                  |
+| provided, file **not found** (ENOENT) | (not called)             | `readFileSync` throws ENOENT. Caught by outer `try/catch`.                       | `{ok: false, error: {message: 'Atomic write failed: ...'}}` (the existing step-1 catch is `readFileSync` on `odxXml`; the bswmd read at step 3 has no try/catch wrapper, so it surfaces via the catch-all — see migration step 4) |
+| **omitted**                           | success                  | Reads sample fixture at `walkUpForFixture` hit.                                  | `{ok: true, value: ...}` (unchanged from v1.27.0)                                                                                                                                                                                 |
+| **omitted**                           | throws (fixture missing) | Caught by outer `try/catch`.                                                     | `{ok: false, error: {message: 'Dcm BSWMD fixture not found via discovery...'}}` (unchanged)                                                                                                                                       |
 
 **Implementation note**: The existing handler at `dcmConfigHandler.ts:184` has `const dcmBswmdXml = readFileSync(dcmBswmdPath, 'utf-8');` without a try/catch wrapper (the read fails go through the outer `try/catch`). For bswmdPath support, we need to resolve the path with `args.bswmdPath ?? locateDcmBswmdPath(args.odxPath)` and wrap the read in a try/catch that returns a specific `IpcResult.error` (`"BSWMD file unreadable: <msg>"`) so the renderer can regex-match this class (mirrors the ODX-unreadable pattern at line 159-166).
 
@@ -192,22 +192,26 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
 ## 5. Migration plan (step-by-step)
 
 ### Step 1: Add `IPC_CHANNELS.DCM_CONFIG` constant
+
 - File: `src/shared/ipc-contract.ts`
 - Insert `DCM_CONFIG: 'dcm:config'` after `XLSX_COMMIT_BATCH` (line 213). Add top-level alias `export const DCM_CONFIG = ...` after the existing aliases (line 243).
 - Verify: `pnpm tsc --noEmit` clean.
 
 ### Step 2: Add `DcmConfigRequest` / `DcmConfigResponse` in `src/shared/types.ts`
+
 - File: `src/shared/types.ts`
 - Append the v1.30.0 section at end of file (line ~1047). Re-export `IpcResult<T>` and `DcmConfigHandlerResult` from `dcmConfigHandler.ts` (or duplicate the type definition in shared — see decision below).
 - **Decision**: keep `DcmConfigHandlerResult` defined in `dcmConfigHandler.ts` (existing home) and `import type` it in `shared/types.ts` for the re-export. Same pattern as `DbcImportComStackResponse` (which lives in `shared/types.ts` because the handler's pure types were promoted at v1.23.0 T3 ship time; the v1.27.0 T4 handler predates that promotion).
 
 ### Step 3: Update `DcmConfigHandlerArgs` + `DcmConfigHandlerResult`
+
 - File: `src/main/ipc/dcmConfigHandler.ts`
 - Add `bswmdPath?: string` to `DcmConfigHandlerArgs` (line 127-134).
 - Add `appliedStepCount: number` to `DcmConfigHandlerResult` (line 57) and to the result literal at line 233-239.
 - Add a JSDoc paragraph citing v1.30.0 MINOR + the precedence rule.
 
 ### Step 4: Update `dcmConfigHandler` implementation
+
 - File: `src/main/ipc/dcmConfigHandler.ts`
 - Replace lines 183-185 (locate + read + parseDemoBswmds) with a precedence-aware block:
 
@@ -235,10 +239,12 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
   }
   const bswmds = parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, dcmBswmdXml]]));
   ```
+
 - After `serviceSteps = xlsxDcmServicesToEcucBatch(...)` (line 196), compute `const appliedStepCount = serviceSteps.length;` and add to the result literal (line 233-239).
 - All 5 `IpcResult.error` paths preserved; only the path-resolution block changes.
 
 ### Step 5: Register in `register.ts`
+
 - File: `src/main/ipc/register.ts`
 - Add `dcmConfigHandler` import alongside `xlsxEcucBatchImportHandler` (line 90-92).
 - Add the `DcmConfigRequest` / `DcmConfigResponse` import to the type block (line 11-57).
@@ -257,6 +263,7 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
   ```
 
 ### Step 6: Expose in `preload`
+
 - File: `src/preload/index.ts`
 - Add `DcmConfigRequest` / `DcmConfigResponse` to the type-only import block (line 14-70).
 - Add the API method in the `api` object (line 74-274), positioned after `xlsxCommitBatch` for alphabetical-ish grouping:
@@ -273,6 +280,7 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
   ```
 
 ### Step 7: Add minimal renderer trigger component
+
 - File: `src/renderer/components/dcmConfig/DcmConfigTrigger.tsx` (new directory).
 - Minimal button: "Generate Dcm Config" that takes a `odxPath` prop, calls `autosarApi.dcmConfig({odxPath, xlsxRows: [...], bswmdPath: ...})`, surfaces the result in a `<pre>` (no dialog, no success animation). Pattern matches the simplest existing renderer test.
 - File: `src/renderer/components/dcmConfig/index.ts` re-exports.
@@ -281,12 +289,14 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
 **Not wired into `App.tsx` in this MINOR** — the button is exposed as a component the test can import, but the App-level integration is 1.31.0 PATCH.
 
 ### Step 8: Update existing tests
+
 - File: `src/main/ipc/__tests__/dcmConfigHandler.test.ts`
 - The 3 existing tests (happy path, ODX-unreadable, linkage-broken, silent-filter) keep working unchanged because `bswmdPath` is optional and `appliedStepCount` is additive. Add 2 assertions in the happy-path test:
   - `expect(result.value.appliedStepCount).toBeGreaterThan(0)` (proves the field is set).
   - The exact count = `1 (add-child) + N (set-param)` for the 2 rows = at minimum 2. With `didRef: 'Vbatt'` (1 param) and `routineRef: 'EraseMemory'` (1 param) = `2 + 2 = 4` steps total.
 
 ### Step 9: New tests (see §6 below for full plan)
+
 - Handler integration: bswmdPath override success, bswmdPath file unreadable, bswmdPath malformed BSWMD.
 - Channel registration smoke: `ipcMain.handle(IPC_CHANNELS.DCM_CONFIG, ...)` is registered.
 - Preload exposure: `autosarApi.dcmConfig` exists and is callable (renderer-side test).
@@ -294,6 +304,7 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
 - Backwards compat: existing 3 tests pass with `bswmdPath` omitted.
 
 ### Step 10: pnpm verify 7-stage
+
 - `pnpm tsc --noEmit` (type check)
 - `pnpm lint` (ESLint, including react-hooks rules)
 - `pnpm test` (Vitest unit + integration)
@@ -310,12 +321,12 @@ export type DcmConfigHandlerResult = DcmConfigResult & {
 
 ### 6.1 Handler integration tests (extend `dcmConfigHandler.test.ts`)
 
-| Test | What it asserts |
-|---|---|
-| **(NEW) bswmdPath override success** | With `bswmdPath` pointing to the existing sample fixture, handler succeeds. `appliedStepCount > 0`. The path is the only one touched. |
-| **(NEW) bswmdPath file unreadable (ENOENT)** | `bswmdPath: '/nonexistent/foo.arxml'` → returns `{ok: false, error.message: /BSWMD file unreadable/}`. No partial `outputPath` file written. |
-| **(NEW) bswmdPath file is not a valid BSWMD** | Pass a malformed XML file as `bswmdPath` → `parseDemoBswmds` throws → caught by outer try/catch. |
-| **(NEW) appliedStepCount is correct** | 2 rows × 1 param each = 4 steps total. Assert `result.value.appliedStepCount === 4` (exact match). |
+| Test                                                                       | What it asserts                                                                                                                                  |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **(NEW) bswmdPath override success**                                       | With `bswmdPath` pointing to the existing sample fixture, handler succeeds. `appliedStepCount > 0`. The path is the only one touched.            |
+| **(NEW) bswmdPath file unreadable (ENOENT)**                               | `bswmdPath: '/nonexistent/foo.arxml'` → returns `{ok: false, error.message: /BSWMD file unreadable/}`. No partial `outputPath` file written.     |
+| **(NEW) bswmdPath file is not a valid BSWMD**                              | Pass a malformed XML file as `bswmdPath` → `parseDemoBswmds` throws → caught by outer try/catch.                                                 |
+| **(NEW) appliedStepCount is correct**                                      | 2 rows × 1 param each = 4 steps total. Assert `result.value.appliedStepCount === 4` (exact match).                                               |
 | **(NEW) appliedStepCount is computed BEFORE apply (failure-path meaning)** | Spy on `applyPatchSteps` to throw. Assert response is `ok: false` — proves we never reach result-construction with a partial `appliedStepCount`. |
 
 ### 6.2 Channel registration smoke test (NEW FILE: `src/main/ipc/__tests__/dcmConfigRegistration.test.ts`)
@@ -378,15 +389,16 @@ it('calls dcmConfig on click', async () => {
 
 Reviewers must check:
 
-| # | Check | Why |
-|---|---|---|
-| (a) | IPC type contract consistency between `shared/types.ts` and the handler | Field names + nullability must match `DcmConfigHandlerArgs` / `DcmConfigHandlerResult` verbatim. |
-| (b) | `bswmdPath` file path validation — don't trust caller paths | Renderer is trusted to pass absolute paths. BSWMD is read-only. No `isPathInsideReal` check required. |
-| (c) | `appliedStepCount` matches actual post-apply result count | Field value is `serviceSteps.length` (PRE-apply). JSDoc makes "pre-apply intent" explicit. |
-| (d) | Preload exposure names match the renderer-side consumer | `autosarApi.dcmConfig(req)` is the name used in `DcmConfigTrigger.tsx`. |
-| (e) | No test passes that skip IPC channel registration assertions | The 6.2 smoke test must call `registerIpcHandlers()`. The 6.3 preload test must mock `ipcRenderer.invoke` and assert the channel name string. |
+| #   | Check                                                                   | Why                                                                                                                                           |
+| --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| (a) | IPC type contract consistency between `shared/types.ts` and the handler | Field names + nullability must match `DcmConfigHandlerArgs` / `DcmConfigHandlerResult` verbatim.                                              |
+| (b) | `bswmdPath` file path validation — don't trust caller paths             | Renderer is trusted to pass absolute paths. BSWMD is read-only. No `isPathInsideReal` check required.                                         |
+| (c) | `appliedStepCount` matches actual post-apply result count               | Field value is `serviceSteps.length` (PRE-apply). JSDoc makes "pre-apply intent" explicit.                                                    |
+| (d) | Preload exposure names match the renderer-side consumer                 | `autosarApi.dcmConfig(req)` is the name used in `DcmConfigTrigger.tsx`.                                                                       |
+| (e) | No test passes that skip IPC channel registration assertions            | The 6.2 smoke test must call `registerIpcHandlers()`. The 6.3 preload test must mock `ipcRenderer.invoke` and assert the channel name string. |
 
 **Additional reviewer checks**:
+
 - (f) `pnpm verify 7-stage` output captured in the commit message.
 - (g) `CHANGELOG.md` v1.30.0 entry added with the affordance summary (BSWMD override + appliedStepCount) and the bridge-wiring close-out.
 
@@ -406,20 +418,20 @@ What we WON'T do in v1.30.0:
 
 ## 10. Files-touched count
 
-| Category | Files | Count |
-|---|---|---|
-| Core handler (modify) | `src/main/ipc/dcmConfigHandler.ts` | 1 |
-| IPC registration (modify) | `src/main/ipc/register.ts` | 1 |
-| IPC contract (modify) | `src/shared/ipc-contract.ts` | 1 |
-| Shared types (modify) | `src/shared/types.ts` | 1 |
-| Preload (modify) | `src/preload/index.ts` | 1 |
-| Renderer component (new) | `src/renderer/components/dcmConfig/DcmConfigTrigger.tsx` | 1 |
-| Renderer component (new) | `src/renderer/components/dcmConfig/index.ts` | 1 |
-| Handler tests (modify + new) | `src/main/ipc/__tests__/dcmConfigHandler.test.ts`, `dcmConfigRegistration.test.ts` | 2 |
-| Preload tests (new) | `src/preload/__tests__/dcmConfigExposure.test.ts` | 1 |
-| Renderer tests (new) | `src/renderer/components/__tests__/DcmConfigTrigger.test.tsx` | 1 |
-| Changelog (modify) | `CHANGELOG.md` | 1 |
-| **Total** | | **12 files (9 modified, 3 new)** |
+| Category                     | Files                                                                              | Count                            |
+| ---------------------------- | ---------------------------------------------------------------------------------- | -------------------------------- |
+| Core handler (modify)        | `src/main/ipc/dcmConfigHandler.ts`                                                 | 1                                |
+| IPC registration (modify)    | `src/main/ipc/register.ts`                                                         | 1                                |
+| IPC contract (modify)        | `src/shared/ipc-contract.ts`                                                       | 1                                |
+| Shared types (modify)        | `src/shared/types.ts`                                                              | 1                                |
+| Preload (modify)             | `src/preload/index.ts`                                                             | 1                                |
+| Renderer component (new)     | `src/renderer/components/dcmConfig/DcmConfigTrigger.tsx`                           | 1                                |
+| Renderer component (new)     | `src/renderer/components/dcmConfig/index.ts`                                       | 1                                |
+| Handler tests (modify + new) | `src/main/ipc/__tests__/dcmConfigHandler.test.ts`, `dcmConfigRegistration.test.ts` | 2                                |
+| Preload tests (new)          | `src/preload/__tests__/dcmConfigExposure.test.ts`                                  | 1                                |
+| Renderer tests (new)         | `src/renderer/components/__tests__/DcmConfigTrigger.test.tsx`                      | 1                                |
+| Changelog (modify)           | `CHANGELOG.md`                                                                     | 1                                |
+| **Total**                    |                                                                                    | **12 files (9 modified, 3 new)** |
 
 **Test files: 4 (1 modify + 3 new).** Net test delta: **+7**.
 
@@ -427,21 +439,22 @@ What we WON'T do in v1.30.0:
 
 ## 11. Risks
 
-| # | Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|---|
-| 1 | `bswmdPath` with a non-canonical BSWMD causes silent path-not-found masking | Medium | Medium | Existing 3 fail-fast error classes surface this via `error.message` regex |
-| 2 | `serviceSteps.length` doesn't match renderer's expectation of "applied to doc" (post-apply `applied`) | Medium | Low | Documented "pre-apply intent" in JSDoc. Renderer tooltip clarifies. 1.31.0 PATCH can add `actualAppliedStepCount` |
-| 3 | `contextBridge.exposeInMainWorld('autosarApi', api)` loses the new `dcmConfig` key in production builds | Low | High | Vite tree-shaking preserves object property keys; tests catch this |
-| 4 | Test fixture `Bsw_Dcm_Bswmd.arxml` not found in production build | Low | High | Discovery walk handles this; falls through to "fixture not found" error |
-| 5 | Channel name conflict with future `dcm:*` channels | Low | Low | Documented namespace reservation in `ipc-contract.ts` JSDoc |
-| 6 | `bswmdPath` no-fall-through rule surprises renderer | Medium | Low | JSDoc explicit. 6.1 test demonstrates contract |
-| 7 | `appliedStepCount` doesn't include post-apply set-param deduping | Low | Low | Documented. 1.31.0 can add post-apply field |
+| #   | Risk                                                                                                    | Likelihood | Impact | Mitigation                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | `bswmdPath` with a non-canonical BSWMD causes silent path-not-found masking                             | Medium     | Medium | Existing 3 fail-fast error classes surface this via `error.message` regex                                         |
+| 2   | `serviceSteps.length` doesn't match renderer's expectation of "applied to doc" (post-apply `applied`)   | Medium     | Low    | Documented "pre-apply intent" in JSDoc. Renderer tooltip clarifies. 1.31.0 PATCH can add `actualAppliedStepCount` |
+| 3   | `contextBridge.exposeInMainWorld('autosarApi', api)` loses the new `dcmConfig` key in production builds | Low        | High   | Vite tree-shaking preserves object property keys; tests catch this                                                |
+| 4   | Test fixture `Bsw_Dcm_Bswmd.arxml` not found in production build                                        | Low        | High   | Discovery walk handles this; falls through to "fixture not found" error                                           |
+| 5   | Channel name conflict with future `dcm:*` channels                                                      | Low        | Low    | Documented namespace reservation in `ipc-contract.ts` JSDoc                                                       |
+| 6   | `bswmdPath` no-fall-through rule surprises renderer                                                     | Medium     | Low    | JSDoc explicit. 6.1 test demonstrates contract                                                                    |
+| 7   | `appliedStepCount` doesn't include post-apply set-param deduping                                        | Low        | Low    | Documented. 1.31.0 can add post-apply field                                                                       |
 
 ---
 
 ## 12. Out of scope (deferred)
 
 **To 1.31.0 PATCH**:
+
 - Full `DcmConfigSuccessDialog.tsx` with success/failure toasts
 - Renderer integration with `ContextMenu.tsx` + `AppHeader.tsx`
 - Project-manifest-driven `bswmdPath` auto-population from `manifest.bswmdPaths`
@@ -449,6 +462,7 @@ What we WON'T do in v1.30.0:
 - `IpcResult<T>` → discriminated error envelope migration for `DcmConfigResponse`
 
 **To 1.32.0+**:
+
 - DcmDsl / Security access / NRC customization
 - Dem services generator
 - Real-OEM BSWMD shape validation (`isPathInsideReal`)

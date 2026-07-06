@@ -188,6 +188,12 @@ describe('dcmConfigHandler — happy path', () => {
     const finalXml = readFileSync(outputPath, 'utf-8');
     expect(finalXml).toContain('ReadVbatt');
     expect(finalXml).toContain('StartErase');
+
+    // v1.30.0 MINOR — `appliedStepCount` is computed pre-apply from
+    // `serviceSteps.length`. For these 2 rows × 1 param each, that's
+    // 2 add-child + 2 set-param = 4 steps. Pins the v1.30.0 spec §3.3
+    // counter semantics.
+    expect(result.value.appliedStepCount).toBe(4);
   });
 });
 
@@ -283,5 +289,71 @@ describe('dcmConfigHandler — failure paths', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+// v1.30.0 MINOR — affordances: real-OEM bswmdPath override +
+// appliedStepCount counter. These tests extend the existing
+// integration surface without touching the v1.27.x fixtures; the
+// 3 cases below cover the new behaviors verified by the v1.30.0
+// spec §6.1 plan.
+describe('dcmConfigHandler — v1.30.0 affordances', () => {
+  it('uses caller-provided bswmdPath when present (skips discovery walk)', async () => {
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    const outputPath = pathResolve(workDir, 'Dcm_Config_BswmdOverride.arxml');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    // Resolve the demo-ecu BSWMD via `process.cwd()` (where vitest's
+    // walkUpForFixture resolves it from). We can't use `workDir`-relative
+    // paths because workDir lives under /tmp and walking up does not
+    // reach the repo root.
+    const bswmdPath = pathResolve(
+      process.cwd(),
+      'samples',
+      'arxml',
+      'demo-ecu',
+      'bswmd',
+      'Bsw_Dcm_Bswmd.arxml',
+    );
+
+    const xlsxRows: EcucInstanceRow[] = [
+      { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+    ].map(asDcmRow);
+
+    const result = await dcmConfigHandler({ odxPath, xlsxRows, outputPath, bswmdPath });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.appliedStepCount).toBeGreaterThan(0);
+    expect(existsSync(outputPath)).toBe(true);
+  });
+
+  it('returns BSWMD file unreadable error when bswmdPath does not exist', async () => {
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      outputPath: pathResolve(workDir, 'Dcm_Config_NoBswmd.arxml'),
+      bswmdPath: '/nonexistent/does-not-exist.arxml',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/BSWMD file unreadable/);
+  });
+
+  it('falls back to discovery when bswmdPath is omitted (legacy v1.27.0 behavior)', async () => {
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    const outputPath = pathResolve(workDir, 'Dcm_Config_NoOverride.arxml');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    const xlsxRows: EcucInstanceRow[] = [
+      { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+    ].map(asDcmRow);
+
+    const result = await dcmConfigHandler({ odxPath, xlsxRows, outputPath });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.appliedStepCount).toBe(2); // 1 add-child + 1 set-param
   });
 });

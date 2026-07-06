@@ -84,6 +84,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
     expect(keys).toEqual([
       'copyTemplate',
       'dbcImportComStack',
+      'dcmConfig', // v1.30.0 MINOR — wires the v1.27.0 T4 dcmConfigHandler to the IPC bridge
       'deleteArxml',
       'deleteBswmd',
       'deleteScript',

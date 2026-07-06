@@ -67,6 +67,8 @@ import type {
   XlsxWriteBatchTemplateResponse,
   XlsxCommitBatchRequest,
   XlsxCommitBatchResponse,
+  DcmConfigRequest,
+  DcmConfigResponse,
 } from '../shared/types.js';
 
 import { getRendererPlatform } from './platform.js';
@@ -271,6 +273,13 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.XLSX_PARSE_BATCH, req),
   xlsxCommitBatch: (req: XlsxCommitBatchRequest): Promise<XlsxCommitBatchResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.XLSX_COMMIT_BATCH, req),
+  // v1.30.0 MINOR — Dcm config bridge. Wires the v1.27.0 T4
+  // dcmConfigHandler (existing-but-unregistered since v1.27.0)
+  // into the renderer-side bridge. First `dcm:*` channel. The
+  // renderer consumer is the minimal `DcmConfigTrigger` button
+  // (full UI lands in 1.31.0 PATCH).
+  dcmConfig: (req: DcmConfigRequest): Promise<DcmConfigResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DCM_CONFIG, req),
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

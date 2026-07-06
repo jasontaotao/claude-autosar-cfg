@@ -16,45 +16,44 @@
 //   6. Serialize via `serializeArxml` and atomically write to
 //      `outputPath` via v1.23.0's `writeAtomic` (tmp + rename + fsync).
 //
-// All errors propagate via `IpcResult.error.message` so the renderer
-// can regex-match the 5 fail-fast classes (UNKNOWN SHEET / MODULE
-// MISSING / CONTAINER MISSING / ODX-DCM LINKAGE BROKEN / WRITE FAILED).
-// The handler NEVER throws — every branch returns an `IpcResult`.
+// All errors propagate via `DcmConfigResponse.error.message` so the
+// renderer can regex-match the fail-fast classes. The handler NEVER
+// throws — every branch returns a `DcmConfigResponse`.
 //
 // Trade-off: `outputPath` defaults to `<projectRoot>/Dcm_Config.arxml`
 // where `projectRoot` is derived from the ODX file's directory. This
-// matches v1.24.0's `odxImportDiagnosticExtractHandler` convention
-// (outputDir defaults to the .odx-d's parent dir).
+// matches v1.24.0's `odxImportDiagnosticExtractHandler` convention.
+//
+// v1.30.0 MINOR — add `bswmdPath?: string` for real-OEM override;
+// add `appliedStepCount: number` to the result (computed pre-apply
+// from `serviceSteps.length`). Channel + types migrated to
+// `src/shared/ipc-contract.ts` (`DCM_CONFIG`) and `src/shared/types.ts`
+// (`DcmConfigRequest`, `DcmConfigResponse`, `DcmConfigHandlerResult`)
+// so the IPC envelope can be consumed by `main/ipc/register.ts` and
+// `src/preload/index.ts` without crossing the shared/main boundary.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
 import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
-import { dcmConfigPipeline, type DcmConfigResult } from '../../core/bridge/dcmConfigPipeline.js';
+import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
-import type { EcucInstanceRow } from '../../shared/types.js';
+import type {
+  DcmConfigHandlerResult,
+  DcmConfigResponse,
+  EcucInstanceRow,
+} from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
 
 import { parseOdxHandler } from './parseOdxHandler.js';
 
-/**
- * Generic `IpcResult<T>` envelope — typed variant of the v1.25.0
- * `{ok, error: {kind, message}}` shape. The renderer-side `dcm:config`
- * bridge can unwrap without needing a bespoke envelope per call.
- */
-export type IpcResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: { readonly message: string; readonly cause?: unknown } };
-
-/**
- * IPC return shape — the pipeline's `DcmConfigResult` augmented with
- * the resolved `outputPath` so the renderer can navigate to the file
- * (e.g. open in OS file explorer). T3's `DcmConfigResult` does not
- * include this field; the handler attaches it on the way out.
- */
-export type DcmConfigHandlerResult = DcmConfigResult & { readonly outputPath: string };
+/** Re-export the canonical IPC envelope so existing importers (e.g.
+ *  `src/main/ipc/__tests__/dcmConfigHandler.test.ts`) continue to
+ *  bind to the same type identity. v1.30.0 MINOR moved the
+ *  definition upstream so the IPC contract lives in `shared/types.ts`. */
+export type { DcmConfigHandlerResult };
 
 /**
  * Locate the demo-ecu Dcm BSWMD fixture. The fixture ships at
@@ -67,8 +66,10 @@ export type DcmConfigHandlerResult = DcmConfigResult & { readonly outputPath: st
  *      packaged-app case (the user's project may live anywhere) AND
  *      the test case (where cwd may not have a `samples/` tree).
  *
- * v1.28.0+ will extend this with a real-OEM override path (project
- * manifest may declare an alternate BSWMD location).
+ * v1.30.0 MINOR — still the fallback when `args.bswmdPath` is
+ * omitted. When the caller provides `bswmdPath`, this helper is
+ * bypassed entirely (no fall-through to the sample fixture — fail-loud
+ * over fail-soft when the explicit override path is unreadable).
  */
 function locateDcmBswmdPath(odxPath: string): string {
   // Strategy 1: walk up from cwd.
@@ -107,16 +108,23 @@ function walkUpForFixture(start: string): string | null {
 }
 
 /**
+ * Resolve the BSWMD path per the v1.30.0 precedence rule:
+ *   1. Caller-provided `bswmdPath` wins (real-OEM override).
+ *   2. Fall back to `locateDcmBswmdPath(odxPath)` (sample fixture
+ *      discovery).
+ *
+ * No fall-through from (1) to (2): a real-OEM path is a declaration,
+ * not a hint; if the caller-supplied path is unreadable the handler
+ * surfaces a specific `BSWMD file unreadable` error (caught at the
+ * `readFileSync` site, not via the catch-all).
+ */
+function resolveDcmBswmdPath(args: DcmConfigHandlerArgs): string {
+  return args.bswmdPath ?? locateDcmBswmdPath(args.odxPath);
+}
+
+/**
  * Patch the ODX-derived extract ARXML (string) with xlsx service
  * PatchSteps. Returns the serialized final XML.
- *
- * Three steps:
- *   a. parseArxml(extractXml) → ArxmlDocument
- *   b. applyPatchSteps(doc, serviceSteps) → ArxmlDocument
- *   c. serializeArxml(doc) → string
- *
- * Errors from any of the three are propagated as IpcResult.error by
- * the caller.
  *
  * v1.28.0 MINOR — the patch + serialize + prefix-strip logic was
  * promoted to `src/core/arxml/extractPatch.ts` as
@@ -131,14 +139,22 @@ export interface DcmConfigHandlerArgs {
   readonly xlsxRows: readonly EcucInstanceRow[];
   /** Optional output path; defaults to `<odxDir>/Dcm_Config.arxml`. */
   readonly outputPath?: string;
+  /**
+   * v1.30.0 MINOR — real-OEM BSWMD override. When set, the handler
+   * reads this file directly and skips the
+   * `<samples>/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml` discovery
+   * walk. The file MUST be a parseable Dcm BSWMD with the canonical
+   * AUTOSAR container shortNames (per v1.25.1 PATCH lesson).
+   */
+  readonly bswmdPath?: string;
 }
 
 /**
  * IPC entry point: `dcm:config`.
  *
  * Signature:
- *   dcmConfigHandler({ odxPath, xlsxRows, outputPath? })
- *     → Promise<IpcResult<DcmConfigResult>>
+ *   dcmConfigHandler({ odxPath, xlsxRows, outputPath?, bswmdPath? })
+ *     → Promise<DcmConfigResponse>
  *
  * 5 fail-fast error classes (all surfaced via `error.message` so
  * renderer-side `dcm:config` can regex-match):
@@ -147,10 +163,19 @@ export interface DcmConfigHandlerArgs {
  *   - BSWMD map missing …   — propagated from T3 (no `Dcm` module)
  *   - Container … not found — propagated from T2 (BSWMD shape drift)
  *   - Write failed / serialize / patch — atomic-write / engine errors
+ *
+ * v1.30.0 MINOR adds 1 new error class surfaced via the explicit
+ * `bswmdPath` readFileSync site (NOT via the catch-all):
+ *   - BSWMD file unreadable   — explicit readFileSync catch when
+ *                                args.bswmdPath is provided; the
+ *                                renderer can regex-match this class
+ *                                to surface a "real-OEM path not
+ *                                found" toast. Sample-fixture discovery
+ *                                still surfaces its own
+ *                                `Dcm BSWMD fixture not found via
+ *                                discovery` error via the catch-all.
  */
-export async function dcmConfigHandler(
-  args: DcmConfigHandlerArgs,
-): Promise<IpcResult<DcmConfigHandlerResult>> {
+export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmConfigResponse> {
   try {
     // 1. Read ODX file from disk.
     let odxXml: string;
@@ -179,9 +204,23 @@ export async function dcmConfigHandler(
     }
     const odx = odxParse.value;
 
-    // 3. Locate + parse T1's Dcm BSWMD fixture.
-    const dcmBswmdPath = locateDcmBswmdPath(args.odxPath);
-    const dcmBswmdXml = readFileSync(dcmBswmdPath, 'utf-8');
+    // 3. Resolve + parse T1's Dcm BSWMD fixture (or caller override).
+    //    v1.30.0 MINOR — explicit-bswmdPath read is wrapped in a
+    //    narrow try/catch to surface a renderer-distinguishable
+    //    `BSWMD file unreadable` error class.
+    const dcmBswmdPath = resolveDcmBswmdPath(args);
+    let dcmBswmdXml: string;
+    try {
+      dcmBswmdXml = readFileSync(dcmBswmdPath, 'utf-8');
+    } catch (e) {
+      return {
+        ok: false,
+        error: {
+          message: `BSWMD file unreadable: ${e instanceof Error ? e.message : String(e)}`,
+          cause: e,
+        },
+      };
+    }
     const bswmds = parseDemoBswmds(new Map([[DCM_MODULE_SHORT_NAME, dcmBswmdXml]]));
 
     // 4. Run T3 orchestrator (validates ODX-Dcm linkage, produces
@@ -195,13 +234,21 @@ export async function dcmConfigHandler(
     // 5. Generate xlsx service PatchSteps via T2 mapper.
     const serviceSteps = xlsxDcmServicesToEcucBatch(args.xlsxRows, bswmds);
 
+    // v1.30.0 MINOR — compute `appliedStepCount` PRE-apply from
+    // serviceSteps.length so the counter is meaningful even when the
+    // patch engine reports errors downstream. Raw count represents
+    // "what the mapper intended to do" (complementary to the engine's
+    // post-apply `applied` field, which lands at 0 on partial failure).
+    const appliedStepCount = serviceSteps.length;
+
     // 6. Apply the service patches to the ODX-derived extract doc and
     //    serialize. This stitches both halves into a single ARXML.
     //    `dcmConfigPipeline` (step 4) already pre-flight-checks that the
     //    Dcm BSWMD is present (it throws `BSWMD map missing module 'Dcm'`
     //    which is caught by the outer `try`/`catch` below and surfaced
-    //    as `IpcResult.error`). The non-null assertion narrows the type
-    //    for `applyPatchesToExtract`'s required `BswModuleDef` parameter.
+    //    as `DcmConfigResponse.error`). The non-null assertion narrows
+    //    the type for `applyPatchesToExtract`'s required `BswModuleDef`
+    //    parameter.
     const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME)!;
     const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps, dcmModuleDef);
     if (!patched.ok) {
@@ -228,14 +275,17 @@ export async function dcmConfigHandler(
 
     // 8. Build the result. Re-export the pipeline's counters verbatim
     //    (already includes the 5-kind tally from T3), surface the final
-    //    XML the renderer should preview, and attach the resolved
-    //    `outputPath` so the renderer can navigate to the file.
+    //    XML the renderer should preview, attach the resolved
+    //    `outputPath` so the renderer can navigate to the file, and
+    //    (v1.30.0 MINOR) include `appliedStepCount` so the renderer
+    //    can render a "N steps applied" counter on the success toast.
     const result: DcmConfigHandlerResult = {
       dcmConfigXml: finalXml,
       odxLinkedDcmDspCount: pipelineResult.odxLinkedDcmDspCount,
       odxLinkedRoutineCount: pipelineResult.odxLinkedRoutineCount,
       serviceCounts: pipelineResult.serviceCounts,
       outputPath,
+      appliedStepCount,
     };
     return { ok: true, value: result };
   } catch (e) {
