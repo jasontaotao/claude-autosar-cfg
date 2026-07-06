@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+//
 // useDcmConfigLauncher — v1.31.0 PATCH T3.
 //
 // Pinned behaviours:
@@ -93,17 +95,16 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     ["BSWMD map missing module 'Dcm'", 'bswmdMapMissing'],
     ['Atomic write failed: x', 'atomicWriteFailed'],
     ['Some unknown error', 'unexpected'],
-  ] as const)('classifyError maps %s to %s', (message, expected) => {
+  ] as const)('classifyError maps %s to %s', async (message, expected) => {
     const { result } = renderHook(() => useDcmConfigLauncher());
     // classifyError is an internal helper — exercise it via the
     // error state path: invoke with the message, then read
     // state.error.classKey.
     invokeMock.mockResolvedValue({ ok: false, error: { message } });
-    return act(async () => {
+    await act(async () => {
       await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
-    }).then(() => {
-      expect(result.current.state.error?.classKey).toBe(expected);
     });
+    expect(result.current.state.error?.classKey).toBe(expected);
   });
 
   it('re-entrancy guard: open() while pending is a no-op', async () => {
