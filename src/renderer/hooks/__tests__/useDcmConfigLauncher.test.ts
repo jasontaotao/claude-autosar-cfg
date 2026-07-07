@@ -484,4 +484,61 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     expect(call.odxPath).toBe(odxPath);
     expect(call.bswmdPath).toBe(dcmBswmdPath);
   });
+
+  // v1.32.0 MINOR T5 fix — reviewer flagged that handlePickerCancel
+  // dropped the cancel silently (no status message). Brief Step 5.1
+  // listed 4 tests; this is the 4th — guards the cancel→idle +
+  // statusMessage i18n key contract end-to-end.
+  it('handlePickerCancel returns to idle and surfaces cancelled status toast key', async () => {
+    // Seed: project has Dcm BSWMD, no active .odx, so promptAndOpen
+    // routes to the picker substate (mode='picking-odx'). Then we
+    // invoke handlePickerCancel and assert the brief's contract:
+    //   - mode returns to 'idle'
+    //   - statusMessage carries the i18n key 'dcmConfig.picker.cancelled'
+    //     so App.tsx can render a localized toast (T7 ships the key).
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: null,
+    });
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    // promptAndOpen does NOT call dcmConfig when entering picker, so
+    // we still stub invokeMock for safety (cancel path must be a no-op
+    // for the IPC).
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+    // We are now in the picker substate.
+    expect(result.current.state.mode).toBe('picking-odx');
+
+    act(() => {
+      result.current.handlePickerCancel();
+    });
+
+    // Brief Step 5.1 contract: cancel returns to idle + surfaces the
+    // cancelled-toast i18n key (App.tsx renders the localized toast).
+    expect(result.current.state.mode).toBe('idle');
+    expect(result.current.state.statusMessage).toBe('dcmConfig.picker.cancelled');
+    // Cancel must NOT have fired the IPC.
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
 });

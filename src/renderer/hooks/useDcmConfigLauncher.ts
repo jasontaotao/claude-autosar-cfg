@@ -47,6 +47,11 @@ export interface DcmConfigLauncherState {
    * `<DcmConfigSuccessDialog />` can show the "auto-selected from
    * project manifest" line (T7 i18n key). */
   readonly bswmdPathAutofill: string | null;
+  /** v1.32.0 T5 fix — transient i18n-key status surfaced to App.tsx
+   * after a picker cancel. App.tsx renders the localized "cancelled"
+   * toast via this key (T7 ships the catalog string). Reset to null by
+   * `dismissToast` and by any subsequent open()/promptAndOpen(). */
+  readonly statusMessage: string | null;
 }
 
 export interface DcmConfigLauncher {
@@ -89,6 +94,7 @@ const INITIAL_STATE: DcmConfigLauncherState = {
   dialogOpen: false,
   toastVisible: false,
   bswmdPathAutofill: null,
+  statusMessage: null,
 };
 
 /**
@@ -399,6 +405,12 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             // line. Always recorded on success regardless of entry path
             // (promptAndOpen shortcut vs handlePickerResolve).
             bswmdPathAutofill: args.bswmdPath ?? null,
+            // v1.32.0 T5 fix — clear any stale status message (e.g.
+            // 'dcmConfig.picker.cancelled') from a prior cancel that
+            // transitioned through idle before the user re-fired the
+            // IPC. App.tsx reads statusMessage off the success/error
+            // states for no-op cleanup.
+            statusMessage: null,
           });
         } else {
           const message = res.error.message;
@@ -418,6 +430,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             dialogOpen: false,
             toastVisible: true,
             bswmdPathAutofill: null,
+            statusMessage: null,
           });
         }
       } catch (e) {
@@ -444,6 +457,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
           dialogOpen: false,
           toastVisible: true,
           bswmdPathAutofill: null,
+          statusMessage: null,
         });
       } finally {
         inFlightRef.current = false;
@@ -466,6 +480,15 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       // sample-fixture walk-up.
       await open({
         odxPath: activeDocumentPath,
+        // v1.32.0 MINOR T5 — xlsxRows:[] is an intentional placeholder.
+        // Real wiring (xlsxRows sourced from the active xlsx document
+        // store slice) lands in T7 (i18n keys + SuccessDialog autofill
+        // label task). Until T7, the shortcut path invokes the IPC
+        // with an empty row set; this is dev-only and the handler's
+        // `appliedStepCount` will reflect 0. Reviewer flagged the empty
+        // literal at this site as a contract ambiguity; the comment
+        // pins the T5 placeholder semantics so future readers do not
+        // mistake this for a real value.
         xlsxRows: [],
         bswmdPath: bswmdHasDcm.dcmBswmdPath,
       });
@@ -485,6 +508,11 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     async (odxPath: string): Promise<void> => {
       await open({
         odxPath,
+        // v1.32.0 MINOR T5 — xlsxRows:[] is an intentional placeholder
+        // (mirrors the shortcut path above). Real wiring lands in T7
+        // when xlsxRows is sourced from the active xlsx document store
+        // slice. Reviewer flagged this empty literal as a contract
+        // ambiguity; the comment pins the T5 placeholder semantics.
         xlsxRows: [],
         bswmdPath: bswmdHasDcm.dcmBswmdPath,
       });
@@ -494,11 +522,18 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
 
   // v1.32.0 T5 — picker cancel callback. Returns mode to idle; the
   // app-level `<DcmConfigPicker />` unmounts because App.tsx gates
-  // it on `state.mode === 'picking-odx'`. Localized "cancelled" toast
-  // is rendered by App.tsx via the existing `setError` action (T7
-  // ships the i18n key `dcmConfig.picker.cancelled`).
+  // it on `state.mode === 'picking-odx'`. Surfaces the i18n key
+  // `dcmConfig.picker.cancelled` via `state.statusMessage` so App.tsx
+  // can render the localized "cancelled" toast (T7 ships the catalog
+  // string). Reviewer flagged the prior drop-only behavior (mode→idle
+  // with no status) as unverified UX; this restores the brief's
+  // Step 5.3 contract and is guarded by the new 4th test.
   const handlePickerCancel = useCallback((): void => {
-    setState((prev) => ({ ...prev, mode: 'idle' }));
+    setState((prev) => ({
+      ...prev,
+      mode: 'idle',
+      statusMessage: 'dcmConfig.picker.cancelled',
+    }));
   }, []);
 
   const closeDialog = useCallback((): void => {
