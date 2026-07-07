@@ -52,9 +52,7 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
       content:
         '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>Dcm</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
     });
-    render(
-      <DcmConfigOverridePicker value="" onChange={onChange} onCancel={() => undefined} />,
-    );
+    render(<DcmConfigOverridePicker value="" onChange={onChange} onCancel={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: /browse/i }));
     await waitFor(() => expect(window.autosarApi.bswmdPick).toHaveBeenCalledTimes(1));
     expect(onChange).toHaveBeenCalledWith('/override.arxml');
@@ -65,13 +63,7 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
     (window.autosarApi.bswmdPick as ReturnType<typeof vi.fn>).mockResolvedValue({
       kind: 'canceled',
     });
-    render(
-      <DcmConfigOverridePicker
-        value=""
-        onChange={() => undefined}
-        onCancel={onCancel}
-      />,
-    );
+    render(<DcmConfigOverridePicker value="" onChange={() => undefined} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: /browse/i }));
     await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
   });
@@ -85,13 +77,7 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
       content:
         '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>CanIf</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
     });
-    render(
-      <DcmConfigOverridePicker
-        value=""
-        onChange={() => undefined}
-        onCancel={onCancel}
-      />,
-    );
+    render(<DcmConfigOverridePicker value="" onChange={() => undefined} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: /browse/i }));
     await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('not a valid Dcm BSWMD'));
@@ -100,11 +86,7 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
   it('Clear click calls onChange with empty string', async () => {
     const onChange = vi.fn();
     render(
-      <DcmConfigOverridePicker
-        value="/old.arxml"
-        onChange={onChange}
-        onCancel={() => undefined}
-      />,
+      <DcmConfigOverridePicker value="/old.arxml" onChange={onChange} onCancel={() => undefined} />,
     );
     fireEvent.click(screen.getByRole('button', { name: /clear/i }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(''));

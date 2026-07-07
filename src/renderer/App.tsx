@@ -1317,15 +1317,13 @@ export function App(): JSX.Element {
         {dcmLauncher.state.mode === 'picking-odx' && (
           <DcmConfigPicker
             locale={locale === 'zh-CN' ? 'zh-CN' : 'en'}
-            defaultPath={
-              (() => {
-                const pp = useArxmlStore.getState().projectPath;
-                if (pp !== null) {
-                  return pp.replace(/[\\/][^\\/]+$/, '');
-                }
-                return bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/');
-              })()
-            }
+            defaultPath={(() => {
+              const pp = useArxmlStore.getState().projectPath;
+              if (pp !== null) {
+                return pp.replace(/[\\/][^\\/]+$/, '');
+              }
+              return bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/');
+            })()}
             onResolve={dcmLauncher.handlePickerResolve}
             onCancel={dcmLauncher.handlePickerCancel}
           />

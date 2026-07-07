@@ -451,11 +451,7 @@ export async function xlsxEcucBatchImportHandler(
   // IPC send is skipped and the success return still completes —
   // the slice state is a renderer-side cache, not the source of
   // truth for the commit (the disk write is the source of truth).
-  const appliedRows: EcucInstanceRow[] = [
-    ...split['Com'],
-    ...split['CanIf'],
-    ...split['PduR'],
-  ];
+  const appliedRows: EcucInstanceRow[] = [...split['Com'], ...split['CanIf'], ...split['PduR']];
   if (typeof BrowserWindow !== 'undefined' && BrowserWindow !== null) {
     const mainWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
     if (mainWindow !== undefined && !mainWindow.isDestroyed()) {

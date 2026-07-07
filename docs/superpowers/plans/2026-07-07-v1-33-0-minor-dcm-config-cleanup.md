@@ -36,6 +36,7 @@
 ### Task 1: XlsxImportSlice + IPC push listener
 
 **Files:**
+
 - Create: `src/renderer/store/slices/xlsxImportSlice.ts`
 - Create: `src/renderer/store/xlsxImportListener.ts`
 - Create: `src/renderer/store/__tests__/xlsxImportSlice.test.ts`
@@ -45,6 +46,7 @@
 - Modify: `src/main/ipc/xlsxEcucBatchImportHandler.ts` (push payload via `mainWindow.webContents.send` on success)
 
 **Interfaces:**
+
 - Consumes: existing `xlsxEcucBatchImportHandler` (no signature change — push happens inside the handler)
 - Produces: `XlsxImportRecord` + `XlsxImportSlice` exported from `src/renderer/store/slices/xlsxImportSlice.ts`; `attachXlsxImportListener(): () => void` exported from `src/renderer/store/xlsxImportListener.ts`; `XLSX_IMPORT_COMPLETE` channel constant
 
@@ -174,21 +176,14 @@ export interface XlsxImportSlice {
 
 const MAX_HISTORY = 5;
 
-export const createXlsxImportSlice: StateCreator<
-  ArxmlState,
-  [],
-  [],
-  XlsxImportSlice
-> = (set) => ({
+export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportSlice> = (set) => ({
   xlsxLastImport: null,
   xlsxImportHistory: [],
   setXlsxLastImport: (record) =>
     set((s) => ({
       xlsxLastImport: record,
       xlsxImportHistory:
-        record === null
-          ? []
-          : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
+        record === null ? [] : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
     })),
 });
 ```
@@ -198,15 +193,25 @@ export const createXlsxImportSlice: StateCreator<
 Modify `src/renderer/store/useArxmlStore.ts`:
 
 1. Add import at top:
+
 ```ts
 import { createXlsxImportSlice, type XlsxImportSlice } from './slices/xlsxImportSlice.js';
 ```
 
 2. Update the `ArxmlState` interface to extend `XlsxImportSlice`:
+
 ```ts
 export interface ArxmlState
-  extends EcucSlice, BswmdSlice, ProjectSlice, I18nSlice, UiSlice,
-          ImportSlice, MutationSlice, TourSlice, XlsxImportSlice {
+  extends
+    EcucSlice,
+    BswmdSlice,
+    ProjectSlice,
+    I18nSlice,
+    UiSlice,
+    ImportSlice,
+    MutationSlice,
+    TourSlice,
+    XlsxImportSlice {
   // Every field is declared on its owning slice interface above; ...
 }
 ```
@@ -336,6 +341,7 @@ store-as-source-of-truth-for-async-args).
 ### Task 2: bswmd:pick IPC + Override activation
 
 **Files:**
+
 - Create: `src/main/ipc/bswmdPickHandler.ts`
 - Create: `src/main/ipc/__tests__/bswmdPickHandler.test.ts`
 - Create: `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx`
@@ -347,6 +353,7 @@ store-as-source-of-truth-for-async-args).
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` (Override activation)
 
 **Interfaces:**
+
 - Consumes: `BswmdPickResult` discriminated union (NEW); `findDcmBswmd` from v1.32.0 for sanity-check parse
 - Produces: `bswmdPickDialog()` + `registerBswmdPickHandler()` exported from `bswmdPickHandler.ts`; `<DcmConfigOverridePicker/>` exported from `DcmConfigOverridePicker.tsx`
 
@@ -406,7 +413,9 @@ describe('bswmdPickDialog (v1.33.0 T2)', () => {
       canceled: false,
       filePaths: ['/nonexistent/path.arxml'],
     });
-    const showMessageBox = vi.spyOn(electron.dialog, 'showMessageBox').mockResolvedValue({ response: 0 });
+    const showMessageBox = vi
+      .spyOn(electron.dialog, 'showMessageBox')
+      .mockResolvedValue({ response: 0 });
     const r = await bswmdPickDialog();
     expect(r).toEqual({ kind: 'canceled' });
     expect(showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
@@ -559,7 +568,11 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
 
   it('renders Browse + Clear buttons', () => {
     render(
-      <DcmConfigOverridePicker value="/dcm.arxml" onChange={() => undefined} onCancel={() => undefined} />,
+      <DcmConfigOverridePicker
+        value="/dcm.arxml"
+        onChange={() => undefined}
+        onCancel={() => undefined}
+      />,
     );
     expect(screen.getByRole('button', { name: /browse/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
@@ -571,7 +584,8 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
     (window.autosarApi.bswmdPick as ReturnType<typeof vi.fn>).mockResolvedValue({
       kind: 'opened',
       path: '/override.arxml',
-      content: '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>Dcm</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
+      content:
+        '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>Dcm</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
     });
     render(<DcmConfigOverridePicker value="" onChange={onChange} onCancel={() => undefined} />);
     await user.click(screen.getByRole('button', { name: /browse/i }));
@@ -597,7 +611,8 @@ describe('DcmConfigOverridePicker (v1.33.0 T2)', () => {
     (window.autosarApi.bswmdPick as ReturnType<typeof vi.fn>).mockResolvedValue({
       kind: 'opened',
       path: '/not-dcm.arxml',
-      content: '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>CanIf</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
+      content:
+        '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>CanIf</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>',
     });
     render(<DcmConfigOverridePicker value="" onChange={() => undefined} onCancel={onCancel} />);
     await user.click(screen.getByRole('button', { name: /browse/i }));
@@ -648,9 +663,7 @@ interface DcmConfigOverridePickerProps {
   readonly onCancel: () => void;
 }
 
-export function DcmConfigOverridePicker(
-  props: DcmConfigOverridePickerProps,
-): JSX.Element {
+export function DcmConfigOverridePicker(props: DcmConfigOverridePickerProps): JSX.Element {
   const handleBrowse = async (): Promise<void> => {
     const result = await window.autosarApi.bswmdPick();
     if (result.kind === 'canceled') {
@@ -678,7 +691,12 @@ export function DcmConfigOverridePicker(
       <button type="button" onClick={handleBrowse} data-testid="dcm-config-override-browse">
         Browse...
       </button>
-      <button type="button" onClick={handleClear} disabled={props.value === ''} data-testid="dcm-config-override-clear">
+      <button
+        type="button"
+        onClick={handleClear}
+        disabled={props.value === ''}
+        data-testid="dcm-config-override-clear"
+      >
         Clear
       </button>
     </div>
@@ -709,6 +727,7 @@ const handleOverrideClear = (): void => {
 ```
 
 4. Add import at the top:
+
 ```ts
 import { DcmConfigOverridePicker } from './DcmConfigOverridePicker.js';
 ```
@@ -737,6 +756,7 @@ the disabled input; v1.33.0 completes the activation path."
 ### Task 3: odx:open-with-default IPC + DcmConfigPicker defaultPath
 
 **Files:**
+
 - Create: `src/main/ipc/openOdxWithDefaultHandler.ts`
 - Create: `src/main/ipc/__tests__/openOdxWithDefaultHandler.test.ts`
 - Modify: `src/shared/types.ts` (add `OpenOdxWithDefaultRequest` + `OpenOdxWithDefaultResult` types)
@@ -747,6 +767,7 @@ the disabled input; v1.33.0 completes the activation path."
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx` (update 4 existing tests + add 1 defaultPath test)
 
 **Interfaces:**
+
 - Consumes: `OpenOdxWithDefaultRequest` (NEW); existing `openOdx` IPC contract (parallel shape)
 - Produces: `openOdxWithDefaultDialog()` + `registerOpenOdxWithDefaultHandler()` exported from `openOdxWithDefaultHandler.ts`; `<DcmConfigPicker defaultPath?={string}/>` (extends existing props)
 
@@ -816,7 +837,9 @@ describe('openOdxWithDefaultDialog (v1.33.0 T3)', () => {
       canceled: false,
       filePaths: ['/nonexistent.odx'],
     });
-    const showMessageBox = vi.spyOn(electron.dialog, 'showMessageBox').mockResolvedValue({ response: 0 });
+    const showMessageBox = vi
+      .spyOn(electron.dialog, 'showMessageBox')
+      .mockResolvedValue({ response: 0 });
     const r = await openOdxWithDefaultDialog({});
     expect(r.kind).toBe('read-failed');
     if (r.kind === 'read-failed') {
@@ -877,10 +900,7 @@ Create `src/main/ipc/openOdxWithDefaultHandler.ts`:
 import { promises as fs } from 'node:fs';
 import { dialog, ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
-import type {
-  OpenOdxWithDefaultRequest,
-  OpenOdxWithDefaultResult,
-} from '../../shared/types.js';
+import type { OpenOdxWithDefaultRequest, OpenOdxWithDefaultResult } from '../../shared/types.js';
 
 export async function openOdxWithDefaultDialog(
   req: OpenOdxWithDefaultRequest,
@@ -917,10 +937,8 @@ export async function openOdxWithDefaultDialog(
 export function registerOpenOdxWithDefaultHandler(): void {
   ipcMain.handle(
     IPC_CHANNELS.ODX_OPEN_WITH_DEFAULT,
-    async (
-      _event,
-      req: OpenOdxWithDefaultRequest,
-    ): Promise<OpenOdxWithDefaultResult> => openOdxWithDefaultDialog(req),
+    async (_event, req: OpenOdxWithDefaultRequest): Promise<OpenOdxWithDefaultResult> =>
+      openOdxWithDefaultDialog(req),
   );
 }
 ```
@@ -991,10 +1009,12 @@ contract preserved; new channel ships additively."
 ### Task 4: Drop legacy regex fallback (T4 — single commit, mechanical deletion)
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts` (delete `classifyErrorByRegex` + simplify `classifyError`)
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (delete 9 regex + 3 backward-compat tests + add 1 defensive fallback test)
 
 **Interfaces:**
+
 - Consumes: nothing new
 - Produces: `classifyError(error: DcmConfigError): DcmConfigErrorClass` (kind-first only, defensive 'UNKNOWN' fallback)
 
@@ -1070,10 +1090,12 @@ item at v.N ship time when deferring cleanup to v.N+1."
 ### Task 5: Launcher xlsxRows + handleOverridePick wiring
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts` (replace `xlsxRows: []` placeholders; add `bswmdPathOverride` state + `handleOverridePick` + `handleOverrideClear` actions)
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (add 3 tests for the new behaviors)
 
 **Interfaces:**
+
 - Consumes: `useArxmlStore.getState().xlsxLastImport` (from T1); `setXlsxLastImport` already wired
 - Produces: `bswmdPathOverride?: string` state field; `handleOverridePick(path)` + `handleOverrideClear()` exposed on the hook return
 
@@ -1178,6 +1200,7 @@ across renders must live in a Zustand slice, not a hook local."
 ### Task 6: bswmdPath: optional → required
 
 **Files:**
+
 - Modify: `src/shared/types.ts` (change `bswmdPath?: string` to `bswmdPath: string` in `DcmConfigHandlerResult`)
 - Modify: `src/main/ipc/dcmConfigHandler.ts` (always populate `bswmdPath`; remove `??` fallback)
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` (remove `result.bswmdPath &&` guard since always set)
@@ -1185,6 +1208,7 @@ across renders must live in a Zustand slice, not a hook local."
 - Modify: `src/main/ipc/__tests__/dcmConfigHandler.test.ts` (assert `result.value.bswmdPath` set in success-path tests)
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces: `DcmConfigHandlerResult.bswmdPath: string` (required)
 
@@ -1208,13 +1232,13 @@ Modify `src/main/ipc/dcmConfigHandler.ts` — find the success-path return (arou
 // Before
 const result: DcmConfigHandlerResult = {
   // ... existing fields ...
-  bswmdPath: args.bswmdPath ?? dcmBswmdPath,  // v1.32.0 — fallback
+  bswmdPath: args.bswmdPath ?? dcmBswmdPath, // v1.32.0 — fallback
 };
 
 // After
 const result: DcmConfigHandlerResult = {
   // ... existing fields ...
-  bswmdPath: dcmBswmdPath,  // v1.33.0 — always populated by handler.
+  bswmdPath: dcmBswmdPath, // v1.33.0 — always populated by handler.
 };
 ```
 
@@ -1226,16 +1250,18 @@ Modify `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` — find t
 
 ```tsx
 // Before
-{result.bswmdPath && (
-  <p className="dcm-config-success-bswmd-autofill">
-    {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
-  </p>
-)}
+{
+  result.bswmdPath && (
+    <p className="dcm-config-success-bswmd-autofill">
+      {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
+    </p>
+  );
+}
 
 // After
 <p className="dcm-config-success-bswmd-autofill">
   {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
-</p>
+</p>;
 ```
 
 - [ ] **Step 6.4: Delete 3 absence tests + add 1 always-populated assertion**
@@ -1274,6 +1300,7 @@ unconditionally renders the autofill line. 3 absence tests removed.
 ### Task 7: Wiring + SuccessDialog row count surface
 
 **Files:**
+
 - Modify: `src/renderer/App.tsx` (compute `defaultPath` for DcmConfigPicker; pass to picker)
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` (add `appliedStepCount` autofill line)
 - Modify: `src/shared/i18n/odx.ts` (add `dcmConfig.appliedCount.summary` key — en)
@@ -1282,6 +1309,7 @@ unconditionally renders the autofill line. 3 absence tests removed.
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (add 1 row count test)
 
 **Interfaces:**
+
 - Consumes: `DcmConfigPicker`'s new `defaultPath?` prop (from T3); `DcmConfigHandlerResult.appliedStepCount` (existing field)
 - Produces: appliedCount i18n key (en + zh-CN)
 
@@ -1310,16 +1338,19 @@ Expected: FAIL — autofill line not rendered (key not in i18n).
 - [ ] **Step 7.3: Add the i18n key to all 3 bundles**
 
 Modify `src/shared/i18n/odx.ts` — add:
+
 ```ts
 'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
 ```
 
 Modify `src/shared/i18n.zh-CN/odx.ts` — add:
+
 ```ts
 'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
 ```
 
 Modify `src/shared/i18n.en/odx.ts` — add:
+
 ```ts
 'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
 ```
@@ -1329,11 +1360,13 @@ Modify `src/shared/i18n.en/odx.ts` — add:
 Modify `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` — immediately after the existing autofill line (added in Step 6.3), add:
 
 ```tsx
-{result.appliedStepCount > 0 && (
-  <p className="dcm-config-success-applied-count">
-    {t(locale, 'dcmConfig.appliedCount.summary', { count: result.appliedStepCount })}
-  </p>
-)}
+{
+  result.appliedStepCount > 0 && (
+    <p className="dcm-config-success-applied-count">
+      {t(locale, 'dcmConfig.appliedCount.summary', { count: result.appliedStepCount })}
+    </p>
+  );
+}
 ```
 
 - [ ] **Step 7.5: Compute defaultPath in App.tsx**
@@ -1341,17 +1374,18 @@ Modify `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` — immedi
 Modify `src/renderer/App.tsx` — find the existing `<DcmConfigPicker/>` mount (added in v1.32.0 T8 commit `9efb5d6`). Update:
 
 ```tsx
-{launcherState.mode === 'picking-odx' && (
-  <DcmConfigPicker
-    locale={locale}
-    defaultPath={
-      project?.rootDir ??
-      bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/')
-    }
-    onResolve={launcher.handlePickerResolve}
-    onCancel={launcher.handlePickerCancel}
-  />
-)}
+{
+  launcherState.mode === 'picking-odx' && (
+    <DcmConfigPicker
+      locale={locale}
+      defaultPath={
+        project?.rootDir ?? bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/')
+      }
+      onResolve={launcher.handlePickerResolve}
+      onCancel={launcher.handlePickerCancel}
+    />
+  );
+}
 ```
 
 - [ ] **Step 7.6: Run test to verify GREEN**
@@ -1379,6 +1413,7 @@ for DcmConfigPicker (project root → BSWMD parent dir → undefined).
 ### Task 8: Ship (final wiring + verify + release)
 
 **Files:**
+
 - Create: `docs/release-notes/v1.33.0/README.md` (NEW release notes)
 - No production code changes
 
@@ -1457,6 +1492,7 @@ Run: `pnpm verify`
 Expected: format + lint + typecheck + test (2998+7 SKIP / 0 fail) + coverage + build + import-regression — all GREEN.
 
 If anything fails, fix it (do not bypass). Common fix patterns:
+
 - Format: `pnpm prettier --write <offending-file>`
 - Lint: `pnpm eslint --fix <offending-file>`
 
@@ -1465,12 +1501,14 @@ Commit any fixes with `chore: v1.33.0 MINOR — pnpm verify fixes` style.
 - [ ] **Step 8.3: Whole-branch review (Sonnet inline)**
 
 Before tagging, run:
+
 ```bash
 git log --oneline a5c665c..HEAD
 git diff --stat a5c665c..HEAD
 ```
 
 Review the 8 commits. Per the global constraints table:
+
 - 0 BLOCK / 0 CRITICAL expected.
 - HIGH findings → fix in same MINOR (rare; TDD should have caught them).
 - MEDIUM findings → v1.33.1 PATCH.
@@ -1499,6 +1537,7 @@ gh release view v1.33.0 --json tagName,url  # confirm release visible
 ```
 
 Write report to `D:/claude_proj2/claude-AutosarCfg/.git/sdd/task-8-report.md` with:
+
 - Status
 - Commits
 - Test results

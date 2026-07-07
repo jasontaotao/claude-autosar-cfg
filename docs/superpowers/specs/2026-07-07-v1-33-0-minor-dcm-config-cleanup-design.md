@@ -107,32 +107,32 @@ After v1.33.0 ships, the Dcm config chain is **fully closed** — no further PAT
 
 ### Component placement
 
-| Component | Path | Type |
-| --- | --- | --- |
-| `XlsxImportRecord` (NEW type) | `src/renderer/store/slices/xlsxImportSlice.ts` | NEW |
-| `XlsxImportSlice` (NEW) | `src/renderer/store/slices/xlsxImportSlice.ts` | NEW |
-| `createXlsxImportSlice` (NEW) | `src/renderer/store/slices/xlsxImportSlice.ts` | NEW |
-| `xlsxImportListener` (NEW) | `src/renderer/store/xlsxImportListener.ts` | NEW |
-| `useArxmlStore` (MODIFIED) | `src/renderer/store/useArxmlStore.ts` | MODIFY (add slice to intersection) |
-| `BswmdPickResult` (NEW type) | `src/shared/types.ts` | NEW |
-| `bswmdPickDialog` (NEW) | `src/main/ipc/bswmdPickHandler.ts` | NEW |
-| `OpenOdxWithDefaultRequest` (NEW type) | `src/shared/types.ts` | NEW |
-| `OpenOdxWithDefaultResult` (NEW type) | `src/shared/types.ts` | NEW |
-| `openOdxWithDefaultDialog` (NEW) | `src/main/ipc/openOdxWithDefaultHandler.ts` | NEW |
-| `DcmConfigOverridePicker` (NEW) | `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx` | NEW presentational |
-| `useDcmConfigLauncher` (MODIFIED) | `src/renderer/hooks/useDcmConfigLauncher.ts` | MODIFY |
-| `DcmConfigSuccessDialog` (MODIFIED) | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` | MODIFY (Override activation + row count) |
-| `DcmConfigPicker` (MODIFIED) | `src/renderer/components/dcmConfig/DcmConfigPicker.tsx` | MODIFY (defaultPath prop) |
-| `App.tsx` (MODIFIED) | `src/renderer/App.tsx` | MODIFY (defaultPath computation) |
-| `dcmConfigHandler` (MODIFIED) | `src/main/ipc/dcmConfigHandler.ts` | MODIFY (bswmdPath always populated) |
-| `DcmConfigHandlerResult` (MODIFIED) | `src/shared/types.ts` | MODIFY (bswmdPath required) |
-| `IPC_CHANNELS` (MODIFIED) | `src/shared/ipc-contract.ts` | MODIFY (3 new channels) |
-| `register` (MODIFIED) | `src/main/ipc/register.ts` | MODIFY (2 new handler registrations) |
-| `preload` (MODIFIED) | `src/preload/index.ts` | MODIFY (2 new method exposures + 2 listeners) |
-| `xlsxEcucBatchImportHandler` (MODIFIED) | `src/main/ipc/xlsxEcucBatchImportHandler.ts` | MODIFY (push payload on success) |
-| `classifyErrorByRegex` (DELETED) | `src/renderer/hooks/useDcmConfigLauncher.ts` | DELETE |
-| 12 regex test cases (DELETED) | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` | DELETE |
-| 3 bswmdPath absence tests (DELETED) | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | DELETE |
+| Component                               | Path                                                                          | Type                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| `XlsxImportRecord` (NEW type)           | `src/renderer/store/slices/xlsxImportSlice.ts`                                | NEW                                           |
+| `XlsxImportSlice` (NEW)                 | `src/renderer/store/slices/xlsxImportSlice.ts`                                | NEW                                           |
+| `createXlsxImportSlice` (NEW)           | `src/renderer/store/slices/xlsxImportSlice.ts`                                | NEW                                           |
+| `xlsxImportListener` (NEW)              | `src/renderer/store/xlsxImportListener.ts`                                    | NEW                                           |
+| `useArxmlStore` (MODIFIED)              | `src/renderer/store/useArxmlStore.ts`                                         | MODIFY (add slice to intersection)            |
+| `BswmdPickResult` (NEW type)            | `src/shared/types.ts`                                                         | NEW                                           |
+| `bswmdPickDialog` (NEW)                 | `src/main/ipc/bswmdPickHandler.ts`                                            | NEW                                           |
+| `OpenOdxWithDefaultRequest` (NEW type)  | `src/shared/types.ts`                                                         | NEW                                           |
+| `OpenOdxWithDefaultResult` (NEW type)   | `src/shared/types.ts`                                                         | NEW                                           |
+| `openOdxWithDefaultDialog` (NEW)        | `src/main/ipc/openOdxWithDefaultHandler.ts`                                   | NEW                                           |
+| `DcmConfigOverridePicker` (NEW)         | `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx`               | NEW presentational                            |
+| `useDcmConfigLauncher` (MODIFIED)       | `src/renderer/hooks/useDcmConfigLauncher.ts`                                  | MODIFY                                        |
+| `DcmConfigSuccessDialog` (MODIFIED)     | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                | MODIFY (Override activation + row count)      |
+| `DcmConfigPicker` (MODIFIED)            | `src/renderer/components/dcmConfig/DcmConfigPicker.tsx`                       | MODIFY (defaultPath prop)                     |
+| `App.tsx` (MODIFIED)                    | `src/renderer/App.tsx`                                                        | MODIFY (defaultPath computation)              |
+| `dcmConfigHandler` (MODIFIED)           | `src/main/ipc/dcmConfigHandler.ts`                                            | MODIFY (bswmdPath always populated)           |
+| `DcmConfigHandlerResult` (MODIFIED)     | `src/shared/types.ts`                                                         | MODIFY (bswmdPath required)                   |
+| `IPC_CHANNELS` (MODIFIED)               | `src/shared/ipc-contract.ts`                                                  | MODIFY (3 new channels)                       |
+| `register` (MODIFIED)                   | `src/main/ipc/register.ts`                                                    | MODIFY (2 new handler registrations)          |
+| `preload` (MODIFIED)                    | `src/preload/index.ts`                                                        | MODIFY (2 new method exposures + 2 listeners) |
+| `xlsxEcucBatchImportHandler` (MODIFIED) | `src/main/ipc/xlsxEcucBatchImportHandler.ts`                                  | MODIFY (push payload on success)              |
+| `classifyErrorByRegex` (DELETED)        | `src/renderer/hooks/useDcmConfigLauncher.ts`                                  | DELETE                                        |
+| 12 regex test cases (DELETED)           | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                   | DELETE                                        |
+| 3 bswmdPath absence tests (DELETED)     | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | DELETE                                        |
 
 ## 3. Detailed Design
 
@@ -149,31 +149,26 @@ import type { ArxmlState } from '../useArxmlStore.js';
 export interface XlsxImportRecord {
   readonly rows: readonly EcucInstanceRow[];
   readonly source: 'manual' | 'wizard';
-  readonly importedAt: number;  // Date.now()
+  readonly importedAt: number; // Date.now()
 }
 
 export interface XlsxImportSlice {
   readonly xlsxLastImport: XlsxImportRecord | null;
-  readonly xlsxImportHistory: readonly XlsxImportRecord[];  // last 5
+  readonly xlsxImportHistory: readonly XlsxImportRecord[]; // last 5
   setXlsxLastImport: (record: XlsxImportRecord | null) => void;
 }
 
 const MAX_HISTORY = 5;
 
-export const createXlsxImportSlice: StateCreator<
-  ArxmlState,
-  [],
-  [],
-  XlsxImportSlice
-> = (set) => ({
+export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportSlice> = (set) => ({
   xlsxLastImport: null,
   xlsxImportHistory: [],
-  setXlsxLastImport: (record) => set((s) => ({
-    xlsxLastImport: record,
-    xlsxImportHistory: record === null
-      ? []
-      : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
-  })),
+  setXlsxLastImport: (record) =>
+    set((s) => ({
+      xlsxLastImport: record,
+      xlsxImportHistory:
+        record === null ? [] : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
+    })),
 });
 ```
 
@@ -277,10 +272,7 @@ export async function bswmdPickDialog(): Promise<BswmdPickResult> {
 }
 
 export function registerBswmdPickHandler(): void {
-  ipcMain.handle(
-    IPC_CHANNELS.BSWMD_PICK,
-    async (): Promise<BswmdPickResult> => bswmdPickDialog(),
-  );
+  ipcMain.handle(IPC_CHANNELS.BSWMD_PICK, async (): Promise<BswmdPickResult> => bswmdPickDialog());
 }
 ```
 
@@ -312,9 +304,7 @@ interface DcmConfigOverridePickerProps {
 
 /** Browse button + cancel button for the Override <details> subcomponent.
  *  Renders a button cluster; the parent dialog owns the <input> field. */
-export function DcmConfigOverridePicker(
-  props: DcmConfigOverridePickerProps,
-): JSX.Element {
+export function DcmConfigOverridePicker(props: DcmConfigOverridePickerProps): JSX.Element {
   // No mountedRef needed — this is a sync button handler, not an
   // async IPC effect. (Strict-mode double-fire would invoke the click
   // handler twice, but the user has to actually click.)
@@ -334,9 +324,9 @@ export function DcmConfigOverridePicker(
   <summary>{t(locale, 'dcmConfig.bswmdPath.override')}</summary>
   <input
     type="text"
-    value={result.bswmdPath ?? ''}  // v1.33.0: required, so ?? '' is defensive
+    value={result.bswmdPath ?? ''} // v1.33.0: required, so ?? '' is defensive
     readOnly
-    disabled={false}  // v1.33.0: now active (was disabled=true in v1.32.1)
+    disabled={false} // v1.33.0: now active (was disabled=true in v1.32.1)
     data-testid="dcm-config-override-input"
   />
   <DcmConfigOverridePicker
@@ -382,10 +372,7 @@ export type OpenOdxWithDefaultResult =
 import { promises as fs } from 'node:fs';
 import { dialog, ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
-import type {
-  OpenOdxWithDefaultRequest,
-  OpenOdxWithDefaultResult,
-} from '../../shared/types.js';
+import type { OpenOdxWithDefaultRequest, OpenOdxWithDefaultResult } from '../../shared/types.js';
 
 export async function openOdxWithDefaultDialog(
   req: OpenOdxWithDefaultRequest,
@@ -422,10 +409,8 @@ export async function openOdxWithDefaultDialog(
 export function registerOpenOdxWithDefaultHandler(): void {
   ipcMain.handle(
     IPC_CHANNELS.ODX_OPEN_WITH_DEFAULT,
-    async (
-      _event,
-      req: OpenOdxWithDefaultRequest,
-    ): Promise<OpenOdxWithDefaultResult> => openOdxWithDefaultDialog(req),
+    async (_event, req: OpenOdxWithDefaultRequest): Promise<OpenOdxWithDefaultResult> =>
+      openOdxWithDefaultDialog(req),
   );
 }
 ```
@@ -437,7 +422,7 @@ export function registerOpenOdxWithDefaultHandler(): void {
 
 interface DcmConfigPickerProps {
   readonly locale: 'en' | 'zh-CN';
-  readonly defaultPath?: string;  // NEW v1.33.0
+  readonly defaultPath?: string; // NEW v1.33.0
   readonly onResolve: (odxPath: string) => void | Promise<void>;
   readonly onCancel: () => void;
 }
@@ -477,17 +462,18 @@ export function DcmConfigPicker(props: DcmConfigPickerProps): null {
 ```tsx
 // src/renderer/App.tsx — MODIFY
 
-{launcherState.mode === 'picking-odx' && (
-  <DcmConfigPicker
-    locale={locale}
-    defaultPath={
-      project?.rootDir ??
-      bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/')
-    }
-    onResolve={launcher.handlePickerResolve}
-    onCancel={launcher.handlePickerCancel}
-  />
-)}
+{
+  launcherState.mode === 'picking-odx' && (
+    <DcmConfigPicker
+      locale={locale}
+      defaultPath={
+        project?.rootDir ?? bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/')
+      }
+      onResolve={launcher.handlePickerResolve}
+      onCancel={launcher.handlePickerCancel}
+    />
+  );
+}
 ```
 
 `defaultPath` falls back to the BSWMD's parent directory if no project root — a sensible "near the BSWMD" default without needing a project manifest.
@@ -515,11 +501,12 @@ export function classifyError(error: DcmConfigError): DcmConfigErrorClass {
   if (typeof error === 'object' && error !== null && 'kind' in error) {
     return KIND_TO_CLASS[error.kind];
   }
-  return 'UNKNOWN';  // Defensive: should never happen in v1.32.0+ payloads.
+  return 'UNKNOWN'; // Defensive: should never happen in v1.32.0+ payloads.
 }
 ```
 
 **Tests dropped + added** in `useDcmConfigLauncher.test.ts`:
+
 - DELETE: 9 `classifyErrorByRegex` cases.
 - DELETE: 3 backward-compat cases (`describe('classifyError backward-compat ... missing kind')`).
 - KEEP: 9 kind-mapping cases.
@@ -550,14 +537,17 @@ const promptAndOpen = useCallback(async () => {
   } finally {
     inFlightRef.current = false;
   }
-}, [bswmdHasDcm, isActiveOdx, activeDocumentPath, bswmdPathOverride, /* etc */]);
+}, [bswmdHasDcm, isActiveOdx, activeDocumentPath, bswmdPathOverride /* etc */]);
 
-const handlePickerResolve = useCallback(async (odxPath: string) => {
-  setState((s) => ({ ...s, mode: 'pending' }));
-  const xlsxRows = useArxmlStore.getState().xlsxLastImport?.rows ?? [];
-  const bswmdPath = bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath;
-  await open({ odxPath, xlsxRows, bswmdPath });
-}, [bswmdHasDcm.dcmBswmdPath, bswmdPathOverride, /* etc */]);
+const handlePickerResolve = useCallback(
+  async (odxPath: string) => {
+    setState((s) => ({ ...s, mode: 'pending' }));
+    const xlsxRows = useArxmlStore.getState().xlsxLastImport?.rows ?? [];
+    const bswmdPath = bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath;
+    await open({ odxPath, xlsxRows, bswmdPath });
+  },
+  [bswmdHasDcm.dcmBswmdPath, bswmdPathOverride /* etc */],
+);
 
 const handleOverridePick = useCallback(async (path: string) => {
   setState((s) => ({ ...s, bswmdPathOverride: path }));
@@ -580,7 +570,7 @@ export interface DcmConfigHandlerResult {
   readonly serviceCounts: Readonly<Record<DcmServiceKind, number>>;
   readonly outputPath: string;
   readonly appliedStepCount: number;
-  readonly bswmdPath: string;  // v1.33.0 — was optional. Always populated.
+  readonly bswmdPath: string; // v1.33.0 — was optional. Always populated.
 }
 ```
 
@@ -594,13 +584,14 @@ const result: DcmConfigHandlerResult = {
   serviceCounts: pipelineResult.serviceCounts,
   outputPath,
   appliedStepCount,
-  bswmdPath: dcmBswmdPath,  // v1.33.0 — always populated; no `??`
+  bswmdPath: dcmBswmdPath, // v1.33.0 — always populated; no `??`
 };
 ```
 
 `args.bswmdPath ?? dcmBswmdPath` resolution moves entirely to the launcher (already done there per v1.32.0's autofill); the handler always receives a resolved path and always echoes it back.
 
 **Tests** in `DcmConfigSuccessDialog.test.tsx`:
+
 - DELETE: 3 `bswmdPathAutofill` absence tests (path is always set now).
 - ADD: 1 always-populated assertion in the existing positive case.
 
@@ -609,21 +600,26 @@ const result: DcmConfigHandlerResult = {
 ```tsx
 // src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx — MODIFY
 
-{result.bswmdPath && (
-  <p className="dcm-config-success-bswmd-autofill">
-    {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
-  </p>
-)}
-{result.appliedStepCount > 0 && (
-  <p className="dcm-config-success-applied-count">
-    {t(locale, 'dcmConfig.appliedCount.summary', { count: result.appliedStepCount })}
-  </p>
-)}
+{
+  result.bswmdPath && (
+    <p className="dcm-config-success-bswmd-autofill">
+      {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
+    </p>
+  );
+}
+{
+  result.appliedStepCount > 0 && (
+    <p className="dcm-config-success-applied-count">
+      {t(locale, 'dcmConfig.appliedCount.summary', { count: result.appliedStepCount })}
+    </p>
+  );
+}
 ```
 
 New i18n key: `dcmConfig.appliedCount.summary` = "Applied {count} xlsx rows" / "已应用 {count} 行 xlsx 数据" (en/zh-CN).
 
 **Tests** in `DcmConfigSuccessDialog.test.tsx`:
+
 - ADD: 1 test asserting row count renders when `appliedStepCount > 0`.
 
 ### T8 — Ship
@@ -638,47 +634,47 @@ Standard ship mechanics per the project's `gh-api-ship-pattern-recap` + `follow-
 
 ### Test budget (+11 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `src/renderer/store/__tests__/xlsxImportSlice.test.ts` (NEW) | +5 | 2987 → 2992 |
-| `src/main/ipc/__tests__/bswmdPickHandler.test.ts` (NEW) | +4 | 2992 → 2996 |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (NEW) | +5 | 2996 → 3001 |
-| `src/main/ipc/__tests__/openOdxWithDefaultHandler.test.ts` (NEW) | +4 | 3001 → 3005 |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx` (UPDATED) | +1 (defaultPath prop test) | 3005 → 3006 |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (UPDATED) | -9 (regex) -3 (backward-compat) +1 (defensive fallback) | 3006 → 2995 |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (NEW xlsxRows + handleOverridePick tests) | +3 | 2995 → 2998 |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (UPDATED) | -3 (absence) +1 (always-populated) +1 (row count) | 2998 → 2997 |
-| **Total** | | **2987 → 2998 (+11)** |
+| Test file                                                                                             | Δ                                                       | Cumulative            |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------- |
+| `src/renderer/store/__tests__/xlsxImportSlice.test.ts` (NEW)                                          | +5                                                      | 2987 → 2992           |
+| `src/main/ipc/__tests__/bswmdPickHandler.test.ts` (NEW)                                               | +4                                                      | 2992 → 2996           |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (NEW)                  | +5                                                      | 2996 → 3001           |
+| `src/main/ipc/__tests__/openOdxWithDefaultHandler.test.ts` (NEW)                                      | +4                                                      | 3001 → 3005           |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx` (UPDATED)                      | +1 (defaultPath prop test)                              | 3005 → 3006           |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (UPDATED)                                 | -9 (regex) -3 (backward-compat) +1 (defensive fallback) | 3006 → 2995           |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (NEW xlsxRows + handleOverridePick tests) | +3                                                      | 2995 → 2998           |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (UPDATED)               | -3 (absence) +1 (always-populated) +1 (row count)       | 2998 → 2997           |
+| **Total**                                                                                             |                                                         | **2987 → 2998 (+11)** |
 
 Baseline 2987 + 7 SKIP / 0 fail (from v1.32.1 PATCH `a5c665c`) → target **2998 + 7 SKIP / 0 fail**.
 
 ### Subagent-driven task split (8 tasks)
 
-| # | Task | Model | Test delta |
-| --- | --- | --- | --- |
-| T1 | `xlsxImportSlice` + IPC push listener + handler writeback | Sonnet | +5 |
-| T2 | `bswmdPickHandler` + `DcmConfigOverridePicker` + IPC channel + preload | Sonnet | +9 |
-| T3 | `openOdxWithDefaultHandler` + `DcmConfigPicker` defaultPath | Haiku | +5 |
-| T4 | `classifyErrorByRegex` deletion + `classifyError` simplify | Haiku | -11 |
-| T5 | Launcher `xlsxRows` + `handleOverridePick` + `bswmdPathOverride` state | Sonnet | +3 |
-| T6 | `bswmdPath: optional → required` + dialog absence test removal | Haiku | -2 |
-| T7 | Wiring + SuccessDialog row count surface + appliedCount i18n key | Sonnet | +2 |
-| T8 | Ship: `pnpm verify` + 2 separate pushes + `gh release create` | Sonnet | (wiring only) |
+| #   | Task                                                                   | Model  | Test delta    |
+| --- | ---------------------------------------------------------------------- | ------ | ------------- |
+| T1  | `xlsxImportSlice` + IPC push listener + handler writeback              | Sonnet | +5            |
+| T2  | `bswmdPickHandler` + `DcmConfigOverridePicker` + IPC channel + preload | Sonnet | +9            |
+| T3  | `openOdxWithDefaultHandler` + `DcmConfigPicker` defaultPath            | Haiku  | +5            |
+| T4  | `classifyErrorByRegex` deletion + `classifyError` simplify             | Haiku  | -11           |
+| T5  | Launcher `xlsxRows` + `handleOverridePick` + `bswmdPathOverride` state | Sonnet | +3            |
+| T6  | `bswmdPath: optional → required` + dialog absence test removal         | Haiku  | -2            |
+| T7  | Wiring + SuccessDialog row count surface + appliedCount i18n key       | Sonnet | +2            |
+| T8  | Ship: `pnpm verify` + 2 separate pushes + `gh release create`          | Sonnet | (wiring only) |
 
 ## 5. Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-| --- | --- | --- | --- |
-| `xlsxLastImport` race — multiple imports before launcher reads | Low | Medium | `xlsxImportHistory` keeps last 5; `xlsxLastImport` is most recent. Launcher reads at IPC invocation time (not mount time), race naturally bounded. |
-| `bswmd:pick` IPC payload size | Low | Low | BSWMD files < 1 MB typically. Existing 32 MiB cap applies. |
-| `odx:open-with-default` filters arg mutability | Low | Low | Handler spreads `req.filters` into fresh array. Pattern matches `xlsxEcucBatchImportHandler`. |
-| Regex deletion breaks hidden consumers | Very Low | High | Grep for `classifyErrorByRegex` returns 0 external uses after deletion. Pre-ship check enforces. |
-| `bswmdPath: optional → required` breaks downstream | Low | Medium | 3 known consumers (handler, dialog, launcher). All updated atomically in T6. |
-| `DcmConfigOverridePicker` parse-fail silent | Low | Medium | If a non-BSWMD file is picked, `findDcmBswmd` returns `{hasDcm: false}`; we call `onCancel()` + `console.warn`. Real errors surface via `bswmd-unreadable` IPC error class. |
-| `xlsx:import-complete` IPC push ordering | Low | Low | Listener is idempotent (always overwrites `xlsxLastImport`). |
-| Override UI activation regresses v1.32.1 PATCH behavior | Very Low | Low | v1.32.1 shipped `disabled={true}`; v1.33.0 changes to `disabled={false}` + adds Browse. Existing tests assert input visibility (kept). |
-| `arxmlModuleShortNames` uses direct fast-xml-parser (refactor deferred) | Low | Low | Tracked in v1.33.0 spec — YAGNI until 2nd consumer. |
-| 8-task subagent dispatch surface | Low | Medium | Per project pattern; per-task reviewer gates catch regressions; whole-branch review at end routes any missed items. |
+| Risk                                                                    | Likelihood | Impact | Mitigation                                                                                                                                                                  |
+| ----------------------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `xlsxLastImport` race — multiple imports before launcher reads          | Low        | Medium | `xlsxImportHistory` keeps last 5; `xlsxLastImport` is most recent. Launcher reads at IPC invocation time (not mount time), race naturally bounded.                          |
+| `bswmd:pick` IPC payload size                                           | Low        | Low    | BSWMD files < 1 MB typically. Existing 32 MiB cap applies.                                                                                                                  |
+| `odx:open-with-default` filters arg mutability                          | Low        | Low    | Handler spreads `req.filters` into fresh array. Pattern matches `xlsxEcucBatchImportHandler`.                                                                               |
+| Regex deletion breaks hidden consumers                                  | Very Low   | High   | Grep for `classifyErrorByRegex` returns 0 external uses after deletion. Pre-ship check enforces.                                                                            |
+| `bswmdPath: optional → required` breaks downstream                      | Low        | Medium | 3 known consumers (handler, dialog, launcher). All updated atomically in T6.                                                                                                |
+| `DcmConfigOverridePicker` parse-fail silent                             | Low        | Medium | If a non-BSWMD file is picked, `findDcmBswmd` returns `{hasDcm: false}`; we call `onCancel()` + `console.warn`. Real errors surface via `bswmd-unreadable` IPC error class. |
+| `xlsx:import-complete` IPC push ordering                                | Low        | Low    | Listener is idempotent (always overwrites `xlsxLastImport`).                                                                                                                |
+| Override UI activation regresses v1.32.1 PATCH behavior                 | Very Low   | Low    | v1.32.1 shipped `disabled={true}`; v1.33.0 changes to `disabled={false}` + adds Browse. Existing tests assert input visibility (kept).                                      |
+| `arxmlModuleShortNames` uses direct fast-xml-parser (refactor deferred) | Low        | Low    | Tracked in v1.33.0 spec — YAGNI until 2nd consumer.                                                                                                                         |
+| 8-task subagent dispatch surface                                        | Low        | Medium | Per project pattern; per-task reviewer gates catch regressions; whole-branch review at end routes any missed items.                                                         |
 
 ## 6. Lessons (NEW from v1.33.0 design)
 

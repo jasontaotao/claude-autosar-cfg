@@ -24,11 +24,9 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
+import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-import {
-  classifyError,
-  useDcmConfigLauncher,
-} from '../useDcmConfigLauncher.js';
+import { classifyError, useDcmConfigLauncher } from '../useDcmConfigLauncher.js';
 
 // Stub the window.autosarApi bridge so the hook can call into it
 // without a real Electron context. Each test sets `invokeResult`
@@ -553,8 +551,6 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
 //   3. handleOverrideClear() returns bswmdPathOverride to undefined so
 //      the next open() falls back to bswmdHasDcm.dcmBswmdPath.
 // ---------------------------------------------------------------------------
-
-import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
 
 const XLSX_RECORD: XlsxImportRecord = {
   rows: [

@@ -11,12 +11,11 @@
 // v1.22.0 openOdxHandler 的 default behavior)。
 
 import { promises as fs } from 'node:fs';
+
 import { dialog, ipcMain } from 'electron';
+
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
-import type {
-  OpenOdxWithDefaultRequest,
-  OpenOdxWithDefaultResult,
-} from '../../shared/types.js';
+import type { OpenOdxWithDefaultRequest, OpenOdxWithDefaultResult } from '../../shared/types.js';
 
 export async function openOdxWithDefaultDialog(
   req: OpenOdxWithDefaultRequest,
@@ -53,9 +52,7 @@ export async function openOdxWithDefaultDialog(
 export function registerOpenOdxWithDefaultHandler(): void {
   ipcMain.handle(
     IPC_CHANNELS.ODX_OPEN_WITH_DEFAULT,
-    async (
-      _event,
-      req: OpenOdxWithDefaultRequest,
-    ): Promise<OpenOdxWithDefaultResult> => openOdxWithDefaultDialog(req),
+    async (_event, req: OpenOdxWithDefaultRequest): Promise<OpenOdxWithDefaultResult> =>
+      openOdxWithDefaultDialog(req),
   );
 }

@@ -4,8 +4,9 @@
 //
 // 关联 lesson: store-as-source-of-truth-for-async-args
 
-import { useArxmlStore } from './useArxmlStore.js';
 import type { EcucInstanceRow } from '../../shared/types.js';
+
+import { useArxmlStore } from './useArxmlStore.js';
 
 interface XlsxImportCompletePayload {
   readonly rows: readonly EcucInstanceRow[];

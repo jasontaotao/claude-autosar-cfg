@@ -9,6 +9,7 @@
 // attachXlsxImportListener() 监听并写入本 slice。
 
 import type { StateCreator } from 'zustand';
+
 import type { EcucInstanceRow } from '../../../shared/types.js';
 import type { ArxmlState } from '../useArxmlStore.js';
 
@@ -26,20 +27,13 @@ export interface XlsxImportSlice {
 
 const MAX_HISTORY = 5;
 
-export const createXlsxImportSlice: StateCreator<
-  ArxmlState,
-  [],
-  [],
-  XlsxImportSlice
-> = (set) => ({
+export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportSlice> = (set) => ({
   xlsxLastImport: null,
   xlsxImportHistory: [],
   setXlsxLastImport: (record) =>
     set((s) => ({
       xlsxLastImport: record,
       xlsxImportHistory:
-        record === null
-          ? []
-          : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
+        record === null ? [] : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
     })),
 });

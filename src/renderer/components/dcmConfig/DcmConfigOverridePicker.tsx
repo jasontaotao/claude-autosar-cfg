@@ -45,11 +45,7 @@ export function DcmConfigOverridePicker(props: DcmConfigOverridePickerProps): JS
 
   return (
     <div className="dcm-config-override-picker">
-      <button
-        type="button"
-        onClick={handleBrowse}
-        data-testid="dcm-config-override-browse"
-      >
+      <button type="button" onClick={handleBrowse} data-testid="dcm-config-override-browse">
         Browse...
       </button>
       <button

@@ -18,7 +18,9 @@
 //     renderer's error banner.
 
 import { promises as fs } from 'node:fs';
+
 import { dialog, ipcMain } from 'electron';
+
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type { BswmdPickResult } from '../../shared/types.js';
 
