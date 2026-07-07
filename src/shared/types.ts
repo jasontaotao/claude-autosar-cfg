@@ -314,6 +314,38 @@ export type OpenOdxResult =
   | { readonly kind: 'read-failed'; readonly message: string };
 
 /**
+ * v1.33.0 MINOR T3 — `odx:open-with-default` IPC request.
+ *
+ * Additive on the wire — preserves the v1.22.0 `odx:open` IPC contract
+ * (lesson additive-ipc-channels-over-extending-args). The original
+ * `openOdx` channel remains unchanged; this new channel lets the
+ * renderer pre-fill the OS dialog's starting directory (e.g. the open
+ * project's manifest directory) so the user does not have to navigate
+ * from `user-home` every time.
+ */
+export interface OpenOdxWithDefaultRequest {
+  /** Absolute path the OS dialog should open at. Optional. */
+  readonly defaultPath?: string;
+  /** Optional override of the dialog file filters. Defaults to `.odx`. */
+  readonly filters?: readonly {
+    readonly name: string;
+    readonly extensions: readonly string[];
+  }[];
+}
+
+/**
+ * v1.33.0 MINOR T3 — `odx:open-with-default` IPC result.
+ *
+ * Mirrors `OpenOdxResult` exactly — the renderer code path can reuse
+ * the existing per-kind switch (canceled → cancel, opened → resolve,
+ * read-failed → warn-and-cancel).
+ */
+export type OpenOdxWithDefaultResult =
+  | { readonly kind: 'opened'; readonly path: string; readonly content: string }
+  | { readonly kind: 'canceled' }
+  | { readonly kind: 'read-failed'; readonly message: string };
+
+/**
  * v1.33.0 MINOR T2 — `bswmd:pick` IPC result.
  *
  * Mirrors `OpenOdxResult` but collapses the read-failure case into

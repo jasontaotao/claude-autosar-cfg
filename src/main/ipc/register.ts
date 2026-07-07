@@ -70,6 +70,7 @@ import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
 import { registerOpenOdxHandler } from './openOdxHandler.js';
+import { registerOpenOdxWithDefaultHandler } from './openOdxWithDefaultHandler.js';
 import { parseArxmlHandler } from './parseArxmlHandler.js';
 import { parseDbcHandler } from './parseDbcHandler.js';
 import { parseOdxHandler } from './parseOdxHandler.js';
@@ -484,6 +485,14 @@ export function registerIpcHandlers(): void {
   // surfacing the error via `dialog.showMessageBox` so the renderer's
   // picker has a single "no change" branch to handle.
   registerBswmdPickHandler();
+
+  // v1.33.0 MINOR T3 — odx:open-with-default handler. Variant of the
+  // v1.22.0 `odx:open` channel that accepts a `defaultPath` hint so
+  // the OS dialog opens at the project root (or wherever the renderer
+  // pre-computes) instead of `user-home`. New additive channel
+  // (lesson additive-ipc-channels-over-extending-args) — preserves
+  // the v1.22.0 `odx:open` contract; new channel ships independently.
+  registerOpenOdxWithDefaultHandler();
 
   // v1.6.0 U — `feature-flags:get` handler. Returns the current
   // experimental flag set (all OFF by default; enabling a flag

@@ -235,6 +235,16 @@ export const IPC_CHANNELS = {
   // / opened); the read-failure branch is folded into `canceled` after
   // surfacing the error via `dialog.showMessageBox`.
   BSWMD_PICK: 'bswmd:pick',
+  // v1.33.0 MINOR T3 — odx:open-with-default IPC. Variant of the
+  // v1.22.0 `odx:open` channel that accepts a `defaultPath` hint so
+  // the OS dialog opens at the project root (or wherever the renderer
+  // pre-computes) instead of `user-home`. Mirrors the
+  // `bswmd:pick`-style additive channel pattern (lesson
+  // additive-ipc-channels-over-extending-args) — preserves the
+  // v1.22.0 `odx:open` contract verbatim; new channel ships
+  // independently. Returns the same `{kind: 'opened'|'canceled'|
+  // 'read-failed'}` envelope as the v1.22.0 channel.
+  ODX_OPEN_WITH_DEFAULT: 'odx:open-with-default',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

@@ -18,6 +18,8 @@ import type {
   OpenBswmdResult,
   OpenDbcResult,
   OpenOdxResult,
+  OpenOdxWithDefaultRequest,
+  OpenOdxWithDefaultResult,
   BswmdPickResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
@@ -100,6 +102,15 @@ const api = {
   // "File Operations → Open ODX…" menu entry and the <OdxViewer />
   // modal (T2 + T3).
   openOdx: (): Promise<OpenOdxResult> => ipcRenderer.invoke(IPC_CHANNELS.ODX_OPEN),
+  // v1.33.0 MINOR T3 — `odx:open-with-default` IPC bridge. Variant
+  // of the v1.22.0 `openOdx` that accepts a `defaultPath` hint so
+  // the OS dialog opens at the project root instead of `user-home`.
+  // Additive channel (lesson additive-ipc-channels-over-extending-args)
+  // — `openOdx` IPC contract preserved verbatim.
+  openOdxWithDefault: (
+    req: OpenOdxWithDefaultRequest,
+  ): Promise<OpenOdxWithDefaultResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ODX_OPEN_WITH_DEFAULT, req),
   parseOdx: (req: ParseOdxRequest): Promise<ParseOdxResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.ODX_PARSE, req),
   saveArxml: (req: SaveArxmlRequest): Promise<SaveArxmlResponse> =>

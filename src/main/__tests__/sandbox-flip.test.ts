@@ -103,6 +103,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'openBswmdDialog',
       'openDbc',
       'openOdx',
+      'openOdxWithDefault', // v1.33.0 MINOR T3 — odx:open-with-default IPC for DcmConfigPicker defaultPath
       'parseArxml',
       'parseBswmd',
       'parseDbc',
