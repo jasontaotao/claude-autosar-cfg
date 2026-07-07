@@ -102,6 +102,22 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             </div>
           )}
         </dl>
+        {/* v1.32.1 PATCH P3 — disabled Override shell. The Browse button is
+            deferred to v1.33.0; for now the input is readOnly + disabled so
+            the autofilled path is visible but cannot be edited. */}
+        <details
+          className="dcm-config-success-bswmd-override"
+          data-testid="dcm-config-success-bswmd-override"
+        >
+          <summary>{t(locale, 'dcmConfig.bswmdPath.override')}</summary>
+          <input
+            type="text"
+            value={result.bswmdPath ?? ''}
+            readOnly
+            disabled
+            data-testid="dcm-config-success-bswmd-override-input"
+          />
+        </details>
         <div className="dcm-config-success-actions">
           <button
             ref={closeButtonRef}

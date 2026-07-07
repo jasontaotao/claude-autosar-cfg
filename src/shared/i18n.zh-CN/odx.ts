@@ -41,7 +41,7 @@ export const OdxZhCN: OdxMessages = {
   'app.open.dcmConfig': '打开 Dcm 配置',
   'app.open.dcmConfig.busy': '生成中…',
   // v1.32.0 MINOR T7 — ODX-D picker + bswmdPath autofill label
-  'dcmConfig.picker.title': '选择 ODX-D 文件',
+  // (picker.title removed in v1.32.1 PATCH P3 — unused, OS owns the title).
   'dcmConfig.picker.cancelled': '已取消 ODX 选择',
   'dcmConfig.bswmdPath.autofill': '已从项目清单自动选择',
   'dcmConfig.bswmdPath.override': '覆盖 BSWMD 路径',

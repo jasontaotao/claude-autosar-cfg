@@ -42,7 +42,8 @@ export interface OdxMessages {
   readonly 'app.open.dcmConfig': string;
   readonly 'app.open.dcmConfig.busy': string;
   // v1.32.0 MINOR T7 — ODX-D picker + bswmdPath autofill label
-  readonly 'dcmConfig.picker.title': string;
+  // (picker.title dropped in v1.32.1 PATCH P3 — OS dialog title is owned
+  // by openOdxHandler.ts:30, picker returns null so no DOM surface).
   readonly 'dcmConfig.picker.cancelled': string;
   readonly 'dcmConfig.bswmdPath.autofill': string;
   readonly 'dcmConfig.bswmdPath.override': string;

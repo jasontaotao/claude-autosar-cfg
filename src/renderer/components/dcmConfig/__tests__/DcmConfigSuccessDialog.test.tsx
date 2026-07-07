@@ -125,4 +125,51 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     render(<DcmConfigSuccessDialog {...baseProps} />);
     expect(screen.queryByTestId('dcm-config-success-bswmd-autofill')).not.toBeInTheDocument();
   });
+
+  // v1.32.1 PATCH P3 — Override <details> shell consumes the
+  // 'dcmConfig.bswmdPath.override' i18n key (previously unused).
+  it.each([
+    { locale: 'en' as const, expected: 'Override BSWMD path' },
+    { locale: 'zh-CN' as const, expected: '覆盖 BSWMD 路径' },
+  ])('renders Override summary label for locale $locale', ({ locale, expected }) => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        locale={locale}
+        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
+      />,
+    );
+    const override = screen.getByTestId('dcm-config-success-bswmd-override');
+    expect(override).toBeInTheDocument();
+    expect(override.querySelector('summary')?.textContent).toBe(expected);
+  });
+
+  it('Override <details> defaults to collapsed (no input visible)', () => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
+      />,
+    );
+    const override = screen.getByTestId('dcm-config-success-bswmd-override') as HTMLDetailsElement;
+    // Native <details> is collapsed by default — input is in the DOM but hidden.
+    expect(override.open).toBe(false);
+  });
+
+  it('Override input value matches the autofilled bswmdPath', () => {
+    const bswmdPath = '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml';
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        result={{ ...baseProps.result, bswmdPath }}
+      />,
+    );
+    const input = screen.getByTestId(
+      'dcm-config-success-bswmd-override-input',
+    ) as HTMLInputElement;
+    expect(input.value).toBe(bswmdPath);
+    // readOnly + disabled — browse button is deferred to v1.33.0.
+    expect(input.readOnly).toBe(true);
+    expect(input.disabled).toBe(true);
+  });
 });

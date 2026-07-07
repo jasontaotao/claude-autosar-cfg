@@ -41,7 +41,7 @@ export const OdxEn: OdxMessages = {
   'app.open.dcmConfig': 'Open Dcm Config',
   'app.open.dcmConfig.busy': 'Generating…',
   // v1.32.0 MINOR T7 — ODX-D picker + bswmdPath autofill label
-  'dcmConfig.picker.title': 'Select ODX-D file',
+  // (picker.title removed in v1.32.1 PATCH P3 — unused, OS owns the title).
   'dcmConfig.picker.cancelled': 'ODX selection cancelled',
   'dcmConfig.bswmdPath.autofill': 'Auto-selected from project manifest',
   'dcmConfig.bswmdPath.override': 'Override BSWMD path',
