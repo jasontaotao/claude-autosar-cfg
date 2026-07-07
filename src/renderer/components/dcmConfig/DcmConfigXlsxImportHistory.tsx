@@ -29,26 +29,17 @@ interface DcmConfigXlsxImportHistoryProps {
  * invariant). Pure presentational — no slice subscription; parent
  * (DcmConfigSuccessDialog) owns the history → store binding.
  */
-export function DcmConfigXlsxImportHistory(
-  props: DcmConfigXlsxImportHistoryProps,
-): JSX.Element {
+export function DcmConfigXlsxImportHistory(props: DcmConfigXlsxImportHistoryProps): JSX.Element {
   const { history, locale, onReuse } = props;
 
   if (history.length === 0) {
-    return (
-      <p data-testid="xlsx-import-history-empty">
-        {t(locale, 'xlsxImportHistory.empty')}
-      </p>
-    );
+    return <p data-testid="xlsx-import-history-empty">{t(locale, 'xlsxImportHistory.empty')}</p>;
   }
 
   return (
     <ol className="xlsx-import-history__list">
       {history.map((record) => (
-        <li
-          key={record.importedAt}
-          data-testid={`xlsx-import-history-row-${record.importedAt}`}
-        >
+        <li key={record.importedAt} data-testid={`xlsx-import-history-row-${record.importedAt}`}>
           <time dateTime={new Date(record.importedAt).toISOString()}>
             {new Date(record.importedAt).toLocaleString(locale)}
           </time>

@@ -93,20 +93,20 @@ IPC / main / preload 全 KEEP — 这次纯 renderer-only surface + 1 store acti
 
 ### Component placement
 
-| Component                                          | Path                                                                       | Type                       |
-| -------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------- |
-| `XlsxImportSlice` (MODIFY)                         | `src/renderer/store/slices/xlsxImportSlice.ts`                             | MODIFY: add `reuseFromHistory` |
-| `xlsxImportSlice.test.ts` (UPDATED)                | `src/renderer/store/__tests__/xlsxImportSlice.test.ts`                     | MODIFY: +3 tests for new action |
-| `<DcmConfigXlsxImportHistory />` (NEW)             | `src/renderer/components/dcmConfig/DcmConfigXlsxImportHistory.tsx`         | NEW presentational         |
-| `DcmConfigXlsxImportHistory.test.tsx` (NEW)        | `src/renderer/components/dcmConfig/__tests__/DcmConfigXlsxImportHistory.test.tsx` | NEW (5 cases)         |
-| `DcmConfigSuccessDialog.tsx` (MODIFY)              | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`              | MODIFY: mount new <details> below Generate New |
-| `DcmConfigSuccessDialog.css` (MODIFY)              | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`              | MODIFY: .xlsx-import-history* styles |
-| `DcmConfigSuccessDialog.test.tsx` (UPDATED)        | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | MODIFY: +2 history tests |
-| i18n bundles (en + zh-CN + shared types) (MODIFY)  | `src/shared/i18n/{en,zh-CN,}/odx.ts` + `src/shared/i18n/odx.ts`             | MODIFY: add 4 keys |
-| `preload`                                          | `src/preload/index.ts`                                                      | KEEP — no IPC change       |
-| main IPC                                           | `src/main/ipc/**`                                                          | KEEP — no IPC change       |
-| `useDcmConfigLauncher.ts`                           | `src/renderer/hooks/useDcmConfigLauncher.ts`                                | KEEP — Reuse only stages rows for next IPC, doesn't refire |
-| `useDcmConfigLauncher.test.ts`                      | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                 | KEEP — no change needed   |
+| Component                                         | Path                                                                              | Type                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `XlsxImportSlice` (MODIFY)                        | `src/renderer/store/slices/xlsxImportSlice.ts`                                    | MODIFY: add `reuseFromHistory`                             |
+| `xlsxImportSlice.test.ts` (UPDATED)               | `src/renderer/store/__tests__/xlsxImportSlice.test.ts`                            | MODIFY: +3 tests for new action                            |
+| `<DcmConfigXlsxImportHistory />` (NEW)            | `src/renderer/components/dcmConfig/DcmConfigXlsxImportHistory.tsx`                | NEW presentational                                         |
+| `DcmConfigXlsxImportHistory.test.tsx` (NEW)       | `src/renderer/components/dcmConfig/__tests__/DcmConfigXlsxImportHistory.test.tsx` | NEW (5 cases)                                              |
+| `DcmConfigSuccessDialog.tsx` (MODIFY)             | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                    | MODIFY: mount new <details> below Generate New             |
+| `DcmConfigSuccessDialog.css` (MODIFY)             | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`                    | MODIFY: .xlsx-import-history\* styles                      |
+| `DcmConfigSuccessDialog.test.tsx` (UPDATED)       | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`     | MODIFY: +2 history tests                                   |
+| i18n bundles (en + zh-CN + shared types) (MODIFY) | `src/shared/i18n/{en,zh-CN,}/odx.ts` + `src/shared/i18n/odx.ts`                   | MODIFY: add 4 keys                                         |
+| `preload`                                         | `src/preload/index.ts`                                                            | KEEP — no IPC change                                       |
+| main IPC                                          | `src/main/ipc/**`                                                                 | KEEP — no IPC change                                       |
+| `useDcmConfigLauncher.ts`                         | `src/renderer/hooks/useDcmConfigLauncher.ts`                                      | KEEP — Reuse only stages rows for next IPC, doesn't refire |
+| `useDcmConfigLauncher.test.ts`                    | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                       | KEEP — no change needed                                    |
 
 ## 3. Detailed Design
 
@@ -168,23 +168,16 @@ interface DcmConfigXlsxImportHistoryProps {
   readonly onReuse: (importedAt: number) => void;
 }
 
-export function DcmConfigXlsxImportHistory(
-  props: DcmConfigXlsxImportHistoryProps,
-): JSX.Element {
+export function DcmConfigXlsxImportHistory(props: DcmConfigXlsxImportHistoryProps): JSX.Element {
   if (props.history.length === 0) {
     return (
-      <p data-testid="xlsx-import-history-empty">
-        {t(props.locale, 'xlsxImportHistory.empty')}
-      </p>
+      <p data-testid="xlsx-import-history-empty">{t(props.locale, 'xlsxImportHistory.empty')}</p>
     );
   }
   return (
     <ol className="xlsx-import-history__list">
       {props.history.map((record) => (
-        <li
-          key={record.importedAt}
-          data-testid={`xlsx-import-history-row-${record.importedAt}`}
-        >
+        <li key={record.importedAt} data-testid={`xlsx-import-history-row-${record.importedAt}`}>
           <time dateTime={new Date(record.importedAt).toISOString()}>
             {new Date(record.importedAt).toLocaleString(props.locale)}
           </time>
@@ -221,12 +214,12 @@ Final rendered JSX (adjusted):
 
 **Final i18n key list (4 keys, not 5)**:
 
-| Key | en | zh-CN |
-| --- | --- | --- |
-| `xlsxImportHistory.title` | `Xlsx import history` | `xlsx 导入历史` |
-| `xlsxImportHistory.empty` | `No prior imports this session` | `本会话暂无导入记录` |
-| `xlsxImportHistory.rowsCount` | `{count} rows` | `{count} 行` |
-| `xlsxImportHistory.reuseButton` | `Reuse` | `复用` |
+| Key                             | en                              | zh-CN                |
+| ------------------------------- | ------------------------------- | -------------------- |
+| `xlsxImportHistory.title`       | `Xlsx import history`           | `xlsx 导入历史`      |
+| `xlsxImportHistory.empty`       | `No prior imports this session` | `本会话暂无导入记录` |
+| `xlsxImportHistory.rowsCount`   | `{count} rows`                  | `{count} 行`         |
+| `xlsxImportHistory.reuseButton` | `Reuse`                         | `复用`               |
 
 **Tests (5)**:
 
@@ -250,7 +243,9 @@ it('clicking Reuse button calls props.onReuse with the entry importedAt', () => 
   <DcmConfigXlsxImportHistory
     history={history}
     locale={locale}
-    onReuse={(importedAt) => { void onReuseFromHistory(importedAt); }}
+    onReuse={(importedAt) => {
+      void onReuseFromHistory(importedAt);
+    }}
   />
 </details>
 ```
@@ -263,8 +258,8 @@ it('clicking Reuse button calls props.onReuse with the entry importedAt', () => 
   result={launcher.state.result}
   onCancel={launcher.closeDialog}
   onGenerateNew={launcher.handleGenerateNew}
-  history={useArxmlStore((s) => s.xlsxImportHistory)}  // NEW
-  onReuseFromHistory={(importedAt) => useArxmlStore.getState().reuseFromHistory(importedAt)}  // NEW
+  history={useArxmlStore((s) => s.xlsxImportHistory)} // NEW
+  onReuseFromHistory={(importedAt) => useArxmlStore.getState().reuseFromHistory(importedAt)} // NEW
 />
 ```
 
@@ -337,43 +332,43 @@ Standard MINOR ship mechanics per project conventions:
 
 ### Test budget (+10 net)
 
-| Test file                                                                  | Δ                                       | Cumulative        |
-| -------------------------------------------------------------------------- | --------------------------------------- | ----------------- |
-| `xlsxImportSlice.test.ts` (UPDATED)                                        | +3 (reuseFromHistory)                   | 2998 → 3001       |
-| `DcmConfigXlsxImportHistory.test.tsx` (NEW)                                | +5 (render + Reuse)                     | 3001 → 3006       |
-| `DcmConfigSuccessDialog.test.tsx` (UPDATED)                                | +2 (history section renders)            | 3006 → 3008       |
-| `DcmConfigXlsxImportHistory.tsx` (NEW component)                           | n/a                                     | —                 |
-| i18n bundles (3 files MODIFIED)                                            | +0 (no test for i18n key set coverage)  | 3008              |
-| **Net**                                                                    |                                         | **2998 → 3008**   |
+| Test file                                        | Δ                                      | Cumulative      |
+| ------------------------------------------------ | -------------------------------------- | --------------- |
+| `xlsxImportSlice.test.ts` (UPDATED)              | +3 (reuseFromHistory)                  | 2998 → 3001     |
+| `DcmConfigXlsxImportHistory.test.tsx` (NEW)      | +5 (render + Reuse)                    | 3001 → 3006     |
+| `DcmConfigSuccessDialog.test.tsx` (UPDATED)      | +2 (history section renders)           | 3006 → 3008     |
+| `DcmConfigXlsxImportHistory.tsx` (NEW component) | n/a                                    | —               |
+| i18n bundles (3 files MODIFIED)                  | +0 (no test for i18n key set coverage) | 3008            |
+| **Net**                                          |                                        | **2998 → 3008** |
 
 Baseline 2998 + 7 SKIP / 0 fail → target **3008 + 7 SKIP / 0 fail (+10 net)**.
 
 ### Subagent-driven task split (5 tasks)
 
-| #   | Task                                                              | Model  | Test delta |
-| --- | ----------------------------------------------------------------- | ------ | ---------- |
-| T1  | `reuseFromHistory` action + 3 store tests                         | Sonnet | +3         |
-| T2  | `<XlsxImportHistory>` component + 5 tests + 4 i18n keys           | Sonnet | +5         |
-| T3  | Mount in SuccessDialog + 2 tests + CSS                            | Haiku  | +2         |
-| T4  | pnpm verify 7-stage GREEN + pre-ship grep checks                  | Sonnet | (wiring)   |
-| T5  | Ship: release notes + 2 pushes + gh release create               | Sonnet | (wiring)   |
+| #   | Task                                                    | Model  | Test delta |
+| --- | ------------------------------------------------------- | ------ | ---------- |
+| T1  | `reuseFromHistory` action + 3 store tests               | Sonnet | +3         |
+| T2  | `<XlsxImportHistory>` component + 5 tests + 4 i18n keys | Sonnet | +5         |
+| T3  | Mount in SuccessDialog + 2 tests + CSS                  | Haiku  | +2         |
+| T4  | pnpm verify 7-stage GREEN + pre-ship grep checks        | Sonnet | (wiring)   |
+| T5  | Ship: release notes + 2 pushes + gh release create      | Sonnet | (wiring)   |
 
 ## 5. Risk Assessment
 
-| Risk                                                                    | Likelihood | Impact | Mitigation                                                                                                  |
-| ----------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| `reuseFromHistory` writes `xlsxLastImport` 同时 cross-slice pollution    | Low        | Low    | Implementation scoped to xlsxImportHistory + xlsxLastImport only; no `lastOdxPath` / `bswmdPathOverride` / other slices touched. |
-| `<details>` toggle behavior in jsdom — some jsdom versions don't open   | Low        | Medium | vitest 3 + jsdom 30+ supports `<details>` natively. v1.33.0 P4 (T3 reflection precedent) used `<details>` testing — pattern confirmed working. |
-| Reuse not visible — user doesn't realize "rows staged for next run"    | Low        | Low    | Generous i18n text + Reuse button explicit. Non-destructive so no UX surprise. Future v1.35.0 can add a toast/announce if UX feedback surfaces the need. |
-| `source: 'wizard' | 'manual'` snake-case identifier shown raw to user  | Low        | Low    | Acceptable for v1.34.0 (no future i18n promises). Future i18n enhancement can map source to translated labels — out of scope. |
-| History UI distractor — visible too prominently        | Low        | Low    | `<details>` collapsed by default + mount only in SuccessDialog mode='success'. Hidden on initial dialog view unless user expands. |
-| Reuse click → rows injected → user clicks Generate New → destructive re-write | Low | Medium | v1.33.1 Generate New is already documented as destructive re-write (no confirm in v1.33.1, deferred to v1.35.0+). Reuse is orthogonal — only stages rows, user must still click Generate New to apply. Interaction explicit. |
-| i18n key count claim off — spec says 4 in body but earlier section said 5 | Low | Low | Spec self-review caught this — finalize to 4 keys (drop `sourceLabel`). |
-| `<XlsxImportHistory>` accidentally surface in App.tsx (outside SuccessDialog) | Low | Low | Architecture forces mount point; spec §Component placement is explicit. App.tsx mount is the only valid mount. |
+| Risk                                                                          | Likelihood                                        | Impact | Mitigation                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `reuseFromHistory` writes `xlsxLastImport` 同时 cross-slice pollution         | Low                                               | Low    | Implementation scoped to xlsxImportHistory + xlsxLastImport only; no `lastOdxPath` / `bswmdPathOverride` / other slices touched.                                                                                             |
+| `<details>` toggle behavior in jsdom — some jsdom versions don't open         | Low                                               | Medium | vitest 3 + jsdom 30+ supports `<details>` natively. v1.33.0 P4 (T3 reflection precedent) used `<details>` testing — pattern confirmed working.                                                                               |
+| Reuse not visible — user doesn't realize "rows staged for next run"           | Low                                               | Low    | Generous i18n text + Reuse button explicit. Non-destructive so no UX surprise. Future v1.35.0 can add a toast/announce if UX feedback surfaces the need.                                                                     |
+| `source: 'wizard'                                                             | 'manual'` snake-case identifier shown raw to user | Low    | Low                                                                                                                                                                                                                          | Acceptable for v1.34.0 (no future i18n promises). Future i18n enhancement can map source to translated labels — out of scope. |
+| History UI distractor — visible too prominently                               | Low                                               | Low    | `<details>` collapsed by default + mount only in SuccessDialog mode='success'. Hidden on initial dialog view unless user expands.                                                                                            |
+| Reuse click → rows injected → user clicks Generate New → destructive re-write | Low                                               | Medium | v1.33.1 Generate New is already documented as destructive re-write (no confirm in v1.33.1, deferred to v1.35.0+). Reuse is orthogonal — only stages rows, user must still click Generate New to apply. Interaction explicit. |
+| i18n key count claim off — spec says 4 in body but earlier section said 5     | Low                                               | Low    | Spec self-review caught this — finalize to 4 keys (drop `sourceLabel`).                                                                                                                                                      |
+| `<XlsxImportHistory>` accidentally surface in App.tsx (outside SuccessDialog) | Low                                               | Low    | Architecture forces mount point; spec §Component placement is explicit. App.tsx mount is the only valid mount.                                                                                                               |
 
 ## 6. Lessons (NEW from v1.34.0 MINOR)
 
-1. **`surface-stored-data-on-its-own-shot`** — When a deferred list contains entries of the form "X stored but not displayed", that's *the first candidate* for the next MINOR UI surfacing. Phase 1 UI cost is dwarfed by Phase 0 slicing/storage, which is already done.
+1. **`surface-stored-data-on-its-own-shot`** — When a deferred list contains entries of the form "X stored but not displayed", that's _the first candidate_ for the next MINOR UI surfacing. Phase 1 UI cost is dwarfed by Phase 0 slicing/storage, which is already done.
 2. **`read-only-timeline-is-safe-to-ship`** — Non-destructive visibility features have no UX 跳板 issues (unlike v1.33.0 half-finished Override UI). Independent MINOR scope. Lesson pin: when surfacing deferred data, prefer read-only-first in the first MINOR; add destructive interactions only after the read-only UX is shipped.
 3. **`reuse-pattern-without-destructive-confirm`** — Single-click "reuse" actions that stage data but don't directly trigger destructive IPC don't need a confirm modal. Confirm modals add friction; the action itself is reversible (rows are just staged, IPC fires only on user's explicit subsequent click).
 

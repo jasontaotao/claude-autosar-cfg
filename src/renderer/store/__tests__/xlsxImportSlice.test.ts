@@ -2,8 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
-import { useArxmlStore } from '../useArxmlStore.js';
 import type { XlsxImportRecord } from '../slices/xlsxImportSlice.js';
+import { useArxmlStore } from '../useArxmlStore.js';
 
 const SAMPLE_ROWS: readonly EcucInstanceRow[] = [
   { sheet: 'ComIPdu', shortName: 'ComIPdu_Vbatt', params: { length: 8 } },

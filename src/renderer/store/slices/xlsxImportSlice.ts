@@ -50,9 +50,7 @@ export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportS
     set((s) => {
       const entry = s.xlsxImportHistory.find((r) => r.importedAt === importedAt);
       if (entry === undefined) {
-        console.warn(
-          `XlsxImportSlice.reuseFromHistory: no entry at importedAt=${importedAt}`,
-        );
+        console.warn(`XlsxImportSlice.reuseFromHistory: no entry at importedAt=${importedAt}`);
         return s; // defensive no-op; preserve slice invariant
       }
       return {

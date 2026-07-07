@@ -34,11 +34,13 @@
 ### Task 1: Add `reuseFromHistory` action to XlsxImportSlice
 
 **Files:**
+
 - Modify: `src/renderer/store/slices/xlsxImportSlice.ts:22-26` (add to `XlsxImportSlice` interface)
 - Modify: `src/renderer/store/slices/xlsxImportSlice.ts:30-39` (add action implementation)
 - Modify: `src/renderer/store/__tests__/xlsxImportSlice.test.ts` (add 3 tests)
 
 **Interfaces:**
+
 - Consumes: existing `XlsxImportRecord` shape; existing `set` callback in `StateCreator`
 - Produces: `reuseFromHistory: (importedAt: number) => void` on the `XlsxImportSlice` interface
 
@@ -68,7 +70,7 @@ describe('reuseFromHistory (v1.34.0 T1)', () => {
   beforeEach(() => {
     useArxmlStore.setState({
       xlsxLastImport: null,
-      xlsxImportHistory: [HISTORY_C, HISTORY_B, HISTORY_A],  // most-recent first
+      xlsxImportHistory: [HISTORY_C, HISTORY_B, HISTORY_A], // most-recent first
     });
   });
 
@@ -80,9 +82,9 @@ describe('reuseFromHistory (v1.34.0 T1)', () => {
 
   it('is no-op (with console.warn) when importedAt is not in history', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    useArxmlStore.getState().reuseFromHistory(9999);  // not in history
+    useArxmlStore.getState().reuseFromHistory(9999); // not in history
     const s = useArxmlStore.getState();
-    expect(s.xlsxLastImport).toBeNull();  // unchanged
+    expect(s.xlsxLastImport).toBeNull(); // unchanged
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('9999'));
   });
 
@@ -90,7 +92,7 @@ describe('reuseFromHistory (v1.34.0 T1)', () => {
     useArxmlStore.getState().reuseFromHistory(2000);
     const s = useArxmlStore.getState();
     expect(s.xlsxImportHistory).toEqual([HISTORY_C, HISTORY_B, HISTORY_A]);
-    expect(s.xlsxImportHistory).toHaveLength(3);  // unchanged
+    expect(s.xlsxImportHistory).toHaveLength(3); // unchanged
   });
 });
 ```
@@ -170,10 +172,8 @@ export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportS
     set((s) => {
       const entry = s.xlsxImportHistory.find((r) => r.importedAt === importedAt);
       if (entry === undefined) {
-        console.warn(
-          `XlsxImportSlice.reuseFromHistory: no entry at importedAt=${importedAt}`,
-        );
-        return s;  // defensive no-op; preserve slice invariant
+        console.warn(`XlsxImportSlice.reuseFromHistory: no entry at importedAt=${importedAt}`);
+        return s; // defensive no-op; preserve slice invariant
       }
       return {
         ...s,
@@ -236,6 +236,7 @@ so Reuse just writes this slice without crossing any IPC boundary."
 ### Task 2: New `<DcmConfigXlsxImportHistory>` presentational component + 5 tests + 4 i18n keys
 
 **Files:**
+
 - Create: `src/renderer/components/dcmConfig/DcmConfigXlsxImportHistory.tsx`
 - Create: `src/renderer/components/dcmConfig/__tests__/DcmConfigXlsxImportHistory.test.tsx`
 - Modify: `src/shared/i18n/odx.ts` (add 4 type lines)
@@ -243,6 +244,7 @@ so Reuse just writes this slice without crossing any IPC boundary."
 - Modify: `src/shared/i18n.zh-CN/odx.ts` (add 4 zh-CN values)
 
 **Interfaces:**
+
 - Consumes: `XlsxImportRecord` type from `xlsxImportSlice.ts`; `t(locale, key, vars?)` from i18n helper; existing `<details>` element jsdom 30+ support
 - Produces: `<DcmConfigXlsxImportHistory history locale onReuse />` presentational component (props signature in component file)
 
@@ -399,23 +401,16 @@ interface DcmConfigXlsxImportHistoryProps {
  * invariant). Pure presentational — no slice subscription; parent
  * (DcmConfigSuccessDialog) owns the history → store binding.
  */
-export function DcmConfigXlsxImportHistory(
-  props: DcmConfigXlsxImportHistoryProps,
-): JSX.Element {
+export function DcmConfigXlsxImportHistory(props: DcmConfigXlsxImportHistoryProps): JSX.Element {
   if (props.history.length === 0) {
     return (
-      <p data-testid="xlsx-import-history-empty">
-        {t(props.locale, 'xlsxImportHistory.empty')}
-      </p>
+      <p data-testid="xlsx-import-history-empty">{t(props.locale, 'xlsxImportHistory.empty')}</p>
     );
   }
   return (
     <ol className="xlsx-import-history__list">
       {props.history.map((record) => (
-        <li
-          key={record.importedAt}
-          data-testid={`xlsx-import-history-row-${record.importedAt}`}
-        >
+        <li key={record.importedAt} data-testid={`xlsx-import-history-row-${record.importedAt}`}>
           <time dateTime={new Date(record.importedAt).toISOString()}>
             {new Date(record.importedAt).toLocaleString(props.locale)}
           </time>
@@ -495,12 +490,14 @@ Reuse click back to the store via the onReuse prop."
 ### Task 3: Mount `<DcmConfigXlsxImportHistory>` in DcmConfigSuccessDialog + 2 tests + CSS
 
 **Files:**
+
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` (add `history` + `onReuseFromHistory` props; import + mount new component)
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css` (add `.xlsx-import-history*` styles)
 - Modify: `src/renderer/App.tsx` (pass `history` from useArxmlStore + `onReuseFromHistory` bound to `reuseFromHistory` action)
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (add 2 tests)
 
 **Interfaces:**
+
 - Consumes: existing `<DcmConfigSuccessDialog>` props (locale, result, onCancel, onGenerateNew from v1.33.0 + v1.33.1); new props `history: readonly XlsxImportRecord[]` + `onReuseFromHistory: (importedAt: number) => void`
 - Produces: `<DcmConfigXlsxImportHistory>` mounted inside a new `<details>` section below the v1.33.1 "Generate New" button
 
@@ -530,12 +527,12 @@ it('renders xlsx import history <details> collapsed by default (en)', () => {
       onGenerateNew={vi.fn()}
       history={useArxmlStore.getState().xlsxImportHistory}
       onReuseFromHistory={onReuseFromHistory}
-    />
+    />,
   );
 
   const details = screen.getByTestId('dcm-config-xlsx-history-details');
   expect(details.tagName).toBe('DETAILS');
-  expect(details).not.toHaveAttribute('open');  // collapsed
+  expect(details).not.toHaveAttribute('open'); // collapsed
   expect(within(details).getByText(/xlsx import history/i)).toBeInTheDocument();
 });
 
@@ -556,7 +553,7 @@ it('renders history rows inside <details> when expanded (zh-CN)', async () => {
       onGenerateNew={vi.fn()}
       history={useArxmlStore.getState().xlsxImportHistory}
       onReuseFromHistory={vi.fn()}
-    />
+    />,
   );
 
   const summary = screen.getByText(/xlsx 导入历史/i);
@@ -596,10 +593,7 @@ Read the existing `DcmConfigSuccessDialog.tsx` to find the props interface (like
 Find the end of the `<button data-testid="dcm-config-generate-new">...</button>` JSX added in v1.33.1 T3. After it, add:
 
 ```tsx
-<details
-  className="xlsx-import-history"
-  data-testid="dcm-config-xlsx-history-details"
->
+<details className="xlsx-import-history" data-testid="dcm-config-xlsx-history-details">
   <summary>
     {t(locale, 'xlsxImportHistory.title')} ({history.length})
   </summary>
@@ -729,6 +723,7 @@ sub-tasks without IPC changes."
 ### Task 4: pnpm verify + pre-ship grep checks
 
 **Files:**
+
 - No production code changes (only checks)
 
 - [ ] **Step 4.1: Run full `pnpm verify`**
@@ -740,6 +735,7 @@ pnpm verify
 Expected: format + lint + typecheck + test (3008+7 SKIP / 0 fail) + coverage + build + import-regression — all GREEN.
 
 If anything fails, fix inline (do not bypass). Common fix patterns:
+
 - Format: `pnpm prettier --write <file>`
 - Lint: `pnpm eslint --fix <file>`
 
@@ -781,6 +777,7 @@ If Step 4.1 found + fixed issues, the fix commit is already in place from Step 4
 ### Task 5: Ship (verify + 2 pushes + gh release)
 
 **Files:**
+
 - Create: `docs/release-notes/v1.34.0/README.md`
 - No production code changes
 
@@ -835,12 +832,12 @@ Added in en + zh-CN + shared types bundles atomically.
 
 ## Test budget (+10 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `xlsxImportSlice.test.ts` (UPDATED) | +3 (reuseFromHistory) | 2998 → 3001 |
-| `DcmConfigXlsxImportHistory.test.tsx` (NEW) | +5 | 3001 → 3006 |
-| `DcmConfigSuccessDialog.test.tsx` (UPDATED) | +2 | 3006 → 3008 |
-| **Total** | | **2998 → 3008 (+10)** |
+| Test file                                   | Δ                     | Cumulative            |
+| ------------------------------------------- | --------------------- | --------------------- |
+| `xlsxImportSlice.test.ts` (UPDATED)         | +3 (reuseFromHistory) | 2998 → 3001           |
+| `DcmConfigXlsxImportHistory.test.tsx` (NEW) | +5                    | 3001 → 3006           |
+| `DcmConfigSuccessDialog.test.tsx` (UPDATED) | +2                    | 3006 → 3008           |
+| **Total**                                   |                       | **2998 → 3008 (+10)** |
 
 Baseline 2998 + 7 SKIP / 0 fail (from v1.33.1 PATCH `576e4ea`) → actual **3008 + 7 SKIP / 0 fail**.
 
@@ -860,6 +857,7 @@ git diff --stat 576e4ea..HEAD
 ```
 
 Review all commits since v1.33.1 PATCH baseline `576e4ea`. Per the global constraints table:
+
 - 0 BLOCK / 0 CRITICAL expected.
 - MEDIUM findings → POLISH in same MINOR or v1.34.1 PATCH (rare; TDD should have caught them).
 - LOW / SPEC → defer.

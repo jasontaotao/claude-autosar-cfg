@@ -1294,9 +1294,7 @@ export function App(): JSX.Element {
           onClose={dcmLauncher.closeDialog}
           onGenerateNew={dcmLauncher.handleGenerateNew}
           history={useArxmlStore((s) => s.xlsxImportHistory)}
-          onReuseFromHistory={(importedAt) =>
-            useArxmlStore.getState().reuseFromHistory(importedAt)
-          }
+          onReuseFromHistory={(importedAt) => useArxmlStore.getState().reuseFromHistory(importedAt)}
         />
         <DcmConfigErrorToast
           error={dcmLauncher.state.error}

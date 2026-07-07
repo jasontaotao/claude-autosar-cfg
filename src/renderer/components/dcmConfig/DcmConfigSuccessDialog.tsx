@@ -159,10 +159,7 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             available for Reuse. Pure presentational wiring — the
             child <DcmConfigXlsxImportHistory> owns its own empty /
             row render. No `open` prop = collapsed default. */}
-        <details
-          className="xlsx-import-history"
-          data-testid="dcm-config-xlsx-history-details"
-        >
+        <details className="xlsx-import-history" data-testid="dcm-config-xlsx-history-details">
           <summary>
             {t(locale, 'xlsxImportHistory.title')} ({history.length})
           </summary>
