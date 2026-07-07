@@ -23,10 +23,21 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DCM_MODULE_SHORT_NAME } from '../../../core/bridge/dcmConstants.js';
 import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
+import { arxmlModuleShortNames } from '../../arxml/arxmlModuleShortNames.js';
 import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { classifyError, useDcmConfigLauncher } from '../useDcmConfigLauncher.js';
+
+// v1.33.1 PATCH T2 — handleGenerateNew + lastOdxPath wiring.
+//
+// Fixture content: a tiny BSWMD ARXML carrying only the modules we
+// need to sanity-check via arxmlModuleShortNames + DCM_MODULE_SHORT_NAME.
+// Used in describe block below.
+const DCM_BSWMD_CONTENT = `<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>${DCM_MODULE_SHORT_NAME}</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>`;
+const NON_DCM_BSWMD_CONTENT =
+  '<AR-PACKAGES><AR-PACKAGE><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>CanIf</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES>';
 
 // Stub the window.autosarApi bridge so the hook can call into it
 // without a real Electron context. Each test sets `invokeResult`
@@ -628,5 +639,245 @@ describe('useDcmConfigLauncher (v1.33.0 T5) — xlsxRows + override wiring', () 
     expect(call.odxPath).toBe('/proj/input/DcmData.odx');
     expect(call.xlsxRows).toBe(XLSX_RECORD.rows);
     expect(call.xlsxRows).not.toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.33.1 PATCH T2 — handleGenerateNew + lastOdxPath capture.
+//
+// Pinned behaviours (T2):
+//   1. After a successful open(), state.lastOdxPath captures
+//      args.odxPath so the SuccessDialog "Generate New" button
+//      (consumes handleGenerateNew in T3) can re-fire dcm:config
+//      with the same input.
+//   2. handleGenerateNew opens bswmd:pick; on a valid Dcm BSWMD
+//      re-fires dcm:config with the captured lastOdxPath (falling
+//      back to activeDocumentPath) + new picked bswmdPath.
+//   3. handleGenerateNew is a no-op when bswmd:pick returns
+//      `canceled` (or a read-failure — folded into canceled).
+//   4. handleGenerateNew is a no-op + console.warn when the picked
+//      file is not a Dcm BSWMD (arxmlModuleShortNames includes
+//      DCM_MODULE_SHORT_NAME sanity check).
+//   5. handleGenerateNew is a no-op + console.warn when both
+//      lastOdxPath and activeDocumentPath are null/undefined.
+// ---------------------------------------------------------------------------
+
+// bswmdPick stub — installed per-test to set the pick outcome.
+// Mirrors the DcmConfigOverridePicker fixture pattern.
+function installBswmdPickMock(outcome: {
+  readonly kind: 'opened';
+  readonly path: string;
+  readonly content: string;
+}): ReturnType<typeof vi.fn>;
+function installBswmdPickMock(outcome: { readonly kind: 'canceled' }): ReturnType<typeof vi.fn>;
+function installBswmdPickMock(outcome: unknown): ReturnType<typeof vi.fn> {
+  const fn = vi.fn().mockResolvedValue(outcome);
+  const api = (
+    window as unknown as {
+      autosarApi: {
+        dcmConfig: typeof invokeMock;
+        bswmdPick: ReturnType<typeof vi.fn>;
+      };
+    }
+  ).autosarApi;
+  api.bswmdPick = fn;
+  return fn;
+}
+
+describe('useDcmConfigLauncher (v1.33.1 T2) — handleGenerateNew + lastOdxPath', () => {
+  beforeEach(() => {
+    // Reset the store between T2 tests so prior seeds don't leak.
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      project: null,
+      activeDocumentPath: null,
+    } as never);
+  });
+
+  it('lastOdxPath is captured when open() resolves successfully', async () => {
+    // Invoke mock returns a success envelope so the open() callback
+    // walks the success-path setState that captures lastOdxPath.
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.open({
+        odxPath: '/some.odx',
+        xlsxRows: [],
+        bswmdPath: '/some.bswmd.arxml',
+      });
+    });
+
+    expect(result.current.state.mode).toBe('success');
+    expect(result.current.state.lastOdxPath).toBe('/some.odx');
+  });
+
+  it('handleGenerateNew opens bswmd:pick and re-fires dcm:config with new bswmdPath (happy path)', async () => {
+    // Seed: capture lastOdxPath via a prior open() success.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+    // Second open() (re-fire) also succeeds.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 1,
+      },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const pickMock = installBswmdPickMock({
+      kind: 'opened',
+      path: '/override.arxml',
+      content: DCM_BSWMD_CONTENT,
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    // Capture lastOdxPath via prior open().
+    await act(async () => {
+      await result.current.open({
+        odxPath: '/some.odx',
+        xlsxRows: [],
+        bswmdPath: '/autodetected.arxml',
+      });
+    });
+    expect(result.current.state.lastOdxPath).toBe('/some.odx');
+
+    // Reset spy before the action under test (the seed open() path
+    // should NOT warn — only handleGenerateNew errors/warns are
+    // in scope of this test).
+    warn.mockClear();
+
+    // Act: handleGenerateNew. It should open bswmd:pick, validate
+    // the picked file is a Dcm BSWMD, then re-fire dcm:config with
+    // {odxPath: lastOdxPath, bswmdPath: r.path}.
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    expect(pickMock).toHaveBeenCalledTimes(1);
+    // Sanity check on the re-fire IPC payload: same odxPath, picked
+    // bswmdPath, xlsxRows sourced from the store (empty fallback
+    // here since we cleared xlsxLastImport in beforeEach).
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+    const secondCall = invokeMock.mock.calls[1]![0] as {
+      odxPath: string;
+      xlsxRows: readonly unknown[];
+      bswmdPath?: string;
+    };
+    expect(secondCall.odxPath).toBe('/some.odx');
+    expect(secondCall.bswmdPath).toBe('/override.arxml');
+    expect(Array.isArray(secondCall.xlsxRows)).toBe(true);
+    // Happy path: console.warn NOT called.
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('handleGenerateNew does nothing when bswmd:pick returns canceled', async () => {
+    const pickMock = installBswmdPickMock({ kind: 'canceled' });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    expect(pickMock).toHaveBeenCalledTimes(1);
+    // Canceled picker → no dcm:config re-fire.
+    expect(invokeMock).not.toHaveBeenCalled();
+    // Canceled is benign; no warning either.
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('handleGenerateNew does nothing when picked file is not a Dcm BSWMD', async () => {
+    installBswmdPickMock({
+      kind: 'opened',
+      path: '/not-dcm.arxml',
+      content: NON_DCM_BSWMD_CONTENT,
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    // Sanity check our fixture (defensive — if the parser contract
+    // changes, the test must fail loudly).
+    expect(arxmlModuleShortNames(NON_DCM_BSWMD_CONTENT)).not.toContain(DCM_MODULE_SHORT_NAME);
+
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    // Non-Dcm picked → no dcm:config re-fire.
+    expect(invokeMock).not.toHaveBeenCalled();
+    // A warn is surfaced with the Dcm BSWMD context (the user gets
+    // feedback in the dev console; the UI simply stays on the
+    // success dialog for now).
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Dcm BSWMD'));
+  });
+
+  it('handleGenerateNew is no-op when lastOdxPath and activeDocumentPath are both null/undefined', async () => {
+    // Sanity: ensure both re-fire sources are null/undefined.
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      project: null,
+      activeDocumentPath: null,
+    } as never);
+    installBswmdPickMock({
+      kind: 'opened',
+      path: '/override.arxml',
+      content: DCM_BSWMD_CONTENT,
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    expect(result.current.state.lastOdxPath).toBeNull();
+
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    // No odxPath → no dcm:config re-fire.
+    expect(invokeMock).not.toHaveBeenCalled();
+    // Distinct warn string lets the user (and the test) recognise
+    // that Generate New was unavailable because nothing was captured.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no lastOdxPath'));
   });
 });
