@@ -118,6 +118,20 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
               <code>{result.bswmdPath}</code>
             </dd>
           </div>
+          {/* v1.33.0 MINOR T7 — applied step count surface. Renders
+              only when appliedStepCount > 0 (no empty placeholder).
+              i18n key is `dcmConfig.appliedCount.summary` with
+              `{count}` placeholder. data-testid is the E2E hook. */}
+          {result.appliedStepCount > 0 && (
+            <p
+              className="dcm-config-success-applied-count"
+              data-testid="dcm-config-success-applied-count"
+            >
+              {t(locale, 'dcmConfig.appliedCount.summary', {
+                count: result.appliedStepCount,
+              })}
+            </p>
+          )}
         </dl>
         {/* v1.33.0 MINOR T2 — activated Override shell. v1.32.1 PATCH
             P3 shipped a disabled input + no Browse button (lesson

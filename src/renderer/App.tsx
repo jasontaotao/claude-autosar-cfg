@@ -1303,10 +1303,29 @@ export function App(): JSX.Element {
             component itself returns null so DOM-wise it is a ghost.
             The locale + resolve/cancel callbacks come straight off
             the launcher hook (T5's `handlePickerResolve` /
-            `handlePickerCancel`). */}
+            `handlePickerCancel`).
+            v1.33.0 MINOR T7 — `defaultPath` is the project root
+            directory (parent of the manifest file), or the parent
+            directory of the resolved Dcm BSWMD path when no project
+            is open. The split handles both / and \\ so Windows paths
+            are stripped correctly. The picker forwards this to the
+            `odx:open-with-default` IPC (v1.33.0 T3) so the OS
+            dialog opens at a meaningful starting location. We use
+            `useArxmlStore.getState()` instead of subscribing so a
+            re-render is not forced on every projectPath change
+            (matches the picker-host convention at line 1258). */}
         {dcmLauncher.state.mode === 'picking-odx' && (
           <DcmConfigPicker
             locale={locale === 'zh-CN' ? 'zh-CN' : 'en'}
+            defaultPath={
+              (() => {
+                const pp = useArxmlStore.getState().projectPath;
+                if (pp !== null) {
+                  return pp.replace(/[\\/][^\\/]+$/, '');
+                }
+                return bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/');
+              })()
+            }
             onResolve={dcmLauncher.handlePickerResolve}
             onCancel={dcmLauncher.handlePickerCancel}
           />

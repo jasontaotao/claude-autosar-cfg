@@ -45,4 +45,6 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.picker.cancelled': 'ODX selection cancelled',
   'dcmConfig.bswmdPath.autofill': 'Auto-selected from project manifest',
   'dcmConfig.bswmdPath.override': 'Override BSWMD path',
+  // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
+  'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
 };
