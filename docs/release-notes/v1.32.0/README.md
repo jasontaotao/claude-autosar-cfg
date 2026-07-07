@@ -1,6 +1,6 @@
 # v1.32.0 MINOR — Dcm Config Hardening + UX Completion
 
-**Ship**: 2026-07-07 (commit `<TBD>` + tag v1.32.0 + GH release)
+**Ship**: 2026-07-07 (commit `9efb5d6` + tag v1.32.0 + GH release)
 
 **Baseline**: v1.31.1 PATCH `44eb1c0` (2933 + 7 SKIP / 0 fail)
 **Target**: 2985 + 7 SKIP / 0 fail (+52 net delta; +51 cases + 1 result payload field).
@@ -19,7 +19,7 @@
 - Dedicated `DcmConfigPicker` wraps `openOdx()` with `.odx$` filter (inherited from existing IPC).
 - `useDcmConfigLauncher.promptAndOpen()` skips the picker when `activeDocumentPath` is already `.odx`.
 - `bswmdPath` auto-populated from project manifest; UI shows "Auto-selected from project manifest: <path>" in the success dialog.
-- Override UI ships **disabled** (text-only, no Browse button) — deferred to v1.33.0.
+- Override UI did NOT ship in v1.32.0 (release notes typo in the design spec — claimed disabled Override but no Override UI was shipped at all). The 2 unused i18n keys from v1.32.0 (`dcmConfig.bswmdPath.override` + `dcmConfig.picker.title`) are addressed in v1.32.1 PATCH: Override `<details>` ships disabled in the success dialog; `picker.title` removed (OS dialog owns the title).
 
 ## Lessons (NEW from this MINOR)
 
