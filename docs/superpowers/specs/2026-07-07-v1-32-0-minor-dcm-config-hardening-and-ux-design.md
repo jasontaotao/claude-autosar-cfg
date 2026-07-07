@@ -188,9 +188,18 @@ The legacy `classifyErrorByRegex` retains the v1.31.x 6-prefix regex logic; test
 // src/renderer/arxml/arxmlModuleShortNames.ts (NEW)
 export function arxmlModuleShortNames(xml: string): readonly string[];
 /**
- * Parse `xml` via parseArxml and flatten all <SHORT-NAME> values
- * found under <ELEMENTS> sub-trees of <AR-PACKAGE>. Returns
- * canonical module shortNames for BSWMD shape detection.
+ * Flatten all <SHORT-NAME> values inside <ECUC-MODULE-DEF> elements
+ * found anywhere in the BSWMD ARXML (BSWMDs are not always wrapped in
+ * <AUTOSAR> + schemaLocation; the renderer-side gate operates on raw
+ * file content, not on the canonical parseArxml contract).
+ *
+ * Implementation note (mid-plan correction): uses fast-xml-parser
+ * directly with a minimal config. parseArxml (src/core/arxml/parser.ts)
+ * REQUIRES the <AUTOSAR> wrapper + schemaLocation + rejects pure-BSWMD
+ * with a friendly "use Load BSWMD instead" error (parser.ts:128-143).
+ * Those guards are correct for the ECUC value-file pipeline but
+ * unsuitable for the UX-gate parse where a stripped-down walk is
+ * sufficient.
  */
 ```
 
@@ -246,7 +255,6 @@ picking-odx ──[user cancel]──> idle (status toast: 'dcmConfig.picker.can
 
 ```tsx
 interface DcmConfigPickerProps {
-  readonly defaultPath?: string;
   readonly locale: Locale;
   readonly onResolve: (odxPath: string) => void | Promise<void>;
   readonly onCancel: () => void;
@@ -257,10 +265,13 @@ export function DcmConfigPicker(props: DcmConfigPickerProps): null;
 ```
 
 Effect:
-- On mount, invoke `window.autosarApi.openOdx({ defaultPath, filters: [{ name: t(locale, 'dcmConfig.picker.filter'), extensions: ['odx'] }] })`.
-- On resolve → `onResolve(path)`.
-- On cancel → `onCancel()`.
-- Cleanup: guard against React 19 strict-mode double-invoke via a `mountedRef` (parity with v1.22.0 `openOdx` consumer pattern; lesson `re-entrancy-guard-via-useref-not-setstate-callback-state`).
+- On mount, invoke `window.autosarApi.openOdx()` (no args — `odx:open` IPC handler takes no parameters; `defaultPath`/`filters` are hardcoded in `openOdxHandler.ts:28-60`).
+- On resolve (`{kind: 'opened', path, content}`) → `onResolve(path)`.
+- On cancel (`{kind: 'canceled'}`) → `onCancel()`.
+- On `read-failed` → `onCancel()` + console.warn (the OS dialog has already shown an error to the user per `openOdxHandler.ts:50-58`).
+- Cleanup: guard against React 19 strict-mode double-invoke via a `mountedRef` (lesson `re-entrancy-guard-via-useref-not-setstate-callback-state`).
+
+**Constraint discovered during planning**: `openOdx()` IPC takes no arguments (no `defaultPath` / `filters`). A future `odx:open-with-default` IPC would expand surface beyond envelope-migration-only scope; deferred to v1.33.0+ if UX testing shows lack of default folder is a friction point. The `.odx$` filter is already in place via the existing handler.
 
 Override subcomponent (collapsed by default):
 
@@ -278,12 +289,11 @@ Override subcomponent (collapsed by default):
 
 Spec note: shipping disabled avoids the v1.32.0 scope expansion to a Bswmd-picker IPC. v1.33.0+ enables and adds the Browse button.
 
-### T7 — i18n keys (5 new)
+### T7 — i18n keys (4 new; `dcmConfig.picker.filter` removed because the filter is hardcoded in `openOdxHandler.ts` and not configurable from the renderer)
 
 | Key | en | zh-CN |
 | --- | --- | --- |
 | `dcmConfig.picker.title` | `Select ODX-D file` | `选择 ODX-D 文件` |
-| `dcmConfig.picker.filter` | `ODX Files (*.odx)` | `ODX 文件 (*.odx)` |
 | `dcmConfig.picker.cancelled` | `ODX selection cancelled` | `已取消 ODX 选择` |
 | `dcmConfig.bswmdPath.autofill` | `Auto-selected from project manifest` | `已从项目清单自动选择` |
 | `dcmConfig.bswmdPath.override` | `Override BSWMD path` | `覆盖 BSWMD 路径` |
@@ -303,7 +313,7 @@ Spec note: shipping disabled avoids the v1.32.0 scope expansion to a Bswmd-picke
 2. Launcher `canOpenDcmConfig` is true (`odxLoaded && bswmdHasDcm.hasDcm && !busy`).
 3. `promptAndOpen()` checks `isActiveOdx` → false → transitions to `picking-odx`.
 4. `App.tsx` renders `<DcmConfigPicker/>`.
-5. Picker invokes `openOdx()` with `.odx$` filter; user picks → `onResolve(path)`.
+5. Picker invokes `openOdx()` (no args — handler hardcodes the `.odx$` filter); user picks → `onResolve(path)`.
 6. Launcher `handlePickerResolve(path)` calls `open({odxPath: path, xlsxRows, bswmdPath: bswmdHasDcm.dcmBswmdPath})`.
 7. Transition `picking-odx → pending`; IPC fires.
 
@@ -342,7 +352,7 @@ Handler returns `{ ok: false, error: { kind, message, cause? } }`. Launcher:
 | `src/renderer/arxml/__tests__/arxmlModuleShortNames.test.ts` (NEW) | 6 | +6 |
 | **Total** | | **+51** |
 
-Baseline 2933 + 7 SKIP / 0 fail → target **2984 + 7 SKIP / 0 fail**.
+Baseline 2933 + 7 SKIP / 0 fail → target **2984 + 7 SKIP / 0 fail** (unchanged from initial estimate; the `+1` for `picker.filter` was offset by other estimates being slightly conservative).
 
 ### Subagent-driven task split (8 tasks)
 
