@@ -158,15 +158,8 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
 
   it('Override input value matches the autofilled bswmdPath', () => {
     const bswmdPath = '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml';
-    render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        result={{ ...baseProps.result, bswmdPath }}
-      />,
-    );
-    const input = screen.getByTestId(
-      'dcm-config-success-bswmd-override-input',
-    ) as HTMLInputElement;
+    render(<DcmConfigSuccessDialog {...baseProps} result={{ ...baseProps.result, bswmdPath }} />);
+    const input = screen.getByTestId('dcm-config-success-bswmd-override-input') as HTMLInputElement;
     expect(input.value).toBe(bswmdPath);
     // readOnly + disabled — browse button is deferred to v1.33.0.
     expect(input.readOnly).toBe(true);
