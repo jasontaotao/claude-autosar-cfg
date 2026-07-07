@@ -1,6 +1,6 @@
 # v1.34.0 MINOR — xlsxImportHistory UI Surface
 
-**Ship**: 2026-07-07 (commit `<TBD>` + tag v1.34.0 + GH release)
+**Ship**: 2026-07-07 (commit `c62e346` + tag v1.34.0 + GH release)
 
 **Baseline**: v1.33.1 PATCH `576e4ea` (2998 + 7 SKIP / 0 fail)
 **Target**: 3008 + 7 SKIP / 0 fail (+10 net delta).
