@@ -1292,6 +1292,7 @@ export function App(): JSX.Element {
           result={dcmLauncher.state.result!}
           locale={locale}
           onClose={dcmLauncher.closeDialog}
+          onGenerateNew={dcmLauncher.handleGenerateNew}
         />
         <DcmConfigErrorToast
           error={dcmLauncher.state.error}

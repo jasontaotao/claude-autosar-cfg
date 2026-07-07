@@ -8,16 +8,20 @@
 // i18n). The single output simplifies the paths section (no
 // dem/dcm split).
 //
+// v1.33.1 PATCH T3 — Override UI (v1.33.0 half-finished
+// <details> + Browse/Clear) is DELETED in this task; a new
+// "Generate New" button replaces it, wired through the new
+// `onGenerateNew` prop to launcher.handleGenerateNew (T2).
+//
 // i18n: all user-facing strings go through t(locale, key, params)
 // per the v1.23.1 T1 L1 i18n-bypass-pattern lesson.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 import type { DcmConfigHandlerResult } from '@shared/types.js';
 
-import { DcmConfigOverridePicker } from './DcmConfigOverridePicker.js';
 import './DcmConfigSuccessDialog.css';
 
 export interface DcmConfigSuccessDialogProps {
@@ -27,24 +31,15 @@ export interface DcmConfigSuccessDialogProps {
   readonly result: DcmConfigHandlerResult;
   readonly locale: Locale;
   readonly onClose: () => void;
+  /** v1.33.1 PATCH T3 — SuccessDialog "Generate New" button click.
+   * Wires through to launcher.handleGenerateNew (T2) which re-fires
+   * dcm:config with the captured lastOdxPath. */
+  readonly onGenerateNew: () => void | Promise<void>;
 }
 
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
-  const { open, result, locale, onClose } = props;
+  const { open, result, locale, onClose, onGenerateNew } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  // v1.33.0 MINOR T2 — Override UI state. Empty string means "use
-  // launcher autofill" (no override). The Override <details> Browse
-  // button populates this; the Clear button resets to empty. T7
-  // (wiring) consumes this to re-launch dcm:config with the picked
-  // BSWMD path instead of the autofill default.
-  const [bswmdPathOverride, setBswmdPathOverride] = useState<string>('');
-
-  const handleOverrideChange = (path: string): void => {
-    setBswmdPathOverride(path);
-  };
-  const handleOverrideClear = (): void => {
-    setBswmdPathOverride('');
-  };
 
   useEffect(() => {
     if (!open) return;
@@ -133,30 +128,19 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             </p>
           )}
         </dl>
-        {/* v1.33.0 MINOR T2 — activated Override shell. v1.32.1 PATCH
-            P3 shipped a disabled input + no Browse button (lesson
-            disable-input-without-browse-button-is-debt); T2 wires
-            the <DcmConfigOverridePicker> Browse + Clear buttons
-            beneath the input so the user can pick a BSWMD to
-            override the launcher autofill. T5 (launcher wiring) and
-            T7 (appliedCount) consume `bswmdPathOverride` state. */}
-        <details
-          className="dcm-config-success-bswmd-override"
-          data-testid="dcm-config-success-bswmd-override"
+        {/* v1.33.1 PATCH T3 — "Generate New" button. Re-fires
+            dcm:config with the captured lastOdxPath. Replaces the
+            deleted v1.33.0 Override <details> + Browse/Clear UI. */}
+        <button
+          type="button"
+          onClick={() => {
+            void onGenerateNew();
+          }}
+          data-testid="dcm-config-generate-new"
+          className="dcm-config-generate-new"
         >
-          <summary>{t(locale, 'dcmConfig.bswmdPath.override')}</summary>
-          <input
-            type="text"
-            value={bswmdPathOverride || result.bswmdPath || ''}
-            readOnly
-            data-testid="dcm-config-success-bswmd-override-input"
-          />
-          <DcmConfigOverridePicker
-            value={bswmdPathOverride}
-            onChange={handleOverrideChange}
-            onCancel={handleOverrideClear}
-          />
-        </details>
+          {t(locale, 'dcmConfig.generateNew.button')}
+        </button>
         <div className="dcm-config-success-actions">
           <button
             ref={closeButtonRef}

@@ -56,6 +56,12 @@
   word-break: break-all;
 }
 
+.dcm-config-generate-new {
+  padding: 4px 12px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
 .dcm-config-success-actions {
   display: flex;
   justify-content: flex-end;

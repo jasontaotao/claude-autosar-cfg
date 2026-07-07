@@ -47,4 +47,6 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.bswmdPath.override': 'Override BSWMD path',
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
+  // v1.33.1 PATCH T3 — "Generate New" button.
+  'dcmConfig.generateNew.button': 'Generate New',
 };

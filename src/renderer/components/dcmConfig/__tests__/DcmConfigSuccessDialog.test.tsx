@@ -43,6 +43,10 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     },
     locale: 'en' as const,
     onClose: vi.fn(),
+    // v1.33.1 PATCH T3 — Generate New button requires this callback.
+    // The 2 explicit "renders Generate New" tests below override it
+    // with their own spy. Other tests don't trigger the button.
+    onGenerateNew: vi.fn(),
   };
 
   it('renders outputPath in paths list', () => {

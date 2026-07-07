@@ -51,4 +51,9 @@ export interface OdxMessages {
   // Rendered only when result.appliedStepCount > 0; the dialog
   // omits the <p> entirely otherwise (no empty placeholder).
   readonly 'dcmConfig.appliedCount.summary': string; // {count}
+  // v1.33.1 PATCH T3 — "Generate New" button (replaces deleted
+  // v1.33.0 Override <details> + Browse/Clear UI). Wired to
+  // launcher.handleGenerateNew which re-fires dcm:config with the
+  // captured lastOdxPath.
+  readonly 'dcmConfig.generateNew.button': string;
 }

@@ -47,4 +47,6 @@ export const OdxZhCN: OdxMessages = {
   'dcmConfig.bswmdPath.override': '覆盖 BSWMD 路径',
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
+  // v1.33.1 PATCH T3 — "Generate New" button.
+  'dcmConfig.generateNew.button': '重新生成',
 };
