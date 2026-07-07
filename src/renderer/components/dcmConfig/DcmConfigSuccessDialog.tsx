@@ -132,7 +132,6 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             type="text"
             value={bswmdPathOverride || result.bswmdPath || ''}
             readOnly
-            disabled={false}
             data-testid="dcm-config-success-bswmd-override-input"
           />
           <DcmConfigOverridePicker
