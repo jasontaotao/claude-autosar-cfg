@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 //
-// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2.
+// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5 +
+// v1.33.0 MINOR T4.
 //
 // Pinned behaviours:
 //   1. Initial state is idle
@@ -13,9 +14,11 @@
 //
 // v1.32.0 MINOR T2 additions:
 //   7. classifyError reads DcmConfigError.kind FIRST
-//   8. classifyErrorByRegex preserves v1.31.x 6-prefix regex behaviour
-//   9. classifyError falls back to regex when kind is absent
-//      (pre-v1.32.0 IPC handler payloads — 1-release compat window)
+//
+// v1.33.0 MINOR T4 additions:
+//   8. classifyError returns UNKNOWN defensively when kind is absent
+//      (typed-cast anomaly only; legacy regex fallback removed because
+//      1-release compat window per v1.32.0 spec §5 has expired).
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +27,6 @@ import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.j
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import {
   classifyError,
-  classifyErrorByRegex,
   useDcmConfigLauncher,
 } from '../useDcmConfigLauncher.js';
 
@@ -86,7 +88,8 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
   it('transitions idle → pending → error on IPC fail with bswmdUnreadable class', async () => {
     invokeMock.mockResolvedValue({
       ok: false,
-      error: { message: 'BSWMD file unreadable: ENOENT: no such file' },
+      // v1.33.0 MINOR T4 — payloads now carry `kind`; legacy regex fallback removed.
+      error: { kind: 'bswmd-unreadable', message: 'BSWMD file unreadable: ENOENT: no such file' },
     });
 
     const { result } = renderHook(() => useDcmConfigLauncher());
@@ -101,18 +104,19 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
   });
 
   it.each([
-    ['BSWMD file unreadable: x', 'bswmdUnreadable'],
-    ['ODX file unreadable: x', 'odxUnreadable'],
-    ['ODX parse failed: x', 'odxParseFailed'],
-    ["BSWMD map missing module 'Dcm'", 'bswmdMapMissing'],
-    ['Atomic write failed: x', 'atomicWriteFailed'],
-    ['Some unknown error', 'unexpected'],
-  ] as const)('classifyError maps %s to %s', async (message, expected) => {
+    [{ kind: 'bswmd-unreadable', message: 'BSWMD file unreadable: x' }, 'bswmdUnreadable'],
+    [{ kind: 'odx-unreadable', message: 'ODX file unreadable: x' }, 'odxUnreadable'],
+    [{ kind: 'odx-parse-failed', message: 'ODX parse failed: x' }, 'odxParseFailed'],
+    [{ kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" }, 'bswmdMapMissing'],
+    [{ kind: 'atomic-write-failed', message: 'Atomic write failed: x' }, 'atomicWriteFailed'],
+    [{ kind: 'unknown', message: 'Some unknown error' }, 'unexpected'],
+  ] as const)('classifyError maps kind payload to %s', async (errorPayload, expected) => {
     const { result } = renderHook(() => useDcmConfigLauncher());
     // classifyError is an internal helper — exercise it via the
-    // error state path: invoke with the message, then read
-    // state.error.classKey.
-    invokeMock.mockResolvedValue({ ok: false, error: { message } });
+    // error state path: invoke with the payload, then read
+    // state.error.classKey. v1.33.0 MINOR T4 — payloads now carry
+    // `kind` (legacy regex fallback removed).
+    invokeMock.mockResolvedValue({ ok: false, error: errorPayload });
     await act(async () => {
       await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
     });
@@ -238,8 +242,7 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
   });
 });
 
-// v1.32.0 MINOR T2 — classifyError reads kind FIRST; legacy regex fallback
-// preserves behavior for pre-v1.32.0 IPC handler payloads.
+// v1.32.0 MINOR T2 — classifyError reads kind FIRST.
 describe('classifyError (v1.32.0 T2) — kind-first', () => {
   it.each<[DcmConfigErrorKind, string]>([
     ['odx-unreadable', 'ODX_FILE_UNREADABLE'],
@@ -257,27 +260,10 @@ describe('classifyError (v1.32.0 T2) — kind-first', () => {
   });
 });
 
-describe('classifyErrorByRegex (v1.32.0 T2) — legacy fallback', () => {
-  it.each<[string, string]>([
-    ['ODX file unreadable: ENOENT', 'ODX_FILE_UNREADABLE'],
-    ['ODX parse failed: ...', 'ODX_PARSE_FAILED'],
-    ['BSWMD file unreadable: ENOENT', 'BSWMD_FILE_UNREADABLE'],
-    ['ODX-Dcm linkage broken: ...', 'ODX_DCM_LINKAGE'],
-    ['BSWMD map missing module ...', 'DCM_MODULE_MISSING'],
-    ['Container "DcmDspDid" not found ...', 'CONTAINER_NOT_FOUND'],
-    ['Patch application failed ...', 'PATCH_FAILED'],
-    ['Atomic write failed: ...', 'ATOMIC_WRITE_FAILED'],
-    ['Some unexpected message', 'UNKNOWN'],
-  ])('regex maps %s to %s', (message, expectedClass) => {
-    expect(classifyErrorByRegex(message)).toBe(expectedClass);
-  });
-});
-
-describe('classifyError backward-compat (v1.32.0 T2) — missing kind', () => {
-  it('falls back to regex when kind is absent (pre-v1.32.0 handler payload)', () => {
-    // Legacy payload shape — no kind field.
-    const legacy = { message: 'ODX-Dcm linkage broken: ...' } as unknown as DcmConfigError;
-    expect(classifyError(legacy)).toBe('ODX_DCM_LINKAGE');
+describe('classifyError defensive fallback (v1.33.0 T4)', () => {
+  it('returns UNKNOWN when kind is absent (defensive — should never happen in v1.32.0+ payloads)', () => {
+    const legacy = { message: '...' } as unknown as DcmConfigError;
+    expect(classifyError(legacy)).toBe('UNKNOWN');
   });
 });
 

@@ -1,4 +1,4 @@
-// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5.
+// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5 + v1.33.0 MINOR T4.
 //
 // State machine + IPC + error classifier for the v1.30.0
 // `dcm:config` IPC channel. Consumed by AppHeader (T5) and
@@ -9,11 +9,15 @@
 //   - Response: { ok: true, value: DcmConfigHandlerResult }
 //             | { ok: false, error: { kind, message, cause? } }   (v1.32.0: kind is additive)
 //
-// v1.32.0 MINOR T2 — classifyError reads DcmConfigError.kind FIRST and
-// falls back to classifyErrorByRegex when kind is absent (pre-v1.32.0
-// IPC handler payloads). Regex fallback is kept for ONE release and
-// removed in v1.33.0 (lesson
-// error-classification-via-regex-prefix-vs-envelope-kind-trade-off).
+// v1.32.0 MINOR T2 — classifyError reads DcmConfigError.kind FIRST
+// (lesson error-classification-via-regex-prefix-vs-envelope-kind-trade-off).
+//
+// v1.33.0 MINOR T4 — classifyErrorByRegex removed (1-release compat
+// window per v1.32.0 spec §5 has expired). Renderer classifyError
+// reads kind discriminator exclusively. Defensive 'UNKNOWN' fallback
+// for legacy typed-cast payloads (should never occur in v1.32.0+
+// production but kept for type-safety).
+// Lesson: 1-release-compat-window-explicit-removal
 //
 // v1.32.0 MINOR T5 — state machine gains a `picking-odx` substate.
 // Flow: idle → (promptAndOpen: no active ODX) → picking-odx → (resolve)
@@ -168,11 +172,11 @@ const NEW_CLASS_TO_OLD_KEY: Readonly<Record<RendererDcmConfigErrorClass, DcmConf
 };
 
 /**
- * v1.32.0 MINOR T2 — read DcmConfigError.kind FIRST; fall back to
- * `classifyErrorByRegex` when `kind` is absent (pre-v1.32.0 IPC
- * handler payloads — 1-release compat window). Regex fallback is
- * removed in v1.33.0 (lesson
- * `backward-compat-branch-on-missing-discriminator-field`).
+ * v1.33.0 MINOR T4 — read DcmConfigError.kind exclusively. The
+ * pre-v1.32.0 regex fallback was removed when the 1-release compat
+ * window expired (v1.32.0 spec §5). Defensive 'UNKNOWN' return keeps
+ * the type-safe path for any typed-cast anomaly that bypasses the
+ * discriminant (should never occur in v1.32.0+ IPC payloads).
  *
  * Accepts the full `DcmConfigError` shape (not just `message`) so the
  * discriminator check has a stable home — we never inspect
@@ -182,37 +186,15 @@ export function classifyError(error: DcmConfigError): RendererDcmConfigErrorClas
   if (typeof error === 'object' && error !== null && 'kind' in error) {
     return KIND_TO_CLASS[error.kind];
   }
-  // Backward-compat fallback (pre-v1.32.0 handler payloads that lack
-  // the kind field). At the type level `DcmConfigError.kind` is required,
-  // so by the time we reach this line the discriminant has been
-  // confirmed absent via `'kind' in error` above — TypeScript narrows
-  // `error` to `never`. The legacy payload shape is `{ message: string }`
-  // (no kind), so we re-read `message` through the original parameter
-  // with a controlled cast that documents the pre-v1.32.0 contract.
-  return classifyErrorByRegex((error as unknown as { message: string }).message);
-}
-
-/**
- * v1.32.0 MINOR T2 — legacy regex classifier. Kept for one-release IPC
- * forward-compat with handlers that haven't shipped the kind field.
- * Removed in v1.33.0.
- *
- * Mirrors the v1.31.x 6-prefix regex set, plus the 3 new v1.32.0
- * prefixes (odx-dcm-linkage, dcm-module-missing, container-not-found,
- * patch-failed) so legacy payloads from a pre-v1.32.0 handler still
- * land in a meaningful class.
- */
-export function classifyErrorByRegex(message: string): RendererDcmConfigErrorClass {
-  if (/^ODX file unreadable/.test(message)) return 'ODX_FILE_UNREADABLE';
-  if (/^ODX parse failed/.test(message)) return 'ODX_PARSE_FAILED';
-  if (/^BSWMD file unreadable/.test(message)) return 'BSWMD_FILE_UNREADABLE';
-  if (/^ODX-Dcm linkage broken/.test(message)) return 'ODX_DCM_LINKAGE';
-  if (/^BSWMD map missing module/.test(message)) return 'DCM_MODULE_MISSING';
-  if (/^Container .* not found/.test(message)) return 'CONTAINER_NOT_FOUND';
-  if (/^Patch application failed/.test(message)) return 'PATCH_FAILED';
-  if (/^Atomic write failed/.test(message)) return 'ATOMIC_WRITE_FAILED';
   return 'UNKNOWN';
 }
+
+// v1.33.0 MINOR T4 — classifyErrorByRegex removed (1-release compat
+// window per v1.32.0 spec §5 has expired). Renderer classifyError
+// reads kind discriminator exclusively. Defensive 'UNKNOWN' fallback
+// for legacy typed-cast payloads (should never occur in v1.32.0+
+// production but kept for type-safety).
+// Lesson: 1-release-compat-window-explicit-removal
 
 /**
  * v1.32.0 MINOR T2 — internal adapter from the 9-class
@@ -413,12 +395,8 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
         } else {
           const message = res.error.message;
           // v1.32.0 MINOR T2 — classifyError reads DcmConfigError.kind
-          // FIRST. Forward-compat: pre-v1.32.0 handlers may still send
-          // payloads without `kind`; the `kind in error` check inside
-          // classifyError routes those to the regex fallback (1-release
-          // compat window, removed in v1.33.0). We pass the whole
-          // `res.error` object, not just `message`, so the discriminator
-          // has a stable home.
+          // FIRST. We pass the whole `res.error` object, not just
+          // `message`, so the discriminator has a stable home.
           const errorForClassify: DcmConfigError = res.error as DcmConfigError;
           const toastKey = toToastClassKey(classifyError(errorForClassify));
           setState({
