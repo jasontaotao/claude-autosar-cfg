@@ -225,6 +225,16 @@ export const IPC_CHANNELS = {
   // placeholder pattern (lesson store-as-source-of-truth-for-async-
   // args). Payload excludes `importedAt`; renderer stamps it.
   XLSX_IMPORT_COMPLETE: 'xlsx:import-complete',
+  // v1.33.0 MINOR T2 — bswmd:pick IPC. Renderer asks main to show a
+  // single-file picker filtered to .arxml, then reads the chosen file
+  // into memory. Used by the v1.32.1 PATCH Override UI's Browse
+  // button. New additive channel (lesson additive-ipc-channels-over-
+  // extending-args) — not extending an existing channel, so future
+  // BSWMD open use cases (e.g. multi-BSWMD import) can land
+  // independently. Returns a discriminated `BswmdPickResult` (canceled
+  // / opened); the read-failure branch is folded into `canceled` after
+  // surfacing the error via `dialog.showMessageBox`.
+  BSWMD_PICK: 'bswmd:pick',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

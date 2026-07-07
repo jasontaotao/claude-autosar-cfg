@@ -313,6 +313,21 @@ export type OpenOdxResult =
   | { readonly kind: 'opened'; readonly path: string; readonly content: string }
   | { readonly kind: 'read-failed'; readonly message: string };
 
+/**
+ * v1.33.0 MINOR T2 — `bswmd:pick` IPC result.
+ *
+ * Mirrors `OpenOdxResult` but collapses the read-failure case into
+ * `canceled` because the handler already surfaces the read error via
+ * `dialog.showMessageBox` (per CLAUDE.md "errors handled explicitly,
+ * never silently swallowed" + the v1.32.0 PATCH `bswmd-unreadable` IPC
+ * error class lesson). The renderer's picker treats both user-cancel
+ * and OS read error as "no change" — the user already saw the message
+ * box, so a second error banner would be noisy.
+ */
+export type BswmdPickResult =
+  | { readonly kind: 'canceled' }
+  | { readonly kind: 'opened'; readonly path: string; readonly content: string };
+
 /** ODX parse request — content already in memory (mirrors `ParseDbcRequest`). */
 export interface ParseOdxRequest {
   /** Optional — debug context for the handler; not used by the parser itself. */

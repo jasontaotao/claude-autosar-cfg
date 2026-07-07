@@ -18,6 +18,7 @@ import type {
   OpenBswmdResult,
   OpenDbcResult,
   OpenOdxResult,
+  BswmdPickResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
   OdxImportDiagExtractRequest,
@@ -135,6 +136,15 @@ const api = {
   // renderer asks main to show the picker, gets back the picked path,
   // then asks main to read its content (with the 32 MiB cap).
   openBswmdDialog: (): Promise<OpenBswmdResult> => ipcRenderer.invoke(IPC_CHANNELS.BSWMD_OPEN),
+  // v1.33.0 MINOR T2 — bswmd:pick IPC. Renderer asks main to show
+  // a .arxml picker AND read the chosen file's content in one
+  // round-trip. Activates the v1.32.1 PATCH Override UI Browse
+  // button. Distinct from `openBswmdDialog` (Sprint 12 #2): the older
+  // channel returns just the path so the renderer pairs it with a
+  // `readBswmd` call, while this one returns the path + content
+  // together for the simpler Override use case. New additive channel
+  // (lesson additive-ipc-channels-over-extending-args).
+  bswmdPick: (): Promise<BswmdPickResult> => ipcRenderer.invoke(IPC_CHANNELS.BSWMD_PICK),
   // Sprint 12 #3 — directory picker for the New Project flow. Pairs
   // with `projectNew`: the renderer asks main to show a folder picker,
   // gets back the chosen absolute path (or `canceled`), and supplies

@@ -60,6 +60,7 @@ import type {
 import { trackHandler } from '../shutdown/drain.js';
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
+import { registerBswmdPickHandler } from './bswmdPickHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
 import { dcmConfigHandler } from './dcmConfigHandler.js';
@@ -474,6 +475,15 @@ export function registerIpcHandlers(): void {
       return bswmdDeleteHandler(req);
     },
   );
+
+  // v1.33.0 MINOR T2 — bswmd:pick handler. Single-file picker
+  // filtered to .arxml; reads the chosen file and returns its path +
+  // content. Activates the v1.32.1 PATCH Override UI Browse button.
+  // New additive channel (lesson additive-ipc-channels-over-extending-
+  // args) — the read-failure branch is folded into `canceled` after
+  // surfacing the error via `dialog.showMessageBox` so the renderer's
+  // picker has a single "no change" branch to handle.
+  registerBswmdPickHandler();
 
   // v1.6.0 U — `feature-flags:get` handler. Returns the current
   // experimental flag set (all OFF by default; enabling a flag
