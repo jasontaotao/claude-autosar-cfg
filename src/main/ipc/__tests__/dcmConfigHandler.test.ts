@@ -1,3 +1,138 @@
+// v1.32.0 MINOR T1 — kind discriminator on DcmConfigResponse.error.
+//
+// Append a parameterized it.each covering the 9 kind branches the
+// handler can populate. Pre-impl these tests FAIL because
+// `result.error.kind` is undefined (current error shape carries only
+// `message` + `cause`). Post-impl they PASS because every branch
+// sets a typed `kind` literal.
+import type { DcmConfigErrorKind, DcmConfigResponse } from '../../../shared/types.js';
+
+describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
+  it.each<{ name: string; kind: DcmConfigErrorKind; setup: () => Promise<DcmConfigResponse> }>([
+    {
+      name: 'odx-unreadable',
+      kind: 'odx-unreadable',
+      setup: async () => {
+        // Missing ODX path triggers readFileSync ENOENT.
+        return dcmConfigHandler({
+          odxPath: pathResolve(workDir, 'does-not-exist.odx'),
+          xlsxRows: [],
+        });
+      },
+    },
+    {
+      name: 'odx-parse-failed',
+      kind: 'odx-parse-failed',
+      setup: async () => {
+        const odxPath = pathResolve(workDir, 'bad.odx');
+        writeFileSync(odxPath, '<not-xml', 'utf-8');
+        return dcmConfigHandler({ odxPath, xlsxRows: [] });
+      },
+    },
+    {
+      name: 'bswmd-unreadable',
+      kind: 'bswmd-unreadable',
+      setup: async () => {
+        const odxPath = pathResolve(workDir, 'input.odx');
+        writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+        return dcmConfigHandler({
+          odxPath,
+          xlsxRows: [],
+          bswmdPath: pathResolve(workDir, 'missing-bswmd.arxml'),
+        });
+      },
+    },
+    // 'odx-dcm-linkage' + 'dcm-module-missing' + 'container-not-found' surface
+    // from pipeline/mapper thrown DcmConfigError — covered by their own test
+    // files; here we assert the handler's catch site sets the right kind.
+    {
+      name: 'patch-failed',
+      kind: 'patch-failed',
+      setup: async () => {
+        // Force the mutation engine to return a patch error so the
+        // handler's site-7 branch fires with kind 'patch-failed'. The
+        // spec notes this used to surface via path-not-found /
+        // param-not-found on the real fixture, but v1.27.2's
+        // extract-shape fix closed those — so we mock to keep the
+        // branch reachable as a behavior contract.
+        const odxPath = pathResolve(workDir, 'input.odx-d');
+        const outputPath = pathResolve(workDir, 'Dcm_Config.arxml');
+        writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+        const xlsxRows: EcucInstanceRow[] = [
+          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+        ].map(asDcmRow);
+        const mutationModule = await import('../../../core/mutation/applyPatchSteps.js');
+        const spy = vi
+          .spyOn(mutationModule, 'applyPatchSteps')
+          .mockImplementation((doc, _steps, _ctx) => ({
+            doc,
+            applied: 0,
+            errors: [
+              {
+                stepIndex: 0,
+                kind: 'path-not-found',
+                message: 'forced by kind-discriminator test',
+              },
+            ],
+            warnings: [],
+          }));
+        try {
+          return await dcmConfigHandler({ odxPath, xlsxRows, outputPath });
+        } finally {
+          spy.mockRestore();
+        }
+      },
+    },
+    {
+      name: 'atomic-write-failed',
+      kind: 'atomic-write-failed',
+      setup: async () => {
+        // Point outputPath at an existing read-only directory to force writeAtomic throw.
+        const odxPath = pathResolve(workDir, 'input.odx-d');
+        writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+        const xlsxRows: EcucInstanceRow[] = [
+          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+          { sheet: 'DcmRoutineControl' as const, shortName: 'StartErase', params: { routineRef: 'EraseMemory' } },
+        ].map(asDcmRow);
+        return dcmConfigHandler({
+          odxPath,
+          xlsxRows,
+          outputPath: workDir, // directory, not file — writeAtomic fails
+        });
+      },
+    },
+    {
+      name: 'unknown',
+      kind: 'unknown',
+      setup: async () => {
+        // Force a non-DcmConfigError throw by mocking the pipeline to throw Error.
+        const odxPath = pathResolve(workDir, 'input.odx-d');
+        writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+        // Empty bswmds map + non-empty xlsxRows forces pipeline to throw the
+        // 'BSWMD map missing module' error as a plain Error (pre-DcmConfigError).
+        // In v1.32.0 the pipeline throws DcmConfigError, so this becomes a
+        // backstop: an unexpected thrown plain Error lands at the outer catch
+        // and surfaces as 'unknown'.
+        // Force via bswmdPath pointing at a syntactically valid but
+        // content-empty BSWMD, which leaves the map empty after parse.
+        const bswmdPath = pathResolve(workDir, 'empty-bswmd.arxml');
+        writeFileSync(bswmdPath, '<AR-PACKAGES></AR-PACKAGES>', 'utf-8');
+        return dcmConfigHandler({
+          odxPath,
+          xlsxRows: [{ sheet: 'DcmReadDataById' as const, shortName: 'x', params: {} } as unknown as EcucInstanceRow],
+          bswmdPath,
+        });
+      },
+    },
+  ])('$name branch returns error.kind=$kind', async ({ kind, setup }) => {
+    const result = await setup();
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.kind).toBe(kind);
+    }
+  });
+});
+
 // v1.27.0 T4 — dcmConfigHandler IPC endpoint integration tests.
 //
 // Mirrors the test conventions of `odxImportDiagnosticExtractHandler.test.ts`:
@@ -132,6 +267,11 @@ describe('dcmConfigHandler — happy path', () => {
     if (!result.ok) {
       // Snapshot rollback invariant: no partial file on error.
       expect(existsSync(outputPath)).toBe(false);
+      // v1.32.0 MINOR T1 — kind discriminator on the error envelope.
+      // The handler now returns `kind: 'patch-failed'` for any
+      // mutation-engine failure (path-not-found / param-not-found /
+      // etc. all funnel through the same kind literal).
+      expect(result.error.kind).toBe('patch-failed');
       // Error class: must be a mutation-engine error surfaced via
       // IpcResult.error, NOT a swallowed error silently returning ok:true.
       expect(result.error.message).toMatch(

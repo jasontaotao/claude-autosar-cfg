@@ -25,6 +25,7 @@ import type {
 } from '../../shared/types.js';
 import type { BswModuleDef } from '../project/bswmd.js';
 
+import { DcmConfigError } from './dcmConfigError.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 import { odxToDiagnosticExtract } from './odxToDiagnosticExtract.js';
 
@@ -105,10 +106,12 @@ function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): 
             .map((d) => d.shortName)
             .join(', ');
           const more = dids.length > 10 ? ` (and ${dids.length - 10} more)` : '';
-          throw new Error(
-            `ODX-Dcm linkage broken: Sheet '${row.sheet}', row '${row.shortName}': ` +
+          throw new DcmConfigError({
+            kind: 'odx-dcm-linkage',
+            message:
+              `ODX-Dcm linkage broken: Sheet '${row.sheet}', row '${row.shortName}': ` +
               `referenced DID '${didRef}' not found. Available DIDs from ODX: ${sample}${more}.`,
-          );
+          });
         }
       }
     }
@@ -118,10 +121,12 @@ function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): 
         if (resolveOdxReference(odx, 'routineRef', routineRef) === null) {
           const { routines } = collectOdxDidsAndRoutines(odx);
           const routineList = routines.map((r) => r.shortName).join(', ') || '<none>';
-          throw new Error(
-            `ODX-Dcm linkage broken: Sheet '${row.sheet}', row '${row.shortName}': ` +
+          throw new DcmConfigError({
+            kind: 'odx-dcm-linkage',
+            message:
+              `ODX-Dcm linkage broken: Sheet '${row.sheet}', row '${row.shortName}': ` +
               `referenced Routine '${routineRef}' not found. Available Routines from ODX: ${routineList}.`,
-          );
+          });
         }
       }
     }
@@ -187,10 +192,12 @@ export async function dcmConfigPipeline(
   //    is self-contained (T4 can rely on the orchestrator's validation).
   const dcmBswmd = request.bswmds.get(DCM_MODULE_SHORT_NAME);
   if (dcmBswmd === undefined) {
-    throw new Error(
-      `BSWMD map missing module '${DCM_MODULE_SHORT_NAME}' (needed for Dcm service configs). ` +
+    throw new DcmConfigError({
+      kind: 'dcm-module-missing',
+      message:
+        `BSWMD map missing module '${DCM_MODULE_SHORT_NAME}' (needed for Dcm service configs). ` +
         `Provided modules: ${Array.from(request.bswmds.keys()).join(', ') || '<empty>'}`,
-    );
+    });
   }
 
   // 4. Service-kind tally for the caller's UI summary.

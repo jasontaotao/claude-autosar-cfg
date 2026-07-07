@@ -1145,8 +1145,27 @@ export type DcmConfigResponse =
     }
   | {
       readonly ok: false;
-      readonly error: {
-        readonly message: string;
-        readonly cause?: unknown;
-      };
+      readonly error: DcmConfigError;
     };
+
+// v1.32.0 MINOR T1 — additive kind discriminator on the IPC error envelope.
+//   kind ∈ 9 literals + 'unknown' (catch-all).
+// The renderer classifyError reads kind FIRST and falls back to regex
+// classification ONLY when kind is absent (lesson
+// backward-compat-branch-on-missing-discriminator-field).
+export type DcmConfigErrorKind =
+  | 'odx-unreadable'
+  | 'odx-parse-failed'
+  | 'bswmd-unreadable'
+  | 'odx-dcm-linkage'
+  | 'dcm-module-missing'
+  | 'container-not-found'
+  | 'patch-failed'
+  | 'atomic-write-failed'
+  | 'unknown';
+
+export interface DcmConfigError {
+  readonly kind: DcmConfigErrorKind;
+  readonly message: string;
+  readonly cause?: unknown;
+}

@@ -23,6 +23,7 @@ import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
 import { addChildSiblingStep } from './addChildSiblingStep.js';
 import type { DcmServiceKind } from './dcmConfigPipeline.js';
+import { DcmConfigError } from './dcmConfigError.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 
 export type { EcucInstanceRow };
@@ -56,28 +57,36 @@ export function xlsxDcmServicesToEcucBatch(
   const steps: PatchStep[] = [];
   for (const row of rows) {
     if (!row.shortName || row.shortName.length === 0) {
-      throw new Error(`EcucInstanceRow missing shortName (sheet=${row.sheet})`);
+      throw new DcmConfigError({
+        kind: 'unknown',
+        message: `EcucInstanceRow missing shortName (sheet=${row.sheet})`,
+      });
     }
     if (!(row.sheet in SHEET_TO_MODULE)) {
-      throw new Error(
-        `Unrecognized sheet name: '${row.sheet}' (allowed: ${Object.keys(SHEET_TO_MODULE).join(', ')})`,
-      );
+      throw new DcmConfigError({
+        kind: 'unknown',
+        message: `Unrecognized sheet name: '${row.sheet}' (allowed: ${Object.keys(SHEET_TO_MODULE).join(', ')})`,
+      });
     }
     const moduleShortName = SHEET_TO_MODULE[row.sheet as DcmSheetKind];
     const lookupKey = SHEET_TO_CONTAINER_SHORT_NAME[row.sheet as DcmSheetKind];
     const bswmd = bswmds.get(moduleShortName);
     if (bswmd === undefined) {
-      throw new Error(
-        `BSWMD map missing module '${moduleShortName}' (needed by sheet '${row.sheet}'). ` +
+      throw new DcmConfigError({
+        kind: 'dcm-module-missing',
+        message:
+          `BSWMD map missing module '${moduleShortName}' (needed by sheet '${row.sheet}'). ` +
           `Provided modules: ${Array.from(bswmds.keys()).join(', ') || '<empty>'}`,
-      );
+      });
     }
     const containerDef = lookupContainerDef(bswmd, lookupKey);
     if (containerDef === null) {
-      throw new Error(
-        `Container '${lookupKey}' not found in BSWMD module '${moduleShortName}'. ` +
+      throw new DcmConfigError({
+        kind: 'container-not-found',
+        message:
+          `Container '${lookupKey}' not found in BSWMD module '${moduleShortName}'. ` +
           `Verify the BSWMD declares this canonical AUTOSAR container shortName.`,
-      );
+      });
     }
     // v1.27.2 PATCH — switch from leaf-parent add (`Dcm/DcmDspDid`) to
     // module-level sibling add (`Dcm` + `definitionRef`).

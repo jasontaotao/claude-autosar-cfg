@@ -38,6 +38,7 @@ import { resolve as pathResolve } from 'node:path';
 import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
 import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
+import { DcmConfigError } from '../../core/bridge/dcmConfigError.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
 import type {
@@ -185,6 +186,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       return {
         ok: false,
         error: {
+          kind: 'odx-unreadable',
           message: `ODX file unreadable: ${e instanceof Error ? e.message : String(e)}`,
           cause: e,
         },
@@ -197,6 +199,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       return {
         ok: false,
         error: {
+          kind: 'odx-parse-failed',
           message: `ODX parse failed: ${odxParse.error.message}`,
           cause: odxParse.error,
         },
@@ -216,6 +219,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       return {
         ok: false,
         error: {
+          kind: 'bswmd-unreadable',
           message: `BSWMD file unreadable: ${e instanceof Error ? e.message : String(e)}`,
           cause: e,
         },
@@ -252,7 +256,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     const dcmModuleDef = bswmds.get(DCM_MODULE_SHORT_NAME)!;
     const patched = applyPatchesToExtract(pipelineResult.dcmConfigXml, serviceSteps, dcmModuleDef);
     if (!patched.ok) {
-      return { ok: false, error: { message: patched.error } };
+      return { ok: false, error: { kind: 'patch-failed', message: patched.error } };
     }
     const finalXml = patched.value;
 
@@ -267,6 +271,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       return {
         ok: false,
         error: {
+          kind: 'atomic-write-failed',
           message: `Atomic write failed: ${e instanceof Error ? e.message : String(e)}`,
           cause: e,
         },
@@ -289,10 +294,20 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     };
     return { ok: true, value: result };
   } catch (e) {
-    // T3's `dcmConfigPipeline` throws on linkage / BSWMD errors; the
-    // mapper throws on unrecognized sheet / missing container. Catch
-    // all here so the IPC contract never throws to the renderer.
+    // T3's `dcmConfigPipeline` and the T2 mapper throw `DcmConfigError`
+    // with a typed `kind`; the outer catch narrows on `instanceof` and
+    // projects the kind verbatim. Plain `Error` falls through to the
+    // catch-all `kind: 'unknown'` bucket (defensive — every internal
+    // throw site now uses DcmConfigError, but a future addition could
+    // regress). See lesson
+    // error-classification-via-regex-prefix-vs-envelope-kind-trade-off.
+    if (e instanceof DcmConfigError) {
+      return {
+        ok: false,
+        error: { kind: e.kind, message: e.message, cause: e.cause },
+      };
+    }
     const message = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: { message, cause: e } };
+    return { ok: false, error: { kind: 'unknown', message, cause: e } };
   }
 }
