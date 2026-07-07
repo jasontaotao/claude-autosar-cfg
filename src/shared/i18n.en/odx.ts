@@ -44,7 +44,6 @@ export const OdxEn: OdxMessages = {
   // (picker.title removed in v1.32.1 PATCH P3 — unused, OS owns the title).
   'dcmConfig.picker.cancelled': 'ODX selection cancelled',
   'dcmConfig.bswmdPath.autofill': 'Auto-selected from project manifest',
-  'dcmConfig.bswmdPath.override': 'Override BSWMD path',
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
   // v1.33.1 PATCH T3 — "Generate New" button.

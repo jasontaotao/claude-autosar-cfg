@@ -46,7 +46,6 @@ export interface OdxMessages {
   // by openOdxHandler.ts:30, picker returns null so no DOM surface).
   readonly 'dcmConfig.picker.cancelled': string;
   readonly 'dcmConfig.bswmdPath.autofill': string;
-  readonly 'dcmConfig.bswmdPath.override': string;
   // v1.33.0 MINOR T7 — applied step count surface in SuccessDialog.
   // Rendered only when result.appliedStepCount > 0; the dialog
   // omits the <p> entirely otherwise (no empty placeholder).

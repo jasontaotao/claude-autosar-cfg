@@ -44,7 +44,6 @@ export const OdxZhCN: OdxMessages = {
   // (picker.title removed in v1.32.1 PATCH P3 — unused, OS owns the title).
   'dcmConfig.picker.cancelled': '已取消 ODX 选择',
   'dcmConfig.bswmdPath.autofill': '已从项目清单自动选择',
-  'dcmConfig.bswmdPath.override': '覆盖 BSWMD 路径',
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
   // v1.33.1 PATCH T3 — "Generate New" button.
