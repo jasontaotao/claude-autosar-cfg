@@ -268,6 +268,16 @@ describe('classifyError defensive fallback (v1.33.0 T4)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// v1.33.0 MINOR T5 — xlsxRows + override wiring.
+//
+// Pinned behaviours (v1.33.0 T5):
+//   1. handlePickerResolve sources xlsxRows from xlsxLastImport.rows
+//      (NOT from `[]` placeholder). When the store has a record,
+//      invokeMock receives XLSX_RECORD.rows verbatim.
+//   2. handleOverridePick sets bswmdPathOverride state on the hook.
+//   3. handleOverrideClear clears bswmdPathOverride state back to undefined.
+//
+// ---------------------------------------------------------------------------
 // v1.32.0 MINOR T5 — state machine extensions.
 //
 // Pinned behaviours (T5):
@@ -527,5 +537,138 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     expect(result.current.state.statusMessage).toBe('dcmConfig.picker.cancelled');
     // Cancel must NOT have fired the IPC.
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.33.0 MINOR T5 — xlsxRows + override wiring (RED — pre-implementation).
+//
+// These tests pin the contract that:
+//   1. promptAndOpen (shortcut path) AND handlePickerResolve source
+//      xlsxRows from useArxmlStore.getState().xlsxLastImport?.rows
+//      (lesson store-as-source-of-truth-for-async-args). Empty placeholder
+//      was the v1.31.x+v1.32.0 debt; v1.33.0 closes it.
+//   2. handleOverridePick(path) sets bswmdPathOverride state so the next
+//      open() invocation sends it as bswmdPathOverride-resolved arg.
+//   3. handleOverrideClear() returns bswmdPathOverride to undefined so
+//      the next open() falls back to bswmdHasDcm.dcmBswmdPath.
+// ---------------------------------------------------------------------------
+
+import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
+
+const XLSX_RECORD: XlsxImportRecord = {
+  rows: [
+    {
+      sheet: 'DcmReadDataById',
+      shortName: 'X',
+      params: {},
+    } as never,
+  ],
+  source: 'wizard',
+  importedAt: 1000,
+};
+
+describe('useDcmConfigLauncher (v1.33.0 T5) — xlsxRows + override wiring', () => {
+  beforeEach(() => {
+    // Reset the store between v1.33.0 T5 tests so prior seeds don't
+    // leak into sibling tests.
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      project: null,
+      activeDocumentPath: null,
+    } as never);
+  });
+
+  it('sends xlsxRows from xlsxLastImport.rows (not []) when picker resolves', async () => {
+    // Seed: xlsxLastImport has a record (T1 wired setXlsxLastImport).
+    // Project has a Dcm BSWMD so promptAndOpen enters picking-odx; we
+    // then drive the picker→open path via handlePickerResolve.
+    useArxmlStore.getState().setXlsxLastImport(XLSX_RECORD);
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: null,
+    } as never);
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+    // Enter picker substate.
+    expect(result.current.state.mode).toBe('picking-odx');
+
+    // Drive the picker→open path.
+    await act(async () => {
+      await result.current.handlePickerResolve('/proj/input/DcmData.odx');
+    });
+
+    // Assert: invokeMock was called with xlsxRows === XLSX_RECORD.rows
+    // (NOT the [] placeholder). Lesson store-as-source-of-truth-for-async-args:
+    // the IPC arg must be sourced from the store, not a hook local.
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const call = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+      xlsxRows: readonly unknown[];
+      bswmdPath?: string;
+    };
+    expect(call.odxPath).toBe('/proj/input/DcmData.odx');
+    expect(call.xlsxRows).toBe(XLSX_RECORD.rows);
+    expect(call.xlsxRows).not.toEqual([]);
+  });
+
+  it('handleOverridePick sets bswmdPathOverride state', () => {
+    // No store seeding needed — handleOverridePick is a pure state setter
+    // that lives on the hook return.
+    const { result } = renderHook(() => useDcmConfigLauncher());
+
+    // Before: undefined.
+    expect(result.current.state.bswmdPathOverride).toBeUndefined();
+
+    act(() => {
+      result.current.handleOverridePick('/override/Dcm_v3.arxml');
+    });
+
+    // After: the picked path is reflected on the state shape. T7 reads
+    // this to feed the IPC payload alongside bswmdHasDcm.dcmBswmdPath.
+    expect(result.current.state.bswmdPathOverride).toBe('/override/Dcm_v3.arxml');
+  });
+
+  it('handleOverrideClear clears bswmdPathOverride state', () => {
+    const { result } = renderHook(() => useDcmConfigLauncher());
+
+    // Seed via the public action so we exercise the production path
+    // (not via setState — that's a test escape hatch the hook should
+    // not rely on).
+    act(() => {
+      result.current.handleOverridePick('/override/Dcm_v3.arxml');
+    });
+    expect(result.current.state.bswmdPathOverride).toBe('/override/Dcm_v3.arxml');
+
+    act(() => {
+      result.current.handleOverrideClear();
+    });
+
+    // After clear: undefined again, so the open() args fall back to
+    // bswmdHasDcm.dcmBswmdPath per the brief's
+    // bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath contract.
+    expect(result.current.state.bswmdPathOverride).toBeUndefined();
   });
 });
