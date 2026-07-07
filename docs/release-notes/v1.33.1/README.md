@@ -1,6 +1,6 @@
 # v1.33.1 PATCH — Override UI Debt Cleanup + Generate New Action
 
-**Ship**: 2026-07-07 (commit `<TBD>` + tag v1.33.1 + GH release)
+**Ship**: 2026-07-07 (commit `50449c3` + tag v1.33.1 + GH release)
 
 **Baseline**: v1.33.0 MINOR `2c1a294` (3003 + 7 SKIP / 0 fail)
 **Target**: 2998 + 7 SKIP / 0 fail (-5 net delta; PATCH negative tests due to feature revert).
