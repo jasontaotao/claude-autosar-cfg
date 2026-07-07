@@ -266,15 +266,15 @@ describe('classifyError defensive fallback (v1.33.0 T4)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// v1.33.0 MINOR T5 — xlsxRows + override wiring.
+// v1.33.0 MINOR T5 — xlsxRows wiring.
 //
 // Pinned behaviours (v1.33.0 T5):
 //   1. handlePickerResolve sources xlsxRows from xlsxLastImport.rows
 //      (NOT from `[]` placeholder). When the store has a record,
 //      invokeMock receives XLSX_RECORD.rows verbatim.
-//   2. handleOverridePick sets bswmdPathOverride state on the hook.
-//   3. handleOverrideClear clears bswmdPathOverride state back to undefined.
 //
+// v1.33.1 PATCH — handleOverridePick/handleOverrideClear coverage
+// removed (overrides deleted at the hook layer in T1).
 // ---------------------------------------------------------------------------
 // v1.32.0 MINOR T5 — state machine extensions.
 //
@@ -546,10 +546,10 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
 //      xlsxRows from useArxmlStore.getState().xlsxLastImport?.rows
 //      (lesson store-as-source-of-truth-for-async-args). Empty placeholder
 //      was the v1.31.x+v1.32.0 debt; v1.33.0 closes it.
-//   2. handleOverridePick(path) sets bswmdPathOverride state so the next
-//      open() invocation sends it as bswmdPathOverride-resolved arg.
-//   3. handleOverrideClear() returns bswmdPathOverride to undefined so
-//      the next open() falls back to bswmdHasDcm.dcmBswmdPath.
+//
+// v1.33.1 PATCH — override-wiring tests removed (3rd + 4th bullet above).
+// The Override UI surface is deleted in T3; handleOverridePick and
+// handleOverrideClear no longer exist on the launcher interface.
 // ---------------------------------------------------------------------------
 
 const XLSX_RECORD: XlsxImportRecord = {
@@ -628,43 +628,5 @@ describe('useDcmConfigLauncher (v1.33.0 T5) — xlsxRows + override wiring', () 
     expect(call.odxPath).toBe('/proj/input/DcmData.odx');
     expect(call.xlsxRows).toBe(XLSX_RECORD.rows);
     expect(call.xlsxRows).not.toEqual([]);
-  });
-
-  it('handleOverridePick sets bswmdPathOverride state', () => {
-    // No store seeding needed — handleOverridePick is a pure state setter
-    // that lives on the hook return.
-    const { result } = renderHook(() => useDcmConfigLauncher());
-
-    // Before: undefined.
-    expect(result.current.state.bswmdPathOverride).toBeUndefined();
-
-    act(() => {
-      result.current.handleOverridePick('/override/Dcm_v3.arxml');
-    });
-
-    // After: the picked path is reflected on the state shape. T7 reads
-    // this to feed the IPC payload alongside bswmdHasDcm.dcmBswmdPath.
-    expect(result.current.state.bswmdPathOverride).toBe('/override/Dcm_v3.arxml');
-  });
-
-  it('handleOverrideClear clears bswmdPathOverride state', () => {
-    const { result } = renderHook(() => useDcmConfigLauncher());
-
-    // Seed via the public action so we exercise the production path
-    // (not via setState — that's a test escape hatch the hook should
-    // not rely on).
-    act(() => {
-      result.current.handleOverridePick('/override/Dcm_v3.arxml');
-    });
-    expect(result.current.state.bswmdPathOverride).toBe('/override/Dcm_v3.arxml');
-
-    act(() => {
-      result.current.handleOverrideClear();
-    });
-
-    // After clear: undefined again, so the open() args fall back to
-    // bswmdHasDcm.dcmBswmdPath per the brief's
-    // bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath contract.
-    expect(result.current.state.bswmdPathOverride).toBeUndefined();
   });
 });
