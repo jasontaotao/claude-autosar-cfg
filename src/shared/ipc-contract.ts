@@ -218,6 +218,13 @@ export const IPC_CHANNELS = {
   // name follows the unsuffixed v1.22.0/v1.23.0/v1.24.0 ODX-bridge
   // convention (no `:v1` suffix — additive on the wire).
   DCM_CONFIG: 'dcm:config',
+  // v1.33.0 MINOR T1 — xlsx-import complete push channel. Broadcast-
+  // style (M→R): main fires this after xlsxEcucBatchImportHandler
+  // succeeds so the renderer can populate XlsxImportSlice with the
+  // applied rows + source. Replaces the v1.32.x `xlsxRows: []`
+  // placeholder pattern (lesson store-as-source-of-truth-for-async-
+  // args). Payload excludes `importedAt`; renderer stamps it.
+  XLSX_IMPORT_COMPLETE: 'xlsx:import-complete',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level

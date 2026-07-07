@@ -11,6 +11,7 @@ import type {
   HeadlessRunCommandResult,
 } from '../shared/headless/ipc-contract.js';
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
+import type { EcucInstanceRow } from '../shared/types.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -280,6 +281,29 @@ const api = {
   // (full UI lands in 1.31.0 PATCH).
   dcmConfig: (req: DcmConfigRequest): Promise<DcmConfigResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.DCM_CONFIG, req),
+  // v1.33.0 MINOR T1 — xlsx-import complete push channel.
+  // Main pushes after xlsxEcucBatchImportHandler succeeds; renderer
+  // listens via xlsxImportListener.ts to update the store slice.
+  onXlsxImportComplete: (handler: (payload: {
+    readonly rows: readonly EcucInstanceRow[];
+    readonly source: 'manual' | 'wizard';
+  }) => void) => {
+    const listener = (_event: unknown, payload: { rows: readonly EcucInstanceRow[]; source: 'manual' | 'wizard' }) => {
+      handler(payload);
+    };
+    ipcRenderer.on(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, listener);
+  },
+  offXlsxImportComplete: (handler: (payload: {
+    readonly rows: readonly EcucInstanceRow[];
+    readonly source: 'manual' | 'wizard';
+  }) => void) => {
+    // The handler reference is for symmetry with the public IPC API
+    // shape; the actual removal is done by the unsubscribe function
+    // returned from onXlsxImportComplete. This stub exists so the
+    // preload API surface is complete.
+    void handler;
+  },
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

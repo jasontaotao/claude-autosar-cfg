@@ -34,6 +34,7 @@ import { createMutationSlice, type MutationSlice } from './slices/mutationSlice.
 import { createProjectSlice, type ProjectSlice } from './slices/projectSlice.js';
 import { createTourSlice, type TourSlice } from './slices/tourSlice.js';
 import { createUiSlice, type UiSlice } from './slices/uiSlice.js';
+import { createXlsxImportSlice, type XlsxImportSlice } from './slices/xlsxImportSlice.js';
 
 // ---------------------------------------------------------------------------
 // Shared types (kept in the root so every slice imports from one place).
@@ -124,7 +125,8 @@ export interface ArxmlState
     UiSlice,
     ImportSlice,
     MutationSlice,
-    TourSlice {
+    TourSlice,
+    XlsxImportSlice {
   // Every field is declared on its owning slice interface above; this
   // type is the public intersection. The body is intentionally empty.
 }
@@ -142,6 +144,7 @@ export const useArxmlStore = create<ArxmlState>()((...a) => ({
   ...createImportSlice(...a),
   ...createMutationSlice(...a),
   ...createTourSlice(...a),
+  ...createXlsxImportSlice(...a),
 }));
 
 // Re-export slice types so downstream consumers can pick a slice's
@@ -155,4 +158,5 @@ export type {
   ImportSlice,
   MutationSlice,
   TourSlice,
+  XlsxImportSlice,
 };

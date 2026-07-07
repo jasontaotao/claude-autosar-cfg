@@ -19,6 +19,8 @@
 
 import { promises as fs } from 'node:fs';
 
+import { BrowserWindow } from 'electron';
+
 import { prefixDocRootPath } from '../../core/arxml/extractPatch.js';
 import type { ParseError } from '../../core/arxml/parser.js';
 import { parseArxml } from '../../core/arxml/parser.js';
@@ -29,6 +31,7 @@ import { applyPatchSteps } from '../../core/mutation/applyPatchSteps.js';
 import type { BswModuleDef } from '../../core/project/bswmd.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
+import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   EcucInstanceRow,
   XlsxCommitBatchRequest,
@@ -435,6 +438,33 @@ export async function xlsxEcucBatchImportHandler(
   }
   // Cleanup any leftover tmp files.
   await Promise.allSettled(tmpFiles.map((p) => fs.unlink(p).catch(() => undefined)));
+
+  // v1.33.0 MINOR T1 — push the applied xlsx rows to the renderer
+  // via the XLSX_IMPORT_COMPLETE channel so XlsxImportSlice can
+  // replace the v1.32.x `xlsxRows: []` placeholder (lesson
+  // store-as-source-of-truth-for-async-args). `split` carries the
+  // rows that survived resolution (skip rows are dropped here);
+  // we flatten the 3 per-file buckets into the wire payload.
+  // The push is best-effort: when no BrowserWindow is available
+  // (e.g. in unit tests where the `electron` module is not loaded,
+  // or before the first window opens / after the last closes) the
+  // IPC send is skipped and the success return still completes —
+  // the slice state is a renderer-side cache, not the source of
+  // truth for the commit (the disk write is the source of truth).
+  const appliedRows: EcucInstanceRow[] = [
+    ...split['Com'],
+    ...split['CanIf'],
+    ...split['PduR'],
+  ];
+  if (typeof BrowserWindow !== 'undefined' && BrowserWindow !== null) {
+    const mainWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, {
+        rows: appliedRows,
+        source: 'wizard',
+      });
+    }
+  }
 
   return {
     ok: true,
