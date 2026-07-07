@@ -10,9 +10,10 @@
 //   5. Escape key fires onClose
 //   6. Backdrop click fires onClose
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { useArxmlStore } from '../../../store/useArxmlStore.js';
 import { DcmConfigSuccessDialog } from '../DcmConfigSuccessDialog.js';
 
 describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
@@ -187,5 +188,61 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
       />,
     );
     expect(screen.queryByTestId('dcm-config-success-applied-count')).not.toBeInTheDocument();
+  });
+
+  // v1.34.0 MINOR T3 — xlsx import history <details> mount.
+  //
+  // The success dialog mounts a collapsed <details> section below the
+  // v1.33.1 "Generate New" button. The <summary> shows the i18n title
+  // + entry count. Clicking the summary expands the section and the
+  // <DcmConfigXlsxImportHistory> child renders per-entry rows with
+  // Reuse buttons.
+  it('renders xlsx import history <details> collapsed by default (en)', () => {
+    useArxmlStore.setState({
+      xlsxImportHistory: [
+        { rows: [], source: 'manual', importedAt: 1000 },
+        { rows: [], source: 'wizard', importedAt: 2000 },
+      ],
+    });
+
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        history={useArxmlStore.getState().xlsxImportHistory}
+        onReuseFromHistory={vi.fn()}
+      />,
+    );
+
+    const details = screen.getByTestId('dcm-config-xlsx-history-details');
+    expect(details.tagName).toBe('DETAILS');
+    expect(details).not.toHaveAttribute('open');
+    expect(within(details).getByText(/xlsx import history/i)).toBeInTheDocument();
+  });
+
+  it('renders history rows inside <details> when expanded (zh-CN)', async () => {
+    useArxmlStore.setState({
+      xlsxImportHistory: [
+        { rows: [], source: 'manual', importedAt: 1000 },
+        { rows: [], source: 'wizard', importedAt: 2000 },
+      ],
+    });
+
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        locale="zh-CN"
+        history={useArxmlStore.getState().xlsxImportHistory}
+        onReuseFromHistory={vi.fn()}
+      />,
+    );
+
+    const summary = screen.getByText(/xlsx 导入历史/i);
+    fireEvent.click(summary);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('xlsx-import-history-row-1000')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('xlsx-import-history-row-2000')).toBeInTheDocument();
+    expect(screen.getByTestId('xlsx-import-history-reuse-1000')).toHaveTextContent('复用');
   });
 });

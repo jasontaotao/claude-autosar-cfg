@@ -22,6 +22,8 @@ import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 import type { DcmConfigHandlerResult } from '@shared/types.js';
 
+import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
+
 import './DcmConfigSuccessDialog.css';
 
 export interface DcmConfigSuccessDialogProps {
@@ -35,6 +37,14 @@ export interface DcmConfigSuccessDialogProps {
    * Wires through to launcher.handleGenerateNew (T2) which re-fires
    * dcm:config with the captured lastOdxPath. */
   readonly onGenerateNew: () => void | Promise<void>;
+  /** v1.34.0 MINOR T3 — xlsx import history snapshot. Drives the
+   * collapsed <details> section below the Generate New button.
+   * Ordered most-recent-first by the v1.33.0 slice cap-at-5 +
+   * prepend-first invariant. */
+  readonly history: readonly XlsxImportRecord[];
+  /** v1.34.0 MINOR T3 — Reuse button click from a history entry.
+   * Caller wires this to the slice's `reuseFromHistory` action. */
+  readonly onReuseFromHistory: (importedAt: number) => void;
 }
 
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
