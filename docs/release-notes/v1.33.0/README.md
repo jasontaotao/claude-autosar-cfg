@@ -1,6 +1,6 @@
 # v1.33.0 MINOR — Dcm Config Cleanup + Override Activation
 
-**Ship**: 2026-07-07 (commit `<TBD>` + tag v1.33.0 + GH release)
+**Ship**: 2026-07-07 (commit `2c1a294` + tag v1.33.0 + GH release)
 
 **Baseline**: v1.32.1 PATCH `a5c665c` (2987 + 7 SKIP / 0 fail)
 **Target**: 3003 + 7 SKIP / 0 fail (+16 net delta; +19 new tests, -3 deleted tests).
