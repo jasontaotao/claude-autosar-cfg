@@ -17,7 +17,7 @@
 //   9. classifyError falls back to regex when kind is absent
 //      (pre-v1.32.0 IPC handler payloads — 1-release compat window)
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
@@ -387,6 +387,10 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     });
 
     const { result } = renderHook(() => useDcmConfigLauncher());
+    // Wait for the parse-based bswmdHasDcm gate to resolve hasDcm=true
+    // before invoking promptAndOpen — the gate is async (T4 reads via
+    // IPC), and promptAndOpen is a no-op when hasDcm=false.
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
     await act(async () => {
       await result.current.promptAndOpen();
     });
@@ -424,6 +428,7 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     });
 
     const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
     await act(async () => {
       await result.current.promptAndOpen();
     });
@@ -462,6 +467,7 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     });
 
     const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
     await act(async () => {
       await result.current.promptAndOpen();
     });

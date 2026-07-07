@@ -1,4 +1,4 @@
-// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2.
+// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5.
 //
 // State machine + IPC + error classifier for the v1.30.0
 // `dcm:config` IPC channel. Consumed by AppHeader (T5) and
@@ -14,8 +14,17 @@
 // IPC handler payloads). Regex fallback is kept for ONE release and
 // removed in v1.33.0 (lesson
 // error-classification-via-regex-prefix-vs-envelope-kind-trade-off).
+//
+// v1.32.0 MINOR T5 — state machine gains a `picking-odx` substate.
+// Flow: idle → (promptAndOpen: no active ODX) → picking-odx → (resolve)
+// → pending → (ok|err) → success|error.  When activeDocumentPath is
+// already an .odx file, promptAndOpen skips the picker and calls open()
+// directly. bswmdHasDcm is the T4 parse-based gate (replaces the v1.31.x
+// filename regex); it is memoized per-path so re-renders on store
+// updates with unchanged paths avoid re-parsing (lesson
+// filename-regex-for-ux-gate-vs-parse-based-detection-trade-off).
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type {
   DcmConfigError,
@@ -24,22 +33,51 @@ import type {
   EcucInstanceRow,
 } from '../../shared/types.js';
 import type { DcmConfigErrorClass } from '../components/dcmConfig/DcmConfigErrorToast.js';
+import { findDcmBswmd, type BswmdHasDcmResult } from '../components/dcmConfig/bswmdHasDcm.js';
+import { useArxmlStore } from '../store/useArxmlStore.js';
 
 export interface DcmConfigLauncherState {
-  readonly mode: 'idle' | 'pending' | 'success' | 'error';
+  readonly mode: 'idle' | 'picking-odx' | 'pending' | 'success' | 'error';
   readonly result: DcmConfigHandlerResult | null;
   readonly error: { message: string; classKey: DcmConfigErrorClass } | null;
   readonly dialogOpen: boolean;
   readonly toastVisible: boolean;
+  /** v1.32.0 T5 — last (re-entrant) autofill hint surfaced to App.tsx
+   * after a successful picker resolve. Stays stable across renders so
+   * `<DcmConfigSuccessDialog />` can show the "auto-selected from
+   * project manifest" line (T7 i18n key). */
+  readonly bswmdPathAutofill: string | null;
 }
 
 export interface DcmConfigLauncher {
   readonly state: DcmConfigLauncherState;
+  /** v1.32.0 T5 — bswmdHasDcm gate (T4 parse-based). Drives
+   * `canOpenDcmConfig` in App.tsx + autofills bswmdPath on resolve. */
+  readonly bswmdHasDcm: BswmdHasDcmResult;
+  /** v1.32.0 T5 — derived from `useArxmlStore.activeDocumentPath`.
+   * Lets AppHeader/ContextMenu render the entry as "active" when an
+   * .odx doc is already loaded (shortcut path skips picker). */
+  readonly isActiveOdx: boolean;
+  /** v1.31.0 + T5 — IPC entry. Takes resolved bswmdPath. Still the
+   * underlying primitive; `promptAndOpen` is the new entry point and
+   * `handlePickerResolve` calls this internally. */
   open(args: {
     odxPath: string;
     xlsxRows: readonly EcucInstanceRow[];
     bswmdPath?: string;
   }): Promise<void>;
+  /** v1.32.0 T5 — top-level entry. Decides between the picker
+   * (when no active .odx doc) and the shortcut (when one is loaded).
+   * Re-entrancy-guarded via inFlightRef (existing lesson
+   * re-entrancy-guard-via-useref-not-setstate-callback-state). */
+  promptAndOpen(): Promise<void>;
+  /** v1.32.0 T5 — wiring hook for `<DcmConfigPicker />`. Resolves
+   * the picked path into `open()` and transitions picking-odx → pending. */
+  handlePickerResolve(odxPath: string): Promise<void>;
+  /** v1.32.0 T5 — wiring hook for `<DcmConfigPicker />`. Returns
+   * to idle; App.tsx can mount a localized "cancelled" toast via the
+   * existing `setError` action. */
+  handlePickerCancel(): void;
   closeDialog(): void;
   dismissToast(): void;
 }
@@ -50,6 +88,7 @@ const INITIAL_STATE: DcmConfigLauncherState = {
   error: null,
   dialogOpen: false,
   toastVisible: false,
+  bswmdPathAutofill: null,
 };
 
 /**
@@ -201,6 +240,15 @@ function getApi(): DcmConfigApi {
   return (window as unknown as { autosarApi: DcmConfigApi }).autosarApi;
 }
 
+// v1.32.0 T5 — stable empty-array fallback for the bswmdPaths
+// selector. Without it, `s.project?.bswmdPaths ?? []` returns a fresh
+// `[]` reference on every store read → Zustand reports "changed" via
+// Object.is → useEffect re-runs forever → React renders in a tight
+// loop → heap exhaustion (verified once already in the T5 cycle).
+// Hoisting the empty array to a module-level const keeps the identity
+// stable across renders.
+const EMPTY_BSWMD_PATHS: readonly string[] = Object.freeze([]) as readonly string[];
+
 export function useDcmConfigLauncher(): DcmConfigLauncher {
   const [state, setState] = useState<DcmConfigLauncherState>(INITIAL_STATE);
 
@@ -208,7 +256,125 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // setState-based guard reads stale state across renders, so a
   // second open() fired in the same tick would slip through. The
   // ref reads latest synchronous state and gates the IPC call.
+  // v1.32.0 T5 — same guard covers BOTH the existing `open` IPC
+  // entry AND the new `promptAndOpen` top-level entry; both call
+  // paths funnel through `open()` so the guard releases only once.
   const inFlightRef = useRef(false);
+
+  // v1.32.0 T5 — store-derived inputs.
+  //
+  // `bswmdPaths` lists the project's loaded BSWMD files; we feed them
+  // to `findDcmBswmd` (T4) to compute which (if any) is the Dcm BSWMD.
+  // The hook owns the per-path memo so the helper stays pure and the
+  // memoization is keyed by the exact path strings the store emits.
+  //
+  // `activeDocumentPath` is consumed both by `isActiveOdx` (derived
+  // shortcut that gates picker on/off) and by `promptAndOpen` when the
+  // shortcut path needs to call `open({ odxPath: activePath })`.
+  const bswmdPaths = useArxmlStore((s) => s.project?.bswmdPaths ?? EMPTY_BSWMD_PATHS);
+  const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+
+  // v1.32.0 T5 — `isActiveOdx` is reactive so the menu entry stays
+  // accurate as the user switches between docs (AppHeader gates the
+  // "Open Dcm Config" entry off when an .odx is loaded — matches the
+  // pre-existing `odxLoaded` UX contract from v1.31.0).
+  const isActiveOdx = useMemo(
+    () => activeDocumentPath !== null && activeDocumentPath.toLowerCase().endsWith('.odx'),
+    [activeDocumentPath],
+  );
+
+  // v1.32.0 T5 — per-path memoized parse gate.
+  //
+  // `findDcmBswmd` re-parses any path it hasn't seen before and
+  // reuses results for paths already cached. Kept in a `useRef` Map
+  // so the memo survives renders and is keyed by exact path string.
+  // When ALL paths are cached, we aggregate from the memo directly
+  // (no async hop); otherwise we kick off one `findDcmBswmd`
+  // invocation per "uncached subset" change.
+  const memoRef = useRef<Map<string, BswmdHasDcmResult>>(new Map());
+  const [bswmdHasDcm, setBswmdHasDcm] = useState<BswmdHasDcmResult>({ hasDcm: false });
+
+  useEffect(() => {
+    // Defensive copy: store-derived `bswmdPaths` may be `readonly string[]`,
+    // but `findDcmBswmd` asks for `readonly string[]` too. We treat the
+    // snapshot as the effect's deps intentionally — re-running when the
+    // referenced list identity changes is the right granularity for the
+    // re-parse decision (length-1 case still caches hits across renders).
+    const pathsSnapshot: readonly string[] = bswmdPaths;
+    const memo = memoRef.current;
+
+    const cachedAggregate = (): BswmdHasDcmResult => {
+      for (const p of pathsSnapshot) {
+        const cached = memo.get(p);
+        if (cached !== undefined && cached.hasDcm) {
+          return cached;
+        }
+      }
+      return { hasDcm: false };
+    };
+
+    const uncached = pathsSnapshot.filter((p) => !memo.has(p));
+    if (uncached.length === 0) {
+      // All paths cached — aggregate synchronously so we don't lag a
+      // render behind an async setState flip.
+      setBswmdHasDcm(cachedAggregate());
+      return;
+    }
+
+    let cancelled = false;
+    void findDcmBswmd(pathsSnapshot, {
+      readFile: async (p) => {
+        const api = (
+          window as unknown as {
+            autosarApi?: {
+              readBswmd?: (req: { path: string }) => Promise<
+                | { readonly ok: true; readonly value: { readonly content: string } }
+                | { readonly ok: false; readonly error: { readonly message: string } }
+              >;
+            };
+          }
+        ).autosarApi;
+        if (api?.readBswmd === undefined) {
+          throw new Error('readBswmd IPC is unavailable');
+        }
+        const res = await api.readBswmd({ path: p });
+        if (!res.ok) {
+          throw new Error(res.error.message);
+        }
+        return res.value.content;
+      },
+    })
+      .then((result) => {
+        if (cancelled) return;
+        // Cache the aggregate result keyed by the first path (mirrors
+        // findDcmBswmd's "first Dcm path in input array order" semantics
+        // when `hasDcm === true`). On `hasDcm === false` we cache a
+        // `{hasDcm: false}` entry per path so subsequent equality checks
+        // see them as resolved and skip the parse hop.
+        if (result.hasDcm && result.dcmBswmdPath !== undefined) {
+          memo.set(result.dcmBswmdPath, result);
+        } else {
+          for (const p of pathsSnapshot) memo.set(p, result);
+        }
+        setBswmdHasDcm(cachedAggregate());
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Fail-soft: UX gate stays closed; real errors surface later
+        // via the `'bswmd-unreadable'` IPC error class at click time.
+        for (const p of pathsSnapshot) memo.set(p, { hasDcm: false });
+        setBswmdHasDcm({ hasDcm: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // bswmdPaths is the sole trigger: re-parse when the project's
+    // BSWMD list actually changes. locale is intentionally NOT in the
+    // dep array — bswmdHasDcm is independent of locale, and adding
+    // it would surface a fresh `bswmdHasDcm` aggregate on every locale
+    // toggle for no UX benefit (and risks the same render-loop trap
+    // as `?? []` if a future fix lets locale change trigger state).
+  }, [bswmdPaths]);
 
   const open = useCallback(
     async (args: {
@@ -228,6 +394,11 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             error: null,
             dialogOpen: true,
             toastVisible: false,
+            // v1.32.0 T5 — surface the autofill so <DcmConfigSuccessDialog />
+            // (T7) can render the "auto-selected from project manifest"
+            // line. Always recorded on success regardless of entry path
+            // (promptAndOpen shortcut vs handlePickerResolve).
+            bswmdPathAutofill: args.bswmdPath ?? null,
           });
         } else {
           const message = res.error.message;
@@ -246,6 +417,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             error: { message, classKey: toastKey },
             dialogOpen: false,
             toastVisible: true,
+            bswmdPathAutofill: null,
           });
         }
       } catch (e) {
@@ -271,6 +443,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
           error: { message, classKey: toastKey },
           dialogOpen: false,
           toastVisible: true,
+          bswmdPathAutofill: null,
         });
       } finally {
         inFlightRef.current = false;
@@ -278,6 +451,55 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     },
     [],
   );
+
+  // v1.32.0 T5 — top-level entry. Decides picker-vs-shortcut based on
+  // the active document. Both branches funnel through the existing
+  // `open` IPC call so the in-flight guard + classifier + error
+  // envelope remain a single source of truth.
+  const promptAndOpen = useCallback(async (): Promise<void> => {
+    if (inFlightRef.current) return;
+    if (!bswmdHasDcm.hasDcm) return;
+    if (isActiveOdx && activeDocumentPath !== null) {
+      // Shortcut: an .odx doc is already loaded — skip picker, fire
+      // open() directly. The T5 autofill pipes the T4-discovered
+      // bswmdPath into the IPC payload so the handler skips its
+      // sample-fixture walk-up.
+      await open({
+        odxPath: activeDocumentPath,
+        xlsxRows: [],
+        bswmdPath: bswmdHasDcm.dcmBswmdPath,
+      });
+      return;
+    }
+    // No active .odx — switch to the picker substate. App.tsx renders
+    // <DcmConfigPicker/> on top of this state and calls
+    // handlePickerResolve(odxPath) on user choice (or handlePickerCancel
+    // on dismiss).
+    setState((prev) => ({ ...prev, mode: 'picking-odx' }));
+  }, [bswmdHasDcm, isActiveOdx, activeDocumentPath, open]);
+
+  // v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
+  // component calls this with the OS-picked .odx path. We transition
+  // to `pending` so the spinner renders, then fire the IPC.
+  const handlePickerResolve = useCallback(
+    async (odxPath: string): Promise<void> => {
+      await open({
+        odxPath,
+        xlsxRows: [],
+        bswmdPath: bswmdHasDcm.dcmBswmdPath,
+      });
+    },
+    [bswmdHasDcm.dcmBswmdPath, open],
+  );
+
+  // v1.32.0 T5 — picker cancel callback. Returns mode to idle; the
+  // app-level `<DcmConfigPicker />` unmounts because App.tsx gates
+  // it on `state.mode === 'picking-odx'`. Localized "cancelled" toast
+  // is rendered by App.tsx via the existing `setError` action (T7
+  // ships the i18n key `dcmConfig.picker.cancelled`).
+  const handlePickerCancel = useCallback((): void => {
+    setState((prev) => ({ ...prev, mode: 'idle' }));
+  }, []);
 
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
@@ -287,5 +509,15 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     setState((prev) => ({ ...prev, mode: 'idle', toastVisible: false, error: null }));
   }, []);
 
-  return { state, open, closeDialog, dismissToast };
+  return {
+    state,
+    bswmdHasDcm,
+    isActiveOdx,
+    open,
+    promptAndOpen,
+    handlePickerResolve,
+    handlePickerCancel,
+    closeDialog,
+    dismissToast,
+  };
 }
