@@ -24,6 +24,8 @@ import type { DcmConfigHandlerResult } from '@shared/types.js';
 
 import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
 
+import { DcmConfigXlsxImportHistory } from './DcmConfigXlsxImportHistory.js';
+
 import './DcmConfigSuccessDialog.css';
 
 export interface DcmConfigSuccessDialogProps {
@@ -48,7 +50,7 @@ export interface DcmConfigSuccessDialogProps {
 }
 
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
-  const { open, result, locale, onClose, onGenerateNew } = props;
+  const { open, result, locale, onClose, onGenerateNew, history, onReuseFromHistory } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -151,6 +153,25 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
         >
           {t(locale, 'dcmConfig.generateNew.button')}
         </button>
+        {/* v1.34.0 MINOR T3 — xlsx import history <details>. Collapsed
+            by default; the <summary> surfaces the i18n title + entry
+            count so users see at-a-glance how many imports are
+            available for Reuse. Pure presentational wiring — the
+            child <DcmConfigXlsxImportHistory> owns its own empty /
+            row render. No `open` prop = collapsed default. */}
+        <details
+          className="xlsx-import-history"
+          data-testid="dcm-config-xlsx-history-details"
+        >
+          <summary>
+            {t(locale, 'xlsxImportHistory.title')} ({history.length})
+          </summary>
+          <DcmConfigXlsxImportHistory
+            history={history}
+            locale={locale}
+            onReuse={onReuseFromHistory}
+          />
+        </details>
         <div className="dcm-config-success-actions">
           <button
             ref={closeButtonRef}

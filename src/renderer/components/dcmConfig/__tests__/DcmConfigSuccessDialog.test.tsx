@@ -48,6 +48,12 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     // The 2 explicit "renders Generate New" tests below override it
     // with their own spy. Other tests don't trigger the button.
     onGenerateNew: vi.fn(),
+    // v1.34.0 MINOR T3 — xlsx import history surface. Default to an
+    // empty list so the existing 15 tests don't accidentally render
+    // the new <details> section. The 2 new T3 tests below override
+    // these with their own seeded history.
+    history: useArxmlStore.getState().xlsxImportHistory,
+    onReuseFromHistory: vi.fn(),
   };
 
   it('renders outputPath in paths list', () => {

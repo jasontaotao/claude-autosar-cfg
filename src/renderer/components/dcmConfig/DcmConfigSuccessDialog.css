@@ -78,3 +78,40 @@
 .dcm-config-success-close:hover {
   background: var(--color-surface-hover, #f0f0f0);
 }
+
+/* v1.34.0 MINOR T3 — xlsx import history <details> surface.
+   Collapsed by default; user clicks the <summary> to expand the
+   <DcmConfigXlsxImportHistory> row list. Pure presentational
+   styling — no animation, no gradient; matches the existing
+   dcm-config block aesthetic (border-bottom list rows + secondary
+   text color for the timestamp). */
+.xlsx-import-history {
+  margin-top: 12px;
+}
+
+.xlsx-import-history > summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.xlsx-import-history__list {
+  list-style: none;
+  padding-left: 0;
+  margin: 8px 0;
+}
+
+.xlsx-import-history__list > li {
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.xlsx-import-history__list > li > time {
+  color: var(--color-text-secondary, #555);
+}
+
+.xlsx-import-history__list > li > button {
+  margin-left: auto;
+}

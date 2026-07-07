@@ -1293,6 +1293,10 @@ export function App(): JSX.Element {
           locale={locale}
           onClose={dcmLauncher.closeDialog}
           onGenerateNew={dcmLauncher.handleGenerateNew}
+          history={useArxmlStore((s) => s.xlsxImportHistory)}
+          onReuseFromHistory={(importedAt) =>
+            useArxmlStore.getState().reuseFromHistory(importedAt)
+          }
         />
         <DcmConfigErrorToast
           error={dcmLauncher.state.error}
