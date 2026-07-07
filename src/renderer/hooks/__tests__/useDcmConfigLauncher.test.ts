@@ -110,7 +110,7 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     [{ kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" }, 'bswmdMapMissing'],
     [{ kind: 'atomic-write-failed', message: 'Atomic write failed: x' }, 'atomicWriteFailed'],
     [{ kind: 'unknown', message: 'Some unknown error' }, 'unexpected'],
-  ] as const)('classifyError maps kind payload to %s', async (errorPayload, expected) => {
+  ] as const)('classifyError maps kind=%s to class=%s', async (errorPayload, expected) => {
     const { result } = renderHook(() => useDcmConfigLauncher());
     // classifyError is an internal helper — exercise it via the
     // error state path: invoke with the payload, then read
