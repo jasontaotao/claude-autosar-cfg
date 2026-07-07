@@ -11,12 +11,13 @@
 // i18n: all user-facing strings go through t(locale, key, params)
 // per the v1.23.1 T1 L1 i18n-bypass-pattern lesson.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 import type { DcmConfigHandlerResult } from '@shared/types.js';
 
+import { DcmConfigOverridePicker } from './DcmConfigOverridePicker.js';
 import './DcmConfigSuccessDialog.css';
 
 export interface DcmConfigSuccessDialogProps {
@@ -31,6 +32,19 @@ export interface DcmConfigSuccessDialogProps {
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
   const { open, result, locale, onClose } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  // v1.33.0 MINOR T2 — Override UI state. Empty string means "use
+  // launcher autofill" (no override). The Override <details> Browse
+  // button populates this; the Clear button resets to empty. T7
+  // (wiring) consumes this to re-launch dcm:config with the picked
+  // BSWMD path instead of the autofill default.
+  const [bswmdPathOverride, setBswmdPathOverride] = useState<string>('');
+
+  const handleOverrideChange = (path: string): void => {
+    setBswmdPathOverride(path);
+  };
+  const handleOverrideClear = (): void => {
+    setBswmdPathOverride('');
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -102,9 +116,13 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
             </div>
           )}
         </dl>
-        {/* v1.32.1 PATCH P3 — disabled Override shell. The Browse button is
-            deferred to v1.33.0; for now the input is readOnly + disabled so
-            the autofilled path is visible but cannot be edited. */}
+        {/* v1.33.0 MINOR T2 — activated Override shell. v1.32.1 PATCH
+            P3 shipped a disabled input + no Browse button (lesson
+            disable-input-without-browse-button-is-debt); T2 wires
+            the <DcmConfigOverridePicker> Browse + Clear buttons
+            beneath the input so the user can pick a BSWMD to
+            override the launcher autofill. T5 (launcher wiring) and
+            T7 (appliedCount) consume `bswmdPathOverride` state. */}
         <details
           className="dcm-config-success-bswmd-override"
           data-testid="dcm-config-success-bswmd-override"
@@ -112,10 +130,15 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
           <summary>{t(locale, 'dcmConfig.bswmdPath.override')}</summary>
           <input
             type="text"
-            value={result.bswmdPath ?? ''}
+            value={bswmdPathOverride || result.bswmdPath || ''}
             readOnly
-            disabled
+            disabled={false}
             data-testid="dcm-config-success-bswmd-override-input"
+          />
+          <DcmConfigOverridePicker
+            value={bswmdPathOverride}
+            onChange={handleOverrideChange}
+            onCancel={handleOverrideClear}
           />
         </details>
         <div className="dcm-config-success-actions">

@@ -82,6 +82,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
 
     const keys = Object.keys(api as Record<string, unknown>).sort();
     expect(keys).toEqual([
+      'bswmdPick', // v1.33.0 MINOR T2 — bswmd:pick IPC for Override UI Browse button
       'copyTemplate',
       'dbcImportComStack',
       'dcmConfig', // v1.30.0 MINOR — wires the v1.27.0 T4 dcmConfigHandler to the IPC bridge

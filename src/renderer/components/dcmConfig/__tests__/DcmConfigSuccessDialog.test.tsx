@@ -161,8 +161,25 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     render(<DcmConfigSuccessDialog {...baseProps} result={{ ...baseProps.result, bswmdPath }} />);
     const input = screen.getByTestId('dcm-config-success-bswmd-override-input') as HTMLInputElement;
     expect(input.value).toBe(bswmdPath);
-    // readOnly + disabled — browse button is deferred to v1.33.0.
+    // v1.33.0 MINOR T2 — input is now `disabled={false}` (Browse button
+    // wired). Still readOnly since the input reflects picker state, not
+    // direct user typing. v1.32.1 PATCH P3 originally shipped this as
+    // disabled (lesson disable-input-without-browse-button-is-debt).
     expect(input.readOnly).toBe(true);
-    expect(input.disabled).toBe(true);
+    expect(input.disabled).toBe(false);
+  });
+
+  // v1.33.0 MINOR T2 — Override <details> now ships a Browse button
+  // and a Clear button (DcmConfigOverridePicker). Confirms the
+  // activation is complete in the same MINOR.
+  it('Override <details> renders Browse + Clear buttons', () => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /browse/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
   });
 });
