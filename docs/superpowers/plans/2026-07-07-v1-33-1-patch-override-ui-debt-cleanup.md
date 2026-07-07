@@ -38,6 +38,7 @@
 ### Task 1: Remove `bswmdPathOverride` from launcher hook
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:43-114` (interface)
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:116-125` (INITIAL_STATE)
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:472-512` (promptAndOpen + handlePickerResolve — remove `?? state.bswmdPathOverride`)
@@ -46,6 +47,7 @@
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (delete 3 tests per spec §T1)
 
 **Interfaces:**
+
 - Consumes: existing `DcmConfigLauncherState` + `DcmConfigLauncher` interfaces at `useDcmConfigLauncher.ts:43-114`
 - Produces: state loses field `bswmdPathOverride?: string`; interface `DcmConfigLauncher` loses methods `handleOverridePick(path: string): void` + `handleOverrideClear(): void`; `promptAndOpen` + `handlePickerResolve` use `bswmdPath: bswmdHasDcm.dcmBswmdPath` (no `?? override`)
 
@@ -106,30 +108,30 @@ Find `bswmdPathOverride: undefined,` inside the `INITIAL_STATE: DcmConfigLaunche
 Find lines around `useDcmConfigLauncher.ts:483-487`:
 
 ```ts
-      // v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
-      // slice (lesson store-as-source-of-truth-for-async-args). The
-      // empty `[]` placeholder from v1.31.x+v1.32.x is gone.
-      // v1.33.0 MINOR T5 — bswmdPath resolves to override ?? autofill.
-      await open({
-        odxPath: activeDocumentPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
-      });
+// v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
+// slice (lesson store-as-source-of-truth-for-async-args). The
+// empty `[]` placeholder from v1.31.x+v1.32.x is gone.
+// v1.33.0 MINOR T5 — bswmdPath resolves to override ?? autofill.
+await open({
+  odxPath: activeDocumentPath,
+  xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+  bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
+});
 ```
 
 Replace the second `// v1.33.0 MINOR T5 — bswmdPath resolves to override ?? autofill.` comment line + the `bswmdPath:` line with the v1.32.0 MINOR T5 pre-override shape:
 
 ```ts
-      // v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
-      // slice (lesson store-as-source-of-truth-for-async-args). The
-      // empty `[]` placeholder from v1.31.x+v1.32.x is gone.
-      // v1.33.1 PATCH — bswmdPathOverride removed; bswmdPath is plain
-      // autofill (override UI deleted in T3).
-      await open({
-        odxPath: activeDocumentPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: bswmdHasDcm.dcmBswmdPath,
-      });
+// v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
+// slice (lesson store-as-source-of-truth-for-async-args). The
+// empty `[]` placeholder from v1.31.x+v1.32.x is gone.
+// v1.33.1 PATCH — bswmdPathOverride removed; bswmdPath is plain
+// autofill (override UI deleted in T3).
+await open({
+  odxPath: activeDocumentPath,
+  xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+  bswmdPath: bswmdHasDcm.dcmBswmdPath,
+});
 ```
 
 - [ ] **Step 1.6: Revert `bswmdPath` in `handlePickerResolve`**
@@ -137,43 +139,43 @@ Replace the second `// v1.33.0 MINOR T5 — bswmdPath resolves to override ?? au
 Find lines around `useDcmConfigLauncher.ts:498-512`:
 
 ```ts
-  // v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
-  // component calls this with the OS-picked .odx path. We transition
-  // to `pending` so the spinner renders, then fire the IPC.
-  // v1.33.0 MINOR T5 — xlsxRows + bswmdPathOverride wired identically
-  // to the shortcut path (single source of truth).
-  const handlePickerResolve = useCallback(
-    async (odxPath: string): Promise<void> => {
-      await open({
-        odxPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
-      });
-    },
-    [bswmdHasDcm.dcmBswmdPath, open, state.bswmdPathOverride],
-  );
+// v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
+// component calls this with the OS-picked .odx path. We transition
+// to `pending` so the spinner renders, then fire the IPC.
+// v1.33.0 MINOR T5 — xlsxRows + bswmdPathOverride wired identically
+// to the shortcut path (single source of truth).
+const handlePickerResolve = useCallback(
+  async (odxPath: string): Promise<void> => {
+    await open({
+      odxPath,
+      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+      bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
+    });
+  },
+  [bswmdHasDcm.dcmBswmdPath, open, state.bswmdPathOverride],
+);
 ```
 
 Replace with:
 
 ```ts
-  // v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
-  // component calls this with the OS-picked .odx path. We transition
-  // to `pending` so the spinner renders, then fire the IPC.
-  // v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
-  // slice identically to the shortcut path (lesson
-  // store-as-source-of-truth-for-async-args).
-  // v1.33.1 PATCH — bswmdPathOverride removed.
-  const handlePickerResolve = useCallback(
-    async (odxPath: string): Promise<void> => {
-      await open({
-        odxPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: bswmdHasDcm.dcmBswmdPath,
-      });
-    },
-    [bswmdHasDcm.dcmBswmdPath, open],
-  );
+// v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
+// component calls this with the OS-picked .odx path. We transition
+// to `pending` so the spinner renders, then fire the IPC.
+// v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
+// slice identically to the shortcut path (lesson
+// store-as-source-of-truth-for-async-args).
+// v1.33.1 PATCH — bswmdPathOverride removed.
+const handlePickerResolve = useCallback(
+  async (odxPath: string): Promise<void> => {
+    await open({
+      odxPath,
+      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+      bswmdPath: bswmdHasDcm.dcmBswmdPath,
+    });
+  },
+  [bswmdHasDcm.dcmBswmdPath, open],
+);
 ```
 
 - [ ] **Step 1.7: Delete `handleOverridePick` + `handleOverrideClear` definitions**
@@ -181,22 +183,22 @@ Replace with:
 Find lines around `useDcmConfigLauncher.ts:530-545`:
 
 ```ts
-  // v1.33.0 MINOR T5 — wiring for <DcmConfigOverridePicker/> (T2).
-  // Records the user-picked BSWMD override on the state shape so the
-  // next `open()` call resolves bswmdPath = override ?? autofill.
-  // Lesson: store-as-source-of-truth-for-async-args — IPC args consumed
-  // across renders must live in a Zustand slice, not a hook local.
-  // useCallback with empty deps — state setter functional form gives
-  // us the latest state without subscribing the callback to it.
-  const handleOverridePick = useCallback((path: string): void => {
-    setState((s) => ({ ...s, bswmdPathOverride: path }));
-  }, []);
+// v1.33.0 MINOR T5 — wiring for <DcmConfigOverridePicker/> (T2).
+// Records the user-picked BSWMD override on the state shape so the
+// next `open()` call resolves bswmdPath = override ?? autofill.
+// Lesson: store-as-source-of-truth-for-async-args — IPC args consumed
+// across renders must live in a Zustand slice, not a hook local.
+// useCallback with empty deps — state setter functional form gives
+// us the latest state without subscribing the callback to it.
+const handleOverridePick = useCallback((path: string): void => {
+  setState((s) => ({ ...s, bswmdPathOverride: path }));
+}, []);
 
-  // v1.33.0 MINOR T5 — clear the BSWMD override so the next open()
-  // falls back to bswmdHasDcm.dcmBswmdPath.
-  const handleOverrideClear = useCallback((): void => {
-    setState((s) => ({ ...s, bswmdPathOverride: undefined }));
-  }, []);
+// v1.33.0 MINOR T5 — clear the BSWMD override so the next open()
+// falls back to bswmdHasDcm.dcmBswmdPath.
+const handleOverrideClear = useCallback((): void => {
+  setState((s) => ({ ...s, bswmdPathOverride: undefined }));
+}, []);
 ```
 
 Delete both blocks entirely (15 lines + the blank line between them).
@@ -206,16 +208,16 @@ Delete both blocks entirely (15 lines + the blank line between them).
 Find the return object (around `useDcmConfigLauncher.ts:555-570`):
 
 ```ts
-  return {
-    state,
-    bswmdHasDcm,
-    isActiveOdx,
-    open,
-    // (probably other fields)
-    handleOverridePick,
-    handleOverrideClear,
-    // ...
-  };
+return {
+  state,
+  bswmdHasDcm,
+  isActiveOdx,
+  open,
+  // (probably other fields)
+  handleOverridePick,
+  handleOverrideClear,
+  // ...
+};
 ```
 
 Delete the `handleOverridePick,` + `handleOverrideClear,` lines (and any preceding comma on the line above each).
@@ -285,10 +287,12 @@ surface is internally consistent before any UI file moves."
 ### Task 2: Add `lastOdxPath` capture + `handleGenerateNew` action
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts` (add `handleGenerateNew` + capture `lastOdxPath` in `open()` callback + deps)
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (add 4 tests + 1 lastOdxPath capture test)
 
 **Interfaces:**
+
 - Consumes: `DcmConfigLauncherState.lastOdxPath: string | null` (added in T1); existing `open()`, `inFlightRef`, `bswmdHasDcm`, `activeDocumentPath`, `useArxmlStore.xlsxLastImport`
 - Produces: `handleGenerateNew(): Promise<void>` method on the returned `DcmConfigLauncher`; captures `lastOdxPath` inside the `open()` callback on success path
 
@@ -389,37 +393,39 @@ import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 Then add the action (after `handlePickerCancel`, before `closeDialog`):
 
 ```ts
-  // v1.33.1 PATCH T2 — SuccessDialog "Generate New" button hook.
-  // Opens bswmd:pick; if user picks a valid Dcm BSWMD, re-fires
-  // `dcm:config` with the captured odxPath + new picked bswmdPath.
-  // Closes the UX gap where v1.33.0 override UI was local-only and
-  // forced Skip/Close/Reopen. Re-entrancy-guarded by inFlightRef
-  // (existing lesson re-entrancy-guard-via-useref-not-setstate-callback-state).
-  const handleGenerateNew = useCallback(async (): Promise<void> => {
-    if (inFlightRef.current) return;  // re-entrancy guard
-    const r = await window.autosarApi.bswmdPick();
-    if (r.kind !== 'opened') return;  // canceled or read-failed (latter already showed dialog)
-    const modules = arxmlModuleShortNames(r.content);
-    if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
-      console.warn(`useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${modules.join(', ') || 'none'})`);
-      return;
-    }
-    const odxPath = state.lastOdxPath ?? activeDocumentPath;
-    if (odxPath === null) {
-      console.warn(`useDcmConfigLauncher: Generate New unavailable, lastOdxPath is null`);
-      return;
-    }
-    inFlightRef.current = true;
-    try {
-      await open({
-        odxPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: r.path,
-      });
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, [state.lastOdxPath, activeDocumentPath, open]);
+// v1.33.1 PATCH T2 — SuccessDialog "Generate New" button hook.
+// Opens bswmd:pick; if user picks a valid Dcm BSWMD, re-fires
+// `dcm:config` with the captured odxPath + new picked bswmdPath.
+// Closes the UX gap where v1.33.0 override UI was local-only and
+// forced Skip/Close/Reopen. Re-entrancy-guarded by inFlightRef
+// (existing lesson re-entrancy-guard-via-useref-not-setstate-callback-state).
+const handleGenerateNew = useCallback(async (): Promise<void> => {
+  if (inFlightRef.current) return; // re-entrancy guard
+  const r = await window.autosarApi.bswmdPick();
+  if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
+  const modules = arxmlModuleShortNames(r.content);
+  if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
+    console.warn(
+      `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${modules.join(', ') || 'none'})`,
+    );
+    return;
+  }
+  const odxPath = state.lastOdxPath ?? activeDocumentPath;
+  if (odxPath === null) {
+    console.warn(`useDcmConfigLauncher: Generate New unavailable, lastOdxPath is null`);
+    return;
+  }
+  inFlightRef.current = true;
+  try {
+    await open({
+      odxPath,
+      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+      bswmdPath: r.path,
+    });
+  } finally {
+    inFlightRef.current = false;
+  }
+}, [state.lastOdxPath, activeDocumentPath, open]);
 ```
 
 - [ ] **Step 2.5: Add `handleGenerateNew` to the return object**
@@ -464,6 +470,7 @@ Pick → dialog close → re-mount transitions."
 ### Task 3: Delete Override UI + add Generate New button to SuccessDialog
 
 **Files:**
+
 - Delete: `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx`
 - Delete: `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx`
 - Modify: `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` (remove override `<details>` + handlers; add `<GenerateNewButton>` + `onGenerateNew` prop; remove `bswmdPathOverride` local state)
@@ -472,6 +479,7 @@ Pick → dialog close → re-mount transitions."
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (delete override assertions; add Generate New assertions)
 
 **Interfaces:**
+
 - Consumes: existing `DcmConfigSuccessDialog` props (per v1.32.0 MINOR T7 + v1.33.0 MINOR T2); new prop `onGenerateNew: () => Promise<void> | void` (added in this task)
 - Produces: `<button data-testid="dcm-config-generate-new">Generate New / 重新生成</button>` rendered below `appliedStepCount` line; click invokes `onGenerateNew()`
 
@@ -485,10 +493,15 @@ it('renders Generate New button when result.value present (en)', () => {
   render(
     <DcmConfigSuccessDialog
       locale="en"
-      result={{ ok: true, value: { /* minimal happy result */ } }}
+      result={{
+        ok: true,
+        value: {
+          /* minimal happy result */
+        },
+      }}
       onCancel={vi.fn()}
       onGenerateNew={onGenerateNew}
-    />
+    />,
   );
   const btn = screen.getByTestId('dcm-config-generate-new');
   expect(btn).toBeInTheDocument();
@@ -500,10 +513,15 @@ it('renders Generate New button when result.value present (zh-CN)', () => {
   render(
     <DcmConfigSuccessDialog
       locale="zh-CN"
-      result={{ ok: true, value: { /* minimal happy result */ } }}
+      result={{
+        ok: true,
+        value: {
+          /* minimal happy result */
+        },
+      }}
       onCancel={vi.fn()}
       onGenerateNew={onGenerateNew}
-    />
+    />,
   );
   expect(screen.getByTestId('dcm-config-generate-new')).toHaveTextContent(/重新生成/);
 });
@@ -540,13 +558,15 @@ In the function body of `DcmConfigSuccessDialog`:
 3. Delete the entire `<details>` JSX block including the `<input>` and the `<DcmConfigOverridePicker>` import + JSX usage. Replace it with:
 
 ```tsx
-      <button
-        type="button"
-        onClick={() => { void props.onGenerateNew(); }}
-        data-testid="dcm-config-generate-new"
-      >
-        {t(locale, 'dcmConfig.generateNew.button')}
-      </button>
+<button
+  type="button"
+  onClick={() => {
+    void props.onGenerateNew();
+  }}
+  data-testid="dcm-config-generate-new"
+>
+  {t(locale, 'dcmConfig.generateNew.button')}
+</button>
 ```
 
 4. Delete the `import { DcmConfigOverridePicker } from './DcmConfigOverridePicker.js';` at the top.
@@ -597,7 +617,7 @@ Find the existing `<DcmConfigSuccessDialog` JSX in `src/renderer/App.tsx` (aroun
 ```tsx
 <DcmConfigSuccessDialog
   locale={locale}
-  result={launcher.state.result}  // existing shape
+  result={launcher.state.result} // existing shape
   onCancel={launcher.closeDialog}
   onGenerateNew={launcher.handleGenerateNew}
 />
@@ -639,11 +659,13 @@ deletion that landed in T1.)"
 ### Task 4: Remove `dcmConfig.bswmdPath.override` i18n key + add `dcmConfig.generateNew.button`
 
 **Files:**
+
 - Modify: `src/shared/i18n/odx.ts` (delete `bswmdPath.override` type line; add `generateNew.button` type line)
 - Modify: `src/shared/i18n.en/odx.ts` (delete the English override line; add Generate New English)
 - Modify: `src/shared/i18n.zh-CN/odx.ts` (delete the Chinese override line; add Generate New Chinese)
 
 **Interfaces:**
+
 - Consumes: existing 3 i18n bundles
 - Produces: 1 type line removed + 1 type line added; 1 string removed + 1 string added per bundle
 
@@ -744,6 +766,7 @@ No test delta. Cumulative baseline 3000+7 -> 3000+7 SKIP / 0 fail."
 ### Task 5: Ship (verify + 2 pushes + gh release)
 
 **Files:**
+
 - Create: `docs/release-notes/v1.33.1/README.md`
 - No production code changes
 
@@ -794,13 +817,13 @@ Both wired to the deleted Override UI. Replaced by `handleGenerateNew()` on the 
 
 ## Test budget (-5 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | -3 (T1 deleted) +5 (T2 added) | 3003 → 3005 |
-| `DcmConfigSuccessDialog.test.tsx` (UPDATED) | -2 (T3 deleted) +2 (T3 added) | 3005 → 3005 |
-| `DcmConfigOverridePicker.test.tsx` (DELETE) | -5 | 3005 → 3000 |
-| `DcmConfigOverridePicker.test.tsx` (DELETE — count check) | | |
-| **Net** | -5 | **3003 → 2998** |
+| Test file                                                 | Δ                             | Cumulative      |
+| --------------------------------------------------------- | ----------------------------- | --------------- |
+| `useDcmConfigLauncher.test.ts` (UPDATED)                  | -3 (T1 deleted) +5 (T2 added) | 3003 → 3005     |
+| `DcmConfigSuccessDialog.test.tsx` (UPDATED)               | -2 (T3 deleted) +2 (T3 added) | 3005 → 3005     |
+| `DcmConfigOverridePicker.test.tsx` (DELETE)               | -5                            | 3005 → 3000     |
+| `DcmConfigOverridePicker.test.tsx` (DELETE — count check) |                               |                 |
+| **Net**                                                   | -5                            | **3003 → 2998** |
 
 Baseline 3003 + 7 SKIP / 0 fail (from v1.33.0 MINOR `2c1a294`) → actual **2998 + 7 SKIP / 0 fail**.
 

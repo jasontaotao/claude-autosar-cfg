@@ -145,9 +145,7 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
 
   it('renders Generate New button when result is present (zh-CN)', () => {
     const onGenerateNew = vi.fn();
-    render(
-      <DcmConfigSuccessDialog {...baseProps} locale="zh-CN" onGenerateNew={onGenerateNew} />,
-    );
+    render(<DcmConfigSuccessDialog {...baseProps} locale="zh-CN" onGenerateNew={onGenerateNew} />);
     expect(screen.getByTestId('dcm-config-generate-new')).toHaveTextContent(/重新生成/);
   });
 

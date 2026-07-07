@@ -92,25 +92,25 @@ v1.33.1 PATCH 是收口 PATCH,**移除 override UI**(Browse/Clear 状态都无 c
 
 ### Component placement
 
-| Component                            | Path                                                                              | Type                       |
-| ------------------------------------ | --------------------------------------------------------------------------------- | -------------------------- |
-| `DcmConfigSuccessDialog` (MODIFIED)  | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                    | MODIFY: remove override UI + add Generate New |
-| `DcmConfigSuccessDialog.css` (MODIFY)| `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`                    | MODIFY: remove .dcm-config-override-picker rule, add .dcm-config-generate-new |
-| `DcmConfigOverridePicker` (DELETE)   | `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx`                   | DELETE                     |
-| `DcmConfigOverridePicker.test.tsx`   | `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx`     | DELETE                     |
-| `useDcmConfigLauncher` (MODIFIED)    | `src/renderer/hooks/useDcmConfigLauncher.ts`                                      | MODIFY: remove override state/actions, add lastOdxPath + handleGenerateNew |
-| `useDcmConfigLauncher.test.ts` (UP)  | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                       | MODIFY: -3 (override wiring) +4 (Generate New) |
-| `DcmConfigSuccessDialog.test.tsx`    | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`      | MODIFY: -2 (override absent) +2 (Generate New renders: en + zh-CN) |
-| `bswmdPickHandler` (KEEP)            | `src/main/ipc/bswmdPickHandler.ts`                                                | KEEP, still used by Generate New |
-| `bswmdPickHandler.test.ts`           | `src/main/ipc/__tests__/bswmdPickHandler.test.ts`                                 | KEEP                       |
-| `IPC_CHANNELS` (KEEP)                | `src/shared/ipc-contract.ts`                                                      | KEEP, no contract change    |
-| `BswmdPickResult` type (KEEP)        | `src/shared/types.ts`                                                             | KEEP                        |
-| `preload` (KEEP)                     | `src/preload/index.ts`                                                            | KEEP, bswmdPick still exposed |
-| `register` (KEEP)                    | `src/main/ipc/register.ts`                                                        | KEEP, still calls registerBswmdPickHandler |
-| `XlsxImportSlice` (KEEP)             | `src/renderer/store/slices/xlsxImportSlice.ts`                                    | KEEP, real xlsxRows consumer in launcher |
-| `xlsxImportListener` (KEEP)          | `src/renderer/store/xlsxImportListener.ts`                                        | KEEP, real xlsx:import-complete listener |
-| `dcmConfig.bswmdPath.override` i18n (DELETE) | `src/shared/i18n/{en,zh-CN,}/odx.ts`                                       | DELETE (no consumer after override UI removed) |
-| `dcmConfig.generateNew.button` i18n (NEW)    | `src/shared/i18n/{en,zh-CN,}/odx.ts`                                       | NEW ('Generate New' / '重新生成') |
+| Component                                    | Path                                                                           | Type                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `DcmConfigSuccessDialog` (MODIFIED)          | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`                 | MODIFY: remove override UI + add Generate New                                 |
+| `DcmConfigSuccessDialog.css` (MODIFY)        | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.css`                 | MODIFY: remove .dcm-config-override-picker rule, add .dcm-config-generate-new |
+| `DcmConfigOverridePicker` (DELETE)           | `src/renderer/components/dcmConfig/DcmConfigOverridePicker.tsx`                | DELETE                                                                        |
+| `DcmConfigOverridePicker.test.tsx`           | `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` | DELETE                                                                        |
+| `useDcmConfigLauncher` (MODIFIED)            | `src/renderer/hooks/useDcmConfigLauncher.ts`                                   | MODIFY: remove override state/actions, add lastOdxPath + handleGenerateNew    |
+| `useDcmConfigLauncher.test.ts` (UP)          | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                    | MODIFY: -3 (override wiring) +4 (Generate New)                                |
+| `DcmConfigSuccessDialog.test.tsx`            | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`  | MODIFY: -2 (override absent) +2 (Generate New renders: en + zh-CN)            |
+| `bswmdPickHandler` (KEEP)                    | `src/main/ipc/bswmdPickHandler.ts`                                             | KEEP, still used by Generate New                                              |
+| `bswmdPickHandler.test.ts`                   | `src/main/ipc/__tests__/bswmdPickHandler.test.ts`                              | KEEP                                                                          |
+| `IPC_CHANNELS` (KEEP)                        | `src/shared/ipc-contract.ts`                                                   | KEEP, no contract change                                                      |
+| `BswmdPickResult` type (KEEP)                | `src/shared/types.ts`                                                          | KEEP                                                                          |
+| `preload` (KEEP)                             | `src/preload/index.ts`                                                         | KEEP, bswmdPick still exposed                                                 |
+| `register` (KEEP)                            | `src/main/ipc/register.ts`                                                     | KEEP, still calls registerBswmdPickHandler                                    |
+| `XlsxImportSlice` (KEEP)                     | `src/renderer/store/slices/xlsxImportSlice.ts`                                 | KEEP, real xlsxRows consumer in launcher                                      |
+| `xlsxImportListener` (KEEP)                  | `src/renderer/store/xlsxImportListener.ts`                                     | KEEP, real xlsx:import-complete listener                                      |
+| `dcmConfig.bswmdPath.override` i18n (DELETE) | `src/shared/i18n/{en,zh-CN,}/odx.ts`                                           | DELETE (no consumer after override UI removed)                                |
+| `dcmConfig.generateNew.button` i18n (NEW)    | `src/shared/i18n/{en,zh-CN,}/odx.ts`                                           | NEW ('Generate New' / '重新生成')                                             |
 
 ## 3. Detailed Design
 
@@ -177,9 +177,9 @@ import { arxmlModuleShortNames } from '../../arxml/arxmlModuleShortNames.js';
 import { DCM_MODULE_SHORT_NAME } from '../../../core/bridge/dcmConstants.js';
 
 const handleGenerateNew = useCallback(async (): Promise<void> => {
-  if (inFlightRef.current) return;  // re-entrancy guard
+  if (inFlightRef.current) return; // re-entrancy guard
   const r = await window.autosarApi.bswmdPick();
-  if (r.kind !== 'opened') return;  // canceled or read-failed (latter already showed dialog)
+  if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
   // Sanity check picked file is a Dcm BSWMD.
   const modules = arxmlModuleShortNames(r.content);
   if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
@@ -299,13 +299,13 @@ Standard PATCH ship mechanics per the project's `gh-api-ship-pattern-recap` + `f
 
 ### Test budget (-5 net)
 
-| Test file                                                                                                       | Δ                                              | Cumulative        |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ----------------- |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (UPDATED + RED/GREEN)                                | -3 (override wiring) +4 (Generate New)         | 3003 → 3004       |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (UPDATED)                          | -2 (override absent) +2 (Generate New button)  | 3004 → 3004       |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (DELETE)                          | -5                                              | 3004 → 2999       |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (DELETE — count check)            |                                                |                   |
-| **Net**                                                                                                          | -5                                             | **3003 → 2998**   |
+| Test file                                                                                             | Δ                                             | Cumulative      |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------- | --------------- |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (UPDATED + RED/GREEN)                     | -3 (override wiring) +4 (Generate New)        | 3003 → 3004     |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (UPDATED)               | -2 (override absent) +2 (Generate New button) | 3004 → 3004     |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (DELETE)               | -5                                            | 3004 → 2999     |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx` (DELETE — count check) |                                               |                 |
+| **Net**                                                                                               | -5                                            | **3003 → 2998** |
 
 (v1.33.1 PATCH 与 v1.33.0 MINOR +16 是单方向不同 — PATCH 期间允许测试数下降 due to feature revert.)
 
@@ -313,28 +313,28 @@ Baseline 3003 + 7 SKIP / 0 fail → target **2998 + 7 SKIP / 0 fail**.
 
 ### Subagent-driven task split (5 tasks)
 
-| #   | Task                                                            | Model  | Test delta |
-| --- | --------------------------------------------------------------- | ------ | ---------- |
-| T1  | Preflight grep + remove `bswmdPathOverride` state/interface    | Haiku  | -3         |
-| T2  | `lastOdxPath` state + `handleGenerateNew` action + 4 tests     | Sonnet | +4         |
-| T3  | Delete `DcmConfigOverridePicker` + add `<GenerateNewButton>`    | Sonnet | -2 +2      |
-| T4  | Remove `dcmConfig.bswmdPath.override` i18n + add `generateNew.button` | Haiku | +0         |
-| T5  | Ship: `pnpm verify` + 2 separate pushes + `gh release create`  | Sonnet | (wiring)   |
+| #   | Task                                                                  | Model  | Test delta |
+| --- | --------------------------------------------------------------------- | ------ | ---------- |
+| T1  | Preflight grep + remove `bswmdPathOverride` state/interface           | Haiku  | -3         |
+| T2  | `lastOdxPath` state + `handleGenerateNew` action + 4 tests            | Sonnet | +4         |
+| T3  | Delete `DcmConfigOverridePicker` + add `<GenerateNewButton>`          | Sonnet | -2 +2      |
+| T4  | Remove `dcmConfig.bswmdPath.override` i18n + add `generateNew.button` | Haiku  | +0         |
+| T5  | Ship: `pnpm verify` + 2 separate pushes + `gh release create`         | Sonnet | (wiring)   |
 
 ## 5. Risk Assessment
 
-| Risk                                                                       | Likelihood | Impact | Mitigation                                                                                                                |
-| -------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Removing override UI 撤销 `bswmdPathOverride` 引用面之外,launcher hook 还有使用 | Low        | Medium | Pre-flight grep 验证 3 个文件 (launcher + dialog + test)。T1 commit body lists removed fields.                          |
-| `handleGenerateNew` race 与 closure during bswmd:pick — 用户关 dialog 时 pick | Low        | Low    | 关 dialog 不动 `lastOdxPath`;re-fire on open() resolve 仅 setState(result + lastOdxPath);mode 仍是 'success' 时 dialog 重渲染。 |
-| 用户不点 Browse 而坚持 current BSWMD 路径 — Generate New 是不是单独 deletion? | Low        | Low    | "Cancel/Close" 按钮独立。"Generate New" 是 primary — 不存在 accidental deletion。                                      |
-| `lastOdxPath` 在 user 还没跑过 dcm:config 时为 undefined                    | Low        | Low    | `handleGenerateNew` 在 `state.mode !== 'success'` 时 unreachable。Defensive check anyway if both `lastOdxPath` 和 `activeDocumentPath` 都 undefined。 |
-| `dcmConfig.bswmdPath.override` i18n key 删除但其他地方仍然 reference          | Low        | Medium | T4 之前 grep 验证:3 i18n bundle + SuccessDialog `<summary>` + test file comment。T4 commit 后再 grep `dcmConfig\.bswmdPath\.override` = 0 hits。 |
-| Generate New 重复 click 触发 race (inFlight 没 release 前)                 | Low        | Medium | 复用现有 `inFlightRef` re-entrancy guard。                                                                              |
-| 删除 DcmConfigOverridePicker 但 css rule reference 残留在 main bundle          | Low        | Low    | Pre-flight grep `dcm-config-override-picker` class = 0 hits after T3。                                            |
-| `bswmd:pick` IPC contract 改动会被外部 consumer 依赖                         | Very Low   | High   | IPC contract 完全不变 (v1.33.0 shipped 之后没改)。Generate New 复用同 channel + handler。                              |
+| Risk                                                                            | Likelihood | Impact | Mitigation                                                                                                                                                                  |
+| ------------------------------------------------------------------------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removing override UI 撤销 `bswmdPathOverride` 引用面之外,launcher hook 还有使用 | Low        | Medium | Pre-flight grep 验证 3 个文件 (launcher + dialog + test)。T1 commit body lists removed fields.                                                                              |
+| `handleGenerateNew` race 与 closure during bswmd:pick — 用户关 dialog 时 pick   | Low        | Low    | 关 dialog 不动 `lastOdxPath`;re-fire on open() resolve 仅 setState(result + lastOdxPath);mode 仍是 'success' 时 dialog 重渲染。                                             |
+| 用户不点 Browse 而坚持 current BSWMD 路径 — Generate New 是不是单独 deletion?   | Low        | Low    | "Cancel/Close" 按钮独立。"Generate New" 是 primary — 不存在 accidental deletion。                                                                                           |
+| `lastOdxPath` 在 user 还没跑过 dcm:config 时为 undefined                        | Low        | Low    | `handleGenerateNew` 在 `state.mode !== 'success'` 时 unreachable。Defensive check anyway if both `lastOdxPath` 和 `activeDocumentPath` 都 undefined。                       |
+| `dcmConfig.bswmdPath.override` i18n key 删除但其他地方仍然 reference            | Low        | Medium | T4 之前 grep 验证:3 i18n bundle + SuccessDialog `<summary>` + test file comment。T4 commit 后再 grep `dcmConfig\.bswmdPath\.override` = 0 hits。                            |
+| Generate New 重复 click 触发 race (inFlight 没 release 前)                      | Low        | Medium | 复用现有 `inFlightRef` re-entrancy guard。                                                                                                                                  |
+| 删除 DcmConfigOverridePicker 但 css rule reference 残留在 main bundle           | Low        | Low    | Pre-flight grep `dcm-config-override-picker` class = 0 hits after T3。                                                                                                      |
+| `bswmd:pick` IPC contract 改动会被外部 consumer 依赖                            | Very Low   | High   | IPC contract 完全不变 (v1.33.0 shipped 之后没改)。Generate New 复用同 channel + handler。                                                                                   |
 | Spec §T5 PATCH proposal: 整个 v1.33.0 Override 设计 推倒重来                    | Medium     | High   | 这是 spec intentional,v1.33.0 本就留了 "MEDIUM observation (SuccessDialog override is local-only)" 这个口子,在 v1.33.0 release notes §Known follow-up 中作为新 entry 描述。 |
-| Override UI auto-reopen race 路径需要 sequence ID — 缺失                       | Very Low   | Medium | 这是 non-goal,见 Non-Goals §1.7。现有 re-entrancy guard 涵盖 click-twice 情形。                                       |
+| Override UI auto-reopen race 路径需要 sequence ID — 缺失                        | Very Low   | Medium | 这是 non-goal,见 Non-Goals §1.7。现有 re-entrancy guard 涵盖 click-twice 情形。                                                                                             |
 
 ## 6. Lessons (NEW from v1.33.1 PATCH)
 
