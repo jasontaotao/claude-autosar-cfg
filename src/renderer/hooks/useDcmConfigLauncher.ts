@@ -56,6 +56,15 @@ export interface DcmConfigLauncherState {
    * toast via this key (T7 ships the catalog string). Reset to null by
    * `dismissToast` and by any subsequent open()/promptAndOpen(). */
   readonly statusMessage: string | null;
+  /** v1.33.0 MINOR T5 — explicit user-picked BSWMD override. Set by
+   * `handleOverridePick(path)` (wired to `<DcmConfigOverridePicker />`,
+   * T2). When defined, the next `open()` invocation uses this path
+   * instead of `bswmdHasDcm.dcmBswmdPath`. Cleared by
+   * `handleOverrideClear()`. Lesson: store-as-source-of-truth-for-async-args
+   * — IPC args consumed across renders live in this state slice, not
+   * a hook local, so the value survives re-renders between
+   * picker→open IPC hops. */
+  readonly bswmdPathOverride?: string;
 }
 
 export interface DcmConfigLauncher {
@@ -87,6 +96,19 @@ export interface DcmConfigLauncher {
    * to idle; App.tsx can mount a localized "cancelled" toast via the
    * existing `setError` action. */
   handlePickerCancel(): void;
+  /** v1.33.0 MINOR T5 — wiring hook for `<DcmConfigOverridePicker />`
+   * (T2). Records an explicit user-picked BSWMD override that the next
+   * `open()` invocation will use as `bswmdPath` instead of the
+   * `bswmdHasDcm.dcmBswmdPath` autofill. Pinned by lesson
+   * store-as-source-of-truth-for-async-args — value lives on the
+   * launcher state shape, not a hook local, so it survives re-renders
+   * between picker→open IPC hops. */
+  handleOverridePick(path: string): void;
+  /** v1.33.0 MINOR T5 — wiring hook for `<DcmConfigOverridePicker />`
+   * (T2). Clears the override so the next `open()` falls back to
+   * `bswmdHasDcm.dcmBswmdPath` per the brief's
+   * `bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath` contract. */
+  handleOverrideClear(): void;
   closeDialog(): void;
   dismissToast(): void;
 }
@@ -99,6 +121,7 @@ const INITIAL_STATE: DcmConfigLauncherState = {
   toastVisible: false,
   bswmdPathAutofill: null,
   statusMessage: null,
+  bswmdPathOverride: undefined,
 };
 
 /**
@@ -454,19 +477,14 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       // open() directly. The T5 autofill pipes the T4-discovered
       // bswmdPath into the IPC payload so the handler skips its
       // sample-fixture walk-up.
+      // v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
+      // slice (lesson store-as-source-of-truth-for-async-args). The
+      // empty `[]` placeholder from v1.31.x+v1.32.x is gone.
+      // v1.33.0 MINOR T5 — bswmdPath resolves to override ?? autofill.
       await open({
         odxPath: activeDocumentPath,
-        // v1.32.0 MINOR T5 — xlsxRows:[] is an intentional placeholder.
-        // Real wiring (xlsxRows sourced from the active xlsx document
-        // store slice) lands in T7 (i18n keys + SuccessDialog autofill
-        // label task). Until T7, the shortcut path invokes the IPC
-        // with an empty row set; this is dev-only and the handler's
-        // `appliedStepCount` will reflect 0. Reviewer flagged the empty
-        // literal at this site as a contract ambiguity; the comment
-        // pins the T5 placeholder semantics so future readers do not
-        // mistake this for a real value.
-        xlsxRows: [],
-        bswmdPath: bswmdHasDcm.dcmBswmdPath,
+        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+        bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
       });
       return;
     }
@@ -475,25 +493,22 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     // handlePickerResolve(odxPath) on user choice (or handlePickerCancel
     // on dismiss).
     setState((prev) => ({ ...prev, mode: 'picking-odx' }));
-  }, [bswmdHasDcm, isActiveOdx, activeDocumentPath, open]);
+  }, [bswmdHasDcm, isActiveOdx, activeDocumentPath, open, state.bswmdPathOverride]);
 
   // v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
   // component calls this with the OS-picked .odx path. We transition
   // to `pending` so the spinner renders, then fire the IPC.
+  // v1.33.0 MINOR T5 — xlsxRows + bswmdPathOverride wired identically
+  // to the shortcut path (single source of truth).
   const handlePickerResolve = useCallback(
     async (odxPath: string): Promise<void> => {
       await open({
         odxPath,
-        // v1.32.0 MINOR T5 — xlsxRows:[] is an intentional placeholder
-        // (mirrors the shortcut path above). Real wiring lands in T7
-        // when xlsxRows is sourced from the active xlsx document store
-        // slice. Reviewer flagged this empty literal as a contract
-        // ambiguity; the comment pins the T5 placeholder semantics.
-        xlsxRows: [],
-        bswmdPath: bswmdHasDcm.dcmBswmdPath,
+        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+        bswmdPath: state.bswmdPathOverride ?? bswmdHasDcm.dcmBswmdPath,
       });
     },
-    [bswmdHasDcm.dcmBswmdPath, open],
+    [bswmdHasDcm.dcmBswmdPath, open, state.bswmdPathOverride],
   );
 
   // v1.32.0 T5 — picker cancel callback. Returns mode to idle; the
@@ -512,6 +527,23 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     }));
   }, []);
 
+  // v1.33.0 MINOR T5 — wiring for <DcmConfigOverridePicker/> (T2).
+  // Records the user-picked BSWMD override on the state shape so the
+  // next `open()` call resolves bswmdPath = override ?? autofill.
+  // Lesson: store-as-source-of-truth-for-async-args — IPC args consumed
+  // across renders must live in a Zustand slice, not a hook local.
+  // useCallback with empty deps — state setter functional form gives
+  // us the latest state without subscribing the callback to it.
+  const handleOverridePick = useCallback((path: string): void => {
+    setState((s) => ({ ...s, bswmdPathOverride: path }));
+  }, []);
+
+  // v1.33.0 MINOR T5 — clear the BSWMD override so the next open()
+  // falls back to bswmdHasDcm.dcmBswmdPath.
+  const handleOverrideClear = useCallback((): void => {
+    setState((s) => ({ ...s, bswmdPathOverride: undefined }));
+  }, []);
+
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
   }, []);
@@ -528,6 +560,8 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     promptAndOpen,
     handlePickerResolve,
     handlePickerCancel,
+    handleOverridePick,
+    handleOverrideClear,
     closeDialog,
     dismissToast,
   };
