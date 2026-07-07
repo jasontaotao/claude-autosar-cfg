@@ -289,6 +289,13 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     //    SuccessDialog can render the autofill label. Prefer the
     //    caller-provided override when present; otherwise surface the
     //    discovered path (same value used to read the BSWMD).
+    //
+    //    v1.33.0 MINOR T6 — always populate from the resolved
+    //    `dcmBswmdPath`. The `args.bswmdPath ?? dcmBswmdPath`
+    //    resolution now lives entirely in the launcher (which
+    //    pre-resolves before invoking the handler); the handler
+    //    simply mirrors the value it actually used. The field is
+    //    required on `DcmConfigHandlerResult` — never undefined.
     const result: DcmConfigHandlerResult = {
       dcmConfigXml: finalXml,
       odxLinkedDcmDspCount: pipelineResult.odxLinkedDcmDspCount,
@@ -296,7 +303,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       serviceCounts: pipelineResult.serviceCounts,
       outputPath,
       appliedStepCount,
-      bswmdPath: args.bswmdPath ?? dcmBswmdPath,
+      bswmdPath: dcmBswmdPath,
     };
     return { ok: true, value: result };
   } catch (e) {

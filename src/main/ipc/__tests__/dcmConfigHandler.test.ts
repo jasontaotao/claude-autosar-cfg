@@ -350,6 +350,12 @@ describe('dcmConfigHandler — happy path', () => {
     // 2 add-child + 2 set-param = 4 steps. Pins the v1.30.0 spec §3.3
     // counter semantics.
     expect(result.value.appliedStepCount).toBe(4);
+    // v1.33.0 MINOR T6 — `bswmdPath` is required on the success
+    // envelope; the handler always populates it from the resolved
+    // `dcmBswmdPath`. The SuccessDialog autofill row depends on
+    // this contract.
+    expect(result.value.bswmdPath).toBeDefined();
+    expect(result.value.bswmdPath).toMatch(/Bsw_Dcm_Bswmd\.arxml$/);
   });
 });
 

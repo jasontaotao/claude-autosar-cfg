@@ -1182,8 +1182,15 @@ export interface DcmConfigHandlerResult extends DcmConfigPipelineResult {
    * explicit `bswmdPath`, this mirrors the input; otherwise it
    * carries the discovered sample-fixture path so the renderer can
    * surface "Auto-selected from project manifest: <path>".
+   *
+   * v1.33.0 MINOR T6 — promoted to REQUIRED. The handler always
+   * populates this field from the resolved `dcmBswmdPath` (callers
+   * apply their own `bswmdPath ?? locateDcmBswmdPath` resolution
+   * upstream in the launcher; the handler's result mirrors that
+   * resolution verbatim). The renderer can therefore render the
+   * autofill `<p>` unconditionally.
    */
-  readonly bswmdPath?: string;
+  readonly bswmdPath: string;
 }
 
 /**

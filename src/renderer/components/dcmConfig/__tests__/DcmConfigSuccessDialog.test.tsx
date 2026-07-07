@@ -33,6 +33,13 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
       },
       outputPath: '/out/Dcm_Config.arxml',
       appliedStepCount: 7,
+      // v1.33.0 MINOR T6 — `bswmdPath` is required on
+      // DcmConfigHandlerResult. The autofill row in SuccessDialog
+      // now renders unconditionally; the baseProps carries the
+      // canonical demo-ecu BSWMD path so the default render path
+      // surfaces the autofill row in every test that doesn't
+      // explicitly override it.
+      bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
     },
     locale: 'en' as const,
     onClose: vi.fn(),
@@ -85,46 +92,32 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
   });
 
   // v1.32.0 MINOR T7 — autofill label renders when handler echoed bswmdPath.
-  it('renders autofill label when bswmdPath is set (en)', () => {
-    render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        locale="en"
-        result={{
-          ...baseProps.result,
-          bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
-        }}
-      />,
-    );
-    expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
-    expect(screen.getByText('Auto-selected from project manifest')).toBeInTheDocument();
-    expect(
-      screen.getByText('/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
-    ).toBeInTheDocument();
-  });
-
-  it('renders autofill label when bswmdPath is set (zh-CN)', () => {
-    render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        locale="zh-CN"
-        result={{
-          ...baseProps.result,
-          bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
-        }}
-      />,
-    );
-    expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
-    expect(screen.getByText('已从项目清单自动选择')).toBeInTheDocument();
-    expect(
-      screen.getByText('/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
-    ).toBeInTheDocument();
-  });
-
-  it('does not render autofill label when bswmdPath is absent', () => {
-    render(<DcmConfigSuccessDialog {...baseProps} />);
-    expect(screen.queryByTestId('dcm-config-success-bswmd-autofill')).not.toBeInTheDocument();
-  });
+  //
+  // v1.33.0 MINOR T6 — `bswmdPath` is REQUIRED on
+  // DcmConfigHandlerResult, so the autofill row is rendered
+  // unconditionally. The previous 3-test surface (positive en,
+  // positive zh-CN, absence when bswmdPath undefined) collapses to
+  // a single bilingual positive test against the unconditional
+  // autofill render. Net: -2 tests.
+  it.each(['en', 'zh-CN'] as const)(
+    'renders autofill label with the resolved bswmdPath (locale %s)',
+    (locale) => {
+      render(<DcmConfigSuccessDialog {...baseProps} locale={locale} />);
+      // Always-populated assertion: baseProps.result.bswmdPath is
+      // the canonical demo-ecu BSWMD path; the autofill row must
+      // surface it in both locales.
+      expect(baseProps.result.bswmdPath).toBe(
+        '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
+      );
+      expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
+      const expectedLabel =
+        locale === 'en' ? 'Auto-selected from project manifest' : '已从项目清单自动选择';
+      expect(screen.getByText(expectedLabel)).toBeInTheDocument();
+      expect(
+        screen.getByText('/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
+      ).toBeInTheDocument();
+    },
+  );
 
   // v1.32.1 PATCH P3 — Override <details> shell consumes the
   // 'dcmConfig.bswmdPath.override' i18n key (previously unused).

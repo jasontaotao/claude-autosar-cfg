@@ -104,17 +104,20 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
               <code>{result.outputPath}</code>
             </dd>
           </div>
-          {result.bswmdPath !== undefined && (
-            <div
-              className="dcm-config-success-path-row dcm-config-success-bswmd-autofill"
-              data-testid="dcm-config-success-bswmd-autofill"
-            >
-              <dt>{t(locale, 'dcmConfig.bswmdPath.autofill')}</dt>
-              <dd>
-                <code>{result.bswmdPath}</code>
-              </dd>
-            </div>
-          )}
+          {/* v1.33.0 MINOR T6 — `bswmdPath` is required on
+              DcmConfigHandlerResult, so the autofill row is rendered
+              unconditionally (the previous `!== undefined` guard is
+              no longer reachable). The field mirrors the resolved
+              BSWMD path the handler actually read. */}
+          <div
+            className="dcm-config-success-path-row dcm-config-success-bswmd-autofill"
+            data-testid="dcm-config-success-bswmd-autofill"
+          >
+            <dt>{t(locale, 'dcmConfig.bswmdPath.autofill')}</dt>
+            <dd>
+              <code>{result.bswmdPath}</code>
+            </dd>
+          </div>
         </dl>
         {/* v1.33.0 MINOR T2 — activated Override shell. v1.32.1 PATCH
             P3 shipped a disabled input + no Browse button (lesson
