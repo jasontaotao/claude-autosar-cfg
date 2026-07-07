@@ -55,4 +55,13 @@ export interface OdxMessages {
   // launcher.handleGenerateNew which re-fires dcm:config with the
   // captured lastOdxPath.
   readonly 'dcmConfig.generateNew.button': string;
+  // v1.34.0 MINOR T2 — Xlsx import history surface. Read-only
+  // timeline of past xlsx imports (cap-5, prepend-first per
+  // v1.33.0 slice invariant). Each row exposes a Reuse button
+  // that calls props.onReuse(importedAt) — the parent
+  // DcmConfigSuccessDialog owns the history → store binding.
+  readonly 'xlsxImportHistory.title': string;
+  readonly 'xlsxImportHistory.empty': string;
+  readonly 'xlsxImportHistory.rowsCount': string; // {count}
+  readonly 'xlsxImportHistory.reuseButton': string;
 }

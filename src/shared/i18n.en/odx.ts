@@ -48,4 +48,9 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
   // v1.33.1 PATCH T3 — "Generate New" button.
   'dcmConfig.generateNew.button': 'Generate New',
+  // v1.34.0 MINOR T2 — Xlsx import history surface.
+  'xlsxImportHistory.title': 'Xlsx import history',
+  'xlsxImportHistory.empty': 'No prior imports this session',
+  'xlsxImportHistory.rowsCount': '{count} rows',
+  'xlsxImportHistory.reuseButton': 'Reuse',
 };

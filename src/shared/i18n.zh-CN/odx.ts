@@ -48,4 +48,9 @@ export const OdxZhCN: OdxMessages = {
   'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
   // v1.33.1 PATCH T3 — "Generate New" button.
   'dcmConfig.generateNew.button': '重新生成',
+  // v1.34.0 MINOR T2 — Xlsx import history surface.
+  'xlsxImportHistory.title': 'xlsx 导入历史',
+  'xlsxImportHistory.empty': '本会话暂无导入记录',
+  'xlsxImportHistory.rowsCount': '{count} 行',
+  'xlsxImportHistory.reuseButton': '复用',
 };
