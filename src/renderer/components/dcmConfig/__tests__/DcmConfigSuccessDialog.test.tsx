@@ -175,4 +175,41 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     expect(screen.getByRole('button', { name: /browse/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
   });
+
+  // v1.33.0 MINOR T7 — SuccessDialog row count surface.
+  //
+  // When `result.appliedStepCount > 0` the dialog renders an extra
+  // `<p>` with the i18n-translated "Applied N xlsx rows" line below
+  // the autofill row. The key is `dcmConfig.appliedCount.summary`
+  // and the placeholder is `{count}`. Zero / missing appliedStepCount
+  // suppresses the line entirely (no empty <p>).
+  it.each([
+    { locale: 'en' as const, appliedStepCount: 5, expected: 'Applied 5 xlsx rows' },
+    { locale: 'zh-CN' as const, appliedStepCount: 3, expected: '已应用 3 行 xlsx 数据' },
+  ])(
+    'renders applied step count line when appliedStepCount > 0 (locale $locale)',
+    ({ locale, appliedStepCount, expected }) => {
+      render(
+        <DcmConfigSuccessDialog
+          {...baseProps}
+          locale={locale}
+          result={{ ...baseProps.result, appliedStepCount }}
+        />,
+      );
+      expect(screen.getByText(expected)).toBeInTheDocument();
+      // data-testid affordance — the line is queryable for future E2E
+      // tests without depending on localized text.
+      expect(screen.getByTestId('dcm-config-success-applied-count')).toBeInTheDocument();
+    },
+  );
+
+  it('omits the applied count line when appliedStepCount is 0', () => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        result={{ ...baseProps.result, appliedStepCount: 0 }}
+      />,
+    );
+    expect(screen.queryByTestId('dcm-config-success-applied-count')).not.toBeInTheDocument();
+  });
 });
