@@ -102,26 +102,27 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
       },
     },
     {
-      name: 'unknown',
+      name: 'unknown (plain Error)',
       kind: 'unknown',
       setup: async () => {
-        // Force a non-DcmConfigError throw by mocking the pipeline to throw Error.
+        // Force the pipeline to throw a plain `Error` (NOT
+        // `DcmConfigError`) so the outer catch's `else` arm fires with
+        // `kind: 'unknown'`. Mirrors the `vi.spyOn(applyPatchSteps)`
+        // pattern used in the `patch-failed` case above.
         const odxPath = pathResolve(workDir, 'input.odx-d');
         writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
-        // Empty bswmds map + non-empty xlsxRows forces pipeline to throw the
-        // 'BSWMD map missing module' error as a plain Error (pre-DcmConfigError).
-        // In v1.32.0 the pipeline throws DcmConfigError, so this becomes a
-        // backstop: an unexpected thrown plain Error lands at the outer catch
-        // and surfaces as 'unknown'.
-        // Force via bswmdPath pointing at a syntactically valid but
-        // content-empty BSWMD, which leaves the map empty after parse.
-        const bswmdPath = pathResolve(workDir, 'empty-bswmd.arxml');
-        writeFileSync(bswmdPath, '<AR-PACKAGES></AR-PACKAGES>', 'utf-8');
-        return dcmConfigHandler({
-          odxPath,
-          xlsxRows: [{ sheet: 'DcmReadDataById' as const, shortName: 'x', params: {} } as unknown as EcucInstanceRow],
-          bswmdPath,
-        });
+        const pipelineModule = await import('../../../core/bridge/dcmConfigPipeline.js');
+        const spy = vi
+          .spyOn(pipelineModule, 'dcmConfigPipeline')
+          .mockRejectedValue(new Error('boom: forced by kind-discriminator test'));
+        try {
+          return await dcmConfigHandler({
+            odxPath,
+            xlsxRows: [],
+          });
+        } finally {
+          spy.mockRestore();
+        }
       },
     },
   ])('$name branch returns error.kind=$kind', async ({ kind, setup }) => {
