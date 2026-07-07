@@ -30,12 +30,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import type {
   DcmConfigError,
   DcmConfigErrorKind,
   DcmConfigHandlerResult,
   EcucInstanceRow,
 } from '../../shared/types.js';
+import { arxmlModuleShortNames } from '../arxml/arxmlModuleShortNames.js';
 import type { DcmConfigErrorClass } from '../components/dcmConfig/DcmConfigErrorToast.js';
 import { findDcmBswmd, type BswmdHasDcmResult } from '../components/dcmConfig/bswmdHasDcm.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
@@ -94,6 +96,14 @@ export interface DcmConfigLauncher {
    * to idle; App.tsx can mount a localized "cancelled" toast via the
    * existing `setError` action. */
   handlePickerCancel(): void;
+  /** v1.33.1 PATCH T2 — SuccessDialog "Generate New" button hook.
+   * Opens `bswmd:pick`; if the user picks a valid Dcm BSWMD, re-fires
+   * `dcm:config` with the captured `lastOdxPath` (falling back to
+   * `activeDocumentPath`) + the new picked `bswmdPath`. Closes the UX
+   * gap where the v1.33.0 override UI was local-only and forced the
+   * user to Skip/Close/Reopen. Re-entrancy-guarded via `inFlightRef`
+   * (existing lesson re-entrancy-guard-via-useref-not-setstate-callback-state). */
+  handleGenerateNew(): Promise<void>;
   closeDialog(): void;
   dismissToast(): void;
 }
@@ -399,8 +409,15 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             // IPC. App.tsx reads statusMessage off the success/error
             // states for no-op cleanup.
             statusMessage: null,
-            // v1.33.1 PATCH — TODO(v1.33.1 T2): replace with args.odxPath on success
-            lastOdxPath: null,
+            // v1.33.1 PATCH T2 — capture odxPath so handleGenerateNew
+            // can re-fire with the same input. The SuccessDialog
+            // "Generate New" button (T3) calls handleGenerateNew
+            // after a successful dcm:config run; without this capture
+            // the re-fire would need to fall back to activeDocumentPath
+            // which may be null. Lesson: store-as-source-of-truth-for-async-args
+            // — re-fire args belong on the launcher state shape, not
+            // a hook local that goes stale across renders.
+            lastOdxPath: args.odxPath,
           });
         } else {
           const message = res.error.message;
@@ -525,6 +542,61 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     }));
   }, []);
 
+  // v1.33.1 PATCH T2 — SuccessDialog "Generate New" button hook.
+  // Opens bswmd:pick; if the user picks a valid Dcm BSWMD, re-fires
+  // `dcm:config` with the captured lastOdxPath (falling back to
+  // activeDocumentPath) + the new picked bswmdPath. Closes the UX
+  // gap where the v1.33.0 Override UI (now deleted in T3) was
+  // local-only and forced the user to Skip/Close/Reopen.
+  //
+  // Re-entrancy guarded by inFlightRef (existing lesson
+  // re-entrancy-guard-via-useref-not-setstate-callback-state): the
+  // top-level early-return reads the latest synchronous value of
+  // the ref so a second click in the same tick is dropped. We do
+  // NOT wrap the `open()` call with another inFlightRef toggle
+  // because `open()` already guards + toggles the same ref — doing
+  // so here would cause `open()` to see `current === true` and
+  // return silently without firing the IPC (caught in green-cycle
+  // debugging; preserved as in-code note for future maintainers).
+  //
+  // Sanity-check path mirrors DcmConfigOverridePicker (v1.33.0 T2):
+  // arxmlModuleShortNames walks the picked file's <ECUC-MODULE-DEF>
+  // <SHORT-NAME> values; if DCM_MODULE_SHORT_NAME ('Dcm') is missing
+  // we surface a console.warn and bail without re-firing the IPC.
+  //
+  // Lesson: store-as-source-of-truth-for-async-args — xlsxRows is
+  // sourced from xlsxLastImport.rows (NOT a hook-local fallback).
+  // Same shape as promptAndOpen + handlePickerResolve.
+  const handleGenerateNew = useCallback(async (): Promise<void> => {
+    if (inFlightRef.current) return;
+    const r = await window.autosarApi.bswmdPick();
+    if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
+    const modules = arxmlModuleShortNames(r.content);
+    if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
+      console.warn(
+        `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${
+          modules.join(', ') || 'none'
+        })`,
+      );
+      return;
+    }
+    const odxPath = state.lastOdxPath ?? activeDocumentPath;
+    if (odxPath === null) {
+      console.warn(
+        'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
+      );
+      return;
+    }
+    // Re-fire via the existing `open()` entry. `open()` owns the
+    // inFlightRef toggle for the IPC call itself; this handler owns
+    // the user-picker re-entrancy guard above.
+    await open({
+      odxPath,
+      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+      bswmdPath: r.path,
+    });
+  }, [state.lastOdxPath, activeDocumentPath, open]);
+
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
   }, []);
@@ -541,6 +613,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     promptAndOpen,
     handlePickerResolve,
     handlePickerCancel,
+    handleGenerateNew,
     closeDialog,
     dismissToast,
   };
