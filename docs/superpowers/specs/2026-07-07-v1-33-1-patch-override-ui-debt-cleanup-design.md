@@ -100,7 +100,7 @@ v1.33.1 PATCH 是收口 PATCH,**移除 override UI**(Browse/Clear 状态都无 c
 | `DcmConfigOverridePicker.test.tsx`   | `src/renderer/components/dcmConfig/__tests__/DcmConfigOverridePicker.test.tsx`     | DELETE                     |
 | `useDcmConfigLauncher` (MODIFIED)    | `src/renderer/hooks/useDcmConfigLauncher.ts`                                      | MODIFY: remove override state/actions, add lastOdxPath + handleGenerateNew |
 | `useDcmConfigLauncher.test.ts` (UP)  | `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                       | MODIFY: -3 (override wiring) +4 (Generate New) |
-| `DcmConfigSuccessDialog.test.tsx`    | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`      | MODIFY: -2 (override absent) +1 (Generate New renders) |
+| `DcmConfigSuccessDialog.test.tsx`    | `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx`      | MODIFY: -2 (override absent) +2 (Generate New renders: en + zh-CN) |
 | `bswmdPickHandler` (KEEP)            | `src/main/ipc/bswmdPickHandler.ts`                                                | KEEP, still used by Generate New |
 | `bswmdPickHandler.test.ts`           | `src/main/ipc/__tests__/bswmdPickHandler.test.ts`                                 | KEEP                       |
 | `IPC_CHANNELS` (KEEP)                | `src/shared/ipc-contract.ts`                                                      | KEEP, no contract change    |
@@ -163,29 +163,24 @@ In `promptAndOpen` and `handlePickerResolve`,revert:
 +      bswmdPath: bswmdHasDcm.dcmBswmdPath,
 ```
 
-Tests deleted from `useDcmConfigLauncher.test.ts`:
+Tests deleted from `useDcmConfigLauncher.test.ts` (3 cases from v1.33.0 MINOR T5):
 
 - `it('handleOverridePick sets bswmdPathOverride state')`
 - `it('handleOverrideClear clears bswmdPathOverride state')`
-- `it('sends xlsxRows from xlsxLastImport.rows (not []) when picker resolves')` — 这个其实保留在新的 lastOdxPath 测试里;**保留**,改名 + 调整。
-
-实际删除 3 个 test cases(根据 v1.33.0 MINOR T5 添加的):
-
-- `bswmdPathOverride state field` 测试
-- `handleOverridePick` 测试
-- `handleOverrideClear` 测试
+- 第三 test case 是 `xlsxRows from xlsxLastImport.rows` 的 binding variant — 该 assertion 在 T2 会被 `lastOdxPath` capture 测试改写(同一 test function 重命名为 `lastOdxPath captured when open() resolves (replaces xlsxRows placeholder)`)。Effective deletions:3 cases (T1 commit deletes only `handleOverridePick` + `handleOverrideClear` + 上述 rename 后的旧描述);T2 commit 写入 4 新 cases。
 
 ### T2 — Add `handleGenerateNew` + lastOdxPath wiring
 
 ```ts
 // In useDcmConfigLauncher.ts:
+import { arxmlModuleShortNames } from '../../arxml/arxmlModuleShortNames.js';
+import { DCM_MODULE_SHORT_NAME } from '../../../core/bridge/dcmConstants.js';
+
 const handleGenerateNew = useCallback(async (): Promise<void> => {
   if (inFlightRef.current) return;  // re-entrancy guard
   const r = await window.autosarApi.bswmdPick();
   if (r.kind !== 'opened') return;  // canceled or read-failed (latter already showed dialog)
   // Sanity check picked file is a Dcm BSWMD.
-  const { arxmlModuleShortNames } = await import('../../arxml/arxmlModuleShortNames.js');
-  const { DCM_MODULE_SHORT_NAME } = await import('../../../core/bridge/dcmConstants.js');
   const modules = arxmlModuleShortNames(r.content);
   if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
     console.warn(`useDcmConfigLauncher: Generate New picked non-Dcm BSWMD`);
@@ -263,7 +258,7 @@ it('handleGenerateNew is no-op when lastOdxPath and activeDocumentPath are both 
 +}
 ```
 
-**Tests added**:1
+**Tests added**:2
 
 ```tsx
 it('renders Generate New button when result.value present (en)', () => { ... });
