@@ -21,6 +21,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 
 import {
   classifyError,
@@ -278,5 +279,203 @@ describe('classifyError backward-compat (v1.32.0 T2) — missing kind', () => {
     // Legacy payload shape — no kind field.
     const legacy = { message: 'ODX-Dcm linkage broken: ...' } as unknown as DcmConfigError;
     expect(classifyError(legacy)).toBe('ODX_DCM_LINKAGE');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.32.0 MINOR T5 — state machine extensions.
+//
+// Pinned behaviours (T5):
+//   1. promptAndOpen() with no active ODX transitions to mode='picking-odx'
+//      when the project has a Dcm BSWMD (detected via the T4 parse-based
+//      gate). App.tsx renders <DcmConfigPicker/> on top of this state.
+//   2. promptAndOpen() with activeDocumentPath ending in .odx skips the
+//      picker (`isActiveOdx` shortcut) and calls open() directly.
+//   3. open() (the underlying IPC entry) autofills bswmdPath from
+//      bswmdHasDcm.dcmBswmdPath so the handler doesn't fall through to
+//      sample-fixture walk-up.
+//   4. handlePickerCancel() returns the launcher's mode to 'idle'.
+//      (Folded into 'picking-odx transition' test — single PICKER→IDLE
+//      transition assertion guards both facets.)
+//
+// Stub strategy: window.autosarApi.readBswmd returns a tiny BSWMD ARXML
+// blob whose <SHORT-NAME> includes 'Dcm' so T4's parse-based gate
+// resolves `hasDcm=true, dcmBswmdPath=<path>`. Tests that don't need
+// BSWMD parsing skip the stub and rely on the auto-set bswmdHasDcm state
+// shape via `useArxmlStore.setState` to drive `promptAndOpen` into the
+// correct branch.
+// ---------------------------------------------------------------------------
+
+const DCM_BSWMD_TEMPLATE = (path: string): string =>
+  `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>${path}</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>Dcm</SHORT-NAME>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
+/**
+ * Stub `window.autosarApi.readBswmd` so findDcmBswmd (T4) can resolve
+ * the configured paths and set bswmdHasDcm.hasDcm=true on the first
+ * path that contains a module <SHORT-NAME>Dcm</SHORT-NAME>. Tests that
+ * need a non-Dcm BSWMD should pass `{ hasDcm: false }` to skip the
+ * XML payload entirely.
+ */
+function installReadBswmdStub(opts: { readonly pathToInclude: string }): void {
+  const api = (window as unknown as {
+    autosarApi: {
+      dcmConfig: typeof invokeMock;
+      readBswmd: (req: { path: string }) => Promise<{
+        ok: boolean;
+        value?: { content: string };
+        error?: { kind: string; message: string };
+      }>;
+    };
+  }).autosarApi;
+  api.readBswmd = async (req) => {
+    if (req.path === opts.pathToInclude) {
+      return { ok: true, value: { content: DCM_BSWMD_TEMPLATE('DcmModule') } };
+    }
+    return { ok: true, value: { content: DCM_BSWMD_TEMPLATE('OtherModule') } };
+  };
+}
+
+const dcmBswmdPath = '/proj/bswmd/Dcm_v2.arxml';
+
+beforeEach(() => {
+  // Reset the store to a clean slate so each T5 test can seed its
+  // own project/activeDocumentPath without leaking into siblings.
+  useArxmlStore.setState({
+    project: null,
+    activeDocumentPath: null,
+  } as never);
+});
+
+describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () => {
+  it("promptAndOpen transitions to picking-odx when no active ODX and project has Dcm BSWMD", async () => {
+    // Seed: project has Dcm BSWMD path; activeDocumentPath is undefined
+    // so the isActiveOdx shortcut does NOT fire.
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: null,
+    });
+    // Stub readBswmd so the T4 parse gate resolves to hasDcm=true.
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+
+    expect(result.current.state.mode).toBe('picking-odx');
+    // The hook should NOT have advanced to pending (no user-driven ODX
+    // resolve has happened yet).
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it('promptAndOpen skips picker when activeDocumentPath ends with .odx (isActiveOdx shortcut)', async () => {
+    // Seed: project has Dcm BSWMD AND an active .odx document.
+    const odxPath = '/proj/input/DcmData.odx';
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: odxPath,
+    });
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 1,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 1,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '/out/Dcm_Config.arxml',
+        appliedStepCount: 1,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+
+    // Picker bypassed → state goes straight to pending, then to
+    // success (NOT through picking-odx).
+    expect(result.current.state.mode).toBe('success');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('autofills bswmdPath from bswmdHasDcm.dcmBswmdPath into dcmConfig IPC args', async () => {
+    // Seed: project has Dcm BSWMD and active .odx (so the shortcut
+    // path fires and we can inspect the IPC arg shape directly).
+    const odxPath = '/proj/input/DcmData.odx';
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: odxPath,
+    });
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const call = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+      xlsxRows: unknown[];
+      bswmdPath?: string;
+    };
+    // Autofill: the open() invocation pipes bswmdHasDcm.dcmBswmdPath
+    // into the dcmConfig IPC payload so the handler skips its
+    // sample-fixture walk-up fallback.
+    expect(call.odxPath).toBe(odxPath);
+    expect(call.bswmdPath).toBe(dcmBswmdPath);
   });
 });
