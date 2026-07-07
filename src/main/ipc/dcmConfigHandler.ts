@@ -284,6 +284,11 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     //    `outputPath` so the renderer can navigate to the file, and
     //    (v1.30.0 MINOR) include `appliedStepCount` so the renderer
     //    can render a "N steps applied" counter on the success toast.
+    //
+    //    v1.32.0 MINOR T7 — also echo the resolved `bswmdPath` so the
+    //    SuccessDialog can render the autofill label. Prefer the
+    //    caller-provided override when present; otherwise surface the
+    //    discovered path (same value used to read the BSWMD).
     const result: DcmConfigHandlerResult = {
       dcmConfigXml: finalXml,
       odxLinkedDcmDspCount: pipelineResult.odxLinkedDcmDspCount,
@@ -291,6 +296,7 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       serviceCounts: pipelineResult.serviceCounts,
       outputPath,
       appliedStepCount,
+      bswmdPath: args.bswmdPath ?? dcmBswmdPath,
     };
     return { ok: true, value: result };
   } catch (e) {

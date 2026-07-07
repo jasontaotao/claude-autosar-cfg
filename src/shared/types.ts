@@ -1129,6 +1129,14 @@ export interface DcmConfigHandlerResult extends DcmConfigPipelineResult {
   readonly outputPath: string;
   /** v1.30.0 MINOR — pre-apply intent counter (raw serviceSteps.length). */
   readonly appliedStepCount: number;
+  /**
+   * v1.32.0 MINOR T7 — resolved BSWMD path echoed back for the
+   * SuccessDialog autofill label. When the caller supplied an
+   * explicit `bswmdPath`, this mirrors the input; otherwise it
+   * carries the discovered sample-fixture path so the renderer can
+   * surface "Auto-selected from project manifest: <path>".
+   */
+  readonly bswmdPath?: string;
 }
 
 /**

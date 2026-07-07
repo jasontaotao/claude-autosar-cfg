@@ -41,4 +41,9 @@ export interface OdxMessages {
   readonly 'dcmConfig.error.noDcmBswmd': string;
   readonly 'app.open.dcmConfig': string;
   readonly 'app.open.dcmConfig.busy': string;
+  // v1.32.0 MINOR T7 — ODX-D picker + bswmdPath autofill label
+  readonly 'dcmConfig.picker.title': string;
+  readonly 'dcmConfig.picker.cancelled': string;
+  readonly 'dcmConfig.bswmdPath.autofill': string;
+  readonly 'dcmConfig.bswmdPath.override': string;
 }

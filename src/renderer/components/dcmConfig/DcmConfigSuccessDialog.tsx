@@ -90,6 +90,17 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
               <code>{result.outputPath}</code>
             </dd>
           </div>
+          {result.bswmdPath !== undefined && (
+            <div
+              className="dcm-config-success-path-row dcm-config-success-bswmd-autofill"
+              data-testid="dcm-config-success-bswmd-autofill"
+            >
+              <dt>{t(locale, 'dcmConfig.bswmdPath.autofill')}</dt>
+              <dd>
+                <code>{result.bswmdPath}</code>
+              </dd>
+            </div>
+          )}
         </dl>
         <div className="dcm-config-success-actions">
           <button

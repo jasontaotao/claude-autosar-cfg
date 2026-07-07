@@ -40,4 +40,9 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.error.noDcmBswmd': 'Requires a Dcm BSWMD to be loaded',
   'app.open.dcmConfig': 'Open Dcm Config',
   'app.open.dcmConfig.busy': 'Generating…',
+  // v1.32.0 MINOR T7 — ODX-D picker + bswmdPath autofill label
+  'dcmConfig.picker.title': 'Select ODX-D file',
+  'dcmConfig.picker.cancelled': 'ODX selection cancelled',
+  'dcmConfig.bswmdPath.autofill': 'Auto-selected from project manifest',
+  'dcmConfig.bswmdPath.override': 'Override BSWMD path',
 };
