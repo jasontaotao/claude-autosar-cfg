@@ -83,4 +83,40 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     const expected = locale === 'en' ? 'Close' : '关闭';
     expect(close.textContent).toBe(expected);
   });
+
+  // v1.32.0 MINOR T7 — autofill label renders when handler echoed bswmdPath.
+  it('renders autofill label when bswmdPath is set (en)', () => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        locale="en"
+        result={{ ...baseProps.result, bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml' }}
+      />,
+    );
+    expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
+    expect(screen.getByText('Auto-selected from project manifest')).toBeInTheDocument();
+    expect(
+      screen.getByText('/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders autofill label when bswmdPath is set (zh-CN)', () => {
+    render(
+      <DcmConfigSuccessDialog
+        {...baseProps}
+        locale="zh-CN"
+        result={{ ...baseProps.result, bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml' }}
+      />,
+    );
+    expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
+    expect(screen.getByText('已从项目清单自动选择')).toBeInTheDocument();
+    expect(
+      screen.getByText('/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render autofill label when bswmdPath is absent', () => {
+    render(<DcmConfigSuccessDialog {...baseProps} />);
+    expect(screen.queryByTestId('dcm-config-success-bswmd-autofill')).not.toBeInTheDocument();
+  });
 });
