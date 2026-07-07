@@ -22,7 +22,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-
 import {
   classifyError,
   classifyErrorByRegex,
@@ -329,16 +328,18 @@ const DCM_BSWMD_TEMPLATE = (path: string): string =>
  * XML payload entirely.
  */
 function installReadBswmdStub(opts: { readonly pathToInclude: string }): void {
-  const api = (window as unknown as {
-    autosarApi: {
-      dcmConfig: typeof invokeMock;
-      readBswmd: (req: { path: string }) => Promise<{
-        ok: boolean;
-        value?: { content: string };
-        error?: { kind: string; message: string };
-      }>;
-    };
-  }).autosarApi;
+  const api = (
+    window as unknown as {
+      autosarApi: {
+        dcmConfig: typeof invokeMock;
+        readBswmd: (req: { path: string }) => Promise<{
+          ok: boolean;
+          value?: { content: string };
+          error?: { kind: string; message: string };
+        }>;
+      };
+    }
+  ).autosarApi;
   api.readBswmd = async (req) => {
     if (req.path === opts.pathToInclude) {
       return { ok: true, value: { content: DCM_BSWMD_TEMPLATE('DcmModule') } };
@@ -359,7 +360,7 @@ beforeEach(() => {
 });
 
 describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () => {
-  it("promptAndOpen transitions to picking-odx when no active ODX and project has Dcm BSWMD", async () => {
+  it('promptAndOpen transitions to picking-odx when no active ODX and project has Dcm BSWMD', async () => {
     // Seed: project has Dcm BSWMD path; activeDocumentPath is undefined
     // so the isActiveOdx shortcut does NOT fire.
     useArxmlStore.setState({

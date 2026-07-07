@@ -11,6 +11,7 @@
 import { render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { DcmConfigPicker } from '../DcmConfigPicker.js';
 
 describe('DcmConfigPicker (v1.32.0 T6)', () => {

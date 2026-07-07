@@ -16,11 +16,7 @@ export class DcmConfigError extends Error {
   public readonly kind: DcmConfigErrorKind;
   public override readonly cause?: unknown;
 
-  public constructor(opts: {
-    kind: DcmConfigErrorKind;
-    message: string;
-    cause?: unknown;
-  }) {
+  public constructor(opts: { kind: DcmConfigErrorKind; message: string; cause?: unknown }) {
     super(opts.message);
     this.name = 'DcmConfigError';
     this.kind = opts.kind;

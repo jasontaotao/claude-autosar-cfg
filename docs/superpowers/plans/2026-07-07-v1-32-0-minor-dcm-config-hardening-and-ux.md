@@ -34,6 +34,7 @@
 ### Task 1: DcmConfigErrorKind type + handler populates kind at 9 sites
 
 **Files:**
+
 - Modify: `src/shared/types.ts:1-50` (extend DcmConfigError union / kind)
 - Modify: `src/main/ipc/dcmConfigHandler.ts:178-298` (9 return sites)
 - Modify: `src/core/bridge/dcmConfigPipeline.ts:108-194` (4 throw sites)
@@ -42,6 +43,7 @@
 - Modify: `src/main/ipc/__tests__/dcmConfigHandler.test.ts:1-50,131-141` (5 existing assertions widened + 9 new)
 
 **Interfaces:**
+
 - Consumes: existing `dcmConfigHandler`, `dcmConfigPipeline`, `xlsxDcmServicesToEcucBatch` signatures (no change)
 - Produces: `DcmConfigErrorKind` exported from `src/shared/types.ts`; `DcmConfigError` class with `{kind, message, cause?}` fields, exported from `src/core/bridge/dcmConfigError.ts`; `DcmConfigError.kind` field required in response envelope
 
@@ -102,7 +104,11 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
         const outputPath = pathResolve(workDir, 'Dcm_Config.arxml');
         writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
         const xlsxRows: EcucInstanceRow[] = [
-          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+          {
+            sheet: 'DcmReadDataById' as const,
+            shortName: 'ReadVbatt',
+            params: { didRef: 'Vbatt' },
+          },
         ].map(asDcmRow);
         return dcmConfigHandler({ odxPath, xlsxRows, outputPath });
       },
@@ -115,8 +121,16 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
         const odxPath = pathResolve(workDir, 'input.odx-d');
         writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
         const xlsxRows: EcucInstanceRow[] = [
-          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
-          { sheet: 'DcmRoutineControl' as const, shortName: 'StartErase', params: { routineRef: 'EraseMemory' } },
+          {
+            sheet: 'DcmReadDataById' as const,
+            shortName: 'ReadVbatt',
+            params: { didRef: 'Vbatt' },
+          },
+          {
+            sheet: 'DcmRoutineControl' as const,
+            shortName: 'StartErase',
+            params: { routineRef: 'EraseMemory' },
+          },
         ].map(asDcmRow);
         return dcmConfigHandler({
           odxPath,
@@ -143,7 +157,13 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
         writeFileSync(bswmdPath, '<AR-PACKAGES></AR-PACKAGES>', 'utf-8');
         return dcmConfigHandler({
           odxPath,
-          xlsxRows: [{ sheet: 'DcmReadDataById' as const, shortName: 'x', params: {} } as unknown as EcucInstanceRow],
+          xlsxRows: [
+            {
+              sheet: 'DcmReadDataById' as const,
+              shortName: 'x',
+              params: {},
+            } as unknown as EcucInstanceRow,
+          ],
           bswmdPath,
         });
       },
@@ -186,11 +206,7 @@ export class DcmConfigError extends Error {
   public readonly kind: DcmConfigErrorKind;
   public override readonly cause?: unknown;
 
-  public constructor(opts: {
-    kind: DcmConfigErrorKind;
-    message: string;
-    cause?: unknown;
-  }) {
+  public constructor(opts: { kind: DcmConfigErrorKind; message: string; cause?: unknown }) {
     super(opts.message);
     this.name = 'DcmConfigError';
     this.kind = opts.kind;
@@ -312,15 +328,11 @@ In `dcmConfigHandler.test.ts:131-141`, the existing test's error message asserti
 
 ```ts
 // Before
-expect(result.error.message).toMatch(
-  /Patch application failed.*(path-not-found|param-not-found)/s,
-);
+expect(result.error.message).toMatch(/Patch application failed.*(path-not-found|param-not-found)/s);
 
 // After
 expect(result.error.kind).toBe('patch-failed');
-expect(result.error.message).toMatch(
-  /Patch application failed.*(path-not-found|param-not-found)/s,
-);
+expect(result.error.message).toMatch(/Patch application failed.*(path-not-found|param-not-found)/s);
 ```
 
 (The existing test will fail at the new `result.error.kind` line until step 1.6 ships; step 1.7's GREEN covers both.)
@@ -353,11 +365,13 @@ mapper throw DcmConfigError; handler catches narrow kind from class.
 ### Task 2: Renderer classifyError rewrite (kind-first, regex-fallback)
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:1-50` (classifyError export)
 - Modify: `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx` (DcmConfigErrorClass literal union)
 - Create: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (or modify if exists)
 
 **Interfaces:**
+
 - Consumes: `DcmConfigErrorKind` from `src/shared/types.ts` (T1 produced)
 - Produces: `classifyError(error: DcmConfigError): DcmConfigErrorClass` exported from `useDcmConfigLauncher.ts`; `classifyErrorByRegex(message: string): DcmConfigErrorClass` (legacy fallback, kept for 1 release)
 
@@ -450,7 +464,7 @@ const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, DcmConfigErrorClass>> =
   'container-not-found': 'CONTAINER_NOT_FOUND',
   'patch-failed': 'PATCH_FAILED',
   'atomic-write-failed': 'ATOMIC_WRITE_FAILED',
-  'unknown': 'UNKNOWN',
+  unknown: 'UNKNOWN',
 };
 
 /** v1.32.0 MINOR T2 — read kind FIRST; fall back to regex when kind is absent
@@ -516,10 +530,12 @@ Baseline 2939+7 -> 2958+7 SKIP / 0 fail."
 ### Task 3: arxmlModuleShortNames helper
 
 **Files:**
+
 - Create: `src/renderer/arxml/arxmlModuleShortNames.ts`
 - Create: `src/renderer/arxml/__tests__/arxmlModuleShortNames.test.ts`
 
 **Interfaces:**
+
 - Consumes: pure function; no imports beyond `parseArxml` from `src/core/arxml/parser.ts`
 - Produces: `arxmlModuleShortNames(xml: string): readonly string[]` — flattened module shortName list
 
@@ -698,10 +714,12 @@ string, recursing through nested <AR-PACKAGES>. Fail-soft on parse failure
 ### Task 4: findDcmBswmd helper
 
 **Files:**
+
 - Create: `src/renderer/components/dcmConfig/bswmdHasDcm.ts`
 - Create: `src/renderer/components/dcmConfig/__tests__/bswmdHasDcm.test.ts`
 
 **Interfaces:**
+
 - Consumes: `arxmlModuleShortNames` (T3); injected `fs.readFile` for testability
 - Produces: `findDcmBswmd(paths, fs): Promise<BswmdHasDcmResult>`; `BswmdHasDcmResult` type
 
@@ -786,7 +804,9 @@ describe('findDcmBswmd (v1.32.0 T4)', () => {
 
   it('handles many paths in parallel (performance smoke)', async () => {
     const paths = Array.from({ length: 20 }, (_, i) => `/f${i}.arxml`);
-    const fs = fakeFs(Object.fromEntries(paths.map((p, i) => [p, i === 7 ? DCM_BSWMD : NON_DCM_BSWMD])));
+    const fs = fakeFs(
+      Object.fromEntries(paths.map((p, i) => [p, i === 7 ? DCM_BSWMD : NON_DCM_BSWMD])),
+    );
     const r = await findDcmBswmd(paths, fs);
     expect(r.hasDcm).toBe(true);
     expect(r.dcmBswmdPath).toBe('/f7.arxml');
@@ -915,10 +935,12 @@ Baseline 2964+7 -> 2976+7 SKIP / 0 fail."
 ### Task 5: Launcher state machine extension (picking-odx substate, autofill, isActiveOdx shortcut)
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:1-200` (extend state machine + autofill + memoization)
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (existing + new tests)
 
 **Interfaces:**
+
 - Consumes: `findDcmBswmd` (T4), `classifyError` (T2), `bswmdHasDcm` state slice (NEW)
 - Produces: extended launcher hook with new mode `'picking-odx'`; new methods `handlePickerResolve`, `handlePickerCancel`; new state slice `bswmdHasDcm: BswmdHasDcmResult`; reactive `isActiveOdx` selector
 
@@ -996,9 +1018,9 @@ const [bswmdHasDcm, setBswmdHasDcm] = useState<BswmdHasDcmResult>({ hasDcm: fals
 const bswmdPaths = useArxmlStore((s) => s.project?.bswmdPaths ?? EMPTY_PATHS);
 const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
 
-const isActiveOdx = useMemo(() =>
-  activeDocumentPath?.toLowerCase().endsWith('.odx') ?? false,
-  [activeDocumentPath]
+const isActiveOdx = useMemo(
+  () => activeDocumentPath?.toLowerCase().endsWith('.odx') ?? false,
+  [activeDocumentPath],
 );
 
 // v1.32.0 — per-path memo for parse-based gating.
@@ -1013,17 +1035,20 @@ useEffect(() => {
     return;
   }
   void findDcmBswmd(uncachedPaths, {
-    readFile: (p) => window.autosarApi.readBswmd({ path: p }).then((r) => {
-      if (!r.ok) throw new Error(r.error.message);
-      return r.value.content;
-    }),
+    readFile: (p) =>
+      window.autosarApi.readBswmd({ path: p }).then((r) => {
+        if (!r.ok) throw new Error(r.error.message);
+        return r.value.content;
+      }),
   }).then((r) => {
     if (cancelled) return;
     // Cache the per-path findings (rough — see spec for full memo design).
     memo.set(bswmdPaths[0]!, r);
     setBswmdHasDcm(r);
   });
-  return () => { cancelled = true; };
+  return () => {
+    cancelled = true;
+  };
 }, [bswmdPaths]);
 
 const promptAndOpen = useCallback(async () => {
@@ -1039,12 +1064,15 @@ const promptAndOpen = useCallback(async () => {
   } finally {
     inFlightRef.current = false;
   }
-}, [bswmdHasDcm, isActiveOdx, activeDocumentPath, /* etc */]);
+}, [bswmdHasDcm, isActiveOdx, activeDocumentPath /* etc */]);
 
-const handlePickerResolve = useCallback(async (odxPath: string) => {
-  setState((s) => ({ ...s, mode: 'pending' }));
-  await open({ odxPath, xlsxRows, bswmdPath: bswmdHasDcm.dcmBswmdPath });
-}, [bswmdHasDcm.dcmBswmdPath, /* etc */]);
+const handlePickerResolve = useCallback(
+  async (odxPath: string) => {
+    setState((s) => ({ ...s, mode: 'pending' }));
+    await open({ odxPath, xlsxRows, bswmdPath: bswmdHasDcm.dcmBswmdPath });
+  },
+  [bswmdHasDcm.dcmBswmdPath /* etc */],
+);
 
 const handlePickerCancel = useCallback(() => {
   setState((s) => ({
@@ -1083,10 +1111,12 @@ Baseline 2976+7 -> 2979+7 SKIP / 0 fail."
 ### Task 6: DcmConfigPicker component + tests
 
 **Files:**
+
 - Create: `src/renderer/components/dcmConfig/DcmConfigPicker.tsx`
 - Create: `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `window.autosarApi.openOdx` (existing IPC, no args)
 - Produces: `<DcmConfigPicker/>` thin-wrapper (returns null)
 
@@ -1265,6 +1295,7 @@ Baseline 2979+7 -> 2983+7 SKIP / 0 fail."
 ### Task 7: i18n keys + SuccessDialog autofill label
 
 **Files:**
+
 - Modify: `src/shared/i18n/odx.ts` (4 new keys)
 - Modify: `src/shared/i18n.zh-CN/odx.ts`
 - Modify: `src/shared/i18n.en/odx.ts`
@@ -1272,6 +1303,7 @@ Baseline 2979+7 -> 2983+7 SKIP / 0 fail."
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` (2 new cases)
 
 **Interfaces:**
+
 - Consumes: i18n key structure (existing pattern in `src/shared/i18n/odx.ts`)
 - Produces: 4 new keys (`dcmConfig.picker.title`, `dcmConfig.picker.cancelled`, `dcmConfig.bswmdPath.autofill`, `dcmConfig.bswmdPath.override`); autofill line in SuccessDialog body
 
@@ -1336,11 +1368,13 @@ In `src/shared/i18n.en/odx.ts` (same as `odx.ts`):
 In `DcmConfigSuccessDialog.tsx`, find the body content (where `outputPath` is rendered) and add a sibling line when `bswmdPath` is set on the result:
 
 ```tsx
-{result.bswmdPath && (
-  <p className="dcm-config-success-bswmd-autofill">
-    {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
-  </p>
-)}
+{
+  result.bswmdPath && (
+    <p className="dcm-config-success-bswmd-autofill">
+      {t(locale, 'dcmConfig.bswmdPath.autofill')}: <code>{result.bswmdPath}</code>
+    </p>
+  );
+}
 ```
 
 Note: `result.bswmdPath` does NOT exist on `DcmConfigHandlerResult` yet — it's a NEW field. Update `src/shared/types.ts` to add it (the handler currently doesn't echo back the resolved BSWMD path; the renderer-side autofill happens in the launcher before the IPC call, so the result payload needs to carry it back for display).
@@ -1348,7 +1382,7 @@ Note: `result.bswmdPath` does NOT exist on `DcmConfigHandlerResult` yet — it's
 ```ts
 export interface DcmConfigHandlerResult {
   // ... existing fields ...
-  readonly bswmdPath?: string;  // v1.32.0 MINOR T7 — echoed back for autofill label.
+  readonly bswmdPath?: string; // v1.32.0 MINOR T7 — echoed back for autofill label.
 }
 ```
 
@@ -1377,6 +1411,7 @@ SuccessDialog body can show 'Auto-selected from project manifest: <path>'.
 ### Task 8: Wiring (App.tsx + AppHeader + ContextMenu swap regex → parse) + ship
 
 **Files:**
+
 - Modify: `src/renderer/App.tsx` (mount `<DcmConfigPicker/>` conditionally)
 - Modify: `src/renderer/components/AppHeader.tsx:199` (replace regex with `bswmdHasDcm.hasDcm`)
 - Modify: `src/renderer/components/ContextMenu.tsx` (same)
@@ -1387,6 +1422,7 @@ SuccessDialog body can show 'Auto-selected from project manifest: <path>'.
 - Create: `docs/release-notes/v1.32.0/README.md`
 
 **Interfaces:**
+
 - Consumes: `useDcmConfigLauncher().state.mode` + `handlePickerResolve` + `handlePickerCancel` (T5 produced)
 - Produces: integrated flow end-to-end
 
@@ -1416,13 +1452,15 @@ Same replacement as AppHeader. The existing regex import (`isDcmBswmdPath` from 
 In `src/renderer/App.tsx`, near the existing `<DcmConfigSuccessDialog/>` mount:
 
 ```tsx
-{launcherState.mode === 'picking-odx' && (
-  <DcmConfigPicker
-    locale={locale}
-    onResolve={launcher.handlePickerResolve}
-    onCancel={launcher.handlePickerCancel}
-  />
-)}
+{
+  launcherState.mode === 'picking-odx' && (
+    <DcmConfigPicker
+      locale={locale}
+      onResolve={launcher.handlePickerResolve}
+      onCancel={launcher.handlePickerCancel}
+    />
+  );
+}
 ```
 
 The `launcher` reference is the existing `useDcmConfigLauncher()` hook result. `launcherState.mode` is exposed via the hook's return value.
@@ -1508,6 +1546,7 @@ git log 44eb1c0..HEAD --oneline
 ```
 
 Review the 8 commits. Per the global constraints table:
+
 - 0 BLOCK / 0 CRITICAL expected.
 - HIGH findings → fix in same MINOR (rare; TDD should have caught them).
 - MEDIUM findings → v1.32.1 PATCH.

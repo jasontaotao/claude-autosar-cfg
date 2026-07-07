@@ -22,8 +22,8 @@ import type { EcucInstanceRow } from '../../shared/types.js';
 import { lookupContainerDef, type BswModuleDef } from '../project/bswmd.js';
 
 import { addChildSiblingStep } from './addChildSiblingStep.js';
-import type { DcmServiceKind } from './dcmConfigPipeline.js';
 import { DcmConfigError } from './dcmConfigError.js';
+import type { DcmServiceKind } from './dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
 
 export type { EcucInstanceRow };

@@ -29,9 +29,8 @@ import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 
+import { useBswmdHasDcm } from '../hooks/useBswmdHasDcm.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
-
-import { isDcmBswmdPath } from './dcmConfig/regex.js';
 
 import './ContextMenu.css';
 
@@ -341,7 +340,11 @@ function buildReferenceItems(target: ContextMenuTarget, locale: Locale): readonl
  * "Delete ECUC module" should be visible for a source-backed
  * module root right-click.
  */
-function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly MenuItemSpec[] {
+function buildBswmdItems(
+  target: ContextMenuTarget,
+  locale: Locale,
+  hasDcm: boolean,
+): readonly MenuItemSpec[] {
   const items: MenuItemSpec[] = [
     {
       id: 'remove-module',
@@ -369,12 +372,17 @@ function buildBswmdItems(target: ContextMenuTarget, locale: Locale): readonly Me
       build: (t) => ({ type: 'delete-module', path: t.modulePath ?? t.path, name: t.shortName }),
     });
   }
-  // v1.31.1 PATCH — "Generate Dcm Config" entry. Shown when the
-  // BSWMD's path matches the shared Dcm BSWMD predicate (extracted
-  // from the v1.31.0 inline regex to `dcmConfig/regex.ts`). The host
-  // (App.tsx) routes the emitted `generate-dcm-config` action to
-  // the dcm-config launcher (T7).
-  if (isDcmBswmdPath(target.path)) {
+  // v1.32.0 MINOR T8 — "Generate Dcm Config" entry now gates on the
+  // project's parse-based Dcm BSWMD presence (`hasDcm`) instead of
+  // the v1.31.x filename regex. The host (App.tsx) routes the emitted
+  // `generate-dcm-config` action to the dcm-config launcher (T7).
+  // The pre-MINOR behavior matched `target.path` against the regex
+  // because every project's Dcm BSWMD was conventionally named
+  // `Dcm.arxml` — but real projects can name the BSWMD
+  // `Bsw_Custom_Dcm_v3.arxml` (false negative) or
+  // `BCM_Dcm_Compat.arxml` (false positive on a non-Dcm BSWMD). The
+  // parse-based gate resolves both cases correctly.
+  if (hasDcm) {
     items.push({
       id: 'generate-dcm-config',
       label: t(locale, 'dcmConfig.action.generate'),
@@ -435,6 +443,15 @@ export function ContextMenuRoot({
   const effectiveLocale = locale === 'en' || locale === 'zh-CN' ? locale : storeLocale;
   const effectiveLocaleRef = useRef<Locale>(effectiveLocale);
   effectiveLocaleRef.current = effectiveLocale;
+
+  // v1.32.0 MINOR T8 — read the parse-based Dcm BSWMD gate via the
+  // shared selector hook. Replaces the v1.31.x inline `isDcmBswmdPath`
+  // regex; the helper at `dcmConfig/regex.ts` is deleted as part of
+  // this MINOR.
+  const bswmdHasDcm = useBswmdHasDcm();
+  const hasDcm = bswmdHasDcm.hasDcm;
+  const hasDcmRef = useRef(hasDcm);
+  hasDcmRef.current = hasDcm;
 
   // Outside click + Esc handling. We listen on `mousedown` (not
   // `click`) so the user can dismiss the menu by pressing the mouse
@@ -503,6 +520,7 @@ export function ContextMenuRoot({
         s.target,
         useArxmlStore.getState().bswmdSchemas,
         effectiveLocaleRef.current,
+        hasDcmRef.current,
       );
       const enabledIndexes = items
         .map((it, idx) => (it.disabled ? -1 : idx))
@@ -542,7 +560,12 @@ export function ContextMenuRoot({
 
   if (s === null) return null;
 
-  const items = buildItems(s.target, useArxmlStore.getState().bswmdSchemas, effectiveLocale);
+  const items = buildItems(
+    s.target,
+    useArxmlStore.getState().bswmdSchemas,
+    effectiveLocale,
+    hasDcm,
+  );
   // Re-set the module-level cell so subsequent `openContextMenu`
   // calls compare against the new value (we only re-render on
   // reference change, which is fine — openContextMenu replaces the
@@ -595,6 +618,7 @@ function buildItems(
   target: ContextMenuTarget,
   schemas: readonly BswmdDocument[],
   locale: Locale,
+  hasDcm: boolean,
 ): readonly MenuItemSpec[] {
   if (target.kind === 'reference') {
     return buildReferenceItems(target, locale);
@@ -604,7 +628,7 @@ function buildItems(
   // scoped to a module tree node), it gets a single "Remove module"
   // item that routes through `useProjectActions.removeBswmdWithFullFlow`.
   if (target.kind === 'bswmd') {
-    return buildBswmdItems(target, locale);
+    return buildBswmdItems(target, locale, hasDcm);
   }
   // Sprint A X3 — pull combined-mode + source file path from the
   // store so `isModuleCoveredByBswmd` can strip the combined-mode

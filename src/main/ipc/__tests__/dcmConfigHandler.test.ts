@@ -5,7 +5,6 @@
 // `result.error.kind` is undefined (current error shape carries only
 // `message` + `cause`). Post-impl they PASS because every branch
 // sets a typed `kind` literal.
-import type { DcmConfigErrorKind, DcmConfigResponse } from '../../../shared/types.js';
 
 describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
   it.each<{ name: string; kind: DcmConfigErrorKind; setup: () => Promise<DcmConfigResponse> }>([
@@ -59,7 +58,11 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
         const outputPath = pathResolve(workDir, 'Dcm_Config.arxml');
         writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
         const xlsxRows: EcucInstanceRow[] = [
-          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+          {
+            sheet: 'DcmReadDataById' as const,
+            shortName: 'ReadVbatt',
+            params: { didRef: 'Vbatt' },
+          },
         ].map(asDcmRow);
         const mutationModule = await import('../../../core/mutation/applyPatchSteps.js');
         const spy = vi
@@ -91,8 +94,16 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
         const odxPath = pathResolve(workDir, 'input.odx-d');
         writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
         const xlsxRows: EcucInstanceRow[] = [
-          { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
-          { sheet: 'DcmRoutineControl' as const, shortName: 'StartErase', params: { routineRef: 'EraseMemory' } },
+          {
+            sheet: 'DcmReadDataById' as const,
+            shortName: 'ReadVbatt',
+            params: { didRef: 'Vbatt' },
+          },
+          {
+            sheet: 'DcmRoutineControl' as const,
+            shortName: 'StartErase',
+            params: { routineRef: 'EraseMemory' },
+          },
         ].map(asDcmRow);
         return dcmConfigHandler({
           odxPath,
@@ -158,7 +169,11 @@ import { resolve as pathResolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EcucInstanceRow } from '../../../shared/types.js';
+import type {
+  DcmConfigErrorKind,
+  DcmConfigResponse,
+  EcucInstanceRow,
+} from '../../../shared/types.js';
 import { dcmConfigHandler } from '../dcmConfigHandler.js';
 
 /**

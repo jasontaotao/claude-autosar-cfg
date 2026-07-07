@@ -90,7 +90,10 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
       <DcmConfigSuccessDialog
         {...baseProps}
         locale="en"
-        result={{ ...baseProps.result, bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml' }}
+        result={{
+          ...baseProps.result,
+          bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
+        }}
       />,
     );
     expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();
@@ -105,7 +108,10 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
       <DcmConfigSuccessDialog
         {...baseProps}
         locale="zh-CN"
-        result={{ ...baseProps.result, bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml' }}
+        result={{
+          ...baseProps.result,
+          bswmdPath: '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml',
+        }}
       />,
     );
     expect(screen.getByTestId('dcm-config-success-bswmd-autofill')).toBeInTheDocument();

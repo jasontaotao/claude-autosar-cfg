@@ -1,5 +1,6 @@
 // v1.32.0 MINOR T4 — findDcmBswmd locates Dcm BSWMD via parse-based detection.
 import { describe, expect, it } from 'vitest';
+
 import { findDcmBswmd } from '../bswmdHasDcm.js';
 
 const DCM_BSWMD = `<?xml version="1.0"?>
@@ -74,7 +75,9 @@ describe('findDcmBswmd (v1.32.0 T4)', () => {
 
   it('handles many paths in parallel (performance smoke)', async () => {
     const paths = Array.from({ length: 20 }, (_, i) => `/f${i}.arxml`);
-    const fs = fakeFs(Object.fromEntries(paths.map((p, i) => [p, i === 7 ? DCM_BSWMD : NON_DCM_BSWMD])));
+    const fs = fakeFs(
+      Object.fromEntries(paths.map((p, i) => [p, i === 7 ? DCM_BSWMD : NON_DCM_BSWMD])),
+    );
     const r = await findDcmBswmd(paths, fs);
     expect(r.hasDcm).toBe(true);
     expect(r.dcmBswmdPath).toBe('/f7.arxml');

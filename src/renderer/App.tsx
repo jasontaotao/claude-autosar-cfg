@@ -69,9 +69,10 @@ import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog'
 import { ScriptPanel } from './components/ScriptPanel';
 import { XlsxBatchWizard } from './components/XlsxBatchWizard';
 import { DcmConfigErrorToast } from './components/dcmConfig/DcmConfigErrorToast';
+import { DcmConfigPicker } from './components/dcmConfig/DcmConfigPicker';
 import { DcmConfigSuccessDialog } from './components/dcmConfig/DcmConfigSuccessDialog';
-import { isDcmBswmdPath } from './components/dcmConfig/regex';
 import { ParamEditor } from './components/editor/ParamEditor';
+import { useBswmdHasDcm } from './hooks/useBswmdHasDcm';
 import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
@@ -192,22 +193,25 @@ export function App(): JSX.Element {
   const dcmLauncher = useDcmConfigLauncher();
   const odxPath = useArxmlStore((s) => s.activeDocumentPath ?? '');
   const odxLoaded = odxPath.toLowerCase().endsWith('.odx');
-  // v1.31.1 PATCH — shared Dcm BSWMD path predicate (D4 trade-off:
-  // filename regex 1000x faster than parsing BSWMD; see
-  // `dcmConfig/regex.ts` for the trade-off discussion).
-  const hasDcmBswmd = useArxmlStore(
-    (s) => s.project?.bswmdPaths.some((p) => isDcmBswmdPath(p)) ?? false,
-  );
+  // v1.32.0 MINOR T8 — read the project's parse-based Dcm gate via
+  // the new `useBswmdHasDcm` selector. Replaces the v1.31.x filename
+  // regex (`isDcmBswmdPath`); the helper at `dcmConfig/regex.ts` is
+  // deleted as part of this MINOR.
+  const bswmdHasDcm = useBswmdHasDcm();
+  const hasDcmBswmd = bswmdHasDcm.hasDcm;
   const canOpenDcmConfig = odxLoaded && hasDcmBswmd;
+  // v1.32.0 MINOR T8 — AppHeader dropdown entry routes through
+  // `promptAndOpen()` (the v1.32.0 T5 top-level entry). The helper
+  // decides between the picker substate (no active .odx doc) and the
+  // shortcut path (activeDocumentPath ends with `.odx`). The legacy
+  // `dcmLauncher.open({ odxPath, xlsxRows: [] })` is preserved on the
+  // ContextMenu path below — it bypasses the picker because the
+  // ContextMenu entry is gated on the user right-clicking a BSWMD row,
+  // and the right-clicked path is treated as the picker target (xlsxRows
+  // placeholder documented at useDcmConfigLauncher.ts:484).
   const handleOpenDcmConfig = useCallback((): void => {
-    // Per spec §3 T4: xlsxRows derives from the v1.25.0 store field
-    // (`useArxmlStore.getState().xlsxLastImport?.rows ?? []`). v1.31.0
-    // is a PATCH — no feature work to teach xlsx imports. When the
-    // user has not loaded an xlsx, the launcher is called with `[]`
-    // and the v1.30.0 handler surfaces `ODX-Dcm linkage broken` (the
-    // dedicated error class for the no-rows case).
-    void dcmLauncher.open({ odxPath, xlsxRows: [] });
-  }, [dcmLauncher, odxPath]);
+    void dcmLauncher.promptAndOpen();
+  }, [dcmLauncher]);
   // Sprint 14 / T13 — viewMode three-state guard. While
   // viewMode === 'import-merged' the import-merged panel mounts in
   // the left column and the Save / Combined UI affordances are
@@ -1294,6 +1298,19 @@ export function App(): JSX.Element {
           locale={locale}
           onDismiss={dcmLauncher.dismissToast}
         />
+        {/* v1.32.0 MINOR T8 — ODX picker thin wrapper (T6). Mounts
+            only while the launcher's state is `picking-odx`; the
+            component itself returns null so DOM-wise it is a ghost.
+            The locale + resolve/cancel callbacks come straight off
+            the launcher hook (T5's `handlePickerResolve` /
+            `handlePickerCancel`). */}
+        {dcmLauncher.state.mode === 'picking-odx' && (
+          <DcmConfigPicker
+            locale={locale === 'zh-CN' ? 'zh-CN' : 'en'}
+            onResolve={dcmLauncher.handlePickerResolve}
+            onCancel={dcmLauncher.handlePickerCancel}
+          />
+        )}
       </div>
     </TourProvider>
   );

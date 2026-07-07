@@ -36,9 +36,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
 import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
+import { DcmConfigError } from '../../core/bridge/dcmConfigError.js';
 import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
-import { DcmConfigError } from '../../core/bridge/dcmConfigError.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
 import type {

@@ -97,21 +97,21 @@ A small escape hatch (text-input Override) is shipped disabled — Browse button
 
 ### Component placement
 
-| Component | Path | Type |
-| --- | --- | --- |
-| `DcmConfigErrorKind` (NEW type) | `src/shared/types.ts` | NEW type |
-| `DcmConfigError` (MODIFIED) | `src/shared/types.ts` | MODIFY (additive) |
-| `dcmConfigHandler` (MODIFIED) | `src/main/ipc/dcmConfigHandler.ts` | MODIFY (9 sites) |
-| `findDcmBswmd` (NEW helper) | `src/renderer/components/dcmConfig/bswmdHasDcm.ts` | NEW |
-| `arxmlModuleShortNames` (NEW helper) | `src/renderer/arxml/arxmlModuleShortNames.ts` | NEW |
-| `useDcmConfigLauncher` (MODIFIED) | `src/renderer/hooks/useDcmConfigLauncher.ts` | MODIFY |
-| `DcmConfigPicker` (NEW) | `src/renderer/components/dcmConfig/DcmConfigPicker.tsx` | NEW thin-wrapper (no JSX) |
-| `DcmConfigSuccessDialog` (MODIFIED) | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx` | MODIFY (autofill label) |
-| `AppHeader` (MODIFIED) | `src/renderer/components/AppHeader.tsx` | MODIFY (regex → parse) |
-| `ContextMenu` (MODIFIED) | `src/renderer/components/ContextMenu.tsx` | MODIFY (regex → parse) |
-| `App.tsx` (MODIFIED) | `src/renderer/App.tsx` | MODIFY (wire picker) |
-| i18n keys (MODIFIED) | `src/shared/i18n/odx.ts` + `i18n.zh-CN/odx.ts` + `i18n.en/odx.ts` | MODIFY (5 keys) |
-| `bswmdHasDcm` regex (DELETED) | `src/renderer/components/dcmConfig/regex.ts` | DELETE (29 LoC) |
+| Component                            | Path                                                              | Type                      |
+| ------------------------------------ | ----------------------------------------------------------------- | ------------------------- |
+| `DcmConfigErrorKind` (NEW type)      | `src/shared/types.ts`                                             | NEW type                  |
+| `DcmConfigError` (MODIFIED)          | `src/shared/types.ts`                                             | MODIFY (additive)         |
+| `dcmConfigHandler` (MODIFIED)        | `src/main/ipc/dcmConfigHandler.ts`                                | MODIFY (9 sites)          |
+| `findDcmBswmd` (NEW helper)          | `src/renderer/components/dcmConfig/bswmdHasDcm.ts`                | NEW                       |
+| `arxmlModuleShortNames` (NEW helper) | `src/renderer/arxml/arxmlModuleShortNames.ts`                     | NEW                       |
+| `useDcmConfigLauncher` (MODIFIED)    | `src/renderer/hooks/useDcmConfigLauncher.ts`                      | MODIFY                    |
+| `DcmConfigPicker` (NEW)              | `src/renderer/components/dcmConfig/DcmConfigPicker.tsx`           | NEW thin-wrapper (no JSX) |
+| `DcmConfigSuccessDialog` (MODIFIED)  | `src/renderer/components/dcmConfig/DcmConfigSuccessDialog.tsx`    | MODIFY (autofill label)   |
+| `AppHeader` (MODIFIED)               | `src/renderer/components/AppHeader.tsx`                           | MODIFY (regex → parse)    |
+| `ContextMenu` (MODIFIED)             | `src/renderer/components/ContextMenu.tsx`                         | MODIFY (regex → parse)    |
+| `App.tsx` (MODIFIED)                 | `src/renderer/App.tsx`                                            | MODIFY (wire picker)      |
+| i18n keys (MODIFIED)                 | `src/shared/i18n/odx.ts` + `i18n.zh-CN/odx.ts` + `i18n.en/odx.ts` | MODIFY (5 keys)           |
+| `bswmdHasDcm` regex (DELETED)        | `src/renderer/components/dcmConfig/regex.ts`                      | DELETE (29 LoC)           |
 
 ## 3. Detailed Design
 
@@ -144,36 +144,43 @@ export type DcmConfigResponse =
 
 **Handler site map** (9 sites in `dcmConfigHandler.ts`):
 
-| # | Site | kind |
-| --- | --- | --- |
-| 1 | ODX `readFileSync` catch | `odx-unreadable` |
-| 2 | `parseOdxHandler` returns ok:false | `odx-parse-failed` |
-| 3 | BSWMD `readFileSync` catch (explicit bswmdPath) | `bswmd-unreadable` |
-| 4 | `dcmConfigPipeline` throws → ODX-Dcm linkage broken (regex on message) | `odx-dcm-linkage` |
-| 5 | `dcmConfigPipeline` throws → BSWMD map missing Dcm (regex on message) | `dcm-module-missing` |
-| 6 | `xlsxDcmServicesToEcucBatch` throws → container not found (regex on message) | `container-not-found` |
-| 7 | `applyPatchesToExtract` returns ok:false | `patch-failed` |
-| 8 | `writeAtomic` throws | `atomic-write-failed` |
-| 9 | Outer catch-all | `unknown` |
+| #   | Site                                                                         | kind                  |
+| --- | ---------------------------------------------------------------------------- | --------------------- |
+| 1   | ODX `readFileSync` catch                                                     | `odx-unreadable`      |
+| 2   | `parseOdxHandler` returns ok:false                                           | `odx-parse-failed`    |
+| 3   | BSWMD `readFileSync` catch (explicit bswmdPath)                              | `bswmd-unreadable`    |
+| 4   | `dcmConfigPipeline` throws → ODX-Dcm linkage broken (regex on message)       | `odx-dcm-linkage`     |
+| 5   | `dcmConfigPipeline` throws → BSWMD map missing Dcm (regex on message)        | `dcm-module-missing`  |
+| 6   | `xlsxDcmServicesToEcucBatch` throws → container not found (regex on message) | `container-not-found` |
+| 7   | `applyPatchesToExtract` returns ok:false                                     | `patch-failed`        |
+| 8   | `writeAtomic` throws                                                         | `atomic-write-failed` |
+| 9   | Outer catch-all                                                              | `unknown`             |
 
 Sites 4/5/6 currently rely on thrown-error message strings. The pipeline/mapper need **explicit error classes** that carry `kind`. This is a small change to `dcmConfigPipeline.ts` and `xlsxDcmServicesToEcucBatch.ts`: each `throw new Error(...)` becomes a `throw new DcmConfigError({kind, message, cause?})` carrying the kind field. The handler's catch then narrows on `instanceof DcmConfigError` and projects the kind; otherwise it sets `unknown`.
 
 ### T2 — Renderer `classifyError` rewrite
 
 **Before** (v1.31.x):
+
 ```ts
-function classifyError(message: string): DcmConfigErrorClass { /* 6 regexes */ }
+function classifyError(message: string): DcmConfigErrorClass {
+  /* 6 regexes */
+}
 ```
 
 **After** (v1.32.0):
+
 ```ts
 function classifyError(error: DcmConfigError): DcmConfigErrorClass {
   // 1. read kind (preferred)
   switch (error.kind) {
-    case 'odx-unreadable': return 'ODX_FILE_UNREADABLE';
-    case 'odx-parse-failed': return 'ODX_PARSE_FAILED';
+    case 'odx-unreadable':
+      return 'ODX_FILE_UNREADABLE';
+    case 'odx-parse-failed':
+      return 'ODX_PARSE_FAILED';
     // ... 9 kinds → 9 classes ...
-    case 'unknown': /* fall through to regex fallback */ break;
+    case 'unknown':
+      /* fall through to regex fallback */ break;
   }
   // 2. legacy fallback (1 release; removed in v1.33.0)
   return classifyErrorByRegex(error.message);
@@ -235,7 +242,7 @@ Behavior:
 ```ts
 type LauncherMode =
   | 'idle'
-  | 'picking-odx'   // NEW
+  | 'picking-odx' // NEW
   | 'pending'
   | 'success'
   | 'error';
@@ -265,6 +272,7 @@ export function DcmConfigPicker(props: DcmConfigPickerProps): null;
 ```
 
 Effect:
+
 - On mount, invoke `window.autosarApi.openOdx()` (no args — `odx:open` IPC handler takes no parameters; `defaultPath`/`filters` are hardcoded in `openOdxHandler.ts:28-60`).
 - On resolve (`{kind: 'opened', path, content}`) → `onResolve(path)`.
 - On cancel (`{kind: 'canceled'}`) → `onCancel()`.
@@ -281,8 +289,8 @@ Override subcomponent (collapsed by default):
   <input
     type="text"
     value={overridePath ?? bswmdHasDcm.dcmBswmdPath ?? ''}
-    readOnly  // browse button deferred to v1.33.0
-    disabled   // v1.32.0 ships with override disabled
+    readOnly // browse button deferred to v1.33.0
+    disabled // v1.32.0 ships with override disabled
   />
 </details>
 ```
@@ -291,12 +299,12 @@ Spec note: shipping disabled avoids the v1.32.0 scope expansion to a Bswmd-picke
 
 ### T7 — i18n keys (4 new; `dcmConfig.picker.filter` removed because the filter is hardcoded in `openOdxHandler.ts` and not configurable from the renderer)
 
-| Key | en | zh-CN |
-| --- | --- | --- |
-| `dcmConfig.picker.title` | `Select ODX-D file` | `选择 ODX-D 文件` |
-| `dcmConfig.picker.cancelled` | `ODX selection cancelled` | `已取消 ODX 选择` |
+| Key                            | en                                    | zh-CN                  |
+| ------------------------------ | ------------------------------------- | ---------------------- |
+| `dcmConfig.picker.title`       | `Select ODX-D file`                   | `选择 ODX-D 文件`      |
+| `dcmConfig.picker.cancelled`   | `ODX selection cancelled`             | `已取消 ODX 选择`      |
 | `dcmConfig.bswmdPath.autofill` | `Auto-selected from project manifest` | `已从项目清单自动选择` |
-| `dcmConfig.bswmdPath.override` | `Override BSWMD path` | `覆盖 BSWMD 路径` |
+| `dcmConfig.bswmdPath.override` | `Override BSWMD path`                 | `覆盖 BSWMD 路径`      |
 
 ### T8 — Wiring in `App.tsx` + ship
 
@@ -327,6 +335,7 @@ Spec note: shipping disabled avoids the v1.32.0 scope expansion to a Bswmd-picke
 ### Error surfacing
 
 Handler returns `{ ok: false, error: { kind, message, cause? } }`. Launcher:
+
 - Reads `kind` → maps to `DcmConfigErrorClass` → renders localized copy + 8s auto-dismiss toast.
 - `kind === 'unknown'` falls back to regex classification on `message` (1-release compat).
 
@@ -342,30 +351,30 @@ Handler returns `{ ok: false, error: { kind, message, cause? } }`. Launcher:
 
 ### Test budget (+51)
 
-| Test file | Cases | Δ |
-| --- | --- | --- |
-| `src/main/ipc/__tests__/dcmConfigHandler.test.ts` | 9 (kind per branch) + 5 (existing widened) | +9 |
-| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` | 9 (kind classify) + 6 (legacy regex fallback) + 3 (autofill + isActiveOdx + cancel) | +18 |
-| `src/renderer/components/dcmConfig/__tests__/bswmdHasDcm.test.ts` (NEW) | 12 | +12 |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx` (NEW) | 4 | +4 |
-| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | +2 (autofill label) | +2 |
-| `src/renderer/arxml/__tests__/arxmlModuleShortNames.test.ts` (NEW) | 6 | +6 |
-| **Total** | | **+51** |
+| Test file                                                                     | Cases                                                                               | Δ       |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------- |
+| `src/main/ipc/__tests__/dcmConfigHandler.test.ts`                             | 9 (kind per branch) + 5 (existing widened)                                          | +9      |
+| `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`                   | 9 (kind classify) + 6 (legacy regex fallback) + 3 (autofill + isActiveOdx + cancel) | +18     |
+| `src/renderer/components/dcmConfig/__tests__/bswmdHasDcm.test.ts` (NEW)       | 12                                                                                  | +12     |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigPicker.test.tsx` (NEW)  | 4                                                                                   | +4      |
+| `src/renderer/components/dcmConfig/__tests__/DcmConfigSuccessDialog.test.tsx` | +2 (autofill label)                                                                 | +2      |
+| `src/renderer/arxml/__tests__/arxmlModuleShortNames.test.ts` (NEW)            | 6                                                                                   | +6      |
+| **Total**                                                                     |                                                                                     | **+51** |
 
 Baseline 2933 + 7 SKIP / 0 fail → target **2984 + 7 SKIP / 0 fail** (unchanged from initial estimate; the `+1` for `picker.filter` was offset by other estimates being slightly conservative).
 
 ### Subagent-driven task split (8 tasks)
 
-| # | Task | Model | Test delta |
-| --- | --- | --- | --- |
-| T1 | `DcmConfigErrorKind` type + handler populates kind at 9 sites | Sonnet | +9 |
-| T2 | Renderer `classifyError` rewrite (kind-first, regex-fallback) | Haiku | +18 |
-| T3 | `arxmlModuleShortNames` helper + tests | Haiku | +6 |
-| T4 | `findDcmBswmd` helper + tests | Haiku | +12 |
-| T5 | Launcher state machine extension (picking-odx substate, autofill, isActiveOdx shortcut) | Sonnet | (folded into T2 tests) |
-| T6 | `DcmConfigPicker` component + tests | Haiku | +4 |
-| T7 | i18n keys (5 new) + SuccessDialog autofill label test | Haiku | +2 |
-| T8 | `App.tsx` wiring + `AppHeader.tsx` + `ContextMenu.tsx` swap regex→parse + ship | Sonnet | (wiring only) |
+| #   | Task                                                                                    | Model  | Test delta             |
+| --- | --------------------------------------------------------------------------------------- | ------ | ---------------------- |
+| T1  | `DcmConfigErrorKind` type + handler populates kind at 9 sites                           | Sonnet | +9                     |
+| T2  | Renderer `classifyError` rewrite (kind-first, regex-fallback)                           | Haiku  | +18                    |
+| T3  | `arxmlModuleShortNames` helper + tests                                                  | Haiku  | +6                     |
+| T4  | `findDcmBswmd` helper + tests                                                           | Haiku  | +12                    |
+| T5  | Launcher state machine extension (picking-odx substate, autofill, isActiveOdx shortcut) | Sonnet | (folded into T2 tests) |
+| T6  | `DcmConfigPicker` component + tests                                                     | Haiku  | +4                     |
+| T7  | i18n keys (5 new) + SuccessDialog autofill label test                                   | Haiku  | +2                     |
+| T8  | `App.tsx` wiring + `AppHeader.tsx` + `ContextMenu.tsx` swap regex→parse + ship          | Sonnet | (wiring only)          |
 
 ### Whole-branch review (post-ship)
 
@@ -378,14 +387,14 @@ Sonnet inline review on `T8` ship commit:
 
 ## 7. Risk Assessment
 
-| Risk | Likelihood | Impact | Mitigation |
-| --- | --- | --- | --- |
-| Existing tests break on `DcmConfigError.kind` becoming required | Medium | Medium | TypeScript compile errors pin every site; widen assertions in same PR. |
-| `dcmConfigPipeline` / `xlsxDcmServicesToEcucBatch` don't surface kind on throw | Medium | Medium | Add `DcmConfigError` class with kind field; pipeline/mapper `throw new DcmConfigError(...)`; handler `instanceof` narrows. |
-| Per-render BSWMD parse cost at scale (20+ BSWMD project) | Low | Low | Per-path memo in launcher; benchmark before optimizing. |
-| `isActiveOdx` shortcut races with activeDocumentPath change mid-pick | Low | Low | Picker is synchronous; `activeDocumentPath` is store-derived; race is closed by `picking-odx` substate exclusivity. |
-| Legacy regex fallback drifts from handler message literals | Low | Low | Both share `DCM_MODULE_SHORT_NAME` constant; regex tests pin prefixes. |
-| Override UI ships disabled — users expect it to work | Low | Low | `<details>` collapsed by default; future v1.33.0 enables. |
+| Risk                                                                           | Likelihood | Impact | Mitigation                                                                                                                 |
+| ------------------------------------------------------------------------------ | ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Existing tests break on `DcmConfigError.kind` becoming required                | Medium     | Medium | TypeScript compile errors pin every site; widen assertions in same PR.                                                     |
+| `dcmConfigPipeline` / `xlsxDcmServicesToEcucBatch` don't surface kind on throw | Medium     | Medium | Add `DcmConfigError` class with kind field; pipeline/mapper `throw new DcmConfigError(...)`; handler `instanceof` narrows. |
+| Per-render BSWMD parse cost at scale (20+ BSWMD project)                       | Low        | Low    | Per-path memo in launcher; benchmark before optimizing.                                                                    |
+| `isActiveOdx` shortcut races with activeDocumentPath change mid-pick           | Low        | Low    | Picker is synchronous; `activeDocumentPath` is store-derived; race is closed by `picking-odx` substate exclusivity.        |
+| Legacy regex fallback drifts from handler message literals                     | Low        | Low    | Both share `DCM_MODULE_SHORT_NAME` constant; regex tests pin prefixes.                                                     |
+| Override UI ships disabled — users expect it to work                           | Low        | Low    | `<details>` collapsed by default; future v1.33.0 enables.                                                                  |
 
 ## 8. Cross-references
 

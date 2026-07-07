@@ -134,7 +134,7 @@ const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, RendererDcmConfigErrorC
   'container-not-found': 'CONTAINER_NOT_FOUND',
   'patch-failed': 'PATCH_FAILED',
   'atomic-write-failed': 'ATOMIC_WRITE_FAILED',
-  'unknown': 'UNKNOWN',
+  unknown: 'UNKNOWN',
 };
 
 /**
@@ -155,9 +155,7 @@ const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, RendererDcmConfigErrorC
  * catalog grows. Pinned by the v1.32.0 spec §3 T7 / T8 (i18n keys
  * added incrementally per release).
  */
-const NEW_CLASS_TO_OLD_KEY: Readonly<
-  Record<RendererDcmConfigErrorClass, DcmConfigErrorClass>
-> = {
+const NEW_CLASS_TO_OLD_KEY: Readonly<Record<RendererDcmConfigErrorClass, DcmConfigErrorClass>> = {
   ODX_FILE_UNREADABLE: 'odxUnreadable',
   ODX_PARSE_FAILED: 'odxParseFailed',
   BSWMD_FILE_UNREADABLE: 'bswmdUnreadable',
@@ -191,9 +189,7 @@ export function classifyError(error: DcmConfigError): RendererDcmConfigErrorClas
   // `error` to `never`. The legacy payload shape is `{ message: string }`
   // (no kind), so we re-read `message` through the original parameter
   // with a controlled cast that documents the pre-v1.32.0 contract.
-  return classifyErrorByRegex(
-    (error as unknown as { message: string }).message,
-  );
+  return classifyErrorByRegex((error as unknown as { message: string }).message);
 }
 
 /**
@@ -333,7 +329,9 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
         const api = (
           window as unknown as {
             autosarApi?: {
-              readBswmd?: (req: { path: string }) => Promise<
+              readBswmd?: (req: {
+                path: string;
+              }) => Promise<
                 | { readonly ok: true; readonly value: { readonly content: string } }
                 | { readonly ok: false; readonly error: { readonly message: string } }
               >;
