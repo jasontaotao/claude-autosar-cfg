@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// useDcmConfigLauncher — v1.31.0 PATCH T3.
+// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2.
 //
 // Pinned behaviours:
 //   1. Initial state is idle
@@ -10,11 +10,23 @@
 //   4. classifyError unit cases: 6 prefixes map to 6 classes
 //   5. Re-entrancy guard: open() while pending is a no-op
 //   6. closeDialog / dismissToast return to idle
+//
+// v1.32.0 MINOR T2 additions:
+//   7. classifyError reads DcmConfigError.kind FIRST
+//   8. classifyErrorByRegex preserves v1.31.x 6-prefix regex behaviour
+//   9. classifyError falls back to regex when kind is absent
+//      (pre-v1.32.0 IPC handler payloads — 1-release compat window)
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useDcmConfigLauncher } from '../useDcmConfigLauncher.js';
+import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.js';
+
+import {
+  classifyError,
+  classifyErrorByRegex,
+  useDcmConfigLauncher,
+} from '../useDcmConfigLauncher.js';
 
 // Stub the window.autosarApi bridge so the hook can call into it
 // without a real Electron context. Each test sets `invokeResult`
@@ -223,5 +235,48 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
       await result.current.open({ odxPath: '/y.odx', xlsxRows: [] });
     });
     expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// v1.32.0 MINOR T2 — classifyError reads kind FIRST; legacy regex fallback
+// preserves behavior for pre-v1.32.0 IPC handler payloads.
+describe('classifyError (v1.32.0 T2) — kind-first', () => {
+  it.each<[DcmConfigErrorKind, string]>([
+    ['odx-unreadable', 'ODX_FILE_UNREADABLE'],
+    ['odx-parse-failed', 'ODX_PARSE_FAILED'],
+    ['bswmd-unreadable', 'BSWMD_FILE_UNREADABLE'],
+    ['odx-dcm-linkage', 'ODX_DCM_LINKAGE'],
+    ['dcm-module-missing', 'DCM_MODULE_MISSING'],
+    ['container-not-found', 'CONTAINER_NOT_FOUND'],
+    ['patch-failed', 'PATCH_FAILED'],
+    ['atomic-write-failed', 'ATOMIC_WRITE_FAILED'],
+    ['unknown', 'UNKNOWN'],
+  ])('maps kind=%s to class=%s', (kind, expectedClass) => {
+    const error: DcmConfigError = { kind, message: 'irrelevant' };
+    expect(classifyError(error)).toBe(expectedClass);
+  });
+});
+
+describe('classifyErrorByRegex (v1.32.0 T2) — legacy fallback', () => {
+  it.each<[string, string]>([
+    ['ODX file unreadable: ENOENT', 'ODX_FILE_UNREADABLE'],
+    ['ODX parse failed: ...', 'ODX_PARSE_FAILED'],
+    ['BSWMD file unreadable: ENOENT', 'BSWMD_FILE_UNREADABLE'],
+    ['ODX-Dcm linkage broken: ...', 'ODX_DCM_LINKAGE'],
+    ['BSWMD map missing module ...', 'DCM_MODULE_MISSING'],
+    ['Container "DcmDspDid" not found ...', 'CONTAINER_NOT_FOUND'],
+    ['Patch application failed ...', 'PATCH_FAILED'],
+    ['Atomic write failed: ...', 'ATOMIC_WRITE_FAILED'],
+    ['Some unexpected message', 'UNKNOWN'],
+  ])('regex maps %s to %s', (message, expectedClass) => {
+    expect(classifyErrorByRegex(message)).toBe(expectedClass);
+  });
+});
+
+describe('classifyError backward-compat (v1.32.0 T2) — missing kind', () => {
+  it('falls back to regex when kind is absent (pre-v1.32.0 handler payload)', () => {
+    // Legacy payload shape — no kind field.
+    const legacy = { message: 'ODX-Dcm linkage broken: ...' } as unknown as DcmConfigError;
+    expect(classifyError(legacy)).toBe('ODX_DCM_LINKAGE');
   });
 });
