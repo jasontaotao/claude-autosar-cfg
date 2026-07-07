@@ -23,6 +23,16 @@ export interface XlsxImportSlice {
   readonly xlsxLastImport: XlsxImportRecord | null;
   readonly xlsxImportHistory: readonly XlsxImportRecord[];
   setXlsxLastImport: (record: XlsxImportRecord | null) => void;
+  /** v1.34.0 MINOR — Reuse button hook. Reads the historical record
+   * matching `importedAt` from `xlsxImportHistory` and re-applies it
+   * via `setXlsxLastImport`. The caller (renderer
+   * `<DcmConfigXlsxImportHistory>` Reuse button click) is the only
+   * trigger; we do NOT mutate `xlsxImportHistory` (history stays
+   * append-only; cap-at-5 + prepend-first invariant preserved).
+   *
+   * Defensive: if `importedAt` is not in history (stale entry, race,
+   * etc.), logs `console.warn` and no-ops. Slice invariant preserved. */
+  reuseFromHistory: (importedAt: number) => void;
 }
 
 const MAX_HISTORY = 5;
@@ -36,4 +46,18 @@ export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportS
       xlsxImportHistory:
         record === null ? [] : [record, ...s.xlsxImportHistory].slice(0, MAX_HISTORY),
     })),
+  reuseFromHistory: (importedAt) =>
+    set((s) => {
+      const entry = s.xlsxImportHistory.find((r) => r.importedAt === importedAt);
+      if (entry === undefined) {
+        console.warn(
+          `XlsxImportSlice.reuseFromHistory: no entry at importedAt=${importedAt}`,
+        );
+        return s; // defensive no-op; preserve slice invariant
+      }
+      return {
+        ...s,
+        xlsxLastImport: entry,
+      };
+    }),
 });
