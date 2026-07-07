@@ -119,62 +119,36 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     },
   );
 
-  // v1.32.1 PATCH P3 — Override <details> shell consumes the
-  // 'dcmConfig.bswmdPath.override' i18n key (previously unused).
-  it.each([
-    { locale: 'en' as const, expected: 'Override BSWMD path' },
-    { locale: 'zh-CN' as const, expected: '覆盖 BSWMD 路径' },
-  ])('renders Override summary label for locale $locale', ({ locale, expected }) => {
-    render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        locale={locale}
-        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
-      />,
-    );
-    const override = screen.getByTestId('dcm-config-success-bswmd-override');
-    expect(override).toBeInTheDocument();
-    expect(override.querySelector('summary')?.textContent).toBe(expected);
+  // v1.33.1 PATCH T3 — Override <details> tests removed. The v1.33.0
+  // MINOR half-finished override UI was deleted; the v1.32.1 PATCH P3
+  // `renders Override summary label for locale $locale` test (it.each
+  // with 2 cases), `Override <details> defaults to collapsed` test,
+  // `Override input value matches the autofilled bswmdPath` test,
+  // and the v1.33.0 MINOR T2 `Override <details> renders Browse +
+  // Clear buttons` test are all gone with the deleted UI.
+
+  // v1.33.1 PATCH T3 — "Generate New" button replaces the v1.33.0
+  // Override UI. The button is wired through a NEW `onGenerateNew`
+  // prop (added in this task) to launcher.handleGenerateNew. The
+  // i18n key is `dcmConfig.generateNew.button`.
+  it('renders Generate New button when result is present (en)', () => {
+    const onGenerateNew = vi.fn();
+    render(<DcmConfigSuccessDialog {...baseProps} onGenerateNew={onGenerateNew} />);
+    const btn = screen.getByTestId('dcm-config-generate-new');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent(/generate new/i);
   });
 
-  it('Override <details> defaults to collapsed (no input visible)', () => {
+  it('renders Generate New button when result is present (zh-CN)', () => {
+    const onGenerateNew = vi.fn();
     render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
-      />,
+      <DcmConfigSuccessDialog {...baseProps} locale="zh-CN" onGenerateNew={onGenerateNew} />,
     );
-    const override = screen.getByTestId('dcm-config-success-bswmd-override') as HTMLDetailsElement;
-    // Native <details> is collapsed by default — input is in the DOM but hidden.
-    expect(override.open).toBe(false);
+    expect(screen.getByTestId('dcm-config-generate-new')).toHaveTextContent(/重新生成/);
   });
 
-  it('Override input value matches the autofilled bswmdPath', () => {
-    const bswmdPath = '/proj/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml';
-    render(<DcmConfigSuccessDialog {...baseProps} result={{ ...baseProps.result, bswmdPath }} />);
-    const input = screen.getByTestId('dcm-config-success-bswmd-override-input') as HTMLInputElement;
-    expect(input.value).toBe(bswmdPath);
-    // v1.33.0 MINOR T2 — input is now `disabled={false}` (Browse button
-    // wired). Still readOnly since the input reflects picker state, not
-    // direct user typing. v1.32.1 PATCH P3 originally shipped this as
-    // disabled (lesson disable-input-without-browse-button-is-debt).
-    expect(input.readOnly).toBe(true);
-    expect(input.disabled).toBe(false);
-  });
-
-  // v1.33.0 MINOR T2 — Override <details> now ships a Browse button
-  // and a Clear button (DcmConfigOverridePicker). Confirms the
-  // activation is complete in the same MINOR.
-  it('Override <details> renders Browse + Clear buttons', () => {
-    render(
-      <DcmConfigSuccessDialog
-        {...baseProps}
-        result={{ ...baseProps.result, bswmdPath: '/proj/bswmd/Dcm.arxml' }}
-      />,
-    );
-    expect(screen.getByRole('button', { name: /browse/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /clear/i })).toBeInTheDocument();
-  });
+  // v1.33.1 PATCH T3 — Override tests deleted along with the
+  // v1.32.1/v1.33.0 Override <details> UI (see top-of-file note).
 
   // v1.33.0 MINOR T7 — SuccessDialog row count surface.
   //
