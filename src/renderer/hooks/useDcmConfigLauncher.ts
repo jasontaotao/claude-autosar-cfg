@@ -399,8 +399,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             // IPC. App.tsx reads statusMessage off the success/error
             // states for no-op cleanup.
             statusMessage: null,
-            // v1.33.1 PATCH — lastOdxPath initial null; T2 will
-            // populate this with `args.odxPath` on the success branch.
+            // v1.33.1 PATCH — TODO(v1.33.1 T2): replace with args.odxPath on success
             lastOdxPath: null,
           });
         } else {
@@ -418,9 +417,9 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             toastVisible: true,
             bswmdPathAutofill: null,
             statusMessage: null,
-            // v1.33.1 PATCH — preserve prior lastOdxPath on error
-            // (an IPC failure should not invalidate the previous
-            // successful invocation's recorded path).
+            // v1.33.1 PATCH — error/throw paths reset lastOdxPath to null
+            // (no successful invocation captured since prior success). T2 may
+            // refine this to preserve the prior value.
             lastOdxPath: null,
           });
         }
@@ -449,8 +448,9 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
           toastVisible: true,
           bswmdPathAutofill: null,
           statusMessage: null,
-          // v1.33.1 PATCH — see error-branch comment above; preserve
-          // prior lastOdxPath on bridge-throw paths too.
+          // v1.33.1 PATCH — see error-branch comment above; bridge-throw
+          // path also resets lastOdxPath to null (no successful
+          // invocation captured). T2 may refine this to preserve.
           lastOdxPath: null,
         });
       } finally {
