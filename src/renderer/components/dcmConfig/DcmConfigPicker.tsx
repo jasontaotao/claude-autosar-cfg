@@ -1,16 +1,16 @@
-// v1.32.0 MINOR T6 — thin wrapper around openOdx() IPC for the Dcm config flow.
+// v1.32.0 MINOR T6 — Dcm 配置流程的 ODX 文件选择薄封装组件。
 //
-// No JSX of its own. The component render-gates the openOdx() invocation
-// so the launcher doesn't import window.autosarApi directly (lesson
-// presentational-dialog-parity-port-pattern).
+// 本组件无 JSX 渲染输出（返回 null）。存在目的：把 openOdx() 的 IPC 调用
+// 封装到一个独立的生命周期单元中，让上游 launcher 不必直接依赖
+// window.autosarApi（对应 lesson presentational-dialog-parity-port-pattern）。
 //
-// React 19 strict-mode invokes the mount effect twice. A `mountedRef`
-// guard (lesson re-entrancy-guard-via-useref-not-setstate-callback-state)
-// ensures openOdx fires exactly once per logical mount.
-//
-// openOdx() IPC takes no arguments — defaultPath and filters are
-// hardcoded in openOdxHandler.ts:28-60. A future odx:open-with-default
-// IPC would let the renderer pass project-root hints (v1.33.0+).
+// 技术细节（English）：
+//   - The `mountedRef` guard (lines ~46-47) protects against React 19
+//     strict-mode's double-invocation of the mount effect (lesson
+//     re-entrancy-guard-via-useref-not-setstate-callback-state).
+//   - `openOdx()` IPC takes no arguments; the .odx$ filter is hardcoded
+//     in openOdxHandler.ts:28-60. A future odx:open-with-default IPC
+//     (v1.33.0+) would let the renderer pass project-root hints.
 
 import { useEffect, useRef } from 'react';
 
