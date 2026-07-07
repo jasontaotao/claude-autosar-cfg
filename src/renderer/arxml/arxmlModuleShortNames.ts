@@ -60,21 +60,16 @@ function collectModuleShortNames(node: unknown, out: string[]): void {
     }
   }
 
-  // Recurse through AR-PACKAGES (container of AR-PACKAGE children, possibly nested),
-  // AR-PACKAGE (carries ELEMENTS + nested AR-PACKAGES), and ELEMENTS (carries
-  // ECUC-MODULE-DEF siblings). We descend into all three so both the literal-name
-  // siblings and the nested-package variant are covered.
-  const packageContainers = obj['AR-PACKAGES'];
-  if (packageContainers !== undefined) {
-    collectModuleShortNames(packageContainers, out);
-  }
-  const packages = obj['AR-PACKAGE'];
-  if (packages !== undefined) {
-    collectModuleShortNames(packages, out);
-  }
-  const elements = obj['ELEMENTS'];
-  if (elements !== undefined) {
-    collectModuleShortNames(elements, out);
+  // Generic key recursion: descend into every object/array child. The brief
+  // mandates "flatten <SHORT-NAME> values inside <ECUC-MODULE-DEF> elements
+  // anywhere in the BSWMD ARXML" — a real OEM BSWMD may host ECUC-MODULE-DEF
+  // siblings at an unexpected layer (e.g. ELEMENTS directly under AR-PACKAGES,
+  // or under a non-package container). A hardcoded key whitelist would silently
+  // miss those cases. We already extracted ECUC-MODULE-DEF (if any) above, so
+  // re-walking that key here is a harmless no-op.
+  for (const key of Object.keys(obj)) {
+    if (key === 'ECUC-MODULE-DEF') continue;
+    collectModuleShortNames(obj[key], out);
   }
 }
 

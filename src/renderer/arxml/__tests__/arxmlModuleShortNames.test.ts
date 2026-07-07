@@ -68,4 +68,50 @@ describe('arxmlModuleShortNames (v1.32.0 T3)', () => {
   it('returns an empty array for empty string', () => {
     expect(arxmlModuleShortNames('')).toEqual([]);
   });
+
+  // Regression: locks the "anywhere" contract from the brief. The walker
+  // must descend into keys beyond the AR-PACKAGES/AR-PACKAGE/ELEMENTS
+  // whitelist. A real OEM BSWMD may host ECUC-MODULE-DEF directly under
+  // AR-PACKAGES (no wrapping AR-PACKAGE) or under a non-package container.
+  it('finds ECUC-MODULE-DEF when ELEMENTS lives directly under AR-PACKAGES (no AR-PACKAGE wrapper)', () => {
+    const elementsUnderPackages = `<?xml version="1.0" encoding="UTF-8"?>
+<AR-PACKAGES>
+  <ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>Dcm</SHORT-NAME>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS>
+</AR-PACKAGES>`;
+    expect(arxmlModuleShortNames(elementsUnderPackages)).toEqual(['Dcm']);
+  });
+
+  it('finds ECUC-MODULE-DEF buried under 3+ levels of nested AR-PACKAGE', () => {
+    const deeplyNested = `<?xml version="1.0" encoding="UTF-8"?>
+<AR-PACKAGES>
+  <AR-PACKAGE>
+    <SHORT-NAME>L1</SHORT-NAME>
+    <AR-PACKAGES>
+      <AR-PACKAGE>
+        <SHORT-NAME>L2</SHORT-NAME>
+        <AR-PACKAGES>
+          <AR-PACKAGE>
+            <SHORT-NAME>L3</SHORT-NAME>
+            <AR-PACKAGES>
+              <AR-PACKAGE>
+                <SHORT-NAME>L4</SHORT-NAME>
+                <ELEMENTS>
+                  <ECUC-MODULE-DEF>
+                    <SHORT-NAME>Dcm</SHORT-NAME>
+                  </ECUC-MODULE-DEF>
+                </ELEMENTS>
+              </AR-PACKAGE>
+            </AR-PACKAGES>
+          </AR-PACKAGE>
+        </AR-PACKAGES>
+      </AR-PACKAGE>
+    </AR-PACKAGES>
+  </AR-PACKAGE>
+</AR-PACKAGES>`;
+    expect(arxmlModuleShortNames(deeplyNested)).toEqual(['Dcm']);
+  });
 });
