@@ -189,7 +189,7 @@ export function DcmConfigXlsxImportHistory(
             {new Date(record.importedAt).toLocaleString(props.locale)}
           </time>
           {' — '}
-          {t(props.locale, 'xlsxImportHistory.sourceLabel', { source: record.source })}
+          {record.source}
           {' — '}
           {t(props.locale, 'xlsxImportHistory.rowsCount', { count: record.rows.length })}
           <button
@@ -206,17 +206,9 @@ export function DcmConfigXlsxImportHistory(
 }
 ```
 
-**Note**: spec says `sourceLabel` i18n key was not in the i18n table above; adding it now (5 keys total, not 4). The 5 keys:
+**Note** (self-review caught during finalization): source values `manual` / `wizard` are identifiers (already in slice). To avoid adding a no-op translation key, concatenate `record.source` directly into the rendered text rather than via t().
 
-| Key | en | zh-CN |
-| --- | --- | --- |
-| `xlsxImportHistory.title` | `Xlsx import history` | `xlsx 导入历史` |
-| `xlsxImportHistory.empty` | `No prior imports this session` | `本会话暂无导入记录` |
-| `xlsxImportHistory.sourceLabel` | `{source}` (manual / wizard — already in slice) | (same — no translation, used via t() for symmetry) |
-| `xlsxImportHistory.rowsCount` | `{count} rows` | `{count} 行` |
-| `xlsxImportHistory.reuseButton` | `Reuse` | `复用` |
-
-Wait — `xlsxImportHistory.sourceLabel` is being used as a translatable key but the value is the literal source name (`'manual'` | `'wizard'`). Need a different approach. **Decision**: don't add a separate `sourceLabel` key; instead concatenate `source` directly into the rendered text. Adjust the JSX:
+Final rendered JSX (adjusted):
 
 ```tsx
 <time>{...}</time>
@@ -224,9 +216,8 @@ Wait — `xlsxImportHistory.sourceLabel` is being used as a translatable key but
 {record.source}
 {' — '}
 {t(props.locale, 'xlsxImportHistory.rowsCount', { count: record.rows.length })}
+<button>...</button>
 ```
-
-Source values `manual` / `wizard` are CSS-friendly snake-cased identifiers; for a more user-facing label we could map them via t() with translation, but that's a future internationalization concern. For v1.34.0 — keep `manual` / `wizard` as-is.
 
 **Final i18n key list (4 keys, not 5)**:
 
