@@ -98,9 +98,17 @@ function makeComModule(): BswModuleDef {
         'ComConfig',
         [],
         [
+          // v1.38.0 T1 (C1) — ComIPdu now declares a parameter so the
+          // add-child auto-suffix remap test can prove the param lands
+          // on the right (suffixed) instance. Pre-fix fixtures
+          // deliberately gave ComIPdu zero params, which made the
+          // C1 bug invisible (no set-param could follow). The
+          // `ComTxIPdu` / `ComRxIPdu` choices still let us exercise
+          // the add-child child-def lookup via the `definitionRef`
+          // tail (`ComIPdu`).
           makeContainerDef(
             'ComIPdu',
-            [],
+            [makeParam('ComPduDirection', 'enum', 'SEND')],
             [makeContainerDef('ComTxIPdu'), makeContainerDef('ComRxIPdu')],
           ),
         ],
@@ -546,6 +554,266 @@ describe('applyPatchSteps', () => {
       expect(result.doc).toBe(doc);
       expect(result.applied).toBe(0);
       expect(result.errors).toHaveLength(2);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // v1.38.0 MINOR T1 (C1) — add-child auto-suffix remap to downstream
+  // set-param `containerPath`.
+  //
+  // Background (see C1 review finding, MD PKM capture):
+  //   `coreAddContainer` (src/core/arxml/mutation.ts:155-162) auto-suffixes
+  //   `shortName` to `shortName_${n}` when a sibling with the same
+  //   shortName already exists. `addChildSiblingStep` (the xlsx-mapper
+  //   helper) hardcodes the downstream `set-param.containerPath` as
+  //   `${parentPath}/${input.instanceShortName}` — the ORIGINAL
+  //   (un-suffixed) name. `applySetParam` then resolves
+  //   `containerPath` via `findContainerByPath`, which finds the
+  //   ORIGINAL container and silently overwrites its params. The new
+  //   (suffixed) container's params stay at the BSWMD-seeded empty
+  //   defaults. SILENT DATA CORRUPTION — no error, user sees wrong data.
+  //
+  // The fix: `applyPatchSteps` detects the auto-suffix shift after a
+  // successful `add-child` and remaps the trailing
+  // `${parentPath}/${requestedShortName}` → `${parentPath}/${effectiveShortName}`
+  // for any following `set-param` whose `containerPath` matches the
+  // requested form. This bounds the fix to the one stack that emits
+  // `[add-child, set-param×N]` from `addChildSiblingStep` — the
+  // `addContainer` API itself is unchanged (no breaking surface for
+  // renderer consumers).
+  // -----------------------------------------------------------------------
+  describe('add-child auto-suffix remap (v1.38.0 T1/C1)', () => {
+    it('remaps downstream set-param containerPath from <parent>/Foo to <parent>/Foo_1 when add-child auto-suffixes', () => {
+      // Arrange — seed one ComIPdu with a known param value so we can
+      // prove the SECOND (suffixed) container is targeted, not the
+      // first.
+      const moduleDef = makeComModule();
+      // First add-child seeds ComIPdu_Existing with
+      // ComPduDirection='ORIGINAL'. Then a SECOND add-child requests
+      // shortName='ComIPdu_Existing' — which collides and triggers
+      // the v1.8.4 auto-suffix path → installs as
+      // 'ComIPdu_Existing_1'. The downstream set-param (emitted by
+      // `addChildSiblingStep` line 86 verbatim) targets
+      // containerPath='/EcucDefs/Com/ComConfig/ComIPdu_Existing',
+      // which pre-fix would resolve to the FIRST container and
+      // overwrite its 'ORIGINAL' value. Post-fix the set-param must
+      // be remapped to '/EcucDefs/Com/ComConfig/ComIPdu_Existing_1'.
+      //
+      // We pick distinct literal values ('ORIGINAL', 'COLLIDING')
+      // so no `noChange: true` short-circuits flatten the bug into
+      // the seam between add-child and set-param.
+      const seedSteps: PatchStep[] = [
+        {
+          op: 'add-child',
+          parentPath: '/EcucDefs/Com/ComConfig',
+          shortName: 'ComIPdu_Existing',
+          definitionRef: '/D/Com/ComConfig/ComIPdu',
+        },
+        {
+          op: 'set-param',
+          containerPath: '/EcucDefs/Com/ComConfig/ComIPdu_Existing',
+          paramName: 'ComPduDirection',
+          value: 'ORIGINAL',
+        },
+      ];
+      const seeded = applyPatchSteps(makeComDoc(), seedSteps, { moduleDef });
+      expect(seeded.errors).toEqual([]);
+      expect(seeded.applied).toBe(2);
+
+      // Act — request another add-child with the SAME requested
+      // shortName, then a set-param targeting the original path.
+      // This is the exact emission pattern
+      // `addChildSiblingStep` produces (see C1 capture): the
+      // mapper does NOT know that an earlier row already installed
+      // 'ComIPdu_Existing'.
+      const collidingSteps: PatchStep[] = [
+        {
+          op: 'add-child',
+          parentPath: '/EcucDefs/Com/ComConfig',
+          shortName: 'ComIPdu_Existing',
+          definitionRef: '/D/Com/ComConfig/ComIPdu',
+        },
+        {
+          op: 'set-param',
+          containerPath: '/EcucDefs/Com/ComConfig/ComIPdu_Existing',
+          paramName: 'ComPduDirection',
+          value: 'COLLIDING',
+        },
+      ];
+      const result = applyPatchSteps(seeded.doc, collidingSteps, { moduleDef });
+
+      // Assert — no errors (the colliding add-child + remapped
+      // set-param both succeed).
+      expect(result.errors).toEqual([]);
+
+      // The set-param must land on the SUFFIXED container
+      // ('ComIPdu_Existing_1'), NOT the original ('ComIPdu_Existing').
+      const comConfig = findChild(result.doc, 'Com', 'ComConfig');
+      expect(comConfig).toBeDefined();
+      if (comConfig === undefined) {
+        throw new Error('expected ComConfig container');
+      }
+      const firstInstance = findChildByShortName(comConfig, 'ComIPdu_Existing');
+      expect(firstInstance).toBeDefined();
+      const secondInstance = findChildByShortName(comConfig, 'ComIPdu_Existing_1');
+      expect(secondInstance).toBeDefined();
+
+      // First instance (the seeded one) must be UNCHANGED — the
+      // whole point of the fix: silent overwrite = data corruption.
+      // `toMatchObject` (NOT `toEqual`) because `fillParamsFromBswmd`
+      // stamps a `definitionRef` on the seeded enum param; the
+      // remapped set-param carries only `{type, value}` (the typed
+      // shape the mapper emits). We assert the {type, value} keys
+      // match — the `definitionRef` is irrelevant to the bug.
+      if (
+        firstInstance?.kind !== 'container' ||
+        secondInstance?.kind !== 'container'
+      ) {
+        throw new Error('expected both instances to be containers');
+      }
+      expect(firstInstance.params['ComPduDirection']).toMatchObject({
+        type: 'enum',
+        value: 'ORIGINAL',
+      });
+      // Second instance must carry the colliding-row's value 'COLLIDING'.
+      expect(secondInstance.params['ComPduDirection']).toMatchObject({
+        type: 'enum',
+        value: 'COLLIDING',
+      });
+    });
+
+    it('does NOT remap when no collision — set-param lands on the requested shortName unchanged', () => {
+      // Arrange — no collision: first instance will install as
+      // exactly 'ComIPdu_NoCollision'. The set-param
+      // containerPath remains '/EcucDefs/Com/ComConfig/ComIPdu_NoCollision'
+      // and resolves the same way it always did. Remap must be a
+      // NO-OP when there's no actual shortName conflict.
+      const moduleDef = makeComModule();
+      const steps: PatchStep[] = [
+        {
+          op: 'add-child',
+          parentPath: '/EcucDefs/Com/ComConfig',
+          shortName: 'ComIPdu_NoCollision',
+          definitionRef: '/D/Com/ComConfig/ComIPdu',
+        },
+        {
+          op: 'set-param',
+          containerPath: '/EcucDefs/Com/ComConfig/ComIPdu_NoCollision',
+          paramName: 'ComPduDirection',
+          value: 'SEND',
+        },
+      ];
+      const result = applyPatchSteps(makeComDoc(), steps, { moduleDef });
+      expect(result.errors).toEqual([]);
+      const comConfig = findChild(result.doc, 'Com', 'ComConfig');
+      expect(comConfig).toBeDefined();
+      if (comConfig === undefined) {
+        throw new Error('expected ComConfig container');
+      }
+      const added = findChildByShortName(comConfig, 'ComIPdu_NoCollision');
+      expect(added).toBeDefined();
+      if (added?.kind !== 'container') {
+        throw new Error('expected ComIPdu_NoCollision to be a container');
+      }
+      expect(added.params['ComPduDirection']).toMatchObject({ type: 'enum', value: 'SEND' });
+    });
+
+    it('remap only applies to set-param steps AFTER the colliding add-child (does not retroactively rewrite earlier set-params)', () => {
+      // Arrange — pre-seed one ComIPdu under ComConfig so the
+      // second add-child below will collide and trigger auto-suffix.
+      // Then do two consecutive (add-child, set-param) pairs on
+      // /EcucDefs/Com/ComConfig: the first with a non-colliding
+      // shortName (no remap) and the second with the colliding
+      // shortName (remap must fire ONLY for the second set-param).
+      const moduleDef = makeComModule();
+      const seed = applyPatchSteps(
+        makeComDoc(),
+        [
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig',
+            shortName: 'ComIPdu_PreExisting_Existing',
+            definitionRef: '/D/Com/ComConfig/ComIPdu',
+          },
+        ],
+        { moduleDef },
+      );
+      expect(seed.errors).toEqual([]);
+
+      // Act — apply both pairs on top of the seeded doc.
+      const doc2 = applyPatchSteps(
+        seed.doc,
+        [
+          // Pair 1 — non-colliding; no remap.
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig',
+            shortName: 'ComIPdu_Fresh',
+            definitionRef: '/D/Com/ComConfig/ComIPdu',
+          },
+          {
+            op: 'set-param',
+            containerPath: '/EcucDefs/Com/ComConfig/ComIPdu_Fresh',
+            paramName: 'ComPduDirection',
+            value: 'PAIR1',
+          },
+          // Pair 2 — colliding (with the seeded sibling); remap
+          // must kick in for THIS set-param only.
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig',
+            shortName: 'ComIPdu_PreExisting_Existing',
+            definitionRef: '/D/Com/ComConfig/ComIPdu',
+          },
+          {
+            op: 'set-param',
+            containerPath: '/EcucDefs/Com/ComConfig/ComIPdu_PreExisting_Existing',
+            paramName: 'ComPduDirection',
+            value: 'PAIR2',
+          },
+        ],
+        { moduleDef },
+      );
+
+      // Assert — both add-children + both set-params landed; no errors.
+      expect(doc2.errors).toEqual([]);
+
+      const comConfig = findChild(doc2.doc, 'Com', 'ComConfig');
+      expect(comConfig).toBeDefined();
+      if (comConfig === undefined) {
+        throw new Error('expected ComConfig container');
+      }
+      const fresh = findChildByShortName(comConfig, 'ComIPdu_Fresh');
+      const original = findChildByShortName(
+        comConfig,
+        'ComIPdu_PreExisting_Existing',
+      );
+      const suffixed = findChildByShortName(
+        comConfig,
+        'ComIPdu_PreExisting_Existing_1',
+      );
+      expect(fresh).toBeDefined();
+      expect(original).toBeDefined();
+      expect(suffixed).toBeDefined();
+      if (
+        fresh?.kind !== 'container' ||
+        original?.kind !== 'container' ||
+        suffixed?.kind !== 'container'
+      ) {
+        throw new Error('expected all three to be containers');
+      }
+      // Pair 1 — non-colliding set-param landed exactly where it
+      // targeted.
+      expect(fresh.params['ComPduDirection']).toMatchObject({ type: 'enum', value: 'PAIR1' });
+      // Original sibling was untouched by pair 2 (default 'SEND'
+      // from BSWMD seed — we don't care about it, the remap
+      // property is "originals are NOT overwritten").
+      expect(original.params['ComPduDirection']).toMatchObject({ type: 'enum', value: 'SEND' });
+      // Pair 2 — set-param landed on the SUFFIXED instance.
+      expect(suffixed.params['ComPduDirection']).toMatchObject({
+        type: 'enum',
+        value: 'PAIR2',
+      });
     });
   });
 });

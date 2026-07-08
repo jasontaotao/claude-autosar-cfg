@@ -53,7 +53,7 @@ import {
   addContainer as coreAddContainer,
   removeWithCascade as coreRemoveWithCascade,
 } from '../arxml/mutation.js';
-import type { ArxmlDocument, ParamValue } from '../arxml/types.js';
+import type { ArxmlDocument, ArxmlElement, ParamValue } from '../arxml/types.js';
 import type { BswModuleDef, ContainerDef } from '../project/bswmd.js';
 import { findContainerByPath, setParamInDocument } from '../project/setters.js';
 
@@ -131,6 +131,21 @@ export interface ApplyResult {
  * Errors are aggregated — a failing step does NOT abort the loop.
  * The caller (CLI handler) maps the `errors[]` array to the
  * `HeadlessFailure` envelope + exit code.
+ *
+ * v1.38.0 MINOR T1 (C1) — `add-child` auto-suffix remap. When an
+ * `add-child` step's `shortName` collides with an existing sibling,
+ * `coreAddContainer` (src/core/arxml/mutation.ts:155-162) auto-suffixes
+ * the new child to `shortName_${n}`. Without compensation, a
+ * follow-up `set-param` whose `containerPath` still references the
+ * ORIGINAL `${parentPath}/${shortName}` would resolve against the
+ * pre-existing sibling and silently overwrite its params — silent
+ * data corruption. We thread a `pendingRemap` map
+ * (`(parentPath|requestedShortName) → effectiveShortName`) through
+ * the loop and remap subsequent set-param `containerPath` strings
+ * BEFORE `findContainerByPath` resolves them. The remap is
+ * intentionally per-loop (not carried across separate
+ * `applyPatchSteps` calls) because each call is a fresh dispatch
+ * and the doc state is the source of truth.
  */
 export function applyPatchSteps(
   doc: ArxmlDocument,
@@ -141,10 +156,27 @@ export function applyPatchSteps(
   const warnings: StepWarning[] = [];
   let current: ArxmlDocument = doc;
   let applied = 0;
+  /**
+   * v1.38.0 T1 (C1) — pending add-child auto-suffix remap table.
+   * Keyed by `${parentPath}|${requestedShortName}` (the unique
+   * combination that the helper hardcodes). Value is the
+   * `effectiveShortName` `coreAddContainer` actually installed the
+   * child under after collision-resolution. Cleared entries are
+   * not removed (the map is bounded by the number of add-child
+   * collisions in the dispatch — small in practice).
+   */
+  const pendingRemap = new Map<string, string>();
 
   for (let i = 0; i < steps.length; i += 1) {
-    const step = steps[i];
-    if (step === undefined) continue;
+    const originalStep = steps[i];
+    if (originalStep === undefined) continue;
+    // v1.38.0 T1 (C1) — remap set-param `containerPath` BEFORE
+    // dispatch if the path still references a shortName that was
+    // auto-suffixed by an earlier add-child. The remap is
+    // shallow-clone-only (the step is a `{op:'set-param', ...}`
+    // literal); a fresh object is needed because we don't mutate
+    // the caller's `steps` array.
+    const step = remapStepForPendingAddChildSuffix(originalStep, pendingRemap);
     const result = applyOneStep(current, step, i, ctx);
     current = result.doc;
     if (result.error !== null) {
@@ -156,10 +188,134 @@ export function applyPatchSteps(
       if (result.noChange !== true) {
         applied += 1;
       }
+      // v1.38.0 T1 (C1) — after a successful add-child, record
+      // its (parentPath, requestedShortName) → effectiveShortName
+      // remap so the next set-param targeting the original
+      // containerPath lands on the actual installed instance.
+      // Add-child errors do NOT register a remap (the child was
+      // not installed; remapping would leave a stale entry that
+      // misroutes a later unrelated set-param).
+      if (step.op === 'add-child') {
+        const detected = detectAutoSuffixRemap(
+          current,
+          step.parentPath,
+          step.shortName,
+        );
+        if (detected !== null) {
+          pendingRemap.set(`${step.parentPath}|${step.shortName}`, detected);
+        }
+      }
     }
   }
 
   return { doc: current, applied, errors, warnings };
+}
+
+/**
+ * v1.38.0 T1 (C1) — produce a remapped copy of `step` if its
+ * `set-param.containerPath` references a shortName that an
+ * earlier `add-child` auto-suffixed to a different value. The
+ * remap table is populated by `detectAutoSuffixRemap` after each
+ * successful add-child.
+ *
+ * Non-`set-param` steps and `set-param` steps whose
+ * `containerPath` doesn't match any pending remap are returned
+ * unchanged (reference equality preserved — the caller still gets
+ * back the literal from `steps[i]`, never a synthesized clone).
+ */
+function remapStepForPendingAddChildSuffix(
+  step: PatchStep,
+  pendingRemap: ReadonlyMap<string, string>,
+): PatchStep {
+  if (step.op !== 'set-param') return step;
+  const suffix = findPendingSuffixRemap(step.containerPath, pendingRemap);
+  if (suffix === null) return step;
+  return { ...step, containerPath: suffix };
+}
+
+/**
+ * v1.38.0 T1 (C1) — given a `set-param.containerPath` and the
+ * pending-remap table, check whether the trailing segment (the
+ * container shortName) corresponds to a request that an
+ * add-child auto-suffixed. If so, return the rebuilt path with
+ * the effective shortName; otherwise return `null`.
+ *
+ * NOTE: we match against the FULL key `${parentPath}|${shortName}`
+ * — not just the shortName — because the same shortName can
+ * legitimately exist under MULTIPLE parents (e.g. `Com/ComConfig/Foo`
+ * and `Com/ComGeneral/Foo`) and a remap registered for parent A
+ * must NOT silently rewrite a set-param targeting parent B.
+ */
+function findPendingSuffixRemap(
+  containerPath: string,
+  pendingRemap: ReadonlyMap<string, string>,
+): string | null {
+  if (pendingRemap.size === 0) return null;
+  // The segment-before-the-last separator is the parent path.
+  // `containerPath` is slash-separated; the trailing segment is
+  // the instance shortName. This mirrors how `addChildSiblingStep`
+  // constructs its `containerPath` (parentPath + '/' + shortName).
+  const lastSlash = containerPath.lastIndexOf('/');
+  if (lastSlash < 0) return null;
+  const parentPath = containerPath.slice(0, lastSlash);
+  const shortName = containerPath.slice(lastSlash + 1);
+  const effectiveShortName = pendingRemap.get(`${parentPath}|${shortName}`);
+  if (effectiveShortName === undefined) return null;
+  return `${parentPath}/${effectiveShortName}`;
+}
+
+/**
+ * v1.38.0 T1 (C1) — detect whether the just-applied add-child
+ * resulted in an auto-suffix. We re-locate the parent in the
+ * post-add doc and search its children for an entry whose
+ * shortName matches `requestedShortName` OR
+ * `${requestedShortName}_${n}` for the smallest `n`. The new
+ * child is the unique shortName in that range. We start by
+ * checking `requestedShortName` as-is (no collision case) and
+ * then walk `_1`, `_2`, ... until we find exactly one match. The
+ * SAME parent may have BOTH `requestedShortName` (the
+ * pre-existing sibling) and `${requestedShortName}_${n}` (the
+ * just-installed one) — we pick the SUFFIXED one as
+ * `effectiveShortName`.
+ *
+ * Returns `null` when no auto-suffix was needed (the child was
+ * installed as `requestedShortName` without a collision), or
+ * when the parent no longer exists in the post-add doc
+ * (defensive — shouldn't happen because `applyAddChild` already
+ * required the parent to be present).
+ */
+function detectAutoSuffixRemap(
+  doc: ArxmlDocument,
+  parentPath: string,
+  requestedShortName: string,
+): string | null {
+  const parent: { readonly children: ReadonlyArray<ArxmlElement> } | null =
+    findContainerByPath(doc, parentPath);
+  if (parent === null) return null;
+  // Mirror `shortNameOf` (src/core/arxml/mutation.ts:1138-1147):
+  // `ArxmlElement` is a discriminated union whose `unknown`
+  // variant lacks `shortName`, but our freshly-installed child is
+  // always an `ArxmlContainer` with a real `shortName`. Walking
+  // the union tag-by-tag keeps TS narrowing happy without an
+  // `any` cast (per project rule: no `any` in application code).
+  const shortNameOf = (e: ArxmlElement): string | undefined => {
+    if (e.kind === 'reference') return e.shortName ?? e.value;
+    if (e.kind === 'unknown') return e.tagName;
+    return e.shortName;
+  };
+  let n = 1;
+  while (n <= 1024) {
+    const candidate = `${requestedShortName}_${n}`;
+    const found = parent.children.some((c) => shortNameOf(c) === candidate);
+    if (found) {
+      return candidate;
+    }
+    n += 1;
+  }
+  // Defensive cap — matches the `addContainer` auto-suffix loop
+  // (mutation.ts:159-162), which is also bounded by `>=
+  // upperMultiplicity` returning earlier. We mirror its cap.
+  return null;
 }
 
 // ---------------------------------------------------------------------------
