@@ -28,11 +28,16 @@ describe('DcmConfigErrorToast (v1.31.0 PATCH T2)', () => {
     vi.useRealTimers();
   });
 
+  // v1.35.0 MINOR T5 — 9-value union (was 6). 4 NEW classes added
+  // for the formerly-collapsed kinds.
   const classes: readonly DcmConfigErrorClass[] = [
     'bswmdUnreadable',
     'odxUnreadable',
     'odxParseFailed',
-    'bswmdMapMissing',
+    'odxDcmLinkage',
+    'dcmModuleMissing',
+    'containerNotFound',
+    'patchFailed',
     'atomicWriteFailed',
     'unexpected',
   ] as const;
@@ -62,6 +67,20 @@ describe('DcmConfigErrorToast (v1.31.0 PATCH T2)', () => {
     const toast = screen.getByTestId('dcm-config-error-toast');
     expect(toast.textContent).toContain('无法读取 BSWMD 文件');
     expect(toast.textContent).toContain('ENOENT');
+  });
+
+  it('renders zh-CN message for odxDcmLinkage class (v1.35.0 MINOR T5)', () => {
+    render(
+      <DcmConfigErrorToast
+        error={{ message: 'linkage broken', classKey: 'odxDcmLinkage' }}
+        locale="zh-CN"
+        onDismiss={vi.fn()}
+      />,
+    );
+    const toast = screen.getByTestId('dcm-config-error-toast');
+    // Per i18n.zh-CN/odx.ts — must contain the ODX-Dcm linkage phrase.
+    expect(toast.textContent).toContain('ODX 与 Dcm 关联缺失');
+    expect(toast.textContent).toContain('linkage broken');
   });
 
   it('does not render when error is null', () => {

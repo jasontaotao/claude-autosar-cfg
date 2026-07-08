@@ -28,7 +28,11 @@ import type { DcmConfigError, DcmConfigErrorKind } from '../../../shared/types.j
 import { arxmlModuleShortNames } from '../../arxml/arxmlModuleShortNames.js';
 import type { XlsxImportRecord } from '../../store/slices/xlsxImportSlice.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
-import { classifyError, useDcmConfigLauncher } from '../useDcmConfigLauncher.js';
+import {
+  classifyError,
+  useDcmConfigLauncher,
+  type RendererDcmConfigErrorClass,
+} from '../useDcmConfigLauncher.js';
 
 // v1.33.1 PATCH T2 — handleGenerateNew + lastOdxPath wiring.
 //
@@ -112,25 +116,35 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     expect(result.current.state.error?.classKey).toBe('bswmdUnreadable');
   });
 
+  // v1.35.0 MINOR T5 — 9 rows (was 6). 4 NEW kinds each map to
+  // their dedicated class (no NEW_CLASS_TO_OLD_KEY collapse).
   it.each([
     [{ kind: 'bswmd-unreadable', message: 'BSWMD file unreadable: x' }, 'bswmdUnreadable'],
     [{ kind: 'odx-unreadable', message: 'ODX file unreadable: x' }, 'odxUnreadable'],
     [{ kind: 'odx-parse-failed', message: 'ODX parse failed: x' }, 'odxParseFailed'],
-    [{ kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" }, 'bswmdMapMissing'],
+    [{ kind: 'odx-dcm-linkage', message: 'ODX-Dcm linkage broken' }, 'odxDcmLinkage'],
+    [{ kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" }, 'dcmModuleMissing'],
+    [
+      { kind: 'container-not-found', message: 'Container X not found in BSWMD' },
+      'containerNotFound',
+    ],
+    [{ kind: 'patch-failed', message: 'Patch step 3 of 5 failed' }, 'patchFailed'],
     [{ kind: 'atomic-write-failed', message: 'Atomic write failed: x' }, 'atomicWriteFailed'],
     [{ kind: 'unknown', message: 'Some unknown error' }, 'unexpected'],
-  ] as const)('classifyError maps kind=%s to class=%s', async (errorPayload, expected) => {
-    const { result } = renderHook(() => useDcmConfigLauncher());
-    // classifyError is an internal helper — exercise it via the
-    // error state path: invoke with the payload, then read
-    // state.error.classKey. v1.33.0 MINOR T4 — payloads now carry
-    // `kind` (legacy regex fallback removed).
-    invokeMock.mockResolvedValue({ ok: false, error: errorPayload });
-    await act(async () => {
-      await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
-    });
-    expect(result.current.state.error?.classKey).toBe(expected);
-  });
+  ] as const)(
+    'classifyError maps kind=%s to class=%s (v1.35.0 MINOR T5)',
+    async (errorPayload, expected) => {
+      const { result } = renderHook(() => useDcmConfigLauncher());
+      // classifyError returns the toast class directly (no toToastClassKey
+      // adapter). Same path as v1.33.0 T4 but the column 'expected' is now
+      // 9-value camelCase.
+      invokeMock.mockResolvedValue({ ok: false, error: errorPayload });
+      await act(async () => {
+        await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
+      });
+      expect(result.current.state.error?.classKey).toBe(expected);
+    },
+  );
 
   it('re-entrancy guard: open() while pending is a no-op', async () => {
     let resolveInvoke: (value: unknown) => void = () => undefined;
@@ -252,27 +266,35 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
 });
 
 // v1.32.0 MINOR T2 — classifyError reads kind FIRST.
+// v1.35.0 MINOR T3 — values updated to camelCase RendererDcmConfigErrorClass
+// (post-collapse deletion). The 9-row mapping is identical in semantics to
+// the v1.32.0-v1.33.0 SCREAMING_SNAKE test, just modernized to the new
+// post-collapse naming. Same kind-first contract.
 describe('classifyError (v1.32.0 T2) — kind-first', () => {
-  it.each<[DcmConfigErrorKind, string]>([
-    ['odx-unreadable', 'ODX_FILE_UNREADABLE'],
-    ['odx-parse-failed', 'ODX_PARSE_FAILED'],
-    ['bswmd-unreadable', 'BSWMD_FILE_UNREADABLE'],
-    ['odx-dcm-linkage', 'ODX_DCM_LINKAGE'],
-    ['dcm-module-missing', 'DCM_MODULE_MISSING'],
-    ['container-not-found', 'CONTAINER_NOT_FOUND'],
-    ['patch-failed', 'PATCH_FAILED'],
-    ['atomic-write-failed', 'ATOMIC_WRITE_FAILED'],
-    ['unknown', 'UNKNOWN'],
+  it.each<[DcmConfigErrorKind, RendererDcmConfigErrorClass]>([
+    ['odx-unreadable', 'odxUnreadable'],
+    ['odx-parse-failed', 'odxParseFailed'],
+    ['bswmd-unreadable', 'bswmdUnreadable'],
+    ['odx-dcm-linkage', 'odxDcmLinkage'],
+    ['dcm-module-missing', 'dcmModuleMissing'],
+    ['container-not-found', 'containerNotFound'],
+    ['patch-failed', 'patchFailed'],
+    ['atomic-write-failed', 'atomicWriteFailed'],
+    ['unknown', 'unexpected'],
   ])('maps kind=%s to class=%s', (kind, expectedClass) => {
     const error: DcmConfigError = { kind, message: 'irrelevant' };
     expect(classifyError(error)).toBe(expectedClass);
   });
 });
 
+// v1.33.0 MINOR T4 — defensive fallback when kind discriminator is absent.
+// v1.35.0 MINOR T3 — return value updated to camelCase ('unexpected'
+// instead of 'UNKNOWN'). Same defensive-no-op semantics: legacy typed-cast
+// payloads should never occur in v1.32.0+ production.
 describe('classifyError defensive fallback (v1.33.0 T4)', () => {
-  it('returns UNKNOWN when kind is absent (defensive — should never happen in v1.32.0+ payloads)', () => {
+  it('returns unexpected when kind is absent (defensive — should never happen in v1.32.0+ payloads)', () => {
     const legacy = { message: '...' } as unknown as DcmConfigError;
-    expect(classifyError(legacy)).toBe('UNKNOWN');
+    expect(classifyError(legacy)).toBe('unexpected');
   });
 });
 
