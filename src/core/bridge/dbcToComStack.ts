@@ -330,7 +330,27 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
 
     // #5 (HIGH) — Tx vs Rx dispatched on msg.transmitter === targetNode.
     // Legacy fallback (no targetNode): treat every message as Tx.
-    const isTx = input.targetNode === undefined || msg.transmitter === input.targetNode;
+    // v1.38.0 MINOR T4 (H3) — defensive: when targetNode is defined but
+    // msg has no transmitter (empty/undefined), warn the user and default
+    // to Tx. Tx is the safer default per AUTOSAR DBC convention; a
+    // missing transmitter is more likely a malformed DBC line the user
+    // can correct, vs the Rx path which might silently route messages
+    // to the wrong side.
+    let isTx: boolean;
+    if (input.targetNode === undefined) {
+      // Legacy fallback: treat every message as Tx
+      isTx = true;
+    } else if (msg.transmitter === undefined || msg.transmitter === '') {
+      // ambiguous: empty/missing transmitter + targetNode defined.
+      // Default to Tx (safer) and warn so the user can investigate.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `dbcToComStack: message "${msg.name}" has no transmitter; defaulting to Tx (targetNode="${input.targetNode}")`,
+      );
+      isTx = true;
+    } else {
+      isTx = msg.transmitter === input.targetNode;
+    }
     if (isTx) {
       if (!existingCanIfTx.has(msg.name)) {
         canIfPatches.push({

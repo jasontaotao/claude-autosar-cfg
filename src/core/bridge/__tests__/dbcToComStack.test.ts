@@ -297,4 +297,109 @@ describe('dbcToComStack (T2 unit)', () => {
       expect(plan.pduRPatches.length).toBeGreaterThan(0);
     }
   });
+
+  // v1.38.0 MINOR T4 (H3) — when targetNode is defined but the message
+  // has no transmitter (empty string or undefined), the bridge should
+  // default to Tx (safer per AUTOSAR DBC convention) AND warn the user
+  // so the malformed DBC line can be investigated. Previously the
+  // empty string compared unequal to targetNode and the message was
+  // silently classified Rx — the more dangerous side.
+  it('H3: targetNode=ECM + msg.transmitter="" defaults to Tx and warns', async () => {
+    const { vi } = await import('vitest');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const dbc: DbcSummaryWithSignals = {
+        version: 'v1',
+        nodeCount: 2,
+        messageCount: 1,
+        nodes: ['ECM', 'TCM'],
+        messages: [
+          // Empty-string transmitter with targetNode defined → ambiguous
+          { id: 272, name: 'EngState', dlc: 8, transmitter: '', signalCount: 0 },
+        ],
+        signals: [],
+      };
+      const plan = dbcToComStack({
+        dbc,
+        comConfig: MINIMAL_COM_CONFIG,
+        canIfConfig: MINIMAL_CANIF_CONFIG,
+        pduRConfig: MINIMAL_PDUR_CONFIG,
+        targetNode: 'ECM',
+      });
+      // Tx default — message routed to CanIfTxPduCfgs
+      const txAdds = plan.canIfPatches.filter(
+        (p): p is Extract<typeof p, { shortName: string }> =>
+          p.op === 'add-child' && p.kind === 'canif-tx-pdu',
+      );
+      const rxAdds = plan.canIfPatches.filter(
+        (p): p is Extract<typeof p, { shortName: string }> =>
+          p.op === 'add-child' && p.kind === 'canif-rx-pdu',
+      );
+      expect(txAdds).toHaveLength(1);
+      expect(txAdds[0]?.shortName).toBe('EngState');
+      expect(rxAdds).toHaveLength(0);
+      // Exactly one warn, naming the message and the targetNode
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnArg = warnSpy.mock.calls[0]?.[0];
+      expect(typeof warnArg).toBe('string');
+      expect(warnArg).toContain('EngState');
+      expect(warnArg).toContain('ECM');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('H3: targetNode=ECM + msg.transmitter=undefined defaults to Tx and warns', async () => {
+    const { vi } = await import('vitest');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      // DbcMessageSummary.transmitter is typed `string` (required), but
+      // the production code defensively handles `undefined` as a malformed
+      // DBC line. We exercise the defensive branch by feeding a message
+      // whose `transmitter` is `undefined` at runtime (cast bypasses the
+      // strict type for this documented edge case — the bridge's defensive
+      // `=== undefined` check is the contract under test).
+      const dbc = {
+        version: 'v1',
+        nodeCount: 2,
+        messageCount: 1,
+        nodes: ['ECM', 'TCM'],
+        messages: [
+          {
+            id: 272,
+            name: 'EngState',
+            dlc: 8,
+            transmitter: undefined as unknown as string,
+            signalCount: 0,
+          },
+        ],
+        signals: [],
+      } satisfies DbcSummaryWithSignals;
+      const plan = dbcToComStack({
+        dbc,
+        comConfig: MINIMAL_COM_CONFIG,
+        canIfConfig: MINIMAL_CANIF_CONFIG,
+        pduRConfig: MINIMAL_PDUR_CONFIG,
+        targetNode: 'ECM',
+      });
+      const txAdds = plan.canIfPatches.filter(
+        (p): p is Extract<typeof p, { shortName: string }> =>
+          p.op === 'add-child' && p.kind === 'canif-tx-pdu',
+      );
+      const rxAdds = plan.canIfPatches.filter(
+        (p): p is Extract<typeof p, { shortName: string }> =>
+          p.op === 'add-child' && p.kind === 'canif-rx-pdu',
+      );
+      expect(txAdds).toHaveLength(1);
+      expect(txAdds[0]?.shortName).toBe('EngState');
+      expect(rxAdds).toHaveLength(0);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const warnArg = warnSpy.mock.calls[0]?.[0];
+      expect(typeof warnArg).toBe('string');
+      expect(warnArg).toContain('EngState');
+      expect(warnArg).toContain('ECM');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
