@@ -34,6 +34,24 @@ import {
   type RendererDcmConfigErrorClass,
 } from '../useDcmConfigLauncher.js';
 
+// v1.36.0 MINOR T5 — mock confirmDestructive so the launcher's gate
+// can be tested without mounting <ConfirmRoot2 />. Hoisted by vitest
+// to the top of the file before the useDcmConfigLauncher import so
+// the hook sees the mocked module at module-evaluation time.
+// Lesson: vi-mock-hoists-doMock-does-not — vi.doMock is module-level
+// + runtime; vitest hoists only vi.mock. For cross-file mocks in a
+// hook-under-test scenario, prefer vi.mock at file top.
+// Lesson: vi-mock-factory-cannot-reference-top-level-consts —
+// vi.mock factory bodies run before module-level consts initialize
+// (the call is hoisted). Use vi.hoisted() to lift the mock fn
+// declaration above the factory.
+const { confirmDestructiveMock } = vi.hoisted(() => ({
+  confirmDestructiveMock: vi.fn(),
+}));
+vi.mock('../../components/ConfirmDialog2.js', () => ({
+  confirmDestructive: confirmDestructiveMock,
+}));
+
 // v1.33.1 PATCH T2 — handleGenerateNew + lastOdxPath wiring.
 //
 // Fixture content: a tiny BSWMD ARXML carrying only the modules we
@@ -901,5 +919,162 @@ describe('useDcmConfigLauncher (v1.33.1 T2) — handleGenerateNew + lastOdxPath'
     // Distinct warn string lets the user (and the test) recognise
     // that Generate New was unavailable because nothing was captured.
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no lastOdxPath'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.36.0 MINOR T5 — handleGenerateNew confirmDestructive gate.
+//
+// Pinned behaviours (T5):
+//   1. When confirmDestructive resolves 'cancel', open() is NOT
+//      called — the destructive confirmation gate is enforced.
+//   2. When confirmDestructive resolves 'confirm', open() IS called
+//      with the freshly-picked bswmdPath.
+//
+// These tests rely on the file-level vi.mock above (which replaces
+// ConfirmDialog2.confirmDestructive with confirmDestructiveMock) so
+// the gate can be exercised without mounting <ConfirmRoot2 />.
+// Lesson: vi-mock-hoists-doMock-does-not — vi.doMock is module-level
+// + runtime; vitest hoists only vi.mock.
+// ---------------------------------------------------------------------------
+describe('useDcmConfigLauncher (v1.36.0 T5) — handleGenerateNew confirmDestructive gate', () => {
+  beforeEach(() => {
+    // Reset the mock between T5 tests + clear any seed state.
+    confirmDestructiveMock.mockReset();
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      project: null,
+      activeDocumentPath: null,
+    } as never);
+  });
+
+  it('does not call open() when confirmDestructive returns "cancel"', async () => {
+    // Seed: capture lastOdxPath via a prior open() success.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+    installBswmdPickMock({
+      kind: 'opened',
+      path: '/new-dcm-bswmd.arxml',
+      content: DCM_BSWMD_CONTENT,
+    });
+    // Gate returns 'cancel'.
+    confirmDestructiveMock.mockResolvedValue('cancel' as const);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    // Capture lastOdxPath via prior open().
+    await act(async () => {
+      await result.current.open({
+        odxPath: '/some.odx',
+        xlsxRows: [],
+        bswmdPath: '/autodetected.arxml',
+      });
+    });
+    expect(result.current.state.lastOdxPath).toBe('/some.odx');
+    // Reset the invokeMock so we can count only the re-fire calls.
+    invokeMock.mockClear();
+
+    // Act: handleGenerateNew. The destructive confirm gate returns
+    // 'cancel' → no IPC re-fire.
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    // Gate enforced: confirmDestructive called once with title +
+    // message; open() (dcmConfig IPC) NOT called.
+    expect(confirmDestructiveMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).not.toHaveBeenCalled();
+    // lastOdxPath preserved across the cancel path.
+    expect(result.current.state.lastOdxPath).toBe('/some.odx');
+  });
+
+  it('calls open() with the picked bswmdPath when confirmDestructive returns "confirm"', async () => {
+    // Seed: capture lastOdxPath via a prior open() success.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+    // Re-fire (T5 confirm path) succeeds.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 1,
+      },
+    });
+    installBswmdPickMock({
+      kind: 'opened',
+      path: '/new-dcm-bswmd.arxml',
+      content: DCM_BSWMD_CONTENT,
+    });
+    // Gate returns 'confirm'.
+    confirmDestructiveMock.mockResolvedValue('confirm' as const);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    // Capture lastOdxPath via prior open().
+    await act(async () => {
+      await result.current.open({
+        odxPath: '/some.odx',
+        xlsxRows: [],
+        bswmdPath: '/autodetected.arxml',
+      });
+    });
+    expect(result.current.state.lastOdxPath).toBe('/some.odx');
+    invokeMock.mockClear();
+
+    // Act: handleGenerateNew. The destructive confirm gate returns
+    // 'confirm' → dcmConfig IPC re-fires with the new bswmdPath.
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+
+    expect(confirmDestructiveMock).toHaveBeenCalledTimes(1);
+    // Re-fire IPC invoked once with the picked BSWMD path AND the
+    // captured lastOdxPath + the store-derived xlsxRows.
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const call = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+      xlsxRows: readonly unknown[];
+      bswmdPath?: string;
+    };
+    expect(call.odxPath).toBe('/some.odx');
+    expect(call.bswmdPath).toBe('/new-dcm-bswmd.arxml');
   });
 });

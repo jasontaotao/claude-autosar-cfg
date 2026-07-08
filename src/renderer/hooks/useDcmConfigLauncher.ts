@@ -31,6 +31,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { t } from '@shared/i18n/index.js';
+
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import type {
   DcmConfigError,
@@ -39,6 +41,7 @@ import type {
   EcucInstanceRow,
 } from '../../shared/types.js';
 import { arxmlModuleShortNames } from '../arxml/arxmlModuleShortNames.js';
+import { confirmDestructive } from '../components/ConfirmDialog2.js';
 import { findDcmBswmd, type BswmdHasDcmResult } from '../components/dcmConfig/bswmdHasDcm.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
 
@@ -226,6 +229,14 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // shortcut path needs to call `open({ odxPath: activePath })`.
   const bswmdPaths = useArxmlStore((s) => s.project?.bswmdPaths ?? EMPTY_BSWMD_PATHS);
   const activeDocumentPath = useArxmlStore((s) => s.activeDocumentPath);
+
+  // v1.36.0 MINOR T5 — locale-reactive destructive confirm labels.
+  // The confirm modal default labels (when caller passes neither
+  // confirmLabel nor cancelLabel) are resolved inside ConfirmDialog2
+  // via t(locale, ...). The title + message for our gate call are
+  // resolved here so the user sees the picked BSWMD path in their
+  // language.
+  const locale = useArxmlStore((s) => s.locale);
 
   // v1.32.0 T5 — `isActiveOdx` is reactive so the menu entry stays
   // accurate as the user switches between docs (AppHeader gates the
@@ -520,6 +531,15 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // Lesson: store-as-source-of-truth-for-async-args — xlsxRows is
   // sourced from xlsxLastImport.rows (NOT a hook-local fallback).
   // Same shape as promptAndOpen + handlePickerResolve.
+  //
+  // v1.36.0 MINOR T5 — destructive confirmation gate. The v1.33.1
+  // handler refires dcm:config on the same tick that bswmd:pick
+  // resolves; the user had no opportunity to abort. v1.36.0 wraps
+  // the re-fire in confirmDestructive so the user sees the picked
+  // BSWMD path + a "this overwrites the previous output" warning
+  // before committing. Cancel / Esc / × / backdrop all return
+  // 'cancel' → no-op (no IPC refire, lastOdxPath preserved, in-flight
+  // guard untouched — same shape as the bswmd-pick cancel path).
   const handleGenerateNew = useCallback(async (): Promise<void> => {
     if (inFlightRef.current) return;
     const r = await window.autosarApi.bswmdPick();
@@ -540,6 +560,18 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       );
       return;
     }
+    // v1.36.0 MINOR T5 — destructive confirmation gate. Title +
+    // message resolved via t() so the picked BSWMD path appears in
+    // the user's locale.
+    const choice = await confirmDestructive({
+      title: t(locale, 'dcmConfig.generateNew.confirm.title'),
+      message: t(locale, 'dcmConfig.generateNew.confirm.message', { path: r.path }),
+    });
+    if (choice === 'cancel') {
+      // User aborted — no IPC refire, lastOdxPath preserved, the
+      // next Generate New click will re-prompt cleanly.
+      return;
+    }
     // Re-fire via the existing `open()` entry. `open()` owns the
     // inFlightRef toggle for the IPC call itself; this handler owns
     // the user-picker re-entrancy guard above.
@@ -548,7 +580,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
       bswmdPath: r.path,
     });
-  }, [state.lastOdxPath, activeDocumentPath, open]);
+  }, [state.lastOdxPath, activeDocumentPath, open, locale]);
 
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
