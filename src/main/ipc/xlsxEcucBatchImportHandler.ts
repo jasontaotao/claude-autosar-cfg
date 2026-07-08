@@ -231,6 +231,25 @@ export async function xlsxEcucBatchImportHandler(
     return { ok: false, error: { kind: 'parse-failed', message: 'No instances provided' } };
   }
 
+  // T-fix MEDIUM-4: IPC runtime type trust boundary — every row.sheet
+  // must map to one of the 5 known FILE_BY_KIND keys. Otherwise the
+  // split-by-sheet push below throws TypeError mid-import with no
+  // error envelope (the renderer hangs). The parse handler is the
+  // only caller today, but the IPC contract doesn't enforce it —
+  // validate at the trust boundary.
+  for (let i = 0; i < req.instances.length; i++) {
+    const row = req.instances[i];
+    if (row === undefined || !(row.sheet in FILE_BY_KIND)) {
+      return {
+        ok: false,
+        error: {
+          kind: 'parse-failed',
+          message: `Unknown sheet kind at index ${i}: ${row?.sheet ?? 'undefined'}`,
+        },
+      };
+    }
+  }
+
   // 2. Read manifest, locate 3 Com-stack files.
   let manifestRaw: string;
   try {
@@ -468,11 +487,22 @@ export async function xlsxEcucBatchImportHandler(
   // updates immediately), persist second (file-bound). If
   // persistence fails, the in-memory slice is still correct for
   // the next dcm:config call — disk write is best-effort.
-  xlsxHistorySaveHandler({
+  // T-fix HIGH-1: capture the return value. A failed save (disk
+  // full, permission error) used to be silently swallowed; the user
+  // would see the timeline empty next launch with no signal. Log a
+  // warning so the regression is observable.
+  // T-fix HIGH-2: writeXlsxHistory is now async (writeAtomic).
+  const saveRes = await xlsxHistorySaveHandler({
     rows: appliedRows,
     source: 'wizard',
     importedAt: Date.now(),
   });
+  if (!saveRes.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `xlsxHistorySave: persistence failed (${saveRes.error.kind}): ${saveRes.error.message}`,
+    );
+  }
 
   return {
     ok: true,

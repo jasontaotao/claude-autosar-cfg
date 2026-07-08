@@ -10,9 +10,10 @@
 // electron-store. No schema migration needed at this size.
 
 import { app } from 'electron';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
+import { writeAtomic } from './io/writeAtomic.js';
 import type { EcucInstanceRow } from '../shared/types.js';
 
 const MAX_HISTORY = 5;
@@ -64,11 +65,13 @@ export function readXlsxHistory(): MainXlsxImportRecord[] {
 /**
  * Write a new record to the head of the history (cap-5 + prepend-first).
  * Reads existing entries first, prepends, slices to MAX_HISTORY, then
- * atomic-ish write (writeFileSync is sufficient for 5 entries — the
- * window for corruption is microseconds; if the process crashes mid-write
- * the readXlsxHistory defensive parser resets to []).
+ * atomic write via writeAtomic — temp file + fsync + rename, so the
+ * on-disk file is always either the old or the new content (never a
+ * partial write). If the process crashes mid-write the readXlsxHistory
+ * defensive parser resets to [], but a successful writeAtomic is durable
+ * across crashes.
  */
-export function writeXlsxHistory(record: MainXlsxImportRecord): void {
+export async function writeXlsxHistory(record: MainXlsxImportRecord): Promise<void> {
   const path = historyFilePath();
   const userData = app.getPath('userData');
   // Ensure the userData directory exists (Electron creates it on app
@@ -76,5 +79,5 @@ export function writeXlsxHistory(record: MainXlsxImportRecord): void {
   mkdirSync(userData, { recursive: true });
   const existing = readXlsxHistory();
   const next = [record, ...existing].slice(0, MAX_HISTORY);
-  writeFileSync(path, JSON.stringify(next, null, 2), 'utf-8');
+  await writeAtomic(path, JSON.stringify(next, null, 2));
 }

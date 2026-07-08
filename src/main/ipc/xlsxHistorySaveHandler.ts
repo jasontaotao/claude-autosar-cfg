@@ -5,20 +5,22 @@
 // broadcast — not exposed via the preload bridge (main-internal
 // only).
 
-import {
-  writeXlsxHistory,
-  type MainXlsxImportRecord,
-} from '../xlsxHistoryStorage.js';
+import { writeXlsxHistory, type MainXlsxImportRecord } from '../xlsxHistoryStorage.js';
 
 export type XlsHistorySaveRequest = MainXlsxImportRecord;
 
 export type XlsHistorySaveResponse =
   | { readonly ok: true }
-  | { readonly ok: false; readonly error: { readonly kind: 'write-failed'; readonly message: string } };
+  | {
+      readonly ok: false;
+      readonly error: { readonly kind: 'write-failed'; readonly message: string };
+    };
 
-export function xlsxHistorySaveHandler(req: XlsHistorySaveRequest): XlsHistorySaveResponse {
+export async function xlsxHistorySaveHandler(
+  req: XlsHistorySaveRequest,
+): Promise<XlsHistorySaveResponse> {
   try {
-    writeXlsxHistory(req);
+    await writeXlsxHistory(req);
     return { ok: true };
   } catch (e) {
     return {

@@ -1,4 +1,6 @@
 // v1.36.0 MINOR T2 — xlsxHistorySaveHandler unit tests.
+// T-fix HIGH-2: writeXlsxHistory is now async (writeAtomic). Mock
+// implementations must return Promise.resolve(undefined).
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,32 +24,30 @@ describe('xlsxHistorySaveHandler', () => {
     importedAt: 1000,
   };
 
-  it('returns ok when writeXlsxHistory succeeds', () => {
-    vi.mocked(writeXlsxHistory).mockReturnValue(undefined);
-    const res = xlsxHistorySaveHandler(sample);
+  it('returns ok when writeXlsxHistory succeeds', async () => {
+    vi.mocked(writeXlsxHistory).mockResolvedValue(undefined);
+    const res = await xlsxHistorySaveHandler(sample);
     expect(res).toEqual({ ok: true });
     expect(writeXlsxHistory).toHaveBeenCalledWith(sample);
   });
 
-  it('returns ok:false write-failed when writeXlsxHistory throws', () => {
-    vi.mocked(writeXlsxHistory).mockImplementation(() => {
-      throw new Error('disk full');
-    });
-    const res = xlsxHistorySaveHandler(sample);
+  it('returns ok:false write-failed when writeXlsxHistory rejects', async () => {
+    vi.mocked(writeXlsxHistory).mockRejectedValue(new Error('disk full'));
+    const res = await xlsxHistorySaveHandler(sample);
     expect(res).toEqual({
       ok: false,
       error: { kind: 'write-failed', message: 'disk full' },
     });
   });
 
-  it('passes the record through verbatim (no transformation)', () => {
-    vi.mocked(writeXlsxHistory).mockReturnValue(undefined);
+  it('passes the record through verbatim (no transformation)', async () => {
+    vi.mocked(writeXlsxHistory).mockResolvedValue(undefined);
     const record: MainXlsxImportRecord = {
       rows: [],
       source: 'manual',
       importedAt: 9999,
     };
-    xlsxHistorySaveHandler(record);
+    await xlsxHistorySaveHandler(record);
     expect(writeXlsxHistory).toHaveBeenCalledWith(record);
   });
 });

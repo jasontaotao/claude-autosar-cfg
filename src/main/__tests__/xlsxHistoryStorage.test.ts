@@ -20,9 +20,7 @@ vi.mock('electron', () => ({
 }));
 
 // Import AFTER mock setup so the storage module picks up the mocked app.
-const { readXlsxHistory, writeXlsxHistory } = await import(
-  '../xlsxHistoryStorage.js'
-);
+const { readXlsxHistory, writeXlsxHistory } = await import('../xlsxHistoryStorage.js');
 
 beforeEach(() => {
   rmSync(join(tmpDir, 'xlsx-import-history.json'), { force: true });
@@ -43,14 +41,14 @@ describe('xlsxHistoryStorage', () => {
     expect(readXlsxHistory()).toEqual([]);
   });
 
-  it('round-trips a single record', () => {
-    writeXlsxHistory(sample);
+  it('round-trips a single record', async () => {
+    await writeXlsxHistory(sample);
     expect(readXlsxHistory()).toEqual([sample]);
   });
 
-  it('enforces cap-5 + prepend-first on write', () => {
+  it('enforces cap-5 + prepend-first on write', async () => {
     for (let i = 0; i < 7; i++) {
-      writeXlsxHistory({ ...sample, importedAt: 1000 + i });
+      await writeXlsxHistory({ ...sample, importedAt: 1000 + i });
     }
     const history = readXlsxHistory();
     expect(history).toHaveLength(5);
@@ -60,15 +58,9 @@ describe('xlsxHistoryStorage', () => {
 
   it('returns [] + console.warn on corrupt JSON', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    writeFileSync(
-      join(tmpDir, 'xlsx-import-history.json'),
-      'not-valid-json{',
-      'utf-8',
-    );
+    writeFileSync(join(tmpDir, 'xlsx-import-history.json'), 'not-valid-json{', 'utf-8');
     expect(readXlsxHistory()).toEqual([]);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('corrupt or unreadable'),
-    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('corrupt or unreadable'));
     warn.mockRestore();
   });
 });

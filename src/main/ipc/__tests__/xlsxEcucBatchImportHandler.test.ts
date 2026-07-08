@@ -29,7 +29,7 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
 import {
@@ -38,6 +38,14 @@ import {
 } from '../project-manifest-state.js';
 import { xlsxEcucBatchImportHandler } from '../xlsxEcucBatchImportHandler.js';
 import { xlsxEcucBatchParseHandler } from '../xlsxEcucBatchParseHandler.js';
+
+// T-fix MEDIUM-3: mock xlsxHistorySaveHandler so we can assert the v1.36
+// branches (success + failure paths). vi.mock MUST be hoisted before the
+// dynamic import below resolves the handler module graph.
+vi.mock('../xlsxHistorySaveHandler.js', () => ({
+  xlsxHistorySaveHandler: vi.fn(),
+}));
+const { xlsxHistorySaveHandler } = await import('../xlsxHistorySaveHandler.js');
 
 // ---------------------------------------------------------------------------
 // Test helpers — copy the real demo-ecu Com-stack ARXMLs into a fresh
@@ -110,6 +118,12 @@ function cleanup(workDir: string): void {
 
 afterEach(() => {
   __resetOpenProjectManifestPathForTests();
+  // T-fix MEDIUM-3: clear the save-handler mock so call counts do not
+  // leak across tests in the import-handler describe block.
+  vi.clearAllMocks();
+  // Default mock: success. Tests that want the failure path override
+  // this with mockResolvedValue({ ok: false, ... }).
+  vi.mocked(xlsxHistorySaveHandler).mockResolvedValue({ ok: true });
 });
 
 // ---------------------------------------------------------------------------
@@ -276,6 +290,101 @@ describe('xlsxEcucBatchImportHandler (v1.25.0 T2 — round-trip e2e)', () => {
       expect(afterCom).toContain('NewPdu');
       expect(afterPduR).not.toBe(beforePduR);
       expect(afterPduR).toContain('NewRoute');
+    } finally {
+      cleanup(fx.workDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 6. T-fix MEDIUM-3 success path — xlsxHistorySaveHandler called after
+  //    a successful import with the expected record payload.
+  // -------------------------------------------------------------------------
+
+  it('persists the applied rows via xlsxHistorySaveHandler on success', async () => {
+    vi.mocked(xlsxHistorySaveHandler).mockResolvedValue({ ok: true });
+    const fx = seedProject();
+    try {
+      const instances: EcucInstanceRow[] = [
+        { sheet: 'ComIPdu', shortName: 'NewPdu', params: {} },
+        { sheet: 'PduRRoutingPath', shortName: 'NewRoute', params: {} },
+      ];
+      const res = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: {
+          'ComIPdu:NewPdu': 'overwrite',
+          'PduRRoutingPath:NewRoute': 'overwrite',
+        },
+      });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(xlsxHistorySaveHandler).toHaveBeenCalledTimes(1);
+      const call = vi.mocked(xlsxHistorySaveHandler).mock.calls[0]![0];
+      expect(call.source).toBe('wizard');
+      expect(call.rows.length).toBe(2);
+      const shortNames = call.rows.map((r) => r.shortName).sort();
+      expect(shortNames).toEqual(['NewPdu', 'NewRoute']);
+      expect(typeof call.importedAt).toBe('number');
+    } finally {
+      cleanup(fx.workDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 7. T-fix MEDIUM-3 failure path — xlsxHistorySaveHandler returns
+  //    { ok: false } but the import still succeeds and console.warn fires.
+  //    Guards HIGH-1 (silent swallow regression) — the warning must be
+  //    observable so the next-launch-empty-history surprise has a signal.
+  // -------------------------------------------------------------------------
+
+  it('warns but does not fail the import when persistence fails', async () => {
+    vi.mocked(xlsxHistorySaveHandler).mockResolvedValue({
+      ok: false,
+      error: { kind: 'write-failed', message: 'disk full' },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fx = seedProject();
+    try {
+      const instances: EcucInstanceRow[] = [{ sheet: 'ComIPdu', shortName: 'NewPdu', params: {} }];
+      const res = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: { 'ComIPdu:NewPdu': 'overwrite' },
+      });
+      // Import still succeeds — persistence is best-effort post-broadcast.
+      expect(res.ok).toBe(true);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('disk full'));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('write-failed'));
+    } finally {
+      warn.mockRestore();
+      cleanup(fx.workDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 8. T-fix MEDIUM-4 input validation — unknown sheet kind is rejected
+  //    at handler entry with a parse-failed envelope rather than
+  //    crashing mid-import on `split[undefined].push`.
+  // -------------------------------------------------------------------------
+
+  it('rejects unknown sheet kinds at handler entry', async () => {
+    const fx = seedProject();
+    try {
+      const instances: EcucInstanceRow[] = [
+        // Cast through unknown to bypass the strong literal-union type;
+        // this simulates a future IPC caller (or hand-rolled renderer)
+        // that violates the parse-handler's invariant.
+        { sheet: 'NotARealSheet' as EcucInstanceRow['sheet'], shortName: 'X', params: {} },
+      ];
+      const res = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: {},
+      });
+      expect(res.ok).toBe(false);
+      if (res.ok) return;
+      expect(res.error.kind).toBe('parse-failed');
+      expect(res.error.message).toMatch(/NotARealSheet/);
     } finally {
       cleanup(fx.workDir);
     }
