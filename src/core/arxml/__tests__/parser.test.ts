@@ -507,6 +507,64 @@ describe('parseArxml', () => {
     if (r.ok) return;
     expect(r.error.kind).toBe('invalid-structure');
   });
+
+  // ---------- v1.38.0 MINOR T2 (H1) — shortName-key collision detection ----------
+  // Pre-T2: `defPath.split('/').pop()` was used as the `params` key, so two
+  // distinct BSWMD DEFINITION-REF paths that share the same tail segment
+  // (vendor dialects, choice branches) would silently overwrite the first
+  // param with the second. T2 detects the collision during the walk and
+  // surfaces it as a structured `invalid-structure` ParseError instead.
+
+  it('returns invalid-structure when two PARAMETER-VALUES share the same shortName tail', () => {
+    // Both DEFINITION-REFs have DEFINITION-REF tail = "CommonParam" but
+    // different parent paths (vendor dialect / choice branch shape).
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/A/Mod/CommonParam</DEFINITION-REF><VALUE>1</VALUE></ECUC-NUMERICAL-PARAM-VALUE><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/B/Mod/CommonParam</DEFINITION-REF><VALUE>2</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-structure');
+    if (r.error.kind !== 'invalid-structure') return;
+    // The error message must name the colliding shortName and the two
+    // BSWMD paths so the user can locate the conflict in the source file.
+    expect(r.error.message).toContain("CommonParam");
+    expect(r.error.message).toContain("/A/Mod/CommonParam");
+    expect(r.error.message).toContain("/B/Mod/CommonParam");
+    // path should be the container path (caller can highlight the node).
+    expect(r.error.path).toBe('/P/M/C');
+  });
+
+  it('returns invalid-structure when two ECUC-REFERENCE-VALUE entries share the same shortName tail', () => {
+    // Reference-value (ECUC-REFERENCE-VALUE) collisions go through the
+    // extractReferenceParams path. Two sibling reference-value wrappers
+    // under REFERENCE-VALUES that share the shortName tail must also
+    // surface as invalid-structure.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><REFERENCE-VALUES><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/A/Mod/CommonRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/A/B/Target1</VALUE-REF></ECUC-REFERENCE-VALUE><ECUC-REFERENCE-VALUE><DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/B/Mod/CommonRef</DEFINITION-REF><VALUE-REF DEST="ECUC-CONTAINER-VALUE">/A/B/Target2</VALUE-REF></ECUC-REFERENCE-VALUE></REFERENCE-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-structure');
+    if (r.error.kind !== 'invalid-structure') return;
+    expect(r.error.message).toContain("CommonRef");
+    expect(r.error.message).toContain("/A/Mod/CommonRef");
+    expect(r.error.message).toContain("/B/Mod/CommonRef");
+    expect(r.error.path).toBe('/P/M/C');
+  });
+
+  it('does not flag collisions when distinct paths share no tail — shortName keys preserved', () => {
+    // Regression guard: the no-collision case must remain byte-identical
+    // to pre-T2 behavior. Two params with distinct shortName tails
+    // (NoCollision1 / NoCollision2) at distinct full paths produce the
+    // pre-T2 `params` shape — shortName keys, both params present.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/A/Mod/NoCollision1</DEFINITION-REF><VALUE>11</VALUE></ECUC-NUMERICAL-PARAM-VALUE><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/B/Mod/NoCollision2</DEFINITION-REF><VALUE>22</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = (r.value.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    // Pre-T2 contract preserved: keyed by shortName, both present.
+    expect(c.params['NoCollision1']).toMatchObject({ type: 'integer', value: 11 });
+    expect(c.params['NoCollision2']).toMatchObject({ type: 'integer', value: 22 });
+    expect(Object.keys(c.params).sort()).toEqual(['NoCollision1', 'NoCollision2']);
+  });
 });
 
 // ---------------------------------------------------------------------------

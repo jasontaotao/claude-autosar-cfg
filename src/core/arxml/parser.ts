@@ -10,6 +10,13 @@
 //   <ECUC-NUMERICAL-PARAM-VALUE> / <ECUC-TEXTUAL-PARAM-VALUE>: param wrapper with VALUE child
 //   <REFERENCE-VALUES><ECUC-REFERENCE-VALUE><VALUE-REF>: ref param (Com/PduR shape)
 //   <PARAMETER-VALUES><ECUC-REFERENCE-VALUE>: vendor dialect (EcuC shape)
+//
+// v1.38.0 MINOR T2 (H1): the parser keys PARAMETER-VALUES / REFERENCE-VALUES
+// entries by the shortName tail of the BSWMD DEFINITION-REF path. When two
+// distinct DEFINITION-REF paths share the same tail segment (vendor dialects
+// or choice branches can produce this), the second would silently overwrite
+// the first. We now detect the collision during the walk and surface it as
+// a structured `invalid-structure` ParseError.
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
@@ -117,7 +124,12 @@ export function parseArxml(
     return { ok: false, error: { kind: 'missing-root', message: '<AR-PACKAGES> not found' } };
   }
 
-  const packages = walkPackages(arPackages as Record<string, unknown>, '');
+  // v1.38.0 MINOR T2 (H1) — collision collector threaded through the
+  // walk so the bottom-up PARAMETER-VALUES / REFERENCE-VALUES helpers
+  // can flag a shortName-key collision (two distinct BSWMD paths
+  // sharing the same shortName tail) without throwing.
+  const collector: CollisionCollector = { collision: undefined };
+  const packages = walkPackages(arPackages as Record<string, unknown>, '', collector);
   if (!Array.isArray(packages)) {
     return {
       ok: false,
@@ -138,6 +150,28 @@ export function parseArxml(
         message:
           'Loaded file is a BSW Module Description (BSWMD, schema only). ' +
           'Open it via "Load BSWMD" instead of "Open ARXML".',
+      },
+    };
+  }
+
+  // v1.38.0 MINOR T2 (H1) — surface any shortName-key collision detected
+  // during the walk as a structured `invalid-structure` error. The walk
+  // preserves the no-collision data shape (shortName keys, single-param
+  // semantics); only the bad case is flagged. Pre-T2 this would silently
+  // overwrite, leading to missing params in the renderer.
+  if (collector.collision !== undefined) {
+    const c = collector.collision;
+    return {
+      ok: false,
+      error: {
+        kind: 'invalid-structure',
+        path: c.containerPath,
+        message:
+          `Duplicate parameter shortName '${c.shortName}' in container '${c.containerPath}': ` +
+          `BSWMD paths '${c.firstDefPath}' and '${c.secondDefPath}' share the same tail ` +
+          `and cannot be merged into a single shortName-keyed entry. ` +
+          `This usually indicates a BSWMD <ECUC-CHOICE-CONTAINER-DEF> branch or a ` +
+          `vendor dialect where two distinct parameters collide on shortName.`,
       },
     };
   }
@@ -225,14 +259,39 @@ function readLongName(elem: Record<string, unknown>): string | undefined {
  */
 const MAX_ARPKG_DEPTH = 16;
 
-function walkPackages(node: Record<string, unknown>, parentPath: string): ArxmlPackage[] {
-  return walkPackagesAtDepth(node, parentPath, 0);
+/**
+ * v1.38.0 MINOR T2 (H1) — collision detector for param shortName keys.
+ * Two distinct BSWMD DEFINITION-REF paths (e.g. `/Mod/A/CommonParam` and
+ * `/Mod/B/CommonParam`) that share the same shortName tail would silently
+ * overwrite each other when keyed by shortName. The walk records the
+ * first such collision in a mutable collector so the top-level parser
+ * can convert it into a structured `invalid-structure` ParseError. The
+ * shortName key shape is preserved everywhere else — only collisions
+ * are flagged, leaving the no-collision path byte-identical to pre-T2.
+ */
+interface ParamKeyCollision {
+  readonly shortName: string;
+  readonly firstDefPath: string;
+  readonly secondDefPath: string;
+  readonly containerPath: string;
+}
+interface CollisionCollector {
+  collision: ParamKeyCollision | undefined;
+}
+
+function walkPackages(
+  node: Record<string, unknown>,
+  parentPath: string,
+  collector: CollisionCollector,
+): ArxmlPackage[] {
+  return walkPackagesAtDepth(node, parentPath, 0, collector);
 }
 
 function walkPackagesAtDepth(
   node: Record<string, unknown>,
   parentPath: string,
   depth: number,
+  collector: CollisionCollector,
 ): ArxmlPackage[] {
   if (depth > MAX_ARPKG_DEPTH) {
     // Pathological / adversarial nesting — truncate at the limit. Parser
@@ -251,6 +310,7 @@ function walkPackagesAtDepth(
         ? (elementsRaw as Record<string, unknown>)
         : {},
       path,
+      collector,
     );
     // Sprint 9 #12: recurse into nested <AR-PACKAGES>. R21/R22 BSW files use a
     // 2+ level hierarchy (e.g. AUTOSAR_R22 > EcucDefs > <module>); before this
@@ -263,6 +323,7 @@ function walkPackagesAtDepth(
         : {},
       path,
       depth + 1,
+      collector,
     );
     // Sprint 9 #12 (review M-2): bind readLongName once instead of calling it
     // twice in the spread conditional.
@@ -307,12 +368,16 @@ function findAnyDefInPackages(packages: readonly ArxmlPackage[]): boolean {
   return false;
 }
 
-function walkElements(node: Record<string, unknown>, parentPath: string): ArxmlElement[] {
+function walkElements(
+  node: Record<string, unknown>,
+  parentPath: string,
+  collector: CollisionCollector,
+): ArxmlElement[] {
   const out: ArxmlElement[] = [];
   for (const [tagName, raw] of Object.entries(node)) {
     if (tagName.startsWith('@_') || tagName === '#text') continue;
     for (const item of asArray<Record<string, unknown>>(raw)) {
-      const elem = classifyElement(tagName, item, parentPath);
+      const elem = classifyElement(tagName, item, parentPath, collector);
       if (elem) out.push(elem);
     }
   }
@@ -323,17 +388,18 @@ function classifyElement(
   tagName: string,
   item: Record<string, unknown>,
   parentPath: string,
+  collector: CollisionCollector,
 ): ArxmlElement | null {
   if (tagName === 'ECUC-MODULE-CONFIGURATION-VALUES') {
-    return buildModule(tagName, item, parentPath);
+    return buildModule(tagName, item, parentPath, collector);
   }
   if (tagName === 'ECUC-CONTAINER-VALUE') {
-    return buildContainer(tagName, item, parentPath);
+    return buildContainer(tagName, item, parentPath, collector);
   }
   // Generic containers (any other ECUC-* tag) treated as container if has SHORT-NAME
   if (tagName.startsWith('ECUC-')) {
     if (readShortName(item) !== undefined) {
-      return buildContainer(tagName, item, parentPath);
+      return buildContainer(tagName, item, parentPath, collector);
     }
     return null;
   }
@@ -353,19 +419,24 @@ function buildModule(
   tagName: string,
   item: Record<string, unknown>,
   parentPath: string,
+  collector: CollisionCollector,
 ): ArxmlModule | null {
   const shortName = readShortName(item);
   if (shortName === undefined) return null;
   const path = `${parentPath}/${shortName}`;
-  const { params, references } = extractParamsAndRefs(item);
+  const { params, references } = extractParamsAndRefs(item, path, collector);
   const containers = item['CONTAINERS'];
   const subContainers = item['SUB-CONTAINERS'];
   const children: ArxmlElement[] = [];
   if (typeof containers === 'object' && containers !== null) {
-    for (const c of walkElements(containers as Record<string, unknown>, path)) children.push(c);
+    for (const c of walkElements(containers as Record<string, unknown>, path, collector)) {
+      children.push(c);
+    }
   }
   if (typeof subContainers === 'object' && subContainers !== null) {
-    for (const c of walkElements(subContainers as Record<string, unknown>, path)) children.push(c);
+    for (const c of walkElements(subContainers as Record<string, unknown>, path, collector)) {
+      children.push(c);
+    }
   }
   return {
     kind: 'module',
@@ -381,11 +452,12 @@ function buildContainer(
   tagName: string,
   item: Record<string, unknown>,
   parentPath: string,
+  collector: CollisionCollector,
 ): ArxmlContainer | null {
   const shortName = readShortName(item);
   if (shortName === undefined) return null;
   const path = `${parentPath}/${shortName}`;
-  const { params } = extractParamsAndRefs(item);
+  const { params } = extractParamsAndRefs(item, path, collector);
   // v1.9.0 Sprint X (HIGH #2) — read container-level <DEFINITION-REF>
   // so skeleton-emitted arxml survives save→reload→save. Mirrors the
   // module-level pattern in `extractParamsAndRefs` (parser.ts:500):
@@ -426,10 +498,14 @@ function buildContainer(
   // leaving those containers with zero children and silently masking
   // idempotency dedup in the DBC→Com-Stack bridge.
   if (typeof containers === 'object' && containers !== null) {
-    for (const c of walkElements(containers as Record<string, unknown>, path)) children.push(c);
+    for (const c of walkElements(containers as Record<string, unknown>, path, collector)) {
+      children.push(c);
+    }
   }
   if (typeof subContainers === 'object' && subContainers !== null) {
-    for (const c of walkElements(subContainers as Record<string, unknown>, path)) children.push(c);
+    for (const c of walkElements(subContainers as Record<string, unknown>, path, collector)) {
+      children.push(c);
+    }
   }
   return {
     kind: 'container',
@@ -463,7 +539,11 @@ function buildReference(tagName: string, item: Record<string, unknown>): ArxmlRe
   return ref;
 }
 
-function extractParamsAndRefs(item: Record<string, unknown>): {
+function extractParamsAndRefs(
+  item: Record<string, unknown>,
+  containerPath: string,
+  collector: CollisionCollector,
+): {
   readonly params: Readonly<Record<string, ParamValue>>;
   readonly references: readonly string[];
 } {
@@ -493,7 +573,7 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
         // ECUC-REFERENCE-VALUE inside PARAMETER-VALUES: EcuC vendor dialect.
         // Has <VALUE-REF> child (not <VALUE>) — delegate to extractReferenceParams.
         if (wrapperTag === 'ECUC-REFERENCE-VALUE') {
-          extractReferenceParams(w, defPath, params);
+          extractReferenceParams(w, defPath, params, containerPath, collector);
           continue;
         }
 
@@ -514,6 +594,34 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
         const stamped: ParamValue = { ...param, definitionRef: defPath };
         // Key = last path segment after '/'
         const key = defPath.split('/').pop() ?? defPath;
+        // v1.38.0 MINOR T2 (H1) — collision check. A collision is when
+        // two entries land on the same shortName key with DIFFERENT
+        // DEFINITION-REF paths (vendor dialects / choice branches where
+        // distinct BSWMD params share a shortName tail). Pre-T2 this
+        // silently overwrote; T2 records the first such collision in
+        // the collector so the top-level parser surfaces it as
+        // `invalid-structure`.
+        //
+        // Same defPath re-emitted is NOT a collision: it is the same
+        // logical param (or, for REFERENCE-VALUES, the multi-valued
+        // reference pattern — see extractReferenceParams). Pre-T2 the
+        // last write won; T2 preserves that contract for valid input.
+        if (Object.prototype.hasOwnProperty.call(params, key)) {
+          const first = params[key]!;
+          const firstDefPath = first.definitionRef;
+          if (
+            firstDefPath !== undefined &&
+            firstDefPath !== defPath &&
+            collector.collision === undefined
+          ) {
+            collector.collision = {
+              shortName: key,
+              firstDefPath,
+              secondDefPath: defPath,
+              containerPath,
+            };
+          }
+        }
         params[key] = stamped;
       }
     }
@@ -534,7 +642,7 @@ function extractParamsAndRefs(item: Record<string, unknown>): {
           if (typeof text === 'string') defPath = text;
         }
         if (defPath === undefined) continue;
-        extractReferenceParams(w, defPath, params);
+        extractReferenceParams(w, defPath, params, containerPath, collector);
       }
     }
   }
@@ -560,6 +668,8 @@ function extractReferenceParams(
   wrapper: Record<string, unknown>,
   defPath: string,
   params: Record<string, ParamValue>,
+  containerPath: string,
+  collector: CollisionCollector,
 ): void {
   const valueRef = wrapper['VALUE-REF'];
   let refPath: string | undefined;
@@ -585,6 +695,38 @@ function extractReferenceParams(
     refDest !== undefined
       ? { type: 'reference', value: refPath, dest: refDest, definitionRef: defPath }
       : { type: 'reference', value: refPath, definitionRef: defPath };
+  // v1.38.0 MINOR T2 (H1) — collision check (mirrors
+  // extractParamsAndRefs). For REFERENCE-VALUES the multi-valued
+  // reference pattern is legitimate: a single <DEFINITION-REF> path
+  // (e.g. /EAS/Com/ComConfig/ComIPdu/ComIPduSignalRef) re-appears per
+  // VALUE-REF, each entry pointing to a different signal target. The
+  // existing single-record-per-shortName data shape cannot hold the
+  // list, so pre-T2 the last value won silently. T2 preserves that
+  // pre-existing behavior for the same-defPath case and only flags a
+  // collision when the defPath is genuinely different.
+  if (Object.prototype.hasOwnProperty.call(params, key)) {
+    const first = params[key]!;
+    const firstDefPath = first.definitionRef;
+    if (
+      firstDefPath !== undefined &&
+      firstDefPath !== defPath &&
+      collector.collision === undefined
+    ) {
+      collector.collision = {
+        shortName: key,
+        firstDefPath,
+        secondDefPath: defPath,
+        containerPath,
+      };
+    }
+    // Same defPath (multi-valued reference) — keep the latest VALUE-REF
+    // to preserve pre-T2 last-write-wins semantics. Pre-existing data
+    // loss; T2 deliberately does NOT fix the data shape (would require
+    // schema migration to a list-of-values record). Tracked as a
+    // follow-up rather than blocking on a v1.38.0 MINOR.
+    params[key] = param;
+    return;
+  }
   params[key] = param;
 }
 
