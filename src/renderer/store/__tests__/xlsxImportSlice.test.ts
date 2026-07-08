@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
+import type { MainXlsxImportRecord } from '../../../main/xlsxHistoryStorage.js';
 import type { XlsxImportRecord } from '../slices/xlsxImportSlice.js';
 import { useArxmlStore } from '../useArxmlStore.js';
 
@@ -125,5 +126,53 @@ describe('reuseFromHistory (v1.34.0 T1)', () => {
     const s = useArxmlStore.getState();
     expect(s.xlsxImportHistory).toEqual([HISTORY_C, HISTORY_B, HISTORY_A]);
     expect(s.xlsxImportHistory).toHaveLength(3); // unchanged
+  });
+});
+
+// v1.36.0 MINOR T3 — hydrateXlsxHistory action.
+//
+// Bootstraps the session-scope history from disk on App mount.
+// Defensive: caps at MAX_HISTORY=5 even if the file contains more
+// entries; leaves xlsxLastImport untouched (in-memory last-import
+// is session-only, disk is the cross-session timeline).
+describe('hydrateXlsxHistory (v1.36.0 MINOR T3)', () => {
+  beforeEach(() => {
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      xlsxImportHistory: [],
+    });
+  });
+
+  it('replaces xlsxImportHistory with the loaded records', () => {
+    const records: MainXlsxImportRecord[] = [
+      { rows: [], source: 'wizard', importedAt: 3000 },
+      { rows: [], source: 'manual', importedAt: 2000 },
+      { rows: [], source: 'wizard', importedAt: 1000 },
+    ];
+    useArxmlStore.getState().hydrateXlsxHistory(records);
+    const s = useArxmlStore.getState();
+    expect(s.xlsxImportHistory).toEqual(records);
+  });
+
+  it('does not touch xlsxLastImport (in-memory last-import is session-only)', () => {
+    useArxmlStore.setState({
+      xlsxLastImport: { rows: [], source: 'wizard', importedAt: 5000 },
+    });
+    useArxmlStore.getState().hydrateXlsxHistory([
+      { rows: [], source: 'manual', importedAt: 1000 },
+    ]);
+    const s = useArxmlStore.getState();
+    expect(s.xlsxLastImport?.importedAt).toBe(5000);
+    expect(s.xlsxImportHistory).toHaveLength(1);
+  });
+
+  it('defensively caps at MAX_HISTORY=5 even if 7 records are passed', () => {
+    const records: MainXlsxImportRecord[] = Array.from({ length: 7 }, (_, i) => ({
+      rows: [],
+      source: 'wizard' as const,
+      importedAt: 1000 + i,
+    }));
+    useArxmlStore.getState().hydrateXlsxHistory(records);
+    expect(useArxmlStore.getState().xlsxImportHistory).toHaveLength(5);
   });
 });

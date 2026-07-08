@@ -40,6 +40,7 @@ import type {
 import { writeAtomic } from '../io/writeAtomic.js';
 
 import { getOpenProjectManifestPath } from './project-manifest-state.js';
+import { xlsxHistorySaveHandler } from './xlsxHistorySaveHandler.js';
 
 const FILE_BY_KIND: Record<EcucInstanceRow['sheet'], 'Com' | 'CanIf' | 'PduR'> = {
   ComIPdu: 'Com',
@@ -461,6 +462,17 @@ export async function xlsxEcucBatchImportHandler(
       });
     }
   }
+
+  // v1.36.0 MINOR T3 — persist the import to disk after the broadcast.
+  // Order: broadcast first (so the renderer's xlsxLastImport
+  // updates immediately), persist second (file-bound). If
+  // persistence fails, the in-memory slice is still correct for
+  // the next dcm:config call — disk write is best-effort.
+  xlsxHistorySaveHandler({
+    rows: appliedRows,
+    source: 'wizard',
+    importedAt: Date.now(),
+  });
 
   return {
     ok: true,

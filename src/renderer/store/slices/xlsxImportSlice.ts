@@ -11,6 +11,7 @@
 import type { StateCreator } from 'zustand';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
+import type { MainXlsxImportRecord } from '../../../main/xlsxHistoryStorage.js';
 import type { ArxmlState } from '../useArxmlStore.js';
 
 export interface XlsxImportRecord {
@@ -33,6 +34,13 @@ export interface XlsxImportSlice {
    * Defensive: if `importedAt` is not in history (stale entry, race,
    * etc.), logs `console.warn` and no-ops. Slice invariant preserved. */
   reuseFromHistory: (importedAt: number) => void;
+  /** v1.36.0 MINOR T3 — hydrate the session-scope history from disk
+   * on App mount. Replaces the in-memory `xlsxImportHistory` with the
+   * persisted array. Defensive cap-5 (in case a hand-edited file
+   * contains more than 5 entries — main also caps). Does NOT touch
+   * `xlsxLastImport`; the disk file is the cross-session timeline,
+   * not the in-session "last import" trigger for dcm:config. */
+  hydrateXlsxHistory: (records: readonly MainXlsxImportRecord[]) => void;
 }
 
 const MAX_HISTORY = 5;
@@ -58,4 +66,11 @@ export const createXlsxImportSlice: StateCreator<ArxmlState, [], [], XlsxImportS
         xlsxLastImport: entry,
       };
     }),
+  hydrateXlsxHistory: (records) =>
+    set(() => ({
+      xlsxImportHistory: records.slice(0, MAX_HISTORY),
+      // Note: does NOT touch xlsxLastImport — that's the in-session
+      // trigger for dcm:config; the disk file is the cross-session
+      // timeline only.
+    })),
 });

@@ -36,7 +36,7 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useCallback, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import { findFirstEcucModule } from '@core/arxml/path.js';
@@ -81,6 +81,8 @@ import { useProjectActions } from './hooks/useProjectActions';
 import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
+import { attachXlsxImportListener } from './store/xlsxImportListener.js';
+import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
 import { useArxmlStore } from './store/useArxmlStore';
 
 export function App(): JSX.Element {
@@ -94,6 +96,29 @@ export function App(): JSX.Element {
   // is OFF (per G spec §2 G5). Independent from `useDebouncedValidation`
   // so the legacy schema validator and the SWS validator stay decoupled.
   useSwsValidatorRunner(300);
+
+  // v1.36.0 MINOR T3 — mount the two xlsx-import IPC listeners.
+  //   - attachXlsxImportListener: closes the v1.33.0 spec gap — the
+  //     listener was exported but never called, so the entire
+  //     xlsx:import-complete push channel was dead code. main pushes
+  //     the applied rows; this writes them to XlsxImportSlice so
+  //     DcmConfigSuccessDialog's `xlsxImportHistory` populates
+  //     immediately after the wizard commits.
+  //   - attachXlsxHistoryBootstrap: hydrates the session-scope
+  //     xlsxImportHistory from <userData>/xlsx-import-history.json
+  //     so the timeline survives app restarts. Independent of the
+  //     push; both listeners stay for the app's lifetime.
+  // Both return cleanup fns; the effect returns `undefined` because
+  // we don't need to manually unregister on hot-reload (the IPC
+  // bridge handles its own listener removal via the returned fn).
+  useEffect(() => {
+    const offImport = attachXlsxImportListener();
+    const offBootstrap = attachXlsxHistoryBootstrap();
+    return () => {
+      offImport();
+      offBootstrap();
+    };
+  }, []);
 
   // Sprint 13+ Stage 4 Q1 — react-resizable-panels v4 has no
   // `autoSaveId` prop (verified in node_modules/.../dist/.d.ts:60-142

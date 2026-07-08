@@ -124,6 +124,7 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'stencilSave',
       'writeArxmlBatch',
       'xlsxCommitBatch',
+      'xlsxHistoryLoad', // v1.36.0 MINOR T2 — xlsxImportHistory load bridge
       'xlsxParseBatch',
       'xlsxWriteBatchTemplate',
     ]);
