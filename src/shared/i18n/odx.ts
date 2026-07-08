@@ -36,6 +36,13 @@ export interface OdxMessages {
   readonly 'odx.export.dcmConfig.error.atomicWriteFailed': string; // {message}
   readonly 'odx.export.dcmConfig.error.unexpected': string; // {message}
   readonly 'odx.export.dcmConfig.error.dismiss': string;
+  // v1.35.0 MINOR T2 — 4 NEW keys, one per formerly-collapsed kind.
+  // Each key backs exactly one DcmConfigErrorKind; see spec §Reverse-Closes
+  // + NEW lesson candidates.
+  readonly 'odx.export.dcmConfig.error.odxDcmLinkage': string; // {message}
+  readonly 'odx.export.dcmConfig.error.dcmModuleMissing': string; // {message}
+  readonly 'odx.export.dcmConfig.error.containerNotFound': string; // {message}
+  readonly 'odx.export.dcmConfig.error.patchFailed': string; // {message}
   readonly 'dcmConfig.action.generate': string;
   readonly 'dcmConfig.action.generateAria': string; // {name}
   readonly 'dcmConfig.error.noDcmBswmd': string;

@@ -35,6 +35,11 @@ export const OdxZhCN: OdxMessages = {
   'odx.export.dcmConfig.error.atomicWriteFailed': '写入失败：{message}',
   'odx.export.dcmConfig.error.unexpected': '发生意外错误：{message}',
   'odx.export.dcmConfig.error.dismiss': '关闭',
+  // v1.35.0 MINOR T2 — 4 NEW keys for formerly-collapsed kinds.
+  'odx.export.dcmConfig.error.odxDcmLinkage': 'ODX 与 Dcm 关联缺失：{message}',
+  'odx.export.dcmConfig.error.dcmModuleMissing': 'BSWMD 缺少 Dcm 模块：{message}',
+  'odx.export.dcmConfig.error.containerNotFound': '未找到 BSWMD 容器：{message}',
+  'odx.export.dcmConfig.error.patchFailed': '应用补丁失败：{message}',
   'dcmConfig.action.generate': '生成 Dcm 配置',
   'dcmConfig.action.generateAria': '为 {name} 生成 Dcm 配置',
   'dcmConfig.error.noDcmBswmd': '需要先加载 Dcm BSWMD',

@@ -35,6 +35,11 @@ export const OdxEn: OdxMessages = {
   'odx.export.dcmConfig.error.atomicWriteFailed': 'Write failed: {message}',
   'odx.export.dcmConfig.error.unexpected': 'Unexpected error: {message}',
   'odx.export.dcmConfig.error.dismiss': 'Dismiss',
+  // v1.35.0 MINOR T2 — 4 NEW keys for formerly-collapsed kinds.
+  'odx.export.dcmConfig.error.odxDcmLinkage': 'ODX-Dcm linkage broken: {message}',
+  'odx.export.dcmConfig.error.dcmModuleMissing': 'BSWMD missing Dcm module: {message}',
+  'odx.export.dcmConfig.error.containerNotFound': 'BSWMD container not found: {message}',
+  'odx.export.dcmConfig.error.patchFailed': 'Patch application failed: {message}',
   'dcmConfig.action.generate': 'Generate Dcm Config',
   'dcmConfig.action.generateAria': 'Generate Dcm Config for {name}',
   'dcmConfig.error.noDcmBswmd': 'Requires a Dcm BSWMD to be loaded',
