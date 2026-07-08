@@ -1010,6 +1010,35 @@ function buildEcucModule(
       ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
     );
   }
+  // v1.37.1 PATCH T1 — populate the module-level `<PARAMETERS>` block
+  // (sibling of `<CONTAINERS>` inside `<ECUC-MODULE-DEF>`) into
+  // `BswModuleDef.parameters`. v1.37.0 MINOR T3 (H2) added the field +
+  // the bounded `addParameter` validation gate
+  // (`moduleDef.parameters ?? []` at `src/core/arxml/mutation.ts:590`)
+  // but `buildEcucModule` never populated it — the gate was a no-op
+  // in production because the parser silently dropped module-level
+  // `<PARAMETERS>`. This branch reuses the existing `buildParamList`
+  // helper (which already dispatches across all 5 supported
+  // `ECUC-XXX-PARAM-DEF` tags via `paramKindFromTag`) so a module-level
+  // parameter and a child-container parameter produce equivalent
+  // `ParamDef` shapes.
+  //
+  // Back-compat: when the BSWMD omits `<PARAMETERS>`, the array is
+  // initialised to `[]` so the field is ALWAYS defined on the returned
+  // `BswModuleDef`. Consumers must treat `undefined` and `[]`
+  // equivalently (use `?? []`); the v1.37.0 mutation.ts H2 gate
+  // already does this at `mutation.ts:590`. Real fixtures in
+  // `samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml` (100
+  // modules scanned) declare module-level `<PARAMETERS>` on 0
+  // modules — so no existing test or fixture is perturbed; the
+  // `length > 0` guard in `addParameter` remains a no-op for
+  // pre-v1.37.1 fixtures and un-binds cleanly in a follow-up T3
+  // dispatch when paired with this change.
+  const parameters: ParamDef[] = [];
+  const paramsRaw = item['PARAMETERS'];
+  if (typeof paramsRaw === 'object' && paramsRaw !== null) {
+    parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path, warnings));
+  }
   // v1.14.1 PATCH-G (G1) — extract <HEADER><SHORT-NAME> and
   // <STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>. fast-xml-parser
   // collapses single child to a string and multiple children to
@@ -1040,6 +1069,7 @@ function buildEcucModule(
     moduleId: null,
     containers,
     providedEntries: [],
+    parameters,
     lowerMultiplicity: readLowerMultiplicity(item),
     upperMultiplicity: readUpperMultiplicity(item),
     multiplicityConfigClasses: readMultiplicityConfigClasses(item),

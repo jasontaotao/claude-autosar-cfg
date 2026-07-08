@@ -1666,3 +1666,182 @@ describe('parseBswmd — <HEADER> + <STD-INCLUDES> extraction (v1.14.1 G1)', () 
     expect(legacyWarning).toBeUndefined();
   });
 });
+
+// ─── T1 (v1.37.1 PATCH) — module-level <PARAMETERS> extraction ───────
+// v1.37.0 MINOR T3 (H2) added module-level BSWMD validation in
+// `addParameter` / `addReference`, but the validation was bounded by
+// `moduleDef.parameters.length > 0` — and v1.37.0's `buildEcucModule`
+// never populated that array (the parser silently dropped module-level
+// `<PARAMETERS>`). v1.37.1 PATCH T1 closes the parser half: real
+// BSWMDs that declare `<PARAMETERS>` directly under `<ECUC-MODULE-DEF>`
+// (e.g. EcuC's `ModuleId` / `VendorId`) now surface those declarations
+// on `BswModuleDef.parameters`. T3 (a follow-up dispatch) will un-bind
+// the validation gate so unknown module-level params get rejected.
+describe('parseBswmd — module-level <PARAMETERS> extraction (v1.37.1 T1)', () => {
+  it('populates BswModuleDef.parameters from <PARAMETERS> at module root (integer)', () => {
+    // Arrange — a single module-level <ECUC-INTEGER-PARAM-DEF> with the
+    // canonical EcuC `ModuleId` shape. No child <CONTAINERS> so any
+    // populated entry must come from the new module-level branch, not
+    // from the existing `buildContainer` path.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>EcuC</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-INTEGER-PARAM-DEF>
+              <SHORT-NAME>ModuleId</SHORT-NAME>
+              <MIN>0</MIN>
+              <MAX>65535</MAX>
+              <DEFAULT-VALUE>1</DEFAULT-VALUE>
+            </ECUC-INTEGER-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — the module-level <PARAMETERS> child surfaces on the
+    // module's own `parameters` array (not on a container's, since
+    // there are no containers in this fixture).
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.parameters).toBeDefined();
+    expect(mod.parameters).toHaveLength(1);
+    const p = mod.parameters![0]!;
+    expect(p.shortName).toBe('ModuleId');
+    expect(p.kind).toBe('integer');
+    expect(p.defaultValue).toBe(1);
+    expect(p.minValue).toBe(0);
+    expect(p.maxValue).toBe(65535);
+    // Path is rooted at the module, mirroring how the module's
+    // containers get rooted (so downstream consumers can resolve
+    // paramDef.path against the same hierarchy).
+    expect(p.path).toBe('/AUTOSAR/EcucDefs/EcuC/ModuleId');
+  });
+
+  it('populates module-level parameters across all five kinds (integer / float / string / boolean / enumeration)', () => {
+    // Arrange — one <ECUC-MODULE-DEF> with a <PARAMETERS> block
+    // carrying every supported kind. Validates that `buildEcucModule`
+    // routes through the same `paramKindFromTag` + `buildParam` helpers
+    // as `buildContainer` does for child containers, so a parameter
+    // declared at the module root and a parameter declared inside a
+    // child container produce equivalent `ParamDef` shapes.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>EcuC</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-INTEGER-PARAM-DEF>
+              <SHORT-NAME>ModuleId</SHORT-NAME>
+              <MIN>0</MIN>
+              <MAX>65535</MAX>
+              <DEFAULT-VALUE>1</DEFAULT-VALUE>
+            </ECUC-INTEGER-PARAM-DEF>
+            <ECUC-FLOAT-PARAM-DEF>
+              <SHORT-NAME>VendorApiVersion</SHORT-NAME>
+              <MIN>0.0</MIN>
+              <MAX>9.9</MAX>
+              <DEFAULT-VALUE>3.1</DEFAULT-VALUE>
+            </ECUC-FLOAT-PARAM-DEF>
+            <ECUC-STRING-PARAM-DEF>
+              <SHORT-NAME>VendorName</SHORT-NAME>
+              <DEFAULT-VALUE>VendorX</DEFAULT-VALUE>
+            </ECUC-STRING-PARAM-DEF>
+            <ECUC-BOOLEAN-PARAM-DEF>
+              <SHORT-NAME>DevErrorDetect</SHORT-NAME>
+              <DEFAULT-VALUE>true</DEFAULT-VALUE>
+            </ECUC-BOOLEAN-PARAM-DEF>
+            <ECUC-ENUMERATION-PARAM-DEF>
+              <SHORT-NAME>ConfigVariant</SHORT-NAME>
+              <LITERALS>
+                <ECUC-ENUMERATION-LITERAL-DEF>
+                  <SHORT-NAME>VARIANT-PRE-COMPILE</SHORT-NAME>
+                </ECUC-ENUMERATION-LITERAL-DEF>
+                <ECUC-ENUMERATION-LITERAL-DEF>
+                  <SHORT-NAME>VARIANT-POST-BUILD</SHORT-NAME>
+                </ECUC-ENUMERATION-LITERAL-DEF>
+              </LITERALS>
+              <DEFAULT-VALUE>VARIANT-POST-BUILD</DEFAULT-VALUE>
+            </ECUC-ENUMERATION-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — every kind surfaces as a properly-typed ParamDef on
+    // the module's own `parameters` array. We spot-check each kind's
+    // discriminator + at least one kind-specific field so a future
+    // refactor that loses one of the kinds fails this test loudly.
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.parameters).toBeDefined();
+    expect(mod.parameters).toHaveLength(5);
+    const byName = new Map(mod.parameters!.map((p) => [p.shortName, p] as const));
+
+    const modId = byName.get('ModuleId');
+    expect(modId?.kind).toBe('integer');
+    expect(modId?.defaultValue).toBe(1);
+
+    const vendorApi = byName.get('VendorApiVersion');
+    expect(vendorApi?.kind).toBe('float');
+    expect(vendorApi?.defaultValue).toBe(3.1);
+
+    const vendorName = byName.get('VendorName');
+    expect(vendorName?.kind).toBe('string');
+    expect(vendorName?.defaultValue).toBe('VendorX');
+
+    const devErr = byName.get('DevErrorDetect');
+    expect(devErr?.kind).toBe('boolean');
+    expect(devErr?.defaultValue).toBe(true);
+
+    const cfgVar = byName.get('ConfigVariant');
+    expect(cfgVar?.kind).toBe('enumeration');
+    expect(cfgVar?.defaultValue).toBe('VARIANT-POST-BUILD');
+    expect(cfgVar?.enumerationLiterals).toEqual([
+      'VARIANT-PRE-COMPILE',
+      'VARIANT-POST-BUILD',
+    ]);
+  });
+
+  it('initialises BswModuleDef.parameters to [] when the module has no <PARAMETERS> block', () => {
+    // Arrange — AUTOSAR_MINIMAL (no <PARAMETERS> at module level).
+    // v1.37.1 PATCH T1 changes the runtime contract: the field is
+    // ALWAYS populated (an empty array `[]` when the BSWMD omits
+    // `<PARAMETERS>`), rather than left `undefined` as in v1.37.0.
+    // This is safe because the only consumer
+    // (`src/core/arxml/mutation.ts:590`) already does
+    // `moduleDef.parameters ?? []` and the `length > 0` gate keeps
+    // the validation no-op for empty arrays — back-compat with the
+    // pre-v1.37.0 fixture population is preserved.
+    const result = parseBswmd(AUTOSAR_MINIMAL);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — `parameters` is `[]` (always defined post-T1), and
+    // the bounded `mutation.ts` validation gate therefore stays a
+    // no-op (empty array passes the `length > 0` check).
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.parameters).toEqual([]);
+  });
+});
