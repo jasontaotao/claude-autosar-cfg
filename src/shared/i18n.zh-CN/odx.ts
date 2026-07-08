@@ -53,6 +53,11 @@ export const OdxZhCN: OdxMessages = {
   'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
   // v1.33.1 PATCH T3 — "Generate New" button.
   'dcmConfig.generateNew.button': '重新生成',
+  // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
+  'dcmConfig.generateNew.confirm.title': '确认重新生成 Dcm 配置？',
+  'dcmConfig.generateNew.confirm.message': '将使用新 BSWMD 重新触发 dcm:config：{path}。此操作会覆盖之前的输出文件。',
+  'dcmConfig.generateNew.confirm.confirm': '重新生成',
+  'dcmConfig.generateNew.confirm.cancel': '取消',
   // v1.34.0 MINOR T2 — Xlsx import history surface.
   'xlsxImportHistory.title': 'xlsx 导入历史',
   'xlsxImportHistory.empty': '本会话暂无导入记录',

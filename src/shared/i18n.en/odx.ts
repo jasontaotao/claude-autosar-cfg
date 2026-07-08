@@ -53,6 +53,12 @@ export const OdxEn: OdxMessages = {
   'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
   // v1.33.1 PATCH T3 — "Generate New" button.
   'dcmConfig.generateNew.button': 'Generate New',
+  // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
+  'dcmConfig.generateNew.confirm.title': 'Regenerate Dcm Config?',
+  'dcmConfig.generateNew.confirm.message':
+    'Re-fire dcm:config with the new BSWMD: {path}. This overwrites the previous output file.',
+  'dcmConfig.generateNew.confirm.confirm': 'Regenerate',
+  'dcmConfig.generateNew.confirm.cancel': 'Cancel',
   // v1.34.0 MINOR T2 — Xlsx import history surface.
   'xlsxImportHistory.title': 'Xlsx import history',
   'xlsxImportHistory.empty': 'No prior imports this session',

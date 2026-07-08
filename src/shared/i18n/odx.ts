@@ -62,6 +62,11 @@ export interface OdxMessages {
   // launcher.handleGenerateNew which re-fires dcm:config with the
   // captured lastOdxPath.
   readonly 'dcmConfig.generateNew.button': string;
+  // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
+  readonly 'dcmConfig.generateNew.confirm.title': string;
+  readonly 'dcmConfig.generateNew.confirm.message': string; // {path}
+  readonly 'dcmConfig.generateNew.confirm.confirm': string;
+  readonly 'dcmConfig.generateNew.confirm.cancel': string;
   // v1.34.0 MINOR T2 — Xlsx import history surface. Read-only
   // timeline of past xlsx imports (cap-5, prepend-first per
   // v1.33.0 slice invariant). Each row exposes a Reuse button

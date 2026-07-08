@@ -51,6 +51,7 @@ import { ArxmlPanel } from './components/ArxmlPanel';
 import { BswmdPickerRoot } from './components/BswmdPickerDialog';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
+import { ConfirmRoot2 } from './components/ConfirmDialog2.js';
 import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
 import type { ContextMenuAction } from './components/ContextMenu';
 import { DbcImportWizard } from './components/DbcImportWizard';
@@ -1254,6 +1255,12 @@ export function App(): JSX.Element {
           submitNewProject (Task 5) calls `confirm()` from inside
           NewProjectDialog.onSubmit, so ConfirmRoot must mount first. */}
         <ConfirmRoot />
+        {/* v1.36.0 MINOR T4 — 2-button destructive confirm modal
+            (separate from <ConfirmRoot /> which is the 3-button
+            unsaved-changes modal). Mounted as a sibling; the
+            module-level confirmDestructive() API resolves with
+            'confirm' or 'cancel'. */}
+        <ConfirmRoot2 />
         {/* Sprint 15 / Phase 3.3 — CascadeConfirmRoot hosts the 3-option
           cascade confirm dialog shown when the user requests a
           delete-container on a node with 1+ incoming references. It
