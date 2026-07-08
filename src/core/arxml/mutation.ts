@@ -671,6 +671,13 @@ export function addReference(
   containerPath: string,
   refDef: ReferenceDef,
   moduleDef: BswModuleDef,
+  // v1.37.0 MINOR T2 (H1) — optional user-supplied target path. The
+  // idempotent overwrite branch (when the param was auto-seeded empty
+  // by addContainer) writes this into the stored ParamValue's `value`
+  // field (previously hard-coded to '' despite the comment claiming
+  // it carried the user path — see H1 review finding). Defaults to
+  // '' for backward compat with callers that don't pass the option.
+  options?: { value?: string },
 ): Result<ArxmlDocument, MutationError> {
   const located = locateParent(doc, containerPath);
   if (located === null) {
@@ -718,11 +725,13 @@ export function addReference(
     ) {
       // Idempotent: the existing entry is the auto-seeded placeholder
       // for this exact reference (same `destKind`). Replace its value
-      // with the new one — which carries the user-supplied target path
-      // — and splice back into the doc.
+      // with the user-supplied target path (via `options.value`,
+      // defaulting to '' for backward compat) and its definitionRef
+      // with the picked path, then splice back into the doc.
+      const userValue = options?.value ?? '';
       const nextValue: ParamValue =
         refDef.path !== ''
-          ? ({ ...existing, value: '', definitionRef: refDef.path } as ParamValue)
+          ? ({ ...existing, value: userValue, definitionRef: refDef.path } as ParamValue)
           : existing;
       const nextParams: Readonly<Record<string, ParamValue>> = {
         ...parent.params,
@@ -736,8 +745,9 @@ export function addReference(
     }
     return { ok: false, error: { kind: 'name-conflict', shortName: refDef.shortName } };
   }
+  const userValue = options?.value ?? '';
   const nextValue: ParamValue = makeReferenceParamValue({
-    value: '',
+    value: userValue,
     dest: refDef.destKind,
     definitionRef: refDef.path,
   });

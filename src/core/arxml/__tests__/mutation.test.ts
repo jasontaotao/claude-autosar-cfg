@@ -989,6 +989,63 @@ describe('addReference', () => {
     if (r.ok) return;
     expect(r.error.kind).toBe('path-not-found');
   });
+
+  // v1.37.0 MINOR T2 (H1) — close H1 review finding: the idempotent
+  // branch's comment claims `value` carries the user-supplied target
+  // path, but the implementation hard-codes `value: ''`. This test
+  // seeds an auto-seeded empty reference (matching the v1.27.2 PATCH
+  // pattern), then re-calls `addReference` with a non-empty
+  // `options.value` and asserts the stored `ParamValue.value` field
+  // is the user-picked path (not '').
+  it('v1.37.0 MINOR T2 (H1) — seeded-then-addReference with non-empty value option fills value', () => {
+    // Arrange — seed an empty reference on the parent (matches the
+    // auto-seed pattern from addContainer + addReference idempotent branch).
+    const refDef: ReferenceDef = {
+      shortName: 'CanIfRef',
+      path: '',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const seededDoc = makeDoc('Can', [
+      makeContainer('CanConfigSet', [], {
+        // Auto-seeded placeholder — same destKind, empty value, empty definitionRef.
+        CanIfRef: {
+          type: 'reference',
+          value: '',
+          dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+          definitionRef: '',
+        },
+      }),
+    ]);
+    const moduleDef = makeBswModule('Can', [
+      makeBswContainer('CanConfigSet', { references: [refDef] }),
+    ]);
+
+    const USER_PICKED_PATH = '/ar_pkg/PduR/SomeContainer';
+
+    // Act — re-call addReference on the seeded shortName with the new
+    // `options.value` bag carrying the user-picked path.
+    const result = addReference(
+      seededDoc,
+      '/EAS/Can/CanConfigSet',
+      { ...refDef, path: USER_PICKED_PATH },
+      moduleDef,
+      { value: USER_PICKED_PATH },
+    );
+
+    // Assert — the idempotent branch hit, and value is filled (not '').
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rootModule = result.value.packages[0]!.elements[0] as ArxmlModule;
+    const canConfigSet = rootModule.children[0]! as ArxmlContainer;
+    expect(canConfigSet.params['CanIfRef']).toEqual({
+      type: 'reference',
+      value: USER_PICKED_PATH,
+      dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      definitionRef: USER_PICKED_PATH,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
