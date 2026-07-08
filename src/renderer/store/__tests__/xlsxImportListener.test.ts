@@ -28,11 +28,13 @@ beforeEach(() => {
   });
   captured = null;
   cleanup = null;
-  (window as unknown as {
-    autosarApi: {
-      onXlsxImportComplete: (h: CapturedHandler) => () => void;
-    };
-  }).autosarApi = {
+  (
+    window as unknown as {
+      autosarApi: {
+        onXlsxImportComplete: (h: CapturedHandler) => () => void;
+      };
+    }
+  ).autosarApi = {
     onXlsxImportComplete: (h) => {
       captured = h;
       return () => undefined;
