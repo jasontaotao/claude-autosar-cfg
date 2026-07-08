@@ -12,8 +12,6 @@ verified final count from T7's `pnpm verify` is 3041 + 7 SKIP / 0 fail.
 
 ## What's in this MINOR
 
-## What's in this MINOR
-
 ### `xlsxImportHistory` cross-session persistence
 
 The v1.34.0 MINOR introduced `XlsxImportSlice.xlsxImportHistory` (last
@@ -126,8 +124,8 @@ with a single clean table.
 
 ## Test budget
 
-Use the actual `pnpm verify` count from T7. (Net delta will be in the
-+20 range from v1.35.0's 3039 baseline.)
+**Actual verified count (T7 `pnpm verify`):** 3041 + 7 SKIP / 0 fail
+(+2 net from v1.35.0's 3039 baseline). See "Target" at top of file.
 
 ## Known follow-ups (deferred to v1.37.0+)
 
