@@ -594,11 +594,38 @@ describe('addParameter', () => {
     if (r.ok) return;
     expect(r.error.kind).toBe('invalid-param-type');
   });
-});
 
-// ---------------------------------------------------------------------------
-// removeParameter
-// ---------------------------------------------------------------------------
+  // v1.37.1 PATCH T3 — un-bound H2 validation gate. The pre-T3
+  // form had `moduleDef.parameters ?? []` — defensive against a
+  // possibly-undefined parser-populated field. T1 of v1.37.1 PATCH
+  // made `buildEcucModule` populate `moduleDef.parameters` from
+  // `<PARAMETERS>` for every BSWMD; the array is now ALWAYS
+  // defined (`[]` when the BSWMD omits the block). The `?? []`
+  // fallback is therefore redundant and removed.
+  //
+  // The `length > 0 &&` guard is RETAINED because it encodes the
+  // correct semantics: an empty declared set has no validation
+  // surface, so the check is a no-op (no entries to match). When
+  // the BSWMD DOES declare module-level params and the caller
+  // hands in a stale `paramDef`, the check fires.
+  it('v1.37.1 PATCH T3 — addParameter at module-level with EMPTY moduleDef.parameters passes (no validation surface)', () => {
+    // Arrange — BSWMD omits module-level <PARAMETERS>. The default
+    // makeBswModule helper sets `parameters: []` and `references: []`
+    // when callers don't pass `moduleLevel`. Caller still hands in a
+    // valid paramDef for a module-level addition.
+    const paramDef = makeBswParam('SomeParam', 'integer', 1);
+    const doc = makeDoc('Can', []);
+    const moduleDef = makeBswModule('Can', []);
+
+    // Act
+    const r = addParameter(doc, '/EAS/Can', paramDef, moduleDef);
+
+    // Assert — no validation surface (empty declared set) → the
+    // un-bound gate is a no-op → the call succeeds (matches the
+    // pre-v1.37.0 baseline for BSWMDs without module-level params).
+    expect(r.ok).toBe(true);
+  });
+});
 
 describe('removeParameter', () => {
   it('removes a parameter by key', () => {
@@ -1183,10 +1210,41 @@ describe('addReference', () => {
     if (r.ok) return;
     expect(r.error.kind).toBe('invalid-param-type');
   });
-});
 
-// ---------------------------------------------------------------------------
-// removeWithCascade
+  // v1.37.1 PATCH T3 — un-bound H2 validation gate (addReference
+  // side; mirrors the addParameter test above). The pre-T3 form
+  // had `moduleDef.references ?? []` — defensive against a
+  // possibly-undefined parser-populated field. T2 of v1.37.1 PATCH
+  // made `buildEcucModule` populate `moduleDef.references` from
+  // `<REFERENCES>` for every BSWMD; the array is now ALWAYS
+  // defined (`[]` when the BSWMD omits the block). The `?? []`
+  // fallback is therefore redundant and removed.
+  //
+  // The `length > 0 &&` guard is RETAINED because it encodes the
+  // correct semantics: an empty declared set has no validation
+  // surface, so the check is a no-op. When the BSWMD DOES declare
+  // module-level refs and the caller hands in a stale `refDef`,
+  // the check fires.
+  it('v1.37.1 PATCH T3 — addReference at module-level with EMPTY moduleDef.references passes (no validation surface)', () => {
+    // Arrange — BSWMD omits module-level <REFERENCES>.
+    const refDef: ReferenceDef = {
+      shortName: 'SomeRef',
+      path: '/Module/SomeRef',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('Can', []);
+    const moduleDef = makeBswModule('Can', []);
+
+    // Act
+    const r = addReference(doc, '/EAS/Can', refDef, moduleDef);
+
+    // Assert — no validation surface (empty declared set) → the
+    // un-bound gate is a no-op → the call succeeds.
+    expect(r.ok).toBe(true);
+  });
+});
 //
 // Sprint 14 v1.5.1 Foundation — PR(3). Auto-dangle cascade: removes the
 // target container AND any <REFERENCE>-typed params whose value points at

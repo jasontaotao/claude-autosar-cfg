@@ -578,15 +578,20 @@ export function addParameter(
     // excuse to skip validation — AUTOSAR modules like EcuC do
     // declare top-level parameters (ModuleId, VendorId).
     //
-    // Bounded by the populated list: when `moduleDef.parameters` is
-    // `undefined` or empty (the v1.37.0 baseline — parser does not
-    // extract module-level <PARAMETERS> yet), the check is a no-op.
-    // This preserves back-compat with all existing BSWMDs + tests
-    // and lets a follow-up PATCH (parser populates
-    // `moduleDef.parameters`) activate the validation without
-    // mutation.ts code changes. The defence-in-depth intent is
-    // preserved: when the BSWMD declares a module-level param and
-    // the caller hands in a stale `paramDef`, the check fires.
+    // v1.37.1 PATCH T3 — un-bound gate (parser now populates).
+    // v1.37.1 PATCH T1 made `buildEcucModule` populate
+    // `moduleDef.parameters` from `<PARAMETERS>` for every BSWMD.
+    // The `?? []` fallback is kept for two reasons: (a) the
+    // `BswModuleDef.parameters` TYPE is still optional
+    // (`readonly parameters?: readonly ParamDef[]`); callers that
+    // build their own `BswModuleDef` literal (e.g. the round-trip
+    // test fixtures at `round-trip-mutation.test.ts`) may pass
+    // `undefined`; (b) defence in depth at zero runtime cost.
+    // The `length > 0` guard is retained because it encodes the
+    // correct semantics: an empty declared set has no validation
+    // surface, so the check is a no-op. When the BSWMD DOES
+    // declare module-level params and the caller hands in a stale
+    // `paramDef`, the check fires.
     const moduleParams = moduleDef.parameters ?? [];
     if (moduleParams.length > 0 && !moduleParams.some((p) => p.shortName === paramDef.shortName)) {
       return {
@@ -746,9 +751,17 @@ export function addReference(
     // declare top-level references; the skip was a defence-in-depth
     // breach.
     //
-    // Bounded by the populated list: see the matching note in
-    // `addParameter` for the rationale (no-op when the BSWMD parser
-    // has not yet been taught to populate `moduleDef.references`).
+    // v1.37.1 PATCH T3 — un-bound gate (parser now populates;
+    // mirrors the addParameter fix). v1.37.1 PATCH T2 made
+    // `buildEcucModule` populate `moduleDef.references` from
+    // `<REFERENCES>` for every BSWMD. The `?? []` fallback is kept
+    // for the same reasons as in `addParameter`: the
+    // `BswModuleDef.references` TYPE is still optional, and
+    // round-trip test fixtures may pass `undefined`. The
+    // `length > 0` guard encodes the correct semantics: an empty
+    // declared set has no validation surface, so the check is a
+    // no-op. When the BSWMD DOES declare module-level refs and the
+    // caller hands in a stale `refDef`, the check fires.
     const moduleRefs = moduleDef.references ?? [];
     if (moduleRefs.length > 0 && !moduleRefs.some((r) => r.shortName === refDef.shortName)) {
       return {
