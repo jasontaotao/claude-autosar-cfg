@@ -33,10 +33,12 @@
 ### Task 1: `xlsxHistoryStorage` (main) + corrupted-file handling
 
 **Files:**
+
 - Create: `src/main/xlsxHistoryStorage.ts`
 - Test: `src/main/__tests__/xlsxHistoryStorage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `app.getPath('userData')` (Electron API); `EcucInstanceRow` from `src/shared/types.js`
 - Produces:
   - `XlsxImportRecord` (re-exported from `src/renderer/store/slices/xlsxImportSlice.js` or duplicated as `MainXlsxImportRecord` — see Step 1.1)
@@ -175,9 +177,7 @@ vi.mock('electron', () => ({
 }));
 
 // Import AFTER mock setup so the storage module picks up the mocked app.
-const { readXlsxHistory, writeXlsxHistory } = await import(
-  '../xlsxHistoryStorage.js'
-);
+const { readXlsxHistory, writeXlsxHistory } = await import('../xlsxHistoryStorage.js');
 
 afterEach(() => {
   rmSync(join(tmpDir, 'xlsx-import-history.json'), { force: true });
@@ -212,15 +212,9 @@ describe('xlsxHistoryStorage', () => {
 
   it('returns [] + console.warn on corrupt JSON', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    writeFileSync(
-      join(tmpDir, 'xlsx-import-history.json'),
-      'not-valid-json{',
-      'utf-8',
-    );
+    writeFileSync(join(tmpDir, 'xlsx-import-history.json'), 'not-valid-json{', 'utf-8');
     expect(readXlsxHistory()).toEqual([]);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('corrupt or unreadable'),
-    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('corrupt or unreadable'));
     warn.mockRestore();
   });
 });
@@ -269,6 +263,7 @@ Expected: commit created. Branch is now 1 commit ahead of `b3790d2` (v1.36.0 spe
 ### Task 2: `xlsxHistoryLoadHandler` + `xlsxHistorySaveHandler` (main IPC) + register + preload exposure
 
 **Files:**
+
 - Create: `src/main/ipc/xlsxHistoryLoadHandler.ts`
 - Create: `src/main/ipc/xlsxHistorySaveHandler.ts`
 - Modify: `src/shared/ipc-contract.ts:227` (add 2 new channel constants)
@@ -278,6 +273,7 @@ Expected: commit created. Branch is now 1 commit ahead of `b3790d2` (v1.36.0 spe
 - Test: `src/main/ipc/__tests__/xlsxHistorySaveHandler.test.ts`
 
 **Interfaces:**
+
 - Consumes: T1's `readXlsxHistory` / `writeXlsxHistory`
 - Produces:
   - `XlsHistoryLoadResponse` discriminated union: `{ ok: true, value: MainXlsxImportRecord[] } | { ok: false, error: { kind: 'read-failed', message: string } }`
@@ -309,14 +305,14 @@ Create the file (trailing newline):
 // Pure thin wrapper around readXlsxHistory (T1). Returns the typed
 // discriminated envelope matching the IPC contract.
 
-import {
-  readXlsxHistory,
-  type MainXlsxImportRecord,
-} from '../xlsxHistoryStorage.js';
+import { readXlsxHistory, type MainXlsxImportRecord } from '../xlsxHistoryStorage.js';
 
 export type XlsHistoryLoadResponse =
   | { readonly ok: true; readonly value: readonly MainXlsxImportRecord[] }
-  | { readonly ok: false; readonly error: { readonly kind: 'read-failed'; readonly message: string } };
+  | {
+      readonly ok: false;
+      readonly error: { readonly kind: 'read-failed'; readonly message: string };
+    };
 
 export function xlsxHistoryLoadHandler(): XlsHistoryLoadResponse {
   try {
@@ -345,16 +341,16 @@ Create the file (trailing newline):
 // broadcast — not exposed via the preload bridge (main-internal
 // only).
 
-import {
-  writeXlsxHistory,
-  type MainXlsxImportRecord,
-} from '../xlsxHistoryStorage.js';
+import { writeXlsxHistory, type MainXlsxImportRecord } from '../xlsxHistoryStorage.js';
 
 export type XlsHistorySaveRequest = MainXlsxImportRecord;
 
 export type XlsHistorySaveResponse =
   | { readonly ok: true }
-  | { readonly ok: false; readonly error: { readonly kind: 'write-failed'; readonly message: string } };
+  | {
+      readonly ok: false;
+      readonly error: { readonly kind: 'write-failed'; readonly message: string };
+    };
 
 export function xlsxHistorySaveHandler(req: XlsHistorySaveRequest): XlsHistorySaveResponse {
   try {
@@ -377,8 +373,8 @@ export function xlsxHistorySaveHandler(req: XlsHistorySaveRequest): XlsHistorySa
 Find the `ipcMain.handle` block (search for `ipcMain.handle(IPC_CHANNELS.`) and add after the last `ipcMain.handle` line:
 
 ```ts
-  // v1.36.0 MINOR T2 — xlsxImportHistory persistence.
-  ipcMain.handle(IPC_CHANNELS.XLSX_HISTORY_LOAD, () => xlsxHistoryLoadHandler());
+// v1.36.0 MINOR T2 — xlsxImportHistory persistence.
+ipcMain.handle(IPC_CHANNELS.XLSX_HISTORY_LOAD, () => xlsxHistoryLoadHandler());
 ```
 
 (SAVE handler is main-internal — wired in T3 when xlsxEcucBatchImportHandler is updated. No ipcMain.handle needed for SAVE because the renderer doesn't call it directly.)
@@ -538,6 +534,7 @@ cd D:/claude_proj2/claude-AutosarCfg && pnpm exec tsc --noEmit -p tsconfig.json 
 ```
 
 Expected: tsc clean. Common failure modes:
+
 - `Module '../../xlsxHistoryStorage.js' has no exported member 'XlsHistoryLoadResponse'` — the import in `preload/index.ts` is wrong; double-check Step 2.5.
 - `Cannot find name 'XlsHistoryLoadResponse'` in `preload/index.ts` — same fix.
 
@@ -567,6 +564,7 @@ of the T1 storage module to keep tests isolated from FS state."
 ### Task 3: `hydrateXlsxHistory` slice action + bootstrap + App.tsx wiring + xlsx:import-complete save-side hook
 
 **Files:**
+
 - Modify: `src/renderer/store/slices/xlsxImportSlice.ts` (add `hydrateXlsxHistory` action)
 - Create: `src/renderer/store/xlsxImportHistoryBootstrap.ts`
 - Modify: `src/renderer/App.tsx` (call `attachXlsxHistoryBootstrap` on mount)
@@ -575,6 +573,7 @@ of the T1 storage module to keep tests isolated from FS state."
 - Test: `src/renderer/store/__tests__/xlsxImportHistoryBootstrap.test.ts`
 
 **Interfaces:**
+
 - Consumes: T1's `MainXlsxImportRecord` shape, T2's `XlsHistoryLoadResponse` shape
 - Produces:
   - `XlsxImportSlice.hydrateXlsxHistory(records: readonly MainXlsxImportRecord[]): void` — replaces `xlsxImportHistory` with the loaded array (defensive cap-5)
@@ -641,11 +640,13 @@ type XlsHistoryLoadResponse = XlsHistoryLoadSuccess | XlsHistoryLoadFailure;
 export function attachXlsxHistoryBootstrap(): () => void {
   // The renderer bridge is a thin wrapper around ipcRenderer.invoke;
   // the envelope matches the main-side handler's return shape.
-  const bridge = (window as unknown as {
-    autosarApi?: {
-      xlsxHistoryLoad?: () => Promise<XlsHistoryLoadResponse>;
-    };
-  }).autosarApi;
+  const bridge = (
+    window as unknown as {
+      autosarApi?: {
+        xlsxHistoryLoad?: () => Promise<XlsHistoryLoadResponse>;
+      };
+    }
+  ).autosarApi;
   if (bridge?.xlsxHistoryLoad === undefined) {
     // Defensive: bridge missing in test/dev env. Resolve silently —
     // xlsxImportHistory stays at default [].
@@ -687,10 +688,10 @@ export function attachXlsxHistoryBootstrap(): () => void {
 Open `src/renderer/App.tsx`. Find the existing `attachXlsxImportListener()` call (search for it). The new bootstrap is independent — it can run alongside. Add immediately after (in the same `useEffect` block):
 
 ```ts
-  // v1.36.0 MINOR T3 — hydrate xlsxImportHistory from disk on App
-  // mount. Independent of xlsx:import-complete push; both listeners
-  // stay for the app's lifetime.
-  useEffect(() => attachXlsxHistoryBootstrap(), []);
+// v1.36.0 MINOR T3 — hydrate xlsxImportHistory from disk on App
+// mount. Independent of xlsx:import-complete push; both listeners
+// stay for the app's lifetime.
+useEffect(() => attachXlsxHistoryBootstrap(), []);
 ```
 
 If `attachXlsxImportListener` is NOT already inside a `useEffect`, wrap both in one. Mirror the v1.33.0 + v1.34.0 + v1.35.0 pattern from your reading.
@@ -700,17 +701,17 @@ If `attachXlsxImportListener` is NOT already inside a `useEffect`, wrap both in 
 Open `src/main/ipc/xlsxEcucBatchImportHandler.ts`. Find the `webContents.send` block (around line 458-462). Add immediately after (in the same `if` block, after the send completes):
 
 ```ts
-      // v1.36.0 MINOR T3 — persist to disk after the broadcast.
-      // Order: broadcast first (so the renderer's xlsxLastImport
-      // updates immediately), persist second (file-bound, async).
-      // If persistence fails, xlsxLastImport is still updated —
-      // in-memory state is the source of truth for the next
-      // dcm:config call.
-      xlsxHistorySaveHandler({
-        rows: appliedRows,
-        source: 'wizard',
-        importedAt: Date.now(),
-      });
+// v1.36.0 MINOR T3 — persist to disk after the broadcast.
+// Order: broadcast first (so the renderer's xlsxLastImport
+// updates immediately), persist second (file-bound, async).
+// If persistence fails, xlsxLastImport is still updated —
+// in-memory state is the source of truth for the next
+// dcm:config call.
+xlsxHistorySaveHandler({
+  rows: appliedRows,
+  source: 'wizard',
+  importedAt: Date.now(),
+});
 ```
 
 Add the import at the top of the file (with the other handler imports):
@@ -747,9 +748,7 @@ describe('hydrateXlsxHistory (v1.36.0 MINOR T3)', () => {
     useArxmlStore.setState({
       xlsxLastImport: { rows: [], source: 'wizard', importedAt: 5000 },
     });
-    useArxmlStore.getState().hydrateXlsxHistory([
-      { rows: [], source: 'manual', importedAt: 1000 },
-    ]);
+    useArxmlStore.getState().hydrateXlsxHistory([{ rows: [], source: 'manual', importedAt: 1000 }]);
     const s = useArxmlStore.getState();
     expect(s.xlsxLastImport?.importedAt).toBe(5000);
     expect(s.xlsxImportHistory).toHaveLength(1);
@@ -888,6 +887,7 @@ order), D5 (corrupt-file defensive) all honored."
 ### Task 4: `<ConfirmDialog2 />` component + `confirmDestructive()` API + i18n keys (4)
 
 **Files:**
+
 - Create: `src/renderer/components/ConfirmDialog2.tsx`
 - Create: `src/renderer/components/ConfirmDialog2.css`
 - Modify: `src/shared/i18n/odx.ts` (add 4 keys to interface)
@@ -896,6 +896,7 @@ order), D5 (corrupt-file defensive) all honored."
 - Test: `src/renderer/components/__tests__/ConfirmDialog2.test.tsx`
 
 **Interfaces:**
+
 - Consumes: existing `useArxmlStore.locale` (locale-reactive labels, mirrors ConfirmDialog)
 - Produces:
   - `<ConfirmRoot2 />` component (mount once in App)
@@ -1353,10 +1354,12 @@ UI patterns; don't force one API."
 ### Task 5: `useDcmConfigLauncher.handleGenerateNew` wraps `bswmd:pick` in `confirmDestructive`
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:570-598` (wrap bswmd:pick result in confirmDestructive)
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts` (add 2 tests: confirm-proceeds, cancel-noop)
 
 **Interfaces:**
+
 - Consumes: T4's `confirmDestructive({ title, message, confirmLabel, cancelLabel })` API
 - Produces: `handleGenerateNew()` behavior change — between `bswmd:pick` returning `'opened'` and calling `open()`, gate on `confirmDestructive` resolve
 
@@ -1371,82 +1374,82 @@ import { confirmDestructive } from '../components/ConfirmDialog2.js';
 Replace the existing `handleGenerateNew` body. Find:
 
 ```ts
-  const handleGenerateNew = useCallback(async (): Promise<void> => {
-    if (inFlightRef.current) return;
-    const r = await window.autosarApi.bswmdPick();
-    if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
-    const modules = arxmlModuleShortNames(r.content);
-    if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
-      console.warn(
-        `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${
-          modules.join(', ') || 'none'
-        })`,
-      );
-      return;
-    }
-    const odxPath = state.lastOdxPath ?? activeDocumentPath;
-    if (odxPath === null) {
-      console.warn(
-        'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
-      );
-      return;
-    }
-    // Re-fire via the existing `open()` entry. `open()` owns the
-    // inFlightRef toggle for the IPC call itself; this handler owns
-    // the user-picker re-entrancy guard above.
-    await open({
-      odxPath,
-      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-      bswmdPath: r.path,
-    });
-  }, [state.lastOdxPath, activeDocumentPath, open]);
+const handleGenerateNew = useCallback(async (): Promise<void> => {
+  if (inFlightRef.current) return;
+  const r = await window.autosarApi.bswmdPick();
+  if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
+  const modules = arxmlModuleShortNames(r.content);
+  if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
+    console.warn(
+      `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${
+        modules.join(', ') || 'none'
+      })`,
+    );
+    return;
+  }
+  const odxPath = state.lastOdxPath ?? activeDocumentPath;
+  if (odxPath === null) {
+    console.warn(
+      'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
+    );
+    return;
+  }
+  // Re-fire via the existing `open()` entry. `open()` owns the
+  // inFlightRef toggle for the IPC call itself; this handler owns
+  // the user-picker re-entrancy guard above.
+  await open({
+    odxPath,
+    xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+    bswmdPath: r.path,
+  });
+}, [state.lastOdxPath, activeDocumentPath, open]);
 ```
 
 Replace with:
 
 ```ts
-  // v1.36.0 MINOR T5 — Generate New now gates on a 2-button
-  // confirmDestructive modal after bswmd:pick succeeds. The picked
-  // BSWMD path is shown in the modal message so the user can verify
-  // the file before overwriting the previous dcm:config output.
-  // Cancels / Esc / × / backdrop all return 'cancel' → no-op
-  // (no IPC refire, lastOdxPath preserved).
-  const handleGenerateNew = useCallback(async (): Promise<void> => {
-    if (inFlightRef.current) return;
-    const r = await window.autosarApi.bswmdPick();
-    if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
-    const modules = arxmlModuleShortNames(r.content);
-    if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
-      console.warn(
-        `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${
-          modules.join(', ') || 'none'
-        })`,
-      );
-      return;
-    }
-    const odxPath = state.lastOdxPath ?? activeDocumentPath;
-    if (odxPath === null) {
-      console.warn(
-        'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
-      );
-      return;
-    }
-    // v1.36.0 MINOR T5 — destructive confirmation gate.
-    const choice = await confirmDestructive({
-      title: t(locale, 'dcmConfig.generateNew.confirm.title'),
-      message: t(locale, 'dcmConfig.generateNew.confirm.message', { path: r.path }),
-    });
-    if (choice === 'cancel') {
-      // User chose to abort; no IPC refire, lastOdxPath preserved.
-      return;
-    }
-    // Re-fire via the existing `open()` entry.
-    await open({
-      odxPath,
-      xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-      bswmdPath: r.path,
-    });
-  }, [state.lastOdxPath, activeDocumentPath, open, locale]);
+// v1.36.0 MINOR T5 — Generate New now gates on a 2-button
+// confirmDestructive modal after bswmd:pick succeeds. The picked
+// BSWMD path is shown in the modal message so the user can verify
+// the file before overwriting the previous dcm:config output.
+// Cancels / Esc / × / backdrop all return 'cancel' → no-op
+// (no IPC refire, lastOdxPath preserved).
+const handleGenerateNew = useCallback(async (): Promise<void> => {
+  if (inFlightRef.current) return;
+  const r = await window.autosarApi.bswmdPick();
+  if (r.kind !== 'opened') return; // canceled or read-failed (latter already showed dialog)
+  const modules = arxmlModuleShortNames(r.content);
+  if (!modules.includes(DCM_MODULE_SHORT_NAME)) {
+    console.warn(
+      `useDcmConfigLauncher: Generate New picked non-Dcm BSWMD (modules: ${
+        modules.join(', ') || 'none'
+      })`,
+    );
+    return;
+  }
+  const odxPath = state.lastOdxPath ?? activeDocumentPath;
+  if (odxPath === null) {
+    console.warn(
+      'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
+    );
+    return;
+  }
+  // v1.36.0 MINOR T5 — destructive confirmation gate.
+  const choice = await confirmDestructive({
+    title: t(locale, 'dcmConfig.generateNew.confirm.title'),
+    message: t(locale, 'dcmConfig.generateNew.confirm.message', { path: r.path }),
+  });
+  if (choice === 'cancel') {
+    // User chose to abort; no IPC refire, lastOdxPath preserved.
+    return;
+  }
+  // Re-fire via the existing `open()` entry.
+  await open({
+    odxPath,
+    xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+    bswmdPath: r.path,
+  });
+}, [state.lastOdxPath, activeDocumentPath, open, locale]);
 ```
 
 Note: `locale` is added to the dep array. If `locale` is not already in scope at this file location, find the existing locale access pattern (e.g., `useArxmlStore((s) => s.locale)`) and replicate. Read the file to confirm; the v1.33.0 / v1.34.0 / v1.35.0 patterns use a `useArxmlStore((s) => s.locale)` selector near the top of the hook.
@@ -1456,115 +1459,130 @@ Note: `locale` is added to the dep array. If `locale` is not already in scope at
 Open `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`. Find the `handleGenerateNew` describe block. Add 2 new tests inside:
 
 ```ts
-  it('v1.36.0 T5: handleGenerateNew shows confirmDestructive before re-fire; confirm → open()', async () => {
-    // Mock the bswmd:pick bridge
-    (window as unknown as {
+it('v1.36.0 T5: handleGenerateNew shows confirmDestructive before re-fire; confirm → open()', async () => {
+  // Mock the bswmd:pick bridge
+  (
+    window as unknown as {
       autosarApi: {
         dcmConfig: typeof invokeMock;
-        bswmdPick: () => Promise<{ kind: 'opened'; path: string; content: string } | { kind: 'canceled' } | { kind: 'read-failed'; message: string }>;
+        bswmdPick: () => Promise<
+          | { kind: 'opened'; path: string; content: string }
+          | { kind: 'canceled' }
+          | { kind: 'read-failed'; message: string }
+        >;
       };
-    }).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
-      kind: 'opened',
-      path: '/new-dcm-bswmd.arxml',
-      content: DCM_BSWMD_CONTENT,
-    });
-
-    // Pre-seed lastOdxPath
-    useArxmlStore.setState({ xlsxLastImport: null });
-
-    const { result } = renderHook(() => useDcmConfigLauncher());
-    // Trigger Generate New (returns immediately; the confirmDestructive
-    // promise is awaited inside)
-    void act(async () => {
-      await result.current.handleGenerateNew();
-    });
-    // Wait for the confirmDestructive to be pending
-    await act(async () => {
-      await Promise.resolve();
-    });
-    // Verify dcm:config has NOT been called yet (gate active)
-    expect(invokeMock).not.toHaveBeenCalled();
-    // User confirms (click confirm button)
-    const { confirmDestructive } = await import(
-      '../../components/ConfirmDialog2.js'
-    );
-    // Resolve the pending confirmDestructive promise by triggering
-    // the confirm button via the underlying setState. Since the
-    // test is purely a launcher test, we rely on the implementation
-    // detail: confirmDestructive resolves 'confirm' when the user
-    // clicks the confirm button. Simulate by mocking the bridge to
-    // resolve immediately.
-    // (For the unit test, just verify dcm:config IS called after
-    // the gate is satisfied — the actual modal interaction is
-    // covered in ConfirmDialog2.test.tsx.)
+    }
+  ).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
+    kind: 'opened',
+    path: '/new-dcm-bswmd.arxml',
+    content: DCM_BSWMD_CONTENT,
   });
 
-  it('v1.36.0 T5: handleGenerateNew on confirm-cancel does NOT call open()', async () => {
-    // Similar setup; verify that if confirmDestructive resolves
-    // 'cancel', open() is never called.
+  // Pre-seed lastOdxPath
+  useArxmlStore.setState({ xlsxLastImport: null });
+
+  const { result } = renderHook(() => useDcmConfigLauncher());
+  // Trigger Generate New (returns immediately; the confirmDestructive
+  // promise is awaited inside)
+  void act(async () => {
+    await result.current.handleGenerateNew();
   });
+  // Wait for the confirmDestructive to be pending
+  await act(async () => {
+    await Promise.resolve();
+  });
+  // Verify dcm:config has NOT been called yet (gate active)
+  expect(invokeMock).not.toHaveBeenCalled();
+  // User confirms (click confirm button)
+  const { confirmDestructive } = await import('../../components/ConfirmDialog2.js');
+  // Resolve the pending confirmDestructive promise by triggering
+  // the confirm button via the underlying setState. Since the
+  // test is purely a launcher test, we rely on the implementation
+  // detail: confirmDestructive resolves 'confirm' when the user
+  // clicks the confirm button. Simulate by mocking the bridge to
+  // resolve immediately.
+  // (For the unit test, just verify dcm:config IS called after
+  // the gate is satisfied — the actual modal interaction is
+  // covered in ConfirmDialog2.test.tsx.)
+});
+
+it('v1.36.0 T5: handleGenerateNew on confirm-cancel does NOT call open()', async () => {
+  // Similar setup; verify that if confirmDestructive resolves
+  // 'cancel', open() is never called.
+});
 ```
 
 **Note**: Step 5.2's two tests are intentionally skeletal — the actual modal interaction is tested in T4 (ConfirmDialog2.test.tsx). For T5, replace the two skeleton tests with **direct unit tests of the gate logic** that mock `confirmDestructive` to return `'cancel'` / `'confirm'` and verify `invokeMock` is called 0 / 1 times respectively:
 
 ```ts
-  it('v1.36.0 T5: handleGenerateNew does not call open() when confirmDestructive returns "cancel"', async () => {
-    // Mock bswmd:pick to return opened
-    (window as unknown as {
+it('v1.36.0 T5: handleGenerateNew does not call open() when confirmDestructive returns "cancel"', async () => {
+  // Mock bswmd:pick to return opened
+  (
+    window as unknown as {
       autosarApi: {
         dcmConfig: typeof invokeMock;
         bswmdPick: () => Promise<{ kind: 'opened'; path: string; content: string }>;
       };
-    }).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
-      kind: 'opened',
-      path: '/new-dcm-bswmd.arxml',
-      content: DCM_BSWMD_CONTENT,
-    });
-    // Mock confirmDestructive to return 'cancel'
-    const confirmDestructiveMock = vi.fn().mockResolvedValue('cancel' as const);
-    vi.doMock('../../components/ConfirmDialog2.js', () => ({
-      confirmDestructive: confirmDestructiveMock,
-    }));
-
-    useArxmlStore.setState({ xlsxLastImport: null });
-    const { result } = renderHook(() => useDcmConfigLauncher());
-    await act(async () => {
-      await result.current.handleGenerateNew();
-    });
-    // dcm:config should NOT have been called
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(confirmDestructiveMock).toHaveBeenCalledTimes(1);
+    }
+  ).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
+    kind: 'opened',
+    path: '/new-dcm-bswmd.arxml',
+    content: DCM_BSWMD_CONTENT,
   });
+  // Mock confirmDestructive to return 'cancel'
+  const confirmDestructiveMock = vi.fn().mockResolvedValue('cancel' as const);
+  vi.doMock('../../components/ConfirmDialog2.js', () => ({
+    confirmDestructive: confirmDestructiveMock,
+  }));
 
-  it('v1.36.0 T5: handleGenerateNew calls open() when confirmDestructive returns "confirm"', async () => {
-    // Similar setup; mock confirmDestructive to return 'confirm';
-    // verify dcm:config IS called with the new bswmdPath.
-    (window as unknown as {
+  useArxmlStore.setState({ xlsxLastImport: null });
+  const { result } = renderHook(() => useDcmConfigLauncher());
+  await act(async () => {
+    await result.current.handleGenerateNew();
+  });
+  // dcm:config should NOT have been called
+  expect(invokeMock).not.toHaveBeenCalled();
+  expect(confirmDestructiveMock).toHaveBeenCalledTimes(1);
+});
+
+it('v1.36.0 T5: handleGenerateNew calls open() when confirmDestructive returns "confirm"', async () => {
+  // Similar setup; mock confirmDestructive to return 'confirm';
+  // verify dcm:config IS called with the new bswmdPath.
+  (
+    window as unknown as {
       autosarApi: {
         dcmConfig: typeof invokeMock;
         bswmdPick: () => Promise<{ kind: 'opened'; path: string; content: string }>;
       };
-    }).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
-      kind: 'opened',
-      path: '/new-dcm-bswmd.arxml',
-      content: DCM_BSWMD_CONTENT,
-    });
-    invokeMock.mockResolvedValue({ ok: true, value: { /* minimal success result */ } });
-    const confirmDestructiveMock = vi.fn().mockResolvedValue('confirm' as const);
-    vi.doMock('../../components/ConfirmDialog2.js', () => ({
-      confirmDestructive: confirmDestructiveMock,
-    }));
+    }
+  ).autosarApi.bswmdPick = vi.fn().mockResolvedValue({
+    kind: 'opened',
+    path: '/new-dcm-bswmd.arxml',
+    content: DCM_BSWMD_CONTENT,
+  });
+  invokeMock.mockResolvedValue({
+    ok: true,
+    value: {
+      /* minimal success result */
+    },
+  });
+  const confirmDestructiveMock = vi.fn().mockResolvedValue('confirm' as const);
+  vi.doMock('../../components/ConfirmDialog2.js', () => ({
+    confirmDestructive: confirmDestructiveMock,
+  }));
 
-    useArxmlStore.setState({ xlsxLastImport: null });
-    const { result } = renderHook(() => useDcmConfigLauncher());
-    await act(async () => {
-      await result.current.handleGenerateNew();
-    });
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock).toHaveBeenCalledWith(expect.objectContaining({
+  useArxmlStore.setState({ xlsxLastImport: null });
+  const { result } = renderHook(() => useDcmConfigLauncher());
+  await act(async () => {
+    await result.current.handleGenerateNew();
+  });
+  expect(invokeMock).toHaveBeenCalledTimes(1);
+  expect(invokeMock).toHaveBeenCalledWith(
+    expect.objectContaining({
       bswmdPath: '/new-dcm-bswmd.arxml',
-    }));
-  });
+    }),
+  );
+});
 ```
 
 - [ ] **Step 5.3: Run the new tests**
@@ -1611,6 +1629,7 @@ lastOdxPath preserved, in-flight guard untouched).
 ### Task 6: ops polish — `tier3_push.README.md` orphan-recovery section + 4 lessons vault dispatch + v1.35.0 release-notes C2 polish
 
 **Files:**
+
 - Modify: `scripts/tier3_push.README.md` (add Orphan Recovery section)
 - Create: `docs/release-notes/v1.35.0/README.md` (modify — remove the "Wait — recompute" inline self-correction; replace with a single clean table)
 - Create: 4 lesson vault notes (parent controller dispatches `pkm-capture`; this task creates empty placeholders if needed)
@@ -1621,7 +1640,7 @@ lastOdxPath preserved, in-flight guard untouched).
 
 Open `scripts/tier3_push.README.md`. Find the `## Regression-guard` section. Add a new section immediately after:
 
-```markdown
+````markdown
 ## Orphan Recovery
 
 When the script successfully pushes but the local SHA differs from the
@@ -1639,6 +1658,7 @@ curl -I https://github.com/jasontaotao/claude-autosar-cfg 2>&1 | head -3
 git fetch origin main
 git reset --hard origin/main
 ```
+````
 
 This is a **safe operation** — `git reset --hard origin/main` only
 discards local commits whose tree is identical to (or a subset of)
@@ -1650,7 +1670,8 @@ If `git fetch origin main` itself times out (the same github.com:443
 block that triggered Tier 3 in the first place), wait for the
 block to lift, then retry. Tier 3 itself is not repeatable on the
 same commits (the second walk would find no commits to push).
-```
+
+````
 
 - [ ] **Step 6.2: Remove the "Wait — recompute" inline self-correction from v1.35.0 release notes**
 
@@ -1683,19 +1704,19 @@ Actual: +2 +3 +1 +0 = +6, but implementer reported +7 (off by 1, likely from an 
 | `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
 | `useDcmConfigLauncher.test.ts` (UPDATED) | +1 (consolidation net, see T5 amendment note) | 3014 → 3015 |
 | **Total** | | **3008 → 3015 (+7)** |
-```
+````
 
 Replace with:
 
 ```markdown
 ## Test budget (+7 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `scripts/__tests__/test_tier3_push.py` (NEW) | +2 | 3008 → 3010 |
-| `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +1 (consolidation net; launcher rows were 6→9 replacement, not net-add) | 3014 → 3015 |
-| **Total** | | **3008 → 3015 (+7)** |
+| Test file                                    | Δ                                                                       | Cumulative           |
+| -------------------------------------------- | ----------------------------------------------------------------------- | -------------------- |
+| `scripts/__tests__/test_tier3_push.py` (NEW) | +2                                                                      | 3008 → 3010          |
+| `DcmConfigErrorToast.test.tsx` (UPDATED)     | +3 (it.each 6→9) +1 (zh-CN parity)                                      | 3010 → 3014          |
+| `useDcmConfigLauncher.test.ts` (UPDATED)     | +1 (consolidation net; launcher rows were 6→9 replacement, not net-add) | 3014 → 3015          |
+| **Total**                                    |                                                                         | **3008 → 3015 (+7)** |
 ```
 
 - [ ] **Step 6.3: Create 4 lesson vault placeholders**
@@ -1828,13 +1849,16 @@ cd D:/claude_proj2/claude-AutosarCfg && git -c user.name=claude-AutosarCfg -c us
 cd D:/claude_proj2/claude-AutosarCfg && git status && git log --oneline origin/main..HEAD
 ```
 
-Expected: clean tree (T1 already pushed); N commits ahead (T1-T6 uncommitted/pushed depending on per-task push pattern). 
+Expected: clean tree (T1 already pushed); N commits ahead (T1-T6 uncommitted/pushed depending on per-task push pattern).
 
 If commits are still local (T1-T6 not pushed), push them now:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ```
@@ -1846,6 +1870,7 @@ cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ### Task 7: Ship — whole-branch review + tag + release
 
 **Files:**
+
 - Create: `docs/release-notes/v1.36.0/README.md` (release notes — created in this task)
 - Modify: `CHANGELOG.md` (one-row entry — read existing layout first)
 
@@ -1936,29 +1961,30 @@ with a single clean table.
 
 ## Test budget (+17 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `xlsxHistoryStorage.test.ts` (NEW) | +4 | 3015 → 3019 |
-| `xlsxHistoryLoadHandler.test.ts` (NEW) | +3 | 3019 → 3022 |
-| `xlsxHistorySaveHandler.test.ts` (NEW) | +3 | 3022 → 3025 |
-| `xlsxImportSlice.test.ts` (UPDATED) | +3 (hydrateXlsxHistory cases) | 3025 → 3028 |
-| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3 | 3028 → 3031 |
-| `ConfirmDialog2.test.tsx` (NEW) | +5 | 3031 → 3036 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +2 (handleGenerateNew confirm/cancel) | 3036 → 3038 |
-| Wait — re-check. |
+| Test file                                  | Δ                                     | Cumulative  |
+| ------------------------------------------ | ------------------------------------- | ----------- |
+| `xlsxHistoryStorage.test.ts` (NEW)         | +4                                    | 3015 → 3019 |
+| `xlsxHistoryLoadHandler.test.ts` (NEW)     | +3                                    | 3019 → 3022 |
+| `xlsxHistorySaveHandler.test.ts` (NEW)     | +3                                    | 3022 → 3025 |
+| `xlsxImportSlice.test.ts` (UPDATED)        | +3 (hydrateXlsxHistory cases)         | 3025 → 3028 |
+| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3                                    | 3028 → 3031 |
+| `ConfirmDialog2.test.tsx` (NEW)            | +5                                    | 3031 → 3036 |
+| `useDcmConfigLauncher.test.ts` (UPDATED)   | +2 (handleGenerateNew confirm/cancel) | 3036 → 3038 |
+| Wait — re-check.                           |
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `xlsxHistoryStorage.test.ts` (NEW) | +4 | 3015 → 3019 |
-| `xlsxHistoryLoadHandler.test.ts` (NEW) | +3 | 3019 → 3022 |
-| `xlsxHistorySaveHandler.test.ts` (NEW) | +3 | 3022 → 3025 |
-| `xlsxImportSlice.test.ts` (UPDATED) | +3 | 3025 → 3028 |
-| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3 | 3028 → 3031 |
-| `ConfirmDialog2.test.tsx` (NEW) | +5 | 3031 → 3036 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +2 | 3036 → 3038 |
-| **Total** | | **3015 → 3038 (+23)** |
+| Test file                                  | Δ   | Cumulative            |
+| ------------------------------------------ | --- | --------------------- |
+| `xlsxHistoryStorage.test.ts` (NEW)         | +4  | 3015 → 3019           |
+| `xlsxHistoryLoadHandler.test.ts` (NEW)     | +3  | 3019 → 3022           |
+| `xlsxHistorySaveHandler.test.ts` (NEW)     | +3  | 3022 → 3025           |
+| `xlsxImportSlice.test.ts` (UPDATED)        | +3  | 3025 → 3028           |
+| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3  | 3028 → 3031           |
+| `ConfirmDialog2.test.tsx` (NEW)            | +5  | 3031 → 3036           |
+| `useDcmConfigLauncher.test.ts` (UPDATED)   | +2  | 3036 → 3038           |
+| **Total**                                  |     | **3015 → 3038 (+23)** |
 
 Wait — the spec said +17 but the per-file math gives +23. Let me recompute:
+
 - T1 xlsxHistoryStorage: 4
 - T2 xlsxHistoryLoadHandler: 3, xlsxHistorySaveHandler: 3 (total 6)
 - T3 xlsxImportSlice hydrate: 3, xlsxImportHistoryBootstrap: 3 (total 6)
@@ -1968,16 +1994,16 @@ Wait — the spec said +17 but the per-file math gives +23. Let me recompute:
 
 Total: 4 + 6 + 6 + 5 + 2 = +23. Spec said +17 (undercount).
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `xlsxHistoryStorage.test.ts` (NEW) | +4 | 3015 → 3019 |
-| `xlsxHistoryLoadHandler.test.ts` (NEW) | +3 | 3019 → 3022 |
-| `xlsxHistorySaveHandler.test.ts` (NEW) | +3 | 3022 → 3025 |
-| `xlsxImportSlice.test.ts` (UPDATED) | +3 | 3025 → 3028 |
-| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3 | 3028 → 3031 |
-| `ConfirmDialog2.test.tsx` (NEW) | +5 | 3031 → 3036 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +2 | 3036 → 3038 |
-| **Total** | | **3015 → 3038 (+23)** |
+| Test file                                  | Δ   | Cumulative            |
+| ------------------------------------------ | --- | --------------------- |
+| `xlsxHistoryStorage.test.ts` (NEW)         | +4  | 3015 → 3019           |
+| `xlsxHistoryLoadHandler.test.ts` (NEW)     | +3  | 3019 → 3022           |
+| `xlsxHistorySaveHandler.test.ts` (NEW)     | +3  | 3022 → 3025           |
+| `xlsxImportSlice.test.ts` (UPDATED)        | +3  | 3025 → 3028           |
+| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3  | 3028 → 3031           |
+| `ConfirmDialog2.test.tsx` (NEW)            | +5  | 3031 → 3036           |
+| `useDcmConfigLauncher.test.ts` (UPDATED)   | +2  | 3036 → 3038           |
+| **Total**                                  |     | **3015 → 3038 (+23)** |
 
 Baseline 3015 + 7 SKIP / 0 fail (from v1.35.0 MINOR `6ea74b40`) →
 actual **3038 + 7 SKIP / 0 fail** (+23 net; spec said +17 but T3 split
@@ -2031,21 +2057,27 @@ cd D:/claude_proj2/claude-AutosarCfg && git tag -a v1.36.0 -m "v1.36.0 MINOR —
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ```
 
 Then the tag push (separate push per `follow-tags-unreliable-separate-push-tag` lesson):
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin v1.36.0
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py --base <prev_server_sha>
 ```
 
 Then GH release (use the 40-char SHA of the ship commit, not the abbreviated one):
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && SHIP_SHA=$(git rev-parse v1.36.0) && gh release create v1.36.0 --target "$SHIP_SHA" --title "v1.36.0 MINOR — xlsxImportHistory Persistence + Generate New Confirmation + ops polish" --notes-file docs/release-notes/v1.36.0/README.md
 ```
@@ -2057,6 +2089,7 @@ cd D:/claude_proj2/claude-AutosarCfg && SHORT_SHA=$(git rev-parse --short v1.36.
 ```
 
 Then push the backfill:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
@@ -2101,21 +2134,21 @@ Then dispatch the whole-branch reviewer with the diff path. The reviewer will pr
 
 ### 1. Spec coverage
 
-| Spec section | Plan task |
-|---|---|
-| Goal (history persistence + Generate New + ops) | T1-T6 (parallel pieces) |
+| Spec section                                            | Plan task                                                                          |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Goal (history persistence + Generate New + ops)         | T1-T6 (parallel pieces)                                                            |
 | Architecture (custom JSON file + 2-button dialog + ops) | T1 (storage), T2 (IPC), T3 (bootstrap), T4 (ConfirmDialog2), T5 (wiring), T6 (ops) |
-| 3 IPC channels (xlsxHistory:load + xlsxHistory:save) | T2 (load), T2 + T3 (save) |
-| Cap-5 + prepend-first | T1 (writeXlsxHistory), T3 (hydrate defensive cap) |
-| Corrupted-file defensive | T1 (try/catch + console.warn) |
-| Order: broadcast-then-persist | T3 (Step 3.4: xlsxHistorySaveHandler AFTER webContents.send) |
-| 2-button modal separate from 3-button | T4 (ConfirmDialog2 distinct from ConfirmDialog) |
-| 4 i18n keys | T4 (Steps 4.3-4.5) |
-| D2 confirmDestructive API mirrors confirm() | T4 (Step 4.1) |
-| T6 ops polish (tier3 docs + 4 lessons + C2 cleanup) | T6 |
-| Test budget +17 → +23 (spec undercount, recalc inline) | T7 release notes |
-| Reverse-closes (v1.34.0 + v1.33.1 promises) | T7 release notes |
-| Out of scope (multi-BSWMD / wizard / etc.) | T7 release notes |
+| 3 IPC channels (xlsxHistory:load + xlsxHistory:save)    | T2 (load), T2 + T3 (save)                                                          |
+| Cap-5 + prepend-first                                   | T1 (writeXlsxHistory), T3 (hydrate defensive cap)                                  |
+| Corrupted-file defensive                                | T1 (try/catch + console.warn)                                                      |
+| Order: broadcast-then-persist                           | T3 (Step 3.4: xlsxHistorySaveHandler AFTER webContents.send)                       |
+| 2-button modal separate from 3-button                   | T4 (ConfirmDialog2 distinct from ConfirmDialog)                                    |
+| 4 i18n keys                                             | T4 (Steps 4.3-4.5)                                                                 |
+| D2 confirmDestructive API mirrors confirm()             | T4 (Step 4.1)                                                                      |
+| T6 ops polish (tier3 docs + 4 lessons + C2 cleanup)     | T6                                                                                 |
+| Test budget +17 → +23 (spec undercount, recalc inline)  | T7 release notes                                                                   |
+| Reverse-closes (v1.34.0 + v1.33.1 promises)             | T7 release notes                                                                   |
+| Out of scope (multi-BSWMD / wizard / etc.)              | T7 release notes                                                                   |
 
 **Spec gaps:** None.
 

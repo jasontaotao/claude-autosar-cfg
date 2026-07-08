@@ -5,8 +5,9 @@
 // attachXlsxImportListener pattern (return cleanup fn for hot-reload
 // safety; same module layout in store/).
 
-import { useArxmlStore } from './useArxmlStore.js';
 import type { MainXlsxImportRecord } from '../../main/xlsxHistoryStorage.js';
+
+import { useArxmlStore } from './useArxmlStore.js';
 
 interface XlsHistoryLoadSuccess {
   readonly ok: true;
@@ -22,11 +23,13 @@ type XlsHistoryLoadResponse = XlsHistoryLoadSuccess | XlsHistoryLoadFailure;
 export function attachXlsxHistoryBootstrap(): () => void {
   // The renderer bridge is a thin wrapper around ipcRenderer.invoke;
   // the envelope matches the main-side handler's return shape.
-  const bridge = (window as unknown as {
-    autosarApi?: {
-      xlsxHistoryLoad?: () => Promise<XlsHistoryLoadResponse>;
-    };
-  }).autosarApi;
+  const bridge = (
+    window as unknown as {
+      autosarApi?: {
+        xlsxHistoryLoad?: () => Promise<XlsHistoryLoadResponse>;
+      };
+    }
+  ).autosarApi;
   if (bridge?.xlsxHistoryLoad === undefined) {
     // Defensive: bridge missing in test/dev env. Resolve silently —
     // xlsxImportHistory stays at default [].

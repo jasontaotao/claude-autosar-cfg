@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import type { XlsHistoryLoadResponse } from '../main/ipc/xlsxHistoryLoadHandler.js';
 import type {
   StencilRequest,
   StencilResponse,
@@ -76,7 +77,6 @@ import type {
 } from '../shared/types.js';
 
 import { getRendererPlatform } from './platform.js';
-import type { XlsHistoryLoadResponse } from '../main/ipc/xlsxHistoryLoadHandler.js';
 
 const api = {
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),

@@ -13,7 +13,6 @@ import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
-
 import { ConfirmRoot2, confirmDestructive } from '../ConfirmDialog2.js';
 
 beforeEach(() => {

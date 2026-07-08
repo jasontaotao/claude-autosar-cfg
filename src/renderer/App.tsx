@@ -36,7 +36,13 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import { findFirstEcucModule } from '@core/arxml/path.js';
@@ -82,9 +88,9 @@ import { useProjectActions } from './hooks/useProjectActions';
 import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
-import { attachXlsxImportListener } from './store/xlsxImportListener.js';
-import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
 import { useArxmlStore } from './store/useArxmlStore';
+import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
+import { attachXlsxImportListener } from './store/xlsxImportListener.js';
 
 export function App(): JSX.Element {
   // Sprint 3: 300ms debounced revalidation safety net.

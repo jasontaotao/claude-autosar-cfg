@@ -3,10 +3,11 @@
 // Mocks app.getPath('userData') to point at a tmp dir; each test gets
 // a clean tmp dir so reads/writes are isolated.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const tmpDir = mkdtempSync(join(tmpdir(), 'xlsx-history-test-'));
 

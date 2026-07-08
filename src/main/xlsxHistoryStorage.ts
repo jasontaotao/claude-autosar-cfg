@@ -9,12 +9,14 @@
 // cap with a stable shape, custom JSON in userData is simpler than
 // electron-store. No schema migration needed at this size.
 
-import { app } from 'electron';
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
-import { writeAtomic } from './io/writeAtomic.js';
+import { app } from 'electron';
+
 import type { EcucInstanceRow } from '../shared/types.js';
+
+import { writeAtomic } from './io/writeAtomic.js';
 
 const MAX_HISTORY = 5;
 

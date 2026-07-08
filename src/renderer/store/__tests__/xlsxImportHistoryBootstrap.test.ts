@@ -7,8 +7,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { attachXlsxHistoryBootstrap } from '../xlsxImportHistoryBootstrap.js';
 import { useArxmlStore } from '../useArxmlStore.js';
+import { attachXlsxHistoryBootstrap } from '../xlsxImportHistoryBootstrap.js';
 
 const loadMock = vi.fn();
 
@@ -17,9 +17,7 @@ beforeEach(() => {
     xlsxLastImport: null,
     xlsxImportHistory: [],
   });
-  (
-    window as unknown as { autosarApi: { xlsxHistoryLoad: typeof loadMock } }
-  ).autosarApi = {
+  (window as unknown as { autosarApi: { xlsxHistoryLoad: typeof loadMock } }).autosarApi = {
     xlsxHistoryLoad: loadMock,
   };
   loadMock.mockReset();

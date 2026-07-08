@@ -30,13 +30,15 @@ export function attachXlsxImportListener(): () => void {
   // 收到 payload,签名刻意窄化为 1 参,与底层 ipcRenderer 监听器的
   // 2 参 `(_event, payload)` 原型不同;前者是公开 API 契约,后者
   // 是内部边界适配点。
-  const bridge = (window as unknown as {
-    autosarApi?: {
-      onXlsxImportComplete?: (
-        handler: (payload: XlsxImportCompletePayload) => void,
-      ) => () => void;
-    };
-  }).autosarApi;
+  const bridge = (
+    window as unknown as {
+      autosarApi?: {
+        onXlsxImportComplete?: (
+          handler: (payload: XlsxImportCompletePayload) => void,
+        ) => () => void;
+      };
+    }
+  ).autosarApi;
   if (bridge?.onXlsxImportComplete === undefined) {
     // Bridge missing in test/dev env. xlsxLastImport stays at
     // default; no-op cleanup for the useEffect body.

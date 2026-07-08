@@ -48,7 +48,7 @@ const handleGenerateNew = useCallback(async (): Promise<void> => {
 }, [...]);
 ```
 
-v1.33.1 spec §4 deferred: "Generate New operation 二次确认 modal (destructive re-write explicit, no confirm needed)". Reading the comment "no confirm needed" — the deferred item is *adding* the confirm modal (the spec author changed their mind between v1.33.0 and v1.33.1).
+v1.33.1 spec §4 deferred: "Generate New operation 二次确认 modal (destructive re-write explicit, no confirm needed)". Reading the comment "no confirm needed" — the deferred item is _adding_ the confirm modal (the spec author changed their mind between v1.33.0 and v1.33.1).
 
 The 3-button `ConfirmDialog` is at `src/renderer/components/ConfirmDialog.tsx`. It serves unsaved-changes (continue/discard/saveAndProceed) — not a 2-button destructive-confirm.
 
@@ -92,24 +92,24 @@ The 3-button `ConfirmDialog` is at `src/renderer/components/ConfirmDialog.tsx`. 
 
 ## Components & Files Touched
 
-| Layer | File | Change |
-|---|---|---|
-| shared | `src/shared/ipc-contract.ts` | +2 channels: `XLSX_HISTORY_LOAD`, `XLSX_HISTORY_SAVE` |
-| main | `src/main/xlsxHistoryStorage.ts` (NEW) | Read/write JSON to userData; corrupted file handling |
-| main | `src/main/ipc/xlsxHistoryLoadHandler.ts` (NEW) | Returns persisted history |
-| main | `src/main/ipc/xlsxHistorySaveHandler.ts` (NEW) | Writes cap-5 + prepend-first to JSON |
-| main | `src/main/ipc/register.ts` | Register new IPC handlers |
-| main | `src/main/ipc/xlsxEcucBatchImportHandler.ts` | After broadcast, call `xlsxHistorySaveHandler` (additive) |
-| preload | `src/preload/index.ts` | Expose `xlsxHistoryLoad` only (no `xlsxHistorySave` — main-internal) |
-| renderer | `src/renderer/components/ConfirmDialog2.tsx` (NEW) | 2-button (confirm/cancel) modal; promise-based `confirmDestructive(options)` |
-| renderer | `src/renderer/hooks/useDcmConfigLauncher.ts` | `handleGenerateNew` wraps bswmd:pick result in `confirmDestructive` |
-| renderer | `src/renderer/store/slices/xlsxImportSlice.ts` | New `hydrateXlsxHistory(records)` action |
-| renderer | `src/renderer/store/xlsxImportHistoryBootstrap.ts` (NEW) | `attachXlsxHistoryBootstrap()` — call `xlsxHistoryLoad` on mount, write to slice |
-| renderer | `src/renderer/App.tsx` | Call `attachXlsxHistoryBootstrap()` + mount `<ConfirmRoot2 />` |
-| renderer i18n | `src/shared/i18n/odx.ts` + en + zh-CN | +4 keys: `dcmConfig.generateNew.confirm.title`, `.message`, `.confirm`, `.cancel` |
-| docs | `docs/release-notes/v1.35.0/README.md` | C2 polish: remove "Wait — recompute" duplication |
-| docs | `scripts/tier3_push.README.md` | +orphan-recovery section (D13 + D14) |
-| vault | `01-Projects/claude-AutosarCfg/development/lessons/` | +4 lesson files (D15) — parent controller dispatch |
+| Layer         | File                                                     | Change                                                                            |
+| ------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| shared        | `src/shared/ipc-contract.ts`                             | +2 channels: `XLSX_HISTORY_LOAD`, `XLSX_HISTORY_SAVE`                             |
+| main          | `src/main/xlsxHistoryStorage.ts` (NEW)                   | Read/write JSON to userData; corrupted file handling                              |
+| main          | `src/main/ipc/xlsxHistoryLoadHandler.ts` (NEW)           | Returns persisted history                                                         |
+| main          | `src/main/ipc/xlsxHistorySaveHandler.ts` (NEW)           | Writes cap-5 + prepend-first to JSON                                              |
+| main          | `src/main/ipc/register.ts`                               | Register new IPC handlers                                                         |
+| main          | `src/main/ipc/xlsxEcucBatchImportHandler.ts`             | After broadcast, call `xlsxHistorySaveHandler` (additive)                         |
+| preload       | `src/preload/index.ts`                                   | Expose `xlsxHistoryLoad` only (no `xlsxHistorySave` — main-internal)              |
+| renderer      | `src/renderer/components/ConfirmDialog2.tsx` (NEW)       | 2-button (confirm/cancel) modal; promise-based `confirmDestructive(options)`      |
+| renderer      | `src/renderer/hooks/useDcmConfigLauncher.ts`             | `handleGenerateNew` wraps bswmd:pick result in `confirmDestructive`               |
+| renderer      | `src/renderer/store/slices/xlsxImportSlice.ts`           | New `hydrateXlsxHistory(records)` action                                          |
+| renderer      | `src/renderer/store/xlsxImportHistoryBootstrap.ts` (NEW) | `attachXlsxHistoryBootstrap()` — call `xlsxHistoryLoad` on mount, write to slice  |
+| renderer      | `src/renderer/App.tsx`                                   | Call `attachXlsxHistoryBootstrap()` + mount `<ConfirmRoot2 />`                    |
+| renderer i18n | `src/shared/i18n/odx.ts` + en + zh-CN                    | +4 keys: `dcmConfig.generateNew.confirm.title`, `.message`, `.confirm`, `.cancel` |
+| docs          | `docs/release-notes/v1.35.0/README.md`                   | C2 polish: remove "Wait — recompute" duplication                                  |
+| docs          | `scripts/tier3_push.README.md`                           | +orphan-recovery section (D13 + D14)                                              |
+| vault         | `01-Projects/claude-AutosarCfg/development/lessons/`     | +4 lesson files (D15) — parent controller dispatch                                |
 
 ## Data Flow (concrete examples)
 
@@ -172,41 +172,41 @@ User chooses cancel / Esc / × / backdrop → no-op (no IPC refire)
 
 ## Key Design Decisions
 
-| # | Decision | Rationale |
-|---|---|---|
-| D1 | **Custom JSON file via main IPC, NOT electron-store, NOT localStorage** | No new dep; matches existing `xlsx:import-complete` pattern; main-process owned = cross-window coherent. Avoid localStorage (renderer-only, 5MB cap). Avoid electron-store (new 24kb dep + transitive). |
-| D2 | **`<ConfirmDialog2>` 2-button modal, separate from existing 3-button `<ConfirmDialog>`** | The existing ConfirmDialog is optimized for unsaved-changes (continue/discard/saveAndProceed). Generate New needs a simpler yes/no modal. Separate components avoid API confusion. |
-| D3 | **`hydrateXlsxHistory(records)` action on XlsxImportSlice replaces `xlsxImportHistory`** | The cap-5 + prepend-first invariant is enforced at write time (xlsxHistorySaveHandler) + read time (defensive slice in hydrate); renderer just stores what main gives. |
-| D4 | **xlsxHistorySaveHandler called AFTER `xlsx:import-complete` broadcast** | Order: broadcast first (so renderer updates `xlsxLastImport` immediately), persist second (async but file-bound). If persistence fails, `xlsxLastImport` still updated (in-memory state is the source of truth for next `dcm:config` call). |
-| D5 | **Corrupted JSON file → reset to `[]` + `console.warn`** | Same pattern as v1.35.0 T1's tier3_push defensive handling. Don't crash on corrupted file. |
-| D6 | **Tier 3 push orphan-recovery docs ADDED to existing tier3_push.README.md, not new file** | Append section to existing README; no new doc to maintain. |
-| D7 | **4 lessons vault落 = 1 vault dispatch (parent controller, not implementer)** | All 4 are 1-of-1; single pkm-capture dispatch after ship. |
-| D8 | **`confirmDestructive` API mirrors `confirm()`** (module-level singleton + promise resolve). | Same pattern as existing ConfirmDialog; minimal new API surface. Safe fallback if root not mounted (resolve with 'cancel' — do not destroy user data). |
+| #   | Decision                                                                                     | Rationale                                                                                                                                                                                                                                   |
+| --- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Custom JSON file via main IPC, NOT electron-store, NOT localStorage**                      | No new dep; matches existing `xlsx:import-complete` pattern; main-process owned = cross-window coherent. Avoid localStorage (renderer-only, 5MB cap). Avoid electron-store (new 24kb dep + transitive).                                     |
+| D2  | **`<ConfirmDialog2>` 2-button modal, separate from existing 3-button `<ConfirmDialog>`**     | The existing ConfirmDialog is optimized for unsaved-changes (continue/discard/saveAndProceed). Generate New needs a simpler yes/no modal. Separate components avoid API confusion.                                                          |
+| D3  | **`hydrateXlsxHistory(records)` action on XlsxImportSlice replaces `xlsxImportHistory`**     | The cap-5 + prepend-first invariant is enforced at write time (xlsxHistorySaveHandler) + read time (defensive slice in hydrate); renderer just stores what main gives.                                                                      |
+| D4  | **xlsxHistorySaveHandler called AFTER `xlsx:import-complete` broadcast**                     | Order: broadcast first (so renderer updates `xlsxLastImport` immediately), persist second (async but file-bound). If persistence fails, `xlsxLastImport` still updated (in-memory state is the source of truth for next `dcm:config` call). |
+| D5  | **Corrupted JSON file → reset to `[]` + `console.warn`**                                     | Same pattern as v1.35.0 T1's tier3_push defensive handling. Don't crash on corrupted file.                                                                                                                                                  |
+| D6  | **Tier 3 push orphan-recovery docs ADDED to existing tier3_push.README.md, not new file**    | Append section to existing README; no new doc to maintain.                                                                                                                                                                                  |
+| D7  | **4 lessons vault落 = 1 vault dispatch (parent controller, not implementer)**                | All 4 are 1-of-1; single pkm-capture dispatch after ship.                                                                                                                                                                                   |
+| D8  | **`confirmDestructive` API mirrors `confirm()`** (module-level singleton + promise resolve). | Same pattern as existing ConfirmDialog; minimal new API surface. Safe fallback if root not mounted (resolve with 'cancel' — do not destroy user data).                                                                                      |
 
 ## Testing Strategy
 
-| Test surface | Coverage | Δ tests |
-|---|---|---|
-| `xlsxHistoryStorage.test.ts` (NEW) | Read/write/corrupt/round-trip | +4 |
-| `xlsxHistoryLoadHandler.test.ts` (NEW) | IPC handler returns `XlsxImportRecord[]` from storage | +3 |
-| `xlsxImportSlice.test.ts` (UPDATED) | New `hydrateXlsxHistory` action (3 cases: empty, normal, defensive cap-5) | +3 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | `handleGenerateNew` calls `confirmDestructive`; on confirm → open(); on cancel → no-op | +2 |
-| `ConfirmDialog2.test.tsx` (NEW) | Confirm resolves 'confirm'; cancel/Esc/×/backdrop → 'cancel' | +4 |
-| `scripts/tier3_push.test.py` (UPDATED) | 1 new test: auto mode with orphan local commit (simulate via `git reset` to pre-push state) | +1 |
-| **Total** | | **+17 net** |
+| Test surface                             | Coverage                                                                                    | Δ tests     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- | ----------- |
+| `xlsxHistoryStorage.test.ts` (NEW)       | Read/write/corrupt/round-trip                                                               | +4          |
+| `xlsxHistoryLoadHandler.test.ts` (NEW)   | IPC handler returns `XlsxImportRecord[]` from storage                                       | +3          |
+| `xlsxImportSlice.test.ts` (UPDATED)      | New `hydrateXlsxHistory` action (3 cases: empty, normal, defensive cap-5)                   | +3          |
+| `useDcmConfigLauncher.test.ts` (UPDATED) | `handleGenerateNew` calls `confirmDestructive`; on confirm → open(); on cancel → no-op      | +2          |
+| `ConfirmDialog2.test.tsx` (NEW)          | Confirm resolves 'confirm'; cancel/Esc/×/backdrop → 'cancel'                                | +4          |
+| `scripts/tier3_push.test.py` (UPDATED)   | 1 new test: auto mode with orphan local commit (simulate via `git reset` to pre-push state) | +1          |
+| **Total**                                |                                                                                             | **+17 net** |
 
 Baseline 3015 + 7 → **3032 + 7 SKIP / 0 fail**.
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|---|---|
-| Corrupted JSON file | Defensive try/catch in `xlsxHistoryStorage.read()`; on error, return `[]` + `console.warn`. Tested. |
-| `userData` directory not writable | `xlsxHistorySaveHandler` returns `{ ok: false, error: { kind: 'write-failed', message } }`; renderer surfaces via existing `bswmd-unreadable`-style toast. |
-| Confirmation modal races | `confirmDestructive` is a singleton (mirrors `confirm()`); modal stack of 1. Re-entrancy guard on `handleGenerateNew` (existing `inFlightRef`). |
-| `userData` path differs by platform (Win/macOS/Linux) | Use `app.getPath('userData')` (Electron standard). |
-| `confirmDestructive` added before `ConfirmDialog2` mounts | Same safe fallback as existing `confirm()` (resolve with 'cancel'). |
-| `importedAt: Date.now()` in different timezones | UTC milliseconds since epoch — timezone-agnostic by design. |
+| Risk                                                      | Mitigation                                                                                                                                                 |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Corrupted JSON file                                       | Defensive try/catch in `xlsxHistoryStorage.read()`; on error, return `[]` + `console.warn`. Tested.                                                        |
+| `userData` directory not writable                         | `xlsxHistorySaveHandler` returns `{ ok: false, error: { kind: 'write-failed', message } }`; renderer surfaces via existing `bswmd-unreadable`-style toast. |
+| Confirmation modal races                                  | `confirmDestructive` is a singleton (mirrors `confirm()`); modal stack of 1. Re-entrancy guard on `handleGenerateNew` (existing `inFlightRef`).            |
+| `userData` path differs by platform (Win/macOS/Linux)     | Use `app.getPath('userData')` (Electron standard).                                                                                                         |
+| `confirmDestructive` added before `ConfirmDialog2` mounts | Same safe fallback as existing `confirm()` (resolve with 'cancel').                                                                                        |
+| `importedAt: Date.now()` in different timezones           | UTC milliseconds since epoch — timezone-agnostic by design.                                                                                                |
 
 ## Tasks (6 + 1 ship)
 

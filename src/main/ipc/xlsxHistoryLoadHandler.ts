@@ -3,14 +3,14 @@
 // Pure thin wrapper around readXlsxHistory (T1). Returns the typed
 // discriminated envelope matching the IPC contract.
 
-import {
-  readXlsxHistory,
-  type MainXlsxImportRecord,
-} from '../xlsxHistoryStorage.js';
+import { readXlsxHistory, type MainXlsxImportRecord } from '../xlsxHistoryStorage.js';
 
 export type XlsHistoryLoadResponse =
   | { readonly ok: true; readonly value: readonly MainXlsxImportRecord[] }
-  | { readonly ok: false; readonly error: { readonly kind: 'read-failed'; readonly message: string } };
+  | {
+      readonly ok: false;
+      readonly error: { readonly kind: 'read-failed'; readonly message: string };
+    };
 
 export function xlsxHistoryLoadHandler(): XlsHistoryLoadResponse {
   try {

@@ -10,8 +10,8 @@
 
 import type { StateCreator } from 'zustand';
 
-import type { EcucInstanceRow } from '../../../shared/types.js';
 import type { MainXlsxImportRecord } from '../../../main/xlsxHistoryStorage.js';
+import type { EcucInstanceRow } from '../../../shared/types.js';
 import type { ArxmlState } from '../useArxmlStore.js';
 
 export interface XlsxImportRecord {

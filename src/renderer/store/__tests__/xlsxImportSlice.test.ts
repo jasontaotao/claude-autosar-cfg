@@ -1,8 +1,8 @@
 // v1.33.0 MINOR T1 — xlsxImportSlice state + actions.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EcucInstanceRow } from '../../../shared/types.js';
 import type { MainXlsxImportRecord } from '../../../main/xlsxHistoryStorage.js';
+import type { EcucInstanceRow } from '../../../shared/types.js';
 import type { XlsxImportRecord } from '../slices/xlsxImportSlice.js';
 import { useArxmlStore } from '../useArxmlStore.js';
 
@@ -158,9 +158,7 @@ describe('hydrateXlsxHistory (v1.36.0 MINOR T3)', () => {
     useArxmlStore.setState({
       xlsxLastImport: { rows: [], source: 'wizard', importedAt: 5000 },
     });
-    useArxmlStore.getState().hydrateXlsxHistory([
-      { rows: [], source: 'manual', importedAt: 1000 },
-    ]);
+    useArxmlStore.getState().hydrateXlsxHistory([{ rows: [], source: 'manual', importedAt: 1000 }]);
     const s = useArxmlStore.getState();
     expect(s.xlsxLastImport?.importedAt).toBe(5000);
     expect(s.xlsxImportHistory).toHaveLength(1);
