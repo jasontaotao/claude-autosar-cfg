@@ -308,11 +308,17 @@ const api = {
     handler: (payload: {
       readonly rows: readonly EcucInstanceRow[];
       readonly source: 'manual' | 'wizard';
+      // v1.36.1 PATCH M1 — listen inherits main's timestamp
+      readonly importedAt: number;
     }) => void,
   ) => {
     const listener = (
       _event: unknown,
-      payload: { rows: readonly EcucInstanceRow[]; source: 'manual' | 'wizard' },
+      payload: {
+        rows: readonly EcucInstanceRow[];
+        source: 'manual' | 'wizard';
+        importedAt: number;
+      },
     ) => {
       handler(payload);
     };

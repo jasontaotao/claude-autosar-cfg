@@ -26,6 +26,27 @@ export interface MainXlsxImportRecord {
   readonly importedAt: number;
 }
 
+/**
+ * Type guard for a single persisted record. Defensive against
+ * hand-edited or older-version-written files. Returns false (and
+ * the caller warns) for any record whose shape drifts from the
+ * v1.36.0 contract.
+ *
+ * v1.36.1 PATCH M2 — per-record validation at the storage
+ * boundary. Previously readXlsxHistory only checked
+ * Array.isArray; a bad record like { source: 'wizard' } crashed
+ * the renderer on record.rows.map().
+ */
+function isMainXlsxImportRecord(value: unknown): value is MainXlsxImportRecord {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v['rows'])) return false;
+  const source = v['source'];
+  if (source !== 'manual' && source !== 'wizard') return false;
+  if (typeof v['importedAt'] !== 'number') return false;
+  return true;
+}
+
 function historyFilePath(): string {
   const userData = app.getPath('userData');
   return pathResolve(userData, 'xlsx-import-history.json');
@@ -44,15 +65,10 @@ function historyFilePath(): string {
 export function readXlsxHistory(): MainXlsxImportRecord[] {
   const path = historyFilePath();
   if (!existsSync(path)) return [];
+  let parsed: unknown;
   try {
     const raw = readFileSync(path, 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      // eslint-disable-next-line no-console
-      console.warn(`xlsxHistoryStorage: expected array, got ${typeof parsed}; resetting`);
-      return [];
-    }
-    return parsed.slice(0, MAX_HISTORY) as MainXlsxImportRecord[];
+    parsed = JSON.parse(raw);
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -62,6 +78,23 @@ export function readXlsxHistory(): MainXlsxImportRecord[] {
     );
     return [];
   }
+  if (!Array.isArray(parsed)) {
+    // eslint-disable-next-line no-console
+    console.warn(`xlsxHistoryStorage: expected array, got ${typeof parsed}; resetting`);
+    return [];
+  }
+  const valid: MainXlsxImportRecord[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    if (isMainXlsxImportRecord(parsed[i])) {
+      valid.push(parsed[i]);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `xlsxHistoryStorage: dropping record at index ${i} (shape mismatch: ${JSON.stringify(parsed[i])}); file may be hand-edited or older than v1.36.0`,
+      );
+    }
+  }
+  return valid.slice(0, MAX_HISTORY);
 }
 
 /**

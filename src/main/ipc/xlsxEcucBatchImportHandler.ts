@@ -472,12 +472,20 @@ export async function xlsxEcucBatchImportHandler(
   // the slice state is a renderer-side cache, not the source of
   // truth for the commit (the disk write is the source of truth).
   const appliedRows: EcucInstanceRow[] = [...split['Com'], ...split['CanIf'], ...split['PduR']];
+  // v1.36.1 PATCH M1 — single source-of-truth for importedAt.
+  // Main computes the timestamp ONCE and threads it into both the
+  // push payload (renderer in-memory xlsxLastImport) and the
+  // xlsxHistorySave call below (disk persistence). Previously the
+  // listener stamped its own Date.now() and the two diverged by a
+  // few ms, causing cross-session display jitter.
+  const importedAt = Date.now();
   if (typeof BrowserWindow !== 'undefined' && BrowserWindow !== null) {
     const mainWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
     if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, {
         rows: appliedRows,
         source: 'wizard',
+        importedAt,
       });
     }
   }
@@ -495,7 +503,8 @@ export async function xlsxEcucBatchImportHandler(
   const saveRes = await xlsxHistorySaveHandler({
     rows: appliedRows,
     source: 'wizard',
-    importedAt: Date.now(),
+    // v1.36.1 PATCH M1 — share timestamp with the broadcast above
+    importedAt,
   });
   if (!saveRes.ok) {
     // eslint-disable-next-line no-console

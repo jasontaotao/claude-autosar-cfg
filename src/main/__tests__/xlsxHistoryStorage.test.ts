@@ -65,3 +65,61 @@ describe('xlsxHistoryStorage', () => {
     warn.mockRestore();
   });
 });
+
+// v1.36.1 PATCH T2 — per-record validation in readXlsxHistory.
+// Previously the file was read with Array.isArray + `as` cast; a hand-edited
+// or older-version-written file with `{ source: 'wizard' }` (no rows) crashed
+// the renderer on record.rows.map(). Now each record passes isMainXlsxImportRecord;
+// bad records are dropped with console.warn (matches corrupt-file recovery pattern).
+describe('v1.36.1 PATCH T2 — readXlsxHistory per-record validation', () => {
+  it('drops a record missing rows and returns the valid prefix', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    writeFileSync(
+      join(tmpDir, 'xlsx-import-history.json'),
+      JSON.stringify([
+        // valid — survives
+        { rows: [], source: 'wizard', importedAt: 100 },
+        // invalid — missing rows, must be dropped
+        { source: 'wizard', importedAt: 200 },
+      ]),
+      'utf-8',
+    );
+
+    const records = readXlsxHistory();
+
+    expect(records).toHaveLength(1);
+    expect(records[0]?.importedAt).toBe(100);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('dropping record at index 1'));
+    warn.mockRestore();
+  });
+
+  it('drops a record with bogus source union, returns [] when all bad', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    writeFileSync(
+      join(tmpDir, 'xlsx-import-history.json'),
+      JSON.stringify([{ rows: [], source: 'bogus', importedAt: 100 }]),
+      'utf-8',
+    );
+
+    const records = readXlsxHistory();
+
+    expect(records).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('dropping record at index 0'));
+    warn.mockRestore();
+  });
+
+  it('drops a record where importedAt is a string, not a number', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    writeFileSync(
+      join(tmpDir, 'xlsx-import-history.json'),
+      JSON.stringify([{ rows: [], source: 'wizard', importedAt: '1700000000000' }]),
+      'utf-8',
+    );
+
+    const records = readXlsxHistory();
+
+    expect(records).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('dropping record at index 0'));
+    warn.mockRestore();
+  });
+});

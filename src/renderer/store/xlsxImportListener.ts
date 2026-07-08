@@ -11,6 +11,12 @@ import { useArxmlStore } from './useArxmlStore.js';
 interface XlsxImportCompletePayload {
   readonly rows: readonly EcucInstanceRow[];
   readonly source: 'manual' | 'wizard';
+  // v1.36.1 PATCH M1 — main computes importedAt once and pushes it
+  // verbatim. Previously the listener stamped its own Date.now()
+  // here, which diverged from the main-side save timestamp by a few
+  // ms (caused cross-session display jitter on the Reuse button +
+  // time element).
+  readonly importedAt: number;
 }
 
 /** Attach the IPC push listener for xlsx:import-complete.
@@ -48,7 +54,7 @@ export function attachXlsxImportListener(): () => void {
     useArxmlStore.getState().setXlsxLastImport({
       rows: payload.rows,
       source: payload.source,
-      importedAt: Date.now(),
+      importedAt: payload.importedAt,
     });
   };
   return bridge.onXlsxImportComplete(handler);
