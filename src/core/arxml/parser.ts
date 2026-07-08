@@ -751,9 +751,27 @@ function parseParamValue(
   }
   if (dest === 'ECUC-INTEGER-PARAM-DEF') {
     const n = typeof raw === 'number' ? raw : Number(raw);
-    return Number.isFinite(n) && Number.isInteger(n)
-      ? { type: 'integer', value: n }
-      : { type: 'integer', value: Number(String(raw)) };
+    if (Number.isFinite(n) && Number.isInteger(n)) {
+      return { type: 'integer', value: n };
+    }
+    // v1.38.0 MINOR T3 (H2) — vendor misconfig: an INTEGER-PARAM-DEF field
+    // can hold a finite float value (vendor BSWMD declared the param as
+    // INTEGER but the EcucValues writer put a float). Pre-T3 the integer
+    // branch silently coerced the float back to NaN via Number(String(raw))
+    // and stuffed it into a `{ type: 'integer', value: NaN|float }`
+    // ParamValue, violating the AUTOSAR schema on serialize. T3 falls
+    // back to `{ type: 'float', value: n }` so the in-memory model
+    // self-types the value, the serializer's float code path renders
+    // <VALUE>n</VALUE> correctly, and we surface the schema-deficiency
+    // up-stack rather than muting it. NaN / Infinity stay on the
+    // number-coerce path below (defensive: raw=undefined / raw='' both
+    // yield NaN, which is also non-integer, so the float fallback never
+    // silently captures them — but coerce-the-string keeps the existing
+    // pre-T3 contract for those edge cases).
+    if (Number.isFinite(n)) {
+      return { type: 'float', value: n };
+    }
+    return { type: 'integer', value: Number(String(raw)) };
   }
   if (dest === 'ECUC-FLOAT-PARAM-DEF') {
     const n = typeof raw === 'number' ? raw : Number(raw);

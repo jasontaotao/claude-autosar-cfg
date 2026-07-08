@@ -565,6 +565,52 @@ describe('parseArxml', () => {
     expect(c.params['NoCollision2']).toMatchObject({ type: 'integer', value: 22 });
     expect(Object.keys(c.params).sort()).toEqual(['NoCollision1', 'NoCollision2']);
   });
+
+  // ---------- v1.38.0 MINOR T3 (H2) — INTEGER-PARAM-DEF float fallback ----------
+  // Pre-T3, parseParamValue's ECUC-INTEGER-PARAM-DEF branch silently coerced
+  // any non-integer finite number (or non-numeric string) into
+  // `{ type: 'integer', value: NaN|<float> }`, violating the AUTOSAR schema
+  // on round-trip (the serializer's integer code path would then write
+  // `<VALUE>1.5</VALUE>` for an INTEGER-PARAM-DEF slot). T3 falls back to
+  // `{ type: 'float', value: n }` for finite non-integer values so the
+  // in-memory model self-types the value and the serializer's float code
+  // path renders the schema-correct `<VALUE>n</VALUE>`. NaN / Infinity
+  // input still goes through the existing pre-T3 coerce-the-string path.
+
+  it('falls back to { type: "float" } when ECUC-INTEGER-PARAM-DEF holds a finite float (vendor misconfig)', () => {
+    // Vendor BSWMD declares the param as INTEGER but the EcucValues writer
+    // put 1.5 in the <VALUE>. Pre-T3 the parser produced
+    // `{ type: 'integer', value: 1.5 }` (schema-invalid). Post-T3 it
+    // produces `{ type: 'float', value: 1.5 }` (schema-valid, serializer
+    // emits `<VALUE>1.5</VALUE>` under the float code path).
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/A/Mod/VendorFloatInInt</DEFINITION-REF><VALUE>1.5</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = (r.value.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    // T3 contract: integer-typed BSWMD with float value → float-typed cell.
+    expect(c.params['VendorFloatInInt']).toMatchObject({ type: 'float', value: 1.5 });
+    // Belt-and-suspenders: confirm the type really is 'float', not
+    // 'integer' (pre-T3 would have answered 'integer').
+    expect(c.params['VendorFloatInInt']!.type).toBe('float');
+  });
+
+  it('falls back to { type: "float" } when ECUC-INTEGER-PARAM-DEF <VALUE> is a non-integer string (e.g. "1.5")', () => {
+    // Same vendor-misconfig shape, but the float shows up as a string
+    // text node (XSD-wise the value is xs:decimal so fast-xml-parser emits
+    // strings). Pre-T3 Number("1.5")=1.5 → falls into the else branch →
+    // Number(String("1.5"))=1.5 → `{ type: 'integer', value: 1.5 }`
+    // (schema-invalid). Post-T3 Number("1.5")=1.5 → not integer →
+    // Number.isFinite(1.5)=true → `{ type: 'float', value: 1.5 }`.
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><CONTAINERS><ECUC-CONTAINER-VALUE><SHORT-NAME>C</SHORT-NAME><PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE><DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/A/Mod/StringFloat</DEFINITION-REF><VALUE>2.25</VALUE></ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES></ECUC-CONTAINER-VALUE></CONTAINERS></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = (r.value.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    expect(c.params['StringFloat']).toMatchObject({ type: 'float', value: 2.25 });
+    // Confirm the integer type went away for non-integer finite raw.
+    expect(c.params['StringFloat']!.type).toBe('float');
+  });
 });
 
 // ---------------------------------------------------------------------------
