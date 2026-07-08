@@ -117,14 +117,15 @@ function injectDuplicate(project: ArxmlDocument): {
     throw new Error(`expected at least 2 ComTxIPdu containers, found ${targets.length}`);
   }
   const [a, b] = [targets[0]!, targets[1]!];
-  // setParamInDocument mutates `doc` in place (via spliceContainer) and
-  // returns void. We operate on the same project twice.
+  // v1.37.0 T1/C1 — `setParamInDocument` is now immutable (returns
+  // a new `ArxmlDocument`). Capture each returned ref so the second
+  // call sees the first call's mutation.
   // ParamValue is the wider union — number is a valid ParamValue per
   // the types.ts definition; cast satisfies the strict checker.
   const dupId = 42 as unknown as ParamValue;
-  setParamInDocument(project, a, 'ComTxIPduUnusedAreasDefault', dupId);
-  setParamInDocument(project, b, 'ComTxIPduUnusedAreasDefault', dupId);
-  return { project, paths: [a, b] };
+  let next = setParamInDocument(project, a, 'ComTxIPduUnusedAreasDefault', dupId);
+  next = setParamInDocument(next, b, 'ComTxIPduUnusedAreasDefault', dupId);
+  return { project: next, paths: [a, b] };
 }
 
 // ---------------------------------------------------------------------------

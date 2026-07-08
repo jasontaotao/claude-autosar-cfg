@@ -164,7 +164,10 @@ describe('commitTransaction', () => {
       return null;
     }
     let found: number | null = null;
-    for (const pkg of project.packages) {
+    // v1.37.0 T1/C1 — the core setters are immutable, so the
+    // mutation lives on `tx.project` (the post-commit binding),
+    // not on the original `project` const (which is untouched).
+    for (const pkg of tx.project.packages) {
       found = findParam(pkg.elements, `/${pkg.shortName}`);
       if (found !== null) break;
     }
@@ -180,7 +183,10 @@ describe('commitTransaction', () => {
       newValue: 42,
     } as ScriptMutation);
     commitTransaction(tx);
-    const ser = serializeArxml(project);
+    // v1.37.0 T1/C1 — the mutation lives on `tx.project` (the
+    // post-commit binding). Serialize the post-commit doc to
+    // confirm the value really landed.
+    const ser = serializeArxml(tx.project);
     expect(ser.ok).toBe(true);
     if (ser.ok) {
       expect(ser.value).toContain('>42<');

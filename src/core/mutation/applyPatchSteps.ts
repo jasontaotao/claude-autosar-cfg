@@ -9,16 +9,14 @@
 // source ARXML, writing the result, and surfacing errors via the
 // `HeadlessFailure` envelope.
 //
-// Mutation semantics: the `add-child` and `remove-with-cascade`
-// ops delegate to `coreAddContainer` / `coreRemoveWithCascade`,
-// which are immutable and return new doc refs. The `set-param`
-// op delegates to the legacy `setParamInDocument` helper, which
-// mutates the doc in place (Sprint 14-era API; pre/post value
-// snapshots detect "did anything change?" for the `applied`
-// counter). The `add` / `remove` / `replace` RFC 6902 subset ops
-// route through the same backends. Callers that rely on doc
-// reference equality to detect mutation MUST use `applied` or
-// re-walk the doc tree instead.
+// Mutation semantics: all ops are immutable and return new doc refs.
+// The `add-child` and `remove-with-cascade` ops delegate to
+// `coreAddContainer` / `coreRemoveWithCascade` (both immutable).
+// The `set-param` op delegates to `setParamInDocument` (also
+// immutable as of v1.37.0 — returns a new `ArxmlDocument`, never
+// mutates in place). Reference-equality (`nextDoc !== doc`) is the
+// authoritative "did anything change?" signal; the `applied` counter
+// tracks the per-step applied count for CLI reporting.
 //
 // This module is intentionally separate from `core/arxml/mutation.ts`:
 //   - `core/arxml/mutation.ts` works on container paths and is the
@@ -256,22 +254,22 @@ function applySetParam(
   //   - `null` clears the value (preserve the existing type tag).
   //   - primitive `value` is coerced to the existing type.
   const newValue: ParamValue = coerceToParamValue(existing, step.value);
-  // `setParamInDocument` mutates `doc` in place (Sprint 14-era
-  // helper — no return value). We capture the pre-call value to
+  // `setParamInDocument` is now immutable (v1.37.0 T1/C1) and
+  // returns a new `ArxmlDocument`. We capture the pre-call value to
   // detect whether the param actually changed so the caller can
-  // count "applied" steps correctly.
+  // count "applied" steps correctly. We compare pre vs post on the
+  // new doc tree (the source `doc` is untouched).
   const preValue = target.params[step.paramName]?.value;
-  setParamInDocument(doc, step.containerPath, step.paramName, newValue);
-  // Re-read the post-call value to compare. `setParamInDocument`
-  // updates the doc in place so the re-read hits the mutated tree.
-  const postTarget = findContainerByPath(doc, step.containerPath);
+  const nextDoc = setParamInDocument(doc, step.containerPath, step.paramName, newValue);
+  // Re-read the post-call value to compare on the new doc.
+  const postTarget = findContainerByPath(nextDoc, step.containerPath);
   const postValue = postTarget?.params[step.paramName]?.value;
   if (preValue === postValue) {
-    // No change — return a doc-equality marker so the dispatcher
-    // doesn't count this as applied.
+    // No change — return the original doc ref so callers can rely
+    // on `next === doc` as the no-change signal.
     return { doc, error: null, noChange: true };
   }
-  return { doc, error: null };
+  return { doc: nextDoc, error: null };
 }
 
 function applyAddChild(
@@ -489,8 +487,10 @@ function applyJsonPatchStep(
       // strings stay strings. Reference values are not supported
       // through RFC 6902 (use `set-param` instead).
       const coerced = coerceToParamValue(existing, step.value);
-      setParamInDocument(doc, containerPath, paramName, coerced);
-      return { doc, error: null };
+      // v1.37.0 T1/C1 — `setParamInDocument` is immutable; capture
+      // the returned new doc so subsequent steps see the mutation.
+      const nextDoc = setParamInDocument(doc, containerPath, paramName, coerced);
+      return { doc: nextDoc, error: null };
     }
     case 'add': {
       // `add` per RFC 6902 inserts a value at the given path. For our

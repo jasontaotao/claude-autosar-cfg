@@ -18,12 +18,21 @@
 //
 // Pure: no fs, no electron. Callers (transaction.commit) own the
 // rollback policy.
+//
+// v1.37.0 MINOR T1 (C1) — mutation engine purity. The 3 helpers below
+// (`setParamInDocument` / `addChildInDocument` /
+// `removeChildInDocument`) now return a NEW `ArxmlDocument` reference
+// instead of mutating the caller's doc in place. Reference equality
+// (`next === doc`) is preserved for no-op short-circuits (e.g.
+// `removeChildInDocument` with a non-matching shortName) so callers
+// can use `if (next === doc) return` to skip downstream work.
 
 import type {
   ArxmlContainer,
   ArxmlDocument,
   ArxmlElement,
   ArxmlModule,
+  ArxmlPackage,
   ParamValue,
 } from '../arxml/types.js';
 
@@ -83,14 +92,16 @@ export function findContainerByPath(
 /**
  * Set a parameter value at the given container path.
  *
- * Throws if the container path is not found or the param does not exist.
+ * Returns a new `ArxmlDocument` with the param updated; the input
+ * `doc` is unchanged. Throws if the container path is not found or
+ * the param does not exist.
  */
 export function setParamInDocument(
   doc: ArxmlDocument,
   containerPath: string,
   paramName: string,
   newValue: ParamValue,
-): void {
+): ArxmlDocument {
   const target = findContainerByPath(doc, containerPath);
   if (target === null) {
     throw new Error(`setParam: container ${containerPath} not found`);
@@ -110,14 +121,23 @@ export function setParamInDocument(
   } else {
     nextParams[paramName] = { ...existing, value: newValue } as ParamValue;
   }
-  spliceContainer(doc, containerPath, { ...target, params: nextParams });
+  return replaceContainer(doc, containerPath, { ...target, params: nextParams });
 }
 
+/**
+ * Add a sub-container with the given `newShortName` under the
+ * container at `containerPath`.
+ *
+ * Returns a new `ArxmlDocument` with the child appended; the input
+ * `doc` is unchanged. Throws if the container path is not found or
+ * the shortName already exists among non-reference / non-unknown
+ * siblings.
+ */
 export function addChildInDocument(
   doc: ArxmlDocument,
   containerPath: string,
   newShortName: string,
-): void {
+): ArxmlDocument {
   const target = findContainerByPath(doc, containerPath);
   if (target === null) {
     throw new Error(`addChild: container ${containerPath} not found`);
@@ -139,90 +159,145 @@ export function addChildInDocument(
     children: [],
   };
   const nextChildren: readonly ArxmlElement[] = [...target.children, newChild];
-  spliceContainer(doc, containerPath, { ...target, children: nextChildren });
+  return replaceContainer(doc, containerPath, { ...target, children: nextChildren });
 }
 
+/**
+ * Remove a direct child with the given `shortName` from the container
+ * at `containerPath`.
+ *
+ * Returns:
+ *   - the SAME `doc` reference when the container path is not found
+ *     (no-op short-circuit);
+ *   - the SAME `doc` reference when no child matched (no-op
+ *     short-circuit — preserves ref-equality for callers that rely
+ *     on `next === doc` as the "did anything change?" signal);
+ *   - a NEW `ArxmlDocument` with the matching child removed
+ *     otherwise.
+ */
 export function removeChildInDocument(
   doc: ArxmlDocument,
   containerPath: string,
   shortName: string,
-): void {
+): ArxmlDocument {
   const target = findContainerByPath(doc, containerPath);
-  if (target === null) return;
+  if (target === null) return doc;
   const nextChildren: readonly ArxmlElement[] = target.children.filter(
     // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME so
     // they cannot match the removal key; pass through untouched.
     (c) => c.kind === 'reference' || c.kind === 'unknown' || c.shortName !== shortName,
   );
-  if (nextChildren.length === target.children.length) return;
-  spliceContainer(doc, containerPath, { ...target, children: nextChildren });
+  if (nextChildren.length === target.children.length) return doc;
+  return replaceContainer(doc, containerPath, { ...target, children: nextChildren });
 }
 
 /**
- * Rebuild the ancestor chain leading to `path` with the cloned
- * `replacement` as the leaf. All other subtrees keep their identity.
+ * Replace the container at `path` with `container` and return a new
+ * `ArxmlDocument`. The original document is untouched — every node
+ * along the ancestor chain is rebuilt via spread, mirroring the
+ * `replaceElement` immutable-rebuild pattern in
+ * `core/arxml/mutation.ts`.
+ *
+ * The walk matches the 2-layer depth of `findContainerByPath` above
+ * (`pkg.elements` + first-level `pkg.packages[*].elements`). Deeper
+ * vendor-package nesting is out of scope for v1.37.0 (deferred to
+ * the L2 PATCH chain).
+ *
+ * Throws if `path` is not reachable from the document root. The 2
+ * callers (`applySetParam` + `applyReplaceOp` in
+ * `core/mutation/applyPatchSteps.ts` + the script transaction
+ * commit) pre-flight with `findContainerByPath`, so the throw is a
+ * defensive guard, not a hot path.
  */
-function spliceContainer(
+function replaceContainer(
   doc: ArxmlDocument,
   path: string,
-  replacement: ArxmlModule | ArxmlContainer,
-): void {
-  function matchesPath(el: ArxmlElement, parentPath: string): boolean {
-    if (el.kind === 'reference') return false;
-    // v1.4.0 trust sprint — 17c. Unknown elements have no SHORT-NAME and
-    // cannot be the splice target; short-circuit to false.
-    if (el.kind === 'unknown') return false;
-    return `${parentPath}/${el.shortName}` === path;
-  }
-
-  function rebuild(
-    elements: readonly ArxmlElement[],
-    parentPath: string,
-  ): readonly ArxmlElement[] | null {
-    let changed = false;
-    const out: ArxmlElement[] = [];
-    for (const el of elements) {
-      if (matchesPath(el, parentPath)) {
-        out.push(replacement);
-        changed = true;
-      } else if (el.kind === 'reference' || el.kind === 'unknown') {
-        // v1.4.0 trust sprint — 17c. Unknown vendor extensions are
-        // leaves with no children to descend into; treat like references
-        // here — push through untouched.
-        out.push(el);
-      } else {
-        const myPath = `${parentPath}/${el.shortName}`;
-        const inner = rebuild(el.children, myPath);
-        if (inner !== null) {
-          out.push({ ...el, children: inner });
-          changed = true;
-        } else {
-          out.push(el);
-        }
-      }
-    }
-    return changed ? out : null;
-  }
-
+  container: ArxmlModule | ArxmlContainer,
+): ArxmlDocument {
   for (const pkg of doc.packages) {
-    const nextElements = rebuild(pkg.elements, `/${pkg.shortName}`);
-    if (nextElements !== null) {
-      // pkg.elements is typed readonly; cast through the package's
-      // mutable array (the parser populates it as a plain array).
-      (pkg.elements as ArxmlElement[]).splice(0, pkg.elements.length, ...nextElements);
-      return;
+    const nextPkg = rebuildPackage(pkg, `/${pkg.shortName}`, path, container);
+    if (nextPkg !== pkg) {
+      const nextPackages = doc.packages.map((p) => (p === pkg ? nextPkg : p));
+      return { ...doc, packages: nextPackages };
     }
     if (pkg.packages) {
       for (const sub of pkg.packages) {
-        const inner = rebuild(sub.elements, `/${pkg.shortName}/${sub.shortName}`);
-        if (inner !== null) {
-          (sub.elements as ArxmlElement[]).splice(0, sub.elements.length, ...inner);
-          return;
+        const nextSub = rebuildPackage(
+          sub,
+          `/${pkg.shortName}/${sub.shortName}`,
+          path,
+          container,
+        );
+        if (nextSub !== sub) {
+          const nextSubs = (pkg.packages as readonly ArxmlPackage[]).map(
+            (p) => (p === sub ? nextSub : p),
+          );
+          const nextPkg: ArxmlPackage = { ...pkg, packages: nextSubs };
+          const nextPackages = doc.packages.map((p) => (p === pkg ? nextPkg : p));
+          return { ...doc, packages: nextPackages };
         }
       }
     }
   }
-  throw new Error(`spliceContainer: path ${path} not reachable from document root`);
+  throw new Error(`replaceContainer: path ${path} not reachable from document root`);
+}
+
+/**
+ * Walk `pkg.elements` looking for the element whose synthesised path
+ * equals `targetPath`. Returns:
+ *   - the SAME `pkg` reference when no element matched;
+ *   - a NEW `pkg` (rebuilt via spread with the matched element
+ *     replaced by `replacement`) when a direct match was found;
+ *   - a NEW `pkg` (rebuilt via spread, with one ancestor rebuilt to
+ *     host the replacement in its children list) when the match
+ *     lives below a module/container ancestor.
+ */
+function rebuildPackage(
+  pkg: ArxmlPackage,
+  pkgPath: string,
+  targetPath: string,
+  replacement: ArxmlModule | ArxmlContainer,
+): ArxmlPackage {
+  const nextElements = rebuildElements(pkg.elements, pkgPath, targetPath, replacement);
+  if (nextElements === pkg.elements) return pkg;
+  return { ...pkg, elements: nextElements };
+}
+
+function rebuildElements(
+  elements: readonly ArxmlElement[],
+  parentPath: string,
+  targetPath: string,
+  replacement: ArxmlModule | ArxmlContainer,
+): readonly ArxmlElement[] {
+  let changed = false;
+  const out: ArxmlElement[] = [];
+  for (const el of elements) {
+    if (el.kind === 'reference' || el.kind === 'unknown') {
+      // v1.4.0 trust sprint — 17c. Unknown vendor extensions are
+      // leaves with no children to descend into; treat like
+      // references here — push through untouched.
+      out.push(el);
+      continue;
+    }
+    const myPath = `${parentPath}/${el.shortName}`;
+    if (myPath === targetPath) {
+      out.push(replacement);
+      changed = true;
+      continue;
+    }
+    const nextChildren = rebuildElements(el.children, myPath, targetPath, replacement);
+    if (nextChildren === el.children) {
+      out.push(el);
+    } else if (el.kind === 'module') {
+      out.push({ ...el, children: nextChildren });
+      changed = true;
+    } else {
+      // container
+      out.push({ ...el, children: nextChildren });
+      changed = true;
+    }
+  }
+  return changed ? out : elements;
 }
 
 // Backwards-compat aliases (the plan's `setters.ts` exported

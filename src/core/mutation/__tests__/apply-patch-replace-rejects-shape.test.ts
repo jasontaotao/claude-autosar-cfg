@@ -127,7 +127,9 @@ describe('applyPatchSteps.replace shape rejection (SE-7)', () => {
     const result = applyPatchSteps(doc, steps);
     expect(result.errors).toEqual([]);
     expect(result.applied).toBe(1);
-    const comGeneral = doc.packages[0]?.elements[0];
+    // v1.37.0 T1/C1 — `setParamInDocument` is immutable; read from
+    // the returned doc, not the source `doc` (which is unchanged).
+    const comGeneral = result.doc.packages[0]?.elements[0];
     if (comGeneral === undefined || comGeneral.kind !== 'module') {
       throw new Error('expected Com module');
     }
@@ -154,7 +156,9 @@ describe('applyPatchSteps.replace shape rejection (SE-7)', () => {
     const result = applyPatchSteps(doc, steps);
     expect(result.errors).toEqual([]);
     expect(result.applied).toBe(1);
-    const comGeneral = doc.packages[0]?.elements[0];
+    // v1.37.0 T1/C1 — `setParamInDocument` is immutable; read from
+    // the returned doc, not the source `doc` (which is unchanged).
+    const comGeneral = result.doc.packages[0]?.elements[0];
     if (comGeneral === undefined || comGeneral.kind !== 'module') {
       throw new Error('expected Com module');
     }
