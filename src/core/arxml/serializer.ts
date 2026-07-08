@@ -121,39 +121,65 @@ export function serializeArxml(
  * the legacy `r4.0` namespace. The dashed form (`AUTOSAR_4-2-2.xsd`) is
  * the pre-R4.6 convention used by 4.2 / 4.4 / 4.6 / 4.7 / 5.0.
  *
- * Note: '00005' / '00006' are reserved for future AUTOSAR R5.0+ / R6.0+
- * releases. No vendor fixture yet validates the xsd naming for these
- * literals; round-trip is sound but no real-world emission matches.
- *
  * Pairing:
- *   ArxmlVersion → { xmlns, xsd }
+ *   supported-version → { xmlns, xsd }
  *
  * The xmlns follows the file's declared namespace; for 5-digit literals
  * we mirror EB tresos's `r4.0` namespace convention.
+ *
+ * v1.38.0 MINOR T5 L1 — the table is keyed on `SUPPORTED_ARXML_VERSIONS`
+ * (the parser-accepted subset). `'00005'` / `'00006'` were dropped because
+ * the parser rejects them with `unsupported-version`, so they could never
+ * reach the serializer at runtime. `buildXmlns` / `buildSchemaLocation`
+ * retain the `ArxmlVersion` parameter type to keep the serializer API
+ * unchanged; the cast below is sound because the unreachable keys would
+ * already have errored at parse time.
  */
-const SCHEMA_LOCATION: Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }> = {
+// Cast through `Partial` because the `SUPPORTED_ARXML_VERSIONS` array is
+// declared `readonly ArxmlVersion[]` (not a const tuple), so the index-type
+// widens to the full `ArxmlVersion` union. The runtime values do omit
+// `'00005'` / `'00006'` (the L1 dead-entry fix); `buildXmlns` /
+// `buildSchemaLocation` are only reached via the parser, which already
+// rejected those versions, so the `as Partial<...>` widening is sound.
+const SCHEMA_LOCATION = {
   '4.0': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_4-0-3.xsd' },
   '4.2': { xmlns: 'http://autosar.org/schema/r4.2', xsd: 'AUTOSAR_4-2-2.xsd' },
   '4.4': { xmlns: 'http://autosar.org/schema/r4.4', xsd: 'AUTOSAR_4-4-0.xsd' },
   '4.6': { xmlns: 'http://autosar.org/schema/r4.6', xsd: 'AUTOSAR_4-6-0.xsd' },
   '4.7': { xmlns: 'http://autosar.org/schema/r4.7', xsd: 'AUTOSAR_4-7-0.xsd' },
   '5.0': { xmlns: 'http://autosar.org/schema/r5.0', xsd: 'AUTOSAR_5-0-0.xsd' },
-  '00005': { xmlns: 'http://autosar.org/schema/r5.0', xsd: 'AUTOSAR_00005.xsd' },
-  '00006': { xmlns: 'http://autosar.org/schema/r6.0', xsd: 'AUTOSAR_00006.xsd' },
   '00046': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00046.xsd' },
   '00048': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00048.xsd' },
   '00049': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00049.xsd' },
   '00050': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00050.xsd' },
   '00051': { xmlns: 'http://autosar.org/schema/r4.0', xsd: 'AUTOSAR_00051.xsd' },
-};
+} as const satisfies Partial<
+  Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }>
+>;
 
 function buildXmlns(v: ArxmlVersion): string {
-  return SCHEMA_LOCATION[v].xmlns;
+  // The serializer is only invoked on documents the parser accepted, so
+  // `v` is always a key in `SCHEMA_LOCATION` — see L1 comment above.
+  // The cast widens the `Partial` back to a full `Record` for the
+  // type-level lookup (still safe at runtime; the `undefined` guard is a
+  // belt-and-suspenders backstop if a caller bypasses the parser).
+  const entry = (
+    SCHEMA_LOCATION as Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }>
+  )[v];
+  if (entry === undefined) {
+    throw new Error(`buildXmlns: unsupported ARXML version ${v} (L1 dead-entry guard)`);
+  }
+  return entry.xmlns;
 }
 
 function buildSchemaLocation(v: ArxmlVersion): string {
-  const loc = SCHEMA_LOCATION[v];
-  return `${loc.xmlns} ${loc.xsd}`;
+  const entry = (
+    SCHEMA_LOCATION as Record<ArxmlVersion, { readonly xmlns: string; readonly xsd: string }>
+  )[v];
+  if (entry === undefined) {
+    throw new Error(`buildSchemaLocation: unsupported ARXML version ${v} (L1 dead-entry guard)`);
+  }
+  return `${entry.xmlns} ${entry.xsd}`;
 }
 
 function renderPackage(pkg: ArxmlPackage): Record<string, unknown> {

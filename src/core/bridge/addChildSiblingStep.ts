@@ -100,10 +100,13 @@ export function addChildSiblingStep(input: AddChildSiblingStepInput): readonly P
   const steps: PatchStep[] = [addChildStep];
 
   for (const [paramName, value] of Object.entries(input.instanceParams)) {
-    // Skip both `null` AND `undefined` to preserve the legacy Com-stack
-    // mapper's behavior (`xlsxToEcucBatch.ts` line 92 — `if (value === null
-    // || value === undefined) continue;`). v1.29.0 spec §8 Risk #4.
-    if (value === null || value === undefined) continue;
+    // Skip `null` entries. The `instanceParams` record type does not include
+    // `undefined` (AddChildSiblingStepInput.instanceParams is
+    // `Record<string, string | number | boolean | null>`), so the prior
+    // defensive `=== undefined` branch was unreachable — v1.38.0 MINOR T5 L3
+    // tightens the type contract (legacy `xlsxToEcucBatch.ts` line 92 still
+    // coexists with the no-undefined typed entrypoint).
+    if (value === null) continue;
     steps.push({
       op: 'set-param',
       containerPath,

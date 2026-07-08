@@ -402,4 +402,98 @@ describe('dbcToComStack (T2 unit)', () => {
       warnSpy.mockRestore();
     }
   });
+
+  // v1.38.0 MINOR T5 M3 — vendor dialect aliases for the CanIf sub-containers.
+  // Real OEM ARXMLs occasionally rename `CanIfTxPduCfgs` to the singular
+  // `CanIfTxPduCfg` (Vector) or to `CanIfTxPdu` (EB tresos). Pre-T5 the
+  // canonical-name lookup failed and the bridge fell back to the canonical
+  // default — causing a second bridge pass to create duplicate Tx containers
+  // because the dedup walk read the wrong children. T5 adds a 2-tier lookup
+  // (canonical → aliases) so the discovered shortName is the vendor's.
+  it('M3: vendor-aliased CanIf sub-containers (CanIfTxPduCfg / CanIfRxPduCfg) are discovered', () => {
+    const vendorCanIf = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>CanIf</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>CanIf</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/CanIf</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>CanIfInitConfig</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/CanIf/CanIfInitConfig</DEFINITION-REF>
+              <SUB-CONTAINERS>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>CanIfTxPduCfg</SHORT-NAME>
+                  <SUB-CONTAINERS></SUB-CONTAINERS>
+                </ECUC-CONTAINER-VALUE>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>CanIfRxPduCfg</SHORT-NAME>
+                  <SUB-CONTAINERS></SUB-CONTAINERS>
+                </ECUC-CONTAINER-VALUE>
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+`;
+    const plan = dbcToComStack({
+      dbc: SAMPLE_DBC_SUMMARY,
+      comConfig: MINIMAL_COM_CONFIG,
+      canIfConfig: vendorCanIf,
+      pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
+    });
+    // parentPath must use the vendor shortName (`CanIfTxPduCfg`), NOT the
+    // canonical `CanIfTxPduCfgs` fallback.
+    const txAdd = plan.canIfPatches.find(
+      (p): p is Extract<typeof p, { parentPath: string }> =>
+        p.op === 'add-child' && p.kind === 'canif-tx-pdu',
+    );
+    expect(txAdd).toBeDefined();
+    expect(txAdd?.parentPath).toContain('CanIfTxPduCfg');
+    expect(txAdd?.parentPath).not.toContain('CanIfTxPduCfgs');
+
+    const rxAdd = plan.canIfPatches.find(
+      (p): p is Extract<typeof p, { parentPath: string }> =>
+        p.op === 'add-child' && p.kind === 'canif-rx-pdu',
+    );
+    // `TransState` has transmitter=TCM, targetNode=ECM → routed as Rx
+    expect(rxAdd).toBeDefined();
+    expect(rxAdd?.parentPath).toContain('CanIfRxPduCfg');
+    expect(rxAdd?.parentPath).not.toContain('CanIfRxPduCfgs');
+  });
+
+  // v1.38.0 MINOR T5 M4 — refactor dedup'd `parseArxml` calls. Output
+  // (the patches) must be identical to pre-M4 behavior. This test pins
+  // the post-M4 plan against the pre-M4 baseline.
+  it('M4: dbcToComStack output is identical after parse-once refactor', () => {
+    const plan = dbcToComStack({
+      dbc: SAMPLE_DBC_SUMMARY,
+      comConfig: MINIMAL_COM_CONFIG,
+      canIfConfig: MINIMAL_CANIF_CONFIG,
+      pduRConfig: MINIMAL_PDUR_CONFIG,
+      targetNode: 'ECM',
+    });
+    // ComIPdu: 2 messages → 2 add-child (com-ipdu). The SAMPLE_DBC_SUMMARY
+    // has 2 signals per message (EngineRPM, ThrottlePos for EngState;
+    // GearPos, OilTemp for TransState) → 4 add-child (com-signal).
+    expect(plan.comPatches.filter((p) => p.op === 'add-child')).toHaveLength(6);
+    // CanIfTx/Rx: EngState is Tx (transmitter=ECM=targetNode), TransState is Rx
+    expect(
+      plan.canIfPatches.filter((p) => p.op === 'add-child' && p.kind === 'canif-tx-pdu'),
+    ).toHaveLength(1);
+    expect(
+      plan.canIfPatches.filter((p) => p.op === 'add-child' && p.kind === 'canif-rx-pdu'),
+    ).toHaveLength(1);
+    // PduR: 2 routing paths
+    expect(
+      plan.pduRPatches.filter((p) => p.op === 'add-child' && p.kind === 'pdur-route'),
+    ).toHaveLength(2);
+  });
 });

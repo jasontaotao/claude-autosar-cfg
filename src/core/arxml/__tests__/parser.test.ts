@@ -77,6 +77,24 @@ describe('parseArxml', () => {
     expect(mod.references).toContain('ECUC-MODULE-DEF:/A/B/M');
   });
 
+  // v1.38.0 MINOR T5 M2 — top-level <DEFINITION-REF> may parse as a plain
+  // string (text-only element) instead of an object carrying { @_DEST, #text }
+  // when the element has no attributes. Pre-T5 the loop at parser.ts:650
+  // re-keyed the string as a `Record<string, unknown>`, then read `undefined`
+  // from `ref['#text']` and silently dropped the entry. T5 mirrors the
+  // wrapper branch (lines 480-489) so the string lands in `references`.
+  it('M2: top-level DEFINITION-REF as plain string lands in references (no DEST)', () => {
+    const xml = `<?xml version="1.0"?><AUTOSAR xmlns="http://autosar.org/schema/r4.6"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>P</SHORT-NAME><ELEMENTS><ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>M</SHORT-NAME><DEFINITION-REF>/A/B/M</DEFINITION-REF></ECUC-MODULE-CONFIGURATION-VALUES></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>`;
+    const r = parseArxml(xml);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const mod = r.value.packages[0]!.elements[0] as ArxmlModule;
+    // String-only form has no DEST, so the references entry is the bare
+    // path — mirrors the wrapper-branch treatment for non-DEST refs.
+    expect(mod.references).toContain('/A/B/M');
+    expect(mod.references).toHaveLength(1);
+  });
+
   it('returns Result.err for malformed XML', () => {
     const r = parseArxml('<AUTOSAR><AR-PACKAGES><AR-PACKAGE>');
     expect(r.ok).toBe(false);
@@ -526,9 +544,9 @@ describe('parseArxml', () => {
     if (r.error.kind !== 'invalid-structure') return;
     // The error message must name the colliding shortName and the two
     // BSWMD paths so the user can locate the conflict in the source file.
-    expect(r.error.message).toContain("CommonParam");
-    expect(r.error.message).toContain("/A/Mod/CommonParam");
-    expect(r.error.message).toContain("/B/Mod/CommonParam");
+    expect(r.error.message).toContain('CommonParam');
+    expect(r.error.message).toContain('/A/Mod/CommonParam');
+    expect(r.error.message).toContain('/B/Mod/CommonParam');
     // path should be the container path (caller can highlight the node).
     expect(r.error.path).toBe('/P/M/C');
   });
@@ -544,9 +562,9 @@ describe('parseArxml', () => {
     if (r.ok) return;
     expect(r.error.kind).toBe('invalid-structure');
     if (r.error.kind !== 'invalid-structure') return;
-    expect(r.error.message).toContain("CommonRef");
-    expect(r.error.message).toContain("/A/Mod/CommonRef");
-    expect(r.error.message).toContain("/B/Mod/CommonRef");
+    expect(r.error.message).toContain('CommonRef');
+    expect(r.error.message).toContain('/A/Mod/CommonRef');
+    expect(r.error.message).toContain('/B/Mod/CommonRef');
     expect(r.error.path).toBe('/P/M/C');
   });
 

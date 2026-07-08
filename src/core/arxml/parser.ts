@@ -646,8 +646,16 @@ function extractParamsAndRefs(
       }
     }
   }
-  // Top-level DEFINITION-REFs (module/level)
+  // Top-level DEFINITION-REFs (module/level). May be parsed as a plain string
+  // (text-only element) or as an object carrying { @_DEST, #text } when the
+  // element has attributes — mirror the wrapper branch at lines 480-489 so
+  // string-form top-level refs land in `references` instead of being dropped
+  // (v1.38.0 MINOR T5 M2).
   for (const ref of asArray<Record<string, unknown>>(item['DEFINITION-REF'])) {
+    if (typeof ref === 'string') {
+      references.push(ref);
+      continue;
+    }
     const dest = typeof ref['@_DEST'] === 'string' ? (ref['@_DEST'] as string) : undefined;
     const text = ref['#text'];
     if (typeof text === 'string') references.push(dest ? `${dest}:${text}` : text);

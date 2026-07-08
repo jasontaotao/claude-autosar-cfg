@@ -38,7 +38,9 @@ import type { DbcSummaryWithSignals } from '../../main/ipc/dbcParseForBridgeHand
 import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import { parseArxml } from '../arxml/parser.js';
 import { findEcucModuleByShortName } from '../arxml/path.js';
-import type { ArxmlContainer, ArxmlElement, ArxmlModule } from '../arxml/types.js';
+import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule } from '../arxml/types.js';
+import type { Result } from '../arxml/types.js';
+import type { ParseError } from '../arxml/parser.js';
 
 const COM_MODULE = 'Com';
 const CANIF_MODULE = 'CanIf';
@@ -79,24 +81,16 @@ export interface DbcToComStackInput {
  *   /CanIf/CanIf/CanIfInitCfg   ← real demo-ecu
  *   /PduR/PduR/PduRRoutingPaths ← real demo-ecu
  *
- * @returns the discovered `<PrimaryContainer>` shortName, or null if
- *   the file is unparseable / malformed / module-not-found.
+ * v1.38.0 MINOR T5 M4 — accepts the pre-parsed `Result` so the bridge
+ * parses each input ARXML exactly once instead of re-parsing inside each
+ * helper call. Returns null when the parse failed or the module is absent.
  */
-function discoverPrimaryContainer(arxml: string, moduleName: string): string | null {
-  let docRes;
-  try {
-    docRes = parseArxml(arxml);
-  } catch (e) {
-    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
-    // mode instead of silently returning null. The bridge falls back
-    // to BSWMD canonical names in the caller.
-    console.warn(
-      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName} (discoverPrimaryContainer): ${e instanceof Error ? e.message : String(e)}`,
-    );
-    return null;
-  }
-  if (!docRes.ok) return null;
-  const mod = findEcucModuleByShortName(docRes.value, moduleName);
+function discoverPrimaryContainer(
+  parsed: Result<ArxmlDocument, ParseError>,
+  moduleName: string,
+): string | null {
+  if (!parsed.ok) return null;
+  const mod = findEcucModuleByShortName(parsed.value, moduleName);
   if (mod === null) return null;
   // First child is conventionally the primary container (ComConfig,
   // CanIfInitCfg, PduRRoutingPaths). Fall back to scanning all
@@ -110,27 +104,16 @@ function discoverPrimaryContainer(arxml: string, moduleName: string): string | n
 /**
  * Walk the parsed ARXML to enumerate direct child shortNames of
  * `<ModuleName>/<PrimaryContainer>`. Used for idempotency dedup.
+ * v1.38.0 MINOR T5 M4 — accepts the pre-parsed `Result`.
  */
 function extractExistingChildShortNames(
-  arxml: string,
+  parsed: Result<ArxmlDocument, ParseError>,
   moduleName: string,
   primaryContainer: string,
 ): Set<string> {
   const out = new Set<string>();
-  let docRes;
-  try {
-    docRes = parseArxml(arxml);
-  } catch (e) {
-    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
-    // mode instead of silently returning an empty Set. The bridge
-    // falls back to "treat as empty" dedup behavior in the caller.
-    console.warn(
-      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName}/${primaryContainer} (extractExistingChildShortNames): ${e instanceof Error ? e.message : String(e)}`,
-    );
-    return out;
-  }
-  if (!docRes.ok) return out;
-  const mod = findEcucModuleByShortName(docRes.value, moduleName);
+  if (!parsed.ok) return out;
+  const mod = findEcucModuleByShortName(parsed.value, moduleName);
   if (mod === null) return out;
   const primary = findModuleOrContainerByShortName(mod.children, primaryContainer);
   if (primary === null) return out;
@@ -148,27 +131,17 @@ function extractExistingChildShortNames(
  * sub-container — for Com/ComConfig/ComIPdu we want the existing
  * ComIPdu names; for CanIf/CanIfInitCfg/CanIfTxPduCfgs we want the
  * existing CanIfTxPduCfg names, etc.).
+ * v1.38.0 MINOR T5 M4 — accepts the pre-parsed `Result`.
  */
 function extractExistingGrandchildShortNames(
-  arxml: string,
+  parsed: Result<ArxmlDocument, ParseError>,
   moduleName: string,
   primaryContainer: string,
   subContainer: string,
 ): Set<string> {
   const out = new Set<string>();
-  let docRes;
-  try {
-    docRes = parseArxml(arxml);
-  } catch (e) {
-    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
-    // mode instead of silently returning an empty Set.
-    console.warn(
-      `[dbCToComStack] parseArxml failed for ARXML at /${moduleName}/${primaryContainer}/${subContainer} (extractExistingGrandchildShortNames): ${e instanceof Error ? e.message : String(e)}`,
-    );
-    return out;
-  }
-  if (!docRes.ok) return out;
-  const mod = findEcucModuleByShortName(docRes.value, moduleName);
+  if (!parsed.ok) return out;
+  const mod = findEcucModuleByShortName(parsed.value, moduleName);
   if (mod === null) return out;
   const primary = findModuleOrContainerByShortName(mod.children, primaryContainer);
   if (primary === null) return out;
@@ -202,9 +175,13 @@ function findModuleOrContainerByShortName(
 /**
  * The Com primary container (`ComConfig`) directly holds ComIPdu
  * children — single-level walk.
+ * v1.38.0 MINOR T5 M4 — accepts the pre-parsed `Result`.
  */
-function extractExistingComIpduNames(arxml: string, primaryContainer: string): Set<string> {
-  return extractExistingChildShortNames(arxml, COM_MODULE, primaryContainer);
+function extractExistingComIpduNames(
+  parsed: Result<ArxmlDocument, ParseError>,
+  primaryContainer: string,
+): Set<string> {
+  return extractExistingChildShortNames(parsed, COM_MODULE, primaryContainer);
 }
 
 /**
@@ -227,34 +204,54 @@ interface CanIfSubContainers {
 
 const CANIF_TX_SUBCANONICAL = 'CanIfTxPduCfgs';
 const CANIF_RX_SUBCANONICAL = 'CanIfRxPduCfgs';
+// v1.38.0 MINOR T5 M3 — vendor-dialect aliases. Real OEM ARXMLs occasionally
+// rename the canonical `CanIfTxPduCfgs` / `CanIfRxPduCfgs` sub-containers
+// (Vector's `CanIfTxPduCfg` / `CanIfRxPduCfg` singular form, EB tresos's
+// `CanIfTxPdu` / `CanIfRxPdu`, etc.). When the canonical name lookup fails,
+// the bridge should still recognize the vendor variant so the dedup walk
+// reads existing children instead of falling through to the canonical
+// default (which would cause a second bridge pass to create duplicate Tx
+// containers).
+const CANIF_TX_SUBCANONICAL_ALIASES: readonly string[] = ['CanIfTxPduCfg', 'CanIfTxPdu'];
+const CANIF_RX_SUBCANONICAL_ALIASES: readonly string[] = ['CanIfRxPduCfg', 'CanIfRxPdu'];
 
-function discoverCanIfSubContainers(arxml: string, primaryContainer: string): CanIfSubContainers {
-  let docRes;
-  try {
-    docRes = parseArxml(arxml);
-  } catch (e) {
-    // v1.23.1 T3 MEDIUM — surface unexpected parseArxml throws in dev
-    // mode instead of silently returning canonical defaults.
-    console.warn(
-      `[dbCToComStack] parseArxml failed for ARXML at /CanIf/${primaryContainer} (discoverCanIfSubContainers): ${e instanceof Error ? e.message : String(e)}`,
+function findCanIfSubChild(
+  parent: { children: readonly ArxmlElement[] },
+  canonical: string,
+  aliases: readonly string[],
+): ArxmlModule | ArxmlContainer | undefined {
+  const direct = parent.children.find(
+    (c): c is ArxmlModule | ArxmlContainer =>
+      (c.kind === 'module' || c.kind === 'container') && c.shortName === canonical,
+  );
+  if (direct !== undefined) return direct;
+  for (const alias of aliases) {
+    const hit = parent.children.find(
+      (c): c is ArxmlModule | ArxmlContainer =>
+        (c.kind === 'module' || c.kind === 'container') && c.shortName === alias,
     );
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
+function discoverCanIfSubContainers(
+  parsed: Result<ArxmlDocument, ParseError>,
+  primaryContainer: string,
+): CanIfSubContainers {
+  if (!parsed.ok) {
     return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
   }
-  if (!docRes.ok) return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
-  const mod = findEcucModuleByShortName(docRes.value, CANIF_MODULE);
-  if (mod === null) return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
+  const mod = findEcucModuleByShortName(parsed.value, CANIF_MODULE);
+  if (mod === null) {
+    return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
+  }
   const primary = findModuleOrContainerByShortName(mod.children, primaryContainer);
   if (primary === null) {
     return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
   }
-  const txChild = primary.children.find(
-    (c): c is ArxmlModule | ArxmlContainer =>
-      (c.kind === 'module' || c.kind === 'container') && c.shortName === CANIF_TX_SUBCANONICAL,
-  );
-  const rxChild = primary.children.find(
-    (c): c is ArxmlModule | ArxmlContainer =>
-      (c.kind === 'module' || c.kind === 'container') && c.shortName === CANIF_RX_SUBCANONICAL,
-  );
+  const txChild = findCanIfSubChild(primary, CANIF_TX_SUBCANONICAL, CANIF_TX_SUBCANONICAL_ALIASES);
+  const rxChild = findCanIfSubChild(primary, CANIF_RX_SUBCANONICAL, CANIF_RX_SUBCANONICAL_ALIASES);
   return {
     txSubName: txChild?.shortName ?? CANIF_TX_SUBCANONICAL,
     rxSubName: rxChild?.shortName ?? CANIF_RX_SUBCANONICAL,
@@ -262,33 +259,48 @@ function discoverCanIfSubContainers(arxml: string, primaryContainer: string): Ca
 }
 
 export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
+  // v1.38.0 MINOR T5 M4 — parse each input ARXML exactly once instead of
+  // letting every helper re-parse it (pre-M4: 5 parses for canIfConfig
+  // alone — discoverCanIfSubContainers + 2× extractExistingGrandchildShortNames
+  // for Tx/Rx). On parseArxml throw, surface a warn and fall through to the
+  // BSWMD canonical defaults (preserves the v1.23.1 T3 MEDIUM behavior).
+  const safeParse = (arxml: string, label: string): Result<ArxmlDocument, ParseError> => {
+    try {
+      return parseArxml(arxml);
+    } catch (e) {
+      console.warn(
+        `[dbCToComStack] parseArxml failed for ${label}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return { ok: false, error: { kind: 'xml-malformed', message: 'parse threw' } };
+    }
+  };
+  const comParsed = safeParse(input.comConfig, '/Com');
+  const canIfParsed = safeParse(input.canIfConfig, '/CanIf');
+  const pduRParsed = safeParse(input.pduRConfig, '/PduR');
+
   // #1 (CRITICAL) — discover container shortNames from the parsed ARXML
   // instead of using hardcoded constants. The fallback to BSWMD
   // canonical names (when the value-side file is empty) keeps the
   // bridge usable on fresh skeletons.
-  const comPrimary = discoverPrimaryContainer(input.comConfig, COM_MODULE) ?? 'ComConfig';
-  const canIfPrimary = discoverPrimaryContainer(input.canIfConfig, CANIF_MODULE) ?? 'CanIfInitCfg';
-  const pduRPrimary = discoverPrimaryContainer(input.pduRConfig, PDUR_MODULE) ?? 'PduRRoutingPaths';
-  const canIfSubs = discoverCanIfSubContainers(input.canIfConfig, canIfPrimary);
+  const comPrimary = discoverPrimaryContainer(comParsed, COM_MODULE) ?? 'ComConfig';
+  const canIfPrimary = discoverPrimaryContainer(canIfParsed, CANIF_MODULE) ?? 'CanIfInitCfg';
+  const pduRPrimary = discoverPrimaryContainer(pduRParsed, PDUR_MODULE) ?? 'PduRRoutingPaths';
+  const canIfSubs = discoverCanIfSubContainers(canIfParsed, canIfPrimary);
 
-  const existingComIpdu = extractExistingComIpduNames(input.comConfig, comPrimary);
+  const existingComIpdu = extractExistingComIpduNames(comParsed, comPrimary);
   const existingCanIfTx = extractExistingGrandchildShortNames(
-    input.canIfConfig,
+    canIfParsed,
     CANIF_MODULE,
     canIfPrimary,
     canIfSubs.txSubName,
   );
   const existingCanIfRx = extractExistingGrandchildShortNames(
-    input.canIfConfig,
+    canIfParsed,
     CANIF_MODULE,
     canIfPrimary,
     canIfSubs.rxSubName,
   );
-  const existingPduRRoutes = extractExistingChildShortNames(
-    input.pduRConfig,
-    PDUR_MODULE,
-    pduRPrimary,
-  );
+  const existingPduRRoutes = extractExistingChildShortNames(pduRParsed, PDUR_MODULE, pduRPrimary);
 
   const comPatches: PatchStep[] = [];
   const canIfPatches: PatchStep[] = [];

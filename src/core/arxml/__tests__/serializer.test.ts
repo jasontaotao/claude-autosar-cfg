@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseArxml } from '../parser.js';
 import { serializeArxml } from '../serializer.js';
-import type { ArxmlContainer, ArxmlDocument } from '../types.js';
+import { SUPPORTED_ARXML_VERSIONS, type ArxmlContainer, type ArxmlDocument } from '../types.js';
 
 const FIXTURE_DIR = join(process.cwd(), 'tests', 'fixtures', 'arxml');
 
@@ -996,4 +996,83 @@ describe('serializeArxml — option flags and edge cases (Wave 4.B coverage)', (
     expect(r.value).not.toContain('DEST="ECUC-REFERENCE-DEF"');
     expect(r.value).toContain('/Bare/Path/No/Dest');
   });
+
+  // v1.38.0 MINOR T5 L1 — `SCHEMA_LOCATION` was pruned of the dead
+  // `'00005'` / `'00006'` entries (parser rejects them with
+  // `unsupported-version`, so they were unreachable from the serializer).
+  // Because `SCHEMA_LOCATION` is file-private we can't import it directly;
+  // the behavioral test pins that EVERY `SUPPORTED_ARXML_VERSIONS` value
+  // round-trips through serializeArxml, and that `'00005'` / `'00006'`
+  // are NOT in the supported list (the same invariant `types.ts` already
+  // documents at lines 250-253).
+  it('L1: serializer accepts every SUPPORTED_ARXML_VERSIONS entry (SCHEMA_LOCATION dead entries pruned)', () => {
+    // Sanity — SUPPORTED_ARXML_VERSIONS itself omits the dead entries.
+    expect(SUPPORTED_ARXML_VERSIONS).not.toContain('00005');
+    expect(SUPPORTED_ARXML_VERSIONS).not.toContain('00006');
+
+    // For each supported version, build a minimal doc and serialize.
+    // If SCHEMA_LOCATION were missing a key, buildXmlns/buildSchemaLocation
+    // would throw "L1 dead-entry guard" (the runtime fallback).
+    const minimalDoc = (v: (typeof SUPPORTED_ARXML_VERSIONS)[number]): ArxmlDocument => ({
+      path: '',
+      version: v,
+      packages: [
+        {
+          shortName: 'P',
+          path: '/P',
+          elements: [],
+        },
+      ],
+    });
+    for (const v of SUPPORTED_ARXML_VERSIONS) {
+      const r = serializeArxml(minimalDoc(v));
+      expect(r.ok, `serializeArxml failed for ${v}`).toBe(true);
+      if (!r.ok) continue;
+      // The output must include the version's xsd literal — pins that
+      // SCHEMA_LOCATION[v] is present and resolves. Inline switch keeps
+      // the lookup narrow (avoids widening via `Record<ArxmlVersion, ...>`
+      // which would force entries for the L1 dead versions).
+      const expectedXsd = expectedXsdFor(v);
+      expect(r.value, `serialized output missing xsd for ${v}`).toContain(expectedXsd);
+      // And that the dead entries' xsd literals are NOT emitted (they would
+      // only appear if SCHEMA_LOCATION still contained the dead branches).
+      expect(r.value).not.toContain('AUTOSAR_00005.xsd');
+      expect(r.value).not.toContain('AUTOSAR_00006.xsd');
+    }
+  });
 });
+
+function expectedXsdFor(v: (typeof SUPPORTED_ARXML_VERSIONS)[number]): string {
+  switch (v) {
+    case '4.0':
+      return 'AUTOSAR_4-0-3.xsd';
+    case '4.2':
+      return 'AUTOSAR_4-2-2.xsd';
+    case '4.4':
+      return 'AUTOSAR_4-4-0.xsd';
+    case '4.6':
+      return 'AUTOSAR_4-6-0.xsd';
+    case '4.7':
+      return 'AUTOSAR_4-7-0.xsd';
+    case '5.0':
+      return 'AUTOSAR_5-0-0.xsd';
+    case '00046':
+      return 'AUTOSAR_00046.xsd';
+    case '00048':
+      return 'AUTOSAR_00048.xsd';
+    case '00049':
+      return 'AUTOSAR_00049.xsd';
+    case '00050':
+      return 'AUTOSAR_00050.xsd';
+    case '00051':
+      return 'AUTOSAR_00051.xsd';
+    default:
+      // Exhaustiveness backstop — TypeScript widens
+      // `SUPPORTED_ARXML_VERSIONS`'s element type to `ArxmlVersion`
+      // (the array is `readonly ArxmlVersion[]`, not a const tuple), so
+      // the switch is not provably exhaustive at the type level. The
+      // runtime call site only ever iterates the SUPPORTED list, so
+      // this throw is unreachable in tests.
+      throw new Error(`expectedXsdFor: unexpected ARXML version ${v}`);
+  }
+}
