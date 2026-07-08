@@ -76,6 +76,7 @@ import type {
 } from '../shared/types.js';
 
 import { getRendererPlatform } from './platform.js';
+import type { XlsHistoryLoadResponse } from '../main/ipc/xlsxHistoryLoadHandler.js';
 
 const api = {
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),
@@ -318,6 +319,13 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, listener);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, listener);
   },
+  // v1.36.0 MINOR T2 — xlsxImportHistory load bridge.
+  // Renderer bootstrap calls this on App mount to hydrate the
+  // session-scope xlsxImportHistory from disk. The save side is
+  // main-internal (T3 wires it into xlsxEcucBatchImportHandler) and
+  // is NOT exposed via this bridge.
+  xlsxHistoryLoad: (): Promise<XlsHistoryLoadResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XLSX_HISTORY_LOAD),
   offXlsxImportComplete: (
     handler: (payload: {
       readonly rows: readonly EcucInstanceRow[];

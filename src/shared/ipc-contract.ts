@@ -225,6 +225,14 @@ export const IPC_CHANNELS = {
   // placeholder pattern (lesson store-as-source-of-truth-for-async-
   // args). Payload excludes `importedAt`; renderer stamps it.
   XLSX_IMPORT_COMPLETE: 'xlsx:import-complete',
+  // v1.36.0 MINOR T2 — xlsxImportHistory persistence IPC surface.
+  // xlsxHistory:load — renderer bootstrap calls this on App mount to
+  //   hydrate the v1.34.0 session-scope history from disk.
+  // xlsxHistory:save — main-internal; xlsxEcucBatchImportHandler calls
+  //   this directly (NOT exposed via preload bridge) after the
+  //   xlsx:import-complete broadcast succeeds.
+  XLSX_HISTORY_LOAD: 'xlsxHistory:load',
+  XLSX_HISTORY_SAVE: 'xlsxHistory:save',
   // v1.33.0 MINOR T2 — bswmd:pick IPC. Renderer asks main to show a
   // single-file picker filtered to .arxml, then reads the chosen file
   // into memory. Used by the v1.32.1 PATCH Override UI's Browse

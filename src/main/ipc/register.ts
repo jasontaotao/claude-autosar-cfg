@@ -95,6 +95,7 @@ import { templatesCopyHandler, templatesListHandler } from './templatesHandler.j
 import { xlsxEcucBatchImportHandler } from './xlsxEcucBatchImportHandler.js';
 import { xlsxEcucBatchParseHandler } from './xlsxEcucBatchParseHandler.js';
 import { xlsxEcucBatchWriteBatchTemplateHandler } from './xlsxEcucBatchTemplateHandler.js';
+import { xlsxHistoryLoadHandler } from './xlsxHistoryLoadHandler.js';
 
 /**
  * Hard cap on BSWMD payloads. Shared between `bswmd:parse` (string in
@@ -666,6 +667,9 @@ export function registerIpcHandlers(): void {
       return dcmConfigHandler(req);
     },
   );
+
+  // v1.36.0 MINOR T2 — xlsxImportHistory persistence.
+  ipcMain.handle(IPC_CHANNELS.XLSX_HISTORY_LOAD, () => xlsxHistoryLoadHandler());
 }
 
 // ---------------------------------------------------------------------------
