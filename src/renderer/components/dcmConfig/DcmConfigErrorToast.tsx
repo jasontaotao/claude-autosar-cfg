@@ -1,14 +1,16 @@
 // DcmConfigErrorToast — v1.31.0 PATCH T2.
+// v1.35.0 MINOR T4 — expanded to 9-value camelCase union (was 6).
 //
 // Bottom-right toast surfacing a single Dcm config IPC error
 // class. 8-second auto-dismiss; close button for immediate
 // dismiss. aria-live="polite" so screen readers announce.
 //
-// Class → i18n key map is exhaustive (6 classes — one per
-// v1.30.0 handler error site). The hook (`useDcmConfigLauncher`)
-// is responsible for mapping `error.message` to a class via
-// regex prefix matching (see T4). This component is a thin
-// renderer of the resolved (classKey, message) pair.
+// Class → i18n key map is exhaustive (9 classes — one per
+// v1.35.0 MINOR kind). The hook (`useDcmConfigLauncher`) is
+// responsible for mapping `DcmConfigErrorKind` to
+// `DcmConfigErrorClass` 1:1 via its KIND_TO_CLASS map. This
+// component is a thin renderer of the resolved (classKey, message)
+// pair.
 
 import { useEffect, useRef } from 'react';
 
@@ -17,11 +19,19 @@ import type { Locale, MessageKey } from '@shared/i18n/index.js';
 
 import './DcmConfigErrorToast.css';
 
+/**
+ * v1.35.0 MINOR — 9-value camelCase error class union. 1:1 with
+ * `DcmConfigErrorKind` (kebab-case) via the launcher's KIND_TO_CLASS map.
+ * Mirrors `RendererDcmConfigErrorClass` shape; the toast is the consumer.
+ */
 export type DcmConfigErrorClass =
   | 'bswmdUnreadable'
   | 'odxUnreadable'
   | 'odxParseFailed'
-  | 'bswmdMapMissing'
+  | 'odxDcmLinkage'
+  | 'dcmModuleMissing'
+  | 'containerNotFound'
+  | 'patchFailed'
   | 'atomicWriteFailed'
   | 'unexpected';
 
@@ -37,7 +47,10 @@ const CLASS_KEY_TO_I18N: Readonly<Record<DcmConfigErrorClass, MessageKey>> = {
   bswmdUnreadable: 'odx.export.dcmConfig.error.bswmdUnreadable',
   odxUnreadable: 'odx.export.dcmConfig.error.odxUnreadable',
   odxParseFailed: 'odx.export.dcmConfig.error.odxParseFailed',
-  bswmdMapMissing: 'odx.export.dcmConfig.error.bswmdMapMissing',
+  odxDcmLinkage: 'odx.export.dcmConfig.error.odxDcmLinkage',
+  dcmModuleMissing: 'odx.export.dcmConfig.error.dcmModuleMissing',
+  containerNotFound: 'odx.export.dcmConfig.error.containerNotFound',
+  patchFailed: 'odx.export.dcmConfig.error.patchFailed',
   atomicWriteFailed: 'odx.export.dcmConfig.error.atomicWriteFailed',
   unexpected: 'odx.export.dcmConfig.error.unexpected',
 };

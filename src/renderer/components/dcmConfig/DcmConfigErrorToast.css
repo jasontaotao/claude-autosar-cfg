@@ -34,3 +34,24 @@
 .dcm-config-error-toast-dismiss:hover {
   background: var(--color-error-hover, #fee2e2);
 }
+
+/* v1.35.0 MINOR T4 — 4 new error variants. All use the existing
+ * error-tier palette (red). Each variant only differs from the base
+ * by an additional className suffix for test selectors + future
+ * severity-specific styling (no visual difference today; intentional
+ * — keeps the 9 variants visually consistent while making the data
+ * attribute unique for E2E). */
+.dcm-config-error-toast--odxDcmLinkage,
+.dcm-config-error-toast--dcmModuleMissing,
+.dcm-config-error-toast--containerNotFound,
+.dcm-config-error-toast--patchFailed {
+  background: var(--color-error-surface, #fef2f2);
+  border-color: var(--color-error-border, #fca5a5);
+}
+
+.dcm-config-error-toast--odxDcmLinkage .dcm-config-error-toast-message,
+.dcm-config-error-toast--dcmModuleMissing .dcm-config-error-toast-message,
+.dcm-config-error-toast--containerNotFound .dcm-config-error-toast-message,
+.dcm-config-error-toast--patchFailed .dcm-config-error-toast-message {
+  color: var(--color-error-text, #991b1b);
+}
