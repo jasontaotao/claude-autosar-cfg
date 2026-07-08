@@ -39,7 +39,13 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import { parseArxml } from '../arxml/parser.js';
 import type { ParseError } from '../arxml/parser.js';
 import { findEcucModuleByShortName } from '../arxml/path.js';
-import type { ArxmlContainer, ArxmlDocument, ArxmlElement, ArxmlModule , Result } from '../arxml/types.js';
+import type {
+  ArxmlContainer,
+  ArxmlDocument,
+  ArxmlElement,
+  ArxmlModule,
+  Result,
+} from '../arxml/types.js';
 
 const COM_MODULE = 'Com';
 const CANIF_MODULE = 'CanIf';
