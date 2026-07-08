@@ -332,18 +332,6 @@ const api = {
   // is NOT exposed via this bridge.
   xlsxHistoryLoad: (): Promise<XlsHistoryLoadResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.XLSX_HISTORY_LOAD),
-  offXlsxImportComplete: (
-    handler: (payload: {
-      readonly rows: readonly EcucInstanceRow[];
-      readonly source: 'manual' | 'wizard';
-    }) => void,
-  ) => {
-    // The handler reference is for symmetry with the public IPC API
-    // shape; the actual removal is done by the unsubscribe function
-    // returned from onXlsxImportComplete. This stub exists so the
-    // preload API surface is complete.
-    void handler;
-  },
 };
 
 contextBridge.exposeInMainWorld('autosarApi', api);

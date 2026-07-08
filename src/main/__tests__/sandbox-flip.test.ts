@@ -95,7 +95,6 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'importDiagnosticExtract',
       'listScripts',
       'listTemplates',
-      'offXlsxImportComplete', // v1.33.0 MINOR T1 — symmetric stub for the on* push channel
       'onScriptProgress',
       'onXlsxImportComplete', // v1.33.0 MINOR T1 — xlsx-import push channel
       'openArxml',
