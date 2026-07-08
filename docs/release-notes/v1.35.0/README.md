@@ -1,6 +1,6 @@
 # v1.35.0 MINOR — Dcm Config Error Surface Closure + tier3_push commit
 
-**Ship**: 2026-07-08 (commit `<SHORT_SHA>` + tag v1.35.0 + GH release)
+**Ship**: 2026-07-08 (commit `8d13a84` + tag v1.35.0 + GH release)
 
 **Baseline**: v1.34.0 MINOR `c62e346` (3008 + 7 SKIP / 0 fail)
 **Target**: 3015 + 7 SKIP / 0 fail (+7 net delta)
