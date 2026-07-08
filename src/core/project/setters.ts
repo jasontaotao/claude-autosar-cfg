@@ -222,15 +222,10 @@ function replaceContainer(
     }
     if (pkg.packages) {
       for (const sub of pkg.packages) {
-        const nextSub = rebuildPackage(
-          sub,
-          `/${pkg.shortName}/${sub.shortName}`,
-          path,
-          container,
-        );
+        const nextSub = rebuildPackage(sub, `/${pkg.shortName}/${sub.shortName}`, path, container);
         if (nextSub !== sub) {
-          const nextSubs = (pkg.packages as readonly ArxmlPackage[]).map(
-            (p) => (p === sub ? nextSub : p),
+          const nextSubs = (pkg.packages as readonly ArxmlPackage[]).map((p) =>
+            p === sub ? nextSub : p,
           );
           const nextPkg: ArxmlPackage = { ...pkg, packages: nextSubs };
           const nextPackages = doc.packages.map((p) => (p === pkg ? nextPkg : p));

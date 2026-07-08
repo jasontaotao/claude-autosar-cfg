@@ -32,11 +32,7 @@ import type {
   ArxmlPackage,
   ParamValue,
 } from '../../arxml/types.js';
-import {
-  setParamInDocument,
-  addChildInDocument,
-  removeChildInDocument,
-} from '../setters.js';
+import { setParamInDocument, addChildInDocument, removeChildInDocument } from '../setters.js';
 
 // ---------------------------------------------------------------------------
 // Fixture — minimal 2-layer doc: 1 top-level pkg → 1 sub-pkg → 1
@@ -110,9 +106,7 @@ function loadFixture(): ArxmlDocument {
  * CanGeneral`), so the cast is safe — but we narrow at each step
  * to keep TypeScript happy with the `ArxmlElement` union.
  */
-function findTargetContainer(
-  doc: ArxmlDocument,
-): ArxmlContainer {
+function findTargetContainer(doc: ArxmlDocument): ArxmlContainer {
   const inner = doc.packages[0]?.packages?.[0];
   if (inner === undefined) throw new Error('fixture missing inner package');
   const moduleEl = inner.elements[0];
@@ -186,7 +180,11 @@ describe('v1.37.0 MINOR T1 (C1) — addChildInDocument immutability', () => {
     expect(nextChildren.length).toBe(1);
     const firstChild = nextChildren[0];
     expect(firstChild).toBeDefined();
-    if (firstChild === undefined || firstChild.kind === 'reference' || firstChild.kind === 'unknown') {
+    if (
+      firstChild === undefined ||
+      firstChild.kind === 'reference' ||
+      firstChild.kind === 'unknown'
+    ) {
       throw new Error('expected a non-reference child container');
     }
     expect(firstChild.shortName).toBe(shortName);
