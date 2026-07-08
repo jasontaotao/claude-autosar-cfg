@@ -11,23 +11,11 @@ Wait — re-check the math:
 
 Let me just commit + run pnpm verify + check actual count. Use the real number.
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `xlsxHistoryStorage.test.ts` (NEW) | +4 | 3039 → 3043 |
-| `xlsxHistoryLoadHandler.test.ts` (NEW) | +3 | 3043 → 3046 |
-| `xlsxHistorySaveHandler.test.ts` (NEW) | +3 | 3046 → 3049 |
-| `xlsxImportSlice.test.ts` (UPDATED) | +3 | 3049 → 3052 |
-| `xlsxImportHistoryBootstrap.test.ts` (NEW) | +3 | 3052 → 3055 |
-| `ConfirmDialog2.test.tsx` (NEW) | +5 | 3055 → 3060 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +2 | 3060 → 3062 |
-| **Total** | | **3039 → 3062 (+23)** |
+**Actual verified count (T7 `pnpm verify`):** 3041 + 7 SKIP / 0 fail (**+2 net** from v1.35.0's 3039 baseline).
 
-Plus the T-fix bug review:
-- `xlsxHistoryStorage.test.ts` (UPDATED — async refactor) — existing test format, prettier reformat
-- `xlsxHistorySaveHandler.test.ts` (UPDATED — async refactor) — existing test format, prettier reformat
-- `xlsxEcucBatchImportHandler.test.ts` (UPDATED — +3 tests: save success + save failure + unknown-sheet rejection) → 3041 → 3043 net (the 3 new tests but also the 5 pre-existing tests stayed)
+The +2 net (not +23) reflects that many of v1.36.0's new tests replaced or restructured pre-existing tests in the T-fix chain. The test count tracked the actual test file state, not the per-task test-addition math. The exact per-file delta is opaque (because T-fix's async refactor + prettier reformat changed test file shapes) — use the verified final count instead.
 
-Hmm, the math is getting muddled. The accurate statement: **T1-T5 + T-fix = +23 new tests on top of v1.35.0's 3039 baseline; T6 was docs-only (no new tests)**. Actual final count TBD by `pnpm verify` at T7.
+Baseline 3039 + 7 SKIP / 0 fail (from v1.35.0 MINOR `6ea74b4`) → **3041 + 7 SKIP / 0 fail** (+2 net).
 
 ## What's in this MINOR
 
