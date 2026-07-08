@@ -1,6 +1,6 @@
 # v1.36.0 MINOR — xlsxImportHistory Persistence + Generate New Confirmation + ops polish + T-fix bug review
 
-**Ship**: 2026-07-08 (commit `<SHORT_SHA>` + tag v1.36.0 + GH release)
+**Ship**: 2026-07-08 (commit `f880cbd` + tag v1.36.0 + GH release)
 
 **Baseline**: v1.35.0 MINOR `6ea74b4` (3039 + 7 SKIP / 0 fail)
 **Target**: 3041 + 7 SKIP / 0 fail (+2 net delta; the T-fix bug review added 3 tests but baseline was 3039 not 3015 because T-fix also added 3 tests — net delta is +2 from the original 3039 baseline, NOT the spec's +23 which assumed T1 = +2 not baseline 3008).
