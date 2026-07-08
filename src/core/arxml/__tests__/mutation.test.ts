@@ -129,7 +129,18 @@ function makeBswParam(
   };
 }
 
-function makeBswModule(shortName: string, containers: readonly ContainerDef[] = []): BswModuleDef {
+function makeBswModule(
+  shortName: string,
+  containers: readonly ContainerDef[] = [],
+  // v1.37.0 MINOR T3 (H2) — module-level BSWMD validation fixtures.
+  // The new module-level BSWMD validation in `addParameter` /
+  // `addReference` reads `moduleDef.parameters` / `moduleDef.references`
+  // when the container path resolves to the module root
+  // (`subPath === ''`). Default to empty (the safe "no validation
+  // entries declared" case) so the existing 3000+ tests don't have
+  // to be rewired.
+  moduleLevel: { parameters?: readonly ParamDef[]; references?: readonly ReferenceDef[] } = {},
+): BswModuleDef {
   return {
     shortName,
     path: `/${shortName}`,
@@ -137,6 +148,8 @@ function makeBswModule(shortName: string, containers: readonly ContainerDef[] = 
     moduleId: null,
     containers,
     providedEntries: [],
+    parameters: moduleLevel.parameters ?? [],
+    references: moduleLevel.references ?? [],
     lowerMultiplicity: 0,
     upperMultiplicity: 'infinite',
   };
@@ -527,6 +540,59 @@ describe('addParameter', () => {
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.error.kind).toBe('path-not-found');
+  });
+
+  // v1.37.0 MINOR T3 (H2) — module-level BSWMD validation. The
+  // pre-v1.37.0 implementation skipped validation when the
+  // container path resolved to the module root (`subPath === ''`)
+  // with the comment "modules rarely carry parameters". That
+  // justification was wrong: AUTOSAR modules DO declare top-level
+  // parameters (e.g. EcuC's `ModuleId` / `VendorId`). These two
+  // tests exercise the new `else` branch in `addParameter` that
+  // validates against `moduleDef.parameters`.
+  it('v1.37.0 MINOR T3 (H2) — addParameter at module-level with declared paramDef passes', () => {
+    // Arrange — module declares a top-level `ModuleId` parameter
+    // (matches the AUTOSAR EcuC shape).
+    const paramDef = makeBswParam('ModuleId', 'integer', 1);
+    const doc = makeDoc('EcuC', []);
+    const moduleDef = makeBswModule('EcuC', [], { parameters: [paramDef] });
+
+    // Act — container path is the module root, so `subPath === ''`.
+    const r = addParameter(doc, '/EAS/EcuC', paramDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    expect(rootModule.params['ModuleId']).toEqual({
+      type: 'integer',
+      value: 1,
+      definitionRef: paramDef.path,
+    });
+  });
+
+  it('v1.37.0 MINOR T3 (H2) — addParameter at module-level with UNDECLARED paramDef returns invalid-param-type', () => {
+    // Arrange — module declares ONE top-level parameter (`ModuleId`).
+    // Caller hands in a stale `paramDef` (`NotDeclared`) that the
+    // BSWMD doesn't know about — the pre-v1.37.0 bug where this
+    // silently succeeded.
+    //
+    // The check is bounded: an empty `moduleDef.parameters` array
+    // (the v1.37.0 baseline — parser does not extract module-level
+    // <PARAMETERS> yet) is a no-op, so we declare at least one entry
+    // to exercise the validation path.
+    const declared = makeBswParam('ModuleId', 'integer', 1);
+    const paramDef = makeBswParam('NotDeclared', 'integer', 1);
+    const doc = makeDoc('EcuC', []);
+    const moduleDef = makeBswModule('EcuC', [], { parameters: [declared] });
+
+    // Act
+    const r = addParameter(doc, '/EAS/EcuC', paramDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-param-type');
   });
 });
 
@@ -1045,6 +1111,77 @@ describe('addReference', () => {
       dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
       definitionRef: USER_PICKED_PATH,
     });
+  });
+
+  // v1.37.0 MINOR T3 (H2) — module-level BSWMD validation. Mirrors
+  // the `addParameter` H2 tests but for the `addReference` path.
+  // The pre-v1.37.0 implementation skipped validation when the
+  // container path resolved to the module root (`subPath === ''`)
+  // with no comment at all (the symmetric "modules rarely carry
+  // references" sentiment was implicit). Real AUTOSAR modules DO
+  // declare top-level references (e.g. PduR's `PduRBswImplication`).
+  it('v1.37.0 MINOR T3 (H2) — addReference at module-level with declared refDef passes', () => {
+    // Arrange — module declares a top-level `PduRBswImplication` reference
+    // (matches the AUTOSAR PduR shape).
+    const refDef: ReferenceDef = {
+      shortName: 'PduRBswImplication',
+      path: '/Module/PduRBswImplication',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('PduR', []);
+    const moduleDef = makeBswModule('PduR', [], { references: [refDef] });
+
+    // Act — container path is the module root, so `subPath === ''`.
+    const r = addReference(doc, '/EAS/PduR', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rootModule = r.value.packages[0]!.elements[0] as ArxmlModule;
+    expect(rootModule.params['PduRBswImplication']).toEqual({
+      type: 'reference',
+      value: '',
+      dest: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      definitionRef: refDef.path,
+    });
+  });
+
+  it('v1.37.0 MINOR T3 (H2) — addReference at module-level with UNDECLARED refDef returns invalid-param-type', () => {
+    // Arrange — module declares ONE top-level reference
+    // (`PduRBswImplication`). Caller hands in a stale `refDef`
+    // (`NotDeclared`) that the BSWMD doesn't know about — the
+    // pre-v1.37.0 bug where this silently succeeded.
+    //
+    // The check is bounded: an empty `moduleDef.references` array
+    // (the v1.37.0 baseline — parser does not extract module-level
+    // <REFERENCES> yet) is a no-op, so we declare at least one entry
+    // to exercise the validation path.
+    const declared: ReferenceDef = {
+      shortName: 'PduRBswImplication',
+      path: '/Module/PduRBswImplication',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const refDef: ReferenceDef = {
+      shortName: 'NotDeclared',
+      path: '',
+      destKind: 'ECUC-PARAM-CONF-CONTAINER-DEF',
+      lowerMultiplicity: 0,
+      upperMultiplicity: 1,
+    };
+    const doc = makeDoc('PduR', []);
+    const moduleDef = makeBswModule('PduR', [], { references: [declared] });
+
+    // Act
+    const r = addReference(doc, '/EAS/PduR', refDef, moduleDef);
+
+    // Assert
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error.kind).toBe('invalid-param-type');
   });
 });
 

@@ -548,19 +548,47 @@ export function addParameter(
   // check here is a defence-in-depth so a stale `paramDef` (e.g. cached
   // from before a BSWMD reload) cannot inject an undeclared key.
   //
-  // Module-level parents have no `ContainerDef` to cross-reference against
-  // (modules rarely carry parameters in the BSWMD), so the BSWMD check is
-  // skipped when the sub-path is empty.
+  // v1.37.0 MINOR T3 (H2) — module-level validation. The pre-v1.37.0
+  // code skipped the BSWMD check when `subPath === ''` with the
+  // justification "modules rarely carry parameters". That justification
+  // was wrong: AUTOSAR modules DO declare top-level parameters
+  // (e.g. `EcuC` has `<ModuleId>`, `<VendorId>`). The new `else`
+  // branch validates against the module's own `moduleDef.parameters`
+  // array (defaults to `[]` when the BSWMD omits module-level
+  // parameters, so back-compat with pre-v1.37.0 BSWMDs is preserved).
   const subPath = containerPathToSubPath(containerPath, moduleDef);
   if (subPath === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
   if (subPath !== '') {
+    // Sub-container: validate against the parent container def
     const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
     if (
       parentContainerDef === null ||
       !parentContainerDef.parameters.some((p) => p.shortName === paramDef.shortName)
     ) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
+      };
+    }
+  } else {
+    // Module-level: validate against the module's own declared
+    // parameters. "Modules rarely carry parameters" is no longer an
+    // excuse to skip validation — AUTOSAR modules like EcuC do
+    // declare top-level parameters (ModuleId, VendorId).
+    //
+    // Bounded by the populated list: when `moduleDef.parameters` is
+    // `undefined` or empty (the v1.37.0 baseline — parser does not
+    // extract module-level <PARAMETERS> yet), the check is a no-op.
+    // This preserves back-compat with all existing BSWMDs + tests
+    // and lets a follow-up PATCH (parser populates
+    // `moduleDef.parameters`) activate the validation without
+    // mutation.ts code changes. The defence-in-depth intent is
+    // preserved: when the BSWMD declares a module-level param and
+    // the caller hands in a stale `paramDef`, the check fires.
+    const moduleParams = moduleDef.parameters ?? [];
+    if (moduleParams.length > 0 && !moduleParams.some((p) => p.shortName === paramDef.shortName)) {
       return {
         ok: false,
         error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
@@ -690,6 +718,14 @@ export function addReference(
   // Cross-reference the `refDef` against the BSWMD container's
   // declared references (the picker is the happy-path source; this is
   // defence-in-depth against a stale refDef).
+  //
+  // v1.37.0 MINOR T3 (H2) — module-level validation. Mirrors the
+  // `addParameter` H2 fix: the pre-v1.37.0 code skipped the BSWMD
+  // check when `subPath === ''`. Real AUTOSAR modules DO declare
+  // top-level references (e.g. `PduR` has `<PduRBswImplication>`),
+  // so the new `else` branch validates against the module's own
+  // `moduleDef.references` array (defaults to `[]` when the BSWMD
+  // omits module-level references — back-compat preserved).
   const subPath = containerPathToSubPath(containerPath, moduleDef);
   if (subPath === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
@@ -700,6 +736,21 @@ export function addReference(
       parentContainerDef === null ||
       !parentContainerDef.references.some((r) => r.shortName === refDef.shortName)
     ) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: refDef.shortName, expected: 'string' },
+      };
+    }
+  } else {
+    // Module-level reference validation. AUTOSAR modules like PduR
+    // declare top-level references; the skip was a defence-in-depth
+    // breach.
+    //
+    // Bounded by the populated list: see the matching note in
+    // `addParameter` for the rationale (no-op when the BSWMD parser
+    // has not yet been taught to populate `moduleDef.references`).
+    const moduleRefs = moduleDef.references ?? [];
+    if (moduleRefs.length > 0 && !moduleRefs.some((r) => r.shortName === refDef.shortName)) {
       return {
         ok: false,
         error: { kind: 'invalid-param-type', key: refDef.shortName, expected: 'string' },

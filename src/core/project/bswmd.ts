@@ -85,6 +85,29 @@ export interface BswModuleDef {
   readonly moduleId: number | null;
   readonly containers: readonly ContainerDef[];
   readonly providedEntries: readonly ProvidedEntry[];
+  /**
+   * v1.37.0 MINOR T3 (H2) — module-level `<PARAMETERS>` block from
+   * `<ECUC-MODULE-DEF>`. Carries top-level parameters declared
+   * directly on the module (e.g. `EcuC`'s `<ModuleId>`, `<VendorId>`)
+   * rather than inside a child container. Mirrors `ContainerDef.parameters`
+   * but at the module root. Optional for back-compat — `[]` when the
+   * BSWMD omits module-level `<PARAMETERS>` or when constructed by
+   * tests / fixtures that pre-date v1.37.0. Consumers must treat
+   * `undefined` and `[]` equivalently (use `?? []`).
+   *
+   * v1.37.0 PATCH only adds the type + mutation-time validation;
+   * populating this from the BSWMD parser is a follow-up (T3
+   * follow-up task; tracked in v1.37.x PATCH chain).
+   */
+  readonly parameters?: readonly ParamDef[];
+  /**
+   * v1.37.0 MINOR T3 (H2) — module-level `<REFERENCES>` block from
+   * `<ECUC-MODULE-DEF>`. Carries top-level references declared directly
+   * on the module (e.g. `PduR`'s `<PduRBswImplication>`). Mirrors
+   * `ContainerDef.references` but at the module root. Optional for
+   * back-compat — see `parameters` rationale.
+   */
+  readonly references?: readonly ReferenceDef[];
   readonly lowerMultiplicity: number;
   readonly upperMultiplicity: number | 'infinite';
   /**
