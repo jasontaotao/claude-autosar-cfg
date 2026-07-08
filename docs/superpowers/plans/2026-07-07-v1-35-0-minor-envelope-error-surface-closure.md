@@ -36,11 +36,13 @@
 ### Task 1: Commit `scripts/tier3_push.py` + README + unit test
 
 **Files:**
+
 - Track (already exists): `scripts/tier3_push.py` (17594 bytes, 424 LoC)
 - Create: `scripts/tier3_push.README.md`
 - Create: `scripts/__tests__/tier3_push.test.py`
 
 **Interfaces:**
+
 - Consumes: existing `scripts/tier3_push.py` (no source changes in this task)
 - Produces: first git-tracked commit + README documentation + 1 regression-guard unit test
 
@@ -50,7 +52,7 @@
 
 Create `scripts/tier3_push.README.md` with this exact content (trailing newline):
 
-```markdown
+````markdown
 # scripts/tier3_push.py — Tier 3 Ship Fallback
 
 Used when `github.com:443` git protocol is blocked but `api.github.com`
@@ -74,6 +76,7 @@ fall back to:
 ```bash
 python scripts/tier3_push.py
 ```
+````
 
 For composite (orphan-recovery) scenarios:
 
@@ -98,7 +101,8 @@ local SHA. This guards against the v1.34.0 ship-blocking bug where the
 local `parent_tree_sha` returned 404 because the parent commit's SHA on
 the server differed from the local SHA (content-identical but
 content-addressed under different tree SHAs).
-```
+
+````
 
 - [ ] **Step 1.2: Write the failing test (RED)**
 
@@ -191,7 +195,7 @@ def test_get_parent_tree_sha_falls_back_to_local_lookup_when_no_server_sha():
     # Server endpoint uses /commits/{parent_local} (nested commit.tree.sha)
     gh_mock.assert_called_once_with("GET", f"commits/{parent_local_sha}")
     assert result == expected_tree_sha
-```
+````
 
 - [ ] **Step 1.3: Run the test to verify it passes (GREEN — script already exists)**
 
@@ -236,6 +240,7 @@ cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
 
 If 30s timeout, fall back to Tier 3:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ```
@@ -247,11 +252,13 @@ Expected: `c62e346..HEAD` pushed to `origin/main`.
 ### Task 2: i18n bundle — add 4 NEW keys (en + zh-CN + types)
 
 **Files:**
+
 - Modify: `src/shared/i18n/odx.ts` (interface — add 4 readonly string keys)
 - Modify: `src/shared/i18n.en/odx.ts` (bundle — add 4 English strings)
 - Modify: `src/shared/i18n.zh-CN/odx.ts` (bundle — add 4 Chinese strings)
 
 **Interfaces:**
+
 - Consumes: existing 6 keys `odx.export.dcmConfig.error.{bswmdUnreadable,odxUnreadable,odxParseFailed,bswmdMapMissing,atomicWriteFailed,unexpected}` (kept, no removal)
 - Produces: 4 NEW keys `odx.export.dcmConfig.error.{odxDcmLinkage,dcmModuleMissing,containerNotFound,patchFailed}` typed across all 3 files atomically
 
@@ -347,9 +354,11 @@ spec §3 T7/T8 note; tracked here as a release-notes entry per the lesson."
 ### Task 3: Delete `NEW_CLASS_TO_OLD_KEY` collapse map in launcher
 
 **Files:**
+
 - Modify: `src/renderer/hooks/useDcmConfigLauncher.ts:122-228` (delete collapse; keep `KIND_TO_CLASS` but rename values to camelCase)
 
 **Interfaces:**
+
 - Consumes: existing `DcmConfigErrorKind` 9-value union (`src/shared/types.ts:1218-1230`)
 - Produces:
   - `RendererDcmConfigErrorClass` 9-value union with camelCase values (matches toast type after T4)
@@ -358,6 +367,7 @@ spec §3 T7/T8 note; tracked here as a release-notes entry per the lesson."
   - `state.error.classKey: RendererDcmConfigErrorClass` (typed against 9-value union)
 
 **Decision note (D1):** camelCase toast values match `DcmConfigErrorClass` style (post-T4 expansion). Specifically:
+
 - `'odx-unreadable'` → `'odxUnreadable'`
 - `'odx-parse-failed'` → `'odxParseFailed'`
 - `'bswmd-unreadable'` → `'bswmdUnreadable'`
@@ -494,6 +504,7 @@ cd D:/claude_proj2/claude-AutosarCfg && pnpm tsc --noEmit -p tsconfig.json && pn
 ```
 
 Expected: tsc clean. Common failure modes:
+
 - `Type 'RendererDcmConfigErrorClass' is not assignable to type 'DcmConfigErrorClass'` — means the toast type hasn't been expanded yet (must complete T4 first). If T3 is being reviewed before T4, expect this; run T4 then re-verify.
 - `'toToastClassKey' is declared but its value is never read` — leftover unused reference; grep for it.
 
@@ -526,10 +537,12 @@ became dead-code-with-history; in v1.35.0 it's deleted."
 ### Task 4: Expand `DcmConfigErrorToast` to 9-value union + 4 new CSS variants
 
 **Files:**
+
 - Modify: `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx`
 - Modify: `src/renderer/components/dcmConfig/DcmConfigErrorToast.css`
 
 **Interfaces:**
+
 - Consumes: 4 NEW i18n keys from T2 (`odx.export.dcmConfig.error.{odxDcmLinkage,dcmModuleMissing,containerNotFound,patchFailed}`)
 - Produces:
   - `DcmConfigErrorClass` 9-value camelCase union (same shape as `RendererDcmConfigErrorClass` post-T3)
@@ -640,10 +653,12 @@ severity customization is a one-line edit (no cascade-order overrides)."
 ### Task 5: Update tests — 7 new test cases
 
 **Files:**
+
 - Modify: `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx`
 - Modify: `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`
 
 **Interfaces:**
+
 - Consumes: T2 i18n keys, T3 launcher's renamed `RendererDcmConfigErrorClass`, T4 toast's 9-value `DcmConfigErrorClass`
 - Produces: 7 new test cases (4 toast + 3 launcher `it.each`)
 
@@ -652,19 +667,19 @@ severity customization is a one-line edit (no cascade-order overrides)."
 In `src/renderer/components/dcmConfig/__tests__/DcmConfigErrorToast.test.tsx`, replace the `classes` array (lines 31-38):
 
 ```ts
-  // v1.35.0 MINOR T5 — 9-value union (was 6). 4 NEW classes added
-  // for the formerly-collapsed kinds.
-  const classes: readonly DcmConfigErrorClass[] = [
-    'bswmdUnreadable',
-    'odxUnreadable',
-    'odxParseFailed',
-    'odxDcmLinkage',
-    'dcmModuleMissing',
-    'containerNotFound',
-    'patchFailed',
-    'atomicWriteFailed',
-    'unexpected',
-  ] as const;
+// v1.35.0 MINOR T5 — 9-value union (was 6). 4 NEW classes added
+// for the formerly-collapsed kinds.
+const classes: readonly DcmConfigErrorClass[] = [
+  'bswmdUnreadable',
+  'odxUnreadable',
+  'odxParseFailed',
+  'odxDcmLinkage',
+  'dcmModuleMissing',
+  'containerNotFound',
+  'patchFailed',
+  'atomicWriteFailed',
+  'unexpected',
+] as const;
 ```
 
 The existing `it.each(classes)` loop will now produce 9 sub-cases (was 6), giving +3 net tests.
@@ -674,19 +689,19 @@ The existing `it.each(classes)` loop will now produce 9 sub-cases (was 6), givin
 After the existing zh-CN test (line 65, the closing `});` of `'renders zh-CN message for bswmdUnreadable class'`), add:
 
 ```tsx
-  it('renders zh-CN message for odxDcmLinkage class (v1.35.0 MINOR T5)', () => {
-    render(
-      <DcmConfigErrorToast
-        error={{ message: 'linkage broken', classKey: 'odxDcmLinkage' }}
-        locale="zh-CN"
-        onDismiss={vi.fn()}
-      />,
-    );
-    const toast = screen.getByTestId('dcm-config-error-toast');
-    // Per i18n.zh-CN/odx.ts — must contain the ODX-Dcm linkage phrase.
-    expect(toast.textContent).toContain('ODX 与 Dcm 关联缺失');
-    expect(toast.textContent).toContain('linkage broken');
-  });
+it('renders zh-CN message for odxDcmLinkage class (v1.35.0 MINOR T5)', () => {
+  render(
+    <DcmConfigErrorToast
+      error={{ message: 'linkage broken', classKey: 'odxDcmLinkage' }}
+      locale="zh-CN"
+      onDismiss={vi.fn()}
+    />,
+  );
+  const toast = screen.getByTestId('dcm-config-error-toast');
+  // Per i18n.zh-CN/odx.ts — must contain the ODX-Dcm linkage phrase.
+  expect(toast.textContent).toContain('ODX 与 Dcm 关联缺失');
+  expect(toast.textContent).toContain('linkage broken');
+});
 ```
 
 This adds +1 net test.
@@ -696,31 +711,21 @@ This adds +1 net test.
 In `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`, replace the `it.each` block (lines 115-133) — keep the `it.each` pattern but update values to match the new camelCase mapping. The new block:
 
 ```ts
-  // v1.35.0 MINOR T5 — 9 rows (was 6). 4 NEW kinds each map to
-  // their dedicated class (no NEW_CLASS_TO_OLD_KEY collapse).
-  it.each([
-    [{ kind: 'bswmd-unreadable', message: 'BSWMD file unreadable: x' }, 'bswmdUnreadable'],
-    [{ kind: 'odx-unreadable', message: 'ODX file unreadable: x' }, 'odxUnreadable'],
-    [{ kind: 'odx-parse-failed', message: 'ODX parse failed: x' }, 'odxParseFailed'],
-    [
-      { kind: 'odx-dcm-linkage', message: 'ODX-Dcm linkage broken' },
-      'odxDcmLinkage',
-    ],
-    [
-      { kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" },
-      'dcmModuleMissing',
-    ],
-    [
-      { kind: 'container-not-found', message: 'Container X not found in BSWMD' },
-      'containerNotFound',
-    ],
-    [
-      { kind: 'patch-failed', message: 'Patch step 3 of 5 failed' },
-      'patchFailed',
-    ],
-    [{ kind: 'atomic-write-failed', message: 'Atomic write failed: x' }, 'atomicWriteFailed'],
-    [{ kind: 'unknown', message: 'Some unknown error' }, 'unexpected'],
-  ] as const)('classifyError maps kind=%s to class=%s (v1.35.0 MINOR T5)', async (errorPayload, expected) => {
+// v1.35.0 MINOR T5 — 9 rows (was 6). 4 NEW kinds each map to
+// their dedicated class (no NEW_CLASS_TO_OLD_KEY collapse).
+it.each([
+  [{ kind: 'bswmd-unreadable', message: 'BSWMD file unreadable: x' }, 'bswmdUnreadable'],
+  [{ kind: 'odx-unreadable', message: 'ODX file unreadable: x' }, 'odxUnreadable'],
+  [{ kind: 'odx-parse-failed', message: 'ODX parse failed: x' }, 'odxParseFailed'],
+  [{ kind: 'odx-dcm-linkage', message: 'ODX-Dcm linkage broken' }, 'odxDcmLinkage'],
+  [{ kind: 'dcm-module-missing', message: "BSWMD map missing module 'Dcm'" }, 'dcmModuleMissing'],
+  [{ kind: 'container-not-found', message: 'Container X not found in BSWMD' }, 'containerNotFound'],
+  [{ kind: 'patch-failed', message: 'Patch step 3 of 5 failed' }, 'patchFailed'],
+  [{ kind: 'atomic-write-failed', message: 'Atomic write failed: x' }, 'atomicWriteFailed'],
+  [{ kind: 'unknown', message: 'Some unknown error' }, 'unexpected'],
+] as const)(
+  'classifyError maps kind=%s to class=%s (v1.35.0 MINOR T5)',
+  async (errorPayload, expected) => {
     const { result } = renderHook(() => useDcmConfigLauncher());
     // classifyError returns the toast class directly (no toToastClassKey
     // adapter). Same path as v1.33.0 T4 but the column 'expected' is now
@@ -730,7 +735,8 @@ In `src/renderer/hooks/__tests__/useDcmConfigLauncher.test.ts`, replace the `it.
       await result.current.open({ odxPath: '/x.odx', xlsxRows: [] });
     });
     expect(result.current.state.error?.classKey).toBe(expected);
-  });
+  },
+);
 ```
 
 This expands the it.each from 6 rows to 9 rows = +3 net tests.
@@ -742,6 +748,7 @@ cd D:/claude_proj2/claude-AutosarCfg && pnpm verify
 ```
 
 Expected: 7 stages GREEN. Common failure modes:
+
 - `Type 'X' is not assignable to type 'Y'` — T3/T4 type alignment slipped.
 - `Property 'X' is missing in type 'Y'` — i18n key not added in T2.
 - A test references a removed key (`bswmdMapMissing` collapse) — T3.1 missed a row.
@@ -780,6 +787,7 @@ Baseline 3008+7 → 3016+7 SKIP / 0 fail (+8 net)."
 ### Task 6: Ship — whole-branch review + tag + release
 
 **Files:**
+
 - Create: `docs/release-notes/v1.35.0/README.md` (release notes)
 - Modify: `CHANGELOG.md` (one-row entry — read existing layout first)
 
@@ -854,14 +862,15 @@ server-vs-local threading pinned).
 
 ## Test budget (+8 net)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `scripts/__tests__/tier3_push.test.py` (NEW) | +2 | 3008 → 3010 |
-| `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +3 (it.each 6→9) | 3014 → 3017 |
-| Wait — recompute |
+| Test file                                    | Δ                                  | Cumulative  |
+| -------------------------------------------- | ---------------------------------- | ----------- |
+| `scripts/__tests__/tier3_push.test.py` (NEW) | +2                                 | 3008 → 3010 |
+| `DcmConfigErrorToast.test.tsx` (UPDATED)     | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
+| `useDcmConfigLauncher.test.ts` (UPDATED)     | +3 (it.each 6→9)                   | 3014 → 3017 |
+| Wait — recompute                             |
 
 Actually, recalculate carefully:
+
 - Baseline: 3008
 - T1 tier3_push test: +2 tests (not +1 — see T1.2: 2 tests in the file)
 - T5 toast it.each: 6 → 9 rows = +3
@@ -870,12 +879,12 @@ Actually, recalculate carefully:
 - Total T5: +7
 - Total: +9 (not +8)
 
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `scripts/__tests__/tier3_push.test.py` (NEW) | +2 | 3008 → 3010 |
-| `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 +1 | 3010 → 3014 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +3 | 3014 → 3017 |
-| **Total** | | **3008 → 3017 (+9)** |
+| Test file                                    | Δ     | Cumulative           |
+| -------------------------------------------- | ----- | -------------------- |
+| `scripts/__tests__/tier3_push.test.py` (NEW) | +2    | 3008 → 3010          |
+| `DcmConfigErrorToast.test.tsx` (UPDATED)     | +3 +1 | 3010 → 3014          |
+| `useDcmConfigLauncher.test.ts` (UPDATED)     | +3    | 3014 → 3017          |
+| **Total**                                    |       | **3008 → 3017 (+9)** |
 
 Baseline 3008 + 7 SKIP / 0 fail (from v1.34.0 MINOR `c62e346`) →
 actual **3017 + 7 SKIP / 0 fail**.
@@ -925,10 +934,13 @@ cd D:/claude_proj2/claude-AutosarCfg && git status && git log --oneline origin/m
 Expected: clean tree (T1 already pushed); N commits ahead (T2..T5 uncommitted/pushed depending on per-task push pattern).
 
 If commits are still local (T2..T5 not pushed), push them now:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ```
@@ -946,21 +958,27 @@ cd D:/claude_proj2/claude-AutosarCfg && git tag -a v1.35.0 -m "v1.35.0 MINOR —
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py
 ```
 
 Then the tag push (separate push per `follow-tags-unreliable-separate-push-tag` lesson):
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin v1.35.0
 ```
+
 or Tier 3 fallback:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && python scripts/tier3_push.py --base <prev_server_sha>
 ```
 
 Then GH release (use the 40-char SHA of the ship commit, not the abbreviated one):
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && SHIP_SHA=$(git rev-parse v1.35.0) && gh release create v1.35.0 --target "$SHIP_SHA" --title "v1.35.0 MINOR — Dcm Config Error Surface Closure + tier3_push commit" --notes "$(cat docs/release-notes/v1.35.0/README.md)"
 ```
@@ -972,6 +990,7 @@ cd D:/claude_proj2/claude-AutosarCfg && SHORT_SHA=$(git rev-parse --short v1.35.
 ```
 
 Then push the backfill:
+
 ```bash
 cd D:/claude_proj2/claude-AutosarCfg && git push origin main
 ```
@@ -1004,18 +1023,18 @@ Then push.
 
 ### 1. Spec coverage
 
-| Spec section | Plan task |
-|---|---|
-| Goal (envelope error surface closure) | T2 + T3 + T4 |
-| Bonus (tier3_push commit) | T1 |
-| Test delta budget +8 (actual +9 after recalculation) | T5 |
-| Architecture (3 additive changes + 1 commit) | T1, T2, T3, T4 |
-| Data flow before/after (lossy collapse → 1:1 mapping) | T3 + T4 |
-| Decisions D1-D7 | T2 (D6, D7), T3 (D1, D2, D7), T4 (D4) |
-| Risks & Mitigations | Mitigations addressed in task steps (TS Record constraint, atomic 3-file edit, palette tokens, no destructive git ops) |
-| Global Constraints (verbatim) | Header section |
-| Out of Scope (deferred to v1.36.0+) | Release notes Known follow-ups |
-| Reverse-Closes | Release notes |
+| Spec section                                          | Plan task                                                                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Goal (envelope error surface closure)                 | T2 + T3 + T4                                                                                                           |
+| Bonus (tier3_push commit)                             | T1                                                                                                                     |
+| Test delta budget +8 (actual +9 after recalculation)  | T5                                                                                                                     |
+| Architecture (3 additive changes + 1 commit)          | T1, T2, T3, T4                                                                                                         |
+| Data flow before/after (lossy collapse → 1:1 mapping) | T3 + T4                                                                                                                |
+| Decisions D1-D7                                       | T2 (D6, D7), T3 (D1, D2, D7), T4 (D4)                                                                                  |
+| Risks & Mitigations                                   | Mitigations addressed in task steps (TS Record constraint, atomic 3-file edit, palette tokens, no destructive git ops) |
+| Global Constraints (verbatim)                         | Header section                                                                                                         |
+| Out of Scope (deferred to v1.36.0+)                   | Release notes Known follow-ups                                                                                         |
+| Reverse-Closes                                        | Release notes                                                                                                          |
 
 **Spec gaps:** None.
 

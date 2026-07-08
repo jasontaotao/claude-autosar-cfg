@@ -107,39 +107,40 @@ same UX, harder to debug.
 
 ## Components & Files Touched
 
-| Layer | File | Change |
-|---|---|---|
-| types | `src/shared/types.ts` | No change (`DcmConfigErrorKind` 9-value already typed) |
-| types | `src/shared/i18n/odx.ts` (+ en + zh-CN bundles) | Add 4 i18n keys: `odxDcmLinkage`, `dcmModuleMissing`, `containerNotFound`, `patchFailed` |
-| renderer hook | `src/renderer/hooks/useDcmConfigLauncher.ts` | DELETE `NEW_CLASS_TO_OLD_KEY`; rename internal union `RendererDcmConfigErrorClass` (kebab-case → camelCase); `state.error.classKey` now typed against 9-value union |
-| renderer toast | `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx` | Expand `DcmConfigErrorClass` to 9-value; add 4 missing entries to `CLASS_KEY_TO_I18N` map; kebab-case → camelCase |
-| renderer toast | `src/renderer/components/dcmConfig/DcmConfigErrorToast.css` | Add 4 color/severity variants (use existing palette tokens; severity tier drives color) |
-| ops scripts | `scripts/tier3_push.py` | First-time commit + `scripts/tier3_push.README.md` + `scripts/__tests__/tier3_push.test.py` (1 unit test) |
+| Layer          | File                                                        | Change                                                                                                                                                              |
+| -------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| types          | `src/shared/types.ts`                                       | No change (`DcmConfigErrorKind` 9-value already typed)                                                                                                              |
+| types          | `src/shared/i18n/odx.ts` (+ en + zh-CN bundles)             | Add 4 i18n keys: `odxDcmLinkage`, `dcmModuleMissing`, `containerNotFound`, `patchFailed`                                                                            |
+| renderer hook  | `src/renderer/hooks/useDcmConfigLauncher.ts`                | DELETE `NEW_CLASS_TO_OLD_KEY`; rename internal union `RendererDcmConfigErrorClass` (kebab-case → camelCase); `state.error.classKey` now typed against 9-value union |
+| renderer toast | `src/renderer/components/dcmConfig/DcmConfigErrorToast.tsx` | Expand `DcmConfigErrorClass` to 9-value; add 4 missing entries to `CLASS_KEY_TO_I18N` map; kebab-case → camelCase                                                   |
+| renderer toast | `src/renderer/components/dcmConfig/DcmConfigErrorToast.css` | Add 4 color/severity variants (use existing palette tokens; severity tier drives color)                                                                             |
+| ops scripts    | `scripts/tier3_push.py`                                     | First-time commit + `scripts/tier3_push.README.md` + `scripts/__tests__/tier3_push.test.py` (1 unit test)                                                           |
 
 ## Key Design Decisions
 
-| # | Decision | Rationale |
-|---|---|---|
-| D1 | Toast union values: kebab-case IPC kind (`'odx-dcm-linkage'`) → camelCase toast class (`'odxDcmLinkage'`) | Wire-protocol-friendly vs UI-friendly naming; preserves existing IPC contract (no breaking change to other IPC consumers); i18n keys are camelCase |
-| D2 | Single mapping `KIND_TO_TOAST_CLASS` 9-row map in launcher; DELETED `NEW_CLASS_TO_OLD_KEY` | Total function, easy to audit; 1:1 mapping eliminates lossy semantics |
-| D3 | Toast severity tiers: `error` (red), `warning` (amber). All 9 classes default to `error`. | All 4 NEW classes are user-actionable (file/ODX/BSWMD mismatch); consistent UX; existing 6 classes already use red |
-| D4 | CSS additions use existing tokens (`--color-surface-error`, `--color-surface-warning`) | No new design tokens; audit-safe |
-| D5 | `tier3_push.py` commit goes T1 (before envelope migration) so T5 ship can run Tier 3 fallback with the committed script | Tier 3 already proven (v1.33.1 T5 + v1.34.0 T5); commit-as-step warms the path |
-| D6 | i18n key format: `odx.export.dcmConfig.error.{kindCamelCase}` | Matches existing 6 keys; flat namespace |
-| D7 | No removal of any existing i18n key | 6 existing keys are subset of 9 new total; additive; `bswmdMapMissing` key kept for `dcm-module-missing` + `container-not-found` + `odx-dcm-linkage` (now in addition to dedicated keys via kind-first path) |
+| #   | Decision                                                                                                                | Rationale                                                                                                                                                                                                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1  | Toast union values: kebab-case IPC kind (`'odx-dcm-linkage'`) → camelCase toast class (`'odxDcmLinkage'`)               | Wire-protocol-friendly vs UI-friendly naming; preserves existing IPC contract (no breaking change to other IPC consumers); i18n keys are camelCase                                                           |
+| D2  | Single mapping `KIND_TO_TOAST_CLASS` 9-row map in launcher; DELETED `NEW_CLASS_TO_OLD_KEY`                              | Total function, easy to audit; 1:1 mapping eliminates lossy semantics                                                                                                                                        |
+| D3  | Toast severity tiers: `error` (red), `warning` (amber). All 9 classes default to `error`.                               | All 4 NEW classes are user-actionable (file/ODX/BSWMD mismatch); consistent UX; existing 6 classes already use red                                                                                           |
+| D4  | CSS additions use existing tokens (`--color-surface-error`, `--color-surface-warning`)                                  | No new design tokens; audit-safe                                                                                                                                                                             |
+| D5  | `tier3_push.py` commit goes T1 (before envelope migration) so T5 ship can run Tier 3 fallback with the committed script | Tier 3 already proven (v1.33.1 T5 + v1.34.0 T5); commit-as-step warms the path                                                                                                                               |
+| D6  | i18n key format: `odx.export.dcmConfig.error.{kindCamelCase}`                                                           | Matches existing 6 keys; flat namespace                                                                                                                                                                      |
+| D7  | No removal of any existing i18n key                                                                                     | 6 existing keys are subset of 9 new total; additive; `bswmdMapMissing` key kept for `dcm-module-missing` + `container-not-found` + `odx-dcm-linkage` (now in addition to dedicated keys via kind-first path) |
 
 Wait — D7 contradicts itself. **Revising**: existing `bswmdMapMissing` key
 remains but is ONLY used for the `dcm-module-missing` kind path now (it
 was the merged key for 3 distinct kinds). The 4 NEW kinds get 4 NEW keys.
 Net: 6 → 9 keys, no removals.
 
-| # | Decision (revised) | Rationale |
-|---|---|---|
+| #            | Decision (revised)                                                                                                                                                                                                                                                                                                                      | Rationale                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | D7 (revised) | 6 existing keys kept. 4 NEW keys added (`odxDcmLinkage`, `dcmModuleMissing`, `containerNotFound`, `patchFailed`). The existing `bswmdMapMissing` key continues to back the `dcm-module-missing` kind (matches v1.32.0 semantics). The 2 other formerly-merged kinds (`odx-dcm-linkage`, `container-not-found`) now have dedicated keys. | Preserves existing i18n coverage; expands for the 4 NEW kinds; no removal |
 
 ## Data Flow (concrete examples)
 
 **Before v1.35.0** (lossy collapse):
+
 ```
 handler returns { ok: false, error: { kind: 'odx-dcm-linkage', message: 'ODX-Dcm linkage broken' } }
    ↓
@@ -155,6 +156,7 @@ MISLEADING: actual error is ODX-Dcm linkage, not BSWMD map.
 ```
 
 **After v1.35.0** (1:1 mapping):
+
 ```
 handler returns { ok: false, error: { kind: 'odx-dcm-linkage', message: 'ODX-Dcm linkage broken: ...' } }
    ↓
@@ -167,26 +169,26 @@ User sees: "ODX-Dcm linkage broken: ..." (correct, specific, actionable)
 
 ## Testing Strategy
 
-| Test surface | Coverage | Δ tests |
-|---|---|---|
-| `DcmConfigErrorToast.test.tsx` (UPDATED) | +4 test cases for new 4 classes (one per kind); existing 6 cases still pass | +4 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | `it.each` row count: 6 → 9 (kind → class direct mapping); `classifyError` returns 9-value union directly (no `NEW_CLASS_TO_OLD_KEY` collapse) | +3 |
-| `dcmConfigHandler.test.ts` (unchanged) | 5+1+1+1 kind sites already tested | 0 |
-| `ipcContract.test.ts` (unchanged) | Envelope already verified | 0 |
-| `tier3_push.test.py` (NEW) | 1 unit test: `parent-tree-sha-thread-prev-server-sha` regression-guard (the v1.34.0 process lesson) | +1 |
-| **Total** | | **+8** |
+| Test surface                             | Coverage                                                                                                                                      | Δ tests |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `DcmConfigErrorToast.test.tsx` (UPDATED) | +4 test cases for new 4 classes (one per kind); existing 6 cases still pass                                                                   | +4      |
+| `useDcmConfigLauncher.test.ts` (UPDATED) | `it.each` row count: 6 → 9 (kind → class direct mapping); `classifyError` returns 9-value union directly (no `NEW_CLASS_TO_OLD_KEY` collapse) | +3      |
+| `dcmConfigHandler.test.ts` (unchanged)   | 5+1+1+1 kind sites already tested                                                                                                             | 0       |
+| `ipcContract.test.ts` (unchanged)        | Envelope already verified                                                                                                                     | 0       |
+| `tier3_push.test.py` (NEW)               | 1 unit test: `parent-tree-sha-thread-prev-server-sha` regression-guard (the v1.34.0 process lesson)                                           | +1      |
+| **Total**                                |                                                                                                                                               | **+8**  |
 
 Baseline 3008 + 7 SKIP / 0 fail (from v1.34.0 MINOR `c62e346`) → target **3016 + 7 SKIP / 0 fail**.
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-|---|---|
-| `KIND_TO_TOAST_CLASS` map out of sync with `DcmConfigErrorKind` union (compile-time drift) | Use `Record<DcmConfigErrorKind, ...>` TS constraint — compile fails if a kind is added without a map row |
-| i18n key format drift (e.g., `bswmdMapMissing` vs `bswmd-unreadable`) | Keys are kebab-cased kind → camelCased suffix; format documented in spec §5 + D7 |
-| Toast color saturation: 9 variants look noisy | Use existing palette tokens; severity tier drives color (no new tokens); 4 NEW variants inherit error-tier red (consistent with 6 existing) |
-| tier3_push.py test fragility (network-dependent) | Unit test mocks `urllib.request`; does NOT hit github.com |
-| New i18n keys not localized in zh-CN | Atomically commit en + zh-CN + types bundle, identical 3-step pattern from v1.34.0 T2 |
+| Risk                                                                                       | Mitigation                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KIND_TO_TOAST_CLASS` map out of sync with `DcmConfigErrorKind` union (compile-time drift) | Use `Record<DcmConfigErrorKind, ...>` TS constraint — compile fails if a kind is added without a map row                                    |
+| i18n key format drift (e.g., `bswmdMapMissing` vs `bswmd-unreadable`)                      | Keys are kebab-cased kind → camelCased suffix; format documented in spec §5 + D7                                                            |
+| Toast color saturation: 9 variants look noisy                                              | Use existing palette tokens; severity tier drives color (no new tokens); 4 NEW variants inherit error-tier red (consistent with 6 existing) |
+| tier3_push.py test fragility (network-dependent)                                           | Unit test mocks `urllib.request`; does NOT hit github.com                                                                                   |
+| New i18n keys not localized in zh-CN                                                       | Atomically commit en + zh-CN + types bundle, identical 3-step pattern from v1.34.0 T2                                                       |
 
 ## Tasks (5 + 1 ship)
 
