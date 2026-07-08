@@ -1039,6 +1039,40 @@ function buildEcucModule(
   if (typeof paramsRaw === 'object' && paramsRaw !== null) {
     parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path, warnings));
   }
+  // v1.37.1 PATCH T2 — populate the module-level `<REFERENCES>` block
+  // (sibling of `<PARAMETERS>` and `<CONTAINERS>` inside
+  // `<ECUC-MODULE-DEF>`) into `BswModuleDef.references`. v1.37.0 MINOR
+  // T3 (H2) added the field + the bounded `addReference` validation
+  // gate (`moduleDef.references ?? []` at
+  // `src/core/arxml/mutation.ts:752`) but `buildEcucModule` never
+  // populated it — the gate was a no-op in production because the
+  // parser silently dropped module-level `<REFERENCES>`. This branch
+  // reuses the existing `buildRefList` helper (which already
+  // dispatches across all 3 supported `ECUC-XXX-REFERENCE-DEF` tags
+  // — `ECUC-REFERENCE-DEF` / `ECUC-FOREIGN-REFERENCE-DEF` /
+  // `ECUC-CHOICE-REFERENCE-DEF`) so a module-level reference and a
+  // child-container reference produce equivalent `ReferenceDef`
+  // shapes — the precondition `mutation.ts:753`
+  // (`moduleRefs.some((r) => r.shortName === refDef.shortName)`)
+  // requires for the gate to fire.
+  //
+  // Back-compat: when the BSWMD omits `<REFERENCES>`, the array is
+  // initialised to `[]` so the field is ALWAYS defined on the
+  // returned `BswModuleDef`. Consumers must treat `undefined` and
+  // `[]` equivalently (use `?? []`); the v1.37.0 mutation.ts H2 gate
+  // already does this at `mutation.ts:752`. Real fixtures in
+  // `samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml`
+  // declare module-level `<REFERENCES>` on 0 modules — so no
+  // existing test or fixture is perturbed; the `length > 0` guard
+  // in `addReference` remains a no-op for pre-v1.37.1 fixtures and
+  // un-binds cleanly in a follow-up T3 dispatch when paired with
+  // this change. Mirrors the T1 `<PARAMETERS>` extraction contract
+  // for symmetry.
+  const references: ReferenceDef[] = [];
+  const refsRaw = item['REFERENCES'];
+  if (typeof refsRaw === 'object' && refsRaw !== null) {
+    references.push(...buildRefList(refsRaw as Record<string, unknown>, path));
+  }
   // v1.14.1 PATCH-G (G1) — extract <HEADER><SHORT-NAME> and
   // <STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>. fast-xml-parser
   // collapses single child to a string and multiple children to
@@ -1070,6 +1104,7 @@ function buildEcucModule(
     containers,
     providedEntries: [],
     parameters,
+    references,
     lowerMultiplicity: readLowerMultiplicity(item),
     upperMultiplicity: readUpperMultiplicity(item),
     multiplicityConfigClasses: readMultiplicityConfigClasses(item),

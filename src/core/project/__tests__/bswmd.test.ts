@@ -1818,10 +1818,7 @@ describe('parseBswmd — module-level <PARAMETERS> extraction (v1.37.1 T1)', () 
     const cfgVar = byName.get('ConfigVariant');
     expect(cfgVar?.kind).toBe('enumeration');
     expect(cfgVar?.defaultValue).toBe('VARIANT-POST-BUILD');
-    expect(cfgVar?.enumerationLiterals).toEqual([
-      'VARIANT-PRE-COMPILE',
-      'VARIANT-POST-BUILD',
-    ]);
+    expect(cfgVar?.enumerationLiterals).toEqual(['VARIANT-PRE-COMPILE', 'VARIANT-POST-BUILD']);
   });
 
   it('initialises BswModuleDef.parameters to [] when the module has no <PARAMETERS> block', () => {
@@ -1843,5 +1840,168 @@ describe('parseBswmd — module-level <PARAMETERS> extraction (v1.37.1 T1)', () 
     const mod = result.value.modules[0];
     if (!mod) throw new Error('module not in result');
     expect(mod.parameters).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// v1.37.1 PATCH T2 — module-level <REFERENCES> extraction
+// ---------------------------------------------------------------------------
+//
+// Mirrors the T1 (`<PARAMETERS>`) test block above. T2 closes the
+// parser half of the v1.37.0 MINOR T3 (H2) `moduleDef.references`
+// validation gate at `src/core/arxml/mutation.ts:752`. Pre-T2,
+// `buildEcucModule` never read `<REFERENCES>` so any module-level
+// `<ECUC-REFERENCE-DEF>` (e.g. PduR's `<PduRBswImplication>`) was
+// silently dropped, leaving the gate as a no-op in production. T2
+// routes through the existing `buildRefList` helper (the same one
+// `buildContainer` uses for child-container references) so module-
+// level and child-container reference shapes are equivalent.
+describe('parseBswmd — module-level <REFERENCES> extraction (v1.37.1 T2)', () => {
+  it('populates BswModuleDef.references from <REFERENCES> at module root (PduR PduRBswImplication shape)', () => {
+    // Arrange — a single module-level <ECUC-REFERENCE-DEF> with the
+    // canonical PduR `PduRBswImplication` shape (DESTINATION-REF
+    // targets a `ECUC-MODULE-DEF`). No child <CONTAINERS> so any
+    // populated entry must come from the new module-level branch, not
+    // from the existing `buildContainer` path.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>PduR</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <REFERENCES>
+            <ECUC-REFERENCE-DEF>
+              <SHORT-NAME>PduRBswImplication</SHORT-NAME>
+              <DESTINATION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/Com</DESTINATION-REF>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-REFERENCE-DEF>
+          </REFERENCES>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — the module-level <REFERENCES> child surfaces on the
+    // module's own `references` array (not on a container's, since
+    // there are no containers in this fixture).
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.references).toBeDefined();
+    expect(mod.references).toHaveLength(1);
+    const r = mod.references![0]!;
+    expect(r.shortName).toBe('PduRBswImplication');
+    // destKind resolves to the @_DEST attribute on the inner
+    // DESTINATION-REF (per `buildRef` semantics) — this is the
+    // discriminator `mutation.ts:753` reads to decide validation.
+    expect(r.destKind).toBe('ECUC-MODULE-DEF');
+    expect(r.lowerMultiplicity).toBe(0);
+    expect(r.upperMultiplicity).toBe(1);
+    // Path is rooted at the module, mirroring how the module's
+    // containers / parameters get rooted (so downstream consumers can
+    // resolve refDef.path against the same hierarchy).
+    expect(r.path).toBe('/AUTOSAR/EcucDefs/PduR/PduRBswImplication');
+  });
+
+  it('populates module-level references across all three kinds (reference / foreign-reference / choice-reference)', () => {
+    // Arrange — one <ECUC-MODULE-DEF> with a <REFERENCES> block
+    // carrying every supported kind. Validates that `buildEcucModule`
+    // routes through the same `buildRefList` helper as `buildContainer`
+    // does for child containers, so a reference declared at the module
+    // root and a reference declared inside a child container produce
+    // equivalent `ReferenceDef` shapes — the precondition
+    // `mutation.ts:753` (`moduleRefs.some((r) => r.shortName === ...)`)
+    // requires for the validation gate to fire.
+    const xml = `<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>AUTOSAR</SHORT-NAME>
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>EcucDefs</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-DEF>
+          <SHORT-NAME>PduR</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <REFERENCES>
+            <ECUC-REFERENCE-DEF>
+              <SHORT-NAME>ModuleRefA</SHORT-NAME>
+              <DESTINATION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/A</DESTINATION-REF>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-REFERENCE-DEF>
+            <ECUC-FOREIGN-REFERENCE-DEF>
+              <SHORT-NAME>ForeignRefB</SHORT-NAME>
+              <DESTINATION-REF DEST="ECUC-FOREIGN-REFERENCE-DEF">/Foreign/B</DESTINATION-REF>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+            </ECUC-FOREIGN-REFERENCE-DEF>
+            <ECUC-CHOICE-REFERENCE-DEF>
+              <SHORT-NAME>ChoiceRefC</SHORT-NAME>
+              <DESTINATION-REF DEST="ECUC-CHOICE-REFERENCE-DEF">/Choice/C</DESTINATION-REF>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-CHOICE-REFERENCE-DEF>
+          </REFERENCES>
+        </ECUC-MODULE-DEF>
+      </ELEMENTS>
+    </AR-PACKAGE></AR-PACKAGES>
+  </AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>`;
+
+    // Act
+    const result = parseBswmd(xml);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — every kind surfaces as a properly-typed ReferenceDef
+    // on the module's own `references` array. We spot-check each
+    // kind's `destKind` discriminator + the multiplicity shape so a
+    // future refactor that loses one of the kinds fails this test
+    // loudly.
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.references).toBeDefined();
+    expect(mod.references).toHaveLength(3);
+    const byName = new Map(mod.references!.map((r) => [r.shortName, r] as const));
+
+    const moduleRefA = byName.get('ModuleRefA');
+    expect(moduleRefA?.destKind).toBe('ECUC-MODULE-DEF');
+    expect(moduleRefA?.upperMultiplicity).toBe(1);
+
+    const foreignRefB = byName.get('ForeignRefB');
+    expect(foreignRefB?.destKind).toBe('ECUC-FOREIGN-REFERENCE-DEF');
+    expect(foreignRefB?.upperMultiplicity).toBe('infinite');
+
+    const choiceRefC = byName.get('ChoiceRefC');
+    expect(choiceRefC?.destKind).toBe('ECUC-CHOICE-REFERENCE-DEF');
+    expect(choiceRefC?.upperMultiplicity).toBe(1);
+  });
+
+  it('initialises BswModuleDef.references to [] when the module has no <REFERENCES> block', () => {
+    // Arrange — AUTOSAR_MINIMAL (no <REFERENCES> at module level).
+    // v1.37.1 PATCH T2 changes the runtime contract: the field is
+    // ALWAYS populated (an empty array `[]` when the BSWMD omits
+    // `<REFERENCES>`), rather than left `undefined` as in v1.37.0.
+    // This is safe because the only consumer
+    // (`src/core/arxml/mutation.ts:752`) already does
+    // `moduleDef.references ?? []` and the `length > 0` gate keeps
+    // the validation no-op for empty arrays — back-compat with the
+    // pre-v1.37.0 fixture population is preserved. Mirrors the
+    // T1 `parameters → []` empty-block test for symmetry.
+    const result = parseBswmd(AUTOSAR_MINIMAL);
+    if (!result.ok) throw new Error(`parse failed: ${JSON.stringify(result.error)}`);
+
+    // Assert — `references` is `[]` (always defined post-T2), and
+    // the bounded `mutation.ts` validation gate therefore stays a
+    // no-op (empty array passes the `length > 0` check).
+    const mod = result.value.modules[0];
+    if (!mod) throw new Error('module not in result');
+    expect(mod.references).toEqual([]);
   });
 });
