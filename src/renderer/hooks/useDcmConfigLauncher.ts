@@ -13,11 +13,12 @@
 // (lesson error-classification-via-regex-prefix-vs-envelope-kind-trade-off).
 //
 // v1.33.0 MINOR T4 — classifyErrorByRegex removed (1-release compat
-// window per v1.32.0 spec §5 has expired). Renderer classifyError
-// reads kind discriminator exclusively. Defensive 'UNKNOWN' fallback
-// for legacy typed-cast payloads (should never occur in v1.32.0+
-// production but kept for type-safety).
-// Lesson: 1-release-compat-window-explicit-removal
+// window per v1.32.0 spec §5 has expired).
+// v1.35.0 MINOR — NEW_CLASS_TO_OLD_KEY collapse deleted; every
+// DcmConfigErrorKind now maps 1:1 to a dedicated RendererDcmConfigErrorClass.
+// Lesson: 1-release-compat-window-explicit-removal (the collapse survived
+// one release past the window; lesson was correct but its removal
+// schedule was not pinned at v.N+1 ship time).
 //
 // v1.32.0 MINOR T5 — state machine gains a `picking-odx` substate.
 // Flow: idle → (promptAndOpen: no active ODX) → picking-odx → (resolve)
@@ -38,14 +39,13 @@ import type {
   EcucInstanceRow,
 } from '../../shared/types.js';
 import { arxmlModuleShortNames } from '../arxml/arxmlModuleShortNames.js';
-import type { DcmConfigErrorClass } from '../components/dcmConfig/DcmConfigErrorToast.js';
 import { findDcmBswmd, type BswmdHasDcmResult } from '../components/dcmConfig/bswmdHasDcm.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
 
 export interface DcmConfigLauncherState {
   readonly mode: 'idle' | 'picking-odx' | 'pending' | 'success' | 'error';
   readonly result: DcmConfigHandlerResult | null;
-  readonly error: { message: string; classKey: DcmConfigErrorClass } | null;
+  readonly error: { message: string; classKey: RendererDcmConfigErrorClass } | null;
   readonly dialogOpen: boolean;
   readonly toastVisible: boolean;
   /** v1.32.0 T5 — last (re-entrant) autofill hint surfaced to App.tsx
@@ -120,110 +120,61 @@ const INITIAL_STATE: DcmConfigLauncherState = {
 };
 
 /**
- * v1.32.0 MINOR T2 — 9-value renderer-distinguishable error class union.
- *
- * Distinct from the toast's 6-value `DcmConfigErrorClass` (camelCase,
- * v1.31.x) so the launcher's classifier can address the 3 new
- * v1.32.0 error sites (`ODX_DCM_LINKAGE`, `DCM_MODULE_MISSING`,
- * `CONTAINER_NOT_FOUND`, `PATCH_FAILED`) without inflating the toast's
- * union before the i18n T7 work ships. The launcher maps these 9
- * values down to the 6-value toast union via `NEW_CLASS_TO_OLD_KEY`
- * when storing in `state.error.classKey`, preserving the existing
- * toast's localized rendering.
+ * v1.35.0 MINOR — 9-value renderer-distinguishable error class union
+ * (camelCase). 1:1 with `DcmConfigErrorKind` (kebab-case). This is the
+ * canonical toast class surface — every kind has a dedicated class, no
+ * collapse. Lesson: lossy-collapse-maps-are-tech-debt-not-shipping-safety.
  */
 export type RendererDcmConfigErrorClass =
-  | 'ODX_FILE_UNREADABLE'
-  | 'ODX_PARSE_FAILED'
-  | 'BSWMD_FILE_UNREADABLE'
-  | 'ODX_DCM_LINKAGE'
-  | 'DCM_MODULE_MISSING'
-  | 'CONTAINER_NOT_FOUND'
-  | 'PATCH_FAILED'
-  | 'ATOMIC_WRITE_FAILED'
-  | 'UNKNOWN';
+  | 'odxUnreadable'
+  | 'odxParseFailed'
+  | 'bswmdUnreadable'
+  | 'odxDcmLinkage'
+  | 'dcmModuleMissing'
+  | 'containerNotFound'
+  | 'patchFailed'
+  | 'atomicWriteFailed'
+  | 'unexpected';
 
 /**
- * v1.32.0 MINOR T2 — DcmConfigErrorKind → RendererDcmConfigErrorClass.
- * Order matters in case of future kind additions; today it is total
- * (every DcmConfigErrorKind has a row).
+ * v1.35.0 MINOR — DcmConfigErrorKind → RendererDcmConfigErrorClass.
+ * 1:1 mapping (no collapse). Order matches the union declaration
+ * for readability. The kebab-case IPC kind is mapped to the
+ * camelCase toast class for direct use in `DcmConfigErrorToast`.
  */
 const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, RendererDcmConfigErrorClass>> = {
-  'odx-unreadable': 'ODX_FILE_UNREADABLE',
-  'odx-parse-failed': 'ODX_PARSE_FAILED',
-  'bswmd-unreadable': 'BSWMD_FILE_UNREADABLE',
-  'odx-dcm-linkage': 'ODX_DCM_LINKAGE',
-  'dcm-module-missing': 'DCM_MODULE_MISSING',
-  'container-not-found': 'CONTAINER_NOT_FOUND',
-  'patch-failed': 'PATCH_FAILED',
-  'atomic-write-failed': 'ATOMIC_WRITE_FAILED',
-  unknown: 'UNKNOWN',
-};
-
-/**
- * v1.32.0 MINOR T2 — RendererDcmConfigErrorClass → toast's
- * DcmConfigErrorClass (camelCase, v1.31.x 6-value union).
- *
- * 3 new classes collapse onto existing toast keys:
- *   - `ODX_DCM_LINKAGE`     → `bswmdMapMissing` (best UX match — same
- *                             "missing linkage between ODX & Dcm"
- *                             message territory)
- *   - `CONTAINER_NOT_FOUND` → `bswmdMapMissing` (same UX bucket)
- *   - `DCM_MODULE_MISSING`  → `bswmdMapMissing` (same UX bucket)
- *   - `PATCH_FAILED`        → `unexpected` (no dedicated i18n key yet)
- *
- * The mapping is intentionally lossy: the launcher's state.error.classKey
- * remains in the toast's 6-value union so DcmConfigErrorToast renders
- * unchanged. A future v1.32.x+ PATCH can split these out as the i18n
- * catalog grows. Pinned by the v1.32.0 spec §3 T7 / T8 (i18n keys
- * added incrementally per release).
- */
-const NEW_CLASS_TO_OLD_KEY: Readonly<Record<RendererDcmConfigErrorClass, DcmConfigErrorClass>> = {
-  ODX_FILE_UNREADABLE: 'odxUnreadable',
-  ODX_PARSE_FAILED: 'odxParseFailed',
-  BSWMD_FILE_UNREADABLE: 'bswmdUnreadable',
-  ODX_DCM_LINKAGE: 'bswmdMapMissing',
-  DCM_MODULE_MISSING: 'bswmdMapMissing',
-  CONTAINER_NOT_FOUND: 'bswmdMapMissing',
-  PATCH_FAILED: 'unexpected',
-  ATOMIC_WRITE_FAILED: 'atomicWriteFailed',
-  UNKNOWN: 'unexpected',
+  'odx-unreadable': 'odxUnreadable',
+  'odx-parse-failed': 'odxParseFailed',
+  'bswmd-unreadable': 'bswmdUnreadable',
+  'odx-dcm-linkage': 'odxDcmLinkage',
+  'dcm-module-missing': 'dcmModuleMissing',
+  'container-not-found': 'containerNotFound',
+  'patch-failed': 'patchFailed',
+  'atomic-write-failed': 'atomicWriteFailed',
+  unknown: 'unexpected',
 };
 
 /**
  * v1.33.0 MINOR T4 — read DcmConfigError.kind exclusively. The
  * pre-v1.32.0 regex fallback was removed when the 1-release compat
- * window expired (v1.32.0 spec §5). Defensive 'UNKNOWN' return keeps
+ * window expired (v1.32.0 spec §5). Defensive 'unexpected' return keeps
  * the type-safe path for any typed-cast anomaly that bypasses the
  * discriminant (should never occur in v1.32.0+ IPC payloads).
  *
  * Accepts the full `DcmConfigError` shape (not just `message`) so the
  * discriminator check has a stable home — we never inspect
  * `error.message` first.
+ *
+ * v1.35.0 MINOR — return type now `RendererDcmConfigErrorClass`
+ * directly (was wrapped through `toToastClassKey` adapter into the
+ * 6-value `DcmConfigErrorClass`). The toast union expanded to 9 values
+ * in T4; collapse map deleted in T3.
  */
 export function classifyError(error: DcmConfigError): RendererDcmConfigErrorClass {
   if (typeof error === 'object' && error !== null && 'kind' in error) {
     return KIND_TO_CLASS[error.kind];
   }
-  return 'UNKNOWN';
-}
-
-// v1.33.0 MINOR T4 — classifyErrorByRegex removed (1-release compat
-// window per v1.32.0 spec §5 has expired). Renderer classifyError
-// reads kind discriminator exclusively. Defensive 'UNKNOWN' fallback
-// for legacy typed-cast payloads (should never occur in v1.32.0+
-// production but kept for type-safety).
-// Lesson: 1-release-compat-window-explicit-removal
-
-/**
- * v1.32.0 MINOR T2 — internal adapter from the 9-class
- * RendererDcmConfigErrorClass union down to the toast's 6-value
- * DcmConfigErrorClass (camelCase) so `state.error.classKey` still
- * round-trips through `DcmConfigErrorToast` unchanged. Test code
- * that asserts on `state.error.classKey` continues to expect the
- * v1.31.x camelCase keys.
- */
-function toToastClassKey(cls: RendererDcmConfigErrorClass): DcmConfigErrorClass {
-  return NEW_CLASS_TO_OLD_KEY[cls];
+  return 'unexpected';
 }
 
 /** Minimal `window.autosarApi.dcmConfig` shape (cast in caller). */
@@ -425,7 +376,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
           // FIRST. We pass the whole `res.error` object, not just
           // `message`, so the discriminator has a stable home.
           const errorForClassify: DcmConfigError = res.error as DcmConfigError;
-          const toastKey = toToastClassKey(classifyError(errorForClassify));
+          const toastKey = classifyError(errorForClassify);
           setState({
             mode: 'error',
             result: null,
@@ -454,9 +405,11 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
         // v1.32.0 MINOR T2 — bridge throws are not DcmConfigErrors
         // (no IPC envelope reached). Build an envelope-shaped object
         // with `kind: 'unknown'` so classifyError takes the kind-first
-        // path and returns 'UNKNOWN' (toast key 'unexpected').
+        // path and returns 'unexpected' (toast key).
+        // v1.35.0 MINOR — return is the 9-value RendererDcmConfigErrorClass
+        // directly (no toToastClassKey adapter).
         const errorForClassify: DcmConfigError = { kind: 'unknown', message };
-        const toastKey = toToastClassKey(classifyError(errorForClassify));
+        const toastKey = classifyError(errorForClassify);
         setState({
           mode: 'error',
           result: null,
