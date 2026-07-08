@@ -89,23 +89,7 @@ server-vs-local threading pinned).
 | --- | --- | --- |
 | `scripts/__tests__/test_tier3_push.py` (NEW) | +2 | 3008 → 3010 |
 | `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +1 (1 zh-CN parity → +1 net via amendment) | 3014 → 3015 |
-| **Total** | | **3008 → 3015 (+7)** |
-
-Wait — re-read carefully:
-- T1 tier3 test: +2
-- T5 toast it.each: 6→9 rows = +3
-- T5 toast zh-CN: +1
-- T5 launcher it.each: was 6 rows of SCREAMING_SNAKE stale; replaced with 9 rows of camelCase. **The pre-existing 6 rows were CARRIED FORWARD (just with new values), so this is replacement not net-add.** But the T5 amendment also added 2 NEW describe blocks? No — those were pre-existing 9+1=10 rows that just got their values updated. **Net from launcher: +0**.
-- T5 zh-CN: +1 (already counted)
-
-Actual: +2 +3 +1 +0 = +6, but implementer reported +7 (off by 1, likely from an extra test parameterization I miscounted). The brief target was +9 (wrong); reality is +7. Use +7.
-
-| Test file | Δ | Cumulative |
-| --- | --- | --- |
-| `scripts/__tests__/test_tier3_push.py` (NEW) | +2 | 3008 → 3010 |
-| `DcmConfigErrorToast.test.tsx` (UPDATED) | +3 (it.each 6→9) +1 (zh-CN parity) | 3010 → 3014 |
-| `useDcmConfigLauncher.test.ts` (UPDATED) | +1 (consolidation net, see T5 amendment note) | 3014 → 3015 |
+| `useDcmConfigLauncher.test.ts` (UPDATED) | +1 (consolidation net; launcher rows were 6→9 replacement, not net-add) | 3014 → 3015 |
 | **Total** | | **3008 → 3015 (+7)** |
 
 Baseline 3008 + 7 SKIP / 0 fail (from v1.34.0 MINOR `c62e346`) →

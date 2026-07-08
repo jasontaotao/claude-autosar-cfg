@@ -45,3 +45,32 @@ local SHA. This guards against the v1.34.0 ship-blocking bug where the
 local `parent_tree_sha` returned 404 because the parent commit's SHA on
 the server differed from the local SHA (content-identical but
 content-addressed under different tree SHAs).
+
+## Orphan Recovery
+
+When the script successfully pushes but the local SHA differs from the
+server SHA (because the script creates commits via the GitHub API and
+the API-assigned commit objects have different content-addressed SHAs
+than locally-created ones), local git state will be temporarily out of
+sync with origin/main. Recovery:
+
+```bash
+# 1. Wait for github.com:443 to return (the 30s Connection was reset
+#    typically resolves within 5-10 minutes; verify with:
+curl -I https://github.com/jasontaotao/claude-autosar-cfg 2>&1 | head -3
+
+# 2. Once reachable, fetch + reset to align local to the server:
+git fetch origin main
+git reset --hard origin/main
+```
+
+This is a **safe operation** — `git reset --hard origin/main` only
+discards local commits whose tree is identical to (or a subset of)
+origin/main's tree. The Tier 3 server SHAs that just landed on origin
+are content-equivalent to the local SHAs (same tree, different SHA
+because content-addressing under different parent chains).
+
+If `git fetch origin main` itself times out (the same github.com:443
+block that triggered Tier 3 in the first place), wait for the
+block to lift, then retry. Tier 3 itself is not repeatable on the
+same commits (the second walk would find no commits to push).
