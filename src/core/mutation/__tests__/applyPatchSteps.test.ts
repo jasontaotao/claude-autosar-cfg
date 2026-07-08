@@ -665,10 +665,7 @@ describe('applyPatchSteps', () => {
       // remapped set-param carries only `{type, value}` (the typed
       // shape the mapper emits). We assert the {type, value} keys
       // match — the `definitionRef` is irrelevant to the bug.
-      if (
-        firstInstance?.kind !== 'container' ||
-        secondInstance?.kind !== 'container'
-      ) {
+      if (firstInstance?.kind !== 'container' || secondInstance?.kind !== 'container') {
         throw new Error('expected both instances to be containers');
       }
       expect(firstInstance.params['ComPduDirection']).toMatchObject({
@@ -784,14 +781,8 @@ describe('applyPatchSteps', () => {
         throw new Error('expected ComConfig container');
       }
       const fresh = findChildByShortName(comConfig, 'ComIPdu_Fresh');
-      const original = findChildByShortName(
-        comConfig,
-        'ComIPdu_PreExisting_Existing',
-      );
-      const suffixed = findChildByShortName(
-        comConfig,
-        'ComIPdu_PreExisting_Existing_1',
-      );
+      const original = findChildByShortName(comConfig, 'ComIPdu_PreExisting_Existing');
+      const suffixed = findChildByShortName(comConfig, 'ComIPdu_PreExisting_Existing_1');
       expect(fresh).toBeDefined();
       expect(original).toBeDefined();
       expect(suffixed).toBeDefined();

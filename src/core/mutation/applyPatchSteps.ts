@@ -196,11 +196,7 @@ export function applyPatchSteps(
       // not installed; remapping would leave a stale entry that
       // misroutes a later unrelated set-param).
       if (step.op === 'add-child') {
-        const detected = detectAutoSuffixRemap(
-          current,
-          step.parentPath,
-          step.shortName,
-        );
+        const detected = detectAutoSuffixRemap(current, step.parentPath, step.shortName);
         if (detected !== null) {
           pendingRemap.set(`${step.parentPath}|${step.shortName}`, detected);
         }
@@ -289,8 +285,10 @@ function detectAutoSuffixRemap(
   parentPath: string,
   requestedShortName: string,
 ): string | null {
-  const parent: { readonly children: ReadonlyArray<ArxmlElement> } | null =
-    findContainerByPath(doc, parentPath);
+  const parent: { readonly children: ReadonlyArray<ArxmlElement> } | null = findContainerByPath(
+    doc,
+    parentPath,
+  );
   if (parent === null) return null;
   // Mirror `shortNameOf` (src/core/arxml/mutation.ts:1138-1147):
   // `ArxmlElement` is a discriminated union whose `unknown`
