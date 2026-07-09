@@ -63,7 +63,7 @@ export function renderCValue(value: unknown, kind: string): string {
   // pending real consumer requirement).
   switch (kind) {
     case 'integer':
-      return String(value);
+      return value === undefined ? '0u' : `${String(value)}u`;
     case 'boolean':
       return value ? '1u' : '0u';
     case 'string': {
