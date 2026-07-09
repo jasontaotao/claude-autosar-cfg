@@ -310,6 +310,8 @@ const api = {
       readonly source: 'manual' | 'wizard';
       // v1.36.1 PATCH M1 — listen inherits main's timestamp
       readonly importedAt: number;
+      // v1.40.0 MINOR T3 (L1) — bridge surfaces persistence outcome.
+      readonly persisted: boolean;
     }) => void,
   ) => {
     const listener = (
@@ -318,6 +320,7 @@ const api = {
         rows: readonly EcucInstanceRow[];
         source: 'manual' | 'wizard';
         importedAt: number;
+        persisted: boolean;
       },
     ) => {
       handler(payload);

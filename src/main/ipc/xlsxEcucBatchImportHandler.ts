@@ -479,22 +479,18 @@ export async function xlsxEcucBatchImportHandler(
   // listener stamped its own Date.now() and the two diverged by a
   // few ms, causing cross-session display jitter.
   const importedAt = Date.now();
-  if (typeof BrowserWindow !== 'undefined' && BrowserWindow !== null) {
-    const mainWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-    if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, {
-        rows: appliedRows,
-        source: 'wizard',
-        importedAt,
-      });
-    }
-  }
 
-  // v1.36.0 MINOR T3 — persist the import to disk after the broadcast.
-  // Order: broadcast first (so the renderer's xlsxLastImport
-  // updates immediately), persist second (file-bound). If
-  // persistence fails, the in-memory slice is still correct for
-  // the next dcm:config call — disk write is best-effort.
+  // v1.40.0 MINOR T3 (L1) — persist BEFORE the broadcast. The previous
+  // ordering (broadcast first, persist second) meant a user who
+  // quit the app mid-import — between the push and the save — saw
+  // the timeline populated in the current session but empty on next
+  // launch. Flipping the order closes the race: when the renderer
+  // receives the push, the disk write has already resolved and the
+  // `persisted` field on the payload tells the listener whether to
+  // surface a warning toast. The persistence is still best-effort
+  // (the import still returns ok when save fails) so the in-memory
+  // slice is correct for the next dcm:config call.
+  // v1.36.0 MINOR T3 — persist the import to disk.
   // T-fix HIGH-1: capture the return value. A failed save (disk
   // full, permission error) used to be silently swallowed; the user
   // would see the timeline empty next launch with no signal. Log a
@@ -503,7 +499,7 @@ export async function xlsxEcucBatchImportHandler(
   const saveRes = await xlsxHistorySaveHandler({
     rows: appliedRows,
     source: 'wizard',
-    // v1.36.1 PATCH M1 — share timestamp with the broadcast above
+    // v1.36.1 PATCH M1 — share timestamp with the broadcast below
     importedAt,
   });
   if (!saveRes.ok) {
@@ -511,6 +507,22 @@ export async function xlsxEcucBatchImportHandler(
     console.warn(
       `xlsxHistorySave: persistence failed (${saveRes.error.kind}): ${saveRes.error.message}`,
     );
+  }
+
+  if (typeof BrowserWindow !== 'undefined' && BrowserWindow !== null) {
+    const mainWindow = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.XLSX_IMPORT_COMPLETE, {
+        rows: appliedRows,
+        source: 'wizard',
+        importedAt,
+        // v1.40.0 MINOR T3 (L1) — surface persistence outcome to the
+        // renderer. The listener can use this to pop a warning toast
+        // when `persisted === false` so the user is not surprised by
+        // an empty timeline on next launch.
+        persisted: saveRes.ok,
+      });
+    }
   }
 
   return {

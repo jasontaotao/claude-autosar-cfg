@@ -17,6 +17,11 @@ interface XlsxImportCompletePayload {
   // ms (caused cross-session display jitter on the Reuse button +
   // time element).
   readonly importedAt: number;
+  // v1.40.0 MINOR T3 (L1) — main pushes persistence outcome so the
+  // listener can surface a warning toast when `persisted === false`.
+  // The push fires only after the disk write resolves, so the value
+  // reflects what actually landed on disk.
+  readonly persisted: boolean;
 }
 
 /** Attach the IPC push listener for xlsx:import-complete.

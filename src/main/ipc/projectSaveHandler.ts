@@ -20,7 +20,7 @@
 
 import * as path from 'node:path';
 
-import { saveManifest } from '../../core/project/manifest.js';
+import { loadManifest, saveManifest } from '../../core/project/manifest.js';
 import type { ProjectSaveRequest, ProjectSaveResult } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
 
@@ -62,6 +62,30 @@ export async function projectSaveHandler(req: ProjectSaveRequest): Promise<Proje
         message: `Failed to write ${f.path}: ${e instanceof Error ? e.message : String(e)}`,
       };
     }
+  }
+  // v1.40.0 MINOR T3 (M3) — probe the serialized manifest through the
+  // same loader the renderer uses on open. `saveManifest` is a
+  // round-trip-safe JSON serializer; the defense-in-depth is here in
+  // case a tampered preload bridge hands us an object whose serialized
+  // form is not a valid manifest (e.g. missing required fields). We
+  // reuse the existing `loadManifest` parser with the manifest's
+  // directory so a legitimate round-trip succeeds (path migration is
+  // idempotent for already-relative paths) and a malformed one is
+  // rejected with the same `kind` the renderer would see on open.
+  const probe = loadManifest(saveManifest(req.manifest), path.dirname(req.manifestPath));
+  if (!probe.ok) {
+    // ManifestError is a discriminated union: only some variants
+    // carry a `message` field (e.g. `json-parse` / `invalid-shape` /
+    // `invalid-field`); others carry structured data (e.g.
+    // `version-mismatch` carries `expected` / `found`,
+    // `invalid-path` carries `field` / `path` / `reason`). Stringify
+    // via `kind` plus a JSON dump of the rest so the user sees the
+    // full context regardless of the variant.
+    const errorDetail = JSON.stringify(probe.error);
+    return {
+      kind: 'write-failed',
+      message: `Manifest invalid: ${probe.error.kind} — ${errorDetail}`,
+    };
   }
   try {
     await writeAtomic(req.manifestPath, saveManifest(req.manifest));

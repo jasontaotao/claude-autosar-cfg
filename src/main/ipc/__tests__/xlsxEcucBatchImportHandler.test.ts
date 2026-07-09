@@ -47,6 +47,46 @@ vi.mock('../xlsxHistorySaveHandler.js', () => ({
 }));
 const { xlsxHistorySaveHandler } = await import('../xlsxHistorySaveHandler.js');
 
+// v1.40.0 MINOR T3 (L1) — mock BrowserWindow so we can capture the
+// `webContents.send` call order. The previous test skipped the
+// `XLSX_IMPORT_COMPLETE` push because no `BrowserWindow` was set up;
+// L1 inverts the push/save order so we need to assert the call
+// order. `vi.hoisted` is required so the mock factory can read
+// `callLog` / `nextCallN` (vi.mock is hoisted above regular
+// declarations). The save handler records its entry via a side-
+// effect: the L1 test installs a wrapper via
+// `vi.mocked(xlsxHistorySaveHandler).mockImplementation` that pushes
+// into the same shared `callLog` array.
+const { callLog, nextCallN, sendMock } = vi.hoisted(() => {
+  const log: Array<{ kind: 'send' | 'save'; n: number }> = [];
+  let n = 0;
+  const mock = vi.fn(() => {
+    log.push({ kind: 'send', n: ++n });
+  });
+  return { callLog: log, nextCallN: () => ++n, sendMock: mock };
+});
+vi.mock('electron', () => ({
+  BrowserWindow: {
+    getFocusedWindow: vi.fn(() => ({
+      isDestroyed: () => false,
+      webContents: { send: sendMock },
+    })),
+    getAllWindows: vi.fn(() => [
+      {
+        isDestroyed: () => false,
+        webContents: { send: sendMock },
+      },
+    ]),
+  },
+  // xlsxHistoryStorage.ts calls `app.getPath('userData')` to resolve
+  // the on-disk JSON path. Provide a no-op stub so the dynamic-import
+  // chain (`xlsxEcucBatchImportHandler → xlsxHistorySaveHandler →
+  // xlsxHistoryStorage`) resolves cleanly under our electron mock.
+  app: {
+    getPath: vi.fn((_name: string) => '/tmp/claude-autosarcfg-test-userdata'),
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Test helpers — copy the real demo-ecu Com-stack ARXMLs into a fresh
 // temp dir each test so the fixture round-trip is hermetic (never
@@ -386,6 +426,96 @@ describe('xlsxEcucBatchImportHandler (v1.25.0 T2 — round-trip e2e)', () => {
       expect(res.error.kind).toBe('parse-failed');
       expect(res.error.message).toMatch(/NotARealSheet/);
     } finally {
+      cleanup(fx.workDir);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 9. v1.40.0 MINOR T3 (L1) — push order. The L1 fix inverts the
+  //    push/save ordering: persistence now resolves BEFORE the
+  //    `XLSX_IMPORT_COMPLETE` push fires. The test records both the
+  //    save and the send call order (via the BrowserWindow mock) and
+  //    asserts the save was completed before the send happened. Also
+  //    asserts the push payload now carries `persisted: true` on
+  //    success.
+  // -------------------------------------------------------------------------
+
+  it('fires XLSX_IMPORT_COMPLETE push AFTER xlsxHistorySaveHandler resolves (L1)', async () => {
+    vi.mocked(xlsxHistorySaveHandler).mockResolvedValue({ ok: true });
+    // Wrap the save mock to record into the shared call log via the
+    // hoisted `nextCallN` helper, so save and send share a single
+    // monotonic counter and their order is observable.
+    vi.mocked(xlsxHistorySaveHandler).mockImplementation(async () => {
+      callLog.push({ kind: 'save', n: nextCallN() });
+      // Realistic small async delay so the order is observable even
+      // when save resolves successfully.
+      await new Promise((r) => setImmediate(r));
+      return { ok: true };
+    });
+    // Clear the shared log for this test only. Earlier tests in the
+    // file may have already recorded send entries; we only care
+    // about the L1 test's own 1 save + 1 send.
+    callLog.length = 0;
+    const fx = seedProject();
+    try {
+      const instances: EcucInstanceRow[] = [
+        { sheet: 'ComIPdu', shortName: 'NewPduL1', params: {} },
+      ];
+      const res = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: { 'ComIPdu:NewPduL1': 'overwrite' },
+      });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      // The L1 test produced exactly one save + one send entry.
+      const saveEntries = callLog.filter((e) => e.kind === 'save');
+      const sendEntries = callLog.filter((e) => e.kind === 'send');
+      expect(saveEntries.length).toBe(1);
+      expect(sendEntries.length).toBe(1);
+      // The save's monotonic n must be strictly less than the send's
+      // monotonic n (save happened first).
+      expect(saveEntries[0]!.n).toBeLessThan(sendEntries[0]!.n);
+      // Payload carries persisted: true.
+      const allCalls = sendMock.mock.calls as unknown as Array<[unknown, unknown]>;
+      const sendCall = allCalls[allCalls.length - 1]!;
+      const channel = sendCall[0];
+      const payload = sendCall[1] as { persisted: boolean; rows: unknown[]; importedAt: number };
+      expect(channel).toBe('xlsx:import-complete');
+      expect(payload.persisted).toBe(true);
+      expect(payload.rows.length).toBe(1);
+      expect(typeof payload.importedAt).toBe('number');
+    } finally {
+      cleanup(fx.workDir);
+    }
+  });
+
+  it('push payload reports persisted: false when xlsxHistorySaveHandler fails (L1)', async () => {
+    vi.mocked(xlsxHistorySaveHandler).mockResolvedValue({
+      ok: false,
+      error: { kind: 'write-failed', message: 'disk full' },
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    sendMock.mockClear();
+    const fx = seedProject();
+    try {
+      const instances: EcucInstanceRow[] = [
+        { sheet: 'ComIPdu', shortName: 'NewPduPersistedFalse', params: {} },
+      ];
+      const res = await xlsxEcucBatchImportHandler({
+        projectManifestPath: fx.manifestPath,
+        instances,
+        resolutions: { 'ComIPdu:NewPduPersistedFalse': 'overwrite' },
+      });
+      expect(res.ok).toBe(true);
+      // Send still fires (push is best-effort) with persisted: false.
+      expect(sendMock).toHaveBeenCalledTimes(1);
+      const allCalls = sendMock.mock.calls as unknown as Array<[unknown, unknown]>;
+      const sendCall = allCalls[0]!;
+      const payload = sendCall[1] as { persisted: boolean };
+      expect(payload.persisted).toBe(false);
+    } finally {
+      warn.mockRestore();
       cleanup(fx.workDir);
     }
   });

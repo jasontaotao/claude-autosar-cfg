@@ -162,6 +162,33 @@ export async function scriptListHandler(_req: ScriptListRequest): Promise<Script
 
 // -- save -----------------------------------------------------------------
 
+// v1.40.0 MINOR T3 (M1) — defensive name validator. The renderer
+// pre-validates the `name` (display name) field, but a tampered
+// preload bridge could still smuggle in NUL bytes, control characters,
+// or arbitrarily-long strings. Cap the visible name at 80 chars (the
+// manifest's `name` field is a human-readable label, not a free-form
+// text blob) and reject strings that would corrupt the manifest JSON
+// or the renderer's table cell. Mirrors the spirit of
+// `validateShortName` but with a relaxed shape (display names are
+// less strict than identifiers).
+const NAME_MAX = 80;
+function validateName(name: string): ScriptError | null {
+  if (name.length > NAME_MAX) {
+    return classScriptError(
+      'invalid-source',
+      `name too long (max ${NAME_MAX} chars, got ${name.length})`,
+      { field: 'name' },
+    );
+  }
+  if (/[\x00-\x1f]/.test(name)) {
+    return classScriptError('invalid-source', 'name contains control character', { field: 'name' });
+  }
+  if (name.trim().length === 0) {
+    return classScriptError('invalid-source', 'name is whitespace', { field: 'name' });
+  }
+  return null;
+}
+
 /**
  * Heuristic: pull `import { ... } from './x'` lines out of the user
  * source so the manifest's `imports[]` field is in sync with what the
@@ -190,6 +217,11 @@ function extractDeclaredImports(source: string): ReadonlyArray<{ from: string; n
 export async function scriptSaveHandler(req: ScriptSaveRequest): Promise<ScriptSaveResponse> {
   const err = validateShortName(req.shortName);
   if (err) throw err;
+  // v1.40.0 MINOR T3 (M1) — validate the display name. The renderer
+  // pre-validates but a tampered preload bridge could still pass NUL
+  // bytes, control characters, or arbitrarily-long strings.
+  const nameErr = validateName(req.name);
+  if (nameErr !== null) throw nameErr;
   const m = await loadCurrentManifest();
   const list = m.scripts.slice();
   const now = new Date().toISOString();
@@ -320,9 +352,23 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   // Snapshot the BrowserWindow ONCE before the run starts so a
   // window close mid-run doesn't tear the listener half-way through.
   const mainWindow = getMainWindow();
+  // v1.40.0 MINOR T3 (M2) — clamp `timeoutMs` to a safe range. The
+  // renderer sends a number bounded by the UI's slider, but a tampered
+  // preload could send `Infinity`, `Number.MAX_SAFE_INTEGER`, or `0`.
+  // V8's `setTimeout` treats `0` (and negative values) as "no timeout",
+  // which means a malicious or buggy caller could wedge the graceful-
+  // shutdown drain that wraps `runInSandbox`. The floor at 1 s leaves
+  // the runner enough headroom to fail fast on a stuck script; the
+  // ceiling at 60 s caps the worst-case drain during quit.
+  const SAFE_TIMEOUT_MIN_MS = 1000;
+  const SAFE_TIMEOUT_MAX_MS = 60_000;
+  const clampedTimeoutMs = Math.min(
+    Math.max(req.timeoutMs ?? 5000, SAFE_TIMEOUT_MIN_MS),
+    SAFE_TIMEOUT_MAX_MS,
+  );
   try {
     return runInSandbox(entry, logs, violations, mutations, {
-      timeoutMs: req.timeoutMs ?? 5000,
+      timeoutMs: clampedTimeoutMs,
       project,
       onLog: (runId, log) => {
         if (mainWindow === null || mainWindow.isDestroyed()) return;
