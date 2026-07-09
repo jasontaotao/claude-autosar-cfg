@@ -1,0 +1,1196 @@
+// core/project/bswmd/parse.ts
+// BSWMD (BSW Module Description, schema-side) parser. Sprint 12 #1 Task 1.
+//
+// Split from `src/core/project/bswmd.ts` as part of v1.41.x PATCH T1
+// (file-size backlog). Owns: the public `parseBswmd` entry point, the
+// EB-tresos dialect builder (`buildEbModule`), the AUTOSAR-standard
+// ECUC-MODULE-DEF builder (`buildEcucModule` / `buildContainerList` /
+// `buildContainer` / `buildChoiceContainer`), and the parameter /
+// reference sub-builders (`buildParamList` / `buildRefList` / `buildParam`
+// / `buildRef` / `paramKindFromTag`).
+//
+// Type-only deps: `./types.js`. Runtime deps: `fast-xml-parser` for
+// XML parsing + the shared `Result` discriminated union. No other
+// sub-file deps — the lookup helpers live in `./lookup.js`, the
+// version detection helpers live in `./validate.ts` (sub-file).
+//
+// Two dialects are recognised:
+//   1. EB tresos BSW-MODULE-DESCRIPTION — top-level <BSW-MODULE-DESCRIPTION> with
+//      <MODULE-ID> + <PROVIDED-ENTRYS>. The actual container/param schema is
+//      not present here (it lives in a vendor-private ECUC-MODULE-DEF sibling),
+//      so we read SHORT-NAME + MODULE-ID + PROVIDED-ENTRYS only.
+//   2. AUTOSAR standard ECUC-MODULE-DEF — top-level <ECUC-MODULE-DEF> with
+//      <CONTAINERS>/<SUB-CONTAINERS>/<PARAMETERS>/<REFERENCES>/<CHOICES>.
+//      Each <ECUC-XXX-PARAM-DEF> / <ECUC-XXX-REFERENCE-DEF> is fully expanded.
+//
+// Reference: AUTOSAR TPS_StandardizationTemplate (r4.x), ECUC parameter
+// definition shape. EB tresos shape matches what we have in real fixtures
+// (r4.0 namespace; tresos tool tag is 4-0-3.xsd).
+//
+// Zero react/electron/fs deps — same constraint as src/core/arxml/parser.ts.
+
+import { XMLParser, XMLValidator } from 'fast-xml-parser';
+
+import type { Result } from '../../arxml/types.js';
+
+import type {
+  BswModuleDef,
+  BswmdDocument,
+  BswmdError,
+  ContainerDef,
+  DepthGuard,
+  ModuleRefEntry,
+  ParamDef,
+  ParamKind,
+  ProvidedEntry,
+  ReferenceDef,
+} from './types.js';
+
+const NS_PATTERN = /\/schema\/(r\d+\.\d+|\d{5,6})/;
+
+/** Versions we accept. r3.x is rejected with `unsupported-version`. The
+ *  numeric-form entries are the AUTOSAR release namespace digits (`00046`
+ *  ≡ R4.6, `00005` ≡ R5.0, `00006` ≡ R6.0). The regex returns either form;
+ *  we list both so the supported set covers the long and short shapes. */
+const SUPPORTED_VERSIONS = new Set([
+  '4.0',
+  '4.2',
+  '4.4',
+  '4.6',
+  '4.7',
+  '5.0',
+  '00005',
+  '00006',
+  '00046',
+  '00051',
+]);
+
+export function parseBswmd(xml: string): Result<BswmdDocument, BswmdError> {
+  // Explicit XML well-formedness check — fast-xml-parser is lenient and
+  // would otherwise turn unclosed tags into a partially-populated object
+  // and report unsupported-version for invalid input.
+  const validation = XMLValidator.validate(xml);
+  if (validation !== true) {
+    const message =
+      typeof validation === 'object' && validation !== null && 'err' in validation
+        ? (validation as { err: { msg: string; line?: number; col?: number } }).err.msg
+        : 'XML is not well-formed';
+    return { ok: false, error: { kind: 'xml-malformed', message } };
+  }
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    parseAttributeValue: false,
+    removeNSPrefix: false,
+    processEntities: true,
+    trimValues: false,
+    // Sprint 13 Stage 5.D — bump the default `maxNestedTags` (100) so
+    // our 64-level defensive depth check can fire first on pathological
+    // input. The fast-xml-parser default trips at 100 nested tags; a
+    // 65-level ECUC-MODULE-DEF produces 65*2-1 = 129 nested tags
+    // (container + SUB-CONTAINERS per level). 200 leaves comfortable
+    // headroom for the legitimate 64-level cap (128 tags) plus the
+    // outer AUTOSAR/AR-PACKAGE/ECUC-MODULE-DEF wrapping.
+    maxNestedTags: 200,
+  });
+
+  let raw: unknown;
+  try {
+    raw = parser.parse(xml);
+  } catch (err) {
+    return {
+      ok: false,
+      error: {
+        kind: 'xml-malformed',
+        message: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
+
+  if (typeof raw !== 'object' || raw === null) {
+    return {
+      ok: false,
+      error: { kind: 'missing-root', message: 'parsed result is not an object' },
+    };
+  }
+
+  const root = raw as Record<string, unknown>;
+  const autosar = root['AUTOSAR'];
+  if (typeof autosar !== 'object' || autosar === null) {
+    return {
+      ok: false,
+      error: { kind: 'missing-root', message: '<AUTOSAR> root not found' },
+    };
+  }
+
+  const version = detectVersion(autosar as Record<string, unknown>);
+  if (version === null) {
+    // Detect the literal version string even when unsupported so the caller
+    // can show "r3.5" / "4.6" in the error message rather than a generic
+    // "unknown" — useful when the user pastes an old AUTOSAR 3.x BSWMD.
+    const literal = detectVersionLiteral(autosar as Record<string, unknown>);
+    return {
+      ok: false,
+      error: { kind: 'unsupported-version', version: literal ?? 'unknown' },
+    };
+  }
+
+  const arPackages = (autosar as Record<string, unknown>)['AR-PACKAGES'];
+  if (typeof arPackages !== 'object' || arPackages === null) {
+    return {
+      ok: false,
+      error: { kind: 'missing-root', message: '<AR-PACKAGES> not found' },
+    };
+  }
+
+  const warnings: string[] = [];
+  const modules: BswModuleDef[] = [];
+  // Sprint 13 Stage 5.D — depth guard for the recursive container builder.
+  // Created here, threaded through walkPackagesForModules → walkElementsForModules
+  // → buildEcucModule → buildContainerList → buildContainer. If a pathological
+  // BSWMD nests deeper than `MAX_CONTAINER_DEPTH`, the builder sets
+  // `guard.error` and the walk unwinds. The error is surfaced as a fatal
+  // `invalid-structure` BswmdError below.
+  const guard: DepthGuard = { depth: 0, error: null };
+  const moduleError = walkPackagesForModules(
+    arPackages as Record<string, unknown>,
+    '',
+    modules,
+    warnings,
+    guard,
+  );
+  if (moduleError !== null) {
+    return { ok: false, error: moduleError };
+  }
+  if (guard.error !== null) {
+    return { ok: false, error: guard.error };
+  }
+
+  // C11 (v1.17.0) — walk <MODULE-REF> elements that the existing
+  // walkPackagesForModules silently dropped. Same recursion pattern
+  // (AR-PACKAGE → ELEMENTS → MODULE-REF children). Targets are the
+  // text content of <MODULE-REF>; sources are the parent AR-PACKAGE
+  // path for debugging.
+  const moduleRefs: ModuleRefEntry[] = [];
+  walkPackagesForModuleRefs(arPackages as Record<string, unknown>, '', moduleRefs);
+
+  // Sprint 13 Stage 5.D — default-value cross-check against enumerationLiterals.
+  //
+  // AUTOSAR allows a `<DEFAULT-VALUE>` outside its declared `<LITERALS>` set
+  // (a vendor tool that does this produces a BSWMD the renderer can load but
+  // the user can't reliably set the default to). We surface this as a
+  // non-fatal warning — same surface as the `unknown container kind` warning
+  // above — so the project panel can show a degraded-state banner without
+  // rejecting the file.
+  //
+  // Runs AFTER `walkPackagesForModules` so all containers + sub-containers +
+  // choice branches are populated.
+  validateModuleDefaults(modules, warnings);
+
+  return {
+    ok: true,
+    value: {
+      version,
+      modules,
+      warnings,
+      moduleRefs: moduleRefs.length === 0 ? undefined : moduleRefs,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers (shared with sibling sub-files via `export`)
+// ---------------------------------------------------------------------------
+
+export function detectVersion(autosar: Record<string, unknown>): string | null {
+  const literal = detectVersionLiteral(autosar);
+  if (literal === null) return null;
+  return SUPPORTED_VERSIONS.has(literal) ? literal : null;
+}
+
+/** Detect the version literal from the namespace, without filtering on support. */
+export function detectVersionLiteral(autosar: Record<string, unknown>): string | null {
+  const xmlns = typeof autosar['@_xmlns'] === 'string' ? (autosar['@_xmlns'] as string) : '';
+  const m = NS_PATTERN.exec(xmlns);
+  if (!m || m[1] === undefined) return null;
+  return m[1].startsWith('r') ? m[1].slice(1) : m[1];
+}
+
+export function asArray<T>(v: unknown): T[] {
+  if (Array.isArray(v)) return v as T[];
+  if (v === undefined || v === null) return [];
+  return [v as T];
+}
+
+function readShortName(elem: Record<string, unknown>): string | undefined {
+  const sn = elem['SHORT-NAME'];
+  if (typeof sn === 'string') return sn;
+  if (typeof sn === 'object' && sn !== null) {
+    const t = (sn as Record<string, unknown>)['#text'];
+    if (typeof t === 'string') return t;
+  }
+  return undefined;
+}
+
+function readNumber(node: unknown): number | null {
+  if (typeof node === 'number' && Number.isFinite(node)) return node;
+  if (typeof node === 'string') {
+    const n = Number(node);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function readBoolean(node: unknown): boolean | null {
+  if (typeof node === 'boolean') return node;
+  if (typeof node === 'string') {
+    const s = node.trim().toLowerCase();
+    if (s === 'true' || s === '1') return true;
+    if (s === 'false' || s === '0') return false;
+  }
+  return null;
+}
+
+/**
+ * Read a multiplicity: returns the literal number, or 'infinite' when the
+ * companion `<UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>`
+ * is set. Missing upper is treated as 'infinite' because that matches the
+ * ECUC spec default (most container/choice upper bounds are unbounded).
+ */
+function readUpperMultiplicity(node: Record<string, unknown>): number | 'infinite' {
+  const inf = readBoolean(node['UPPER-MULTIPLICITY-INFINITE']);
+  if (inf === true) return 'infinite';
+  const n = readNumber(node['UPPER-MULTIPLICITY']);
+  return n === null ? 'infinite' : n;
+}
+
+function readLowerMultiplicity(node: Record<string, unknown>): number {
+  const n = readNumber(node['LOWER-MULTIPLICITY']);
+  return n === null ? 0 : n;
+}
+
+/**
+ * v1.4.1 — read the `<MULTIPLICITY-CONFIG-CLASSES>` block.
+ *
+ * Each `<ECUC-MULTIPLICITY-CONFIGURATION-CLASS>` child contributes one
+ * `(CONFIG-CLASS, CONFIG-VARIANT)` row. Missing or empty block → empty
+ * array. Missing sub-fields default to empty string — the consumer can
+ * distinguish "no constraint declared" via `length === 0`.
+ *
+ * Per AUTOSAR TPS_StandardizationTemplate the values are restricted
+ * literals; we keep them as plain strings here so callers can format /
+ * validate however they like.
+ */
+function readMultiplicityConfigClasses(
+  node: Record<string, unknown>,
+): readonly { readonly configClass: string; readonly configVariant: string }[] {
+  const block = node['MULTIPLICITY-CONFIG-CLASSES'];
+  if (typeof block !== 'object' || block === null) return [];
+  const rows = asArray<Record<string, unknown>>(
+    (block as Record<string, unknown>)['ECUC-MULTIPLICITY-CONFIGURATION-CLASS'],
+  );
+  const out: { configClass: string; configVariant: string }[] = [];
+  for (const row of rows) {
+    const configClass = readElementText(row['CONFIG-CLASS']);
+    const configVariant = readElementText(row['CONFIG-VARIANT']);
+    if (configClass === '' && configVariant === '') continue;
+    out.push({ configClass, configVariant });
+  }
+  return out;
+}
+
+export function findContainerInTree(
+  containers: readonly ContainerDef[],
+  shortName: string,
+): ContainerDef | null {
+  for (const c of containers) {
+    if (c.shortName === shortName) return c;
+    const nested = findContainerInTree(c.subContainers, shortName);
+    if (nested !== null) return nested;
+    const inChoice = findContainerInTree(c.choices, shortName);
+    if (inChoice !== null) return inChoice;
+  }
+  return null;
+}
+
+/**
+ * Walk AR-PACKAGES at any depth, dispatching each module child element to
+ * the dialect-specific builder. Returns a fatal BswmdError if a top-level
+ * module definition is missing its required SHORT-NAME (the module would be
+ * unreachable by path lookup anyway). Non-fatal issues (unknown inner kinds)
+ * are accumulated in `warnings`.
+ */
+function walkPackagesForModules(
+  node: Record<string, unknown>,
+  parentPath: string,
+  out: BswModuleDef[],
+  warnings: string[],
+  guard?: DepthGuard,
+): BswmdError | null {
+  for (const pkg of asArray<Record<string, unknown>>(node['AR-PACKAGE'])) {
+    // Stop walking more packages once the depth guard has tripped.
+    if (guard?.error !== null && guard?.error !== undefined) return guard.error;
+    const shortName = readShortName(pkg);
+    if (shortName === undefined) continue;
+    const path = `${parentPath}/${shortName}`;
+    const elementsRaw = pkg['ELEMENTS'];
+    if (typeof elementsRaw === 'object' && elementsRaw !== null) {
+      const err = walkElementsForModules(
+        elementsRaw as Record<string, unknown>,
+        path,
+        out,
+        warnings,
+        guard,
+      );
+      if (err !== null) return err;
+    }
+    const nestedRaw = pkg['AR-PACKAGES'];
+    if (typeof nestedRaw === 'object' && nestedRaw !== null) {
+      const err = walkPackagesForModules(
+        nestedRaw as Record<string, unknown>,
+        path,
+        out,
+        warnings,
+        guard,
+      );
+      if (err !== null) return err;
+    }
+  }
+  return null;
+}
+
+/**
+ * C11 (v1.17.0) — walk AR-PACKAGES to collect `<MODULE-REF>` elements.
+ *
+ * Mirrors `walkPackagesForModules` recursion: descends into nested
+ * AR-PACKAGES and walks ELEMENTS at each level, but instead of building
+ * module defs it extracts `<MODULE-REF>` children. Each `<MODULE-REF>`
+ * carries a target path (text body) and is attributed to the parent
+ * AR-PACKAGE for debugging.
+ *
+ * AR-PACKAGES are bounded by tree depth (typically < 10 levels), so no
+ * DepthGuard is needed — moduleRefs walking only recurses into
+ * AR-PACKAGES, never into ELEMENTS / container sub-trees that drove the
+ * depth-guard rationale for `walkPackagesForModules`.
+ *
+ * Empty AR-PACKAGES (no `<MODULE-REF>` children anywhere) → no entries
+ * appended; the caller decides whether to surface an empty array vs.
+ * `undefined` at the document level.
+ */
+function walkPackagesForModuleRefs(
+  node: Record<string, unknown>,
+  parentPath: string,
+  out: ModuleRefEntry[],
+): void {
+  for (const pkg of asArray<Record<string, unknown>>(node['AR-PACKAGE'])) {
+    const shortName = readShortName(pkg);
+    if (shortName === undefined) continue;
+    const path = `${parentPath}/${shortName}`;
+    const elementsRaw = pkg['ELEMENTS'];
+    if (typeof elementsRaw === 'object' && elementsRaw !== null) {
+      const moduleRefRaw = (elementsRaw as Record<string, unknown>)['MODULE-REF'];
+      if (moduleRefRaw !== undefined) {
+        for (const item of asArray<Record<string, unknown>>(moduleRefRaw)) {
+          const target = readElementText(item);
+          if (target !== '') {
+            out.push({ target, source: path });
+          }
+        }
+      }
+    }
+    const nestedRaw = pkg['AR-PACKAGES'];
+    if (typeof nestedRaw === 'object' && nestedRaw !== null) {
+      walkPackagesForModuleRefs(nestedRaw as Record<string, unknown>, path, out);
+    }
+  }
+}
+
+function walkElementsForModules(
+  node: Record<string, unknown>,
+  parentPath: string,
+  out: BswModuleDef[],
+  warnings: string[],
+  guard?: DepthGuard,
+): BswmdError | null {
+  // Short-circuit if the guard has already tripped (the depth check in
+  // buildContainer set the error). Returning the same error keeps the
+  // unwind symmetric — no more recursion happens, no more modules are
+  // emitted.
+  if (guard?.error !== null && guard?.error !== undefined) return guard.error;
+  // Sprint 13+ Q6 — duplicate module shortName detection. We keep both
+  // modules in `out` (existing behaviour) but emit a warning so the
+  // BswmdPanel can flag the file. Per-scope: this set is fresh for each
+  // <ELEMENTS> block we walk, so it catches sibling <ECUC-MODULE-DEF> /
+  // <BSW-MODULE-DESCRIPTION> collisions inside the same parent AR-PACKAGE.
+  const seenModuleShortNames = new Set<string>();
+  for (const [tagName, raw] of Object.entries(node)) {
+    if (tagName.startsWith('@_') || tagName === '#text') continue;
+    for (const item of asArray<Record<string, unknown>>(raw)) {
+      if (tagName === 'BSW-MODULE-DESCRIPTION') {
+        const mod = buildEbModule(item, parentPath, warnings);
+        if (mod !== null) {
+          if (seenModuleShortNames.has(mod.shortName)) {
+            warnings.push(
+              `Duplicate module definition "${mod.shortName}" at ${mod.path} — first-wins, later copy retained but shadowed by the first lookup`,
+            );
+          }
+          seenModuleShortNames.add(mod.shortName);
+          out.push(mod);
+        } else {
+          // Missing SHORT-NAME at the module level is fatal: the module
+          // would have an empty path and the lookup helpers would never
+          // find it. Better to fail loud than to silently produce an
+          // unreachable module.
+          return {
+            kind: 'invalid-structure',
+            path: parentPath,
+            message: `BSW-MODULE-DESCRIPTION at ${parentPath} is missing <SHORT-NAME>`,
+          };
+        }
+        continue;
+      }
+      if (tagName === 'ECUC-MODULE-DEF') {
+        const mod = buildEcucModule(item, parentPath, warnings, guard);
+        if (mod !== null) {
+          if (seenModuleShortNames.has(mod.shortName)) {
+            warnings.push(
+              `Duplicate module definition "${mod.shortName}" at ${mod.path} — first-wins, later copy retained but shadowed by the first lookup`,
+            );
+          }
+          seenModuleShortNames.add(mod.shortName);
+          out.push(mod);
+        } else {
+          return {
+            kind: 'invalid-structure',
+            path: parentPath,
+            message: `ECUC-MODULE-DEF at ${parentPath} is missing <SHORT-NAME>`,
+          };
+        }
+        // After each module build, check whether the depth guard tripped
+        // (the recursion has already unwound by this point). Returning
+        // the error from the walk stops further module processing.
+        if (guard?.error !== null && guard?.error !== undefined) return guard.error;
+        continue;
+      }
+      // Unknown top-level module kind — record and skip without aborting.
+      //
+      // Design note: we deliberately do NOT promote these to
+      // `invalid-structure`. Real EB tresos BSWMD files place value-side
+      // and implementation-side siblings inside the same `<ELEMENTS>`
+      // block as the schema-side `<BSW-MODULE-DESCRIPTION>` — for example
+      // `<BSW-MODULE-ENTRY>` (entry definition) and `<BSW-IMPLEMENTATION>`
+      // (implementation metadata) appear under sibling `<AR-PACKAGE>`
+      // nodes. Bumping these to errors would reject valid vendor files
+      // (tests/fixtures/bswmd/Can_Bswmd.arxml currently records 3 such
+      // warnings). The schema-side validator (Sprint 13) only needs to
+      // look up `ECUC-MODULE-DEF` / `BSW-MODULE-DESCRIPTION` by path —
+      // unknown kinds are unreachable to that lookup anyway, so
+      // warning-and-skip is the correct surface. The `warnings` array is
+      // the renderer's signal to display a degraded-state banner.
+      warnings.push(`Unknown module kind '${tagName}' at ${parentPath}`);
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// EB tresos dialect
+// ---------------------------------------------------------------------------
+
+function buildEbModule(
+  item: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+): BswModuleDef | null {
+  const shortName = readShortName(item);
+  if (shortName === undefined) return null;
+  const path = `${parentPath}/${shortName}`;
+  const moduleId = readNumber(item['MODULE-ID']);
+  const provided = buildProvidedEntries(item, path, warnings);
+  return {
+    shortName,
+    path,
+    dialect: 'bsw-module-description',
+    moduleId,
+    containers: [],
+    providedEntries: provided,
+    lowerMultiplicity: 0,
+    upperMultiplicity: 'infinite',
+    // EB tresos BSW-MODULE-DESCRIPTION dialect has no
+    // <MULTIPLICITY-CONFIG-CLASSES> on the module-level shape;
+    // info lives in the vendor-private ECUC-MODULE-DEF sibling.
+    multiplicityConfigClasses: [],
+  };
+}
+
+/** Read text content of a (possibly attribute-bearing) XML element. */
+function readElementText(node: unknown): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'object' && node !== null) {
+    const text = (node as Record<string, unknown>)['#text'];
+    if (typeof text === 'string') return text;
+  }
+  return '';
+}
+
+/**
+ * v1.7.1 S3 — read the `<DESC>` element body from a BSWMD node.
+ *
+ * Returns `undefined` when the field is absent OR present but empty
+ * (e.g. `<DESC></DESC>`) — the two cases collapse to the same value
+ * so downstream UI code does not have to distinguish "no
+ * description declared" from "explicitly empty description".
+ *
+ * Reuses `readElementText` so the same string-extraction rules apply
+ * (handles attribute-bearing elements and `<DESC>` with mixed
+ * whitespace / line breaks).
+ */
+function readDesc(item: Record<string, unknown>): string | undefined {
+  const text = readElementText(item['DESC']);
+  return text === '' ? undefined : text;
+}
+
+/** Read the `@_DEST` attribute from an element node (or empty string). */
+function readDestAttr(node: unknown): string {
+  if (typeof node !== 'object' || node === null) return '';
+  const dest = (node as Record<string, unknown>)['@_DEST'];
+  return typeof dest === 'string' ? dest : '';
+}
+
+/** Last `/`-separated segment of an AUTOSAR reference path. */
+function lastPathSegment(path: string): string {
+  if (path === '') return '';
+  const idx = path.lastIndexOf('/');
+  return idx === -1 ? path : path.slice(idx + 1);
+}
+
+function buildProvidedEntries(
+  module: Record<string, unknown>,
+  modulePath: string,
+  warnings?: string[],
+): readonly ProvidedEntry[] {
+  const provided = module['PROVIDED-ENTRYS'];
+  if (typeof provided !== 'object' || provided === null) return [];
+  const out: ProvidedEntry[] = [];
+  for (const wrapper of asArray<Record<string, unknown>>(
+    (provided as Record<string, unknown>)['BSW-MODULE-ENTRY-REF-CONDITIONAL'],
+  )) {
+    // Path 1 — AUTOSAR standard: SHORT-NAME + ENTRY-REF on the wrapper.
+    // Wrapper SHORT-NAME wins over any inferred name when present.
+    let shortName: string | undefined = readShortName(wrapper);
+    let entryRefPath = '';
+    let entryKind = '';
+    const entryRef = wrapper['ENTRY-REF'];
+    if (typeof entryRef === 'string' || (typeof entryRef === 'object' && entryRef !== null)) {
+      entryRefPath = readElementText(entryRef);
+      entryKind = readDestAttr(entryRef);
+    }
+
+    // Path 2 — EB tresos fallback: BSW-MODULE-ENTRY-REF inside the wrapper,
+    // with no SHORT-NAME on the wrapper. We synthesise shortName from the
+    // last path segment so lookup helpers and round-trip tests still see
+    // the entry. Surface a warning so the project panel can flag it.
+    if (shortName === undefined) {
+      const inner = wrapper['BSW-MODULE-ENTRY-REF'];
+      if (typeof inner === 'string' || (typeof inner === 'object' && inner !== null)) {
+        entryRefPath = readElementText(inner);
+        if (entryKind === '') entryKind = readDestAttr(inner);
+      }
+      if (entryRefPath !== '') {
+        shortName = lastPathSegment(entryRefPath);
+        if (warnings !== undefined) {
+          warnings.push(
+            `${modulePath}: provided entry omits wrapper <SHORT-NAME>; derived '${shortName}' from <BSW-MODULE-ENTRY-REF>`,
+          );
+        }
+      }
+    }
+
+    if (shortName === undefined || shortName === '') {
+      if (warnings !== undefined) {
+        warnings.push(
+          `${modulePath}: provided entry has no <SHORT-NAME> and no usable entry ref; skipped`,
+        );
+      }
+      continue;
+    }
+    out.push({
+      shortName,
+      path: `${modulePath}/${shortName}`,
+      entryRefPath,
+      entryKind,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// AUTOSAR standard ECUC-MODULE-DEF dialect
+// ---------------------------------------------------------------------------
+
+function buildEcucModule(
+  item: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+  guard?: DepthGuard,
+): BswModuleDef | null {
+  const shortName = readShortName(item);
+  if (shortName === undefined) return null;
+  const path = `${parentPath}/${shortName}`;
+  const containersRaw = item['CONTAINERS'];
+  const containers: ContainerDef[] = [];
+  if (typeof containersRaw === 'object' && containersRaw !== null) {
+    containers.push(
+      ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
+    );
+  }
+  // v1.37.1 PATCH T1 — populate the module-level `<PARAMETERS>` block
+  // (sibling of `<CONTAINERS>` inside `<ECUC-MODULE-DEF>`) into
+  // `BswModuleDef.parameters`. v1.37.0 MINOR T3 (H2) added the field +
+  // the bounded `addParameter` validation gate
+  // (`moduleDef.parameters ?? []` at `src/core/arxml/mutation.ts:590`)
+  // but `buildEcucModule` never populated it — the gate was a no-op
+  // in production because the parser silently dropped module-level
+  // `<PARAMETERS>`. This branch reuses the existing `buildParamList`
+  // helper (which already dispatches across all 5 supported
+  // `ECUC-XXX-PARAM-DEF` tags via `paramKindFromTag`) so a module-level
+  // parameter and a child-container parameter produce equivalent
+  // `ParamDef` shapes.
+  //
+  // Back-compat: when the BSWMD omits `<PARAMETERS>`, the array is
+  // initialised to `[]` so the field is ALWAYS defined on the returned
+  // `BswModuleDef`. Consumers must treat `undefined` and `[]`
+  // equivalently (use `?? []`); the v1.37.0 mutation.ts H2 gate
+  // already does this at `mutation.ts:590`. Real fixtures in
+  // `samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml` (100
+  // modules scanned) declare module-level `<PARAMETERS>` on 0
+  // modules — so no existing test or fixture is perturbed; the
+  // `length > 0` guard in `addParameter` remains a no-op for
+  // pre-v1.37.1 fixtures and un-binds cleanly in a follow-up T3
+  // dispatch when paired with this change.
+  const parameters: ParamDef[] = [];
+  const paramsRaw = item['PARAMETERS'];
+  if (typeof paramsRaw === 'object' && paramsRaw !== null) {
+    parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path, warnings));
+  }
+  // v1.37.1 PATCH T2 — populate the module-level `<REFERENCES>` block
+  // (sibling of `<PARAMETERS>` and `<CONTAINERS>` inside
+  // `<ECUC-MODULE-DEF>`) into `BswModuleDef.references`. v1.37.0 MINOR
+  // T3 (H2) added the field + the bounded `addReference` validation
+  // gate (`moduleDef.references ?? []` at
+  // `src/core/arxml/mutation.ts:752`) but `buildEcucModule` never
+  // populated it — the gate was a no-op in production because the
+  // parser silently dropped module-level `<REFERENCES>`. This branch
+  // reuses the existing `buildRefList` helper (which already
+  // dispatches across all 3 supported `ECUC-XXX-REFERENCE-DEF` tags
+  // — `ECUC-REFERENCE-DEF` / `ECUC-FOREIGN-REFERENCE-DEF` /
+  // `ECUC-CHOICE-REFERENCE-DEF`) so a module-level reference and a
+  // child-container reference produce equivalent `ReferenceDef`
+  // shapes — the precondition `mutation.ts:753`
+  // (`moduleRefs.some((r) => r.shortName === refDef.shortName)`)
+  // requires for the gate to fire.
+  //
+  // Back-compat: when the BSWMD omits `<REFERENCES>`, the array is
+  // initialised to `[]` so the field is ALWAYS defined on the
+  // returned `BswModuleDef`. Consumers must treat `undefined` and
+  // `[]` equivalently (use `?? []`); the v1.37.0 mutation.ts H2 gate
+  // already does this at `mutation.ts:752`. Real fixtures in
+  // `samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml`
+  // declare module-level `<REFERENCES>` on 0 modules — so no
+  // existing test or fixture is perturbed; the `length > 0` guard
+  // in `addReference` remains a no-op for pre-v1.37.1 fixtures and
+  // un-binds cleanly in a follow-up T3 dispatch when paired with this
+  // change. Mirrors the T1 `<PARAMETERS>` extraction contract
+  // for symmetry.
+  const references: ReferenceDef[] = [];
+  const refsRaw = item['REFERENCES'];
+  if (typeof refsRaw === 'object' && refsRaw !== null) {
+    references.push(...buildRefList(refsRaw as Record<string, unknown>, path));
+  }
+  // v1.14.1 PATCH-G (G1) — extract <HEADER><SHORT-NAME> and
+  // <STD-INCLUDES>/<STD-INCLUDE>/<SHORT-NAME>. fast-xml-parser
+  // collapses single child to a string and multiple children to
+  // an array; `asArray` normalizes both.
+  const headerRaw = asArray<Record<string, unknown>>(item['HEADER'])[0];
+  const moduleHeader = headerRaw ? readShortName(headerRaw) : undefined;
+  const stdIncludesEl = asArray<Record<string, unknown>>(item['STD-INCLUDES'])[0];
+  // v1.14.2 PATCH-H (H1) — empty `<STD-INCLUDE><SHORT-NAME>` is kept
+  // as `''` in `includes[]` so the SEC3 validator
+  // (`validateModuleHeaderPaths` in `core/generator/modules/_shared.ts`)
+  // can push `BSW-SEC-003` for it. The v1.14.1 PATCH-G string warning
+  // is removed — the validator owns the channel now and exposes the
+  // strict-mode upgrade path the v1.14.1 spec promised (line 168:
+  // "`strict: true` (CLI flag) promotes `BSW-SEC-003` from WARN →
+  // ERROR"). The shape change is additive for callers that filter
+  // falsy entries (the H2 `buildSelfIncludes` helper does so
+  // explicitly) and a 1-line `inc === ''` branch in the validator.
+  const includes: string[] = stdIncludesEl
+    ? asArray<Record<string, unknown>>(stdIncludesEl['STD-INCLUDE']).flatMap((si) => {
+        const name = readShortName(si);
+        return name === undefined ? [''] : [name];
+      })
+    : [];
+  return {
+    shortName,
+    path,
+    dialect: 'ecuc-module-def',
+    moduleId: null,
+    containers,
+    providedEntries: [],
+    parameters,
+    references,
+    lowerMultiplicity: readLowerMultiplicity(item),
+    upperMultiplicity: readUpperMultiplicity(item),
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+    moduleHeader,
+    includes,
+  };
+}
+
+function buildContainerList(
+  node: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+  guard?: DepthGuard,
+): ContainerDef[] {
+  const out: ContainerDef[] = [];
+  // Sprint 13+ Q6 — per-parent duplicate container detection. A
+  // module / container with two `<ECUC-PARAM-CONF-CONTAINER-DEF>`
+  // sharing the same `<SHORT-NAME>` is a schema conflict; the second
+  // copy gets retained (existing behaviour) but flagged.
+  const seenContainerShortNames = new Set<string>();
+  for (const [tagName, raw] of Object.entries(node)) {
+    if (tagName.startsWith('@_') || tagName === '#text') continue;
+    for (const item of asArray<Record<string, unknown>>(raw)) {
+      if (tagName === 'ECUC-PARAM-CONF-CONTAINER-DEF') {
+        const c = buildContainer(item, parentPath, warnings, guard);
+        if (seenContainerShortNames.has(c.shortName) && warnings !== undefined) {
+          warnings.push(
+            `Duplicate container definition "${c.shortName}" at ${c.path} — first-wins, later copy retained but shadowed by the first lookup`,
+          );
+        }
+        seenContainerShortNames.add(c.shortName);
+        out.push(c);
+        continue;
+      }
+      if (tagName === 'ECUC-CHOICE-ORIENTED-STRUCTURE-DEF') {
+        out.push(buildChoiceContainer(item, parentPath, warnings, guard));
+        continue;
+      }
+      // Bug — Vector/EB tresos dialect BSWMDs use the shorter
+      // `ECUC-CHOICE-CONTAINER-DEF` tag for choice containers instead
+      // of the AUTOSAR-standard `ECUC-CHOICE-ORIENTED-STRUCTURE-DEF`.
+      // Both have an identical `<CHOICES>` block of nested
+      // `ECUC-PARAM-CONF-CONTAINER-DEF` branches, so the same builder
+      // handles either tag. Before this branch was added the parser
+      // fell through to the "Unknown container kind" warning and the
+      // choice subtree was silently dropped — user-reported as
+      // "JWQ3399SpiConfig comes back empty even though BSWMD
+      // declares CommonContainer and ChoiceContainer".
+      if (tagName === 'ECUC-CHOICE-CONTAINER-DEF') {
+        out.push(buildChoiceContainer(item, parentPath, warnings, guard));
+        continue;
+      }
+      // Unknown inner container kind — surface as a non-fatal warning so
+      // the project panel can flag the file without aborting the whole parse.
+      if (warnings !== undefined) {
+        warnings.push(`Unknown container kind '${tagName}' at ${parentPath}`);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Maximum allowed container-nesting depth. Generous enough to cover any
+ * real AUTOSAR schema (typically < 20 levels even for deeply-nested
+ * modules like EcuC) but small enough to short-circuit pathological
+ * BSWMDs that would otherwise blow the V8 call stack.
+ *
+ * Sprint 13 Stage 5.D — defensive limit. Tripping the limit produces
+ * an `invalid-structure` `BswmdError` so the renderer can show a clean
+ * message ("Container nesting depth exceeds 64") instead of crashing
+ * the main process.
+ */
+export const MAX_CONTAINER_DEPTH = 64;
+
+function buildContainer(
+  item: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+  guard?: DepthGuard,
+): ContainerDef {
+  const shortName = readShortName(item) ?? '<unnamed>';
+  const path = `${parentPath}/${shortName}`;
+  // Increment depth at the start of each container build. If we've
+  // crossed the cap, set the guard's error and return a stub so the
+  // recursion can unwind without further work. The parseBswmd caller
+  // will see the error and surface it as a fatal Result.
+  if (guard !== undefined) {
+    guard.depth += 1;
+    if (guard.depth > MAX_CONTAINER_DEPTH) {
+      if (guard.error === null) {
+        guard.error = {
+          kind: 'invalid-structure',
+          path,
+          message: `Container nesting depth exceeds ${MAX_CONTAINER_DEPTH} (path: ${path})`,
+        };
+      }
+      return {
+        shortName,
+        path,
+        lowerMultiplicity: readLowerMultiplicity(item),
+        upperMultiplicity: readUpperMultiplicity(item),
+        subContainers: [],
+        parameters: [],
+        references: [],
+        choices: [],
+        desc: readDesc(item),
+        multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+      };
+    }
+  }
+  const subContainers: ContainerDef[] = [];
+  // v1.23.0 T3 fix — read BOTH `<CONTAINERS>` and `<SUB-CONTAINERS>`
+  // so BSWMD sub-container children wrapped in either form surface as
+  // siblings of the parent. Mirrors the v1.23.0 T2 fix in
+  // `src/core/arxml/parser.ts:418-433` (which solved the same bug for
+  // value-side ARXMLs). Real OEM demo-ecu BSWMDs (Vector-style
+  // `<CONTAINERS>` shorthand) wrap children directly inside
+  // `<CONTAINERS>` rather than the longer-form `<SUB-CONTAINERS>`;
+  // the prior code only read `<SUB-CONTAINERS>`, leaving
+  // `parent.subContainers` empty and silently breaking
+  // `findParentContainerDef` in `applyPatchSteps.ts:703-714` (the
+  // bridge's BSWMD-driven child-def lookup).
+  const containersRaw = item['CONTAINERS'];
+  if (typeof containersRaw === 'object' && containersRaw !== null) {
+    subContainers.push(
+      ...buildContainerList(containersRaw as Record<string, unknown>, path, warnings, guard),
+    );
+  }
+  const subRaw = item['SUB-CONTAINERS'];
+  if (typeof subRaw === 'object' && subRaw !== null) {
+    subContainers.push(
+      ...buildContainerList(subRaw as Record<string, unknown>, path, warnings, guard),
+    );
+  }
+  const parameters: ParamDef[] = [];
+  const paramsRaw = item['PARAMETERS'];
+  if (typeof paramsRaw === 'object' && paramsRaw !== null) {
+    parameters.push(...buildParamList(paramsRaw as Record<string, unknown>, path, warnings));
+  }
+  const references: ReferenceDef[] = [];
+  const refsRaw = item['REFERENCES'];
+  if (typeof refsRaw === 'object' && refsRaw !== null) {
+    references.push(...buildRefList(refsRaw as Record<string, unknown>, path));
+  }
+  const result: ContainerDef = {
+    shortName,
+    path,
+    lowerMultiplicity: readLowerMultiplicity(item),
+    upperMultiplicity: readUpperMultiplicity(item),
+    subContainers,
+    parameters,
+    references,
+    choices: [],
+    desc: readDesc(item),
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+  };
+  if (guard !== undefined) {
+    guard.depth -= 1;
+  }
+  return result;
+}
+
+function buildChoiceContainer(
+  item: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+  guard?: DepthGuard,
+): ContainerDef {
+  // ECUC-CHOICE-ORIENTED-STRUCTURE-DEF is structurally a container with
+  // a `<CHOICES>` block of nested ECUC-PARAM-CONF-CONTAINER-DEF. We surface
+  // the choices as a separate `choices` field on the same ContainerDef so
+  // the lookup helpers can find them; `subContainers` stays empty because
+  // choice branches are not nested sub-containers in the ECUC sense.
+  const shortName = readShortName(item) ?? '<unnamed>';
+  const path = `${parentPath}/${shortName}`;
+  // Choice containers count toward the depth limit too: a deeply-nested
+  // CHOICES tree is the same SOF risk as a deeply-nested SUB-CONTAINERS.
+  if (guard !== undefined) {
+    guard.depth += 1;
+    if (guard.depth > MAX_CONTAINER_DEPTH) {
+      if (guard.error === null) {
+        guard.error = {
+          kind: 'invalid-structure',
+          path,
+          message: `Container nesting depth exceeds ${MAX_CONTAINER_DEPTH} (path: ${path})`,
+        };
+      }
+      return {
+        shortName,
+        path,
+        lowerMultiplicity: readLowerMultiplicity(item),
+        upperMultiplicity: readUpperMultiplicity(item),
+        subContainers: [],
+        parameters: [],
+        references: [],
+        choices: [],
+        desc: readDesc(item),
+        multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+      };
+    }
+  }
+  const choicesRaw = item['CHOICES'];
+  const choices: ContainerDef[] = [];
+  if (typeof choicesRaw === 'object' && choicesRaw !== null) {
+    choices.push(
+      ...buildContainerList(choicesRaw as Record<string, unknown>, path, warnings, guard),
+    );
+  }
+  const result: ContainerDef = {
+    shortName,
+    path,
+    lowerMultiplicity: readLowerMultiplicity(item),
+    upperMultiplicity: readUpperMultiplicity(item),
+    subContainers: [],
+    parameters: [],
+    references: [],
+    choices,
+    desc: readDesc(item),
+    multiplicityConfigClasses: readMultiplicityConfigClasses(item),
+  };
+  if (guard !== undefined) {
+    guard.depth -= 1;
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Parameters
+// ---------------------------------------------------------------------------
+
+function buildParamList(
+  node: Record<string, unknown>,
+  parentPath: string,
+  warnings?: string[],
+): ParamDef[] {
+  const out: ParamDef[] = [];
+  // Sprint 13+ Q6 — per-container duplicate parameter detection.
+  const seenParamShortNames = new Set<string>();
+  for (const [tagName, raw] of Object.entries(node)) {
+    if (tagName.startsWith('@_') || tagName === '#text') continue;
+    const kind = paramKindFromTag(tagName);
+    if (kind === null) continue;
+    for (const item of asArray<Record<string, unknown>>(raw)) {
+      const p = buildParam(item, parentPath, kind);
+      if (seenParamShortNames.has(p.shortName) && warnings !== undefined) {
+        warnings.push(
+          `Duplicate parameter "${p.shortName}" at ${parentPath}/${p.shortName} — first-wins, later copy retained but shadowed by the first lookup`,
+        );
+      }
+      seenParamShortNames.add(p.shortName);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function paramKindFromTag(tag: string): ParamKind | null {
+  switch (tag) {
+    case 'ECUC-INTEGER-PARAM-DEF':
+      return 'integer';
+    case 'ECUC-BOOLEAN-PARAM-DEF':
+      return 'boolean';
+    case 'ECUC-ENUMERATION-PARAM-DEF':
+      return 'enumeration';
+    case 'ECUC-FLOAT-PARAM-DEF':
+      return 'float';
+    case 'ECUC-STRING-PARAM-DEF':
+      return 'string';
+    case 'ECUC-FUNCTION-NAME-DEF':
+      return 'function-name';
+    default:
+      return null;
+  }
+}
+
+function buildParam(item: Record<string, unknown>, parentPath: string, kind: ParamKind): ParamDef {
+  const shortName = readShortName(item) ?? '<unnamed>';
+  const path = `${parentPath}/${shortName}`;
+  const minValue = kind === 'integer' || kind === 'float' ? readNumber(item['MIN']) : null;
+  const maxValue = kind === 'integer' || kind === 'float' ? readNumber(item['MAX']) : null;
+  // `function-name` shares `string`'s length constraints per AUTOSAR TPS —
+  // symbol names are bounded strings — so apply the same MIN/MAX-LENGTH.
+  const minLength =
+    kind === 'string' || kind === 'function-name' ? readNumber(item['MIN-LENGTH']) : null;
+  const maxLength =
+    kind === 'string' || kind === 'function-name' ? readNumber(item['MAX-LENGTH']) : null;
+  const enumerationLiterals = kind === 'enumeration' ? readEnumerationLiterals(item) : [];
+  const defaultValue = readDefaultValue(item, kind);
+  return {
+    shortName,
+    path,
+    kind,
+    defaultValue,
+    minValue,
+    maxValue,
+    minLength,
+    maxLength,
+    enumerationLiterals,
+    desc: readDesc(item),
+  };
+}
+
+function readEnumerationLiterals(item: Record<string, unknown>): readonly string[] {
+  const literals = item['LITERALS'];
+  if (typeof literals !== 'object' || literals === null) return [];
+  const out: string[] = [];
+  for (const lit of asArray<Record<string, unknown>>(
+    (literals as Record<string, unknown>)['ECUC-ENUMERATION-LITERAL-DEF'],
+  )) {
+    const name = readShortName(lit);
+    if (name !== undefined) out.push(name);
+  }
+  return out;
+}
+
+function readDefaultValue(
+  item: Record<string, unknown>,
+  kind: ParamKind,
+): string | number | boolean | null {
+  const raw = item['DEFAULT-VALUE'];
+  switch (kind) {
+    case 'integer': {
+      const n = readNumber(raw);
+      return n === null ? null : Math.trunc(n);
+    }
+    case 'float': {
+      const n = readNumber(raw);
+      return n;
+    }
+    case 'boolean': {
+      const b = readBoolean(raw);
+      return b;
+    }
+    case 'enumeration':
+    case 'string':
+    case 'function-name':
+      if (typeof raw === 'string') return raw;
+      if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// References
+// ---------------------------------------------------------------------------
+
+function buildRefList(node: Record<string, unknown>, parentPath: string): ReferenceDef[] {
+  const out: ReferenceDef[] = [];
+  for (const [tagName, raw] of Object.entries(node)) {
+    if (tagName.startsWith('@_') || tagName === '#text') continue;
+    // Bug — `ECUC-CHOICE-REFERENCE-DEF` is the standard AUTOSAR way
+    // to declare a reference whose target can be any of several
+    // alternative container kinds (e.g. CanIf / Arti / Com picking
+    // between different `DESTINATION-REF`s). Vector / EB tresos
+    // BSWMDs use it ~80 times across the canonical ECUConfiguration
+    // fixture (see samples/arxml/AUTOSAR_MOD_ECUConfigurationParameters.arxml
+    // — CanIf/Arti/Com all carry these). Before this branch was
+    // added the parser silently skipped the entire `<REFERENCES>`
+    // block on any container that mixed choice references with plain
+    // ones — the user could not add the reference via the picker
+    // and the validator's DEST_KIND_MAP had no entry.
+    //
+    // The destKind field falls back to the tagName itself when
+    // `<DESTINATION-REF>` is absent, mirroring the plain-reference
+    // default. A future task may parse the multi-target
+    // `<DESTINATION-REFS>` block for round-trip fidelity — see
+    // validate.ts:DEST_KIND_MAP for the downstream consumer.
+    if (
+      tagName !== 'ECUC-REFERENCE-DEF' &&
+      tagName !== 'ECUC-FOREIGN-REFERENCE-DEF' &&
+      tagName !== 'ECUC-CHOICE-REFERENCE-DEF'
+    ) {
+      continue;
+    }
+    for (const item of asArray<Record<string, unknown>>(raw)) {
+      out.push(buildRef(item, parentPath, tagName));
+    }
+  }
+  return out;
+}
+
+function buildRef(
+  item: Record<string, unknown>,
+  parentPath: string,
+  tagName: string,
+): ReferenceDef {
+  const shortName = readShortName(item) ?? '<unnamed>';
+  const path = `${parentPath}/${shortName}`;
+  const dest = item['DESTINATION-REF'];
+  let destKind = tagName;
+  if (typeof dest === 'object' && dest !== null) {
+    const d = (dest as Record<string, unknown>)['@_DEST'];
+    if (typeof d === 'string') destKind = d;
+  }
+  return {
+    shortName,
+    path,
+    destKind,
+    lowerMultiplicity: readLowerMultiplicity(item),
+    upperMultiplicity: readUpperMultiplicity(item),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default-value validation (called by parseBswmd after walkPackagesForModules)
+// ---------------------------------------------------------------------------
+
+/**
+ * Walk every module and emit a warning when an enumeration param's
+ * `<DEFAULT-VALUE>` is not in its declared `<LITERALS>` set.
+ *
+ * Sprint 13 Stage 5.D — non-fatal cross-check. The vendor-tool failure
+ * mode this guards against is: BSWMD declares LITERALS=[A,B] but
+ * DEFAULT-VALUE=C. The renderer's default-value editor can't
+ * roundtrip this — the value "C" would not be valid for the dropdown.
+ * A warning lets the project panel surface a degraded-state banner.
+ *
+ * Scope: only enumeration params (other kinds are bounded by MIN/MAX
+ * and validated in the schema layer, not by literal set). Walks
+ * `subContainers` and `choices` recursively — same traversal pattern
+ * as `findContainerInTree`.
+ *
+ * Exported so the sibling `validate.ts` sub-file can re-export it
+ * without creating a cross-file dep on parse.ts internals.
+ */
+export function validateModuleDefaults(modules: readonly BswModuleDef[], warnings: string[]): void {
+  for (const mod of modules) {
+    for (const c of mod.containers) {
+      walkContainerDefaults(c, warnings);
+    }
+  }
+}
+
+function walkContainerDefaults(container: ContainerDef, warnings: string[]): void {
+  for (const p of container.parameters) {
+    // Only enumeration params carry a literal set. Other kinds are out
+    // of scope: integer/float are bounded by MIN/MAX, string/function-name
+    // by length constraints, boolean is two-valued.
+    if (p.kind !== 'enumeration') continue;
+    if (typeof p.defaultValue !== 'string') continue;
+    if (p.enumerationLiterals.length === 0) continue;
+    if (p.enumerationLiterals.includes(p.defaultValue)) continue;
+    warnings.push(
+      `DEFAULT-VALUE '${p.defaultValue}' for enumeration param '${p.path}' is not in declared literals [${p.enumerationLiterals.join(', ')}]`,
+    );
+  }
+  for (const sub of container.subContainers) {
+    walkContainerDefaults(sub, warnings);
+  }
+  for (const choice of container.choices) {
+    walkContainerDefaults(choice, warnings);
+  }
+}
