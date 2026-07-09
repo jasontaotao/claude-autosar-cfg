@@ -54,6 +54,15 @@ function expectedRuntimeKind(kind: BswmdParamKind): 'number' | 'boolean' | 'stri
     case 'reference':
     case 'function-name':
       return 'string';
+    default: {
+      // Exhaustiveness guard — TypeScript widens `kind` to `never`
+      // here when every BswmdParamKind variant is handled. If a
+      // future addition misses a case, the satisfies-never cast
+      // surfaces the gap at compile time AND we throw at runtime
+      // so a wrong map does not silently accept bogus kinds.
+      const _exhaustive: never = kind;
+      throw new Error(`expectedRuntimeKind: unknown BswmdParamKind: ${String(_exhaustive)}`);
+    }
   }
 }
 

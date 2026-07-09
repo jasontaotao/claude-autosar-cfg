@@ -214,6 +214,25 @@ describe('resolveImports', () => {
   });
 });
 
+it('throws invalid-source when declared imports have no matching source statement (v1.39.0 M2)', () => {
+  // M2 fix: replace `declared.length !== found.length` with a
+  // set-equality check on `from` paths. Previously, an entry
+  // whose declared list had a stale/extra import could silently
+  // pass when lengths coincided by coincidence.
+  const a = entry('a', 'export const aSym = 1;', []);
+  const main = entry(
+    'main',
+    `import { aSym } from './a'`,
+    // Declared references './a' AND './ghost' but source only has './a'.
+    [
+      { from: 'a', names: ['aSym'] },
+      { from: 'ghost', names: ['g'] },
+    ],
+  );
+  expect(() => resolveImports(main, [a, main])).toThrowError(ScriptError);
+  expect(() => resolveImports(main, [a, main])).toThrow(/ghost/);
+});
+
 // ---------------------------------------------------------------------------
 // detectCycles
 // ---------------------------------------------------------------------------

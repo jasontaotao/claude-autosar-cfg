@@ -107,4 +107,25 @@ describe('writeOutputTree', () => {
     const written = await readFile(join(outDir, 'legit.c'), 'utf8');
     expect(written).toBe('/* legit */');
   });
+
+  // v1.39.0 M4 — Windows path-separator normalization. When `outDir`
+  // is canonicalized via realpath it returns a backslash-separated
+  // path on Windows hosts (`C:\tmp\...\abc`). The artifact-derived
+  // parentReal can be forward-slash if the relPath was given POSIX-
+  // style. Without normalization, the startsWith comparison falsely
+  // rejects legitimate same-dir writes on Windows.
+  it('accepts POSIX-style relPath when outDir is canonicalized with backslashes (v1.39.0 M4)', async () => {
+    const diagnostics: Diagnostic[] = [];
+    const artifacts = new Map<string, string>([
+      // Forward-slash subdir under outDir — must NOT be flagged as
+      // an escape attempt on Windows.
+      ['Sub/Dir/file.c', '/* sub */'],
+    ]);
+    await writeOutputTree(artifacts, outDir, diagnostics);
+    // No escape diagnostic must be produced.
+    expect(diagnostics.filter((d) => d.message.includes('escape'))).toEqual([]);
+    // The file must have been written.
+    const written = await readFile(join(outDir, 'Sub/Dir/file.c'), 'utf8');
+    expect(written).toBe('/* sub */');
+  });
 });

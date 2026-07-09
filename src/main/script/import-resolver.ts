@@ -119,12 +119,21 @@ export function resolveImports(entry: ScriptEntry, all: ReadonlyArray<ScriptEntr
       }
       visit(target, depth + 1);
     }
-    // Sanity: declared imports should match found imports (or throw).
-    if (declared.length !== found.length) {
+    // Sanity: every declared import must be backed by an actual import
+    // statement in the source. Compare module paths as a set (rather
+    // than lengths) so that an extra empty / duplicate declared entry
+    // does not pass by coincidence.
+    const declaredFroms = new Set(declared.map((d) => d.from));
+    const foundFroms = new Set(found.map((f) => f.from));
+    const missingFromSource: string[] = [];
+    for (const from of declaredFroms) {
+      if (!foundFroms.has(from)) missingFromSource.push(from);
+    }
+    if (missingFromSource.length > 0) {
       throw classScriptError(
         'invalid-source',
-        `import: declared imports (${declared.length}) do not match source (${found.length})`,
-        { shortName: e.shortName },
+        `import: declared imports without matching source: ${missingFromSource.join(', ')}`,
+        { shortName: e.shortName, missingFromSource },
       );
     }
     visited.add(e.shortName);

@@ -175,7 +175,11 @@ describe('runInSandbox', () => {
 
 describe('mapErrorLine', () => {
   it('extracts <anonymous>:N:M from V8 stack', () => {
-    const line = mapErrorLine('at script:1:7');
+    // The m1 path matches `<anonymous>:N:M`. Updated test string from
+    // `at script:1:7` to `at script <anonymous>:1:7` so it actually
+    // exercises m1 — pre-M1 the test passed only because of the
+    // greedy m3 fallback that also caught `script:1:7`.
+    const line = mapErrorLine('at script <anonymous>:1:7');
     expect(line).toBe(1);
   });
 
@@ -187,5 +191,29 @@ describe('mapErrorLine', () => {
   it('returns undefined for unparseable stack', () => {
     expect(mapErrorLine('')).toBeUndefined();
     expect(mapErrorLine('garbage')).toBeUndefined();
+  });
+
+  // v1.39.0 M1 — restrict the m3 fallback to .js-suffixed frames so
+  // that inline-message text containing `:N:M` (e.g. "error at:5:7")
+  // no longer produces a bogus line number. Before the fix, the
+  // greedy regex matched any `<space><name>:N:M` tail, including
+  // words inside error messages.
+  it('ignores :N:M tails that are not .js frame suffixes (v1.39.0 M1)', () => {
+    // "error at:5:7" is the kind of inline message text that used
+    // to match m3 and yield line=5. With the .js restriction it
+    // must NOT match.
+    expect(mapErrorLine('error at:5:7')).toBeUndefined();
+  });
+});
+
+// v1.39.0 L2 — runId uniqueness now uses crypto.randomUUID() instead
+// of a module-level counter.
+describe('runId uniqueness (v1.39.0 L2)', () => {
+  it('assigns a UUID-shaped runId wrapped with run- prefix', () => {
+    const c = newCtx(project);
+    const r = runInSandbox(entry(`1`), c.logs, c.violations, c.mutations, c.options);
+    // crypto.randomUUID() yields the canonical 8-4-4-4-12 hex layout.
+    // The runId wraps it with a `run-` prefix.
+    expect(r.runId).toMatch(/^run-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 });

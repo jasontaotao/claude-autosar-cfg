@@ -64,7 +64,13 @@ export async function writeOutputTree(
     const staysWithin =
       parentReal === outDirReal ||
       parentReal.startsWith(outDirReal + sep) ||
-      parentReal.startsWith(outDirReal + '/');
+      parentReal.startsWith(outDirReal + '/') ||
+      // Windows fallback: when `outDirReal` is canonicalized via realpath
+      // it returns `C:\...` with `\`, but the artifact-derived parentReal
+      // can use forward slashes if the relPath was given as POSIX-style.
+      // Normalize both sides to forward-slash form for the comparison so
+      // Windows hosts don't falsely flag legitimate same-dir writes.
+      parentReal.replace(/\\/g, '/').startsWith(outDirReal.replace(/\\/g, '/') + '/');
     if (!staysWithin) {
       const msg = `Refused write for ${relPath}: path escapes outDir (${parentReal} not under ${outDirReal})`;
       if (diagnostics === undefined) throw new Error(msg);

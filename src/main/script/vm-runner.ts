@@ -9,6 +9,7 @@
 // with named exports hoisted to `__m_<shortName>` so the entry can
 // import them.
 
+import { randomUUID } from 'node:crypto';
 import { runInContext, createContext, Script as VmScript } from 'node:vm';
 
 import type { ArxmlDocument } from '../../core/arxml/types.js';
@@ -56,10 +57,11 @@ export interface RunSinks {
   readonly mutations: ScriptMutation[];
 }
 
-let _runCounter = 0;
 function nextRunId(): string {
-  _runCounter += 1;
-  return `run-${Date.now().toString(36)}-${_runCounter.toString(36)}`;
+  // Use crypto.randomUUID() instead of a module-level counter:
+  // uniqueness is guaranteed across processes / restarts, and there
+  // is no shared mutable state to corrupt under concurrent runs.
+  return `run-${randomUUID()}`;
 }
 
 /**
@@ -247,7 +249,11 @@ export function parseStackLocation(stack: string): {
   if (m1) return { line: Number(m1[1]), column: Number(m1[2]) };
   const m2 = stack.match(/\((?:\/[^)]+?|[^)\s]+):(\d+):(\d+)\)/);
   if (m2) return { line: Number(m2[1]), column: Number(m2[2]) };
-  const m3 = stack.match(/(?:^|\s)([^\s():]+):(\d+):(\d+)/);
+  // Restricted m3 fallback: only `.js`-suffixed frames. The previous
+  // greedy pattern caught inline-message text like "error at:5:7"
+  // which produced bogus line numbers. .js-only matches the
+  // V8 `name:N:M` shape without that hazard.
+  const m3 = stack.match(/(?:^|\s)([^\s():]+\.js):(\d+):(\d+)/);
   if (m3) return { line: Number(m3[2]), column: Number(m3[3]) };
   return { line: undefined, column: undefined };
 }
