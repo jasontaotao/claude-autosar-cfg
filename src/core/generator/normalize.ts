@@ -33,22 +33,81 @@ export interface BswmdParamDefLite {
     | 'function-name';
   readonly shortName: string;
   readonly paramConfigClasses: readonly BswmdParamConfigClassLite[];
+  /**
+   * v1.39.0 MINOR T4 (H1) — min/max bounds forwarded from the BSWMD
+   * `ParamDef.minValue`/`maxValue` fields so the range validator
+   * (`emit/range.ts:27-64`) can find them after the pipeline's
+   * `Parameters<typeof validateRange>[0]` cast widens the lite map
+   * to its narrow type. Pre-T4 the lite type carried only
+   * `{ shortName, kind, paramConfigClasses }` so even after
+   * populating the loader fully, the range validator had no
+   * `min`/`max` to compare against.
+   *
+   * Optional — pre-T4 `BswmdParamDefLite` had no notion of bounds;
+   * making them optional preserves the existing `?? undefined`
+   * narrowing pattern in `range.ts:36, 41, 51`.
+   */
+  readonly min?: number;
+  readonly max?: number;
 }
 
-// Structural shape we expect at runtime — `BswmdModuleDefLite` stays
-// intentionally loose (only `shortName` is canonical) so existing test
-// fixtures that extend it with custom container/parameter types keep
-// compiling without rippling type changes through CLI integration tests.
+/**
+ * Loose sub-shapes used by the `normalizeToTree` builder's structural
+ * cast. The point of `BswmdModuleDefLite` is to stay intentionally loose
+ * (only `shortName` is canonical) so existing test fixtures extending it
+ * with custom container/parameter types keep compiling without rippling
+ * type changes through CLI integration tests. We mirror that
+ * intentional looseness at the container/parameter/reference layer —
+ * each is an opaque structural shape with only the fields we walk at
+ * validation time. Required canonical fields like `path` /
+ * `lowerMultiplicity` / `upperMultiplicity` come from the BSWMD parser
+ * (`src/core/project/bswmd.ts`); they are part of the validator's own
+ * `Parameters<typeof validator>[0]` narrowing, not the lite wire shape.
+ */
 interface BswmdModuleDefWithContainers {
   readonly shortName: string;
   readonly containers?: readonly {
     readonly shortName: string;
     readonly parameters?: readonly BswmdParamDefLite[];
   }[];
+  readonly parameters?: readonly BswmdParamDefLite[];
+  readonly references?: readonly BswmdParamDefLite[];
+  readonly moduleHeader?: string;
+  readonly includes?: readonly string[];
 }
 
+// v1.39.0 MINOR T4 (H1) — widened from `{ shortName }` only. The
+// CLI loader at `src/cli/handlers/generate.ts:218-225` was stripping
+// `containers` / `parameters` / `references` / `moduleHeader` /
+// `includes`, so every Stage-1 validator (multiplicity, type-check,
+// range, ordering, reference) except `validateUniqueShortNames` +
+// `validateOrdering` silently no-op'd on the CLI path. Defence-in-depth
+// breach: a malformed BSWMD would pass generate on the CLI but fail it
+// in any other consumer. Additive fields; downstream consumers that
+// only read `shortName` are unaffected. T4 also fixes H4 (populated
+// `ecucValues`); see `src/cli/handlers/generate.ts:240-260`. Field
+// shapes remain loose (typed as `unknown[]` / `{ shortName }`) so
+// pre-T4 test fixtures extending `BswmdModuleDefLite` with partial
+// shapes keep compiling — the structural cast inside `normalizeToTree`
+// (line ~107) bridges the wire shape to the validator-narrow shape.
 export interface BswmdModuleDefLite {
   readonly shortName: string;
+  readonly containers?: readonly { readonly shortName: string }[];
+  /**
+   * v1.39.0 MINOR T4 (H1) — module-level parameters (the BSWMD
+   * `<ECUC-MODULE-DEF>/<PARAMETERS>/<ECUC-INTEGER-PARAM-DEF>` block).
+   * Field name `params` (not `parameters`) matches the validator's
+   * narrow type at `emit/type-check.ts:65` (`{ params?:
+   * readonly BswmdParamDefForTypeCheck[] }`) — the pipeline's
+   * `Parameters<typeof validateTypeMatches>[0]` cast widens to this
+   * field directly. Module-level parameter validation is what
+   * `validateTypeMatches` walks; container-level params live under
+   * `containers[].parameters` (BSWMD parser convention).
+   */
+  readonly params?: readonly BswmdParamDefLite[];
+  readonly references?: readonly BswmdParamDefLite[];
+  readonly moduleHeader?: string | undefined;
+  readonly includes?: readonly string[];
 }
 
 export interface EcucReferenceValue {

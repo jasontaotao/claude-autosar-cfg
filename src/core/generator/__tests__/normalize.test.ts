@@ -92,7 +92,7 @@ describe('normalizeToTree', () => {
           ],
         },
       ],
-    } as BswmdModuleDefLite;
+    } as unknown as BswmdModuleDefLite;
     const tree = normalizeToTree(
       new Map([['EcuC', defWithContainers]]),
       new Map([['EcuC', ecucValues]]),

@@ -251,7 +251,7 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
             'Stub',
             {
               shortName: 'Stub',
-              params: [{ shortName: 'Enable', kind: 'boolean' }],
+              params: [{ shortName: 'Enable', kind: 'boolean', paramConfigClasses: [] }],
             },
           ],
         ]),
@@ -284,7 +284,9 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
             'Stub',
             {
               shortName: 'Stub',
-              params: [{ shortName: 'Priority', kind: 'integer', min: 0, max: 10 }],
+              params: [
+                { shortName: 'Priority', kind: 'integer', min: 0, max: 10, paramConfigClasses: [] },
+              ],
             },
           ],
         ]),
@@ -413,7 +415,13 @@ describe('Diagnostic fixture triggers — v1.12.0 PATCH E1 (deferred → impleme
     const { diag, result } = await runAndFind(
       {
         bswmdIndex: new Map([
-          ['Stub', { shortName: 'Stub', params: [{ shortName: 'Enable', kind: 'boolean' }] }],
+          [
+            'Stub',
+            {
+              shortName: 'Stub',
+              params: [{ shortName: 'Enable', kind: 'boolean', paramConfigClasses: [] }],
+            },
+          ],
         ]),
         ecucValues: new Map([
           [
