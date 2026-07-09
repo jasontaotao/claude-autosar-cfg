@@ -40,7 +40,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { devNull, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -71,11 +71,28 @@ interface CompileResult {
 }
 
 /**
- * Compile a single C source file to /dev/null (POSIX) with strict
- * warnings. We intentionally use the host platform's null device —
- * if this test ever needs to run on Windows natively, swap in
- * `os.devNull` from `node:os`. Today the skip gate above keeps
- * Windows-without-MinGW out, so /dev/null is safe.
+ * Resolve the platform's null device for use as gcc's `-o` target.
+ *
+ * `os.devNull` (Node 22+) returns the Windows device-path form
+ * `\\.\nul`, which is rejected by MinGW gcc with
+ * "can't create \\.\nul: Invalid argument". gcc only accepts the
+ * bare device name `NUL` (case-insensitive). On POSIX, `os.devNull`
+ * is already the canonical `/dev/null` and is passed through as-is.
+ */
+function resolveGccNullDevice(): string {
+  if (process.platform === 'win32') {
+    return 'NUL';
+  }
+  return devNull;
+}
+
+/**
+ * Compile a single C source file to the platform null device with
+ * strict warnings. We use `os.devNull` (imported as `devNull`)
+ * rather than the POSIX literal `/dev/null` so the test runs on
+ * both POSIX (`/dev/null`) and Windows (the bare device name
+ * `NUL`, since MinGW gcc rejects Node 22's `\\.\nul` device-path
+ * form) without a skip gate.
  *
  * `includeDir` is prepended via `-I` so the C file's
  * `#include "EcuC/EcuC_Cfg.h"` resolves: the generator emits the
@@ -89,7 +106,7 @@ interface CompileResult {
 function compileC(cFile: string, includeDir: string): CompileResult {
   const result = spawnSync(
     'gcc',
-    ['-c', cFile, '-o', '/dev/null', '-Wall', '-Werror', `-I${includeDir}`],
+    ['-c', cFile, '-o', resolveGccNullDevice(), '-Wall', '-Werror', `-I${includeDir}`],
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
   return {
