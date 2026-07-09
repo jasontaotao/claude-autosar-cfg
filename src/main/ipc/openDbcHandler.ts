@@ -16,13 +16,20 @@
 //     BEFORE returning `read-failed` so the user sees both the OS
 //     dialog and the renderer's error banner — same dual-surface
 //     pattern as `OPEN_ARXML`.
-
-import { promises as fs } from 'node:fs';
+//
+// v1.40.0 MINOR T1 (H1) — read uses the shared `readFileWithCap`
+// helper (32 MiB cap). Both `too-large` and `read-failed` fold into
+// the IPC-level `read-failed` envelope to preserve the renderer
+// contract (the renderer's `dbc:open` consumer does not differentiate
+// the cause — the `dialog.showMessageBox` text + the `message` field
+// are the user-facing surface).
 
 import { dialog, ipcMain } from 'electron';
 
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type { OpenDbcResult } from '../../shared/types.js';
+
+import { readFileWithCap } from './sizeCap.js';
 
 export async function openDbcDialog(): Promise<OpenDbcResult> {
   const result = await dialog.showOpenDialog({
@@ -37,20 +44,19 @@ export async function openDbcDialog(): Promise<OpenDbcResult> {
     return { kind: 'canceled' };
   }
   const path = result.filePaths[0]!;
-  try {
-    const content = await fs.readFile(path, 'utf8');
-    return { kind: 'opened', path, content };
-  } catch (err) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'Failed to read DBC',
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return {
-      kind: 'read-failed',
-      message: err instanceof Error ? err.message : String(err),
-    };
+  const read = await readFileWithCap(path);
+  if (read.ok) {
+    return { kind: 'opened', path, content: read.content };
   }
+  await dialog.showMessageBox({
+    type: 'error',
+    title: 'Failed to read DBC',
+    message: read.message,
+  });
+  return {
+    kind: 'read-failed',
+    message: read.message,
+  };
 }
 
 /**

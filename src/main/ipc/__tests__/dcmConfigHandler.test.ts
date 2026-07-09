@@ -519,3 +519,51 @@ describe('dcmConfigHandler — v1.30.0 affordances', () => {
     expect(result.value.appliedStepCount).toBe(2); // 1 add-child + 1 set-param
   });
 });
+
+// v1.40.0 MINOR T1 (H2) — size-cap parity tests for dcmConfigHandler.
+//
+// The handler previously called `readFileSync(args.odxPath, 'utf-8')`
+// and `readFileSync(dcmBswmdPath, 'utf-8')` with NO size cap. A
+// renderer-supplied multi-GB ODX or BSWMD would block the main
+// process event loop and exhaust heap before any other check could
+// fire. The fix delegates both reads to the shared `readFileWithCap`
+// helper (32 MiB cap); both `too-large` and `read-failed` fold into
+// the existing `odx-unreadable` / `bswmd-unreadable` error envelopes
+// to preserve the IPC contract.
+describe('dcmConfigHandler — v1.40.0 MINOR T1 size-cap parity (H2)', () => {
+  it('returns odx-unreadable when the ODX file exceeds the 32 MiB cap', async () => {
+    const hugeOdx = pathResolve(workDir, 'huge.odx-d');
+    const ONE_MIB = 1024 * 1024;
+    writeFileSync(hugeOdx, Buffer.alloc(32 * ONE_MIB + 1, 0x20), 'utf-8');
+
+    const result = await dcmConfigHandler({
+      odxPath: hugeOdx,
+      xlsxRows: [],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    // Both `too-large` and `read-failed` fold into `odx-unreadable`
+    // (preserves the IPC contract — the renderer regex-matches this
+    // kind, not the cause).
+    expect(result.error.kind).toBe('odx-unreadable');
+    expect(result.error.message).toMatch(/ODX file unreadable/);
+  });
+
+  it('returns bswmd-unreadable when the BSWMD file exceeds the 32 MiB cap', async () => {
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    const hugeBswmd = pathResolve(workDir, 'huge.arxml');
+    const ONE_MIB = 1024 * 1024;
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+    writeFileSync(hugeBswmd, Buffer.alloc(32 * ONE_MIB + 1, 0x20), 'utf-8');
+
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      bswmdPath: hugeBswmd,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.kind).toBe('bswmd-unreadable');
+    expect(result.error.message).toMatch(/BSWMD file unreadable/);
+  });
+});

@@ -14,30 +14,18 @@
 // Caps + safety:
 //   - 32 MiB cap on file size (same as `bswmd:parse`). Without a cap a
 //     renderer (or tampered preload bridge) could OOM the main process.
+//     v1.40.0 MINOR T1 — delegates to the shared `readFileWithCap`
+//     helper so the cap is enforced uniformly across all picker + read
+//     paths (H1 + H2 closure).
 //   - Reject empty / whitespace-only paths up-front. node:fs handles
 //     these but with confusing errors; an explicit reject is cheaper
 //     and gives the renderer a clean message.
 //   - Use `e instanceof Error ? e.message : String(e)` for read
 //     failures so we don't leak full stack traces to the renderer.
 
-import { promises as fs } from 'node:fs';
-
 import type { ReadBswmdRequest, ReadBswmdResponse } from '../../shared/types.js';
 
-/**
- * Hard cap on the BSWMD file size the handler will read. Mirrors
- * `BSWMD_PARSE_MAX_BYTES` in `register.ts` — kept as a separate
- * constant so `parseBswmd` and `readBswmd` could diverge later if one
- * needs a tighter limit. Today they share the 32 MiB ceiling.
- *
- * Sized to cover the AUTOSAR standard master ECUC parameter definition
- * file (`AUTOSAR_MOD_ECUConfigurationParameters.arxml`, ~12 MiB at
- * R4.2.2) with ~2.6× headroom for growth across future AUTOSAR
- * releases (R19-11 / R20-11 / R21-11 master BSWMDs trend similarly).
- * Still tight enough to be a useful ceiling against a renderer pushing
- * a multi-GB binary blob.
- */
-const BSWMD_MAX_BYTES = 32 * 1024 * 1024;
+import { readFileWithCap } from './sizeCap.js';
 
 export async function readBswmdHandler(req: ReadBswmdRequest): Promise<ReadBswmdResponse> {
   // Reject empty / whitespace-only paths up-front. node:fs would reject
@@ -47,42 +35,40 @@ export async function readBswmdHandler(req: ReadBswmdRequest): Promise<ReadBswmd
     return { kind: 'read-failed', message: 'BSWMD path is empty' };
   }
 
-  // Stat first so we can short-circuit on the size cap without reading
-  // the entire file into memory. Saves IO when the user accidentally
-  // picks a multi-GB binary blob.
-  let size: number;
-  try {
-    const st = await fs.stat(req.path);
-    size = st.size;
-  } catch (e) {
-    return {
-      kind: 'read-failed',
-      message: `Failed to read BSWMD at ${req.path}: ${e instanceof Error ? e.message : String(e)}`,
-    };
+  // v1.40.0 MINOR T1 — delegate to the shared `readFileWithCap`
+  // helper (see `sizeCap.ts` for the 32 MiB cap rationale). The helper
+  // returns a discriminated union; both `too-large` and `read-failed`
+  // fold into the IPC-level `read-failed` envelope to preserve the
+  // existing renderer contract (renderer's `app.error.readBswmdFailed`
+  // regex-matches `message` and does not differentiate the cause).
+  //
+  // For `too-large`, we re-shape the helper message into the
+  // human-readable MiB-units form the existing branch emitted (lesson
+  // error-message-must-be-actionable — "33.0 MiB, max 32.0 MiB"
+  // beats raw byte counts).
+  const result = await readFileWithCap(req.path);
+  if (result.ok) {
+    return { kind: 'ok', content: result.content };
   }
-
-  if (size > BSWMD_MAX_BYTES) {
-    // Human-readable MiB units beat raw byte counts — a renderer showing
-    // "32.0 MiB" tells the user "this is roughly the cap" without forcing
-    // them to divide 33,554,432 by 1024 twice. The renderer wraps this
-    // with `app.error.readBswmdFailed` (zh-CN: "读取 BSWMD 失败: ...")
-    // so the cap-exceeded case becomes "读取 BSWMD 失败: 文件过大 (12.0
-    // MiB),最大 32.0 MiB。请确认文件完整无损。" in zh-CN.
-    const sizeMiB = (size / (1024 * 1024)).toFixed(1);
-    const capMiB = (BSWMD_MAX_BYTES / (1024 * 1024)).toFixed(1);
-    return {
-      kind: 'read-failed',
-      message: `file too large (${sizeMiB} MiB, max ${capMiB} MiB). Check that the file is complete and not corrupted.`,
-    };
+  if (result.kind === 'too-large') {
+    // Read the actual size via stat (best-effort; if stat fails the
+    // message just won't include MiB units — the raw byte counts are
+    // still accurate).
+    try {
+      const { statSync } = await import('node:fs');
+      const size = statSync(req.path).size;
+      const capMiB = (32 * 1024 * 1024) / (1024 * 1024);
+      const sizeMiB = (size / (1024 * 1024)).toFixed(1);
+      return {
+        kind: 'read-failed',
+        message: `file too large (${sizeMiB} MiB, max ${capMiB.toFixed(1)} MiB). Check that the file is complete and not corrupted.`,
+      };
+    } catch {
+      // Fall through to the raw helper message — better than nothing.
+      return { kind: 'read-failed', message: result.message };
+    }
   }
-
-  try {
-    const content = await fs.readFile(req.path, 'utf8');
-    return { kind: 'ok', content };
-  } catch (e) {
-    return {
-      kind: 'read-failed',
-      message: `Failed to read BSWMD at ${req.path}: ${e instanceof Error ? e.message : String(e)}`,
-    };
-  }
+  // read-failed: keep the helper's message (already includes the
+  // underlying error text from `stat` / `readFile`).
+  return { kind: 'read-failed', message: result.message };
 }

@@ -16,13 +16,19 @@
 //   - The read-failure dialog is shown via dialog.showMessageBox BEFORE
 //     returning 'canceled' so the user sees both the OS dialog and the
 //     renderer's error banner.
-
-import { promises as fs } from 'node:fs';
+//
+// v1.40.0 MINOR T1 (H1) — read uses the shared `readFileWithCap`
+// helper (32 MiB cap). Both `too-large` and `read-failed` fold into
+// the IPC-level `canceled` envelope (per the v1.33.0 MINOR T2 design
+// — the picker collapses read errors to `canceled` so the renderer's
+// "no change" branch is uniform).
 
 import { dialog, ipcMain } from 'electron';
 
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type { BswmdPickResult } from '../../shared/types.js';
+
+import { readFileWithCap } from './sizeCap.js';
 
 export async function bswmdPickDialog(): Promise<BswmdPickResult> {
   const result = await dialog.showOpenDialog({
@@ -37,17 +43,16 @@ export async function bswmdPickDialog(): Promise<BswmdPickResult> {
     return { kind: 'canceled' };
   }
   const path = result.filePaths[0]!;
-  try {
-    const content = await fs.readFile(path, 'utf8');
-    return { kind: 'opened', path, content };
-  } catch (err) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'Failed to read BSWMD',
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return { kind: 'canceled' };
+  const read = await readFileWithCap(path);
+  if (read.ok) {
+    return { kind: 'opened', path, content: read.content };
   }
+  await dialog.showMessageBox({
+    type: 'error',
+    title: 'Failed to read BSWMD',
+    message: read.message,
+  });
+  return { kind: 'canceled' };
 }
 
 export function registerBswmdPickHandler(): void {

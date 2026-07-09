@@ -81,6 +81,26 @@ describe('bswmdPickDialog (v1.33.0 T2)', () => {
     expect(showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   });
 
+  // v1.40.0 MINOR T1 (H1) — parity test: a file that exceeds the
+  // 32 MiB cap must surface the `too-large` condition via the existing
+  // `canceled` envelope (per the v1.33.0 MINOR T2 design — the picker
+  // collapses all read errors to `canceled`). Verifies the size-cap
+  // helper is wired into this path; without it a multi-GB ARXML could
+  // OOM main.
+  it('returns canceled + shows message when file exceeds the 32 MiB cap (H1)', async () => {
+    const hugePath = pathResolve(workDir, 'huge.arxml');
+    const ONE_MIB = 1024 * 1024;
+    writeFileSync(hugePath, Buffer.alloc(32 * ONE_MIB + 1, 0x20), 'utf-8');
+    showOpenDialog.mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [hugePath],
+    });
+    showMessageBox.mockResolvedValueOnce({ response: 0 });
+    const r = await bswmdPickDialog();
+    expect(r).toEqual({ kind: 'canceled' });
+    expect(showMessageBox).toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
+  });
+
   it('uses title Override BSWMD + .arxml filter', async () => {
     showOpenDialog.mockResolvedValueOnce({
       canceled: true,

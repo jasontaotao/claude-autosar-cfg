@@ -31,8 +31,16 @@
 // (`DcmConfigRequest`, `DcmConfigResponse`, `DcmConfigHandlerResult`)
 // so the IPC envelope can be consumed by `main/ipc/register.ts` and
 // `src/preload/index.ts` without crossing the shared/main boundary.
+//
+// v1.40.0 MINOR T1 (H2) — ODX + BSWMD reads now use the shared
+// `readFileWithCap` helper (32 MiB cap) instead of `readFileSync`.
+// Both reads were the OOM vector: a renderer-supplied multi-GB ODX
+// or BSWMD would block the main process event loop and exhaust heap
+// before any other check could fire. The cap converts that into a
+// typed error envelope (`kind: 'odx-unreadable'` /
+// `kind: 'bswmd-unreadable'`, message includes "file too large").
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve as pathResolve } from 'node:path';
 
 import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
@@ -49,6 +57,7 @@ import type {
 import { writeAtomic } from '../io/writeAtomic.js';
 
 import { parseOdxHandler } from './parseOdxHandler.js';
+import { readFileWithCap } from './sizeCap.js';
 
 /** Re-export the canonical IPC envelope so existing importers (e.g.
  *  `src/main/ipc/__tests__/dcmConfigHandler.test.ts`) continue to
@@ -179,16 +188,22 @@ export interface DcmConfigHandlerArgs {
 export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmConfigResponse> {
   try {
     // 1. Read ODX file from disk.
+    //    v1.40.0 MINOR T1 (H2) — use the shared `readFileWithCap`
+    //    helper (32 MiB cap) instead of `readFileSync`. Both
+    //    `too-large` and `read-failed` fold into the existing
+    //    `kind: 'odx-unreadable'` envelope to preserve the IPC
+    //    contract; the helper's message is the underlying cause.
+    const odxRead = await readFileWithCap(args.odxPath);
     let odxXml: string;
-    try {
-      odxXml = readFileSync(args.odxPath, 'utf-8');
-    } catch (e) {
+    if (odxRead.ok) {
+      odxXml = odxRead.content;
+    } else {
       return {
         ok: false,
         error: {
           kind: 'odx-unreadable',
-          message: `ODX file unreadable: ${e instanceof Error ? e.message : String(e)}`,
-          cause: e,
+          message: `ODX file unreadable: ${odxRead.message}`,
+          cause: odxRead,
         },
       };
     }
@@ -211,17 +226,22 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     //    v1.30.0 MINOR — explicit-bswmdPath read is wrapped in a
     //    narrow try/catch to surface a renderer-distinguishable
     //    `BSWMD file unreadable` error class.
+    //    v1.40.0 MINOR T1 (H2) — use the shared `readFileWithCap`
+    //    helper (32 MiB cap) instead of `readFileSync`. Both
+    //    `too-large` and `read-failed` fold into the existing
+    //    `kind: 'bswmd-unreadable'` envelope.
     const dcmBswmdPath = resolveDcmBswmdPath(args);
+    const bswmdRead = await readFileWithCap(dcmBswmdPath);
     let dcmBswmdXml: string;
-    try {
-      dcmBswmdXml = readFileSync(dcmBswmdPath, 'utf-8');
-    } catch (e) {
+    if (bswmdRead.ok) {
+      dcmBswmdXml = bswmdRead.content;
+    } else {
       return {
         ok: false,
         error: {
           kind: 'bswmd-unreadable',
-          message: `BSWMD file unreadable: ${e instanceof Error ? e.message : String(e)}`,
-          cause: e,
+          message: `BSWMD file unreadable: ${bswmdRead.message}`,
+          cause: bswmdRead,
         },
       };
     }

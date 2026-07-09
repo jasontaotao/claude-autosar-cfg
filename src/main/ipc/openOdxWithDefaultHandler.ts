@@ -9,13 +9,18 @@
 // Shape: {defaultPath?, filters?} → {kind: 'opened'|'canceled'|'read-failed'}.
 // filters 透传给 dialog.showOpenDialog;默认 .odx only (matches
 // v1.22.0 openOdxHandler 的 default behavior)。
-
-import { promises as fs } from 'node:fs';
+//
+// v1.40.0 MINOR T1 (H1) — read uses the shared `readFileWithCap`
+// helper (32 MiB cap). Both `too-large` and `read-failed` fold into
+// the IPC-level `read-failed` envelope to preserve the renderer
+// contract.
 
 import { dialog, ipcMain } from 'electron';
 
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type { OpenOdxWithDefaultRequest, OpenOdxWithDefaultResult } from '../../shared/types.js';
+
+import { readFileWithCap } from './sizeCap.js';
 
 export async function openOdxWithDefaultDialog(
   req: OpenOdxWithDefaultRequest,
@@ -33,20 +38,19 @@ export async function openOdxWithDefaultDialog(
     return { kind: 'canceled' };
   }
   const path = result.filePaths[0]!;
-  try {
-    const content = await fs.readFile(path, 'utf8');
-    return { kind: 'opened', path, content };
-  } catch (err) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'Failed to read ODX',
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return {
-      kind: 'read-failed',
-      message: err instanceof Error ? err.message : String(err),
-    };
+  const read = await readFileWithCap(path);
+  if (read.ok) {
+    return { kind: 'opened', path, content: read.content };
   }
+  await dialog.showMessageBox({
+    type: 'error',
+    title: 'Failed to read ODX',
+    message: read.message,
+  });
+  return {
+    kind: 'read-failed',
+    message: read.message,
+  };
 }
 
 export function registerOpenOdxWithDefaultHandler(): void {

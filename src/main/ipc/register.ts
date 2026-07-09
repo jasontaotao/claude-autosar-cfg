@@ -89,6 +89,7 @@ import {
   scriptRunHandler,
   scriptSaveHandler,
 } from './script-handler.js';
+import { readFileWithCap } from './sizeCap.js';
 import { registerStencilHandler } from './stencilHandler.js';
 import { handleStencilSave } from './stencilSaveHandler.js';
 import { templatesCopyHandler, templatesListHandler } from './templatesHandler.js';
@@ -137,18 +138,22 @@ export function registerIpcHandlers(): void {
         return { canceled: true };
       }
       const path = result.filePaths[0]!;
-      try {
-        const content = await fs.readFile(path, 'utf8');
-        return { canceled: false, path, content };
-      } catch (err) {
-        // Surface error via dialog but keep Result shape
-        await dialog.showMessageBox({
-          type: 'error',
-          title: 'Failed to read ARXML',
-          message: err instanceof Error ? err.message : String(err),
-        });
-        return { canceled: true };
+      // v1.40.0 MINOR T1 (H1) — use the shared `readFileWithCap`
+      // helper (32 MiB cap). Both `too-large` and `read-failed` fold
+      // into the existing `{ canceled: true }` branch — the read
+      // failure dialog was already there in the catch below, and
+      // preserving the {canceled} envelope keeps the OPEN_ARXML
+      // contract unchanged.
+      const read = await readFileWithCap(path);
+      if (read.ok) {
+        return { canceled: false, path, content: read.content };
       }
+      await dialog.showMessageBox({
+        type: 'error',
+        title: 'Failed to read ARXML',
+        message: read.message,
+      });
+      return { canceled: true };
     },
   );
 
@@ -221,14 +226,18 @@ export function registerIpcHandlers(): void {
       const opened: { path: string; content: string }[] = [];
       const failed: { path: string; message: string }[] = [];
       for (const path of result.filePaths) {
-        try {
-          const content = await fs.readFile(path, 'utf8');
-          opened.push({ path, content });
-        } catch (err) {
-          failed.push({
-            path,
-            message: err instanceof Error ? err.message : String(err),
-          });
+        // v1.40.0 MINOR T1 (H1 + M4) — use the shared `readFileWithCap`
+        // helper (32 MiB cap). Per-file reject: `too-large` and
+        // `read-failed` both fold into the `failed[]` list with the
+        // helper's message so the existing `partial` / `read-failed`
+        // envelope contract is preserved. M4 specifically closes the
+        // "5 picks × 1 GB each = 5 GB heap pressure" vector — without
+        // the cap a multi-GB file in any single slot could OOM main.
+        const read = await readFileWithCap(path);
+        if (read.ok) {
+          opened.push({ path, content: read.content });
+        } else {
+          failed.push({ path, message: read.message });
         }
       }
       if (failed.length === 0) {
