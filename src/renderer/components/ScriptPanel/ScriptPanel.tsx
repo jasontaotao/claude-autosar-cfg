@@ -120,7 +120,10 @@ export function ScriptPanel({ onCommitMutation }: ScriptPanelProps = {}): JSX.El
 
   const handleRun = (): void => {
     if (selectedId === null) return;
-    void runScript(selectedId);
+    runScript(selectedId).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.error('[ScriptPanel] runScript failed:', e);
+    });
   };
 
   const handleSave = (): void => {

@@ -156,4 +156,46 @@ describe('ScriptPanel', () => {
       expect(useScriptStore.getState().runResult).toBeNull();
     });
   });
+
+  it('handleRun catches runScript rejection and logs to console.error (v1.41.0 M4)', async () => {
+    // M4: round-5 review flagged `void runScript(...)` (fire-and-forget)
+    // as a potential unhandled rejection source if the IPC layer throws
+    // (e.g. renderer unmounted mid-call, or the store action itself
+    // rejects before its internal try/catch). The handleRun
+    // implementation now attaches a `.catch()` that logs to
+    // console.error. This test pins that contract: a rejected
+    // `useScriptStore.runScript` must be intercepted at the call
+    // site, not escape to the test runner.
+    //
+    // We override the store's `runScript` directly because the real
+    // store action catches IPC errors internally and converts them
+    // to a runtime-error result — to exercise the call-site `.catch`
+    // we need the store action itself to reject.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const runScriptSpy = vi
+      .spyOn(useScriptStore.getState(), 'runScript')
+      .mockRejectedValueOnce(new Error('IPC layer failure'));
+    render(<ScriptPanel />);
+    await waitFor(() => expect(screen.getByTestId('script-row-s1')).not.toBeNull());
+    fireEvent.click(screen.getByTestId('script-btn-run'));
+    // Wait for the rejection to be caught + logged. We assert on
+    // the spy call (not on a global unhandledrejection event) because
+    // the test environment treats spy.mock.calls as the contract.
+    await waitFor(() => {
+      expect(errorSpy).toHaveBeenCalled();
+    });
+    // The store action must have been attempted (so the catch is
+    // exercised).
+    expect(runScriptSpy).toHaveBeenCalled();
+    // Scope the assertion to ScriptPanel's catch handler — other
+    // errors could in principle be logged by other code paths.
+    const scriptPanelCalls = errorSpy.mock.calls.filter(
+      (args) => args[0] === '[ScriptPanel] runScript failed:',
+    );
+    expect(scriptPanelCalls).toHaveLength(1);
+    const [prefix, err] = scriptPanelCalls[0] ?? [];
+    expect(prefix).toBe('[ScriptPanel] runScript failed:');
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toBe('IPC layer failure');
+  });
 });
