@@ -42,7 +42,7 @@ describe('createEngine — v1.20.0 B-3 second half helper integration', () => {
     const engine = createEngine();
     const tpl = engine.compile('{{externDecl entry}}');
     const out = tpl({ entry: { ident: 'X', cType: 'uint8' } });
-    expect(out).toBe('extern CONST(uint8, AUTOMATIC) uint8 X;');
+    expect(out).toBe('extern CONST(uint8, AUTOMATIC) X;');
   });
 
   it('constDecl with object input matches emitConstDecl output', () => {
@@ -58,7 +58,7 @@ describe('createEngine — v1.20.0 B-3 second half helper integration', () => {
         def: { kind: 'integer' },
       },
     });
-    expect(out).toBe('CONST(uint8, AUTOMATIC) uint8 X = 0u;');
+    expect(out).toBe('CONST(uint8, AUTOMATIC) X = 0u;');
   });
 
   it('loaderEntry with object input matches emitLoaderEntry output', () => {

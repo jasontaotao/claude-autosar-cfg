@@ -25,11 +25,11 @@ export interface ConstDeclInput {
 
 export function emitConstDecl(input: ConstDeclInput): string {
   if (!input.isArray) {
-    return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident} = ${input.cValue};`;
+    return `CONST(${input.cType}, AUTOMATIC) ${input.ident} = ${input.cValue};`;
   }
   const arr = input.value as readonly unknown[];
   const lit = arr.map((v) => String(v)).join(', ');
-  return `CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident}[${arr.length}] = { ${lit} };`;
+  return `CONST(${input.cType}, AUTOMATIC) ${input.ident}[${arr.length}] = { ${lit} };`;
 }
 
 export interface ExternDeclInput {
@@ -41,9 +41,9 @@ export interface ExternDeclInput {
 
 export function emitExternDecl(input: ExternDeclInput): string {
   if (!input.isArray) {
-    return `extern CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident};`;
+    return `extern CONST(${input.cType}, AUTOMATIC) ${input.ident};`;
   }
-  return `extern CONST(${input.cType}, AUTOMATIC) ${input.cType} ${input.ident}[${input.arrayLen ?? 0}];`;
+  return `extern CONST(${input.cType}, AUTOMATIC) ${input.ident}[${input.arrayLen ?? 0}];`;
 }
 
 export interface LoaderEntryInput {

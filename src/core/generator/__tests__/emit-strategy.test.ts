@@ -16,7 +16,7 @@ describe('emitConstDecl (PreCompile)', () => {
       cType: cType(intDef),
       cValue: cValue(42, intDef),
     });
-    expect(s).toBe('CONST(uint8, AUTOMATIC) uint8 EcuC_X = 42;');
+    expect(s).toBe('CONST(uint8, AUTOMATIC) EcuC_X = 42;');
   });
 
   it('emits array CONST with brace-enclosed values', () => {
@@ -28,7 +28,7 @@ describe('emitConstDecl (PreCompile)', () => {
       cType: cType(intArrDef),
       cValue: cValue(0, intArrDef),
     });
-    expect(s).toBe('CONST(uint8, AUTOMATIC) uint8 EcuC_X[3] = { 1, 2, 3 };');
+    expect(s).toBe('CONST(uint8, AUTOMATIC) EcuC_X[3] = { 1, 2, 3 };');
   });
 });
 
@@ -39,7 +39,7 @@ describe('emitExternDecl (Link)', () => {
       cType: cType(intDef),
       isArray: false,
     });
-    expect(s).toBe('extern CONST(uint8, AUTOMATIC) uint8 EcuC_X;');
+    expect(s).toBe('extern CONST(uint8, AUTOMATIC) EcuC_X;');
   });
 
   it('emits array extern with size', () => {
@@ -49,7 +49,7 @@ describe('emitExternDecl (Link)', () => {
       isArray: true,
       arrayLen: 3,
     });
-    expect(s).toBe('extern CONST(uint8, AUTOMATIC) uint8 EcuC_X[3];');
+    expect(s).toBe('extern CONST(uint8, AUTOMATIC) EcuC_X[3];');
   });
 });
 
