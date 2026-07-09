@@ -29,8 +29,15 @@ export interface ModuleGenerator {
 const generators = new Map<string, ModuleGenerator>();
 
 export function registerGenerator(g: ModuleGenerator): void {
+  // v1.39.0 MINOR T5 (H2) — idempotent register. The previous throw-on-
+  // duplicate behavior broke the renderer's "Generate" button on the
+  // second click because generate.ts:96 calls
+  // `registerGenerator(new EcuCGenerator())` on every invocation and
+  // tests masked the throw via `_resetRegistryForTest()`. Silent
+  // overwrite (delete + set) is the correct fix: callers can re-bind
+  // a module generator without coordinating test-isolation state.
   if (generators.has(g.moduleShortName)) {
-    throw new Error(`Generator for ${g.moduleShortName} already registered`);
+    generators.delete(g.moduleShortName);
   }
   generators.set(g.moduleShortName, g);
 }

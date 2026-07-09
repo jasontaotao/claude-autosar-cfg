@@ -34,8 +34,19 @@ describe('registerGenerator / getGenerator', () => {
     expect(getGenerator('NotRegistered')).toBeUndefined();
   });
 
-  it('throws when registering duplicate shortName', () => {
-    registerGenerator(new StubGen('Dup'));
-    expect(() => registerGenerator(new StubGen('Dup'))).toThrow(/already registered/);
+  // v1.39.0 MINOR T5 (H2) — registerGenerator is now idempotent. The
+  // previous throw-on-duplicate behavior broke the renderer's
+  // "Generate" button on the second click (generate.ts:96 calls
+  // `registerGenerator(new EcuCGenerator())` per invocation; tests
+  // masked the throw via `_resetRegistryForTest()`). Silent overwrite
+  // (delete + set) is the fix.
+  it('silently overwrites on duplicate shortName (no throw, latest binding wins)', () => {
+    const first = new StubGen('EcuC');
+    const second = new StubGen('EcuC');
+    registerGenerator(first);
+    expect(() => registerGenerator(second)).not.toThrow();
+    const g = getGenerator('EcuC');
+    expect(g).toBe(second);
+    expect(g).not.toBe(first);
   });
 });

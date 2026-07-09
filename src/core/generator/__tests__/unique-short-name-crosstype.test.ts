@@ -107,4 +107,78 @@ describe('validateUniqueShortNames — cross-type siblings (D-rev2 S10)', () => 
     );
     expect(diags).toHaveLength(0);
   });
+
+  // v1.39.0 MINOR T5 (H3) — duplicate (shortName, INDEX) tuples
+  // produce identical C identifiers downstream. The legacy
+  // container-vs-container check (above) intentionally skipped this
+  // case because AUTOSAR array semantics allow multiple instances of
+  // the same container shortName distinguished by INDEX. But two
+  // instances with the same INDEX cannot both emit a unique C
+  // identifier. The E5 (ORDERING) monotonic check is not a
+  // substitute — it accepts [1,1,2] as ascending.
+  it('errors when two containers share shortName + INDEX (T5 H3)', () => {
+    const diags = validateUniqueShortNames(
+      new Map([
+        [
+          'EcuC',
+          {
+            containers: [
+              { shortName: 'PartitionConfig', index: 0 },
+              { shortName: 'PartitionConfig', index: 1 },
+              { shortName: 'PartitionConfig', index: 1 }, // duplicate INDEX
+              { shortName: 'PartitionConfig', index: 2 },
+            ],
+          },
+        ],
+      ]) as never,
+    );
+    const dupIndexDiags = diags.filter(
+      (d) =>
+        d.code === DiagnosticCode.ECUC_GEN_DUPLICATE_SHORTNAME &&
+        d.message.includes('INDEX=1'),
+    );
+    expect(dupIndexDiags).toHaveLength(1);
+    expect(dupIndexDiags[0]!.severity).toBe(DiagnosticSeverity.ERROR);
+    expect(dupIndexDiags[0]!.moduleShortName).toBe('EcuC');
+    expect(dupIndexDiags[0]!.ecucPath).toBe('PartitionConfig');
+  });
+
+  // T5 H3 — distinguish from the legacy case: a single container
+  // without INDEX must not be flagged.
+  it('tolerates container shortName collisions when INDEX is undefined (T5 H3 negative)', () => {
+    const diags = validateUniqueShortNames(
+      new Map([
+        [
+          'EcuC',
+          {
+            containers: [
+              { shortName: 'Foo' /* index undefined */ },
+              { shortName: 'Foo' /* index undefined */ },
+            ],
+          },
+        ],
+      ]) as never,
+    );
+    expect(diags).toHaveLength(0);
+  });
+
+  // T5 H3 — distinct INDEX values within the same shortName group
+  // remain valid (the core AUTOSAR array pattern).
+  it('tolerates same shortName with distinct INDEX values (T5 H3 negative)', () => {
+    const diags = validateUniqueShortNames(
+      new Map([
+        [
+          'EcuC',
+          {
+            containers: [
+              { shortName: 'PartitionConfig', index: 0 },
+              { shortName: 'PartitionConfig', index: 1 },
+              { shortName: 'PartitionConfig', index: 2 },
+            ],
+          },
+        ],
+      ]) as never,
+    );
+    expect(diags).toHaveLength(0);
+  });
 });
