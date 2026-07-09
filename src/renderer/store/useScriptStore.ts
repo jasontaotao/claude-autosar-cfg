@@ -306,6 +306,28 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     const result = get().runResult;
     if (result === null) return;
 
+    // v1.41.2 PATCH T1 — identity-equality re-check helper, extracted
+    // from the v1.41.0 MINOR T1 (H1) fix. The 6 early-return set blocks
+    // at lines 334/363/384/400/419/438 all write `runResult: { ...result, ... }`
+    // after at least one `await` boundary, so each one suffers the same
+    // stale-snapshot race as the v1.41.0 H1. Centralizing the re-check
+    // here ensures every early-return writes through the same gate.
+    // Pattern: if `result` is still the store's current `runResult` ref,
+    // the user has NOT discarded / replaced it → safe to apply patch. If
+    // they HAVE (e.g. clicked Discard), `current` is a new object →
+    // preserve whatever state the user set, only layering the patch on
+    // top so warnings/errorMessage still surface.
+    const commitRunResult = (patch: Partial<typeof result>, dirty: boolean): void => {
+      const current = get().runResult;
+      set({
+        runResult:
+          current === result
+            ? { ...result, ...patch } // owner still holds snapshot → safe to apply
+            : { ...(current ?? result), ...patch }, // owner replaced → preserve user state, layer patch
+        dirty,
+      });
+    };
+
     // Lazy-load the collaborators to keep the store import-free at
     // module load time. The store is consumed both by the renderer
     // (real) and by these tests (jsdom); dynamic import keeps the
@@ -331,10 +353,7 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     // (clear mutations, drop dirty) so the commit/discard UI still
     // settles cleanly.
     if (arxmlState.doc === null || filePath === null) {
-      set({
-        runResult: { ...result, mutations: [] },
-        dirty: false,
-      });
+      commitRunResult({ mutations: [] }, false);
       return;
     }
 
@@ -360,15 +379,7 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       const errorMessage = `${applyResult.applied}/${result.mutations.length} mutations applied; ${applyResult.errors
         .map((e) => `${e.kind}: ${e.message}`)
         .join('; ')}`;
-      set({
-        runResult: {
-          ...result,
-          mutations: [],
-          warnings,
-          errorMessage,
-        },
-        dirty: false,
-      });
+      commitRunResult({ mutations: [], warnings, errorMessage }, false);
       return;
     }
 
@@ -381,31 +392,29 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     // `project:save` IPC channel — surface a clear error and leave
     // the in-memory mutation applied so the user can save manually.
     if (arxmlState.project === null || arxmlState.projectPath === null) {
-      set({
-        runResult: {
-          ...result,
+      commitRunResult(
+        {
           mutations: [],
           warnings,
           errorMessage:
             'project save skipped: script commit requires a loaded project (loose mode not supported)',
         },
-        dirty: false,
-      });
+        false,
+      );
       return;
     }
 
     // Serialize + persist.
     const serialized = serializeArxml(applyResult.doc);
     if (!serialized.ok) {
-      set({
-        runResult: {
-          ...result,
+      commitRunResult(
+        {
           mutations: [],
           warnings,
           errorMessage: `serialize: ${serialized.error.message}`,
         },
-        dirty: false,
-      });
+        false,
+      );
       return;
     }
 
@@ -416,17 +425,16 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
         files: [{ path: filePath, content: serialized.value }],
       });
       if (saveResult.kind === 'write-failed') {
-        set({
-          runResult: {
-            ...result,
+        commitRunResult(
+          {
             mutations: [],
             warnings,
             errorMessage: `projectSave: ${saveResult.message}`,
           },
           // In-memory doc IS updated (preserves prior contract).
           // The user can retry the save.
-          dirty: true,
-        });
+          true,
+        );
         return;
       }
     } catch (e) {
@@ -435,29 +443,23 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       // Surface the error so the user can see why the commit
       // didn't land. We do NOT undo the in-memory mutation — the
       // user might still be able to re-save manually.
-      set({
-        runResult: {
-          ...result,
+      commitRunResult(
+        {
           mutations: [],
           warnings,
           errorMessage: e instanceof Error ? e.message : String(e),
         },
-        dirty: true,
-      });
+        true,
+      );
       return;
     }
 
     // v1.41.0 MINOR T1 (H1) — re-check `runResult` before the final set
     // so a user-initiated `Discard` (which creates a new runResult
     // object) is not silently overwritten with our stale snapshot.
-    const current = get().runResult;
-    set({
-      runResult:
-        current === result
-          ? { ...result, mutations: [], warnings } // owner still holds snapshot → safe to clear
-          : { ...(current ?? result), warnings }, // owner replaced (e.g. user discarded) → preserve; fallback to result if cleared to null
-      dirty: false,
-    });
+    // v1.41.2 PATCH T1 — collapsed to `commitRunResult` for the
+    // 6-line repetition (see helper above).
+    commitRunResult({ mutations: [], warnings }, false);
   },
 
   discardMutation: (): void => {
