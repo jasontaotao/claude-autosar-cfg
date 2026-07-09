@@ -169,6 +169,29 @@ describe('project:pickDir handler (Sprint 12 #3) — Result envelope shape', () 
     expect(opts.title).toBe('Choose Project Directory');
   });
 
+  it('falls back to en title when locale is an unknown string (v1.41.0 M2 tampered-preload guard)', async () => {
+    // v1.41.0 M2 — strict validate `req.locale`. The IPC type is a
+    // closed union (`'zh-CN' | 'en'`) but TypeScript only guards within
+    // TS callers; a tampered preload passing `'fr'` (or any other
+    // string) bypasses the type. Before the fix, this crashed inside
+    // `t()` because `MESSAGES_BY_LOCALE['fr']` is `undefined`. The
+    // handler must now collapse unknown locales to `'en'` instead of
+    // crashing, so the dialog still opens with the fallback title.
+    showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
+
+    // Cast to bypass the TS narrowing — we're simulating a tampered
+    // preload that bypasses the `PickDirRequest.locale` union. The
+    // runtime guard is what we're testing here.
+    const result = await pickDirHandler({ locale: 'fr' as unknown as 'en' });
+
+    // No crash → returns the canceled envelope the dialog emitted.
+    expect(result.kind).toBe('canceled');
+    expect(showOpenDialog).toHaveBeenCalledTimes(1);
+    const opts = showOpenDialog.mock.calls[0]?.[0] as { title: string };
+    // Unknown locale collapses to the 'en' bundle.
+    expect(opts.title).toBe('Choose Project Directory');
+  });
+
   it('still calls dialog.showOpenDialog when defaultPath is omitted (OS picks default)', async () => {
     showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
 

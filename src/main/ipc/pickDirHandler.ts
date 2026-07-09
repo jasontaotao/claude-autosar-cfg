@@ -28,16 +28,24 @@ import { t, type Locale } from '../../shared/i18n/index.js';
 import type { PickDirRequest, PickDirResult } from '../../shared/types.js';
 
 export async function pickDirHandler(req: PickDirRequest): Promise<PickDirResult> {
+  // v1.41.0 M2 — strict validate `req.locale`. The IPC type is a
+  // closed union (`'zh-CN' | 'en'`) but TypeScript only guards within
+  // TS callers; a tampered preload passing `'fr'` (or any other
+  // string) bypasses the type and would crash inside `t()` because
+  // `MESSAGES_BY_LOCALE['fr']` is `undefined`. The ternary keeps the
+  // `Locale` type narrowed while collapsing unknown / unsupported
+  // values to the `'en'` fallback. `'zh-CN'` is checked first so the
+  // hot path is unchanged.
+  const locale: Locale = req.locale === 'zh-CN' ? 'zh-CN' : 'en';
+  const options: Electron.OpenDialogOptions = {
+    title: t(locale, 'dialog.pickDir.title'),
+    properties: ['openDirectory'],
+  };
   // Build the options object conditionally. We do NOT pass
   // `defaultPath: undefined` because `exactOptionalPropertyTypes`
   // rejects an explicit `undefined` on a `string` typed property —
   // the OS default is "remember last directory" which is exactly the
   // behavior we want when the renderer omits `defaultPath`.
-  const locale: Locale = req.locale ?? 'en';
-  const options: Electron.OpenDialogOptions = {
-    title: t(locale, 'dialog.pickDir.title'),
-    properties: ['openDirectory'],
-  };
   if (req.defaultPath !== undefined) {
     options.defaultPath = req.defaultPath;
   }
