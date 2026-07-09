@@ -23,6 +23,11 @@ import './DcmConfigErrorToast.css';
  * v1.35.0 MINOR — 9-value camelCase error class union. 1:1 with
  * `DcmConfigErrorKind` (kebab-case) via the launcher's KIND_TO_CLASS map.
  * Mirrors `RendererDcmConfigErrorClass` shape; the toast is the consumer.
+ *
+ * v1.41.0 MINOR T3 (M3) — append `'noDcmBswmdFixture'` for the new
+ * `no-dcm-bswmd-fixture` IPC kind. Toast renders the dedicated
+ * i18n key (added in src/shared/i18n/odx.ts) so the actionable
+ * fixture-discovery-failure message reaches the user.
  */
 export type DcmConfigErrorClass =
   | 'bswmdUnreadable'
@@ -33,6 +38,7 @@ export type DcmConfigErrorClass =
   | 'containerNotFound'
   | 'patchFailed'
   | 'atomicWriteFailed'
+  | 'noDcmBswmdFixture'
   | 'unexpected';
 
 export interface DcmConfigErrorToastProps {
@@ -52,6 +58,10 @@ const CLASS_KEY_TO_I18N: Readonly<Record<DcmConfigErrorClass, MessageKey>> = {
   containerNotFound: 'odx.export.dcmConfig.error.containerNotFound',
   patchFailed: 'odx.export.dcmConfig.error.patchFailed',
   atomicWriteFailed: 'odx.export.dcmConfig.error.atomicWriteFailed',
+  // v1.41.0 MINOR T3 (M3) — typed envelope for the
+  // `locateDcmBswmdPath` sample-fixture miss. Pre-T3 this was the
+  // raw-`Error` fall-through to the catch-all `unexpected` bucket.
+  noDcmBswmdFixture: 'odx.export.dcmConfig.error.noDcmBswmdFixture',
   unexpected: 'odx.export.dcmConfig.error.unexpected',
 };
 

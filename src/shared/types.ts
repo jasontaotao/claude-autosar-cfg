@@ -1224,6 +1224,13 @@ export type DcmConfigErrorKind =
   | 'container-not-found'
   | 'patch-failed'
   | 'atomic-write-failed'
+  // v1.41.0 MINOR T3 (M3) — typed kind for the
+  // `locateDcmBswmdPath` sample-fixture miss path (was falling through
+  // to the generic `unknown` bucket pre-T3). The renderer toast
+  // mapping now has a dedicated class for this so the actionable
+  // "fixture not found via discovery" message reaches the user instead
+  // of being swallowed as "unexpected".
+  | 'no-dcm-bswmd-fixture'
   | 'unknown';
 
 export interface DcmConfigError {

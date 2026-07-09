@@ -88,11 +88,21 @@ function locateDcmBswmdPath(odxPath: string): string {
   // Strategy 2: walk up from the ODX file's directory.
   const fromOdx = walkUpForFixture(pathResolve(odxPath, '..'));
   if (fromOdx !== null) return fromOdx;
-  throw new Error(
-    `Dcm BSWMD fixture not found via discovery. ` +
+  // v1.41.0 MINOR T3 (M3) — typed DcmConfigError envelope so the outer
+  // catch's `instanceof` branch narrows on `kind: 'no-dcm-bswmd-fixture'`
+  // and the renderer toast router renders the actionable fixture
+  // discovery failure (Round-1 H1 mandate: every IPC handler returns
+  // `Result<T, E>` with no plain-`Error` fall-through to `unknown`).
+  // Pre-T3 this threw a raw `Error` which fell through to the
+  // catch-all `unknown` bucket, hiding the actionable message from
+  // the renderer.
+  throw new DcmConfigError({
+    kind: 'no-dcm-bswmd-fixture',
+    message:
+      `Dcm BSWMD fixture not found via discovery. ` +
       `Searched from cwd='${process.cwd()}' and from ODX dir='${pathResolve(odxPath, '..')}'. ` +
       `Expected '<some-dir>/samples/arxml/demo-ecu/bswmd/Bsw_Dcm_Bswmd.arxml' (T1 demo-ecu fixture).`,
-  );
+  });
 }
 
 /** Walk up from `start` up to 6 levels looking for the T1 Dcm BSWMD

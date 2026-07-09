@@ -136,6 +136,11 @@ const INITIAL_STATE: DcmConfigLauncherState = {
  * (camelCase). 1:1 with `DcmConfigErrorKind` (kebab-case). This is the
  * canonical toast class surface — every kind has a dedicated class, no
  * collapse. Lesson: lossy-collapse-maps-are-tech-debt-not-shipping-safety.
+ *
+ * v1.41.0 MINOR T3 (M3) — append `'noDcmBswmdFixture'` for the new
+ * `no-dcm-bswmd-fixture` IPC kind (typed envelope for the
+ * `locateDcmBswmdPath` fixture-discovery miss; pre-T3 this was the
+ * raw-`Error` fall-through to the `unexpected` bucket).
  */
 export type RendererDcmConfigErrorClass =
   | 'odxUnreadable'
@@ -146,6 +151,7 @@ export type RendererDcmConfigErrorClass =
   | 'containerNotFound'
   | 'patchFailed'
   | 'atomicWriteFailed'
+  | 'noDcmBswmdFixture'
   | 'unexpected';
 
 /**
@@ -153,6 +159,11 @@ export type RendererDcmConfigErrorClass =
  * 1:1 mapping (no collapse). Order matches the union declaration
  * for readability. The kebab-case IPC kind is mapped to the
  * camelCase toast class for direct use in `DcmConfigErrorToast`.
+ *
+ * v1.41.0 MINOR T3 (M3) — add the `no-dcm-bswmd-fixture` mapping
+ * so the typed envelope surfaces via the dedicated
+ * `noDcmBswmdFixture` toast class instead of falling through to
+ * `unexpected`.
  */
 const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, RendererDcmConfigErrorClass>> = {
   'odx-unreadable': 'odxUnreadable',
@@ -163,6 +174,7 @@ const KIND_TO_CLASS: Readonly<Record<DcmConfigErrorKind, RendererDcmConfigErrorC
   'container-not-found': 'containerNotFound',
   'patch-failed': 'patchFailed',
   'atomic-write-failed': 'atomicWriteFailed',
+  'no-dcm-bswmd-fixture': 'noDcmBswmdFixture',
   unknown: 'unexpected',
 };
 

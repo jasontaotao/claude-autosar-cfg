@@ -32,6 +32,11 @@ export const OdxZhCN: OdxMessages = {
   'odx.export.dcmConfig.error.odxUnreadable': '无法读取 ODX 文件：{message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX 解析失败：{message}',
   'odx.export.dcmConfig.error.bswmdMapMissing': 'BSWMD 缺少 Dcm 模块：{message}',
+  // v1.41.0 MINOR T3 (M3) — Dcm BSWMD 模板未找到：{message}。
+  // 修复前会被吞进 catch-all “意外错误” 桶，修复后展示真实的
+  // fixture discovery 失败信息，方便用户排查仓库布局或
+  // demo-ecu 模板依赖。
+  'odx.export.dcmConfig.error.noDcmBswmdFixture': '未找到 Dcm BSWMD 模板：{message}',
   'odx.export.dcmConfig.error.atomicWriteFailed': '写入失败：{message}',
   'odx.export.dcmConfig.error.unexpected': '发生意外错误：{message}',
   'odx.export.dcmConfig.error.dismiss': '关闭',

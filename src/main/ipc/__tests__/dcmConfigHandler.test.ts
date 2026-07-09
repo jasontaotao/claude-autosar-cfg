@@ -567,3 +567,111 @@ describe('dcmConfigHandler — v1.40.0 MINOR T1 size-cap parity (H2)', () => {
     expect(result.error.message).toMatch(/BSWMD file unreadable/);
   });
 });
+
+// v1.41.0 MINOR T3 (M3) — typed envelope for the
+// `locateDcmBswmdPath` sample-fixture miss. Pre-T3 the handler threw
+// a raw `Error` which fell through to the catch-all `kind: 'unknown'`
+// bucket (Round-1 H1 mandate: every IPC handler returns `Result<T, E>`).
+// Post-T3 the throw site raises a typed `DcmConfigError` with the new
+// `kind: 'no-dcm-bswmd-fixture'` literal so the outer catch's
+// `instanceof` branch narrows correctly.
+//
+// The fixture-discovery walk (`walkUpForFixture`) only hits when no
+// `bswmdPath` override is supplied. The vitest runner uses the project
+// root as cwd, so the natural up-walk CAN find the T1 fixture; we
+// force the miss branch via a scoped `existsSync` spy that returns
+// `false` for any fixture-candidate path while leaving the ODX read
+// untouched (the ODX-file check happens at `readFileWithCap`, which
+// uses fs promises — only `existsSync` is spied).
+describe('dcmConfigHandler — v1.41.0 MINOR T3 typed envelope (M3)', () => {
+  it('returns no-dcm-bswmd-fixture envelope when the sample fixture is missing', async () => {
+    // No `bswmdPath` override → calls `locateDcmBswmdPath(odxPath)`
+    // → `walkUpForFixture(...)`. We force the walk to miss by
+    // stubbing `existsSync` (which the handler captures as a
+    // top-level destructure at module load) to return `false` for
+    // the duration of this test. The handler then throws
+    // `DcmConfigError({ kind: 'no-dcm-bswmd-fixture' })`, and the
+    // outer catch's `instanceof` branch surfaces that kind verbatim
+    // — NOT the catch-all `unknown` bucket.
+    //
+    // Implementation note: the handler's
+    // `import { existsSync } from 'node:fs'` is a one-shot destructure
+    // (CJS-backed module), so the binding cannot be swapped after
+    // the handler module loads via `vi.spyOn(fs, 'existsSync')`
+    // (verified — "Cannot redefine property: existsSync"). We use
+    // `vi.resetModules()` + a module-level `vi.doMock('node:fs', ...)`
+    // so the handler's `existsSync` reference is captured FROM THE
+    // MOCKED module. `finally` calls `vi.doUnmock` + `vi.resetModules`
+    // so subsequent tests in this file see the real `node:fs`.
+    const noFixtureRoot = mkdtempSync(pathResolve(tmpdir(), 'no-samples-fixture-'));
+    const odxPath = pathResolve(noFixtureRoot, 'input.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+    const outputPath = pathResolve(noFixtureRoot, 'Dcm_Config_NoFixture.arxml');
+
+    vi.doMock('node:fs', async (importOriginal) => {
+      const actual = await importOriginal<{
+        existsSync: (p: string | Buffer | URL) => boolean;
+      }>();
+      return {
+        ...actual,
+        existsSync: (() => false) as typeof actual.existsSync,
+      };
+    });
+    try {
+      // Re-import the handler with the mocked `node:fs` in scope so
+      // its top-level destructure captures the overridden `existsSync`.
+      vi.resetModules();
+      const handlerModule = await import('../dcmConfigHandler.js');
+      const result = await handlerModule.dcmConfigHandler({
+        odxPath,
+        xlsxRows: [],
+        outputPath,
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      // v1.41.0 MINOR T3 (M3) — typed envelope, NOT the catch-all
+      // `unknown` bucket. Pre-T3 this fell through to `unknown` and
+      // hid the actionable "fixture not found via discovery" message.
+      expect(result.error.kind).toBe('no-dcm-bswmd-fixture');
+      // Actionable message: user can read the searched-from cwd +
+      // ODX dir and decide whether the fixture is missing or the
+      // walk-up depth was insufficient for their project layout.
+      expect(result.error.message).toMatch(/Dcm BSWMD fixture not found via discovery/);
+    } finally {
+      vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
+  });
+
+  it('returns the success envelope when the cwd-resident sample fixture resolves (regression)', async () => {
+    // Regression: the success path must still work when the
+    // fixture-discovery walk hits. `pathResolve(process.cwd(), ...)`
+    // resolves the canonical T1 fixture from the repo root (the
+    // vitest cwd is the project root via package.json's test runner
+    // config).
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    const outputPath = pathResolve(workDir, 'Dcm_Config_FixtureHit.arxml');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    const xlsxRows: EcucInstanceRow[] = [
+      { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
+    ].map(asDcmRow);
+
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows,
+      outputPath,
+      bswmdPath: pathResolve(
+        process.cwd(),
+        'samples',
+        'arxml',
+        'demo-ecu',
+        'bswmd',
+        'Bsw_Dcm_Bswmd.arxml',
+      ),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.appliedStepCount).toBeGreaterThan(0);
+  });
+});

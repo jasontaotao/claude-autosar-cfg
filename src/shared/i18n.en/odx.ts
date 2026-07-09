@@ -32,6 +32,12 @@ export const OdxEn: OdxMessages = {
   'odx.export.dcmConfig.error.odxUnreadable': 'Cannot read ODX file: {message}',
   'odx.export.dcmConfig.error.odxParseFailed': 'ODX parse failed: {message}',
   'odx.export.dcmConfig.error.bswmdMapMissing': 'BSWMD missing Dcm module: {message}',
+  // v1.41.0 MINOR T3 (M3) — typed envelope for the
+  // `locateDcmBswmdPath` sample-fixture miss. Pre-T3 fell through to
+  // the catch-all 'unexpected' bucket; post-T3 surfaces the actual
+  // fixture-discovery-failure message so the user can act on it
+  // (check the repo layout / vendor-package the demo-ecu fixture).
+  'odx.export.dcmConfig.error.noDcmBswmdFixture': 'Dcm BSWMD fixture not found: {message}',
   'odx.export.dcmConfig.error.atomicWriteFailed': 'Write failed: {message}',
   'odx.export.dcmConfig.error.unexpected': 'Unexpected error: {message}',
   'odx.export.dcmConfig.error.dismiss': 'Dismiss',

@@ -33,6 +33,13 @@ export interface OdxMessages {
   readonly 'odx.export.dcmConfig.error.odxUnreadable': string; // {message}
   readonly 'odx.export.dcmConfig.error.odxParseFailed': string; // {message}
   readonly 'odx.export.dcmConfig.error.bswmdMapMissing': string; // {message}
+  // v1.41.0 MINOR T3 (M3) — typed envelope for the dcmConfigHandler
+  // sample-fixture discovery miss. Pre-T3 the handler threw a raw
+  // `Error` which fell through to the catch-all `unexpected` bucket;
+  // post-T3 this key backs the dedicated `noDcmBswmdFixture` toast
+  // class so the actionable fixture-discovery-failure message reaches
+  // the user instead of being swallowed as "unexpected".
+  readonly 'odx.export.dcmConfig.error.noDcmBswmdFixture': string; // {message}
   readonly 'odx.export.dcmConfig.error.atomicWriteFailed': string; // {message}
   readonly 'odx.export.dcmConfig.error.unexpected': string; // {message}
   readonly 'odx.export.dcmConfig.error.dismiss': string;
