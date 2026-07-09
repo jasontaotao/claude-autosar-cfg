@@ -134,8 +134,7 @@ describe('validateUniqueShortNames — cross-type siblings (D-rev2 S10)', () => 
     );
     const dupIndexDiags = diags.filter(
       (d) =>
-        d.code === DiagnosticCode.ECUC_GEN_DUPLICATE_SHORTNAME &&
-        d.message.includes('INDEX=1'),
+        d.code === DiagnosticCode.ECUC_GEN_DUPLICATE_SHORTNAME && d.message.includes('INDEX=1'),
     );
     expect(dupIndexDiags).toHaveLength(1);
     expect(dupIndexDiags[0]!.severity).toBe(DiagnosticSeverity.ERROR);
