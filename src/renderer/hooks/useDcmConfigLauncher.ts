@@ -1,4 +1,4 @@
-// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5 + v1.33.0 MINOR T4.
+// useDcmConfigLauncher — v1.31.0 PATCH T3 + v1.32.0 MINOR T2 + T5 + v1.33.0 MINOR T4 + v1.40.0 MINOR T2 (H3).
 //
 // State machine + IPC + error classifier for the v1.30.0
 // `dcm:config` IPC channel. Consumed by AppHeader (T5) and
@@ -28,6 +28,15 @@
 // filename regex); it is memoized per-path so re-renders on store
 // updates with unchanged paths avoid re-parsing (lesson
 // filename-regex-for-ux-gate-vs-parse-based-detection-trade-off).
+//
+// v1.40.0 MINOR T2 (H3) — handleGenerateNew reads from
+// `lastOdxPathRef` (ref-mirror of the success-branch odxPath) rather
+// than the captured `state.lastOdxPath`. State-copy is preserved for
+// UI display, but the captured value would silently lag the user's
+// current `activeDocumentPath` after a doc switch between success
+// and the next Generate New click. The ref is written synchronously
+// in the success branch of `open()` and cleared on error / bridge
+// throw paths to stay in lock-step with the state copy.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -217,6 +226,21 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // paths funnel through `open()` so the guard releases only once.
   const inFlightRef = useRef(false);
 
+  // v1.40.0 MINOR T2 (H3) — lastOdxPath mirror kept in a ref so
+  // `handleGenerateNew` reads the *current* captured ODX path on
+  // re-fire without subscribing to the success-state render cycle.
+  // The state copy (state.lastOdxPath) is preserved for UI display
+  // (e.g. SuccessDialog "previously generated for …" affordance),
+  // but the *source-of-truth for re-fire args* is this ref —
+  // stored on the state shape only and read by `handleGenerateNew`
+  // via closure, the captured path would silently lag the user's
+  // current `activeDocumentPath` after a doc switch between
+  // success and re-fire. Lesson: ref-mirror-stale-state-read-when-
+  // value-changes-between-render-and-event-handler — if the hook
+  // exposes a value for re-fire use, store it where the event
+  // handler can read it synchronously without render-cycle coupling.
+  const lastOdxPathRef = useRef<string | null>(null);
+
   // v1.32.0 T5 — store-derived inputs.
   //
   // `bswmdPaths` lists the project's loaded BSWMD files; we feed them
@@ -354,6 +378,14 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       try {
         const res = await getApi().dcmConfig(args);
         if (res.ok) {
+          // v1.40.0 MINOR T2 (H3) — mirror the captured odxPath into
+          // lastOdxPathRef so handleGenerateNew reads the *current*
+          // success-captured path on re-fire. The state copy
+          // (state.lastOdxPath) is kept for UI display; the ref is
+          // the source of truth for the re-fire arg because the
+          // event handler must not lag behind a doc switch that
+          // happens between success and the next Generate New click.
+          lastOdxPathRef.current = args.odxPath;
           setState({
             mode: 'success',
             result: res.value,
@@ -401,6 +433,8 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
             // refine this to preserve the prior value.
             lastOdxPath: null,
           });
+          // v1.40.0 MINOR T2 (H3) — keep ref in sync with state copy.
+          lastOdxPathRef.current = null;
         }
       } catch (e) {
         // v1.31.1 PATCH — defensive IPC try/catch (T4 whole-branch
@@ -434,6 +468,8 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
           // invocation captured). T2 may refine this to preserve.
           lastOdxPath: null,
         });
+        // v1.40.0 MINOR T2 (H3) — keep ref in sync with state copy.
+        lastOdxPathRef.current = null;
       } finally {
         inFlightRef.current = false;
       }
@@ -553,7 +589,28 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       );
       return;
     }
-    const odxPath = state.lastOdxPath ?? activeDocumentPath;
+    // v1.40.0 MINOR T2 (H3) — read from lastOdxPathRef (synchronously
+    // updated on each successful dcm:config in the success branch
+    // of open()) rather than the captured state.lastOdxPath. The
+    // state copy is preserved for UI display, but using it here
+    // would silently discard the user's current activeDocumentPath
+    // after they switched docs between the prior success and this
+    // re-fire. Lesson: stale-closure-on-state-read-for-event-handler-
+    // arg — `useCallback` closures capture the state value at render
+    // time; an event handler that runs after a render-cycle gap must
+    // either rebuild the callback on every relevant state change or
+    // read from a ref-mirror that the producer keeps current.
+    //
+    // Resolution order: the user's current activeDocumentPath wins
+    // when the active doc is an .odx (matches the pre-existing
+    // isActiveOdx shortcut contract used by promptAndOpen); the
+    // ref-mirror is the fallback for the case where the user closed
+    // the active doc but had a prior success. This means a doc
+    // switch after success always wins — the previously-captured
+    // ref value only fires when no active .odx exists.
+    const odxPath = isActiveOdx && activeDocumentPath !== null
+      ? activeDocumentPath
+      : lastOdxPathRef.current ?? activeDocumentPath;
     if (odxPath === null) {
       console.warn(
         'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
@@ -580,7 +637,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
       bswmdPath: r.path,
     });
-  }, [state.lastOdxPath, activeDocumentPath, open, locale]);
+  }, [activeDocumentPath, isActiveOdx, open, locale]);
 
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
@@ -603,3 +660,4 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     dismissToast,
   };
 }
+

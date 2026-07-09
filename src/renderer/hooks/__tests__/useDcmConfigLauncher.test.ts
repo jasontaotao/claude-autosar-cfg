@@ -923,6 +923,131 @@ describe('useDcmConfigLauncher (v1.33.1 T2) — handleGenerateNew + lastOdxPath'
 });
 
 // ---------------------------------------------------------------------------
+// v1.40.0 MINOR T2 (H3) — handleGenerateNew uses lastOdxPathRef
+// (ref-mirror) as the source of truth for the re-fire ODX path,
+// not the captured state.lastOdxPath. This test pins the corrected
+// behavior: after a successful dcm:config, the captured
+// lastOdxPath is still recorded in state (UI affordance), but
+// the re-fire uses the *current* activeDocumentPath if the user
+// switched docs between success and the next Generate New click.
+// ---------------------------------------------------------------------------
+describe('useDcmConfigLauncher (v1.40.0 T2 H3) — handleGenerateNew ref-mirror re-fire', () => {
+  beforeEach(() => {
+    confirmDestructiveMock.mockReset();
+    useArxmlStore.setState({
+      xlsxLastImport: null,
+      project: null,
+      activeDocumentPath: null,
+    } as never);
+  });
+
+  it('re-fire uses current activeDocumentPath (NOT cached state.lastOdxPath) when the user switched docs after success', async () => {
+    // Step 1 — Seed: prior open() success captured /old/Odx-A.odx.
+    // We seed by running open() against /old/Odx-A.odx (the success
+    // branch sets both state.lastOdxPath AND lastOdxPathRef).
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+    // Second open() (re-fire) succeeds.
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 1,
+      },
+    });
+    installBswmdPickMock({
+      kind: 'opened',
+      path: '/new-dcm-bswmd.arxml',
+      content: DCM_BSWMD_CONTENT,
+    });
+    confirmDestructiveMock.mockResolvedValue('confirm' as const);
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+
+    // Step 2 — Seed activeDocumentPath = /old/Odx-A.odx and capture
+    // it as lastOdxPath via a prior open() success.
+    useArxmlStore.setState({ activeDocumentPath: '/old/Odx-A.odx' } as never);
+    await act(async () => {
+      await result.current.open({
+        odxPath: '/old/Odx-A.odx',
+        xlsxRows: [],
+        bswmdPath: '/autodetected.arxml',
+      });
+    });
+    expect(result.current.state.lastOdxPath).toBe('/old/Odx-A.odx');
+
+    // Step 3 — Sanity: the first re-fire uses the active path
+    // (activeDocumentPath matches captured lastOdxPath, so the
+    // current contract is observable).
+    invokeMock.mockClear();
+    confirmDestructiveMock.mockClear();
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+    const firstRefire = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+    };
+    expect(firstRefire.odxPath).toBe('/old/Odx-A.odx');
+
+    // Step 4 — User switches active docs. lastOdxPath (state copy)
+    // is NOT cleared (the success path persists). activeDocumentPath
+    // is updated to the new doc.
+    useArxmlStore.setState({ activeDocumentPath: '/new/Odx-B.odx' } as never);
+    // Re-render so the hook rebuilds handleGenerateNew with the new
+    // activeDocumentPath in its dep array.
+    await act(async () => {
+      // No-op await for the re-render; the store update above
+      // already triggered a re-render via the activeDocumentPath
+      // subscription.
+    });
+    // Sanity: state.lastOdxPath is still /old/Odx-A.odx (UI mirror
+    // preserved), activeDocumentPath is now /new/Odx-B.odx. This
+    // is the exact stale-closure scenario H3 fixes.
+    expect(result.current.state.lastOdxPath).toBe('/old/Odx-A.odx');
+
+    // Step 5 — Second re-fire. Must use /new/Odx-B.odx (the current
+    // active document), NOT /old/Odx-A.odx (the stale state copy).
+    invokeMock.mockClear();
+    confirmDestructiveMock.mockClear();
+    confirmDestructiveMock.mockResolvedValue('confirm' as const);
+    await act(async () => {
+      await result.current.handleGenerateNew();
+    });
+    const secondRefire = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+    };
+    // v1.40.0 T2 H3 — assertion that pinches the fix.
+    expect(secondRefire.odxPath).toBe('/new/Odx-B.odx');
+    expect(secondRefire.odxPath).not.toBe('/old/Odx-A.odx');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // v1.36.0 MINOR T5 — handleGenerateNew confirmDestructive gate.
 //
 // Pinned behaviours (T5):
