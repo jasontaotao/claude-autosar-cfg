@@ -180,6 +180,7 @@ function validateName(name: string): ScriptError | null {
       { field: 'name' },
     );
   }
+  // eslint-disable-next-line no-control-regex -- intentional: detect control chars in user-supplied name (v1.40.0 M1 defense)
   if (/[\x00-\x1f]/.test(name)) {
     return classScriptError('invalid-source', 'name contains control character', { field: 'name' });
   }

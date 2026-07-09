@@ -20,10 +20,7 @@ import { resolve as pathResolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  DEFAULT_FILE_CAP_BYTES,
-  readFileWithCap,
-} from '../sizeCap.js';
+import { DEFAULT_FILE_CAP_BYTES, readFileWithCap } from '../sizeCap.js';
 
 let workDir: string;
 

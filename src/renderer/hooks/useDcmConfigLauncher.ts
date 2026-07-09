@@ -608,9 +608,10 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     // the active doc but had a prior success. This means a doc
     // switch after success always wins — the previously-captured
     // ref value only fires when no active .odx exists.
-    const odxPath = isActiveOdx && activeDocumentPath !== null
-      ? activeDocumentPath
-      : lastOdxPathRef.current ?? activeDocumentPath;
+    const odxPath =
+      isActiveOdx && activeDocumentPath !== null
+        ? activeDocumentPath
+        : (lastOdxPathRef.current ?? activeDocumentPath);
     if (odxPath === null) {
       console.warn(
         'useDcmConfigLauncher: Generate New unavailable — no lastOdxPath and no activeDocumentPath',
@@ -660,4 +661,3 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     dismissToast,
   };
 }
-
