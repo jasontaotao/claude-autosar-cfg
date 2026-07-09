@@ -1213,3 +1213,203 @@ describe('useScriptStore — appendProgress + getSelected + reset', () => {
     expect(s.initialized).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// v1.41.0 MINOR T1 (H1) — applyMutation re-checks runResult identity before
+// the final set, so a user-initiated `discardMutation` is not silently
+// overwritten with a stale snapshot.
+// ---------------------------------------------------------------------------
+//
+// The pre-fix code captured `const result = get().runResult;` at the start
+// of `applyMutation` and then called `set({ runResult: { ...result, ... } })`
+// on the success path. If the user clicked `Discard` between capture and
+// final set, the new runResult object (post-Discard) was replaced by the
+// stale snapshot, resurrecting the discarded mutations and warnings.
+//
+// The fix re-reads `get().runResult` immediately before the final set and
+// branches: if the live reference matches the captured snapshot, the
+// commit is still authoritative and we clear mutations; otherwise the
+// user has replaced the runResult (typically via `discardMutation`) and
+// we preserve their new state, merging the freshly-computed warnings.
+
+describe('useScriptStore — applyMutation v1.41.0 (H1 stale-state fix)', () => {
+  // Reuse the same minimal-doc shape as the v1.20.0 tests so the
+  // happy-path can resolve the engine + serializer + projectSave IPC.
+  function makeDocWithParam(value: number): ArxmlDocument {
+    return {
+      path: '/tmp/h1-stale.arxml',
+      version: '4.6' as const,
+      packages: [
+        {
+          shortName: 'EAS',
+          path: '/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'EcuC',
+              params: {},
+              children: [
+                {
+                  kind: 'container',
+                  tagName: 'ECUC-CONTAINER-VALUE',
+                  shortName: 'EcuCGeneral',
+                  params: {
+                    ConfigConsistencyRequired: { type: 'integer', value },
+                  },
+                  children: [],
+                },
+              ],
+              references: [],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useScriptStore.getState().reset();
+    // Re-seed the project manifest so the loose-mode guard does not
+    // trip before the projectSave IPC is reached.
+    useArxmlStore.setState({
+      project: {
+        id: 'proj-1',
+        name: 'Test',
+        valueArxmlPaths: [],
+        bswmdPaths: [],
+        schemaVersion: '1',
+      },
+      projectPath: '/tmp/proj.autosarcfg.json',
+    });
+    installApi(makeApi());
+  });
+
+  it('preserves user Discard when applyMutation resolves after Discard', async () => {
+    // -- Arrange: a controllable IPC that the test resolves manually.
+    //
+    // The pre-fix bug only manifests when `applyMutation` is still on
+    // the await point of `window.autosarApi.projectSave` while the
+    // user issues a `discardMutation`. We model that by replacing the
+    // default `projectSave` with a deferred that we resolve on demand.
+    const saved: { resolve: ((value: ProjectSaveResult) => void) | undefined } = {
+      resolve: undefined,
+    };
+    const savePromise = new Promise<ProjectSaveResult>((resolve) => {
+      saved.resolve = resolve;
+    });
+    const projectSaveSpy = vi.fn(() => savePromise);
+    const api = (
+      globalThis as { window: { autosarApi: { projectSave: (...args: unknown[]) => unknown } } }
+    ).window.autosarApi;
+    api.projectSave = projectSaveSpy;
+
+    const tmpFile = join(tmpdir(), `apply-mut-h1-${Date.now()}.arxml`);
+    const doc = makeDocWithParam(1);
+    useArxmlStore.getState().setDoc(doc, tmpFile);
+
+    const initialRunResult: ScriptRunResult = {
+      runId: 'r-h1',
+      status: 'ok',
+      logs: [],
+      violations: [],
+      mutations: [
+        {
+          kind: 'set-param',
+          containerPath: '/EAS/EcuC/EcuCGeneral',
+          paramName: 'ConfigConsistencyRequired',
+          newValue: 7,
+        },
+      ],
+      durationMs: 0,
+    };
+    useScriptStore.setState({ runResult: initialRunResult });
+
+    try {
+      // -- Act 1: kick off applyMutation. It will await the deferred
+      // IPC. The function does several `await import(...)` calls at
+      // the top before reaching the projectSave await — we must give
+      // the microtask queue a chance to flush them.
+      const applyPromise = useScriptStore.getState().applyMutation();
+
+      // Wait until projectSave has been called (signals the function
+      // has reached the IPC await point). This is the deterministic
+      // synchronization primitive — when this resolves, the function
+      // is suspended on the IPC and the in-memory doc is already
+      // updated via setDoc (line 378).
+      await vi.waitFor(() => {
+        expect(projectSaveSpy).toHaveBeenCalledTimes(1);
+      });
+
+      // The in-memory doc reflects the mutation even before save lands
+      // (matches the existing happy-path contract — line 378 setDoc).
+      const ecuc = useArxmlStore.getState().doc?.packages[0]?.elements[0] as
+        | ArxmlModule
+        | undefined;
+      const general = ecuc?.children[0] as ArxmlContainer | undefined;
+      expect(general?.params.ConfigConsistencyRequired).toEqual({ type: 'integer', value: 7 });
+
+      // applyPromise is still pending.
+      let settled = false;
+      applyPromise.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+
+      // -- Act 2: simulate the user clicking Discard while applyMutation
+      // is suspended on the IPC, then immediately running a *new*
+      // script whose `runResult` is a fresh object with a different
+      // runId. The pre-fix code would silently overwrite this new
+      // runResult with the stale captured `result` snapshot (which
+      // carries the old `runId: 'r-h1'`). The H1 fix detects the
+      // identity change at the final set and preserves the user's
+      // new state, merging in the freshly-computed warnings.
+      useScriptStore.getState().discardMutation();
+      const replacedByUser: ScriptRunResult = {
+        runId: 'r-replacement',
+        status: 'ok',
+        logs: [],
+        violations: [],
+        mutations: [],
+        durationMs: 0,
+        // Include a marker so the test can prove which state survived.
+        errorMessage: 'replacement-from-user',
+      };
+      useScriptStore.getState().setRunResult(replacedByUser);
+      const postReplace = useScriptStore.getState().runResult;
+      expect(postReplace).toBe(replacedByUser); // identity = replacement
+      expect(postReplace?.runId).toBe('r-replacement');
+      expect(postReplace?.errorMessage).toBe('replacement-from-user');
+
+      // -- Act 3: resolve the IPC. applyMutation wakes up and reaches
+      // the final set block — the H1 fix re-reads runResult, sees the
+      // identity changed, and merges `warnings` into the post-Discard
+      // state without resurrecting the discarded mutations.
+      const resolve = saved.resolve;
+      if (resolve === undefined) throw new Error('resolveSave not captured');
+      resolve({ kind: 'saved', path: tmpFile });
+      await applyPromise;
+
+      // -- Assert: the runResult carries the user's replacement values,
+      // not the stale captured `result` snapshot. The H1 fix detects
+      // the identity change at the final set and merges the freshly-
+      // computed warnings (empty here for a clean set-param) onto the
+      // replacement's value-set. The pre-fix code would have written
+      // `{...initialRunResult, mutations: [], warnings: []}` —
+      // losing `runId: 'r-replacement'` and the user's `errorMessage`.
+      // The fix always returns a new runResult object (spread copy),
+      // so we assert on value, not identity.
+      const finalResult = useScriptStore.getState().runResult;
+      expect(finalResult).not.toBeNull();
+      expect(finalResult?.runId).toBe('r-replacement'); // not the stale 'r-h1'
+      expect(finalResult?.mutations).toEqual([]); // NOT resurrected
+      expect(finalResult?.errorMessage).toBe('replacement-from-user');
+      expect(finalResult?.warnings ?? []).toEqual([]); // warnings merged
+      expect(useScriptStore.getState().dirty).toBe(false);
+    } finally {
+      await fsPromises.rm(tmpFile, { force: true });
+    }
+  });
+});

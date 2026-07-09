@@ -447,12 +447,15 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       return;
     }
 
+    // v1.41.0 MINOR T1 (H1) — re-check `runResult` before the final set
+    // so a user-initiated `Discard` (which creates a new runResult
+    // object) is not silently overwritten with our stale snapshot.
+    const current = get().runResult;
     set({
-      runResult: {
-        ...result,
-        mutations: [],
-        warnings,
-      },
+      runResult:
+        current === result
+          ? { ...result, mutations: [], warnings } // owner still holds snapshot → safe to clear
+          : { ...(current ?? result), warnings }, // owner replaced (e.g. user discarded) → preserve; fallback to result if cleared to null
       dirty: false,
     });
   },
