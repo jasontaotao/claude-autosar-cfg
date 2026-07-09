@@ -352,20 +352,24 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   // Snapshot the BrowserWindow ONCE before the run starts so a
   // window close mid-run doesn't tear the listener half-way through.
   const mainWindow = getMainWindow();
-  // v1.40.0 MINOR T3 (M2) — clamp `timeoutMs` to a safe range. The
+  // v1.40.0 MINOR T3.5 (M2) — clamp `timeoutMs` to a safe range. The
   // renderer sends a number bounded by the UI's slider, but a tampered
-  // preload could send `Infinity`, `Number.MAX_SAFE_INTEGER`, or `0`.
-  // V8's `setTimeout` treats `0` (and negative values) as "no timeout",
-  // which means a malicious or buggy caller could wedge the graceful-
-  // shutdown drain that wraps `runInSandbox`. The floor at 1 s leaves
-  // the runner enough headroom to fail fast on a stuck script; the
-  // ceiling at 60 s caps the worst-case drain during quit.
+  // preload could send `Infinity`, `Number.MAX_SAFE_INTEGER`, `0`, or
+  // `NaN`. V8's `setTimeout` treats `0` (and negative values) as "no
+  // timeout", and `Math.min(NaN, x) === NaN` propagates silently, both
+  // of which wedge the graceful-shutdown drain that wraps
+  // `runInSandbox`. The floor at 1 s leaves the runner enough
+  // headroom to fail fast on a stuck script; the ceiling at 60 s caps
+  // the worst-case drain during quit. Non-finite or non-positive
+  // values fall back to 5000 ms (the renderer's default).
   const SAFE_TIMEOUT_MIN_MS = 1000;
   const SAFE_TIMEOUT_MAX_MS = 60_000;
-  const clampedTimeoutMs = Math.min(
-    Math.max(req.timeoutMs ?? 5000, SAFE_TIMEOUT_MIN_MS),
-    SAFE_TIMEOUT_MAX_MS,
-  );
+  const SAFE_TIMEOUT_FALLBACK_MS = 5000;
+  const rawTimeoutMs = req.timeoutMs ?? SAFE_TIMEOUT_FALLBACK_MS;
+  const clampedTimeoutMs =
+    Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0
+      ? Math.min(Math.max(rawTimeoutMs, SAFE_TIMEOUT_MIN_MS), SAFE_TIMEOUT_MAX_MS)
+      : SAFE_TIMEOUT_FALLBACK_MS;
   try {
     return runInSandbox(entry, logs, violations, mutations, {
       timeoutMs: clampedTimeoutMs,
