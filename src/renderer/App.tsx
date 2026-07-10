@@ -41,25 +41,22 @@ import {
   useEffect,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
-import { findFirstEcucModule } from '@core/arxml/path.js';
-import type { PickedModule } from '@core/arxml/skeleton.js';
 import { t as i18nT, t } from '@shared/i18n/index.js';
 import { toManifestRelative } from '@shared/path';
 
 import type { DbcSummary, OdxSummary } from '../shared/types';
 
 import { AppHeader } from './components/AppHeader';
+import { useAppMainHandlers } from './app/useAppMainHandlers';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { BswmdPickerRoot } from './components/BswmdPickerDialog';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
 import { ConfirmRoot } from './components/ConfirmDialog';
 import { ConfirmRoot2 } from './components/ConfirmDialog2.js';
-import { ContextMenuRoot, openContextMenu } from './components/ContextMenu';
-import type { ContextMenuAction } from './components/ContextMenu';
+import { ContextMenuRoot } from './components/ContextMenu';
 import { DbcImportWizard } from './components/DbcImportWizard';
 import { DbcViewer } from './components/DbcViewer';
 import { DiagnosticExtractSuccessDialog } from './components/DiagnosticExtractSuccessDialog';
@@ -80,12 +77,10 @@ import { DcmConfigPicker } from './components/dcmConfig/DcmConfigPicker';
 import { DcmConfigSuccessDialog } from './components/dcmConfig/DcmConfigSuccessDialog';
 import { ParamEditor } from './components/editor/ParamEditor';
 import { useBswmdHasDcm } from './hooks/useBswmdHasDcm';
-import { useCreateEcucFromBswmd } from './hooks/useCreateEcucFromBswmd';
 import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
 import { useGenerateCode } from './hooks/useGenerateCode';
 import { useProjectActions } from './hooks/useProjectActions';
-import { useRemoveEcucFiles } from './hooks/useRemoveEcucFiles';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
 import { useArxmlStore } from './store/useArxmlStore';
@@ -177,51 +172,20 @@ export function App(): JSX.Element {
     void submitNewProject(name, directory, opts);
   };
 
-  // Sprint 14 / Task 11 — ECUC picker lifecycle. App.tsx owns the
-  // open/close state because it's the single mount point for any
-  // entry point that wants to invoke the picker (the AppHeader menu
-  // and the ProjectPanel row chips are both descendants of <App />).
-  // `preSelectedBswmdPath` is `undefined` for the menu-driven flow
-  // (the user picks from scratch) and is the BSWMD path for the row
-  // flow (so the user lands directly inside the right BSWMD).
-  const [ecucPickerOpen, setEcucPickerOpen] = useState(false);
-  const [preSelectedBswmdPath, setPreSelectedBswmdPath] = useState<string | undefined>(undefined);
-  // T8 orchestration hook — writes ARXML via IPC, registers the new
-  // docs in the store on success, rolls back on partial failure.
-  const { create: createEcuc } = useCreateEcucFromBswmd();
-  const { remove: removeEcuc } = useRemoveEcucFiles();
-  // The picker is gated on BOTH a BSWMD being loaded (otherwise
-  // there's nothing to enumerate) AND a project being open (the
-  // picker writes into the project's directory).
-  const canSelectEcucModule = useArxmlStore((s) => s.bswmdSchemas.length > 0 && s.project !== null);
-  const locale = useArxmlStore((s) => s.locale);
-  const setStoreError = useArxmlStore((s) => s.setError);
-
   // v1.31.0 PATCH T7 — App.tsx wiring for the dcm:config renderer UX.
-  //
   // The launcher hook owns the in-flight ref + state machine + error
-  // classifier. We (the parent) only derive the 3 gate values and
-  // forward clicks to `launcher.open()`. The 3 gates:
+  // classifier. App.tsx (shell) owns the launcher + the derived
+  // gate values because the JSX (line ~606 + line ~1328) consumes
+  // both `dcmLauncher.state.mode` (for `dcmConfigBusy` prop) and
+  // `canOpenDcmConfig` (for the menu entry disabled state). These
+  // stay in App.tsx shell for T1 and will be extracted to
+  // useFileViewerHandlers (Flow 2) in T2.
   //
-  //   1. `odxPath` — the active document path. We coerce null → ''
-  //      so `endsWith('.odx')` is safe.
+  // 3 gates (kept in App.tsx shell):
+  //   1. `odxPath` — active document path. coerce null → ''.
   //   2. `odxLoaded` — derived from `odxPath`. Cheap filename check.
   //   3. `hasDcmBswmd` — derived from `manifest.bswmdPaths`. Regex
-  //      match on filename (D4: no BSWMD parse in the renderer —
-  //      see spec for trade-off discussion). When no project is open
-  //      (`s.project === null`) the `?.` chain returns undefined, and
-  //      the `?? false` collapses it to the disabled default.
-  //
-  // `canOpenDcmConfig` is the AND of (2) and (3) — both gates must
-  // be green for the AppHeader dropdown entry to be enabled.
-  //
-  // The launcher's `state.result!` non-null assertion on the dialog
-  // is safe: the launcher's success-path state-machine transition
-  // always sets `result` BEFORE `dialogOpen: true`, and the dialog's
-  // own `if (!open) return null` gate ensures `result` is never read
-  // when it is still null. A T2 unit test pins the dialog's null
-  // gate; the state machine invariant is documented at the prop
-  // type level (`result: DcmConfigHandlerResult` is non-nullable).
+  //      match on filename (D4: no BSWMD parse in the renderer).
   const dcmLauncher = useDcmConfigLauncher();
   const odxPath = useArxmlStore((s) => s.activeDocumentPath ?? '');
   const odxLoaded = odxPath.toLowerCase().endsWith('.odx');
@@ -232,320 +196,72 @@ export function App(): JSX.Element {
   const bswmdHasDcm = useBswmdHasDcm();
   const hasDcmBswmd = bswmdHasDcm.hasDcm;
   const canOpenDcmConfig = odxLoaded && hasDcmBswmd;
-  // v1.32.0 MINOR T8 — AppHeader dropdown entry routes through
-  // `promptAndOpen()` (the v1.32.0 T5 top-level entry). The helper
-  // decides between the picker substate (no active .odx doc) and the
-  // shortcut path (activeDocumentPath ends with `.odx`). The legacy
-  // `dcmLauncher.open({ odxPath, xlsxRows: [] })` is preserved on the
-  // ContextMenu path below — it bypasses the picker because the
-  // ContextMenu entry is gated on the user right-clicking a BSWMD row,
-  // and the right-clicked path is treated as the picker target (xlsxRows
-  // placeholder documented at useDcmConfigLauncher.ts:484).
-  const handleOpenDcmConfig = useCallback((): void => {
-    void dcmLauncher.promptAndOpen();
-  }, [dcmLauncher]);
-  // Sprint 14 / T13 — viewMode three-state guard. While
-  // viewMode === 'import-merged' the import-merged panel mounts in
-  // the left column and the Save / Combined UI affordances are
-  // hidden. The setViewMode guard (already in the store) rejects a
-  // manual switch to 'combined' while the import is in flight.
-  const viewMode = useArxmlStore((s) => s.viewMode);
-  const isImportMerged = viewMode === 'import-merged';
 
-  const handleMenuSelectEcucModule = useCallback((): void => {
-    setPreSelectedBswmdPath(undefined);
-    setEcucPickerOpen(true);
-  }, []);
+  // `setStoreError` is consumed by Flows 2/3/4 (DBC viewer, ODX viewer,
+  // diag extract, DBC import wizard, XLSX batch wizard) — stays in
+  // App.tsx shell for T1. Will be moved to the relevant Flow hooks in
+  // T2-T4.
+  const setStoreError = useArxmlStore((s) => s.setError);
 
-  const handleAddEcucFromBswmd = useCallback((bswmdPath: string): void => {
-    setPreSelectedBswmdPath(bswmdPath);
-    setEcucPickerOpen(true);
-  }, []);
-
-  const handleCloseEcucPicker = useCallback((): void => {
-    setEcucPickerOpen(false);
-    setPreSelectedBswmdPath(undefined);
-  }, []);
-
-  // `useArxmlStore.getState().projectPath` is read inside the confirm
-  // handler (not subscribed via `useStore`) because it's only read
-  // once on submit and we don't need the component to re-render when
-  // the project path changes (it never changes while the picker is
-  // open — `closeProject` would close the dialog via store.error).
-  const handleConfirmEcucPicker = useCallback(
-    async (picks: readonly PickedModule[]): Promise<void> => {
-      setEcucPickerOpen(false);
-      const state = useArxmlStore.getState();
-      const project = state.project;
-      const projectPath = state.projectPath;
-      if (project === null || projectPath === null) {
-        setStoreError('No project open');
-        setPreSelectedBswmdPath(undefined);
-        return;
-      }
-      // Derive `projectDir` from `manifestPath` (strip the trailing
-      // file segment). `path.ts` doesn't export dirname, so we split
-      // inline — same approach other call sites use for "the
-      // directory the project lives in".
-      const projectDir = projectPath.replace(/[\\/][^\\/]+$/, '');
-
-      // Sprint 16 — set-semantic confirm. The picker hands us the
-      // post-toggle `picks` (newly-checked modules). Diff against the
-      // project's currently-loaded ECUC instances to compute
-      // (toAdd, toRemove) and dispatch both flows in sequence.
-      const existingPicks: PickedModule[] = [];
-      for (const doc of state.documents) {
-        if (doc.sourceBswmdPath === undefined) continue;
-        // Sprint X — nested-package parity. `doc.packages[0]?.elements[0]`
-        // returns undefined on vendor-prefix source docs whose ECUC module
-        // lives under one or more <AR-PACKAGE> wrappers (e.g. the
-        // user-reported `JWQ_CDD_PACK > JWQ_Packet > JWQ3399` shape from
-        // C:\Users\13777\Desktop\ClaudeAutosarWorkSpace\ecuc\JWQ3399_EcucValues.arxml).
-        // `findFirstEcucModule` walks depth-first across the recursive
-        // <AR-PACKAGES> tree so the picker dedup works on both shapes.
-        const moduleEl = findFirstEcucModule(doc);
-        if (moduleEl === null) continue;
-        existingPicks.push({
-          bswmdPath: doc.sourceBswmdPath,
-          moduleShortName: moduleEl.shortName,
-        });
-      }
-      const pickKey = (p: PickedModule): string => `${p.bswmdPath}::${p.moduleShortName}`;
-      const incomingKeys = new Set(picks.map(pickKey));
-      const existingKeys = new Set(existingPicks.map(pickKey));
-      const toAdd = picks.filter((p) => !existingKeys.has(pickKey(p)));
-      const toRemove = existingPicks.filter((p) => !incomingKeys.has(pickKey(p)));
-
-      // -- Add path (unchanged from prior behavior) ---------------
-      if (toAdd.length > 0) {
-        const result = await createEcuc({ picks: toAdd, projectDir });
-        if (result.kind === 'ok') {
-          if (result.written.length > 0) {
-            setStoreError(i18nT(locale, 'ecuc.fromBswmd.toast', { count: result.written.length }));
-          }
-        } else {
-          const msg =
-            result.message !== undefined
-              ? result.message
-              : result.failed.length > 0
-                ? result.failed.map((f) => `${f.filePath}: ${f.message}`).join('; ')
-                : 'unknown error';
-          setStoreError(msg);
-        }
-      }
-
-      // -- Remove path (Sprint 16 / T5) ---------------------------
-      if (toRemove.length > 0) {
-        const removeResult = await removeEcuc(toRemove);
-        switch (removeResult.kind) {
-          case 'canceled':
-            // User backed out at the dirty-guard dialog. The add path
-            // already ran (it was uncontested), so we surface no
-            // error — the user already knows what they did.
-            break;
-          case 'ok':
-            if (removeResult.removed.length > 0) {
-              setStoreError(
-                i18nT(locale, 'ecuc.fromBswmd.removed', {
-                  count: removeResult.removed.length,
-                }),
-              );
-            }
-            break;
-          case 'partial': {
-            // Sprint 16c #3 — when every failed entry is a save-phase
-            // failure, the hook already surfaced a localised abort
-            // toast (ecuc.fromBswmd.saveFailedAbort) at the moment
-            // the save loop broke. Re-toasting here would clobber
-            // that with a less-informative generic summary, so we
-            // skip in that case. Mixed (save + delete) or pure-delete
-            // partials still get the generic summary.
-            const hasDeleteFailure = removeResult.failed.some((f) => f.phase === 'delete');
-            if (hasDeleteFailure) {
-              setStoreError(
-                i18nT(locale, 'ecuc.fromBswmd.removeFailed') +
-                  ': ' +
-                  removeResult.failed
-                    .filter((f) => f.phase === 'delete')
-                    .map((f) => `${f.filePath}: ${f.message}`)
-                    .join('; '),
-              );
-            }
-            break;
-          }
-          case 'error':
-            setStoreError(
-              i18nT(locale, 'ecuc.fromBswmd.removeFailed') + ': ' + removeResult.message,
-            );
-            break;
-        }
-      }
-
-      setPreSelectedBswmdPath(undefined);
-    },
-    [createEcuc, removeEcuc, locale, setStoreError],
-  );
-
-  // Sprint A X2 — P0-3 wiring. The Tree's onContextMenu fires with
-  // (path, kind, e: ReactMouseEvent); we capture the React event so
-  // we can read clientX / clientY for menu positioning. The
-  // closure here is intentionally thin — all routing logic lives in
-  // `handleContextMenuAction` below.
+  // v1.42.1 MINOR T1 — extract main handlers (ECUC picker + Generate
+  // code + Context menu + ScriptPanel toggle) into a closure-scoped
+  // hook. 9 callbacks + 3 read-only state slots + 1 derived value
+  // (`canSelectEcucModule`), all previously inlined in App.tsx. The
+  // hook preserves all closure dependencies (useCallback deps arrays
+  // unchanged where applicable) and all store subscription semantics
+  // (read-once via getState() for ephemeral reads, subscribe for
+  // stable references). Behavior identical: existing AppHeader /
+  // LeftPanel / ContextMenuRoot consume the same callbacks as
+  // before; 3124 + 7 SKIP / 0 fail pre = post expected.
   //
-  // Sprint 17 P3 — `kind` is widened to include `'bswmd'` so a
-  // Tree module-kind right-click can also route through this host.
-  // The Tree-level wiring (T3.2) re-computes the kind from
-  // `documents[].sourceBswmdPath` so the menu item set is correct.
-  const handleContextMenu = useCallback(
-    (
-      path: string,
-      kind: 'module' | 'container' | 'reference' | 'bswmd',
-      e: ReactMouseEvent,
-    ): void => {
-      // Extract `shortName` from the path's last segment so the
-      // menu's delete label can show what is being deleted.
-      const shortName = path.split('/').filter(Boolean).pop() ?? '';
-      openContextMenu({ path, kind, shortName }, e.clientX, e.clientY);
-    },
-    [],
-  );
-
-  // Sprint A X2 — P0-3 wiring. Routes every action emitted by
-  // ContextMenuRoot to the matching store action. Three "add" items
-  // open the BSWMD picker (single + Done model from Sprint 15);
-  // "delete-container" delegates to `deleteContainer` (which itself
-  // handles cascade-confirm internally); "delete-reference" has no
-  // dedicated store action today, so we surface a localized info
-  // toast and no-op (the reference graph still lacks a remove path
-  // — see Sprint A backlog).
-  const openBswmdPicker = useArxmlStore((s) => s.openBswmdPicker);
-  const deleteContainerAction = useArxmlStore((s) => s.deleteContainer);
-  const setInfo = useArxmlStore((s) => s.setInfo);
+  // `dcmLauncher` + `odxPath` are passed in as args (cross-flow
+  // parameter pattern per lesson
+  // `cross-flow-state-reads-must-flow-through-hook-parameters`):
+  // they are owned by App.tsx shell because the JSX (line ~606 +
+  // line ~1328) consumes `dcmLauncher.state.mode` and `odxPath` for
+  // other concerns. Flow 2 (T2) will move them to the file-viewer
+  // hook; Flow 3 (T3) will read `odxModal` from Flow 2 via parameter.
+  const {
+    // 9 callbacks
+    handleOpenDcmConfig,
+    handleMenuSelectEcucModule,
+    handleAddEcucFromBswmd,
+    handleCloseEcucPicker,
+    handleConfirmEcucPicker,
+    handleContextMenu,
+    handleGenerateClick,
+    handleContextMenuAction,
+    toggleScriptPanel,
+    // 3 state slots (read-only)
+    ecucPickerOpen,
+    preSelectedBswmdPath,
+    scriptPanelOpen,
+    // 1 derived value
+    canSelectEcucModule,
+  } = useAppMainHandlers({ dcmLauncher, odxPath });
 
   // v1.21.0 MINOR T1 — BSW code generator GUI bridge. App owns the
   // `useGenerateCode` hook so the success / failure toasts route
   // through the global ErrorBanner (consistent with every other
   // async action in App). AppHeader just owns the button enabled-
-  // state + click forwarding.
+  // state + click forwarding. The hook wraps `generate.generate()`
+  // via closure but the launcher object stays in shell for the
+  // `generate.state === 'running'` -> `generateBusy` prop.
   const generate = useGenerateCode();
-  // Top-level subscriptions so the AppHeader button can show live
-  // disabled-state. The store already keeps these in sync; we read
-  // them here once at render and let React handle the rerender.
+
+  // Store subscriptions owned by App.tsx shell (not in the hook):
+  // `viewMode` → drives `isImportMerged` (used by JSX line ~967);
+  // `project` + `projectPath` → drive `canGenerate` (used by
+  // AppHeader prop line ~635); `locale` + `setInfo` → used by Flow
+  // 4 inline callbacks (stay in shell) and by DbcImportWizard onApply
+  // (also inline in JSX). The hook reads its own ephemeral values
+  // via `useArxmlStore.getState()` inside callback bodies.
+  const viewMode = useArxmlStore((s) => s.viewMode);
+  const isImportMerged = viewMode === 'import-merged';
   const projectForGenerate = useArxmlStore((s) => s.project);
   const projectPathForGenerate = useArxmlStore((s) => s.projectPath);
-  const handleGenerateClick = useCallback(async (): Promise<void> => {
-    const pp = projectPathForGenerate;
-    if (pp === null) {
-      setStoreError(i18nT(locale, 'app.generate.needProject'));
-      return;
-    }
-    // v1.21.0 HIGH-1 — dispatch toasts off the Promise the hook
-    // resolves, NOT off the React state captured by `generate` in
-    // this closure. Reading `generate.state` / `generate.result`
-    // inside `.then` hits the stale-closure trap (the IPC reply
-    // triggers a rerender that swaps `generate` to a new object;
-    // the captured `generate` is the pre-IPC snapshot). The hook
-    // resolves with a `GenerateOutcome` that carries the same
-    // information synchronously.
-    const outcome = await generate.generate(pp);
-    if (outcome.kind === 'ok') {
-      setInfo(
-        i18nT(locale, 'app.generate.success', {
-          count: outcome.result.files.length,
-          outDir: outcome.result.outDir,
-        }),
-      );
-    } else {
-      setStoreError(i18nT(locale, 'app.generate.failure', { message: outcome.message }));
-    }
-  }, [generate, locale, setInfo, setStoreError, projectPathForGenerate]);
-  // Sprint 17 P3 T3.3 — host-side routing for the new
-  // `'remove-module'` action. We pull the unified BSWMD-remove
-  // hook from `useProjectActions` so the dirty-guard + 4-option
-  // dialog (cancel / only / cascade / cascade-and-unlink) stays
-  // in one place. Same hook used by the ProjectPanel × button
-  // (rewired in T3.4).
-  const { removeBswmdWithFullFlow, deleteEcucModuleWithFullFlow } = useProjectActions();
-  const handleContextMenuAction = useCallback(
-    (action: ContextMenuAction): void => {
-      switch (action.type) {
-        case 'add-container':
-          openBswmdPicker({ parentPath: action.path, kind: 'container' });
-          return;
-        case 'add-parameter':
-          openBswmdPicker({ parentPath: action.path, kind: 'parameter' });
-          return;
-        case 'add-reference':
-          openBswmdPicker({ parentPath: action.path, kind: 'reference' });
-          return;
-        case 'delete-container':
-          deleteContainerAction(action.path);
-          return;
-        case 'delete-reference':
-          // No store action exists today; surface a localized
-          // info toast so the user gets feedback without a silent
-          // no-op. We reuse the "info" toast because the operation
-          // is supported (the menu exposes the item) but its
-          // underlying mutation is not yet implemented — see
-          // Sprint A backlog.
-          setInfo(i18nT(locale, 'mutation.action.deleteReferenceNotImplemented'));
-          return;
-        case 'remove-module':
-          // Sprint 17 P3 T3.3 — fire-and-forget. The hook returns a
-          // Promise<ProjectActionResult> but the result is surfaced
-          // through the store (toast / error) by the hook itself;
-          // the menu host doesn't need to await. `void` swallows
-          // the unawaited promise for ESLint `no-floating-promises`.
-          void removeBswmdWithFullFlow(action.path);
-          return;
-        case 'delete-module':
-          // Sprint A+ — fire-and-forget pattern matching remove-module.
-          // The hook wraps the store's deleteEcucModule in
-          // guardedDirtySwitch so unsaved edits are protected
-          // (spec invariant I3). action.name is the human-readable
-          // module shortName used in the i18n target interpolation.
-          void deleteEcucModuleWithFullFlow(action.path, action.name);
-          return;
-        case 'generate-dcm-config':
-          // v1.31.0 PATCH T7 — ContextMenu "Generate Dcm Config"
-          // entry. Mirrors the AppHeader dropdown path: route
-          // through the same launcher hook so the success dialog
-          // and error toast are owned by a single state machine.
-          // The action only fires when the BSWMD path matched the
-          // Dcm regex (T6 ContextMenu gate), so we forward
-          // action.path verbatim.
-          void dcmLauncher.open({ odxPath, xlsxRows: [] });
-          return;
-        default: {
-          // Exhaustiveness — TS will error here if a new action is
-          // added without a handler.
-          const _exhaustive: never = action;
-          void _exhaustive;
-        }
-      }
-    },
-    [
-      openBswmdPicker,
-      deleteContainerAction,
-      deleteEcucModuleWithFullFlow,
-      setInfo,
-      locale,
-      removeBswmdWithFullFlow,
-      dcmLauncher,
-      odxPath,
-    ],
-  );
-
-  // Sprint 14 / Phase C (T14) — ScriptPanel toggle. The header owns
-  // the open/close flag and passes it down via AppHeader. Mounting
-  // the panel conditionally keeps the bundle lazy: only when the
-  // user opens the panel do we render the CodeMirror editor and its
-  // (heavy) language pack. The `panelOpen` flag also gates which
-  // toolbar icon shows.
-  const [scriptPanelOpen, setScriptPanelOpen] = useState(false);
-  const toggleScriptPanel = useCallback((): void => {
-    setScriptPanelOpen((v) => !v);
-  }, []);
+  const locale = useArxmlStore((s) => s.locale);
+  const setInfo = useArxmlStore((s) => s.setInfo);
 
   // v1.21.0 Bug #5 — DBC viewer state machine. The 3-state shape
   // (closed / open / error) replaces the earlier 4-state draft that
