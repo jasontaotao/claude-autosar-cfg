@@ -47,10 +47,11 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { t as i18nT, t } from '@shared/i18n/index.js';
 import { toManifestRelative } from '@shared/path';
 
-import type { DbcSummary, OdxSummary } from '../shared/types';
+import type { DbcSummary } from '../shared/types';
 
 import { AppHeader } from './components/AppHeader';
 import { useAppMainHandlers } from './app/useAppMainHandlers';
+import { useFileViewerHandlers } from './app/useFileViewerHandlers';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { BswmdPickerRoot } from './components/BswmdPickerDialog';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
@@ -263,137 +264,34 @@ export function App(): JSX.Element {
   const locale = useArxmlStore((s) => s.locale);
   const setInfo = useArxmlStore((s) => s.setInfo);
 
-  // v1.21.0 Bug #5 — DBC viewer state machine. The 3-state shape
-  // (closed / open / error) replaces the earlier 4-state draft that
-  // included a 'loading' arm: post-code-review MEDIUM found the
-  // loading branch rendered as a broken empty error banner. The pick
-  // + parse IPC is fast enough that we just transition closed → open
-  // / error directly; double-click is guarded by an in-flight ref
-  // because useState's value is stale inside an awaited callback
-  // (see the closure fix in `useGenerateCode` / Bug #2 HIGH-1).
-  type DbcModalState =
-    | { readonly kind: 'closed' }
-    | { readonly kind: 'open'; readonly path: string; readonly summary: DbcSummary }
-    | { readonly kind: 'error'; readonly message: string };
-  const [dbcModal, setDbcModal] = useState<DbcModalState>({ kind: 'closed' });
-  // In-flight ref — survives across the awaited IPC round-trip so a
-  // concurrent click cannot race the in-flight call. Closes the
-  // re-entrancy gap that the `dbcModal.kind` guard left open.
-  const dbcInFlight = useRef(false);
-  const openDbcViewer = useCallback(async (): Promise<void> => {
-    if (dbcInFlight.current) return;
-    dbcInFlight.current = true;
-    try {
-      const api = window.autosarApi;
-      if (api === undefined) {
-        setDbcModal({ kind: 'error', message: 'openDbc API not available' });
-        return;
-      }
-      const locale = useArxmlStore.getState().locale;
-      const opened = await api.openDbc();
-      // Discriminated-union switch with exhaustive narrowing — adding
-      // a new variant to `OpenDbcResult` will fail the `never` arm
-      // and force the caller to handle it.
-      switch (opened.kind) {
-        case 'canceled':
-          setDbcModal({ kind: 'closed' });
-          return;
-        case 'read-failed':
-          setDbcModal({
-            kind: 'error',
-            message: t(locale, 'dbc.open.failed', { message: opened.message }),
-          });
-          return;
-        case 'opened':
-          break;
-        default: {
-          const _exhaustive: never = opened;
-          throw new Error(`Unhandled OpenDbcResult: ${String(_exhaustive)}`);
-        }
-      }
-      // 2nd IPC: parse the in-memory content. The handler caps at
-      // 32 MiB (mirroring parseArxmlHandler); the result envelope
-      // is `{ ok, value } | { ok, error: { kind, message } }`.
-      const parsed = await api.parseDbc({
-        path: opened.path,
-        content: opened.content,
-      });
-      if (!parsed.ok) {
-        setDbcModal({
-          kind: 'error',
-          message: t(locale, 'dbc.parse.failed', { message: parsed.error.message }),
-        });
-        return;
-      }
-      setDbcModal({ kind: 'open', path: opened.path, summary: parsed.value });
-    } finally {
-      dbcInFlight.current = false;
-    }
-  }, []);
-  const closeDbcViewer = useCallback((): void => {
-    setDbcModal({ kind: 'closed' });
-  }, []);
-
-  // v1.22.0 T3 — ODX viewer state machine. Mirrors the v1.21.0 T4
-  // DBC pattern line-for-line (separate modal state, separate
-  // in-flight ref, discriminated-union switch with exhaustive
-  // narrowing). Decoupled from the DBC state so a slow DBC parse
-  // does not block ODX import (and vice versa).
-  type OdxModalState =
-    | { readonly kind: 'closed' }
-    | { readonly kind: 'open'; readonly path: string; readonly summary: OdxSummary }
-    | { readonly kind: 'error'; readonly message: string };
-  const [odxModal, setOdxModal] = useState<OdxModalState>({ kind: 'closed' });
-  // In-flight ref — survives across the awaited IPC round-trip so a
-  // concurrent click cannot race the in-flight call.
-  const odxInFlight = useRef(false);
-  const openOdxViewer = useCallback(async (): Promise<void> => {
-    if (odxInFlight.current) return;
-    odxInFlight.current = true;
-    try {
-      const api = window.autosarApi;
-      if (api === undefined) {
-        setOdxModal({ kind: 'error', message: 'openOdx API not available' });
-        return;
-      }
-      const locale = useArxmlStore.getState().locale;
-      const opened = await api.openOdx();
-      switch (opened.kind) {
-        case 'canceled':
-          setOdxModal({ kind: 'closed' });
-          return;
-        case 'read-failed':
-          setOdxModal({
-            kind: 'error',
-            message: t(locale, 'odx.open.failed', { message: opened.message }),
-          });
-          return;
-        case 'opened':
-          break;
-        default: {
-          const _exhaustive: never = opened;
-          throw new Error(`Unhandled OpenOdxResult: ${String(_exhaustive)}`);
-        }
-      }
-      const parsed = await api.parseOdx({
-        path: opened.path,
-        content: opened.content,
-      });
-      if (!parsed.ok) {
-        setOdxModal({
-          kind: 'error',
-          message: t(locale, 'odx.parse.failed', { message: parsed.error.message }),
-        });
-        return;
-      }
-      setOdxModal({ kind: 'open', path: opened.path, summary: parsed.value });
-    } finally {
-      odxInFlight.current = false;
-    }
-  }, []);
-  const closeOdxViewer = useCallback((): void => {
-    setOdxModal({ kind: 'closed' });
-  }, []);
+  // v1.42.1 MINOR T2 — extract file-viewer handlers (DBC viewer +
+  // ODX viewer) into a closure-scoped hook. 4 callbacks + 2 state
+  // slots + 2 in-flight refs, all previously inlined in App.tsx.
+  // The hook preserves all closure dependencies (useCallback deps
+  // arrays unchanged) and all store subscription semantics (read-once
+  // via getState() for ephemeral locale reads; subscribe for the
+  // dbcModal/odxModal state).
+  //
+  // `odxPath` is NOT passed as an arg because DBC + ODX viewers don't
+  // read it (they read `activeDocumentPath ?? ''` themselves). The
+  // App.tsx shell retains `odxPath` for Flow 3 (`useDiagExtractHandlers`)
+  // which will consume it from Flow 2's `odxModal` return value via
+  // the cross-flow parameter pattern (T3).
+  const {
+    // 4 callbacks
+    openDbcViewer,
+    closeDbcViewer,
+    openOdxViewer,
+    closeOdxViewer,
+    // 2 state slots (read-only — setDbcModal/setOdxModal stay in hook
+    // for callback closures; App.tsx shell does not need them as
+    // React state)
+    dbcModal,
+    odxModal,
+    // 2 in-flight refs
+    dbcInFlight,
+    odxInFlight,
+  } = useFileViewerHandlers();
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
