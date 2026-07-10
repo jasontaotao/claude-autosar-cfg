@@ -51,6 +51,7 @@ import type { DbcSummary } from '../shared/types';
 
 import { AppHeader } from './components/AppHeader';
 import { useAppMainHandlers } from './app/useAppMainHandlers';
+import { useDiagExtractHandlers } from './app/useDiagExtractHandlers';
 import { useFileViewerHandlers } from './app/useFileViewerHandlers';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { BswmdPickerRoot } from './components/BswmdPickerDialog';
@@ -293,117 +294,49 @@ export function App(): JSX.Element {
     odxInFlight,
   } = useFileViewerHandlers();
 
+  // v1.42.1 MINOR T3 — extract diag-extract handlers. The hook
+  // takes `odxModal` as an arg from Flow 2's `useFileViewerHandlers`
+  // return (cross-flow parameter pattern per lesson
+  // `cross-flow-state-reads-must-flow-through-hook-parameters`).
+  // This is the 3rd confirmation for that lesson (1st: T1 used
+  // dcmLauncher + odxPath as args; 2nd: T2 set up the contract for
+  // T3 to consume odxModal as arg; 3rd: T3 actually consumes it).
+  const {
+    // 2 callbacks (Flow 3: ODX→Diagnostic Extract)
+    handleExportOdxDiagnosticExtract,
+    closeDiagExtractDialog,
+    // 2 read-only state slots (consumed by OdxViewer onExport prop
+    // + DiagnosticExtractSuccessDialog mount)
+    diagExtractModal,
+    diagExtractExporting,
+  } = useDiagExtractHandlers({ odxModal });
+
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
   // Mirrors the v1.23.0 T4 DBC wizard / v1.22.0 T3 ODX viewer pattern:
   // a discriminated union for the success dialog state (closed /
-  // open-with-payload), plus a separate `diagExtractExporting` ref
-  // that survives across the awaited IPC round-trip so a concurrent
-  // click cannot race the in-flight call.
-  //
-  // The "exporting" flag is a useState (not useRef) so the OdxViewer
-  // button can read its live value and re-render the disabled label
-  // (button text switches to "Exporting…" / "导出中…"). The button's
-  // own disabled-when-exporting gate is the in-flight guard; the
-  // ref-based `odxInFlight` only protects the upstream ODX-parse
-  // round-trip, not this export leg.
-  //
-  // Three response branches (mirrors the T2 envelope):
-  //   1. ok: true → open success dialog with demPath/dcmPath/stats
-  //   2. ok: false + kind: 'read-failed' → store error toast
-  //   3. ok: false + kind: 'write-failed' → store error toast (with
-  //      rolledBack split per the v1.23.1 T1 L1 i18n-bypass-pattern
-  //      lesson — localiser owns the diagnostic text)
-  type DiagExtractModalState =
-    | { readonly kind: 'closed' }
-    | {
-        readonly kind: 'open';
-        readonly demPath: string;
-        readonly dcmPath: string;
-        readonly stats: {
-          readonly dtcCount: number;
-          readonly didCount: number;
-          readonly routineCount: number;
-        };
-      };
-  const [diagExtractModal, setDiagExtractModal] = useState<DiagExtractModalState>({
-    kind: 'closed',
-  });
-  const [diagExtractExporting, setDiagExtractExporting] = useState(false);
-  const handleExportOdxDiagnosticExtract = useCallback(async (): Promise<void> => {
-    if (odxModal.kind !== 'open') return; // only meaningful while a parsed ODX is loaded
-    if (diagExtractExporting) return;
-    const api = window.autosarApi;
-    if (api === undefined) {
-      setStoreError('importDiagnosticExtract API not available');
-      return;
-    }
-    // The outputDir targets a project-relative path. We strip the
-    // manifest filename off `projectPath` to derive `projectDir` and
-    // then append `samples/arxml/diagnostic-extract/`. The T2 handler
-    // creates the Dem_Extract.arxml + Dcm_Extract.arxml inside that
-    // directory (or returns read-failed if the dir doesn't exist).
-    // Per the brief, a user-selected path is out-of-scope for v1.24.0;
-    // the project-relative default is the single source of truth.
-    const state = useArxmlStore.getState();
-    const projectPath = state.projectPath;
-    const locale = state.locale;
-    const projectDir = projectPath !== null ? projectPath.replace(/[\\/][^\\/]+$/, '') : '';
-    const outputDir =
-      projectDir.length > 0
-        ? `${projectDir}/samples/arxml/diagnostic-extract`
-        : `${odxModal.path.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
-    setDiagExtractExporting(true);
-    try {
-      const res = await api.importDiagnosticExtract({
-        odxPath: odxModal.path,
-        outputDir,
-      });
-      if (res.ok) {
-        setDiagExtractModal({ kind: 'open', ...res.value });
-        return;
-      }
-      // Failure path — branched by error kind so the localiser owns
-      // every diagnostic string (v1.23.1 T1 L1 i18n-bypass-pattern).
-      switch (res.error.kind) {
-        case 'read-failed':
-          setStoreError(
-            t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message }),
-          );
-          return;
-        case 'write-failed':
-          // v1.24.0 T3.1 — 2-key split (rolledBack vs partial) mirrors
-          // the v1.23.1 T1 MEDIUM-1 DBC-wizard fix. Each branch is
-          // fully translated; no hardcoded English parenthetical
-          // (zh-CN users were seeing the English parenthetical
-          // concatenated to the translated base message per the
-          // v1.23.1 T1 L1 i18n-bypass anti-pattern lesson).
-          if (res.error.rolledBack) {
-            setStoreError(
-              t(locale, 'odx.export.diagnosticExtract.error.write.rolledBack', {
-                message: res.error.message,
-              }),
-            );
-          } else {
-            setStoreError(
-              t(locale, 'odx.export.diagnosticExtract.error.write.partial', {
-                message: res.error.message,
-              }),
-            );
-          }
-          return;
-        default: {
-          const _exhaustive: never = res.error;
-          void _exhaustive;
-        }
-      }
-    } finally {
-      setDiagExtractExporting(false);
-    }
-  }, [odxModal, diagExtractExporting, setStoreError]);
-  const closeDiagExtractDialog = useCallback((): void => {
-    setDiagExtractModal({ kind: 'closed' });
-  }, []);
+  // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
+  // The `useDiagExtractHandlers` hook (defined in
+  // `src/renderer/app/useDiagExtractHandlers.ts`) owns:
+  //   - the `diagExtractModal` (closed / open-with-payload) state
+  //   - the `diagExtractExporting` flag (useState, NOT useRef, so
+  //     the OdxViewer button can read its live value and re-render
+  //     the disabled label — button text switches to "Exporting…" /
+  //     "导出中…"; the button's own disabled-when-exporting gate is
+  //     the in-flight guard; the ref-based `odxInFlight` (Flow 2) only
+  //     protects the upstream ODX-parse round-trip, not this export
+  //     leg)
+  //   - the 3 response branches (mirrors the T2 envelope):
+  //     1. ok: true → open success dialog with demPath/dcmPath/stats
+  //     2. ok: false + kind: 'read-failed' → store error toast
+  //     3. ok: false + kind: 'write-failed' → store error toast
+  //        (with rolledBack split per the v1.23.1 T1 L1 i18n-bypass
+  //        pattern lesson — localiser owns the diagnostic text)
+  // `useDiagExtractHandlers({ odxModal })` was called above (line
+  // ~310) and returned `handleExportOdxDiagnosticExtract`,
+  // `closeDiagExtractDialog`, and `diagExtractExporting` — all
+  // consumed by JSX at line ~660 (OdxViewer onExport +
+  // DiagnosticExtractSuccessDialog onClose + exporting prop).
 
   // v1.23.0 T4 — DBC→Com-Stack 3-step wizard state machine. Mirrors
   // the v1.21.0 T4 DBC + v1.22.0 T3 ODX pattern line-for-line
