@@ -17,8 +17,9 @@ import {
 import type { ArxmlDocument, ArxmlElement, ParamValue } from '../../arxml/types.js';
 import { findContainerByPath, setParamInDocument } from '../../project/setters.js';
 import { variantDowngradeStep } from '../steps/variant-downgrade.js';
-import type { ApplyContext, ApplyResult, StepError, StepWarning } from './types.js';
+
 import { coerceToParamValue, describeValueType, findChildDefForAdd } from './helpers.js';
+import type { ApplyContext, ApplyResult, StepError, StepWarning } from './types.js';
 
 /**
  * ... per-loop state ...

@@ -8,7 +8,6 @@
 // appendChild, replaceElement, replaceInTopLevelPackage, replaceAnywhere,
 // mapPackagesDeep, replaceInElements, sameIdentity, zeroValueForKind.
 
-import type { BswModuleDef, ParamKind } from '../../project/bswmd.js';
 import { findByPath } from '../../arxml/path.js';
 import type {
   ArxmlContainer,
@@ -18,6 +17,7 @@ import type {
   ArxmlPackage,
   ParamValue,
 } from '../../arxml/types.js';
+import type { BswModuleDef, ParamKind } from '../../project/bswmd.js';
 
 // ---------------------------------------------------------------------------
 // Internal helpers — tree walk + immutable update
@@ -57,7 +57,10 @@ export function shortNameOf(e: ArxmlElement): string {
   return e.shortName;
 }
 
-export function hasChildWithShortName(parent: ArxmlModule | ArxmlContainer, shortName: string): boolean {
+export function hasChildWithShortName(
+  parent: ArxmlModule | ArxmlContainer,
+  shortName: string,
+): boolean {
   return parent.children.some((c) => shortNameOf(c) === shortName);
 }
 

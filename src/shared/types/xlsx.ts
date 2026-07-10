@@ -71,4 +71,3 @@ export type XlsxCommitBatchResponse =
         readonly message: string;
       };
     };
-

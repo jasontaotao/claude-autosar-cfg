@@ -14,4 +14,3 @@ export interface ParseBswmdRequest {
 }
 
 export type ParseBswmdResponse = Result<BswmdDocument, BswmdError>;
-

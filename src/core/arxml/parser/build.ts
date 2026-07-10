@@ -14,7 +14,9 @@ import type {
   ArxmlReference,
   ParamValue,
 } from '../types.js';
-import { asArray, readShortName, walkElements, CollisionCollector } from './walk.js';
+
+import type { CollisionCollector } from './walk.js';
+import { asArray, readShortName, walkElements } from './walk.js';
 
 export function buildModule(
   tagName: string,
@@ -119,7 +121,10 @@ export function buildContainer(
   };
 }
 
-export function buildReference(tagName: string, item: Record<string, unknown>): ArxmlReference | null {
+export function buildReference(
+  tagName: string,
+  item: Record<string, unknown>,
+): ArxmlReference | null {
   const dest = typeof item['@_DEST'] === 'string' ? (item['@_DEST'] as string) : undefined;
   // value is the text content (or child path/short-name)
   let value: string | undefined;

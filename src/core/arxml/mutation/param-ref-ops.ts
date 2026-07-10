@@ -7,8 +7,6 @@
 // Internal helpers: makeReferenceParamValue, containerPathToSubPath,
 // paramValueEquals, withDefinitionRefPreserved, omitKey, zeroValueForKind.
 
-import { getContainerDefByPath } from '../../project/bswmd.js';
-import type { BswModuleDef, ParamDef, ReferenceDef } from '../../project/bswmd.js';
 import { buildDefaultValue } from '../../arxml/defaultValue.js';
 import type {
   ArxmlContainer,
@@ -17,8 +15,11 @@ import type {
   ParamValue,
   Result,
 } from '../../arxml/types.js';
-import type { MutationError } from './types.js';
+import { getContainerDefByPath } from '../../project/bswmd.js';
+import type { BswModuleDef, ParamDef, ReferenceDef } from '../../project/bswmd.js';
+
 import { locateParent, replaceElement, zeroValueForKind } from './tree-ops.js';
+import type { MutationError } from './types.js';
 
 /**
  * Add a new parameter to the container at `containerPath`. The default
@@ -178,7 +179,10 @@ export function makeReferenceParamValue(opts: {
  * path is `/Can/CanConfigSet`). Returns `null` when the module segment is
  * not present.
  */
-export function containerPathToSubPath(containerPath: string, moduleDef: BswModuleDef): string | null {
+export function containerPathToSubPath(
+  containerPath: string,
+  moduleDef: BswModuleDef,
+): string | null {
   const segments = containerPath.split('/').filter(Boolean);
   // The module's shortName typically appears once in the path; we use
   // lastIndexOf so a degenerate case (container whose shortName shadows
@@ -420,7 +424,10 @@ export function withDefinitionRefPreserved(
  * the type narrowed and produces a new object only when the key is
  * actually present.
  */
-export function omitKey<V>(record: Readonly<Record<string, V>>, key: string): Readonly<Record<string, V>> {
+export function omitKey<V>(
+  record: Readonly<Record<string, V>>,
+  key: string,
+): Readonly<Record<string, V>> {
   if (!Object.prototype.hasOwnProperty.call(record, key)) return record;
   const out: Record<string, V> = {};
   for (const [k, v] of Object.entries(record)) {

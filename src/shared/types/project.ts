@@ -76,4 +76,3 @@ export interface TemplateCopyResponse {
   readonly copiedValueArxml: readonly string[];
   readonly copiedBswmd: readonly string[];
 }
-

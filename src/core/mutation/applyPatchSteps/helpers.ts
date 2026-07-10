@@ -6,8 +6,8 @@
 // Internal helpers: coerceToParamValue, describeValueType,
 // findChildDefForAdd, findParentContainerDef. No public API.
 
-import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 import type { ParamValue } from '../../arxml/types.js';
+import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 
 export function coerceToParamValue(
   existing: ParamValue,
@@ -121,7 +121,10 @@ export function findChildDefForAdd(
   return null;
 }
 
-export function findParentContainerDef(moduleDef: BswModuleDef, parentPath: string): ContainerDef | null {
+export function findParentContainerDef(
+  moduleDef: BswModuleDef,
+  parentPath: string,
+): ContainerDef | null {
   const segments = parentPath.split('/').filter((s) => s.length > 0);
   if (segments.length === 0) return null;
   // v1.27.2 PATCH — support module-level add via 1-segment parentPath

@@ -6,17 +6,11 @@
 
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
-import type {
-  ArxmlDocument,
-  ArxmlReference,
-  ArxmlVersion,
-  ParamValue,
-  Result,
-} from '../types.js';
+import type { ArxmlDocument, ArxmlVersion, Result } from '../types.js';
 import { SUPPORTED_ARXML_VERSIONS } from '../types.js';
-import { walkPackages, findAnyModuleInPackages, findAnyDefInPackages } from './walk.js';
 
-export type { ParseError, ParseOptions } from '../types.js';
+import type { CollisionCollector } from './walk.js';
+import { walkPackages, findAnyModuleInPackages, findAnyDefInPackages } from './walk.js';
 //
 // Recognized ECUC tag patterns:
 //   <AUTOSAR><AR-PACKAGES><AR-PACKAGE><SHORT-NAME> + <ELEMENTS>...</ELEMENTS></AR-PACKAGE>...

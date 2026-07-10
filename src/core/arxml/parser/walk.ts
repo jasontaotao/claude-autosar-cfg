@@ -7,14 +7,8 @@
 // walkPackages, walkPackagesAtDepth, findAnyModuleInPackages,
 // findAnyDefInPackages, walkElements, classifyElement, MAX_ARPKG_DEPTH.
 
-import type {
-  ArxmlContainer,
-  ArxmlDocument,
-  ArxmlElement,
-  ArxmlModule,
-  ArxmlPackage,
-  ArxmlReference,
-} from '../types.js';
+import type { ArxmlElement, ArxmlPackage } from '../types.js';
+
 import { buildModule, buildContainer, buildReference } from './build.js';
 
 export function asArray<T>(v: unknown): T[] {

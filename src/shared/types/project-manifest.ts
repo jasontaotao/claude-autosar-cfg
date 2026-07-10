@@ -1,8 +1,8 @@
 // --- F1 Project manifest IO types (Sprint 11 Phase 1) ----------------------
 
-import type { ArxmlDocument, ArxmlElement, ArxmlVersion } from '../../core/arxml/types.js';
 import type { ParseError } from '../../core/arxml/parser.js';
 import type { SerializeError } from '../../core/arxml/serializer.js';
+import type { ArxmlDocument, ArxmlElement, ArxmlVersion } from '../../core/arxml/types.js';
 import type { ProjectManifest } from '../project.js';
 
 export type { ProjectManifest };

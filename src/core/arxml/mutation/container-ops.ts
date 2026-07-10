@@ -8,8 +8,6 @@
 // collectPackageElements, removeReferenceParam, removeElementAtPath,
 // checkMultiplicityFloor, findElementByPath, removeElement.
 
-import { getContainerDefByPath } from '../../project/bswmd.js';
-import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 import { fillParamsFromBswmd } from '../../arxml/defaultValue.js';
 import { findByPath } from '../../arxml/path.js';
 import type {
@@ -20,7 +18,15 @@ import type {
   ParamValue,
   Result,
 } from '../../arxml/types.js';
-import type { MutationError } from './types.js';
+import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
+import { getContainerDefByPath } from '../../project/bswmd.js';
+
+import { endsWithPath } from './discovery.js';
+import {
+  makeReferenceParamValue,
+  removeParameter,
+  containerPathToSubPath,
+} from './param-ref-ops.js';
 import {
   countChildrenWithShortName,
   hasChildWithShortName,
@@ -29,8 +35,7 @@ import {
   removeElement,
   shortNameOf,
 } from './tree-ops.js';
-import { makeReferenceParamValue, removeParameter, containerPathToSubPath } from './param-ref-ops.js';
-import { endsWithPath } from './discovery.js';
+import type { MutationError } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public API — add operations
@@ -323,7 +328,10 @@ interface StackFrame {
   readonly currentPath: string;
 }
 
-export function findInboundReferences(doc: ArxmlDocument, targetPath: string): readonly InboundRef[] {
+export function findInboundReferences(
+  doc: ArxmlDocument,
+  targetPath: string,
+): readonly InboundRef[] {
   const out: InboundRef[] = [];
   const visited = new Set<string>();
   // Start from every root element of every package (root packages may
@@ -454,7 +462,10 @@ export function checkMultiplicityFloor(
  * under 2+ <AR-PACKAGE> wrappers (e.g. `JWQ_CDD_PACK > JWQ_Packet >
  * JWQ3399`) — that broke `checkMultiplicityFloor` on nested docs.
  */
-export function findElementByPath(doc: ArxmlDocument, segments: readonly string[]): ArxmlElement | null {
+export function findElementByPath(
+  doc: ArxmlDocument,
+  segments: readonly string[],
+): ArxmlElement | null {
   if (segments.length === 0) return null;
   return findByPath(doc, `/${segments.join('/')}`)?.element ?? null;
 }

@@ -45,4 +45,3 @@ export type ReadBswmdResponse =
 export type OpenBswmdResult =
   | { readonly kind: 'canceled' }
   | { readonly kind: 'ok'; readonly path: string };
-

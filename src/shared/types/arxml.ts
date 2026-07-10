@@ -1,7 +1,7 @@
 // --- F1 ARXML IO types -----------------------------------------------------
 
-import type { ArxmlDocument, Result } from '../../core/arxml/types.js';
 import type { ParseError } from '../../core/arxml/parser.js';
+import type { ArxmlDocument, Result } from '../../core/arxml/types.js';
 
 /**
  * Sprint 17b T7 — typed save-failure discriminator. Each value maps to
@@ -207,4 +207,3 @@ export type ParseDbcResponse =
         readonly message: string;
       };
     };
-

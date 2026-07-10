@@ -7,7 +7,6 @@
 // Internal helpers: buildContainerAllowed, scanDocForRefs, scanPackage,
 // scanElement, endsWithPath.
 
-import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -15,8 +14,10 @@ import type {
   ArxmlModule,
   ArxmlPackage,
 } from '../../arxml/types.js';
-import type { AllowedSubElement, ReferenceHit } from './types.js';
+import type { BswModuleDef, ContainerDef } from '../../project/bswmd.js';
+
 import { countChildrenWithShortName, shortNameOf } from './tree-ops.js';
+import type { AllowedSubElement, ReferenceHit } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Public API — read-only helpers

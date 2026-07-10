@@ -1,6 +1,11 @@
 // --- Sprint 17 P1 — `bswmd:delete` IPC types --------------------------------
 
-import type { ScriptKind, ScriptLog, ScriptRunResult, ScriptSummary } from '../../main/script/types.js';
+import type {
+  ScriptKind,
+  ScriptLog,
+  ScriptRunResult,
+  ScriptSummary,
+} from '../../main/script/types.js';
 //
 // Mirrors `ProjectDeleteArxmlRequest/Result` for parity. The shape is
 // identical (delete a file by absolute path, return
@@ -106,4 +111,3 @@ export interface ScriptProgressEvent {
   readonly message: string;
   readonly ts: number;
 }
-
