@@ -62,6 +62,13 @@ claude-AutosarCfg/
 # Examples: claude-AutosarCfg-v1-14-2-patch/, claude-AutosarCfg-v1-15-0-minor/
 claude-AutosarCfg-v*/
 
+# One-off personal helper scripts in scripts/ (e.g. tmp-write-topic.py
+# 2026-07-10 hard-coded absolute paths to local vault + non-repo source
+# file; used once to write a single topic file, then deleted). Convention:
+# any script matching `scripts/tmp-*.py` is local scratch, not part of the
+# shipped repo.
+scripts/tmp-*.py
+
 # Local Claude Code scratch space (spec-driven dev session reports + reviews).
 # Kept on disk for the active session; never committed.
 .claude/
