@@ -263,8 +263,6 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
     // CustomEvent which the useAppHeaderShell listener catches
     // and mounts <StencilWizard />.
     fireEvent.click(entry);
-    await vi.waitFor(() =>
-      expect(screen.getByTestId('stencil-overlay')).toBeInTheDocument(),
-    );
+    await vi.waitFor(() => expect(screen.getByTestId('stencil-overlay')).toBeInTheDocument());
   });
 });

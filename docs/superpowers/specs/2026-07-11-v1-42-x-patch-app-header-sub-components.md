@@ -62,7 +62,10 @@ export type AppHeaderBrandMenuProps = {
         type="button"
         className="app-dropdown-item"
         role="menuitem"
-        onClick={() => { api.closeMenu(); void onProjectNew(); }}
+        onClick={() => {
+          api.closeMenu();
+          void onProjectNew();
+        }}
         disabled={state.busy}
         data-testid="btn-project-new"
       >
@@ -70,7 +73,12 @@ export type AppHeaderBrandMenuProps = {
       </button>
       {/* ... 9 more items, each calls api.closeMenu() before handler ... */}
       {stencilFlagOn && (
-        <button onClick={() => { api.closeMenu(); setStencilOpen(true); }}>
+        <button
+          onClick={() => {
+            api.closeMenu();
+            setStencilOpen(true);
+          }}
+        >
           {/* ...stencil wizard entry... */}
         </button>
       )}
@@ -152,29 +160,29 @@ export type AppHeaderStatusBadgeProps = {
 
 The 3 sub-components are **mutually independent** — none reads state from another. The shell owns all 5 useState and the 6 useEffect (the 3 that move to BrandMenu are isolated to VC1). Cross-VC coupling is **props-down only**:
 
-| Source (shell) | Sink (sub-component) | Prop |
-|---|---|---|
-| `menuOpen` | BrandMenu | `menuOpen` |
-| `setMenuOpen` | BrandMenu | `onMenuOpenChange` |
-| `onProjectSave` + `canSaveProject` + `projectDirtyCount` | ActionBar | 3 props |
-| `onSave` + `canSave` + `isActiveDirty` | ActionBar | 3 props |
-| `onSaveAll` + `canSaveAll` | ActionBar | 2 props |
-| `project` + `projectPath` + `onCloseProjectClick` | StatusBadge | 3 props |
-| `scriptPanelOpen` + `onToggleScriptPanel` | StatusBadge | 2 props |
-| `onGenerate` + `canGenerate` + `generateBusy` | StatusBadge | 3 props |
-| `locale` + `appVersion` + `setLocale` | StatusBadge + ActionBar | 3 props |
+| Source (shell)                                           | Sink (sub-component)    | Prop               |
+| -------------------------------------------------------- | ----------------------- | ------------------ |
+| `menuOpen`                                               | BrandMenu               | `menuOpen`         |
+| `setMenuOpen`                                            | BrandMenu               | `onMenuOpenChange` |
+| `onProjectSave` + `canSaveProject` + `projectDirtyCount` | ActionBar               | 3 props            |
+| `onSave` + `canSave` + `isActiveDirty`                   | ActionBar               | 3 props            |
+| `onSaveAll` + `canSaveAll`                               | ActionBar               | 2 props            |
+| `project` + `projectPath` + `onCloseProjectClick`        | StatusBadge             | 3 props            |
+| `scriptPanelOpen` + `onToggleScriptPanel`                | StatusBadge             | 2 props            |
+| `onGenerate` + `canGenerate` + `generateBusy`            | StatusBadge             | 3 props            |
+| `locale` + `appVersion` + `setLocale`                    | StatusBadge + ActionBar | 3 props            |
 
 All cross-VC reads follow the **`cross-flow-state-reads-must-flow-through-hook-parameters`** lesson (Tier 8 in Process Cluster): shell owns state, sub-components read via props. No module-level state, no shared refs.
 
 ## Risk register
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| T4 single-commit rewrite of AppHeader.tsx (−774 LoC) breaks compilation | HIGH | T1-T3 land independently first, each with full `tsc --noEmit + vitest run` GREEN; T4 is pure replacement of inline JSX with sub-component JSX with same prop shape |
-| BrandMenu render-prop API awkward for `stencilFlagOn` conditional inside children | LOW | Shell renders `{stencilFlagOn && <button>...</button>}` inside the children callback; works because render-prop callback receives the full JSX render context |
-| `dirtyPaths.size` derived in AppHeaderActionBar needs the Set's size, not the Set itself | LOW | Sub-component subscribes to `useArxmlStore((s) => s.dirtyPaths.size)`; Zustand selector returns a number, comparison is cheap |
-| `setLocale` (Zustand action ref) read in StatusBadge vs passed via props | LOW | Prefer store subscription inside sub-component (`useArxmlStore((s) => s.setLocale)`) — Zustand action refs are stable, no re-render churn |
-| 6 `const` async handlers stay in shell as `const` (NOT useCallback) per v1.42.1 deviation | LOW | Pre-existing pattern; no plan to convert (per v1.42.1 critical-honesty flag in devlog) |
+| Risk                                                                                      | Severity | Mitigation                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T4 single-commit rewrite of AppHeader.tsx (−774 LoC) breaks compilation                   | HIGH     | T1-T3 land independently first, each with full `tsc --noEmit + vitest run` GREEN; T4 is pure replacement of inline JSX with sub-component JSX with same prop shape |
+| BrandMenu render-prop API awkward for `stencilFlagOn` conditional inside children         | LOW      | Shell renders `{stencilFlagOn && <button>...</button>}` inside the children callback; works because render-prop callback receives the full JSX render context      |
+| `dirtyPaths.size` derived in AppHeaderActionBar needs the Set's size, not the Set itself  | LOW      | Sub-component subscribes to `useArxmlStore((s) => s.dirtyPaths.size)`; Zustand selector returns a number, comparison is cheap                                      |
+| `setLocale` (Zustand action ref) read in StatusBadge vs passed via props                  | LOW      | Prefer store subscription inside sub-component (`useArxmlStore((s) => s.setLocale)`) — Zustand action refs are stable, no re-render churn                          |
+| 6 `const` async handlers stay in shell as `const` (NOT useCallback) per v1.42.1 deviation | LOW      | Pre-existing pattern; no plan to convert (per v1.42.1 critical-honesty flag in devlog)                                                                             |
 
 ## Pre-flight verify (lesson #10)
 
@@ -182,15 +190,15 @@ Before T1: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote o
 
 ## Target LoC
 
-| | v1.42.1 baseline | v1.42.x PATCH target |
-|---|---|---|
-| `src/renderer/components/AppHeader.tsx` | 894 LoC | **~120 LoC** |
-| `src/renderer/components/AppHeader/BrandMenu.tsx` (NEW) | — | ~180 LoC |
-| `src/renderer/components/AppHeader/AppHeaderActionBar.tsx` (NEW) | — | ~70 LoC |
-| `src/renderer/components/AppHeader/AppHeaderStatusBadge.tsx` (NEW) | — | ~90 LoC |
-| `src/renderer/components/AppHeader/types.ts` | 97 LoC | ~140 LoC (+3 prop type exports) |
-| `src/renderer/components/AppHeader/helpers.ts` | 83 LoC | 83 LoC (no change) |
-| `src/renderer/components/AppHeader/ResetOnboardingMenuItem.tsx` | 61 LoC | 61 LoC (no change) |
-| **AppHeader.tsx + sub-components total** | **1135 LoC** | **~744 LoC** |
+|                                                                    | v1.42.1 baseline | v1.42.x PATCH target            |
+| ------------------------------------------------------------------ | ---------------- | ------------------------------- |
+| `src/renderer/components/AppHeader.tsx`                            | 894 LoC          | **~120 LoC**                    |
+| `src/renderer/components/AppHeader/BrandMenu.tsx` (NEW)            | —                | ~180 LoC                        |
+| `src/renderer/components/AppHeader/AppHeaderActionBar.tsx` (NEW)   | —                | ~70 LoC                         |
+| `src/renderer/components/AppHeader/AppHeaderStatusBadge.tsx` (NEW) | —                | ~90 LoC                         |
+| `src/renderer/components/AppHeader/types.ts`                       | 97 LoC           | ~140 LoC (+3 prop type exports) |
+| `src/renderer/components/AppHeader/helpers.ts`                     | 83 LoC           | 83 LoC (no change)              |
+| `src/renderer/components/AppHeader/ResetOnboardingMenuItem.tsx`    | 61 LoC           | 61 LoC (no change)              |
+| **AppHeader.tsx + sub-components total**                           | **1135 LoC**     | **~744 LoC**                    |
 
 Round-1 L8 file-size backlog: **9 of 9 closed** ✅ (was 8/9 after v1.42.1).

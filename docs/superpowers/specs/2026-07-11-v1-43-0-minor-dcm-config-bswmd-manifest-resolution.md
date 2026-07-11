@@ -110,13 +110,13 @@ export interface DcmConfigHandlerArgs {
 
 ## Risk register
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| IPC contract change breaks `useDcmConfigLauncher` if the preload bridge type is not updated | LOW | Preload bridge (`src/preload/index.ts:302`) forwards args as-is; type widening on the renderer-side `DcmConfigApi` interface is internal |
-| Filename basename match fails on case-sensitive filesystems (Windows preserves case but matches case-insensitively) | LOW | Normalize both sides via `path.basename(p).toLowerCase() === 'bsw_dcm_bswmd.arxml'` |
-| Manifest `bswmdPaths` entry references a file that no longer exists on disk | LOW | `existsSync` check before returning; falls through to walk-up |
-| Manifest bswmdPaths is large (100+ BSWMDs) | LOW | O(N) scan is cheap; 100 file basename checks is <1ms |
-| Walk-up fallback still needed for sample fixture discovery | LOW (intentional) | Preserved as Step 3 — no breaking change for existing test suite |
+| Risk                                                                                                                | Severity          | Mitigation                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| IPC contract change breaks `useDcmConfigLauncher` if the preload bridge type is not updated                         | LOW               | Preload bridge (`src/preload/index.ts:302`) forwards args as-is; type widening on the renderer-side `DcmConfigApi` interface is internal |
+| Filename basename match fails on case-sensitive filesystems (Windows preserves case but matches case-insensitively) | LOW               | Normalize both sides via `path.basename(p).toLowerCase() === 'bsw_dcm_bswmd.arxml'`                                                      |
+| Manifest `bswmdPaths` entry references a file that no longer exists on disk                                         | LOW               | `existsSync` check before returning; falls through to walk-up                                                                            |
+| Manifest bswmdPaths is large (100+ BSWMDs)                                                                          | LOW               | O(N) scan is cheap; 100 file basename checks is <1ms                                                                                     |
+| Walk-up fallback still needed for sample fixture discovery                                                          | LOW (intentional) | Preserved as Step 3 — no breaking change for existing test suite                                                                         |
 
 ## Pre-flight verify (lesson #10)
 
@@ -124,11 +124,11 @@ Before T1: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote o
 
 ## Target LoC
 
-| | v1.42.4 baseline | v1.43.0 MINOR target |
-|---|---|---|
-| `src/main/ipc/dcmConfigHandler.ts` | ~270 LoC | **~290 LoC** (+20 for IPC field + manifest resolver helper) |
-| `src/renderer/hooks/useDcmConfigLauncher.ts` | ~430 LoC | **~440 LoC** (+10 for IPC args extension) |
-| New tests | — | **+3 tests** (manifest helper unit + handler integration + walk-up regression) |
+|                                              | v1.42.4 baseline | v1.43.0 MINOR target                                                           |
+| -------------------------------------------- | ---------------- | ------------------------------------------------------------------------------ |
+| `src/main/ipc/dcmConfigHandler.ts`           | ~270 LoC         | **~290 LoC** (+20 for IPC field + manifest resolver helper)                    |
+| `src/renderer/hooks/useDcmConfigLauncher.ts` | ~430 LoC         | **~440 LoC** (+10 for IPC args extension)                                      |
+| New tests                                    | —                | **+3 tests** (manifest helper unit + handler integration + walk-up regression) |
 
 Net: ~30 LoC source + 3 tests. Small MINOR cycle — appropriate for a backwards-compatible IPC extension.
 

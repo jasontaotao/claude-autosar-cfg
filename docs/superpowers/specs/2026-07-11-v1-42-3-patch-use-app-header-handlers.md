@@ -31,10 +31,12 @@ Continue the Round-1 L8 backlog closure momentum by extracting AppHeader.tsx's h
 ### What moves to hook
 
 **Internal state** (lives inside hook):
+
 - `useState<AppHeaderState>(INITIAL)` — the `state.busy` flag that gates handlers
 - `useProjectActions()` — destructured into `{ newProject, openProjectFromDialog, saveProject }`
 
 **Public return surface** (`AppHeaderHandlers` type):
+
 - **6 async handlers**: `onOpen`, `onSave`, `onSaveAll`, `onProjectNew`, `onProjectOpen`, `onProjectSave`
 - **1 useCallback**: `onCloseProjectClick`
 - **3 derived predicates**: `canSave`, `canSaveAll`, `canSaveProject`
@@ -97,13 +99,13 @@ No arguments (matches `useWizardHandlers()` / `useAppMainHandlers()` / `useFileV
 
 ## Risk register
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| T2 single-commit rewrite of AppHeader.tsx (~411 LoC inline handlers → 1 hook call) breaks compilation | MEDIUM | T1 lands the hook file independently first with full `tsc --noEmit + vitest run` GREEN (no callers yet, so type errors will surface immediately); T2 is mechanical replacement |
-| `onCloseProjectClick` useCallback dep array includes `[state.busy, locale, setStoreError]` — needs `state.busy` from hook's `useState`, which is fine | LOW | All deps are stable: `setStoreError` is Zustand action ref; `locale` only changes via `setLocale` (so deps re-evaluate); `state.busy` is from the same hook's useState |
-| 6 `const` async handlers stay as `const` (NOT useCallback) per v1.42.1 deviation | LOW | Pre-existing pattern; no plan to convert (per v1.42.1 critical-honesty flag in devlog). Handlers are created per render anyway — useCallback would add dep-array overhead without benefit |
-| Hook return field count = 22 — large destructure in shell | LOW | Pre-existing pattern from v1.42.1 T1 (`useAppMainHandlers` had 13 fields, T3 had 5 fields). Shell destructures all 22 fields in one statement at the top |
-| `addDocument` store action signature — AppHeader.tsx imports types `ArxmlDocument` and `AddDocumentOptions` — hook needs to re-export or shell imports directly | LOW | Hook file imports the types from `../../shared/types` and re-exports them via the `AppHeaderHandlers` type. Shell doesn't need to import types separately |
+| Risk                                                                                                                                                            | Severity | Mitigation                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T2 single-commit rewrite of AppHeader.tsx (~411 LoC inline handlers → 1 hook call) breaks compilation                                                           | MEDIUM   | T1 lands the hook file independently first with full `tsc --noEmit + vitest run` GREEN (no callers yet, so type errors will surface immediately); T2 is mechanical replacement            |
+| `onCloseProjectClick` useCallback dep array includes `[state.busy, locale, setStoreError]` — needs `state.busy` from hook's `useState`, which is fine           | LOW      | All deps are stable: `setStoreError` is Zustand action ref; `locale` only changes via `setLocale` (so deps re-evaluate); `state.busy` is from the same hook's useState                    |
+| 6 `const` async handlers stay as `const` (NOT useCallback) per v1.42.1 deviation                                                                                | LOW      | Pre-existing pattern; no plan to convert (per v1.42.1 critical-honesty flag in devlog). Handlers are created per render anyway — useCallback would add dep-array overhead without benefit |
+| Hook return field count = 22 — large destructure in shell                                                                                                       | LOW      | Pre-existing pattern from v1.42.1 T1 (`useAppMainHandlers` had 13 fields, T3 had 5 fields). Shell destructures all 22 fields in one statement at the top                                  |
+| `addDocument` store action signature — AppHeader.tsx imports types `ArxmlDocument` and `AddDocumentOptions` — hook needs to re-export or shell imports directly | LOW      | Hook file imports the types from `../../shared/types` and re-exports them via the `AppHeaderHandlers` type. Shell doesn't need to import types separately                                 |
 
 ## Pre-flight verify (lesson #10)
 
@@ -111,11 +113,11 @@ Before T1: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote o
 
 ## Target LoC
 
-| | v1.42.2 baseline | v1.42.3 PATCH target |
-|---|---|---|
-| `src/renderer/components/AppHeader.tsx` | 661 LoC | **~250 LoC** |
-| `src/renderer/app/useAppHeaderHandlers.ts` (NEW) | — | ~280 LoC |
-| **Total LoC** | 661 LoC | ~530 LoC |
+|                                                  | v1.42.2 baseline | v1.42.3 PATCH target |
+| ------------------------------------------------ | ---------------- | -------------------- |
+| `src/renderer/components/AppHeader.tsx`          | 661 LoC          | **~250 LoC**         |
+| `src/renderer/app/useAppHeaderHandlers.ts` (NEW) | —                | ~280 LoC             |
+| **Total LoC**                                    | 661 LoC          | ~530 LoC             |
 
 Net reduction: ~131 LoC (~20% reduction across the AppHeader file). The hook file adds new structure (TBDoc + imports + types) that the inline code didn't need, so the net reduction is smaller than the raw line delta suggests.
 

@@ -26,8 +26,8 @@ import { t as i18nT } from '@shared/i18n/index.js';
 
 import { openContextMenu } from '../components/ContextMenu';
 import type { ContextMenuAction } from '../components/ContextMenu';
-import type { useDcmConfigLauncher } from '../hooks/useDcmConfigLauncher';
 import { useCreateEcucFromBswmd } from '../hooks/useCreateEcucFromBswmd';
+import type { useDcmConfigLauncher } from '../hooks/useDcmConfigLauncher';
 import { useGenerateCode } from '../hooks/useGenerateCode';
 import { useProjectActions } from '../hooks/useProjectActions';
 import { useRemoveEcucFiles } from '../hooks/useRemoveEcucFiles';
@@ -61,7 +61,10 @@ export type AppMainHandlers = {
   // doesn't need it (handleContextMenuAction does not branch on it).
 };
 
-export function useAppMainHandlers(args: { dcmLauncher: DcmLauncher; odxPath: string }): AppMainHandlers {
+export function useAppMainHandlers(args: {
+  dcmLauncher: DcmLauncher;
+  odxPath: string;
+}): AppMainHandlers {
   const { dcmLauncher, odxPath } = args;
   // Sprint 14 / Task 11 — ECUC picker lifecycle. The hook owns the
   // open/close state because it's the single mount point for any

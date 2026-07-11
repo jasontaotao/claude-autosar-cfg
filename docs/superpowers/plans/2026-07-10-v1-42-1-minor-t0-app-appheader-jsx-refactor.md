@@ -34,10 +34,12 @@
 ## Task 0: Per-flow analysis (prerequisite for T1-T4)
 
 **Files:**
+
 - Create: `docs/superpowers/specs/2026-07-10-v1-42-1-app-appheader-per-flow-analysis.md`
 - No source code change
 
 **Interfaces:**
+
 - Consumes: existing `src/renderer/App.tsx` (1375 LoC) + `src/renderer/components/AppHeader.tsx` (894 LoC)
 - Produces: a per-flow dependency catalog (4 flow groups for App.tsx, 3 visual concern groups for AppHeader.tsx) that downstream T1-T4 tasks use to scope their commits.
 
@@ -53,6 +55,7 @@
 ## App.tsx flow groups (4 candidates, based on closure-state coupling)
 
 ### Flow 1: ECUC module selection (handlers: handleOpenDcmConfig, handleMenuSelectEcucModule, handleAddEcucFromBswmd, handleCloseEcucPicker, handleConfirmEcucPicker)
+
 - Closure state: ecucPickerOpen, preSelectedBswmdPath
 - Cross-state deps: handleConfirmEcucPicker reads ecucPickerOpen (closes picker) + useArxmlStore.bswmdSchemas
 - Store actions used: useArxmlStore.addEcucModule, useArxmlStore.setActiveDocument
@@ -61,6 +64,7 @@
 - Estimated App.tsx reduction: -200 LoC
 
 ### Flow 2: File-open modal handlers (handlers: openDbcViewer, closeDbcViewer, openOdxViewer, closeOdxViewer)
+
 - Closure state: dbcModal, odxModal, dbcInFlight ref, odxInFlight ref
 - Cross-state deps: openDbcViewer reads useArxmlStore.activeDocumentPath; closeDbcViewer calls useArxmlStore.setActiveDocument
 - Store actions used: useArxmlStore.setActiveDocument, useDcmConfigLauncher (used in openDbcViewer's preview flow)
@@ -69,6 +73,7 @@
 - Estimated App.tsx reduction: -250 LoC
 
 ### Flow 3: Diagnostic extract handlers (handlers: handleExportOdxDiagnosticExtract, closeDiagExtractDialog)
+
 - Closure state: diagExtractModal, diagExtractExporting
 - Cross-state deps: handleExportOdxDiagnosticExtract reads odxModal.activeExtract + diagExtractExporting (busy lock)
 - Store actions used: useArxmlStore.exportOdxExtract
@@ -77,6 +82,7 @@
 - Estimated App.tsx reduction: -150 LoC
 
 ### Flow 4: Wizard + tour handlers (handlers: openDbcImportWizard, closeDbcImportWizard, openXlsxBatchWizard, closeXlsxBatchWizard, onTourAdvance, onTourBack, onTourSkip, onTourFinish)
+
 - Closure state: dbcImportState, xlsxBatchWizardOpen, dbcImportInFlight ref, xlsxBatchInFlight ref, tourState (separate hook)
 - Cross-state deps: openDbcImportWizard reads tourState.currentStep (for onboarding gating)
 - Store actions used: useArxmlStore.startDbcImport, useArxmlStore.startXlsxBatch, useTourState hook
@@ -85,6 +91,7 @@
 - Estimated App.tsx reduction: -350 LoC
 
 ### Total reduction estimate
+
 - 4 candidate hooks: ~950 LoC moved out of App.tsx
 - App.tsx shell: ~425 LoC after all 4 flows extracted (under 300 LoC target after minor inline tightening)
 - Remaining in App.tsx: top-level hooks (useProjectActions, useDcmConfigLauncher, useArxmlStore selectors), defaultLayout, JSX shell
@@ -92,6 +99,7 @@
 ## AppHeader.tsx visual concern groups (3 candidates)
 
 ### Visual concern 1: Brand + menu button (lines 462-486, ~25 LoC of JSX)
+
 - Closure state: menuOpen, menuRef
 - Used in: BrandLogo + MenuToggle button
 - Candidate sub-component: AppHeaderBrandMenu (props: menuOpen, onToggle, menuRef)
@@ -99,6 +107,7 @@
 - Estimated AppHeader reduction: -25 LoC JSX + moves state ownership
 
 ### Visual concern 2: Dropdown menu panel (lines 488-624, ~140 LoC of JSX)
+
 - Closure state: stencilOpen, setStencilOpen, stencilFlagOn (3 useState), 5 menu items each with onClick handlers
 - Used in: dropdown menu body (projectManage, fileOps, ecuc, generate, settings groups)
 - Candidate sub-component: AppHeaderMenuPanel (props: menuItems[], onAction, locale) — receives the 12+ menu items as data from AppHeader
@@ -106,6 +115,7 @@
 - Estimated AppHeader reduction: -140 LoC JSX + moves state ownership
 
 ### Visual concern 3: Action bar + status badge (lines 625-700, ~75 LoC of JSX)
+
 - Closure state: appVersion, useRef for closeTimerRef (used in scheduleClose debounce)
 - Used in: Save/Generate/DBC/ODX/DBC-import/XLSX-batch/DCM-config/Script-toggle buttons + app version badge
 - Candidate sub-component: AppHeaderActionBar (props: actions[], canSave, canGenerate, etc.) + AppHeaderStatusBadge (props: appVersion, locale)
@@ -113,18 +123,21 @@
 - Estimated AppHeader reduction: -75 LoC JSX + moves state ownership
 
 ### Total reduction estimate
+
 - 3 candidate sub-components: ~480 LoC moved out of AppHeader.tsx
 - AppHeader.tsx shell: ~414 LoC after all 3 visual concerns extracted (under 300 LoC target after minor inline tightening)
 
 ## Dependency ordering (for T1-T4 commits)
 
 App.tsx flows must commit in dependency order (later flows can read state set by earlier flows):
+
 1. Flow 1 (ECUC) first — most isolated, no cross-flow reads
 2. Flow 2 (File-open modals) — depends on useArxmlStore only, no Flow 1 reads
 3. Flow 3 (Diag extract) — depends on Flow 2's odxModal state (handleExportOdxDiagnosticExtract reads odxModal.activeExtract)
 4. Flow 4 (Wizard + tour) — depends on Flow 3's diagExtractExporting for onboarding gating
 
 AppHeader.tsx visual concerns must commit in dependency order:
+
 1. Visual concern 1 (Brand + menu button) first — no other concern reads menuOpen state
 2. Visual concern 2 (Menu panel) — depends on menuOpen state from VC1
 3. Visual concern 3 (Action bar + badge) — independent, can commit any time after VC1
@@ -221,10 +234,12 @@ AppHeader.tsx visual concerns must commit in dependency order:
 ## Task 1: App.tsx Flow 1 — extract `useEcucModuleHandlers`
 
 **Files:**
+
 - Create: `src/renderer/app/useEcucModuleHandlers.ts` (~200 LoC)
 - Modify: `src/renderer/App.tsx` (1375 → ~1175 LoC, -200 LoC)
 
 **Interfaces:**
+
 - Consumes: handlers `handleOpenDcmConfig`, `handleMenuSelectEcucModule`, `handleAddEcucFromBswmd`, `handleCloseEcucPicker`, `handleConfirmEcucPicker` + state `ecucPickerOpen`, `setEcucPickerOpen`, `preSelectedBswmdPath`, `setPreSelectedBswmdPath` (verbatim from App.tsx)
 - Produces: `useEcucModuleHandlers()` hook returning 7 fields (5 callbacks + 2 state slots)
 
@@ -273,9 +288,14 @@ AppHeader.tsx visual concerns must commit in dependency order:
     const [ecucPickerOpen, setEcucPickerOpen] = useState(false);
     const [preSelectedBswmdPath, setPreSelectedBswmdPath] = useState<string | undefined>(undefined);
 
-    const handleOpenDcmConfig = useCallback((): void => {
-      // ... (verbatim body from App.tsx)
-    }, [/* original dep array verbatim */]);
+    const handleOpenDcmConfig = useCallback(
+      (): void => {
+        // ... (verbatim body from App.tsx)
+      },
+      [
+        /* original dep array verbatim */
+      ],
+    );
 
     // ... (other 4 handlers + state setters verbatim)
 
@@ -361,10 +381,12 @@ AppHeader.tsx visual concerns must commit in dependency order:
 ## Task 2: App.tsx Flow 2 — extract `useFileOpenModalHandlers`
 
 **Files:**
+
 - Create: `src/renderer/app/useFileOpenModalHandlers.ts` (~250 LoC)
 - Modify: `src/renderer/App.tsx` (~1175 → ~925 LoC, -250 LoC)
 
 **Interfaces:**
+
 - Consumes: handlers `openDbcViewer`, `closeDbcViewer`, `openOdxViewer`, `closeOdxViewer` + state `dbcModal`, `dbcInFlight ref`, `odxModal`, `odxInFlight ref` (verbatim from App.tsx)
 - Produces: `useFileOpenModalHandlers()` hook returning 8 fields (4 callbacks + 2 state slots + 2 refs)
 
@@ -410,10 +432,12 @@ AppHeader.tsx visual concerns must commit in dependency order:
 ## Task 3: App.tsx Flow 3 — extract `useDiagExtractHandlers`
 
 **Files:**
+
 - Create: `src/renderer/app/useDiagExtractHandlers.ts` (~150 LoC)
 - Modify: `src/renderer/App.tsx` (~925 → ~775 LoC, -150 LoC)
 
 **Interfaces:**
+
 - Consumes: handlers `handleExportOdxDiagnosticExtract`, `closeDiagExtractDialog` + state `diagExtractModal`, `setDiagExtractModal`, `diagExtractExporting`, `setDiagExtractExporting` (verbatim)
 - Produces: `useDiagExtractHandlers()` hook returning 4 fields
 
@@ -476,6 +500,7 @@ AppHeader.tsx visual concerns must commit in dependency order:
 ### Task 4a: App.tsx Flow 4 — extract `useWizardHandlers`
 
 **Files:**
+
 - Create: `src/renderer/app/useWizardHandlers.ts` (~350 LoC)
 - Modify: `src/renderer/App.tsx` (~775 → ~425 LoC, -350 LoC)
 
@@ -498,6 +523,7 @@ git commit -m "refactor(renderer): v1.42.1 T4a — extract useWizardHandlers hoo
 ### Task 4b: AppHeader.tsx VC1 — extract `AppHeaderBrandMenu`
 
 **Files:**
+
 - Create: `src/renderer/components/AppHeader/BrandMenu.tsx` (~80 LoC)
 - Modify: `src/renderer/components/AppHeader.tsx` (894 → ~814 LoC, -80 LoC)
 
@@ -521,6 +547,7 @@ git commit -m "refactor(renderer): v1.42.1 T4b — extract AppHeaderBrandMenu su
 ### Task 4c: AppHeader.tsx VC2 + VC3 — extract Menu panel + Action bar + Status badge
 
 **Files:**
+
 - Create: `src/renderer/components/AppHeader/MenuPanel.tsx` (~200 LoC)
 - Create: `src/renderer/components/AppHeader/ActionBar.tsx` (~150 LoC)
 - Create: `src/renderer/components/AppHeader/StatusBadge.tsx` (~50 LoC)
@@ -579,6 +606,7 @@ git commit -m "refactor(renderer): v1.42.1 T4c-iii — extract AppHeaderStatusBa
 ## Task 5: Docs + ship v1.42.1 MINOR
 
 **Files:**
+
 - Create: `docs/release-notes/v1.42.1/README.md`
 - Modify: `CHANGELOG.md` (prepend v1.42.1 MINOR row)
 - Modify: `package.json` (bump version to `1.42.1`)
@@ -621,6 +649,7 @@ git commit -m "refactor(renderer): v1.42.1 T4c-iii — extract AppHeaderStatusBa
 - [ ] **Step 5.4: Update CHANGELOG.md**
 
   Prepend a new row above v1.41.3 (or whichever is the latest row):
+
   ```
   ## v1.42.1 MINOR — App.tsx + AppHeader.tsx JSX refactor (per-flow)
 

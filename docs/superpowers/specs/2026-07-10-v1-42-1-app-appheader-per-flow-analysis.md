@@ -38,6 +38,7 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 ### Flow 1: ECUC + Generate + Context menu handlers
 
 **Handlers** (8 main + 1 toggle + 0 tour = **9 in this flow**):
+
 - `handleOpenDcmConfig` (line 244-246) — calls `dcmLauncher.promptAndOpen()` (Flow 3 cross-read)
 - `handleMenuSelectEcucModule` (255-258)
 - `handleAddEcucFromBswmd` (260-263)
@@ -71,6 +72,7 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 ### Flow 2: DBC + ODX viewer handlers
 
 **Handlers** (4):
+
 - `openDbcViewer` (567-616, ~50 LoC — async, in-flight ref guard)
 - `closeDbcViewer` (617-619)
 - `openOdxViewer` (634-677, ~44 LoC — async, mirrors DBC pattern)
@@ -99,6 +101,7 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 ### Flow 3: Diagnostic extract handlers
 
 **Handlers** (2):
+
 - `handleExportOdxDiagnosticExtract` (719-789, ~70 LoC — async, reads `odxModal.kind` + `odxModal.path`)
 - `closeDiagExtractDialog` (790-792)
 
@@ -125,6 +128,7 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 ### Flow 4: Wizards + tour handlers
 
 **Handlers** (8):
+
 - `openDbcImportWizard` (813-862, ~50 LoC — async, in-flight ref guard, 2-IPC round-trip)
 - `closeDbcImportWizard` (863-865)
 - `openXlsxBatchWizard` (879-888, ~10 LoC — async, busy lock)
@@ -147,6 +151,7 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 **Cross-flow readers**: 0
 
 **Note**: The `DbcImportWizard onApply` callback (inline in JSX line 1065-1175, ~110 LoC) is NOT a closure-captured handler in the flow 4 sense — it's a JSX inline prop. It reads `proj`, `projPath`, `loc` from `useArxmlStore.getState()` and calls `api.dbcImportComStack()` + `api.projectReload()`. **This inline callback stays in App.tsx shell** (not extracted to Flow 4 hook) because it's:
+
 - Defined inline in JSX (not `const handler = useCallback(...)`)
 - Reads from store directly (no closure-captured state)
 - Called only by the JSX (single caller)
@@ -161,13 +166,13 @@ Produce the per-flow dependency catalog that downstream v1.42.1 T1-T4 tasks use 
 
 ### Total reduction estimate (App.tsx)
 
-| Flow | Handlers | State | Refs | Hook LoC | App.tsx LoC reduced |
-|---|---|---|---|---|---|
-| Flow 1 | 9 | 3 | 0 | ~300 | -300 |
-| Flow 2 | 4 | 2 | 2 | ~140 | -140 |
-| Flow 3 | 2 | 2 | 0 | ~80 | -80 |
-| Flow 4 | 8 | 2 | 2 | ~120 | -120 |
-| **Total** | **23** | **9** | **4** | **~640** | **-640** |
+| Flow      | Handlers | State | Refs  | Hook LoC | App.tsx LoC reduced |
+| --------- | -------- | ----- | ----- | -------- | ------------------- |
+| Flow 1    | 9        | 3     | 0     | ~300     | -300                |
+| Flow 2    | 4        | 2     | 2     | ~140     | -140                |
+| Flow 3    | 2        | 2     | 0     | ~80      | -80                 |
+| Flow 4    | 8        | 2     | 2     | ~120     | -120                |
+| **Total** | **23**   | **9** | **4** | **~640** | **-640**            |
 
 **App.tsx shell after all 4 flows extracted**: 1375 - 640 = **~735 LoC**
 
@@ -184,6 +189,7 @@ The 640 LoC includes the handler bodies, state declarations, ref declarations, c
 - `useGenerateCode` (line 430) — used by Flow 1's handleGenerateClick
 
 **Revised App.tsx shell estimate**:
+
 - Top-level hooks: ~80 LoC (lines 95-198, minus the flow-specific state/useCallback)
 - JSX: ~460 LoC (lines 915-1375)
 - Top-level state + useStore selectors + custom hook calls NOT in flows: ~50 LoC
@@ -220,6 +226,7 @@ The 640 LoC includes the handler bodies, state declarations, ref declarations, c
 **JSX section**: lines 488-749 (the `{menuOpen && <div className="app-dropdown" ...}` block) = ~260 LoC of JSX, with 10-11 menu items in 2 groups (projectManage + fileOps)
 
 **Menu items** (10 unconditional + 1 conditional):
+
 - 2 in projectManage group: btn-project-new, btn-project-open
 - 7 in fileOps group: btn-open, btn-open-dbc, btn-open-odx, btn-open-dcm-config, btn-import-dbc-com, btn-import-xlsx-batch, btn-ecuc-from-bswmd
 - 1 conditional: btn-stencil-new (only when `stencilFlagOn === true`)
@@ -247,6 +254,7 @@ The 640 LoC includes the handler bodies, state declarations, ref declarations, c
 ### Visual concern 3 (VC3): Action bar + Status badge (right section + bottom)
 
 **JSX section**:
+
 - Action bar: lines 754-805 (4 buttons: btn-project-save, btn-save, btn-save-all) inside `<div className="app-header-actions">`
 - Status badge / right section: lines 813-883 (project chip + scripts toggle + generate button + locale toggle + app version)
 
@@ -267,6 +275,7 @@ The 640 LoC includes the handler bodies, state declarations, ref declarations, c
 **AppHeader.tsx consumer surface (unchanged)**: `scriptPanelOpen`, `onToggleScriptPanel`, `onGenerate`, `canGenerate`, `generateBusy` (all passed to App.tsx)
 
 **Candidate sub-components** (TWO, per plan's T4c-ii + T4c-iii):
+
 - `AppHeaderActionBar` — props: `onProjectSave`, `canSaveProject`, `projectDirtyCount`, `onSave`, `canSave`, `isActiveDirty`, `onSaveAll`, `canSaveAll`, `dirtyPaths.size`. State: `state` (busy) move IN.
 - `AppHeaderStatusBadge` — props: `project`, `projectPath`, `onCloseProjectClick`, `scriptPanelOpen`, `onToggleScriptPanel`, `onGenerate`, `canGenerate`, `generateBusy`, `locale`, `onLocaleToggle`, `appVersion`. State: `appVersion` + the app version fetch effect move IN.
 
@@ -276,13 +285,13 @@ The 640 LoC includes the handler bodies, state declarations, ref declarations, c
 
 ### Total reduction estimate (AppHeader.tsx)
 
-| VC | Handlers (const) | Handlers (useCallback) | State | Effects | Sub-component LoC | AppHeader.tsx LoC reduced |
-|---|---|---|---|---|---|---|
-| VC1 (BrandMenu) | 0 | 2 | 2 useState + 2 useRef | 3 | ~110 | -110 |
-| VC2 (MenuPanel) | 3 | 0 | 2 useState | 2 | ~250 | -250 |
-| VC3a (ActionBar) | 3 | 0 | 1 useState (state.busy) | 0 | ~180 | -180 |
-| VC3b (StatusBadge) | 0 | 1 | 1 useState (appVersion) | 1 | ~50 | -50 |
-| **Total** | **6** | **3** | **6 useState + 2 useRef** | **6** | **~590** | **-590** |
+| VC                 | Handlers (const) | Handlers (useCallback) | State                     | Effects | Sub-component LoC | AppHeader.tsx LoC reduced |
+| ------------------ | ---------------- | ---------------------- | ------------------------- | ------- | ----------------- | ------------------------- |
+| VC1 (BrandMenu)    | 0                | 2                      | 2 useState + 2 useRef     | 3       | ~110              | -110                      |
+| VC2 (MenuPanel)    | 3                | 0                      | 2 useState                | 2       | ~250              | -250                      |
+| VC3a (ActionBar)   | 3                | 0                      | 1 useState (state.busy)   | 0       | ~180              | -180                      |
+| VC3b (StatusBadge) | 0                | 1                      | 1 useState (appVersion)   | 1       | ~50               | -50                       |
+| **Total**          | **6**            | **3**                  | **6 useState + 2 useRef** | **6**   | **~590**          | **-590**                  |
 
 **AppHeader.tsx shell after all 3 VCs extracted**: 894 - 590 = **~304 LoC**
 
@@ -293,21 +302,25 @@ After minor inline tightening (remove unused imports, simplify JSX composition),
 ### App.tsx flows (4 commits, T1-T3 + T4a)
 
 **T1: useAppMainHandlers (Flow 1)** — independent except for read-only `dcmLauncher` access in `handleOpenDcmConfig`. **Must commit first** because:
+
 - Sets the hook pattern (signature, return shape, closure-state capture model) that T2-T4 follow
 - Most isolated flow (only cross-flow is a method call on dcmLauncher, not a state read)
 - Largest flow (~300 LoC moved) — best to land first to validate the pattern
 
 **T2: useFileViewerHandlers (Flow 2)** — independent. **Commits second** because:
+
 - 2 useRef + 2 useState (the in-flight lock pattern) is a different shape than Flow 1 (0 useRef + 3 useState)
 - Validates that the hook + parameter-passing pattern works for state-bearing hooks
 - Sets up the `odxModal` state that Flow 3 reads
 
 **T3: useDiagExtractHandlers (Flow 3)** — **reads `odxModal` from Flow 2**. Commits third because:
+
 - T3's hook signature takes `args: { odxModal: OdxModalState }` (parameter-passing pattern)
 - The parameter-passing pattern is new (no other flow has it)
 - T3 commits AFTER T2 so `odxModal` is already in the Flow 2 hook's return type
 
 **T4a: useWizardHandlers (Flow 4)** — independent. Commits fourth (or could be parallel to T3):
+
 - 8 callbacks (4 tour + 4 wizard) is the highest count
 - The inline `DbcImportWizard onApply` callback stays in App.tsx shell — verifies the "JSX inline callbacks don't need extraction" pattern
 - T4a commits after T3 to avoid contention on the App.tsx shell
@@ -315,31 +328,35 @@ After minor inline tightening (remove unused imports, simplify JSX composition),
 ### AppHeader.tsx visual concerns (4 commits, T4b + T4c-i/ii/iii)
 
 **T4b: AppHeaderBrandMenu (VC1)** — independent. Commits first:
+
 - Sets the sub-component pattern (props interface, state ownership model) that T4c follow
 - 2 useRef + 1 useState + 3 useEffect = most stateful sub-component
 - No other VC reads `menuRef` or `closeTimerRef`
 
 **T4c-i: AppHeaderMenuPanel (VC2)** — **reads `menuOpen` from VC1**. Commits second:
+
 - The conditional render `{menuOpen && <MenuPanel />}` lives in the shell; VC2's prop is `menuOpen` (read from VC1's state via shell)
 - Validates the "sub-component reads parent state via prop" pattern
 - 10+ menu items is the highest density (per lesson `sub-component-extraction-with-N-items-requires-per-flow-analysis`, the analysis itself is THIS spec)
 
 **T4c-ii: AppHeaderActionBar (VC3a)** — independent of VC2. Commits third:
+
 - 3 `const` handlers (not useCallback) + 1 useState (state.busy) + 3 derived predicates
 - Validates the "const handler + derived predicate" pattern (not in the v1.42.0 plan template)
 - ActionBar's state (`state.busy`) is shared with MenuPanel's `disabled` attributes on menu items — **T4c-ii must commit after T4c-i OR the menu items' `disabled={state.busy}` must change to `disabled={...AppHeader's state.busy}**
 
 **T4c-iii: AppHeaderStatusBadge (VC3b)** — independent. Commits fourth:
+
 - 1 useCallback (onCloseProjectClick) + 1 useState (appVersion) + 1 useEffect
 - Validates the "useEffect for external system sync" pattern (getAppVersion IPC fetch)
 - The locale toggle (`onClick={() => setLocale(locale === 'zh-CN' ? 'en' : 'zh-CN')}`) is INLINE in JSX (not a const handler) — stays in StatusBadge
 
 ## Cross-flow state reads (the parameter-passing contract)
 
-| Flow | Reads from | Via | Type |
-|---|---|---|---|
-| Flow 1 | Flow 3 (`dcmLauncher`) | Method call only | Read-only (no state) |
-| Flow 3 | Flow 2 (`odxModal`) | Parameter passing | `args: { odxModal: OdxModalState }` |
+| Flow   | Reads from             | Via               | Type                                |
+| ------ | ---------------------- | ----------------- | ----------------------------------- |
+| Flow 1 | Flow 3 (`dcmLauncher`) | Method call only  | Read-only (no state)                |
+| Flow 3 | Flow 2 (`odxModal`)    | Parameter passing | `args: { odxModal: OdxModalState }` |
 
 **Only 1 cross-flow state read** (Flow 3 → Flow 2). This is the parameter-passing pattern documented in the plan as D-cross-flow-state-reads-must-flow-through-hook-parameters.
 

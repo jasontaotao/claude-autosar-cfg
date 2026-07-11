@@ -85,13 +85,13 @@ No arguments. Matches `useAppHeaderHandlers()` shape (closure-scoped hook, no ar
 
 ## Risk register
 
-| Risk | Severity | Mitigation |
-|---|---|---|
-| T2 single-commit rewrite of AppHeader.tsx (~135 LoC inline state+effects → 1 hook call) breaks compilation | MEDIUM | T1 lands the hook file independently first with full `tsc --noEmit + vitest run` GREEN; T2 is mechanical replacement |
-| `stencil:close` CustomEvent dispatch (new IPC channel for StencilWizard onClose) — does any existing code dispatch it? | LOW | Verify via `grep -rn "stencil:close\|stencil:open" src/` — expect only `dispatch` (existing palette Cmd-K) for `stencil:open`; no `stencil:close` exists |
-| `refreshStencilFlagCache` import moves to hook | LOW | Hook imports `refreshStencilFlag as refreshStencilFlagCache` from `'../keyboard/shortcuts/palette.js'` (AppHeader.tsx imports it from `'../keyboard/shortcuts/palette.js'` — same path, works from hook too) |
-| StencilWizard onClose needs to call setStencilOpen(false) | MEDIUM | Add `stencil:close` CustomEvent listener in hook; StencilWizard onClose dispatches it. Symmetric with existing `stencil:open` pattern. Verified by AppHeader.test.tsx stencil-wizard tests (existing tests dispatch `stencil:open` and verify StencilWizard mounts; new `stencil:close` listener mirrors the inverse path) |
-| Marker-based replacement range error (lesson observation #2 from v1.42.2 + v1.42.3) | LOW | T2 python script anchors explicitly on the 3 useState + 3 useEffect cluster, with the marker validated against line count before applying |
+| Risk                                                                                                                   | Severity | Mitigation                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T2 single-commit rewrite of AppHeader.tsx (~135 LoC inline state+effects → 1 hook call) breaks compilation             | MEDIUM   | T1 lands the hook file independently first with full `tsc --noEmit + vitest run` GREEN; T2 is mechanical replacement                                                                                                                                                                                                       |
+| `stencil:close` CustomEvent dispatch (new IPC channel for StencilWizard onClose) — does any existing code dispatch it? | LOW      | Verify via `grep -rn "stencil:close\|stencil:open" src/` — expect only `dispatch` (existing palette Cmd-K) for `stencil:open`; no `stencil:close` exists                                                                                                                                                                   |
+| `refreshStencilFlagCache` import moves to hook                                                                         | LOW      | Hook imports `refreshStencilFlag as refreshStencilFlagCache` from `'../keyboard/shortcuts/palette.js'` (AppHeader.tsx imports it from `'../keyboard/shortcuts/palette.js'` — same path, works from hook too)                                                                                                               |
+| StencilWizard onClose needs to call setStencilOpen(false)                                                              | MEDIUM   | Add `stencil:close` CustomEvent listener in hook; StencilWizard onClose dispatches it. Symmetric with existing `stencil:open` pattern. Verified by AppHeader.test.tsx stencil-wizard tests (existing tests dispatch `stencil:open` and verify StencilWizard mounts; new `stencil:close` listener mirrors the inverse path) |
+| Marker-based replacement range error (lesson observation #2 from v1.42.2 + v1.42.3)                                    | LOW      | T2 python script anchors explicitly on the 3 useState + 3 useEffect cluster, with the marker validated against line count before applying                                                                                                                                                                                  |
 
 ## Pre-flight verify (lesson #10)
 
@@ -99,12 +99,12 @@ Before T1: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote o
 
 ## Target LoC
 
-| | v1.42.3 baseline | v1.42.4 PATCH target |
-|---|---|---|
-| `src/renderer/components/AppHeader.tsx` | 415 LoC | **~280 LoC** |
-| `src/renderer/app/useAppHeaderShell.ts` (NEW) | — | ~80 LoC |
-| `src/renderer/app/useAppHeaderHandlers.ts` | 366 LoC | 366 LoC (no change) |
-| **Total LoC across renderer/app/ + components/AppHeader.tsx** | 781 LoC | ~726 LoC |
+|                                                               | v1.42.3 baseline | v1.42.4 PATCH target |
+| ------------------------------------------------------------- | ---------------- | -------------------- |
+| `src/renderer/components/AppHeader.tsx`                       | 415 LoC          | **~280 LoC**         |
+| `src/renderer/app/useAppHeaderShell.ts` (NEW)                 | —                | ~80 LoC              |
+| `src/renderer/app/useAppHeaderHandlers.ts`                    | 366 LoC          | 366 LoC (no change)  |
+| **Total LoC across renderer/app/ + components/AppHeader.tsx** | 781 LoC          | ~726 LoC             |
 
 Net reduction: ~55 LoC (~7% reduction). v1.42.4 is the final YAGNI-defensive cleanup before this PATCH cycle gives way to a new feature cycle (v1.43.0 MINOR or PATCH feature work).
 

@@ -41,8 +41,8 @@ import { useAppHeaderHandlers } from '../app/useAppHeaderHandlers.js';
 import { useAppHeaderShell } from '../app/useAppHeaderShell.js';
 
 import { AppHeaderActionBar } from './AppHeader/AppHeaderActionBar.js';
-import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
 import { AppHeaderStatusBadge } from './AppHeader/AppHeaderStatusBadge.js';
+import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
 import type { AppHeaderProps } from './AppHeader/types.js';
 import { Logo } from './Logo.js';
 import { StencilWizard } from './StencilWizard/StencilWizard.js';
@@ -81,12 +81,7 @@ export function AppHeader({
   // remains. The `menuOpen` state stays in shell because it's the controlled
   // state for BrandMenu's render-prop pattern.
   const [menuOpen, setMenuOpen] = useState(false);
-  const {
-    appVersion,
-    stencilOpen,
-    stencilFlagOn,
-    closeStencil,
-  } = useAppHeaderShell();
+  const { appVersion, stencilOpen, stencilFlagOn, closeStencil } = useAppHeaderShell();
   const {
     // 6 async handlers
     onOpen,
@@ -135,7 +130,9 @@ export function AppHeader({
         <AppHeaderBrandMenu menuOpen={menuOpen} onMenuOpenChange={setMenuOpen}>
           {(api) => (
             <>
-              <div className="app-dropdown-group-label">{t(api.locale, 'app.menu.projectManage')}</div>
+              <div className="app-dropdown-group-label">
+                {t(api.locale, 'app.menu.projectManage')}
+              </div>
               <button
                 type="button"
                 className="app-dropdown-item"

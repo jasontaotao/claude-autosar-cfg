@@ -383,6 +383,19 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     // as `?? []` if a future fix lets locale change trigger state).
   }, [bswmdPaths]);
 
+  // v1.45.0 PATCH — exhaustive-deps fix. `bswmdPaths` is the
+  // zustand-selector-derived reactive value at line 271; omitting it
+  // from the deps array risks a stale closure across project-manifest
+  // re-loads (the captured `bswmdPaths` on line 402 would be the
+  // empty-array initial value rather than the current project's
+  // loaded BSWMD list, causing the IPC to fall through to walk-up
+  // resolution rather than use the manifest). Adding `bswmdPaths` to
+  // deps forces `open` to re-create when the project's BSWMD list
+  // changes — `promptAndOpen` (line 541) and `handlePickerResolve`
+  // (line 558) both list `open` in their deps, so they propagate
+  // the rebuild transparently. The `inFlightRef` re-entrancy guard
+  // is unaffected because the ref is mutable and persists across
+  // callback re-creation.
   const open = useCallback(
     async (args: {
       odxPath: string;
@@ -498,7 +511,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
         inFlightRef.current = false;
       }
     },
-    [],
+    [bswmdPaths],
   );
 
   // v1.32.0 T5 — top-level entry. Decides picker-vs-shortcut based on

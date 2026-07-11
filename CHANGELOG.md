@@ -10,17 +10,20 @@ Versioning: [Semantic Versioning](https://semver.org/).
 **Lesson #14 Fix Implementation + code-reviewer M2 Closure** — Implements the Lesson #14 (`marker-based-text-replacement-must-validate-block-contents-not-line-count`) fix recommendation as a reusable Python module. Closes code-reviewer M2 finding (`process-cluster-14-lessons-catalog-2026-07-11.md` frontmatter `status: active` → `superseded`; same for catalog 13). 1 source commit (T2) + 1 vault-only M2 fix (T1, no commit). 0 functional change for src/ tree.
 
 **T1 (vault-only, no source commit)** — Set frontmatter `status: superseded` + `superseded-by: process-cluster-17-lessons-catalog-2026-07-11.md` on:
+
 - `01-Projects/claude-AutosarCfg/development/process-cluster-14-lessons-catalog-2026-07-11.md`
 - `01-Projects/claude-AutosarCfg/development/process-cluster-13-lessons-catalog-2026-07-10.md`
 
 Closes code-reviewer M2 finding from the v1.44.0 PATCH review. Future dispatches will see `status: superseded` when consulting the old catalogs, preventing confusion about which catalog is the canonical reference.
 
 **T2 (`8ffb8be`)** — NEW `scripts/validate_hook_range.py` (174 LoC). Reusable Python module that:
+
 - Counts React hook declarations (`useState` / `useEffect` / `useCallback` / `useRef` / `useMemo` / `useTransition` / custom `useFooBar`) in a source range via line-anchored regex
 - Provides `assert_hook_count(range_block, expected_count, label)` that raises `HookCountMismatch` on mismatch
-- Future tmp-*.py chunk-replacement scripts can `from scripts.validate_hook_range import assert_hook_count, HookCountMismatch` and call `assert_hook_count()` BEFORE applying `src.replace()` to abort cleanly on count mismatch (preventing the pattern that caused v1.42.2 T4 + v1.42.3 T2 + v1.42.4 T2 to swallow 1-7 unintended hooks)
+- Future tmp-\*.py chunk-replacement scripts can `from scripts.validate_hook_range import assert_hook_count, HookCountMismatch` and call `assert_hook_count()` BEFORE applying `src.replace()` to abort cleanly on count mismatch (preventing the pattern that caused v1.42.2 T4 + v1.42.3 T2 + v1.42.4 T2 to swallow 1-7 unintended hooks)
 
 Module includes:
+
 - 4 self-tests in docstring (3-hook range matches / 4-hook range trips guard / assert match / assert mismatch)
 - `count_hooks_in_range` returns int (for ad-hoc inspection)
 - `assert_hook_count` raises `HookCountMismatch` with full diagnostic context (label + expected + actual + range_chars + first_line of range)
@@ -30,17 +33,17 @@ Module includes:
 
 **3128 + 7 SKIP / 0 fail** (zero test delta — scripts/ is not in vitest's include list). `pnpm tsc --noEmit -p tsconfig.json` clean. `pnpm tsc --noEmit -p tsconfig.web.json` clean. `pnpm verify` 7-stage GREEN.
 
-**Related lessons**: This PATCH implements the Lesson #14 fix recommendation verbatim. The pattern that produced Lesson #14 (chunk-replacement script swallowing hooks) is now structurally prevented for any future tmp-*.py script that imports the guard module.
+**Related lessons**: This PATCH implements the Lesson #14 fix recommendation verbatim. The pattern that produced Lesson #14 (chunk-replacement script swallowing hooks) is now structurally prevented for any future tmp-\*.py script that imports the guard module.
 
 **Lessons-Sweep — Process Cluster 14 → 17 Lessons Promotion** — Closes the remaining 3 1-of-1 lesson candidates that surfaced during the v1.42.0..v1.43.1 rapid-ship cycle. **No source-code changes** (lessons live in the vault as metadata; src/ is unchanged from v1.43.1 PATCH). All 3 promoted lessons include the "single-session confirmation caveat" prescribed by the v1.43.1 amendment to lesson #14 — distinguishing "N confirmations from same root cause (count as ~1)" vs "N confirmations from independent root causes (count as N)".
 
 **Lessons promoted** (vault-only):
 
-1. **`wip-commit-discard-pattern-is-stable-mid-flight-context-loss-recovery`** (Tier 11) — When a multi-commit refactor hits an Edit-tool context-loss loop (repeatedly interrupted by session messages), the stable recovery pattern is `git reset --hard HEAD~1` to discard the WIP commit + delete the new file + drop the stash + ship the previous T-level commit, NOT to continue the partial work. *Promoted from 1/3 confirmations (v1.42.0 PATCH T4b WIP commit `759be76` discarded via this pattern before v1.42.1 T5 ship).*
+1. **`wip-commit-discard-pattern-is-stable-mid-flight-context-loss-recovery`** (Tier 11) — When a multi-commit refactor hits an Edit-tool context-loss loop (repeatedly interrupted by session messages), the stable recovery pattern is `git reset --hard HEAD~1` to discard the WIP commit + delete the new file + drop the stash + ship the previous T-level commit, NOT to continue the partial work. _Promoted from 1/3 confirmations (v1.42.0 PATCH T4b WIP commit `759be76` discarded via this pattern before v1.42.1 T5 ship)._
 
-2. **`ship-minor-with-partial-source-changes-when-verified-clean-and-deferred-items-have-clear-reason`** (Tier 12) — When a MINOR-version cycle's planned scope is only partially complete, ship the MINOR with the partial deliverable rather than reverting to a PATCH or aborting — provided all 3 conditions are met: (1) shipped changes are verified-clean, (2) measurable improvement is achieved, (3) deferred items have a clear reason + path forward. *Promoted from 1/3 confirmations (v1.42.1 MINOR T5 ship shipped 7 of 9 planned commits).*
+2. **`ship-minor-with-partial-source-changes-when-verified-clean-and-deferred-items-have-clear-reason`** (Tier 12) — When a MINOR-version cycle's planned scope is only partially complete, ship the MINOR with the partial deliverable rather than reverting to a PATCH or aborting — provided all 3 conditions are met: (1) shipped changes are verified-clean, (2) measurable improvement is achieved, (3) deferred items have a clear reason + path forward. _Promoted from 1/3 confirmations (v1.42.1 MINOR T5 ship shipped 7 of 9 planned commits)._
 
-3. **`vault-edit-may-silently-fail-with-undefined-content-requires-read-after-write-verification`** (Tier 13) — The `vault_edit` MCP tool may return `success: true` while the underlying file write silently writes literal `undefined\n` (10 bytes) instead of the intended content. Recovery requires read-after-write verification (hex dump + length check via `vault_read` or direct filesystem read) + manual file IO (`Path.write_text(intended_content, encoding="utf-8")`) if the write failed. *Promoted from 1/3 confirmations (v1.43.0 MINOR pkm-capture dispatch: `vault_edit` returned success but wrote literal `undefined\n`; recovered via direct Python file IO).*
+3. **`vault-edit-may-silently-fail-with-undefined-content-requires-read-after-write-verification`** (Tier 13) — The `vault_edit` MCP tool may return `success: true` while the underlying file write silently writes literal `undefined\n` (10 bytes) instead of the intended content. Recovery requires read-after-write verification (hex dump + length check via `vault_read` or direct filesystem read) + manual file IO (`Path.write_text(intended_content, encoding="utf-8")`) if the write failed. _Promoted from 1/3 confirmations (v1.43.0 MINOR pkm-capture dispatch: `vault_edit` returned success but wrote literal `undefined\n`; recovered via direct Python file IO)._
 
 **Process Cluster catalog updated**: `process-cluster-14-lessons-catalog-2026-07-11.md` → `process-cluster-17-lessons-catalog-2026-07-11.md`. Added Tier 11 (mid-flight recovery) + Tier 12 (version-bump discipline) + Tier 13 (MCP tool reliability). The "shape of a v1.41.x PATCH implementer decision" list extended from 6 questions to 10, mapping to lessons #14 (Python chunk replacement) + #15 (WIP discard) + #16 (partial-MINOR ship) + #17 (vault_edit verification).
 
@@ -59,6 +62,7 @@ Module includes:
 **T3** — `pnpm verify` already wires `pnpm type-check` (line 7 of `scripts/verify.mjs`) which runs `tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json` (line 20 of `package.json`). **No source change required** — the gap was process-only: the rapid-ship cycle ran `tsc --noEmit` (defaults to `tsconfig.json`, excludes `src/renderer/**/*`) and skipped the second invocation. Future release checklist must include `pnpm verify` (not just `tsc --noEmit`).
 
 **T4 (`c667879`)** — Add 4 tests for the v1.43.0 dcmConfig manifest wire path that had zero test coverage (code-reviewer HIGH finding #2):
+
 - `dcmConfigHandler.test.ts`: 3 tests pinning (a) manifest-basename match → success envelope, (b) explicit `bswmdPath` precedence over manifest, (c) walk-up fallback when manifest has no Dcm BSWMD entry.
 - `useDcmConfigLauncher.test.ts`: 1 test pinning the IPC arg shape (`call.bswmdPaths` equals `[manifestDcmPath]`).
 
@@ -67,6 +71,7 @@ Test count: 3124 → **3128** (+4 net).
 **T5 (`a08dab7`)** — Add `fireEvent.click(entry)` to `AppHeader.scripts.test.tsx` to verify the open path (code-reviewer LOW finding #6). Pre-v1.43.1 the existing test verified the entry **renders** but did not click it — the click path was untested, which is how the `ReferenceError` shipped to main via v1.42.4 PATCH. The new `fireEvent.click` + `vi.waitFor(() => screen.getByTestId('stencil-overlay'))` confirms the open path works end-to-end. **Also**: archived the abandoned v1.42.0 T4b WIP commit `759be76` as `git tag archive/v1.42.0-t4b-wip 759be76` (the commit was previously recoverable only via reflog, 90-day GC window). The tag preserves the controlled-pattern BrandMenu design for future comparison against the render-prop pattern that ultimately shipped in v1.42.2 PATCH.
 
 **Honest deviations**:
+
 - **Rapid-ship cycle retrospective**: v1.42.0 abort → v1.42.1 MINOR → v1.42.2 PATCH → v1.42.3 PATCH → v1.42.4 PATCH → v1.43.0 MINOR shipped in a single session (26 commits, +10535 / -1365 LoC, 39 files). Zero functional change across the cycle, but the code-reviewer cycle revealed that **0 functional change ≠ 0 risk**: the chunk-replacement pattern (lesson #14, 3 confirmations in this cycle) repeatedly swallowed shell-owned hooks during shell rewrites, and the renderer-side strict tsc was never run because the release-checklist only invoked `tsc --noEmit` without a project flag.
 - **Lesson #14 caveat added to the standalone lesson file**: the 3 confirmations occurred in a single session (v1.42.2 T4 R3 + v1.42.3 T2 R2 + v1.42.4 T2 R2). This is suspicious — the same bug pattern repeating 3 times in one session is more likely a **systematic script-template flaw** (Python `must_replace` function's anchor+range heuristic) than 3 independent observations. Future dispatches should treat lesson confirmations from a single session with the same observation-count caveat as a single-session confirmation.
 
@@ -79,11 +84,13 @@ Test count: 3124 → **3128** (+4 net).
 **T0 (`daa3dba`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-43-0-minor-dcm-config-bswmd-manifest-resolution.md`. Measured `dcmConfigHandler.ts` 270 LoC + `useDcmConfigLauncher.ts` 430 LoC + existing partial infrastructure (v1.32.0 T5 already subscribed to `bswmdPaths` selector but never wired to IPC). Identified 3-step resolution: (1) explicit `bswmdPath` (unchanged), (2) NEW manifest scan, (3) walk-up fallback.
 
 **T1 (`7421a87`)** — Modified `src/main/ipc/dcmConfigHandler.ts` (+50 / -4 LoC):
+
 - Extended `DcmConfigHandlerArgs` with `bswmdPaths?: readonly string[]` field
 - Added `resolveBswmdPathFromManifest(bswmdPaths: readonly string[] | undefined): string | null` helper (~25 LoC). Scans each entry for `bsw_dcm_bswmd.arxml` (case-insensitive basename) + `existsSync` check; returns first match or `null`
 - Modified `resolveDcmBswmdPath(args)` to: `args.bswmdPath ?? resolveBswmdPathFromManifest(args.bswmdPaths) ?? locateDcmBswmdPath(args.odxPath)` — 3-step precedence
 
 **T2 (`191e8ed`)** — Modified `src/renderer/hooks/useDcmConfigLauncher.ts` (+13 / -1 LoC):
+
 - Extended `DcmConfigApi.dcmConfig` interface with `bswmdPaths?: readonly string[]` field
 - Modified `open()` callback to spread `bswmdPaths` (already subscribed via `useArxmlStore((s) => s.project?.bswmdPaths ?? EMPTY_BSWMD_PATHS)`) into the IPC call
 - Wired the existing v1.32.0 T5 selector into the IPC args (was previously computed but unused)
@@ -101,6 +108,7 @@ Test count: 3124 → **3128** (+4 net).
 **T0 (`8c2d4d8`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-42-4-patch-use-app-header-shell.md`. Measured AppHeader.tsx 415 LoC structure (1 useState + 3 useState to move + 3 useEffect to move). Identified 4 return fields for new hook (3 read-only state slots + 1 imperative closeStencil action). Explicitly excluded `menuOpen` state from extraction — it's the controlled state for BrandMenu's render-prop pattern.
 
 **T1 (`1c515f1`)** — NEW `src/renderer/app/useAppHeaderShell.ts` (142 LoC). Closure-scoped hook with 4-field return bundle:
+
 - **3 read-only state slots**: `appVersion` (string, IPC result), `stencilOpen` (boolean, StencilWizard mount gate), `stencilFlagOn` (boolean, feature flag gate)
 - **1 imperative close action**: `closeStencil: () => void` (exposed so AppHeader.tsx shell can pass it as `<StencilWizard onClose={closeStencil} />`)
 
@@ -123,6 +131,7 @@ Internally the hook owns `useState<string>('…')` for appVersion + `useState<bo
 **T0 (`ba8c709`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-42-3-patch-use-app-header-handlers.md`. Measured AppHeader.tsx 661 LoC structure (4 useState + 2 useRef moved to sub-components in v1.42.2 + 2 useEffect + 1 useCallback + 6 const async handlers + 11 store selectors + 3 predicates). Identified 22 return fields for the new hook. Explicitly excluded shell-owned state (appVersion/menuOpen/stencilOpen/stencilFlagOn) from extraction — they're wired to inline JSX sub-components + StencilWizard mount.
 
 **T1 (`65ab91e`)** — NEW `src/renderer/app/useAppHeaderHandlers.ts` (366 LoC). Closure-scoped hook with 22-field return bundle:
+
 - **6 async handlers** (`const` pattern, NOT useCallback — per v1.42.1 critical-honesty flag): `onOpen`, `onSave`, `onSaveAll`, `onProjectNew`, `onProjectOpen`, `onProjectSave`
 - **1 useCallback**: `onCloseProjectClick` (the only one with explicit deps — `[state.busy, locale, setStoreError]`)
 - **3 derived predicates**: `canSave`, `canSaveAll`, `canSaveProject`
@@ -160,6 +169,7 @@ Internally the hook owns `useState<AppHeaderState>(INITIAL)` + `useProjectAction
 **Implementation detail — `AppHeader.tsx` shell still over 800 LoC Round-1 L8 cap**: shell is 661 LoC after T4 (still > 800 cap... wait, 661 < 800 — **shell is now under cap!**). The remaining ~350 LoC of state binding + handlers (`onSave`, `onSaveAll`, `onProjectNew`, `onProjectOpen`, `onProjectSave`, `onCloseProjectClick`) could be further reduced by extracting to a `useAppHeaderHandlers` hook, but that's a future cycle per v1.42.1 plan YAGNI ("Further reduction would require JSX sub-component extraction" — now done; hook extraction would be the next logical step but is not committed scope for v1.42.x).
 
 **Updated T0 spec observations carried forward**:
+
 - T4b's lesson observation #1 (T0 spec scope under-estimation for sub-components) — addressed in v1.42.x T0 spec by adding cross-VC state analysis section ("Dependency ordering (T-by-T execution)" + "Cross-VC state contract" + "Risk register").
 - T4b's lesson observation #2 (3 useEffect → actual 4) — corrected in v1.42.x T0 spec to count 6 useEffect (feature flag + stencil:open + unmount cleanup + app version + click-outside + Escape) and partition them explicitly (3 stay in shell, 3 move to BrandMenu).
 
@@ -168,6 +178,7 @@ Internally the hook owns `useState<AppHeaderState>(INITIAL)` + `useProjectAction
 **Round-1 L8 file-size backlog**: **9 of 9 closed** ✅ (was 8/9 after v1.42.1 MINOR). All 9 entries now under 800 LoC cap.
 
 **NEW lessons**:
+
 - **No new 1-of-1 lessons** promoted (v1.42.x is mechanical sub-component extraction with the render-prop pattern already covered by v1.42.1's T0 spec + D2 decision).
 - **1 lesson candidate at 1/3 confirmations** awaiting future confirmation: `marker-based-text-replacement-must-validate-block-contents-not-line-count` (observed at T4 R3 recovery).
 
@@ -190,10 +201,11 @@ Internally the hook owns `useState<AppHeaderState>(INITIAL)` + `useProjectAction
 **Cumulative**: App.tsx 1375 → 840 LoC over 4 source commits (−535 LoC, −38.9%). **0 functional change** verified: `tsc --noEmit` clean + `vitest` 350/350 files / 3124 + 7 SKIP / 0 fail (identical test count to v1.41.3). 8 callbacks extracted: `openDbcImportWizard`, `closeDbcImportWizard`, `openXlsxBatchWizard`, `closeXlsxBatchWizard`, `onTourAdvance`, `onTourBack`, `onTourSkip`, `onTourFinish`. 2 state slots (read-only): `dbcImportState`, `xlsxBatchWizardOpen`. 2 in-flight refs: `dbcImportInFlight`, `xlsxBatchInFlight`.
 
 **NEW lessons**:
-- `per-flow-jsx-refactor-needs-prerequisite-analysis-deliverable` (Tier 9) — JSX refactor on a god-component (7+ useState + 9+ useCallback + 12+ menu items) requires per-flow analysis as a separate T0 deliverable BEFORE any code move. The T0 produces the dependency catalog (N flow groups + cross-flow state read contract + dependency ordering + LoC estimates) that downstream T1–TN commits use to scope themselves. *Promoted 2026-07-10 (4/3 confirmations — T0 spec + T1 + T2 + T3 + T4a all per-flow).*
-- `cross-flow-state-reads-must-flow-through-hook-parameters` (Tier 8) — When a hook (Flow N) reads state from another hook (Flow M), the read MUST flow through hook parameters (N's signature declares the state, M's caller passes the state from M's return), NOT through shared module-level variables. The parameter pattern prevents the stale-closure pitfall + the hidden re-render trigger + improves testability + enables TypeScript inference of the cross-flow contract. *Promoted 2026-07-10 (3/3 confirmations — T1 uses dcmLauncher + odxPath; T2 sets up contract for T3; T3 consumes odxModal via parameter).*
-- `pkm-capture-stub-topic-file-recovery` (Tier 7) — pkm-capture dispatches frequently fail mid-run and produce partial vault writes. When the agent's JSONL transcript is 0 bytes (suggesting mid-run interruption), treat the dispatch as a stub and run the inline recovery protocol: verify all 3 vault deliverables and manually write the missing ones. *Promoted 2026-07-10 (4/3 confirmations in a single session — all 4 pkm-capture dispatches in the day exhibited the stub-MEMORY pattern).*
-- `devlog-follow-up-status-claims-require-re-verification-at-next-session-start` (Tier 6) — Bold state claims in devlog Open-followups sections ("3 commits ahead", "tag NOT yet created", "MINOR push PENDING") can become stale between sessions. At every session start, BEFORE acting on those claims, re-run the verification triad: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote origin HEAD + gh release view <tag>`. *Promoted 2026-07-10 (3/3 confirmations in a single dispatch — the Tier 3 push sweep).*
+
+- `per-flow-jsx-refactor-needs-prerequisite-analysis-deliverable` (Tier 9) — JSX refactor on a god-component (7+ useState + 9+ useCallback + 12+ menu items) requires per-flow analysis as a separate T0 deliverable BEFORE any code move. The T0 produces the dependency catalog (N flow groups + cross-flow state read contract + dependency ordering + LoC estimates) that downstream T1–TN commits use to scope themselves. _Promoted 2026-07-10 (4/3 confirmations — T0 spec + T1 + T2 + T3 + T4a all per-flow)._
+- `cross-flow-state-reads-must-flow-through-hook-parameters` (Tier 8) — When a hook (Flow N) reads state from another hook (Flow M), the read MUST flow through hook parameters (N's signature declares the state, M's caller passes the state from M's return), NOT through shared module-level variables. The parameter pattern prevents the stale-closure pitfall + the hidden re-render trigger + improves testability + enables TypeScript inference of the cross-flow contract. _Promoted 2026-07-10 (3/3 confirmations — T1 uses dcmLauncher + odxPath; T2 sets up contract for T3; T3 consumes odxModal via parameter)._
+- `pkm-capture-stub-topic-file-recovery` (Tier 7) — pkm-capture dispatches frequently fail mid-run and produce partial vault writes. When the agent's JSONL transcript is 0 bytes (suggesting mid-run interruption), treat the dispatch as a stub and run the inline recovery protocol: verify all 3 vault deliverables and manually write the missing ones. _Promoted 2026-07-10 (4/3 confirmations in a single session — all 4 pkm-capture dispatches in the day exhibited the stub-MEMORY pattern)._
+- `devlog-follow-up-status-claims-require-re-verification-at-next-session-start` (Tier 6) — Bold state claims in devlog Open-followups sections ("3 commits ahead", "tag NOT yet created", "MINOR push PENDING") can become stale between sessions. At every session start, BEFORE acting on those claims, re-run the verification triad: `git fetch + git rev-list --count origin/main..HEAD + git ls-remote origin HEAD + gh release view <tag>`. _Promoted 2026-07-10 (3/3 confirmations in a single dispatch — the Tier 3 push sweep)._
 
 **Closed stale follow-ups**: devlog §17.1 (App.tsx hook extraction plan), §59.2 (AppHeader.tsx sub-component analysis), B.1 (per-flow prerequisite analysis), B.5 (cross-flow state contract), 3 stale T6 candidates from v1.40.0 (re-classified as out-of-scope).
 

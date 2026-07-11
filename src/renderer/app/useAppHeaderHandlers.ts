@@ -42,14 +42,13 @@ import { t, type Locale } from '@shared/i18n/index.js';
 
 import type { ArxmlDocument } from '../../core/arxml/types.js';
 import { basename } from '../../shared/path.js';
-import type { ParseArxmlResponse } from '../../shared/types.js';
 import type { ProjectManifest } from '../../shared/types/project-manifest.js';
-import { useProjectActions } from '../hooks/useProjectActions';
-import { useArxmlStore } from '../store/useArxmlStore';
-
+import type { ParseArxmlResponse } from '../../shared/types.js';
+import { formatParseError, saveAllDirty } from '../components/AppHeader/helpers.js';
 import { INITIAL, type AppHeaderState } from '../components/AppHeader/types.js';
 import { confirm } from '../components/ConfirmDialog.js';
-import { formatParseError, saveAllDirty } from '../components/AppHeader/helpers.js';
+import { useProjectActions } from '../hooks/useProjectActions';
+import { useArxmlStore } from '../store/useArxmlStore';
 
 export type AppHeaderHandlers = {
   // 6 async handlers (`const` pattern, not useCallback — per v1.42.1
@@ -72,7 +71,11 @@ export type AppHeaderHandlers = {
   doc: ArxmlDocument | null;
   filePath: string | null;
   isActiveDirty: boolean;
-  addDocument: (doc: ArxmlDocument, filePath: string, options?: { readonly template?: boolean }) => void;
+  addDocument: (
+    doc: ArxmlDocument,
+    filePath: string,
+    options?: { readonly template?: boolean },
+  ) => void;
   setStoreError: (msg: string | null) => void;
   project: ProjectManifest | null;
   projectPath: string | null;

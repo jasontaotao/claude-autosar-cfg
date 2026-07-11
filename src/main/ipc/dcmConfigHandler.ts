@@ -143,9 +143,7 @@ function walkUpForFixture(start: string): string | null {
  * containers) would add 100ms+ per call and is unnecessary — the
  * downstream `parseArxml` step validates the BSWMD shape.
  */
-function resolveBswmdPathFromManifest(
-  bswmdPaths: readonly string[] | undefined,
-): string | null {
+function resolveBswmdPathFromManifest(bswmdPaths: readonly string[] | undefined): string | null {
   if (bswmdPaths === undefined || bswmdPaths.length === 0) return null;
   const DCM_BASENAME = 'bsw_dcm_bswmd.arxml';
   for (const candidate of bswmdPaths) {

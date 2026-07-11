@@ -550,8 +550,11 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
         odxLinkedDcmDspCount: 0,
         odxLinkedRoutineCount: 0,
         serviceCounts: {
-          DcmClearDTC: 0, DcmReadDTC: 0, DcmReadDataById: 0,
-          DcmWriteDataById: 0, DcmRoutineControl: 0,
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
         },
         outputPath: '/out/Dcm_Config.arxml',
         appliedStepCount: 0,

@@ -59,9 +59,7 @@ export type DiagExtractHandlers = {
   setDiagExtractExporting: (busy: boolean) => void;
 };
 
-export function useDiagExtractHandlers(args: {
-  odxModal: OdxModalState;
-}): DiagExtractHandlers {
+export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagExtractHandlers {
   const { odxModal } = args;
   const [diagExtractModal, setDiagExtractModal] = useState<DiagExtractModalState>({
     kind: 'closed',

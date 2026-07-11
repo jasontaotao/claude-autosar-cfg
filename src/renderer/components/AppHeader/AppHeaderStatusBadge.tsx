@@ -95,14 +95,8 @@ export function AppHeaderStatusBadge({
           shows the source path so the user can verify which
           directory the project is loaded from. */}
       {project !== null && (
-        <span
-          className="app-project-chip"
-          title={projectPath ?? ''}
-          data-testid="app-project-chip"
-        >
-          <span className="app-project-chip-label">
-            {t(locale, 'app.project.chipLabel')}
-          </span>
+        <span className="app-project-chip" title={projectPath ?? ''} data-testid="app-project-chip">
+          <span className="app-project-chip-label">{t(locale, 'app.project.chipLabel')}</span>
           <span className="app-project-chip-name">{project.name}</span>
           <button
             type="button"
@@ -142,9 +136,7 @@ export function AppHeaderStatusBadge({
         disabled={!canGenerate || generateBusy}
         aria-label={t(locale, 'app.generate.buttonAria')}
         title={
-          canGenerate
-            ? t(locale, 'app.generate.button')
-            : t(locale, 'app.generate.needProject')
+          canGenerate ? t(locale, 'app.generate.button') : t(locale, 'app.generate.needProject')
         }
         data-testid="btn-generate"
       >
@@ -168,10 +160,7 @@ export function AppHeaderStatusBadge({
           v1.12.0 PATCH D3 chain in AppHeader.tsx). The label
           also serves as the tooltip so hovering reveals the same
           value (matches the pre-extraction behavior). */}
-      <span
-        className="app-version"
-        title={t(locale, 'app.versionLabel', { version: appVersion })}
-      >
+      <span className="app-version" title={t(locale, 'app.versionLabel', { version: appVersion })}>
         {t(locale, 'app.versionLabel', { version: appVersion })}
       </span>
     </>

@@ -42,11 +42,11 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import { t } from '@shared/i18n/index.js';
 import { toManifestRelative } from '@shared/path';
 
-import { AppHeader } from './components/AppHeader';
 import { useAppMainHandlers } from './app/useAppMainHandlers';
 import { useDiagExtractHandlers } from './app/useDiagExtractHandlers';
 import { useFileViewerHandlers } from './app/useFileViewerHandlers';
 import { useWizardHandlers } from './app/useWizardHandlers';
+import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
 import { BswmdPickerRoot } from './components/BswmdPickerDialog';
 import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
