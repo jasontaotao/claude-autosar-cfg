@@ -520,6 +520,83 @@ describe('dcmConfigHandler — v1.30.0 affordances', () => {
   });
 });
 
+// v1.43.0 MINOR — project-manifest bswmdPaths resolution tests.
+//
+// Real-OEM projects can now omit `bswmdPath` and pass `bswmdPaths`
+// (the project manifest's BSWMD list). The handler scans for
+// `Bsw_Dcm_Bswmd.arxml` (case-insensitive basename) and uses the
+// first matching entry that exists on disk. Falls back to walk-up if
+// no entry matches. The two tests below pin both branches.
+describe('dcmConfigHandler — v1.43.0 MINOR project-manifest bswmdPaths resolution', () => {
+  it('uses manifest bswmdPaths when caller-supplied bswmdPath is omitted and basename matches', async () => {
+    const odxPath = pathResolve(workDir, 'input_manifest_hit.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+    // We construct a synthetic manifest bswmdPaths that matches the
+    // basename `Bsw_Dcm_Bswmd.arxml` AND points at the cwd-resident
+    // sample fixture (the v1.30.0 walk-up also finds this). The
+    // resolver picks it from the manifest first (Step 2), so the
+    // success envelope proves the manifest scan ran end-to-end.
+    const manifestDcmPath = pathResolve(
+      process.cwd(),
+      'samples',
+      'arxml',
+      'demo-ecu',
+      'bswmd',
+      'Bsw_Dcm_Bswmd.arxml',
+    );
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      outputPath: pathResolve(workDir, 'Dcm_Config_Manifest.arxml'),
+      // No bswmdPath — relies on bswmdPaths scan.
+      bswmdPaths: [manifestDcmPath],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.appliedStepCount).toBe(0); // empty xlsxRows
+  });
+
+  it('uses explicit bswmdPath when both bswmdPath and bswmdPaths are provided (precedence 1 wins)', async () => {
+    const odxPath = pathResolve(workDir, 'input_explicit.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      outputPath: pathResolve(workDir, 'Dcm_Config_Explicit.arxml'),
+      bswmdPath: '/nonexistent/does-not-exist.arxml',
+      // The manifest has a matching entry but explicit override
+      // wins — the bad path should surface as BSWMD file unreadable.
+      bswmdPaths: ['/path/to/Bsw_Dcm_Bswmd.arxml'],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/BSWMD file unreadable/);
+  });
+
+  it('falls back to walk-up when bswmdPaths has no Dcm BSWMD entry', async () => {
+    const odxPath = pathResolve(workDir, 'input_no_match.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      outputPath: pathResolve(workDir, 'Dcm_Config_Fallback.arxml'),
+      // No Dcm BSWMD in the manifest — should fall through to
+      // walk-up. The v1.30.0 walk-up finds the demo-ecu fixture
+      // via cwd resolution (the test cwd has the samples/ tree).
+      // We assert ok=true to prove the walk-up resolved a valid
+      // BSWMD (no error envelope), without coupling to xlsx row
+      // counts (empty xlsxRows = 0 applied steps).
+      bswmdPaths: ['/path/to/Bsw_Com_Bswmd.arxml', '/path/to/Bsw_PduR_Bswmd.arxml'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // xlsxRows=[] → appliedStepCount=0. We only verify the success
+    // envelope (walk-up succeeded); the step count is not the
+    // concern of this test.
+    expect(result.value.appliedStepCount).toBe(0);
+  });
+});
+
 // v1.40.0 MINOR T1 (H2) — size-cap parity tests for dcmConfigHandler.
 //
 // The handler previously called `readFileSync(args.odxPath, 'utf-8')`

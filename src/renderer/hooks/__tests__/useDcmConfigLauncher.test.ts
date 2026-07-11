@@ -531,6 +531,51 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     expect(call.bswmdPath).toBe(dcmBswmdPath);
   });
 
+  // v1.43.0 MINOR — wire `bswmdPaths` (project-manifest BSWMD list)
+  // into the dcmConfig IPC payload. The handler scans the array
+  // for `Bsw_Dcm_Bswmd.arxml` (case-insensitive basename) and
+  // resolves the Dcm BSWMD via manifest when present. Falls
+  // through to walk-up if no entry matches.
+  it('v1.43.0 — forwards bswmdPaths from project manifest to the dcmConfig IPC payload', async () => {
+    const odxPath = '/x.odx';
+    const manifestDcmPath = '/path/from/manifest/Bsw_Dcm_Bswmd.arxml';
+    useArxmlStore.setState({
+      project: { bswmdPaths: [manifestDcmPath] } as never,
+      activeDocumentPath: null,
+    });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '<arxml/>',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0, DcmReadDTC: 0, DcmReadDataById: 0,
+          DcmWriteDataById: 0, DcmRoutineControl: 0,
+        },
+        outputPath: '/out/Dcm_Config.arxml',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.open({ odxPath, xlsxRows: [] });
+    });
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const call = invokeMock.mock.calls[0]![0] as {
+      odxPath: string;
+      xlsxRows: unknown[];
+      bswmdPaths?: readonly string[];
+    };
+    expect(call.odxPath).toBe(odxPath);
+    // The hook must forward the project's bswmdPaths to the IPC
+    // payload — without this wire, the handler has no way to
+    // resolve the Dcm BSWMD via manifest for real-OEM projects.
+    expect(call.bswmdPaths).toEqual([manifestDcmPath]);
+  });
+
   // v1.32.0 MINOR T5 fix — reviewer flagged that handlePickerCancel
   // dropped the cancel silently (no status message). Brief Step 5.1
   // listed 4 tests; this is the 4th — guards the cancel→idle +
