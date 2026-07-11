@@ -33,6 +33,7 @@ import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
 import type { Result } from '../../arxml/types.js';
 
+import { buildEbModule, readDesc, readElementText } from './parse-eb-dialect.js';
 import {
   readBoolean,
   readLowerMultiplicity,
@@ -49,7 +50,6 @@ import type {
   ModuleRefEntry,
   ParamDef,
   ParamKind,
-  ProvidedEntry,
   ReferenceDef,
 } from './types.js';
 import { validateModuleDefaults } from './validate.js';
@@ -468,136 +468,8 @@ function walkElementsForModules(
 }
 
 // ---------------------------------------------------------------------------
-// EB tresos dialect
-// ---------------------------------------------------------------------------
-
-function buildEbModule(
-  item: Record<string, unknown>,
-  parentPath: string,
-  warnings?: string[],
-): BswModuleDef | null {
-  const shortName = readShortName(item);
-  if (shortName === undefined) return null;
-  const path = `${parentPath}/${shortName}`;
-  const moduleId = readNumber(item['MODULE-ID']);
-  const provided = buildProvidedEntries(item, path, warnings);
-  return {
-    shortName,
-    path,
-    dialect: 'bsw-module-description',
-    moduleId,
-    containers: [],
-    providedEntries: provided,
-    lowerMultiplicity: 0,
-    upperMultiplicity: 'infinite',
-    // EB tresos BSW-MODULE-DESCRIPTION dialect has no
-    // <MULTIPLICITY-CONFIG-CLASSES> on the module-level shape;
-    // info lives in the vendor-private ECUC-MODULE-DEF sibling.
-    multiplicityConfigClasses: [],
-  };
-}
-
-/** Read text content of a (possibly attribute-bearing) XML element. */
-function readElementText(node: unknown): string {
-  if (typeof node === 'string') return node;
-  if (typeof node === 'object' && node !== null) {
-    const text = (node as Record<string, unknown>)['#text'];
-    if (typeof text === 'string') return text;
-  }
-  return '';
-}
-
-/**
- * v1.7.1 S3 — read the `<DESC>` element body from a BSWMD node.
- *
- * Returns `undefined` when the field is absent OR present but empty
- * (e.g. `<DESC></DESC>`) — the two cases collapse to the same value
- * so downstream UI code does not have to distinguish "no
- * description declared" from "explicitly empty description".
- *
- * Reuses `readElementText` so the same string-extraction rules apply
- * (handles attribute-bearing elements and `<DESC>` with mixed
- * whitespace / line breaks).
- */
-function readDesc(item: Record<string, unknown>): string | undefined {
-  const text = readElementText(item['DESC']);
-  return text === '' ? undefined : text;
-}
-
-/** Read the `@_DEST` attribute from an element node (or empty string). */
-function readDestAttr(node: unknown): string {
-  if (typeof node !== 'object' || node === null) return '';
-  const dest = (node as Record<string, unknown>)['@_DEST'];
-  return typeof dest === 'string' ? dest : '';
-}
-
-/** Last `/`-separated segment of an AUTOSAR reference path. */
-function lastPathSegment(path: string): string {
-  if (path === '') return '';
-  const idx = path.lastIndexOf('/');
-  return idx === -1 ? path : path.slice(idx + 1);
-}
-
-function buildProvidedEntries(
-  module: Record<string, unknown>,
-  modulePath: string,
-  warnings?: string[],
-): readonly ProvidedEntry[] {
-  const provided = module['PROVIDED-ENTRYS'];
-  if (typeof provided !== 'object' || provided === null) return [];
-  const out: ProvidedEntry[] = [];
-  for (const wrapper of asArray<Record<string, unknown>>(
-    (provided as Record<string, unknown>)['BSW-MODULE-ENTRY-REF-CONDITIONAL'],
-  )) {
-    // Path 1 — AUTOSAR standard: SHORT-NAME + ENTRY-REF on the wrapper.
-    // Wrapper SHORT-NAME wins over any inferred name when present.
-    let shortName: string | undefined = readShortName(wrapper);
-    let entryRefPath = '';
-    let entryKind = '';
-    const entryRef = wrapper['ENTRY-REF'];
-    if (typeof entryRef === 'string' || (typeof entryRef === 'object' && entryRef !== null)) {
-      entryRefPath = readElementText(entryRef);
-      entryKind = readDestAttr(entryRef);
-    }
-
-    // Path 2 — EB tresos fallback: BSW-MODULE-ENTRY-REF inside the wrapper,
-    // with no SHORT-NAME on the wrapper. We synthesise shortName from the
-    // last path segment so lookup helpers and round-trip tests still see
-    // the entry. Surface a warning so the project panel can flag it.
-    if (shortName === undefined) {
-      const inner = wrapper['BSW-MODULE-ENTRY-REF'];
-      if (typeof inner === 'string' || (typeof inner === 'object' && inner !== null)) {
-        entryRefPath = readElementText(inner);
-        if (entryKind === '') entryKind = readDestAttr(inner);
-      }
-      if (entryRefPath !== '') {
-        shortName = lastPathSegment(entryRefPath);
-        if (warnings !== undefined) {
-          warnings.push(
-            `${modulePath}: provided entry omits wrapper <SHORT-NAME>; derived '${shortName}' from <BSW-MODULE-ENTRY-REF>`,
-          );
-        }
-      }
-    }
-
-    if (shortName === undefined || shortName === '') {
-      if (warnings !== undefined) {
-        warnings.push(
-          `${modulePath}: provided entry has no <SHORT-NAME> and no usable entry ref; skipped`,
-        );
-      }
-      continue;
-    }
-    out.push({
-      shortName,
-      path: `${modulePath}/${shortName}`,
-      entryRefPath,
-      entryKind,
-    });
-  }
-  return out;
-}
-
+// EB tresos dialect — moved to `./parse-eb-dialect.js` (v1.46.0 MINOR T3).
+// ---
 // ---------------------------------------------------------------------------
 // AUTOSAR standard ECUC-MODULE-DEF dialect
 // ---------------------------------------------------------------------------
