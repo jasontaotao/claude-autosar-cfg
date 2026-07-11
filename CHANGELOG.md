@@ -5,6 +5,30 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.43.1 (2026-07-11) — PATCH
+
+**Code-Reviewer Hardening Patch** — Closes 1 CRITICAL + 2 HIGH + 1 LOW + 1 NOTE findings from the v1.41.3..v1.43.0 cycle review (block verdict). 5 source commits (T1 fix + T2 cleanup + T3 wiring + T4 tests + T5 fireEvent). The rapid-ship cycle bypassed per-commit code-review; this PATCH surfaces the deferred issues + the strict-mode TypeScript gaps they hid.
+
+**T1 (`6a35183`)** — Fix CRITICAL runtime crash `ReferenceError: setStencilOpen is not defined` at `AppHeader.tsx:300`. Pre-v1.42.4 the `setStencilOpen` setter was a shell-local `useState`; v1.42.4 T1 (`1c515f1`) extracted it into `useAppHeaderShell` as a closure-local setter (only `closeStencil` exposed). The shell reference at line 300 was missed during the chunk-replacement — a direct casualty of lesson #14 (`marker-based-text-replacement-must-validate-block-contents-not-line-count`, 1 of 3 confirmations in this cycle). Fix: dispatch `window.dispatchEvent(new CustomEvent('stencil:open'))` instead — matches the existing listener in `useAppHeaderShell.ts:96-102` (same code path the Cmd-K palette uses).
+
+**T2 (`06927a1`)** — Clean up 6 unused destructure fields in `AppHeader.tsx:108-117` (`doc`, `filePath`, `addDocument`, `setStoreError`, `setLocale`, `dirtyPaths`) and remove the unused `useArxmlStore` import. These fields were destructured from `useAppHeaderHandlers()` but never consumed in shell (the remaining 6 fields are closure-captured by the 6 async handlers + `onCloseProjectClick` via the hook's own store subscriptions). The shell destructure was defensive but unused — TS6133 in `tsconfig.web.json` strict mode catches this. The hook signature is unchanged.
+
+**T3** — `pnpm verify` already wires `pnpm type-check` (line 7 of `scripts/verify.mjs`) which runs `tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json` (line 20 of `package.json`). **No source change required** — the gap was process-only: the rapid-ship cycle ran `tsc --noEmit` (defaults to `tsconfig.json`, excludes `src/renderer/**/*`) and skipped the second invocation. Future release checklist must include `pnpm verify` (not just `tsc --noEmit`).
+
+**T4 (`c667879`)** — Add 4 tests for the v1.43.0 dcmConfig manifest wire path that had zero test coverage (code-reviewer HIGH finding #2):
+- `dcmConfigHandler.test.ts`: 3 tests pinning (a) manifest-basename match → success envelope, (b) explicit `bswmdPath` precedence over manifest, (c) walk-up fallback when manifest has no Dcm BSWMD entry.
+- `useDcmConfigLauncher.test.ts`: 1 test pinning the IPC arg shape (`call.bswmdPaths` equals `[manifestDcmPath]`).
+
+Test count: 3124 → **3128** (+4 net).
+
+**T5 (`a08dab7`)** — Add `fireEvent.click(entry)` to `AppHeader.scripts.test.tsx` to verify the open path (code-reviewer LOW finding #6). Pre-v1.43.1 the existing test verified the entry **renders** but did not click it — the click path was untested, which is how the `ReferenceError` shipped to main via v1.42.4 PATCH. The new `fireEvent.click` + `vi.waitFor(() => screen.getByTestId('stencil-overlay'))` confirms the open path works end-to-end. **Also**: archived the abandoned v1.42.0 T4b WIP commit `759be76` as `git tag archive/v1.42.0-t4b-wip 759be76` (the commit was previously recoverable only via reflog, 90-day GC window). The tag preserves the controlled-pattern BrandMenu design for future comparison against the render-prop pattern that ultimately shipped in v1.42.2 PATCH.
+
+**Honest deviations**:
+- **Rapid-ship cycle retrospective**: v1.42.0 abort → v1.42.1 MINOR → v1.42.2 PATCH → v1.42.3 PATCH → v1.42.4 PATCH → v1.43.0 MINOR shipped in a single session (26 commits, +10535 / -1365 LoC, 39 files). Zero functional change across the cycle, but the code-reviewer cycle revealed that **0 functional change ≠ 0 risk**: the chunk-replacement pattern (lesson #14, 3 confirmations in this cycle) repeatedly swallowed shell-owned hooks during shell rewrites, and the renderer-side strict tsc was never run because the release-checklist only invoked `tsc --noEmit` without a project flag.
+- **Lesson #14 caveat added to the standalone lesson file**: the 3 confirmations occurred in a single session (v1.42.2 T4 R3 + v1.42.3 T2 R2 + v1.42.4 T2 R2). This is suspicious — the same bug pattern repeating 3 times in one session is more likely a **systematic script-template flaw** (Python `must_replace` function's anchor+range heuristic) than 3 independent observations. Future dispatches should treat lesson confirmations from a single session with the same observation-count caveat as a single-session confirmation.
+
+**3128 + 7 SKIP / 0 fail** (+4 tests vs v1.43.0; zero functional change). pnpm verify 7-stage GREEN. Commits: `6a35183` (T1 fix) + `06927a1` (T2 cleanup) + `c667879` (T4 tests) + `a08dab7` (T5 fireEvent). T3 was process-only (no source change).
+
 ## v1.43.0 (2026-07-11) — MINOR
 
 **DcmConfigHandler Project-Manifest BSWMD Resolution** — Replaces the 2-strategy walk-up Dcm BSWMD discovery with a project-manifest-aware resolver that scans `ProjectManifest.bswmdPaths` for the Dcm BSWMD first, falling back to the walk-up only when no manifest is loaded or the manifest's `bswmdPaths` does not contain a Dcm BSWMD. **Backwards-compatible**: existing callers that pass `bswmdPath` (real-OEM override) bypass the resolver entirely; existing callers that omit `bswmdPaths` continue to hit the walk-up fallback (sample/demo-ECU usage unchanged). 3 source commits (T0 spec + T1 main + T2 renderer). 0 functional change for existing call paths (verified via 350/350 files / 3124 + 7 SKIP / 0 fail).
