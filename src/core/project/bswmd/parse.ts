@@ -33,6 +33,13 @@ import { XMLParser, XMLValidator } from 'fast-xml-parser';
 
 import type { Result } from '../../arxml/types.js';
 
+import {
+  readBoolean,
+  readLowerMultiplicity,
+  readNumber,
+  readShortName,
+  readUpperMultiplicity,
+} from './parse-primitives.js';
 import type {
   BswModuleDef,
   BswmdDocument,
@@ -45,6 +52,7 @@ import type {
   ProvidedEntry,
   ReferenceDef,
 } from './types.js';
+import { validateModuleDefaults } from './validate.js';
 
 const NS_PATTERN = /\/schema\/(r\d+\.\d+|\d{5,6})/;
 
@@ -223,52 +231,17 @@ export function asArray<T>(v: unknown): T[] {
   return [v as T];
 }
 
-function readShortName(elem: Record<string, unknown>): string | undefined {
-  const sn = elem['SHORT-NAME'];
-  if (typeof sn === 'string') return sn;
-  if (typeof sn === 'object' && sn !== null) {
-    const t = (sn as Record<string, unknown>)['#text'];
-    if (typeof t === 'string') return t;
-  }
-  return undefined;
-}
+// `readShortName` / `readNumber` / `readBoolean` /
+// `readUpperMultiplicity` / `readLowerMultiplicity` moved to
+// `./parse-primitives.js` as part of v1.46.0 MINOR T2 (file-size
+// backlog closure round-2). They are imported at the top of this file
+// from `./parse-primitives.js`.
 
-function readNumber(node: unknown): number | null {
-  if (typeof node === 'number' && Number.isFinite(node)) return node;
-  if (typeof node === 'string') {
-    const n = Number(node);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function readBoolean(node: unknown): boolean | null {
-  if (typeof node === 'boolean') return node;
-  if (typeof node === 'string') {
-    const s = node.trim().toLowerCase();
-    if (s === 'true' || s === '1') return true;
-    if (s === 'false' || s === '0') return false;
-  }
-  return null;
-}
-
-/**
- * Read a multiplicity: returns the literal number, or 'infinite' when the
- * companion `<UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>`
- * is set. Missing upper is treated as 'infinite' because that matches the
- * ECUC spec default (most container/choice upper bounds are unbounded).
- */
-function readUpperMultiplicity(node: Record<string, unknown>): number | 'infinite' {
-  const inf = readBoolean(node['UPPER-MULTIPLICITY-INFINITE']);
-  if (inf === true) return 'infinite';
-  const n = readNumber(node['UPPER-MULTIPLICITY']);
-  return n === null ? 'infinite' : n;
-}
-
-function readLowerMultiplicity(node: Record<string, unknown>): number {
-  const n = readNumber(node['LOWER-MULTIPLICITY']);
-  return n === null ? 0 : n;
-}
+// `readMultiplicityConfigClasses` stays in this file for now
+// because it depends on `readElementText` (which moves to
+// `./parse-eb-dialect.js` in T3) + `asArray` (this file). It will move
+// to `./parse-eb-dialect.js` or `./parse-ecuc-dialect.js` as part of
+// the T3 / T5 batch once those splits land.
 
 /**
  * v1.4.1 — read the `<MULTIPLICITY-CONFIG-CLASSES>` block.
@@ -1148,49 +1121,8 @@ function buildRef(
 // Default-value validation (called by parseBswmd after walkPackagesForModules)
 // ---------------------------------------------------------------------------
 
-/**
- * Walk every module and emit a warning when an enumeration param's
- * `<DEFAULT-VALUE>` is not in its declared `<LITERALS>` set.
- *
- * Sprint 13 Stage 5.D — non-fatal cross-check. The vendor-tool failure
- * mode this guards against is: BSWMD declares LITERALS=[A,B] but
- * DEFAULT-VALUE=C. The renderer's default-value editor can't
- * roundtrip this — the value "C" would not be valid for the dropdown.
- * A warning lets the project panel surface a degraded-state banner.
- *
- * Scope: only enumeration params (other kinds are bounded by MIN/MAX
- * and validated in the schema layer, not by literal set). Walks
- * `subContainers` and `choices` recursively — same traversal pattern
- * as `findContainerInTree`.
- *
- * Exported so the sibling `validate.ts` sub-file can re-export it
- * without creating a cross-file dep on parse.ts internals.
- */
-export function validateModuleDefaults(modules: readonly BswModuleDef[], warnings: string[]): void {
-  for (const mod of modules) {
-    for (const c of mod.containers) {
-      walkContainerDefaults(c, warnings);
-    }
-  }
-}
-
-function walkContainerDefaults(container: ContainerDef, warnings: string[]): void {
-  for (const p of container.parameters) {
-    // Only enumeration params carry a literal set. Other kinds are out
-    // of scope: integer/float are bounded by MIN/MAX, string/function-name
-    // by length constraints, boolean is two-valued.
-    if (p.kind !== 'enumeration') continue;
-    if (typeof p.defaultValue !== 'string') continue;
-    if (p.enumerationLiterals.length === 0) continue;
-    if (p.enumerationLiterals.includes(p.defaultValue)) continue;
-    warnings.push(
-      `DEFAULT-VALUE '${p.defaultValue}' for enumeration param '${p.path}' is not in declared literals [${p.enumerationLiterals.join(', ')}]`,
-    );
-  }
-  for (const sub of container.subContainers) {
-    walkContainerDefaults(sub, warnings);
-  }
-  for (const choice of container.choices) {
-    walkContainerDefaults(choice, warnings);
-  }
-}
+// v1.46.0 MINOR T1 (cycle-break): `validateModuleDefaults` moved to
+// `./validate.js` to break the v1.41.x PATCH T1 circular re-export
+// (`parse.ts` ↔ `validate.ts`). `parseBswmd` still calls it via the
+// import above; the implementation + `walkContainerDefaults` walker
+// live in `validate.ts`.
