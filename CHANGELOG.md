@@ -5,6 +5,24 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.44.0 (2026-07-11) — PATCH
+
+**Lessons-Sweep — Process Cluster 14 → 17 Lessons Promotion** — Closes the remaining 3 1-of-1 lesson candidates that surfaced during the v1.42.0..v1.43.1 rapid-ship cycle. **No source-code changes** (lessons live in the vault as metadata; src/ is unchanged from v1.43.1 PATCH). All 3 promoted lessons include the "single-session confirmation caveat" prescribed by the v1.43.1 amendment to lesson #14 — distinguishing "N confirmations from same root cause (count as ~1)" vs "N confirmations from independent root causes (count as N)".
+
+**Lessons promoted** (vault-only):
+
+1. **`wip-commit-discard-pattern-is-stable-mid-flight-context-loss-recovery`** (Tier 11) — When a multi-commit refactor hits an Edit-tool context-loss loop (repeatedly interrupted by session messages), the stable recovery pattern is `git reset --hard HEAD~1` to discard the WIP commit + delete the new file + drop the stash + ship the previous T-level commit, NOT to continue the partial work. *Promoted from 1/3 confirmations (v1.42.0 PATCH T4b WIP commit `759be76` discarded via this pattern before v1.42.1 T5 ship).*
+
+2. **`ship-minor-with-partial-source-changes-when-verified-clean-and-deferred-items-have-clear-reason`** (Tier 12) — When a MINOR-version cycle's planned scope is only partially complete, ship the MINOR with the partial deliverable rather than reverting to a PATCH or aborting — provided all 3 conditions are met: (1) shipped changes are verified-clean, (2) measurable improvement is achieved, (3) deferred items have a clear reason + path forward. *Promoted from 1/3 confirmations (v1.42.1 MINOR T5 ship shipped 7 of 9 planned commits).*
+
+3. **`vault-edit-may-silently-fail-with-undefined-content-requires-read-after-write-verification`** (Tier 13) — The `vault_edit` MCP tool may return `success: true` while the underlying file write silently writes literal `undefined\n` (10 bytes) instead of the intended content. Recovery requires read-after-write verification (hex dump + length check via `vault_read` or direct filesystem read) + manual file IO (`Path.write_text(intended_content, encoding="utf-8")`) if the write failed. *Promoted from 1/3 confirmations (v1.43.0 MINOR pkm-capture dispatch: `vault_edit` returned success but wrote literal `undefined\n`; recovered via direct Python file IO).*
+
+**Process Cluster catalog updated**: `process-cluster-14-lessons-catalog-2026-07-11.md` → `process-cluster-17-lessons-catalog-2026-07-11.md`. Added Tier 11 (mid-flight recovery) + Tier 12 (version-bump discipline) + Tier 13 (MCP tool reliability). The "shape of a v1.41.x PATCH implementer decision" list extended from 6 questions to 10, mapping to lessons #14 (Python chunk replacement) + #15 (WIP discard) + #16 (partial-MINOR ship) + #17 (vault_edit verification).
+
+**Vault-only PATCH convention**: this PATCH ships metadata changes (CHANGELOG + release-notes + 4 vault files) with **zero src/ changes**. Mirrors v1.41.3 PATCH (drive-by prettier pass with 0 logic change). The version bump records the Process Cluster expansion; future dispatches can consult the new lessons to avoid repeating the rapid-ship cycle mistakes.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — no source changes). pnpm verify 7-stage GREEN.
+
 ## v1.43.1 (2026-07-11) — PATCH
 
 **Code-Reviewer Hardening Patch** — Closes 1 CRITICAL + 2 HIGH + 1 LOW + 1 NOTE findings from the v1.41.3..v1.43.0 cycle review (block verdict). 5 source commits (T1 fix + T2 cleanup + T3 wiring + T4 tests + T5 fireEvent). The rapid-ship cycle bypassed per-commit code-review; this PATCH surfaces the deferred issues + the strict-mode TypeScript gaps they hid.
