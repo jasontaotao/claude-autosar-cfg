@@ -69,6 +69,15 @@ claude-AutosarCfg-v*/
 # shipped repo.
 scripts/tmp-*.py
 
+# Python bytecode caches (__pycache__/ directories and .pyc files). Created
+# automatically by Python's import system whenever any .py file is imported.
+# Per v1.45.0 PATCH: closes v1.44.1 honest deviation (a) -- before this
+# rule, importing scripts/validate_hook_range.py created an untracked
+# __pycache__/ that interfered with `git status` cleanliness.
+**/__pycache__/
+*.pyc
+*.pyo
+
 # Local Claude Code scratch space (spec-driven dev session reports + reviews).
 # Kept on disk for the active session; never committed.
 .claude/
