@@ -5,6 +5,33 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.42.3 (2026-07-11) — PATCH
+
+**AppHeader.tsx Handler Cluster Extraction (useAppHeaderHandlers hook)** — Reduces AppHeader.tsx by extracting its handler cluster (6 async handlers + 1 useCallback + 3 derived predicates + 11 store selectors + internal `state` slot + `useProjectActions` integration) into a closure-scoped hook. 3 source commits (T0 spec + T1 hook file + T2 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
+
+**T0 (`ba8c709`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-42-3-patch-use-app-header-handlers.md`. Measured AppHeader.tsx 661 LoC structure (4 useState + 2 useRef moved to sub-components in v1.42.2 + 2 useEffect + 1 useCallback + 6 const async handlers + 11 store selectors + 3 predicates). Identified 22 return fields for the new hook. Explicitly excluded shell-owned state (appVersion/menuOpen/stencilOpen/stencilFlagOn) from extraction — they're wired to inline JSX sub-components + StencilWizard mount.
+
+**T1 (`65ab91e`)** — NEW `src/renderer/app/useAppHeaderHandlers.ts` (366 LoC). Closure-scoped hook with 22-field return bundle:
+- **6 async handlers** (`const` pattern, NOT useCallback — per v1.42.1 critical-honesty flag): `onOpen`, `onSave`, `onSaveAll`, `onProjectNew`, `onProjectOpen`, `onProjectSave`
+- **1 useCallback**: `onCloseProjectClick` (the only one with explicit deps — `[state.busy, locale, setStoreError]`)
+- **3 derived predicates**: `canSave`, `canSaveAll`, `canSaveProject`
+- **1 state slot** (read-only): `state` (`AppHeaderState` with `busy` flag — `useState` lives inside hook for closure-locality with handlers that set busy)
+- **11 store selectors** (read-only): `doc`, `filePath`, `isActiveDirty`, `addDocument`, `setStoreError`, `project`, `projectPath`, `locale`, `setLocale`, `dirtyPaths`, `projectDirtyCount`
+
+Internally the hook owns `useState<AppHeaderState>(INITIAL)` + `useProjectActions()` (returns `{ newProject, openProjectFromDialog, saveProject }`). Signature: `useAppHeaderHandlers(): AppHeaderHandlers` (no args, matches v1.42.1 T1-T4a pattern).
+
+**T2 (`7c2ca37`)** — Rewrote `AppHeader.tsx` shell (661 → 415 LoC, −246 LoC, −37.2%). Replaced 6 inline `const` async handlers + 1 useCallback + 3 predicates + 11 store selectors + `useState<AppHeaderState>` + `useProjectActions()` with a single `useAppHeaderHandlers()` destructure (22 fields). Shell now only owns 4 useState (`appVersion` + `menuOpen` + `stencilOpen` + `stencilFlagOn`) + 2 useEffect (feature flag + app version) + 3 sub-component mounts (`<AppHeaderBrandMenu>` + `<AppHeaderActionBar>` + `<AppHeaderStatusBadge>`).
+
+**T2 critical-honesty flag (lesson observation #2 confirmation)**: R2 mega-replacement range (state selectors + handlers + predicates) accidentally swallowed 3 additional shell useState (`appVersion`/`menuOpen`/`stencilOpen`/`stencilFlagOn`) + 3 useEffect (feature flag + stencil:open listener + getAppVersion IPC). Recovered by adding all 7 hooks back into the R2 replacement text. **This is the same bug pattern as v1.42.2 T4 R3** — marker-based text replacement that anchors on a `const X = useState(...)` line also catches the useState + useEffect cluster between that anchor and the next anchor (which is 332 LoC away in this case). **NEW lesson candidate at 2/3 confirmations** awaiting future confirmation: `marker-based-text-replacement-must-validate-block-contents-not-line-count` (was 1/3 in v1.42.2; this dispatch makes 2/3).
+
+**Implementation detail — `t()` import restored after R1**: R1 import replacement removed `import { t } from '../../shared/i18n/index.js';` because the original R1 anchor assumed it was unused. The shell JSX still calls `t(api.locale, ...)` inside `<AppHeaderBrandMenu>` children render-prop for menu item labels + group labels. Recovered inline by restoring the `t` import. 4 separate inline recoveries in T2: (a) shell useState cluster, (b) 2 useEffects, (c) getAppVersion useEffect (3rd useEffect), (d) `t` import.
+
+**No new 1-of-1 lessons promoted** from v1.42.3 (T2 is mechanical hook extraction with the lesson pattern already covered). The `marker-based-text-replacement-must-validate-block-contents-not-line-count` lesson candidate is now at 2/3 confirmations — needs 1 more natural observation to promote to standalone.
+
+**Round-1 L8 file-size backlog**: still **9/9 closed** (v1.42.2 closure unchanged; v1.42.3 is opportunistic cleanup beyond the Round-1 cap).
+
+**3124 + 7 SKIP / 0 fail** (zero test delta — pure refactor). pnpm verify 7-stage GREEN. Commits: `ba8c709` (T0 spec) + `65ab91e` (T1 hook file) + `7c2ca37` (T2 shell rewrite).
+
 ## v1.42.2 (2026-07-11) — PATCH
 
 **AppHeader.tsx Sub-Component Extraction (BrandMenu + ActionBar + StatusBadge)** — Closes the final Round-1 L8 file-size backlog item in the renderer (AppHeader.tsx was the only remaining entry after v1.42.1 MINOR). 5 source commits (T0 spec + T1 BrandMenu + T2 ActionBar + T3 StatusBadge + T4 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
