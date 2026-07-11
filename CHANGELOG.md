@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.46.1 (2026-07-12) — PATCH (Round-6 follow-up: package.json drift recurrence closure + L8 residue closure)
+
+**Closes F-5a (Round-6 review HIGH finding)** — `package.json` was stuck at `"version": "1.45.2"` despite CHANGELOG.md documenting `v1.46.0`. This is the **EXACT same bug class** closed by v1.45.2 PATCH `0d7ad33` one ship-cycle earlier — recurrence within 1 cycle. Defense: NEW `docs/superpowers/release-checklist.md` formalizes the pre-ship + post-ship gate that cross-checks CHANGELOG + package.json + git tag.
+
+**Closes F-1 (Round-6 review LOW finding)** — `src/renderer/App.tsx` was 840 LoC, +40 over the 800-LoC L8 cap. Extracts the 117-LoC dialog-host block (lines 720-836) into `src/renderer/hooks/useAppShell.tsx` (215 LoC). App.tsx **840 → 729 (-111 LoC, -13.2%)**, now well under the cap with 71-LoC buffer.
+
+**T1 (`3afcb7d`)** — chore(release): `package.json` `1.45.2` → `1.46.0` + NEW `docs/superpowers/release-checklist.md`.
+
+**T2 (`364033f`)** — refactor(renderer): NEW `<AppShell>` component extraction from App.tsx. Clipped VERBATIM per lesson `#15` (`function-extract-must-clip-verbatim-not-reimplement` 1/3 → **2/3** confirmation).
+
+**T3 (this commit)** — docs(release): CHANGELOG v1.46.1 entry + `docs/release-notes/v1.46.1/README.md` NEW.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — pure refactor + 1-line version bump). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Lessons**:
+
+- **`#15` `function-extract-must-clip-verbatim-not-reimplement`** — 1/3 → **2/3** confirmations (v1.46.0 T5 ECUC dialect + v1.46.1 T2 App.tsx shell). Promotion to 3/3 + standalone tier requires 1 more observation in a future cycle.
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** — 1/3 → **2/3** confirmations (v1.45.2 PATCH T1 closing the silent-drift + v1.46.0 MINOR ship cycle reintroducing the drift). The release-checklist artifact formalizes the gate.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions files written inline via Write tool.
+- **Lesson #14** (chunk-replacement guard) — applied to T1 via `Edit` tool (1-line bump; no marker-based replacement needed).
+- **Lesson #13** (per-flow prereq analysis) — T2 dialog-host extraction flow-mapped: 8 dialog hosts + 3 conditional mounts + 1 ODX picker = 12 mounts across 3 categories (always-mounted / state-machine-conditional / mode-conditional). ConfirmRoot-before-NewProjectDialog order invariant preserved.
+
+**Process lessons applied**:
+
+- Round-6 fresh code review preflight (`git log --oneline -20` + cross-reference each finding against shipped PATCH history) prevented the stale-snapshot trap that tripped Round-5 (134th dispatch).
+- Inline `pnpm verify` between T1 and T2 caught the prettier/import-order issues at auto-fixable scope (pre-commit) rather than post-commit scope (would have needed an amend cycle).
+- Type-only import path (`PickedModule`) relocated from `./useCreateEcucFromBswmd` → `../../core/arxml/skeleton` to match the actual export site (RCA: useCreateEcucFromBswmd imports PickedModule but doesn't re-export it; the canonical export is in core/arxml/skeleton.ts:44).
+
 ## v1.46.0 (2026-07-12) — MINOR (Round-2 `bswmd` file-split — Round-1 L8 closure)
 
 **Closes the Round-1 L8 file-size backlog for `bswmd/`** — `src/core/project/bswmd/parse.ts` reduced from **1196 LoC → 248 LoC** (79.3% reduction) across 5 atomic sub-split commits. **All 7 `bswmd/` sub-files now well under the 800-LoC cap** (largest is `parse-ecuc-dialect.ts` at 575 LoC). No behavioral change at the public API surface — internal refactor only.
