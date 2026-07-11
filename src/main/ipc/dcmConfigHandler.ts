@@ -128,10 +128,42 @@ function walkUpForFixture(start: string): string | null {
 }
 
 /**
- * Resolve the BSWMD path per the v1.30.0 precedence rule:
+ * v1.43.0 MINOR — resolve the Dcm BSWMD from the project's manifest
+ * `bswmdPaths` array. Scans each entry for the canonical filename
+ * `Bsw_Dcm_Bswmd.arxml` (case-insensitive basename match, since
+ * Windows preserves case but matches case-insensitively on disk).
+ * Returns the first matching path that exists on disk, or `null` if
+ * no entry matches.
+ *
+ * O(N) basename + existsSync scan. 100+ BSWMDs is <1ms.
+ *
+ * Filename basename match is sufficient because the project manifest
+ * is the user's authoritative declaration of which BSWMDs belong to
+ * the project. Content-sniffing (parsing each BSWMD to find Dcm
+ * containers) would add 100ms+ per call and is unnecessary — the
+ * downstream `parseArxml` step validates the BSWMD shape.
+ */
+function resolveBswmdPathFromManifest(
+  bswmdPaths: readonly string[] | undefined,
+): string | null {
+  if (bswmdPaths === undefined || bswmdPaths.length === 0) return null;
+  const DCM_BASENAME = 'bsw_dcm_bswmd.arxml';
+  for (const candidate of bswmdPaths) {
+    const base = candidate.split(/[\\/]/).pop() ?? '';
+    if (base.toLowerCase() !== DCM_BASENAME) continue;
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Resolve the BSWMD path per the v1.30.0 precedence rule + v1.43.0
+ * manifest resolution:
  *   1. Caller-provided `bswmdPath` wins (real-OEM override).
- *   2. Fall back to `locateDcmBswmdPath(odxPath)` (sample fixture
- *      discovery).
+ *   2. v1.43.0 — Scan `bswmdPaths` from the project manifest for
+ *      a Dcm BSWMD entry (case-insensitive basename match + existsSync).
+ *   3. Fall back to `locateDcmBswmdPath(odxPath)` (sample fixture
+ *      walk-up).
  *
  * No fall-through from (1) to (2): a real-OEM path is a declaration,
  * not a hint; if the caller-supplied path is unreadable the handler
@@ -139,7 +171,10 @@ function walkUpForFixture(start: string): string | null {
  * `readFileSync` site, not via the catch-all).
  */
 function resolveDcmBswmdPath(args: DcmConfigHandlerArgs): string {
-  return args.bswmdPath ?? locateDcmBswmdPath(args.odxPath);
+  if (args.bswmdPath !== undefined) return args.bswmdPath;
+  const fromManifest = resolveBswmdPathFromManifest(args.bswmdPaths);
+  if (fromManifest !== null) return fromManifest;
+  return locateDcmBswmdPath(args.odxPath);
 }
 
 /**
@@ -167,6 +202,17 @@ export interface DcmConfigHandlerArgs {
    * AUTOSAR container shortNames (per v1.25.1 PATCH lesson).
    */
   readonly bswmdPath?: string;
+  /**
+   * v1.43.0 MINOR — project-manifest bswmdPaths. The handler scans
+   * this array for `Bsw_Dcm_Bswmd.arxml` (case-insensitive basename
+   * match) and returns the first matching entry that exists on disk.
+   * When the caller (renderer `useDcmConfigLauncher`) passes
+   * `bswmdPaths` from `useArxmlStore.project?.bswmdPaths`, the
+   * resolver can find the Dcm BSWMD without walk-up discovery (which
+   * only finds sample fixtures). Falls through to walk-up if no entry
+   * matches or the array is empty.
+   */
+  readonly bswmdPaths?: readonly string[];
 }
 
 /**
