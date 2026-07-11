@@ -39,7 +39,6 @@ import { useState } from 'react';
 import { t } from '../../shared/i18n/index.js';
 import { useAppHeaderHandlers } from '../app/useAppHeaderHandlers.js';
 import { useAppHeaderShell } from '../app/useAppHeaderShell.js';
-import { useArxmlStore } from '../store/useArxmlStore';
 
 import { AppHeaderActionBar } from './AppHeader/AppHeaderActionBar.js';
 import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
@@ -104,17 +103,17 @@ export function AppHeader({
     canSaveProject,
     // 1 state slot (read-only)
     state,
-    // 11 store selectors (read-only)
-    doc,
-    filePath,
+    // v1.43.1 PATCH T2 (code-reviewer HIGH finding #3) — only consume
+    // the store selectors that AppHeader.tsx shell actually reads.
+    // The remaining fields (doc / filePath / addDocument / setStoreError
+    // / setLocale / dirtyPaths) are closure-captured by the 6 async
+    // handlers + onCloseProjectClick via useAppHeaderHandlers' own
+    // store subscriptions; the shell destructure was defensive but
+    // unused (TS6133 in strict mode). The hook signature is unchanged.
     isActiveDirty,
-    addDocument,
-    setStoreError,
     project,
     projectPath,
     locale,
-    setLocale,
-    dirtyPaths,
     projectDirtyCount,
   } = useAppHeaderHandlers();
 
