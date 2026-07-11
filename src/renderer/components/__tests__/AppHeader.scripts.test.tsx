@@ -254,5 +254,17 @@ describe('AppHeader Stencil Wizard menu entry (v1.8.0 K Task 7)', () => {
     expect(entry.textContent).toMatch(/New from Stencil/);
     // The palette cache should now reflect the ON state.
     await vi.waitFor(() => expect(isStencilFlagCached()).toBe(true));
+
+    // v1.43.1 PATCH (code-reviewer LOW finding #6) — actually click
+    // the entry to verify the open path. Pre-v1.43.1 the click
+    // threw `ReferenceError: setStencilOpen is not defined`
+    // (shipped to main via v1.42.4 PATCH; only tsc.web strict
+    // mode flagged it). The click now dispatches `stencil:open`
+    // CustomEvent which the useAppHeaderShell listener catches
+    // and mounts <StencilWizard />.
+    fireEvent.click(entry);
+    await vi.waitFor(() =>
+      expect(screen.getByTestId('stencil-overlay')).toBeInTheDocument(),
+    );
   });
 });
