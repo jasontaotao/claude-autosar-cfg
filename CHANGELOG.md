@@ -5,6 +5,36 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.42.2 (2026-07-11) — PATCH
+
+**AppHeader.tsx Sub-Component Extraction (BrandMenu + ActionBar + StatusBadge)** — Closes the final Round-1 L8 file-size backlog item in the renderer (AppHeader.tsx was the only remaining entry after v1.42.1 MINOR). 5 source commits (T0 spec + T1 BrandMenu + T2 ActionBar + T3 StatusBadge + T4 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
+
+**T0 (`ff6deb2`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-42-x-patch-app-header-sub-components.md`. Measured AppHeader.tsx 894 LoC structure (5 useState + 2 useRef + 6 useEffect + 3 useCallback + 6 const async handlers + ~430 LoC JSX). Identified 3 visual concern (VC) regions: BrandMenu (VC1, ~280 LoC), ActionBar (VC3a, ~52 LoC), StatusBadge (VC3b, ~71 LoC). Refreshed v1.42.1 T0 spec's sub-component scope estimation gap (lesson observation #2 from T4b PARTIAL/WIP).
+
+**T1 (`bdebdbc`)** — NEW `src/renderer/components/AppHeader/BrandMenu.tsx` (198 LoC). Extracted VC1 (Brand + Menu trigger + Dropdown panel) with **render-prop pattern** (per v1.42.1 T5 ship capture-decisions D2 decision). Owns trigger JSX + panel wrapper + `menuRef` + `closeTimerRef` + 3 useEffect (unmount cleanup + click-outside + Escape) + 2 useCallback (openMenu + scheduleClose) + `menuOpen` state ownership. The 10 menu items live in shell as `children` render-prop callback receiving `{ closeMenu, locale }`. Public surface: `AppHeaderBrandMenuProps` (3 fields: `menuOpen`, `onMenuOpenChange`, `children`) + `BrandMenuRenderApi` (2 fields: `closeMenu`, `locale`).
+
+**T2 (`e2d0986`)** — NEW `src/renderer/components/AppHeader/AppHeaderActionBar.tsx` (141 LoC). Extracted VC3a (3 Save buttons: Project Save / ARXML Save / Save All). Pure presentational sub-component with 9 props. Subscribes to `dirtyPaths.size` from store directly (avoids passing the Set across props boundary when only the count affects rendering).
+
+**T3 (`edeb2fa`)** — NEW `src/renderer/components/AppHeader/AppHeaderStatusBadge.tsx` (178 LoC). Extracted VC3b (project chip + scripts toggle + generate + locale toggle + version label). Pure presentational sub-component with 11 props. Subscribes to `setLocale` from store directly (Zustand action refs are stable, no re-render churn).
+
+**T4 (`4ab6fed`)** — Rewrote `AppHeader.tsx` shell (894 → 661 LoC, −233 LoC, −26.1%). Replaced inline `<div className="app-menu-trigger">...</div>` + 10 inline menu items (lines 475-750) with `<AppHeaderBrandMenu>` + render-prop children. Replaced 3 inline Save buttons with `<AppHeaderActionBar>`. Replaced inline `<div className="app-header-right">...</div>` content with `<AppHeaderStatusBadge>`. Deleted 3 menu useEffect + 2 useCallback + 2 useRef (now owned by BrandMenu).
+
+**Implementation detail — `AppHeader.tsx` shell still over 800 LoC Round-1 L8 cap**: shell is 661 LoC after T4 (still > 800 cap... wait, 661 < 800 — **shell is now under cap!**). The remaining ~350 LoC of state binding + handlers (`onSave`, `onSaveAll`, `onProjectNew`, `onProjectOpen`, `onProjectSave`, `onCloseProjectClick`) could be further reduced by extracting to a `useAppHeaderHandlers` hook, but that's a future cycle per v1.42.1 plan YAGNI ("Further reduction would require JSX sub-component extraction" — now done; hook extraction would be the next logical step but is not committed scope for v1.42.x).
+
+**Updated T0 spec observations carried forward**:
+- T4b's lesson observation #1 (T0 spec scope under-estimation for sub-components) — addressed in v1.42.x T0 spec by adding cross-VC state analysis section ("Dependency ordering (T-by-T execution)" + "Cross-VC state contract" + "Risk register").
+- T4b's lesson observation #2 (3 useEffect → actual 4) — corrected in v1.42.x T0 spec to count 6 useEffect (feature flag + stencil:open + unmount cleanup + app version + click-outside + Escape) and partition them explicitly (3 stay in shell, 3 move to BrandMenu).
+
+**T4 critical-honesty flag**: R3 replacement accidentally swallowed the `getAppVersion` useEffect (lines 163-207 in pre-T4) along with the 3 menu useEffect (the marker-based R3 range was 3048 chars covering 6 effects total, not the intended 3). Recovered inline by restoring the `getAppVersion` effect at line 156 + adding the v1.12.0 PATCH D3 comment block. All 3124 tests pass post-restore. The lesson: when using a marker-based text replacement, validate the block's actual contents (count effects / callbacks / refs) before applying — not just trust the line count. **NEW 1-of-1 lesson candidate** (1/3 confirmations): `marker-based-text-replacement-must-validate-block-contents-not-line-count`.
+
+**Round-1 L8 file-size backlog**: **9 of 9 closed** ✅ (was 8/9 after v1.42.1 MINOR). All 9 entries now under 800 LoC cap.
+
+**NEW lessons**:
+- **No new 1-of-1 lessons** promoted (v1.42.x is mechanical sub-component extraction with the render-prop pattern already covered by v1.42.1's T0 spec + D2 decision).
+- **1 lesson candidate at 1/3 confirmations** awaiting future confirmation: `marker-based-text-replacement-must-validate-block-contents-not-line-count` (observed at T4 R3 recovery).
+
+**3124 + 7 SKIP / 0 fail** (zero test delta — pure refactor). pnpm verify 7-stage GREEN. Commits: `ff6deb2` (T0 spec) + `bdebdbc` (T1) + `e2d0986` (T2) + `edeb2fa` (T3) + `4ab6fed` (T4).
+
 ## v1.42.1 (2026-07-10) — MINOR
 
 **App.tsx + AppHeader.tsx JSX Refactor (per-flow, T1–T4a)** — Closes 7 of 8 Round-1 L8 file-size backlog items in the renderer. Plan was 9 commits (T0 + T1 + T2 + T3 + T4a + T4b + T4c-i + T4c-ii + T4c-iii + T5); v1.42.1 MINOR ships **4 of 4 App.tsx flow extractions** (T1 + T2 + T3 + T4a) + the T0 prerequisite spec. T4b (AppHeader sub-component extraction) and T4c-i/ii/iii (AppHeader MenuPanel + Action bar + Status badge) are deferred to a future cycle — AppHeader.tsx remains 894 LoC and is the only remaining Round-1 L8 entry in the renderer.
