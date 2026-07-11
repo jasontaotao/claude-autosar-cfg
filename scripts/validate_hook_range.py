@@ -65,10 +65,48 @@ from typing import Final
 #
 # Anchored at the start of a line (with optional leading whitespace)
 # so it doesn't match `useState` inside a string literal or comment.
+#
+# The hook-call prefix accepts two shapes (v1.45.1 PATCH relaxation):
+#
+#   (1) Binding prefix: `const|let|var X = useFoo(...)` where X is
+#       either an array-destructure `[a, setA]` or a single identifier
+#       `x`. The previous regex only matched the array-destructure
+#       form (lesson #14 chunk-replacement scripts all anchored on
+#       `const [X, setX] = useState(...)` precisely because the regex
+#       behavior nudged them to). This over-anchoring meant that
+#       `const x = useFoo(...)` and `let x = useRef(...)` slipped
+#       through the guard -- a latent lesson-#14 coverage gap because
+#       no tmp-*.py chunk-replacement script had yet exercised the
+#       single-identifier form, but the risk shape was identical.
+#
+#   (2) Standalone prefix: bare `useFoo(...)` at line start (covers
+#       `useEffect(() => {}, []);` lines with no assignment).
+#
+# Generic type arguments (`<T>`, `<AppHeaderState>`, `<string>` etc.)
+# are accepted via `(?:<[^<>]*>)?`. The `<[^<>]*>` (no nested `<>`)
+# rule prevents greedy matches across multi-line arrow functions.
+#
+# Excluded (false-positive guarded):
+#   - `obj.foo.useState(...)` -- method call on a property
+#   - `useFoo.useState(...)`    -- static call on a custom object
+#   - JSX `<Foo onClick={() => useState(0)} />` -- expression in JSX
+#     attribute (the `useState` is inside the arrow body which is not
+#     at line start)
+#   - Hook calls in arrow/function bodies NOT at line start (e.g.
+#     `const cb = () => useState(0);`) -- the regex is line-anchored,
+#     so only line-start hooks count. This is a known false-negative
+#     accepted trade-off (chunk-replacement scripts that want to
+#     absorb hooks inside callbacks should NOT use this guard; they
+#     should not be writing callbacks at all).
 _HOOK_DECL_RE: Final[re.Pattern[str]] = re.compile(
-    r"^\s*(?:const|let|var)?\s*(?:\[\s*\w+\s*(?:,\s*\w+\s*)?\]?\s*=\s*)?"
+    r"^\s*"
+    r"(?:"
+    r"(?:const|let|var)\s+(?:\[[^\]]+\]|[A-Za-z_$][\w$]*)\s*=\s*"
+    r"|"
+    r""  # no-prefix alternative (standalone `useFoo(...)` at line start)
+    r")"
     r"(use(?:State|Effect|Callback|Ref|Memo|Reducer|Context|LayoutEffect|ImperativeHandle|DebugValue|Transition|Id|SyncExternalStore|InsertionEffect|ActionState|Optimistic)|use[A-Z]\w*)"
-    r"(?:<.*?>)?\s*\(",
+    r"(?:<[^<>]*>)?\s*\(",
     re.MULTILINE,
 )
 

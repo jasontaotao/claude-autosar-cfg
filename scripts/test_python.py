@@ -54,6 +54,22 @@ SELF_TESTS: list[tuple[str, callable]] = [
         "case 4: integration via assert_hook_count with realistic range",
         lambda: _case_integration(),
     ),
+    (
+        "case 5 (v1.45.1): single-identifier binding `const x = useState(...)` matched",
+        lambda: _case_single_identifier_binding(),
+    ),
+    (
+        "case 6 (v1.45.1): let binding `let x = useRef(...)` matched",
+        lambda: _case_let_binding(),
+    ),
+    (
+        "case 7 (v1.45.1): standalone useFoo(...) at line start matched",
+        lambda: _case_standalone_call(),
+    ),
+    (
+        "case 8 (v1.45.1): false positives remain guarded (obj.foo.useState, JSX)",
+        lambda: _case_false_positives_guarded(),
+    ),
 ]
 
 
@@ -111,14 +127,19 @@ def _case_extra_hooks() -> None:
 def _case_integration() -> None:
     """Realistic multi-hook range; assert matches counted.
 
-    Counted hooks: 2 useState (line 2, line 3) + 1 useCallback (line 4)
-    = 3 total. The useEffect on line 5 is NOT matched because its body
-    uses an addEventListener callback whose `() =>` is not at line start
-    -- consistent with the regex's intentional "no nested-in-callback
-    hooks" rule (a tmp-*.py chunk-replacement that swallows the
-    addEventListener line is actually safe; the lesson-#14 fix needs
-    to catch the case where hooks LAND BETWEEN two anchor markers, not
-    where hooks are buried inside other callbacks).
+    Counted hooks (v1.45.1 regex relaxation):
+      - 1 array-destructure useState (line 2): `const [appVersion, ...] = useState<string>('')`
+      - 1 array-destructure useState (line 3): `const [menuOpen, ...] = useState(false)`
+      - 1 array-destructure useCallback (line 4): `const [closeStencil] = useCallback(...)`
+        Wait -- line 4 is `const closeStencil = useCallback(...)` (single-identifier
+        binding, NOT array destructure). v1.45.1 regex adds support for this form;
+        the pre-v1.45.1 regex did NOT match it.
+      - 1 standalone useEffect (line 5): `useEffect(() => {`
+        The pre-v1.45.1 regex did not match this either; the v1.45.1 standalone-prefix
+        alternative now counts it.
+
+    Total: 4 hooks (after v1.45.1 PATCH relaxation). Pre-v1.45.1 (regex
+    over-anchoring) this case would have counted only 2 (the two useState lines).
     """
     src = (
         "import React from 'react';\n"
@@ -131,7 +152,82 @@ def _case_integration() -> None:
         "}, []);\n"
     )
     count = count_hooks_in_range(src)
+    assert count == 4, f"expected 4 hooks, got {count}"
+
+
+def _case_single_identifier_binding() -> None:
+    """v1.45.1 PATCH — `const x = useState(...)` form now matched.
+
+    The pre-v1.45.1 regex required `[name, setName]` array-destructure form,
+    which meant `const x = useState(0)` and `const x = useRef(null)` slipped
+    through the guard. v1.45.1 relaxes the binding prefix to accept either
+    `[name, setName]` or a single identifier `x`. This case verifies the new
+    form is recognized.
+    """
+    src = (
+        "const x = useState(0);\n"
+        "const y = useRef(null);\n"
+        "const z = useCallback(() => {}, []);\n"
+    )
+    count = assert_hook_count(
+        src, expected_count=3, label="case 5 (single-identifier binding)"
+    )
     assert count == 3, f"expected 3 hooks, got {count}"
+
+
+def _case_let_binding() -> None:
+    """v1.45.1 PATCH — `let x = useFoo(...)` form now matched."""
+    src = (
+        "let x = useRef(null);\n"
+        "let y = useState(0);\n"
+        "var z = useReducer(reducer, 0);\n"
+    )
+    count = assert_hook_count(
+        src, expected_count=3, label="case 6 (let/var binding)"
+    )
+    assert count == 3, f"expected 3 hooks, got {count}"
+
+
+def _case_standalone_call() -> None:
+    """v1.45.1 PATCH — standalone `useFoo(...)` at line start matched.
+
+    Pre-v1.45.1 the regex required a binding prefix. The relaxation adds a
+    no-prefix alternative so `useEffect(() => {}, []);` at line start counts.
+    Used by `useEffect` lines that aren't assigned to a binding.
+    """
+    src = (
+        "useEffect(() => {\n"
+        "  document.title = 'test';\n"
+        "}, []);\n"
+        "useEffect(() => {}, []);\n"
+    )
+    count = assert_hook_count(
+        src, expected_count=2, label="case 7 (standalone useEffect)"
+    )
+    assert count == 2, f"expected 2 hooks, got {count}"
+
+
+def _case_false_positives_guarded() -> None:
+    """v1.45.1 PATCH — false positives from relaxation remain guarded.
+
+    These forms must still NOT be matched:
+      - `obj.foo.useState(...)` (method-call on property)
+      - `useFoo.useState(...)` (static call on custom object)
+      - `<Foo onClick={() => useState(0)} />` (JSX attribute, hook is nested in arrow)
+      - `const cb = () => useState(0);` (hook in arrow body, not at line start)
+    """
+    src = (
+        "obj.foo.useState(0);\n"  # NOT matched
+        "useFoo.useState(0);\n"  # NOT matched (custom object access)
+        "<Foo onClick={() => useState(0)} />\n"  # NOT matched (JSX)
+        "const cb = () => useState(0);\n"  # NOT matched (arrow body, not line-start)
+    )
+    count = count_hooks_in_range(src)
+    assert count == 0, (
+        f"expected 0 hooks (false positives guarded), got {count}. "
+        f"Check that the regex doesn't match obj.foo.useState, "
+        f"useFoo.useState, JSX-attribute hooks, or arrow-body hooks."
+    )
 
 
 def main() -> int:
