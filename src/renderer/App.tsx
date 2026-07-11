@@ -48,30 +48,19 @@ import { useFileViewerHandlers } from './app/useFileViewerHandlers';
 import { useWizardHandlers } from './app/useWizardHandlers';
 import { AppHeader } from './components/AppHeader';
 import { ArxmlPanel } from './components/ArxmlPanel';
-import { BswmdPickerRoot } from './components/BswmdPickerDialog';
-import { CascadeConfirmRoot } from './components/CascadeConfirmDialog';
-import { ConfirmRoot } from './components/ConfirmDialog';
-import { ConfirmRoot2 } from './components/ConfirmDialog2.js';
-import { ContextMenuRoot } from './components/ContextMenu';
 import { DbcImportWizard } from './components/DbcImportWizard';
 import { DbcViewer } from './components/DbcViewer';
 import { DiagnosticExtractSuccessDialog } from './components/DiagnosticExtractSuccessDialog';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { LeftPanel } from './components/LeftPanel';
-import { ModuleFromBswmdPicker } from './components/ModuleFromBswmdPicker';
 import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
-import { NewProjectDialog } from './components/NewProjectDialog';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { OdxViewer } from './components/OdxViewer';
-import { PromptRoot } from './components/PromptDialog';
-import { RemoveModuleConfirmRoot } from './components/RemoveModuleConfirmDialog';
 import { ScriptPanel } from './components/ScriptPanel';
 import { XlsxBatchWizard } from './components/XlsxBatchWizard';
-import { DcmConfigErrorToast } from './components/dcmConfig/DcmConfigErrorToast';
-import { DcmConfigPicker } from './components/dcmConfig/DcmConfigPicker';
-import { DcmConfigSuccessDialog } from './components/dcmConfig/DcmConfigSuccessDialog';
 import { ParamEditor } from './components/editor/ParamEditor';
+import { AppShell } from './hooks/useAppShell';
 import { useBswmdHasDcm } from './hooks/useBswmdHasDcm';
 import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation';
@@ -717,123 +706,23 @@ export function App(): JSX.Element {
           />
         )}
 
-        {/* Dialog hosts (Sprint 12 #2 + Sprint 12 #3). Mounted at the
-          root so their portals (rendering into document.body) sit on
-          top of every workspace layer. */}
-        <PromptRoot />
-        {/* ConfirmRoot BEFORE NewProjectDialog: ConfirmRoot installs the
-          module-level externalSetState handle used by `confirm()`;
-          submitNewProject (Task 5) calls `confirm()` from inside
-          NewProjectDialog.onSubmit, so ConfirmRoot must mount first. */}
-        <ConfirmRoot />
-        {/* v1.36.0 MINOR T4 — 2-button destructive confirm modal
-            (separate from <ConfirmRoot /> which is the 3-button
-            unsaved-changes modal). Mounted as a sibling; the
-            module-level confirmDestructive() API resolves with
-            'confirm' or 'cancel'. */}
-        <ConfirmRoot2 />
-        {/* Sprint 15 / Phase 3.3 — CascadeConfirmRoot hosts the 3-option
-          cascade confirm dialog shown when the user requests a
-          delete-container on a node with 1+ incoming references. It
-          installs its own module-level `externalSetState` handle used
-          by `confirmCascade()` (called from useArxmlStore.deleteContainer
-          — see Phase 2). Mounted last because it depends on no other
-          dialog; no cross-mount ordering requirement. */}
-        <CascadeConfirmRoot />
-        {/* Sprint 17 P2 — RemoveModuleConfirmRoot hosts the 4-option
-          BSWMD-remove confirm dialog (cancel / only / cascade /
-          cascade-and-unlink). The 4th option unlinks the BSWMD file
-          from disk on top of cascade — fired by
-          `confirmRemoveBswmd()` from `useProjectActions.removeBswmdWithFullFlow`.
-          Distinct from CascadeConfirmDialog (3-option) because the
-          4th option's semantics have no ECUC analog. */}
-        <RemoveModuleConfirmRoot />
-        <NewProjectDialog onSubmit={handleNewProjectSubmit} />
-        {/* Sprint 14 / Task 11 — ECUC picker. Hosted at App.tsx so any
-          sibling entry point (AppHeader menu / ProjectPanel row chip)
-          can flip its `open` flag. Renders into document.body via
-          its own portal (z-index 9994) so it sits above the workspace
-          but below the confirm dialogs. The picker reads BSWMD state
-          from the store; we only own open/close + pre-selection. */}
-        <ModuleFromBswmdPicker
-          open={ecucPickerOpen}
-          projectDir={(() => {
-            const pp = useArxmlStore.getState().projectPath;
-            return pp !== null ? pp.replace(/[\\/][^\\/]+$/, '') : '';
-          })()}
+        {/* v1.46.1 PATCH T2 — Dialog hosts extracted into AppShell component
+          (clipped VERBATIM per lesson
+          `function-extract-must-clip-verbatim-not-reimplement` 2/3).
+          See src/renderer/hooks/useAppShell.tsx for the 117-LoC dialog
+          block that previously lived here. Mount order preserved:
+          ConfirmRoot before NewProjectDialog. */}
+        <AppShell
+          locale={locale}
+          ecucPickerOpen={ecucPickerOpen}
           preSelectedBswmdPath={preSelectedBswmdPath}
-          onConfirm={handleConfirmEcucPicker}
-          onClose={handleCloseEcucPicker}
+          handleConfirmEcucPicker={handleConfirmEcucPicker}
+          handleCloseEcucPicker={handleCloseEcucPicker}
+          handleContextMenuAction={handleContextMenuAction}
+          handleNewProjectSubmit={handleNewProjectSubmit}
+          dcmLauncher={dcmLauncher}
+          bswmdHasDcm={{ dcmBswmdPath: bswmdHasDcm.dcmBswmdPath }}
         />
-        {/* Sprint A X2 — P0-3 wiring. Mount the two dialog hosts that
-          back the Tree right-click flow:
-            - <BswmdPickerRoot /> (z-index 9995): subscribes to
-              useArxmlStore.bswmdPicker; opens when the menu emits an
-              'add-*' action. The host action handles Done → close.
-            - <ContextMenuRoot onAction={handleContextMenuAction} /> (z-index 9998):
-              module-level externalSetState API; opens when
-              openContextMenu() is called from TreeNode.onContextMenu.
-              Note: ContextMenuRoot sits at a HIGHER z-index than
-              BswmdPickerRoot so a click on the picker closes the menu
-              without overlap collisions.
-          The two hosts share no internal state; App.tsx is the single
-          router between them (handleContextMenuAction), keeping each
-          component decoupled from the other's update path. */}
-        <BswmdPickerRoot />
-        <ContextMenuRoot onAction={handleContextMenuAction} locale={locale} />
-        {/* v1.31.0 PATCH T7 — Dcm config renderer UX. Both components
-            are presentational; the launcher hook owns the state
-            machine. The success dialog is unconditionally mounted
-            but the component itself early-returns null when `open`
-            is false (see T2 DcmConfigSuccessDialog.tsx:55), so the
-            non-null assertion on `launcher.state.result!` is safe —
-            see the state machine invariant note above. The error
-            toast follows the same pattern (T1 DcmConfigErrorToast.tsx
-            returns null when error is null). */}
-        <DcmConfigSuccessDialog
-          open={dcmLauncher.state.dialogOpen}
-          result={dcmLauncher.state.result!}
-          locale={locale}
-          onClose={dcmLauncher.closeDialog}
-          onGenerateNew={dcmLauncher.handleGenerateNew}
-          history={useArxmlStore((s) => s.xlsxImportHistory)}
-          onReuseFromHistory={(importedAt) => useArxmlStore.getState().reuseFromHistory(importedAt)}
-        />
-        <DcmConfigErrorToast
-          error={dcmLauncher.state.error}
-          locale={locale}
-          onDismiss={dcmLauncher.dismissToast}
-        />
-        {/* v1.32.0 MINOR T8 — ODX picker thin wrapper (T6). Mounts
-            only while the launcher's state is `picking-odx`; the
-            component itself returns null so DOM-wise it is a ghost.
-            The locale + resolve/cancel callbacks come straight off
-            the launcher hook (T5's `handlePickerResolve` /
-            `handlePickerCancel`).
-            v1.33.0 MINOR T7 — `defaultPath` is the project root
-            directory (parent of the manifest file), or the parent
-            directory of the resolved Dcm BSWMD path when no project
-            is open. The split handles both / and \\ so Windows paths
-            are stripped correctly. The picker forwards this to the
-            `odx:open-with-default` IPC (v1.33.0 T3) so the OS
-            dialog opens at a meaningful starting location. We use
-            `useArxmlStore.getState()` instead of subscribing so a
-            re-render is not forced on every projectPath change
-            (matches the picker-host convention at line 1258). */}
-        {dcmLauncher.state.mode === 'picking-odx' && (
-          <DcmConfigPicker
-            locale={locale === 'zh-CN' ? 'zh-CN' : 'en'}
-            defaultPath={(() => {
-              const pp = useArxmlStore.getState().projectPath;
-              if (pp !== null) {
-                return pp.replace(/[\\/][^\\/]+$/, '');
-              }
-              return bswmdHasDcm.dcmBswmdPath?.split(/[/\\]/).slice(0, -1).join('/');
-            })()}
-            onResolve={dcmLauncher.handlePickerResolve}
-            onCancel={dcmLauncher.handlePickerCancel}
-          />
-        )}
       </div>
     </TourProvider>
   );
