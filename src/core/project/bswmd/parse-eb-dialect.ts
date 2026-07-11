@@ -203,3 +203,38 @@ function asArrayLocal<T>(v: unknown): T[] {
   if (v === undefined || v === null) return [];
   return [v as T];
 }
+
+/**
+ * v1.4.1 — read the `<MULTIPLICITY-CONFIG-CLASSES>` block.
+ *
+ * Each `<ECUC-MULTIPLICITY-CONFIGURATION-CLASS>` child contributes one
+ * `(CONFIG-CLASS, CONFIG-VARIANT)` row. Missing or empty block → empty
+ * array. Missing sub-fields default to empty string — the consumer can
+ * distinguish "no constraint declared" via `length === 0`.
+ *
+ * Per AUTOSAR TPS_StandardizationTemplate the values are restricted
+ * literals; we keep them as plain strings here so callers can format /
+ * validate however they like.
+ *
+ * v1.46.0 MINOR T5 — home moved here from `parse.ts` because the
+ * function depends on `readElementText` (which lives in this file
+ * since T3). Re-exported via the import in `parse-ecuc-dialect.ts`
+ * where it is consumed by `buildContainer` + `buildChoiceContainer`.
+ */
+export function readMultiplicityConfigClasses(
+  node: Record<string, unknown>,
+): readonly { readonly configClass: string; readonly configVariant: string }[] {
+  const block = node['MULTIPLICITY-CONFIG-CLASSES'];
+  if (typeof block !== 'object' || block === null) return [];
+  const rows = asArrayLocal<Record<string, unknown>>(
+    (block as Record<string, unknown>)['ECUC-MULTIPLICITY-CONFIGURATION-CLASS'],
+  );
+  const out: { configClass: string; configVariant: string }[] = [];
+  for (const row of rows) {
+    const configClass = readElementText(row['CONFIG-CLASS']);
+    const configVariant = readElementText(row['CONFIG-VARIANT']);
+    if (configClass === '' && configVariant === '') continue;
+    out.push({ configClass, configVariant });
+  }
+  return out;
+}
