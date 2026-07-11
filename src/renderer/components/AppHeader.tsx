@@ -297,7 +297,16 @@ export function AppHeader({
                   role="menuitem"
                   onClick={() => {
                     api.closeMenu();
-                    setStencilOpen(true);
+                    // v1.43.1 PATCH — code-reviewer CRITICAL finding:
+                    // `setStencilOpen` was a shell-local useState setter
+                    // pre-v1.42.4 PATCH; v1.42.4 T1 extracted it into
+                    // `useAppHeaderShell` (closure-local, no setter
+                    // exposed — only `closeStencil` is). Dispatch the
+                    // existing `stencil:open` CustomEvent instead, which
+                    // the hook's listener (useAppHeaderShell.ts:96-102)
+                    // picks up and runs `setStencilOpen(true)`
+                    // internally. Same code path the Cmd-K palette uses.
+                    window.dispatchEvent(new CustomEvent('stencil:open'));
                   }}
                   data-testid="btn-stencil-new"
                 >
