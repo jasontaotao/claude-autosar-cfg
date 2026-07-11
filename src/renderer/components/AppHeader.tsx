@@ -34,11 +34,11 @@
 //   - High-frequency actions remain as toolbar buttons.
 //   - Project chip moved to the right section.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { t } from '../../shared/i18n/index.js';
 import { useAppHeaderHandlers } from '../app/useAppHeaderHandlers.js';
-import { refreshStencilFlag as refreshStencilFlagCache } from '../keyboard/shortcuts/palette.js';
+import { useAppHeaderShell } from '../app/useAppHeaderShell.js';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import { AppHeaderActionBar } from './AppHeader/AppHeaderActionBar.js';
@@ -75,72 +75,19 @@ export function AppHeader({
   // The 4 shell useState (appVersion/menuOpen/stencilOpen/stencilFlagOn) +
   // 2 useEffect (feature flag + app version) stay here — they're wired to
   // inline JSX sub-components + StencilWizard mount + IPC fetches.
-  const [appVersion, setAppVersion] = useState<string>('…');
+  // v1.42.4 PATCH T2: 3 useState (appVersion + stencilOpen + stencilFlagOn) +
+  // 3 useEffect (feature flag + stencil:open listener + app version IPC) extracted
+  // to useAppHeaderShell hook (T1 commit 1c515f1). StencilWizard onClose is
+  // wired to the hook's `closeStencil` action; no shell-level setStencilOpen
+  // remains. The `menuOpen` state stays in shell because it's the controlled
+  // state for BrandMenu's render-prop pattern.
   const [menuOpen, setMenuOpen] = useState(false);
-  const [stencilOpen, setStencilOpen] = useState(false);
-  const [stencilFlagOn, setStencilFlagOn] = useState(false);
-  useEffect(() => {
-    refreshStencilFlagCache();
-    const api = (
-      globalThis as { window?: { autosarApi?: { getFeatureFlags?: () => Promise<unknown> } } }
-    ).window?.autosarApi;
-    if (api === undefined || typeof api.getFeatureFlags !== 'function') return;
-    let cancelled = false;
-    void api
-      .getFeatureFlags()
-      .then((reply) => {
-        if (cancelled) return;
-        const flag = (reply as { experimental?: { stencilWizard?: boolean } } | undefined)
-          ?.experimental?.stencilWizard;
-        setStencilFlagOn(flag === true);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setStencilFlagOn(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  // The Cmd-K palette command dispatches a `stencil:open` CustomEvent
-  // on `window`; we listen here so the wizard has a single owner.
-  useEffect(() => {
-    const handler = (): void => {
-      setStencilOpen(true);
-    };
-    window.addEventListener('stencil:open', handler);
-    return () => window.removeEventListener('stencil:open', handler);
-  }, []);
-  // v1.11.4 PATCH-B — graceful fallback when window.autosarApi
-  // is unavailable (e.g. headless E2E harness driving Vite without
-  // the Electron preload). Without this guard, the call throws on
-  // mount in 9 E2E specs and crashes the React tree before any
-  // test assertion can run. Closes v1.11.2 P1 (E2E harness gap).
-  useEffect(() => {
-    const api = window.autosarApi;
-    if (api === undefined) {
-      setAppVersion('dev');
-      return;
-    }
-    if (typeof api.getAppVersion !== 'function') {
-      setAppVersion('?');
-      return;
-    }
-    let cancelled = false;
-    void api
-      .getAppVersion()
-      .then((v) => {
-        if (cancelled) return;
-        setAppVersion(v);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAppVersion('?');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    appVersion,
+    stencilOpen,
+    stencilFlagOn,
+    closeStencil,
+  } = useAppHeaderShell();
   const {
     // 6 async handlers
     onOpen,
@@ -409,7 +356,7 @@ export function AppHeader({
           render. The flag-gate at the menu entry is the *only* gate
           (the modal itself is not gated) so manual invocations from
           devtools / future triggers still work in test mode. */}
-      {stencilOpen && <StencilWizard onClose={() => setStencilOpen(false)} />}
+      {stencilOpen && <StencilWizard onClose={closeStencil} />}
     </header>
   );
 }
