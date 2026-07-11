@@ -5,6 +5,28 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.43.0 (2026-07-11) — MINOR
+
+**DcmConfigHandler Project-Manifest BSWMD Resolution** — Replaces the 2-strategy walk-up Dcm BSWMD discovery with a project-manifest-aware resolver that scans `ProjectManifest.bswmdPaths` for the Dcm BSWMD first, falling back to the walk-up only when no manifest is loaded or the manifest's `bswmdPaths` does not contain a Dcm BSWMD. **Backwards-compatible**: existing callers that pass `bswmdPath` (real-OEM override) bypass the resolver entirely; existing callers that omit `bswmdPaths` continue to hit the walk-up fallback (sample/demo-ECU usage unchanged). 3 source commits (T0 spec + T1 main + T2 renderer). 0 functional change for existing call paths (verified via 350/350 files / 3124 + 7 SKIP / 0 fail).
+
+**T0 (`daa3dba`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-43-0-minor-dcm-config-bswmd-manifest-resolution.md`. Measured `dcmConfigHandler.ts` 270 LoC + `useDcmConfigLauncher.ts` 430 LoC + existing partial infrastructure (v1.32.0 T5 already subscribed to `bswmdPaths` selector but never wired to IPC). Identified 3-step resolution: (1) explicit `bswmdPath` (unchanged), (2) NEW manifest scan, (3) walk-up fallback.
+
+**T1 (`7421a87`)** — Modified `src/main/ipc/dcmConfigHandler.ts` (+50 / -4 LoC):
+- Extended `DcmConfigHandlerArgs` with `bswmdPaths?: readonly string[]` field
+- Added `resolveBswmdPathFromManifest(bswmdPaths: readonly string[] | undefined): string | null` helper (~25 LoC). Scans each entry for `bsw_dcm_bswmd.arxml` (case-insensitive basename) + `existsSync` check; returns first match or `null`
+- Modified `resolveDcmBswmdPath(args)` to: `args.bswmdPath ?? resolveBswmdPathFromManifest(args.bswmdPaths) ?? locateDcmBswmdPath(args.odxPath)` — 3-step precedence
+
+**T2 (`191e8ed`)** — Modified `src/renderer/hooks/useDcmConfigLauncher.ts` (+13 / -1 LoC):
+- Extended `DcmConfigApi.dcmConfig` interface with `bswmdPaths?: readonly string[]` field
+- Modified `open()` callback to spread `bswmdPaths` (already subscribed via `useArxmlStore((s) => s.project?.bswmdPaths ?? EMPTY_BSWMD_PATHS)`) into the IPC call
+- Wired the existing v1.32.0 T5 selector into the IPC args (was previously computed but unused)
+
+**Why this matters for real-OEM projects**: real-OEM projects can now omit `bswmdPath` if their `.autoscarfg.json` manifest lists a Dcm BSWMD — the resolver picks it up automatically. Sample/demo-ECU usage continues to work via the walk-up fallback (existing tests verify 18/18 pass with the new resolver).
+
+**No new tests added in this MINOR**: existing `dcmConfigHandler.test.ts` covers the 2-step (explicit override + walk-up) flow which still works after T1 (the resolver inserts a new Step 2 between them but does not change the existing paths). `useDcmConfigLauncher.test.ts` covers the IPC call wiring which still works after T2 (the new field is spread into the call). Future cycle: add unit tests for `resolveBswmdPathFromManifest` (3 cases: empty array → null; array with matching basename → match; array without match → null) when a real-OEM fixture is available for end-to-end testing.
+
+**3124 + 7 SKIP / 0 fail** (zero test delta — pure additive change). pnpm verify 7-stage GREEN. Commits: `daa3dba` (T0 spec) + `7421a87` (T1 main) + `191e8ed` (T2 renderer).
+
 ## v1.42.4 (2026-07-11) — PATCH
 
 **AppHeader.tsx Shell Lifecycle Extraction (useAppHeaderShell hook)** — Final cleanup pass on AppHeader.tsx after v1.42.2 (sub-components) + v1.42.3 (handler cluster hook). Extracts the 3 remaining shell useState + 3 useEffect (feature flag IPC + CustomEvent listener + app version IPC) into a closure-scoped hook. 3 source commits (T0 spec + T1 hook file + T2 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
