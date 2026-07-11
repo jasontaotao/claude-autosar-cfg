@@ -207,6 +207,11 @@ interface DcmConfigApi {
     odxPath: string;
     xlsxRows: readonly EcucInstanceRow[];
     bswmdPath?: string;
+    // v1.43.0 MINOR — project-manifest bswmdPaths. The handler scans
+    // this array for `Bsw_Dcm_Bswmd.arxml` and resolves the Dcm
+    // BSWMD via manifest when present. Falls through to walk-up if
+    // no entry matches.
+    bswmdPaths?: readonly string[];
   }): Promise<
     | { readonly ok: true; readonly value: DcmConfigHandlerResult }
     | { readonly ok: false; readonly error: { readonly message: string; readonly cause?: unknown } }
@@ -388,7 +393,14 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       inFlightRef.current = true;
       setState({ ...INITIAL_STATE, mode: 'pending' });
       try {
-        const res = await getApi().dcmConfig(args);
+        // v1.43.0 MINOR — wire the project manifest's bswmdPaths
+        // into the IPC call. The handler scans for `Bsw_Dcm_Bswmd.arxml`
+        // and resolves the Dcm BSWMD via manifest when present.
+        // Falls through to walk-up if no entry matches.
+        const res = await getApi().dcmConfig({
+          ...args,
+          bswmdPaths,
+        });
         if (res.ok) {
           // v1.40.0 MINOR T2 (H3) — mirror the captured odxPath into
           // lastOdxPathRef so handleGenerateNew reads the *current*
