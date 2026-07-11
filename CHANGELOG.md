@@ -5,6 +5,37 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.45.1 (2026-07-11) — PATCH (Regex Over-Anchoring Closure)
+
+**Closes v1.45.0 honest deviation (a)** — `scripts/validate_hook_range.py`'s `_HOOK_DECL_RE` over-anchored on array-destructure binding form. Lines like `const x = useState(0)` or `let x = useRef(null)` were NOT counted by the guard, producing a silent coverage gap on lesson #14 protection. v1.45.1 PATCH relaxes the regex to accept single-identifier binding (`const|let|var x = useFoo(...)`) plus retains array-destructure and standalone forms. 1 source commit + 1 docs ship + 1 vault-only lesson amendment.
+
+**T1 (`c755cba`)** — fix(scripts): relax `_HOOK_DECL_RE` binding prefix. Now matches:
+- `const [a, setA] = useState(...)` (retained from v1.44.1)
+- `const|let|var x = useFoo(...)` (NEW in v1.45.1 — single-identifier binding)
+- `useFoo(...)` at line start (retained from v1.44.1 — standalone prefix)
+
+False positives remain guarded: `obj.foo.useState(...)`, `useFoo.useState(...)`, JSX-attribute hooks, arrow-body hooks.
+
+**T2** — feat(tests): 4 new self-test cases in `scripts/test_python.py` covering the new regex behavior. case 5 (single-identifier binding) + case 6 (let/var binding) + case 7 (standalone useEffect) + case 8 (false-positives-guarded). Pre-existing case 4 expected_count 3 → 4 (the relaxed regex now counts the `useEffect` at line 5 that the old regex incidentally missed; the count was previously under-anchored, not the new behavior was over-reaching).
+
+**T3 (vault-only, no source commit)** — `01-Projects/claude-AutosarCfg/development/lessons/marker-based-text-replacement-must-validate-block-contents-not-line-count.md` extended with "Update 2026-07-11 (v1.45.1 PATCH) — regex over-anchoring relaxation" section. Documents the latent coverage gap + the rationale for relaxing (single-session script-template bias in lessons #14 confirmations all used array-destructure form, which masked the issue).
+
+**T4** — docs(release): CHANGELOG entry + `docs/release-notes/v1.45.1/README.md` NEW.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta). `pnpm tsc --noEmit -p tsconfig.json` clean. `pnpm tsc --noEmit -p tsconfig.web.json` clean. **`pnpm verify` 8-stage GREEN, python-self-test now 8/8 self-tests PASS** (was 4/4 in v1.45.0).
+
+**Decisions**:
+
+- D1 PATCH-not-MINOR — single regex fix + 4 new test cases; no src-tree behavioral change (regex is internal to the guard module, runs only in CI); the only externally-observable effect is "fewer chunk-replacement scripts will accidentally swallow hooks in non-array-destructure form". Per v1.45.0 D1 complement, this fits the v1.45.0 D3 vault-only PATCH convention's "tree-touching src/process improvement" boundary at the small end.
+- D2 case 4 expected_count 3 → 4 — the relaxed regex now counts the `useEffect` at line 5 that the old regex incidentally missed. Honest disclosure: this is a **coverage correction**, not a behavior change. Old: regex was silently under-counting by 1 in case 4; new: regex counts correctly. The test reflects reality now.
+- D3 single-line lesson amendment, no new lesson promotion — the extension is a clarification of the existing lesson #14, not a new observation.
+- D4 accept false-negative trade-off for arrow-body hooks (`const cb = () => useState(0);`) — the regex is line-anchored so only line-start hooks count. Hook calls nested in arrow/function bodies that are NOT at line start remain uncounted. Acceptable because lesson #14 chunk-replacement scripts anchor on top-level hook statements, not on arrow-body hooks. Future cycle could add a second regex for body-nested hooks if a real script-template needs it.
+
+**Process lessons applied**:
+
+- Lesson #14 (chunk-replacement guard) — by-construction now extends to single-identifier binding form. Lesson #14 amendment recorded in `01-Projects/claude-AutosarCfg/development/lessons/marker-based-text-replacement-must-validate-block-contents-not-line-count.md`.
+- Lesson #11 (pkm-capture-stub-topic-file-recovery) — applied proactively; inline write path used for forward-propagation.
+
 ## v1.45.0 (2026-07-11) — MINOR (Drift Cleanup + Verify Closure)
 
 **Closes the latent `pnpm verify` debt that accumulated across v1.42.0..v1.44.1** — for the first time in repo history, `pnpm verify` now passes all 8 stages green (`format → lint → type-check → test → coverage → build → import-regression → python-self-test`). 4 commits: T1 `.gitignore` Python bytecode + T2 `scripts/verify.mjs` new `python-self-test` stage (cl v1.44.1 deviation b) + T3 19-file prettier + 8-file import/order + 1-file exhaustive-deps fix (cl v1.42.0..v1.44.1 latent drift) + T4 ship.
