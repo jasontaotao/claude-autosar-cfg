@@ -43,6 +43,9 @@ import { useProjectActions } from '../hooks/useProjectActions';
 import { refreshStencilFlag as refreshStencilFlagCache } from '../keyboard/shortcuts/palette.js';
 import { useArxmlStore } from '../store/useArxmlStore';
 
+import { AppHeaderActionBar } from './AppHeader/AppHeaderActionBar.js';
+import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
+import { AppHeaderStatusBadge } from './AppHeader/AppHeaderStatusBadge.js';
 import { formatParseError, saveAllDirty } from './AppHeader/helpers.js';
 import { INITIAL, type AppHeaderProps, type AppHeaderState } from './AppHeader/types.js';
 import { confirm } from './ConfirmDialog.js';
@@ -73,10 +76,9 @@ export function AppHeader({
 }: AppHeaderProps): JSX.Element {
   const [state, setState] = useState<AppHeaderState>(INITIAL);
   const [appVersion, setAppVersion] = useState<string>('…');
-  // 项目下拉菜单状态
+  // v1.42.x PATCH T4: menuOpen state stays in shell (controlled mode);
+  // menuRef/closeTimerRef moved to BrandMenu.tsx.
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // v1.8.0 K — Stencil Wizard (Task 7). AppHeader owns the open/close
   // state so the File menu entry, the Cmd-K palette command, and any
   // future trigger (e.g. toolbar button) share a single entry point.
@@ -151,36 +153,30 @@ export function AppHeader({
   // ProjectPanel.LooseView uses, so no synthetic-click coupling.
   const { newProject, openProjectFromDialog, saveProject } = useProjectActions();
 
-  // unmount 时清理关闭定时器，避免泄漏
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current !== null) {
-        clearTimeout(closeTimerRef.current);
-      }
-    };
-  }, []);
+  // v1.42.x PATCH T4: 3 menu useEffect (unmount cleanup + click-outside + Escape)
+  // + 2 useCallback (openMenu + scheduleClose) moved to BrandMenu.tsx.
 
+  // v1.11.4 PATCH-B — graceful fallback when window.autosarApi
+  // is unavailable (e.g. headless E2E harness driving Vite without
+  // the Electron preload). Without this guard, the call throws on
+  // mount in 9 E2E specs and crashes the React tree before any
+  // test assertion can run. Closes v1.11.2 P1 (E2E harness gap).
+  //
+  // Distinguishes two failure modes (per code-review MEDIUM, v1.11.4):
+  //   - autosarApi entirely undefined → 'dev' (E2E harness; expected)
+  //   - autosarApi present but getAppVersion missing → '?' (production
+  //     anomaly: preload bridge failure, race during Electron startup,
+  //     or a future IPC refactor that dropped the channel). Surfaces
+  //     the bug instead of silently masking it.
+  //
+  // v1.12.0 PATCH D3 (M2) — extend the PATCH-B fix to the REJECTED
+  // IPC promise path. Without `.catch` + `cancelled`, the much more
+  // common "IPC call threw" failure (preload bridge failure, race
+  // during Electron startup, future IPC refactor) left the UI stuck
+  // on the literal `'…'` placeholder forever — the `?` anomaly signal
+  // was reserved for the synchronous "API shape changed" path only.
+  // Mirrors the sibling getFeatureFlags effect (lines 120-142 above).
   useEffect(() => {
-    // v1.11.4 PATCH-B — graceful fallback when window.autosarApi
-    // is unavailable (e.g. headless E2E harness driving Vite without
-    // the Electron preload). Without this guard, the call throws on
-    // mount in 9 E2E specs and crashes the React tree before any
-    // test assertion can run. Closes v1.11.2 P1 (E2E harness gap).
-    //
-    // Distinguishes two failure modes (per code-review MEDIUM, v1.11.4):
-    //   - autosarApi entirely undefined → 'dev' (E2E harness; expected)
-    //   - autosarApi present but getAppVersion missing → '?' (production
-    //     anomaly: preload bridge failure, race during Electron startup,
-    //     or a future IPC refactor that dropped the channel). Surfaces
-    //     the bug instead of silently masking it.
-    //
-    // v1.12.0 PATCH D3 (M2) — extend the PATCH-B fix to the REJECTED
-    // IPC promise path. Without `.catch` + `cancelled`, the much more
-    // common "IPC call threw" failure (preload bridge failure, race
-    // during Electron startup, future IPC refactor) left the UI stuck
-    // on the literal `'…'` placeholder forever — the `?` anomaly signal
-    // was reserved for the synchronous "API shape changed" path only.
-    // Mirrors the sibling getFeatureFlags effect (lines 120-142 above).
     const api = window.autosarApi;
     if (api === undefined) {
       setAppVersion('dev');
@@ -204,43 +200,6 @@ export function AppHeader({
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  // 下拉菜单：点击外部关闭
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent): void => {
-      if (menuRef.current !== null && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [menuOpen]);
-
-  // 下拉菜单：Escape 关闭
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [menuOpen]);
-
-  const openMenu = useCallback(() => {
-    if (closeTimerRef.current !== null) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    setMenuOpen(true);
-  }, []);
-
-  const scheduleClose = useCallback(() => {
-    closeTimerRef.current = setTimeout(() => {
-      setMenuOpen(false);
-      closeTimerRef.current = null;
-    }, 150);
   }, []);
 
   const onOpen = async (): Promise<void> => {
@@ -471,46 +430,18 @@ export function AppHeader({
             bar should just give the user buttons. */}
       </div>
       <div className="app-header-actions">
-        {/* 项目下拉菜单（EB tresos 风格）：低频操作收进菜单 */}
-        <div
-          className="app-menu-trigger"
-          ref={menuRef}
-          onMouseEnter={openMenu}
-          onMouseLeave={scheduleClose}
-          data-testid="menu-project-trigger"
-        >
-          <button
-            type="button"
-            className={`app-menu-btn ${menuOpen ? 'is-open' : ''}`}
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            data-testid="btn-menu-toggle"
-          >
-            {t(locale, 'app.menu.project')}
-            <svg
-              className="app-menu-chevron"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <div
-              className="app-dropdown"
-              role="menu"
-              onMouseEnter={openMenu}
-              onMouseLeave={scheduleClose}
-            >
-              <div className="app-dropdown-group-label">{t(locale, 'app.menu.projectManage')}</div>
+        {/* v1.42.x PATCH T4: BrandMenu owns trigger + panel + refs/effects/callbacks;
+            menu items live in shell as render-prop children for prop-drilling locality. */}
+        <AppHeaderBrandMenu menuOpen={menuOpen} onMenuOpenChange={setMenuOpen}>
+          {(api) => (
+            <>
+              <div className="app-dropdown-group-label">{t(api.locale, 'app.menu.projectManage')}</div>
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onProjectNew();
                 }}
                 disabled={state.busy}
@@ -519,14 +450,14 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   📁
                 </span>
-                {t(locale, 'app.project.new')}
+                {t(api.locale, 'app.project.new')}
               </button>
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onProjectOpen();
                 }}
                 disabled={state.busy}
@@ -535,16 +466,16 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   📂
                 </span>
-                {t(locale, 'app.project.open')}
+                {t(api.locale, 'app.project.open')}
               </button>
               <div className="app-dropdown-divider" role="separator" />
-              <div className="app-dropdown-group-label">{t(locale, 'app.menu.fileOps')}</div>
+              <div className="app-dropdown-group-label">{t(api.locale, 'app.menu.fileOps')}</div>
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onOpen();
                 }}
                 disabled={state.busy}
@@ -553,19 +484,14 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   📄
                 </span>
-                {t(locale, 'app.open.arxml')}
+                {t(api.locale, 'app.open.arxml')}
               </button>
-              {/* v1.21.0 Bug #5 — "Open DBC…" entry. Closes the v1.7.0
-                  @dbc-forge/core dead-code gap by giving the user a
-                  visible UI affordance for opening a .dbc file. The
-                  parent (App.tsx) owns the parse state machine +
-                  DbcViewer modal; AppHeader just forwards the click. */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onOpenDbc();
                 }}
                 disabled={dbcBusy}
@@ -574,22 +500,14 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   🗂️
                 </span>
-                {t(locale, 'app.open.dbc')}
+                {t(api.locale, 'app.open.dbc')}
               </button>
-              {/* v1.22.0 T3 — "Open ODX…" entry. Closes the v1.21.0
-                  carry-over "ODX 完全没做" gap by giving the user a
-                  visible UI affordance for opening a .odx file. The
-                  parent (App.tsx) owns the parse state machine +
-                  OdxViewer modal; AppHeader just forwards the click.
-                  `odxBusy` is decoupled from `dbcBusy` so the two
-                  imports do not block each other (mirrors the
-                  v1.21.0 T4 DBC decoupling). */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onOpenOdx();
                 }}
                 disabled={odxBusy}
@@ -598,40 +516,22 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   🩺
                 </span>
-                {t(locale, 'app.open.odx')}
+                {t(api.locale, 'app.open.odx')}
               </button>
-              {/* v1.31.0 PATCH — "Open Dcm Config…" entry. Sits under
-                  fileOps, immediately after ODX, because it is the
-                  DCM-configurator launcher (writes the demConfig
-                  configuration per the dcm:config IPC channel). The
-                  parent (App.tsx) owns the useDcmConfigLauncher
-                  hook + the success-dialog / error-toast state; this
-                  header just forwards the click + renders the label.
-                  `dcmConfigBusy` is the in-flight gate (true while
-                  the dcm:config IPC round-trip is in progress) —
-                  decoupled from `xlsxBatchBusy` / `dbcImportBusy` /
-                  `odxBusy` / `dbcBusy` so the 5 importer/viewer
-                  operations can run independently without false-
-                  disabled menu entries. `canOpenDcmConfig` is the
-                  combined gate (odxLoaded AND hasDcmBswmd) computed
-                  by the parent; when false, the button is disabled
-                  with a title explaining the missing-prerequisite
-                  reason (matches the v1.22.0 T3 ODX empty-state
-                  UX contract). */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   onOpenDcmConfig();
                 }}
                 disabled={dcmConfigBusy || !canOpenDcmConfig}
                 title={
                   dcmConfigBusy
-                    ? t(locale, 'app.open.dcmConfig.busy')
+                    ? t(api.locale, 'app.open.dcmConfig.busy')
                     : !canOpenDcmConfig
-                      ? t(locale, 'dcmConfig.error.noDcmBswmd')
+                      ? t(api.locale, 'dcmConfig.error.noDcmBswmd')
                       : undefined
                 }
                 data-testid="btn-open-dcm-config"
@@ -639,76 +539,46 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   ⚙️
                 </span>
-                {t(locale, 'app.open.dcmConfig')}
+                {t(api.locale, 'app.open.dcmConfig')}
               </button>
-              {/* v1.23.0 T4 — "Import DBC → Com Stack…" entry. Sits
-                  under the fileOps group, between ODX and the BSWMD
-                  picker, because it is an "importer" verb (mutates
-                  project state) rather than a "viewer" verb (the
-                  read-only DbcViewer above). The 📥 icon
-                  distinguishes it from the 🗂️ DbcViewer icon.
-                  `dbcImportBusy` is decoupled from `dbcBusy` /
-                  `odxBusy` so a slow wizard round-trip does not
-                  block other file-ops. The parent (App.tsx) owns
-                  the openDbc → parseDbc flow + the DbcImportWizard
-                  state machine + the v1.23.0 T3 IPC apply. */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onOpenDbcImport();
                 }}
                 disabled={dbcImportBusy}
                 data-testid="btn-import-dbc-com"
               >
                 <span className="app-dropdown-icon" aria-hidden="true">
-                  {t(locale, 'dbc.import.menu.icon')}
+                  {t(api.locale, 'dbc.import.menu.icon')}
                 </span>
-                {t(locale, 'dbc.import.menu.label')}
+                {t(api.locale, 'dbc.import.menu.label')}
               </button>
-              {/* v1.25.0 T5 — "Batch create ECUC from Excel…" entry.
-                  Sits under fileOps, immediately after the DBC import
-                  entry, because it is the sibling batch importer verb
-                  (writes 3 ECUC files atomically per the v1.25.0 T2/T3
-                  IPC surface). The 📊 icon distinguishes it from the
-                  📥 DBC-import icon. `xlsxBatchBusy` is decoupled from
-                  `dbcImportBusy` / `odxBusy` / `dbcBusy` so the 4
-                  importer/viewer operations can run independently
-                  without false-disabled menu entries. The parent
-                  (App.tsx) owns the XlsxBatchWizard open flag + the
-                  3-IPC pipeline. */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   void onOpenXlsxBatch();
                 }}
                 disabled={xlsxBatchBusy}
                 data-testid="btn-import-xlsx-batch"
               >
                 <span className="app-dropdown-icon" aria-hidden="true">
-                  {t(locale, 'xlsxBatch.menu.icon')}
+                  {t(api.locale, 'xlsxBatch.menu.icon')}
                 </span>
-                {t(locale, 'xlsxBatch.menu.label')}
+                {t(api.locale, 'xlsxBatch.menu.label')}
               </button>
-              {/* Sprint 14 / Task 11 — BSWMD-to-ECUC entry point. Lives
-                  under the fileOps group (matches "Open ARXML" — both
-                  add a new file/asset). Disabled when no BSWMD is loaded
-                  OR no project is open; the predicate is computed by the
-                  parent (App.tsx) and passed in as `canSelectEcucModule`.
-                  Forward the click to the host so it can flip picker
-                  state and pre-select the BSWMD when the row's chip
-                  triggered the entry instead. */}
               <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"
                 onClick={() => {
-                  setMenuOpen(false);
+                  api.closeMenu();
                   onEcucModuleSelect();
                 }}
                 disabled={!canSelectEcucModule}
@@ -717,24 +587,15 @@ export function AppHeader({
                 <span className="app-dropdown-icon" aria-hidden="true">
                   ✨
                 </span>
-                {t(locale, 'ecuc.fromBswmd.menu')}
+                {t(api.locale, 'ecuc.fromBswmd.menu')}
               </button>
-              {/* v1.8.0 K — Stencil Wizard (Task 7). Hidden when the
-                  `experimental.stencilWizard` flag is OFF so stale
-                  triggers (menu + Cmd-K palette) cannot open a wizard
-                  that main will reject. The `hidden` attribute collapses
-                  the row without disturbing the dropdown layout
-                  (mirrors the W-cluster `ResetOnboardingMenuItem`
-                  pattern). The label reuses the i18n key already used
-                  by the modal title (`stencil.title`) so the menu and
-                  modal agree on the wording across en + zh-CN. */}
               {stencilFlagOn && (
                 <button
                   type="button"
                   className="app-dropdown-item"
                   role="menuitem"
                   onClick={() => {
-                    setMenuOpen(false);
+                    api.closeMenu();
                     setStencilOpen(true);
                   }}
                   data-testid="btn-stencil-new"
@@ -742,67 +603,28 @@ export function AppHeader({
                   <span className="app-dropdown-icon" aria-hidden="true">
                     🧩
                   </span>
-                  {t(locale, 'stencil.title')}
+                  {t(api.locale, 'stencil.title')}
                 </button>
               )}
-            </div>
+            </>
           )}
-        </div>
+        </AppHeaderBrandMenu>
 
         <span className="app-header-sep" aria-hidden="true" />
+        <span className="app-header-sep" aria-hidden="true" />
 
-        {/* 高频操作：保存按钮常驻工具栏 */}
-        <button
-          type="button"
-          onClick={onProjectSave}
-          disabled={!canSaveProject}
-          className="app-btn app-btn-save"
-          data-testid="btn-project-save"
-          data-tour-id="app-save"
-          title={
-            projectDirtyCount > 0
-              ? t(locale, 'app.project.saveBlockedDirty', {
-                  count: projectDirtyCount,
-                })
-              : undefined
-          }
-        >
-          {t(locale, 'app.project.save')}
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave}
-          className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
-          data-testid="btn-save"
-        >
-          {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
-        </button>
-        {/* Sprint 16b T7 — Save All. Loops dirty paths silently (no
-            per-file dialog). Label previews the count when N>0 so the
-            user can see how many files will be touched; tooltip
-            matches. Disabled when the set is empty OR another action
-            is in-flight (`state.busy` is set during the loop). Placed
-            immediately right of `btn-save` per the "高频按钮常驻工具栏"
-            UX rule. */}
-        <button
-          type="button"
-          onClick={() => {
-            void onSaveAll();
-          }}
-          disabled={!canSaveAll}
-          className={`app-btn app-btn-save-all ${dirtyPaths.size > 0 ? 'is-dirty' : ''}`}
-          data-testid="btn-save-all"
-          title={
-            dirtyPaths.size > 0
-              ? t(locale, 'app.saveAllDirtyTitle', { count: dirtyPaths.size })
-              : t(locale, 'app.saveAllTitle')
-          }
-        >
-          {dirtyPaths.size > 0
-            ? t(locale, 'app.saveAllDirty', { count: dirtyPaths.size })
-            : t(locale, 'app.saveAll')}
-        </button>
+        {/* v1.42.x PATCH T4: AppHeaderActionBar owns the 3 Save buttons. */}
+        <AppHeaderActionBar
+          onProjectSave={onProjectSave}
+          canSaveProject={canSaveProject}
+          projectDirtyCount={projectDirtyCount}
+          onSave={onSave}
+          canSave={canSave}
+          isActiveDirty={isActiveDirty}
+          onSaveAll={onSaveAll}
+          canSaveAll={canSaveAll}
+          locale={locale}
+        />
       </div>
       {/* Sprint 13+ — removed the doc-tab strip (app-doc-tabs) that showed
           every loaded ARXML as a tab in the menu bar. User feedback:
@@ -811,75 +633,20 @@ export function AppHeader({
           (tabbed sidebar) so showing them in the menu bar too was
           redundant decoration. */}
       <div className="app-header-right">
-        {project !== null && (
-          <span
-            className="app-project-chip"
-            title={projectPath ?? ''}
-            data-testid="app-project-chip"
-          >
-            <span className="app-project-chip-label">{t(locale, 'app.project.chipLabel')}</span>
-            <span className="app-project-chip-name">{project.name}</span>
-            <button
-              type="button"
-              className="app-project-chip-close"
-              aria-label={t(locale, 'app.project.closeAria', { name: project.name })}
-              onClick={onCloseProjectClick}
-              data-testid="btn-project-close"
-            >
-              ×
-            </button>
-          </span>
-        )}
-        <button
-          type="button"
-          className={`app-btn app-btn-scripts ${scriptPanelOpen ? 'is-active' : ''}`}
-          onClick={onToggleScriptPanel}
-          aria-pressed={scriptPanelOpen}
-          aria-label={t(locale, 'script.panel.toggle')}
-          title={t(locale, 'script.panel.toggle')}
-          data-testid="btn-scripts-toggle"
-        >
-          {t(locale, 'script.panel.title')}
-        </button>
-        {/* v1.21.0 MINOR T1 — BSW code generator GUI entry. Sits
-            between the scripts toggle and the locale switch so the
-            project-bound actions cluster on the right. Disabled
-            when no project is open (the generator requires a
-            `.autosarcfg.json` manifest path) or another action is
-            in-flight. `generateBusy` is wired from the
-            `useGenerateCode` hook's `state === 'running'` flag. */}
-        <button
-          type="button"
-          className={`app-btn app-btn-generate ${generateBusy ? 'is-busy' : ''}`}
-          onClick={onGenerate}
-          disabled={!canGenerate || generateBusy}
-          aria-label={t(locale, 'app.generate.buttonAria')}
-          title={
-            canGenerate ? t(locale, 'app.generate.button') : t(locale, 'app.generate.needProject')
-          }
-          data-testid="btn-generate"
-        >
-          {t(locale, 'app.generate.button')}
-        </button>
-        <button
-          type="button"
-          className="app-btn app-btn-locale"
-          onClick={() => setLocale(locale === 'zh-CN' ? 'en' : 'zh-CN')}
-          aria-label={t(locale, 'app.locale.toggleAria')}
-          data-testid="btn-locale-toggle"
-        >
-          {locale === 'zh-CN' ? 'EN' : '中'}
-        </button>
-        {/* Sprint 13+ — removed the doc-version chip (e.g. "AUTOSAR 4.2")
-            because the menu bar should only carry functional controls.
-            The tree / status bar already surfaces the active doc's
-            AUTOSAR version when the user is editing it. */}
-        <span
-          className="app-version"
-          title={t(locale, 'app.versionLabel', { version: appVersion })}
-        >
-          {t(locale, 'app.versionLabel', { version: appVersion })}
-        </span>
+        {/* v1.42.x PATCH T4: AppHeaderStatusBadge owns the project chip +
+            scripts toggle + generate + locale + version UI cluster. */}
+        <AppHeaderStatusBadge
+          project={project}
+          projectPath={projectPath}
+          onCloseProjectClick={onCloseProjectClick}
+          scriptPanelOpen={scriptPanelOpen}
+          onToggleScriptPanel={onToggleScriptPanel}
+          onGenerate={onGenerate}
+          canGenerate={canGenerate}
+          generateBusy={generateBusy}
+          locale={locale}
+          appVersion={appVersion}
+        />
       </div>
       {/* v1.8.0 K — Stencil Wizard (Task 7). The modal portals into
           `document.body` from inside `<StencilWizard />` so the
