@@ -5,6 +5,100 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.46.0 (2026-07-12) — MINOR (Round-2 `bswmd` file-split — Round-1 L8 closure)
+
+**Closes the Round-1 L8 file-size backlog for `bswmd/`** — `src/core/project/bswmd/parse.ts` reduced from **1196 LoC → 248 LoC** (79.3% reduction) across 5 atomic sub-split commits. **All 7 `bswmd/` sub-files now well under the 800-LoC cap** (largest is `parse-ecuc-dialect.ts` at 575 LoC). No behavioral change at the public API surface — internal refactor only.
+
+### The 5 sub-split commits (atomic, sequential, DAG-clean)
+
+**T1 (`df525d4`)** — refactor(core): cycle-break + parse-primitives extract.
+
+Moves `validateModuleDefaults` real impl from `parse.ts` (lines 1131-1196) into `validate.ts` (84 LoC), breaking the v1.41.x PATCH T1 circular re-export. NEW `parse-primitives.ts` (95 LoC) hosts 5 XML-attribute read helpers (`readShortName`, `readNumber`, `readBoolean`, `readUpperMultiplicity`, `readLowerMultiplicity`).
+
+parse.ts: 1196 → 1128 LoC (-68).
+
+**T2 (`df525d4`)** — same atomic batch as T1. `readMultiplicityConfigClasses` stays in parse.ts until T5 (depends on `readElementText` eb-dialect + `asArray` parse.ts).
+
+**T3 (`5002e85`)** — refactor(core): parse-eb-dialect extract.
+
+NEW `parse-eb-dialect.ts` (205 LoC) hosts EB-tresos dialect builders + element-text helpers (`buildEbModule`, `buildProvidedEntries`, `readElementText`, `readDesc`, `readDestAttr`, `lastPathSegment`). Document cross-dialect dep: `readElementText` + `readDesc` are used by both EB and ECUC dialects; colocating avoids 2-way imports.
+
+parse.ts: 1128 → 1000 LoC (-128). Cumulative round-2 reduction: -196 LoC.
+
+**T5 (`2693569`)** — refactor(core): parse-ecuc-dialect extract.
+
+NEW `parse-ecuc-dialect.ts` (575 LoC) hosts the ECUC-AR4 dialect builders + container/choice/parameter/reference sub-builders (12 functions). `readMultiplicityConfigClasses` re-homed to `parse-eb-dialect.ts` (which owns the `readElementText` it depends on). `walkContainerDefaults` lives in BOTH `parse-ecuc-dialect.ts` (for `buildContainer` recursion) AND `validate.ts` (for `validateModuleDefaults` entry) — deduplication deferred to a future cycle.
+
+parse.ts: 1000 → 440 LoC (-560). Cumulative round-2 reduction: -756 LoC.
+
+**T4 (`2799a72`)** — refactor(core): parse-tree-walker extract (last sub-split).
+
+NEW `parse-tree-walker.ts` (257 LoC) hosts AR-PACKAGE + ELEMENTS walkers + path-lookup `findContainerInTree`. **`findContainerInTree` re-exported from parse.ts** so `lookup.ts:findContainerInTreeByPath` (which imports `findContainerInTree` from `./parse.js`) keeps working without a cross-file edit.
+
+parse.ts: 440 → **248 LoC** (-192). **Cumulative round-2 reduction: -948 LoC (79.3%)**.
+
+### Why round-2 needs T5 before T4
+
+The T0 spec listed T4 → T5, but actual dependency analysis flipped: `walkElementsForModules` (T4 candidate) imports `buildEcucModule` (T5 candidate). Without T5 first, T4's walker would need to import from `parse.ts`, defeating the DAG-clean goal. Order flipped in practice.
+
+### 7 bswmd sub-files post-split (all under 800-LoC cap)
+
+| File                    | LoC     | Origin                                                                                       |
+| ----------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `parse-primitives.ts`   | 95      | T2 (NEW)                                                                                     |
+| `validate.ts`           | 84      | T1 (real impl)                                                                               |
+| `lookup.ts`             | 106     | pre-existing (v1.41.x T1)                                                                    |
+| `parse-eb-dialect.ts`   | 240     | T3 + 5 LoC in T5 (re-home `readMultiplicityConfigClasses`)                                   |
+| `parse-tree-walker.ts`  | 257     | T4 (NEW)                                                                                     |
+| `parse-ecuc-dialect.ts` | 575     | T5 (NEW)                                                                                     |
+| `parse.ts`              | **248** | T4 residual (parseBswmd entry + version detection + asArray + findContainerInTree re-export) |
+
+### Decisions
+
+- **D1 MINOR-not-PATCH** — pure-refactor without behavioral change, matches `pure-refactor-minor-is-the-right-shape-for-deferred-cleanups-when-ipc-stable` lesson. Round-2 of file-split on a single file domain (`bswmd/`).
+- **D2 T5 before T4 (revised order from spec)** — actual dependency required ECUC dialect extracted first so walker can import cleanly. T0 spec got the order wrong (off-by-one on cycle analysis).
+- **D3 `findContainerInTree` re-export from parse.ts** — preserves `lookup.ts:findContainerInTreeByPath`'s `./parse.js` import path without cross-file edit. Public-surface stable.
+- **D4 `asArrayLocal` private copy in each sub-file** — consistent pattern in `parse-eb-dialect.ts` + `parse-ecuc-dialect.ts` + `parse-tree-walker.ts`. Avoids cross-file runtime dep on `parse.ts`. Future cycle: hoist to `helpers/array.ts` shared utility.
+- **D5 `walkContainerDefaults` dual-home (ecuc-dialect + validate)** — deduplication deferred; not blocking.
+
+### Process lessons applied (across T1-T5)
+
+- **Lesson #10** (devlog-follow-up-status-claims) — confirmed `pnpm verify` 8-stage state before each commit.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions written inline via Write tool to avoid the pkm-capture stall pattern observed earlier today.
+- **Lesson #13** (per-flow prerequisite analysis) — T0 design spec flagged the dependency but cycle analysis was off-by-one (had to flip T4/T5 order at runtime).
+- **Lesson #14** (chunk-replacement guard) — Python `must_replace` used function-presence check (not hook count) for the 21,575-char ECUC block delete + 7,970-char walker block delete + 3,820-char eb-dialect delete. The hook-count gate (v1.45.0) doesn't fit `function NAME` decl shape; the function-presence check is the second-tier gate.
+
+### Test results
+
+- vitest 350/350 / 3128 + 7 SKIP / 0 fail (unchanged across T1-T5)
+- tsc `--noEmit -p tsconfig.json` + `--noEmit -p tsconfig.web.json` both clean
+- prettier check clean after per-commit reformat
+- eslint `--max-warnings 0` clean (0 errors, 0 warnings)
+- **`pnpm verify` 8-stage GREEN** — same first-ship 8-stage result as v1.45.0 maintained across all 5 commits
+- `python-self-test` 8/8 PASS (validate_hook_range.py coverage including new cases 5-8 from v1.45.1)
+
+### Honest deviations
+
+- (a) **`walkContainerDefaults` dual-home** — lives in both `parse-ecuc-dialect.ts` and `validate.ts`. ~25-line duplication. Future cycle should hoist to a shared helper.
+- (b) **`parse-ecuc-dialect.ts` at 575 LoC** is the largest single file post-split. Under the 800-LoC cap (28% headroom) but could be split further if a future cycle needs additional ECUC sub-builder work. Not blocking for this MINOR.
+- (c) **`asArrayLocal` triplicated** — exists in parse-eb-dialect.ts + parse-ecuc-dialect.ts + parse-tree-walker.ts. Future cycle should hoist to `helpers/array.ts` shared utility.
+- (d) **T0 spec got T4/T5 order wrong** — flag-and-flip was a spec deviation, but lesson #13 (per-flow prerequisite analysis) caught it at runtime. The T0 spec document at `docs/superpowers/specs/2026-07-11-v1-46-0-minor-bswmd-parse-split-design.md` retains the (revised) T1-T6 plan.
+
+### Includes T0 design spec
+
+`docs/superpowers/specs/2026-07-11-v1-46-0-minor-bswmd-parse-split-design.md` — full design with cycle-break strategy + cross-boundary call map + DAG verification + risk analysis. Per lesson #13 (per-flow prerequisite analysis), the T0 spec avoids the v1.42.0 abort failure mode (skipping T0 = bulk extraction with no enumeration of cross-file deps).
+
+### Capture-decisions files
+
+- T1+T2: `01-Projects/claude-AutosarCfg/development/capture-decisions/claude-autosarcfg-v1-46-0-minor-t1-t2-cycle-break-and-parse-primitives-extract-2026-07-11.md`
+- T3: `01-Projects/claude-AutosarCfg/development/capture-decisions/claude-autosarcfg-v1-46-0-minor-t3-parse-eb-dialect-extract-2026-07-11.md`
+- T4: `01-Projects/claude-AutosarCfg/development/capture-decisions/claude-autosarcfg-v1-46-0-minor-t4-parse-tree-walker-extract-2026-07-12.md`
+- T5: `01-Projects/claude-AutosarCfg/development/capture-decisions/claude-autosarcfg-v1-46-0-minor-t5-parse-ecuc-dialect-extract-2026-07-12.md`
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — purely internal refactor, no public-API change).
+
+**Next**: T6 ship commit (CHANGELOG + release-notes/README + tag v1.46.0 + GH release).
+
 ## v1.45.2 (2026-07-11) — PATCH (package.json + CHANGELOG drift closure)
 
 **Closes the silent user-facing version drift** — `package.json` was still at `"version": "1.20.0"` despite 24 MINOR versions (v1.21.0..v1.45.1) having shipped. `electron-builder` reads `package.json` for the installer version, so users installing from source-built installers were getting `v1.20.0` even though GH releases show v1.45.1.
