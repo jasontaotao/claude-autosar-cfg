@@ -5,6 +5,28 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.42.4 (2026-07-11) — PATCH
+
+**AppHeader.tsx Shell Lifecycle Extraction (useAppHeaderShell hook)** — Final cleanup pass on AppHeader.tsx after v1.42.2 (sub-components) + v1.42.3 (handler cluster hook). Extracts the 3 remaining shell useState + 3 useEffect (feature flag IPC + CustomEvent listener + app version IPC) into a closure-scoped hook. 3 source commits (T0 spec + T1 hook file + T2 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
+
+**T0 (`8c2d4d8`)** — Per-flow analysis spec: `docs/superpowers/specs/2026-07-11-v1-42-4-patch-use-app-header-shell.md`. Measured AppHeader.tsx 415 LoC structure (1 useState + 3 useState to move + 3 useEffect to move). Identified 4 return fields for new hook (3 read-only state slots + 1 imperative closeStencil action). Explicitly excluded `menuOpen` state from extraction — it's the controlled state for BrandMenu's render-prop pattern.
+
+**T1 (`1c515f1`)** — NEW `src/renderer/app/useAppHeaderShell.ts` (142 LoC). Closure-scoped hook with 4-field return bundle:
+- **3 read-only state slots**: `appVersion` (string, IPC result), `stencilOpen` (boolean, StencilWizard mount gate), `stencilFlagOn` (boolean, feature flag gate)
+- **1 imperative close action**: `closeStencil: () => void` (exposed so AppHeader.tsx shell can pass it as `<StencilWizard onClose={closeStencil} />`)
+
+Internally the hook owns `useState<string>('…')` for appVersion + `useState<boolean>(false)` for stencilOpen + `useState<boolean>(false)` for stencilFlagOn + 3 useEffect (feature flag IPC + `stencil:open` CustomEvent listener + app version IPC with v1.11.4 PATCH-B + v1.12.0 PATCH D3 fallback chain). Signature: `useAppHeaderShell(): AppHeaderShell` (no args, matches `useAppHeaderHandlers()` shape).
+
+**T2 (`dc9f606`)** — Rewrote `AppHeader.tsx` shell (415 → 362 LoC, −53 LoC, −12.8%). Replaced 3 useState + 3 useEffect with a single `useAppHeaderShell()` destructure (4 fields). Replaced inline `<StencilWizard onClose={() => setStencilOpen(false)} />` with `<StencilWizard onClose={closeStencil} />`. Removed `useEffect` import + `refreshStencilFlag` import (moved to hook). Shell now only owns 1 useState (`menuOpen` controlled BrandMenu) + 2 hook calls (`useAppHeaderHandlers()` + `useAppHeaderShell()`) + 3 sub-component mounts + 1 inline mount.
+
+**Critical-honesty flag — lesson candidate #2 confirmation**: R2 mega-replacement (anchor: `const [appVersion, setAppVersion]` to closing `}, []);` of getAppVersion effect) accidentally swallowed `menuOpen` state (which was the 4th useState before R2 anchors). First vitest run: 76 tests failed with `ReferenceError: menuOpen is not defined`. Recovered by adding `const [menuOpen, setMenuOpen] = useState(false);` back to R2 new text. All 3124 tests passed post-restore. **This is the 3rd confirmation of `marker-based-text-replacement-must-validate-block-contents-not-line-count`** (v1.42.2 T4 R3 + v1.42.3 T2 R2 + v1.42.4 T2 R2 — same bug pattern, 3 confirmations). **PROMOTED TO STANDALONE LESSON** — moved to `01-Projects/claude-AutosarCfg/development/lessons/`.
+
+**Net effect on Round-1 L8 backlog**: 9/9 closed (unchanged from v1.42.2; v1.42.3 + v1.42.4 are opportunistic cleanups beyond the cap).
+
+**NEW lessons promoted**: 1 (`marker-based-text-replacement-must-validate-block-contents-not-line-count` — promoted to standalone after 3/3 confirmations). Process Cluster catalog updated 13 → 14 lessons.
+
+**3124 + 7 SKIP / 0 fail** (zero test delta — pure refactor). pnpm verify 7-stage GREEN. Commits: `8c2d4d8` (T0 spec) + `1c515f1` (T1 hook file) + `dc9f606` (T2 shell rewrite).
+
 ## v1.42.3 (2026-07-11) — PATCH
 
 **AppHeader.tsx Handler Cluster Extraction (useAppHeaderHandlers hook)** — Reduces AppHeader.tsx by extracting its handler cluster (6 async handlers + 1 useCallback + 3 derived predicates + 11 store selectors + internal `state` slot + `useProjectActions` integration) into a closure-scoped hook. 3 source commits (T0 spec + T1 hook file + T2 shell rewrite). 0 functional change (verified via tsc --noEmit clean + vitest 350/350 files / 3124 + 7 SKIP / 0 fail).
