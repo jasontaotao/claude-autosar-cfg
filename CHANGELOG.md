@@ -5,7 +5,32 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
-## v1.44.0 (2026-07-11) — PATCH
+## v1.44.1 (2026-07-11) — PATCH
+
+**Lesson #14 Fix Implementation + code-reviewer M2 Closure** — Implements the Lesson #14 (`marker-based-text-replacement-must-validate-block-contents-not-line-count`) fix recommendation as a reusable Python module. Closes code-reviewer M2 finding (`process-cluster-14-lessons-catalog-2026-07-11.md` frontmatter `status: active` → `superseded`; same for catalog 13). 1 source commit (T2) + 1 vault-only M2 fix (T1, no commit). 0 functional change for src/ tree.
+
+**T1 (vault-only, no source commit)** — Set frontmatter `status: superseded` + `superseded-by: process-cluster-17-lessons-catalog-2026-07-11.md` on:
+- `01-Projects/claude-AutosarCfg/development/process-cluster-14-lessons-catalog-2026-07-11.md`
+- `01-Projects/claude-AutosarCfg/development/process-cluster-13-lessons-catalog-2026-07-10.md`
+
+Closes code-reviewer M2 finding from the v1.44.0 PATCH review. Future dispatches will see `status: superseded` when consulting the old catalogs, preventing confusion about which catalog is the canonical reference.
+
+**T2 (`8ffb8be`)** — NEW `scripts/validate_hook_range.py` (174 LoC). Reusable Python module that:
+- Counts React hook declarations (`useState` / `useEffect` / `useCallback` / `useRef` / `useMemo` / `useTransition` / custom `useFooBar`) in a source range via line-anchored regex
+- Provides `assert_hook_count(range_block, expected_count, label)` that raises `HookCountMismatch` on mismatch
+- Future tmp-*.py chunk-replacement scripts can `from scripts.validate_hook_range import assert_hook_count, HookCountMismatch` and call `assert_hook_count()` BEFORE applying `src.replace()` to abort cleanly on count mismatch (preventing the pattern that caused v1.42.2 T4 + v1.42.3 T2 + v1.42.4 T2 to swallow 1-7 unintended hooks)
+
+Module includes:
+- 4 self-tests in docstring (3-hook range matches / 4-hook range trips guard / assert match / assert mismatch)
+- `count_hooks_in_range` returns int (for ad-hoc inspection)
+- `assert_hook_count` raises `HookCountMismatch` with full diagnostic context (label + expected + actual + range_chars + first_line of range)
+- Permissive regex: also matches custom hooks (any `use[C-Z]\w*` pattern)
+
+**Verification** (per pre-flight lesson #10): `python -c "..."` 4-test suite run from `scripts/validate_hook_range.py` docstring: all 4 PASS.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — scripts/ is not in vitest's include list). `pnpm tsc --noEmit -p tsconfig.json` clean. `pnpm tsc --noEmit -p tsconfig.web.json` clean. `pnpm verify` 7-stage GREEN.
+
+**Related lessons**: This PATCH implements the Lesson #14 fix recommendation verbatim. The pattern that produced Lesson #14 (chunk-replacement script swallowing hooks) is now structurally prevented for any future tmp-*.py script that imports the guard module.
 
 **Lessons-Sweep — Process Cluster 14 → 17 Lessons Promotion** — Closes the remaining 3 1-of-1 lesson candidates that surfaced during the v1.42.0..v1.43.1 rapid-ship cycle. **No source-code changes** (lessons live in the vault as metadata; src/ is unchanged from v1.43.1 PATCH). All 3 promoted lessons include the "single-session confirmation caveat" prescribed by the v1.43.1 amendment to lesson #14 — distinguishing "N confirmations from same root cause (count as ~1)" vs "N confirmations from independent root causes (count as N)".
 
