@@ -302,7 +302,7 @@ const api = {
       swsValidator: boolean;
       keyboardFirst: boolean;
     };
-  }> => ipcRenderer.invoke('feature-flags:get'),
+  }> => ipcRenderer.invoke(IPC_CHANNELS.FEATURE_FLAGS_GET),
   // v1.21.0 MINOR T1 — GUI entry for the BSW code generator.
   // Wraps the existing HEADLESS_RUN_COMMAND channel (used by the CLI
   // dispatcher for `read` / `mutate` / `validate` / `generate`) so

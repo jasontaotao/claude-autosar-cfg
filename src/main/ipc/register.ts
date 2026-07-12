@@ -516,7 +516,7 @@ export function registerIpcHandlers(): void {
   // when the channel is missing; this handler is the real source.
   // Channel name matches `TOUR_CHANNELS.FEATURE_FLAGS_GET` in
   // `src/shared/ipc/tourReset.ts`.
-  ipcMain.handle('feature-flags:get', async () => featureFlagsGetHandler());
+  ipcMain.handle(IPC_CHANNELS.FEATURE_FLAGS_GET, async () => featureFlagsGetHandler());
 
   // Sprint 14 #1 — script engine IPC. The 4 invoke handlers are
   // wired to the dedicated `script-handler.ts` module so they can be

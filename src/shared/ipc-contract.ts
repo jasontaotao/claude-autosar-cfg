@@ -2,6 +2,12 @@
 export const IPC_CHANNELS = {
   PING: 'app:ping',
   GET_APP_VERSION: 'app:get-version',
+  // v1.51.0 PATCH T2 -- Round-10 F-2 closure: hoist the literal
+  // 'feature-flags:get' (was referenced as a string at register.ts:519
+  // and preload/index.ts:305) into the canonical IPC_CHANNELS map.
+  // Round-9 audit F-4 noted the lone exception; this aligns it with
+  // every other 36 channels in the contract.
+  FEATURE_FLAGS_GET: 'feature-flags:get',
   OPEN_ARXML: 'arxml:open',
   OPEN_ARXML_MULTI: 'arxml:open-multi',
   PARSE_ARXML: 'arxml:parse',
@@ -269,6 +275,9 @@ export const PROJECT_DELETE_ARXML = IPC_CHANNELS.PROJECT_DELETE_ARXML;
 export const HEADLESS_RUN_COMMAND = IPC_CHANNELS.HEADLESS_RUN_COMMAND;
 export const HEADLESS_MUTATE_APPLIED = IPC_CHANNELS.HEADLESS_MUTATE_APPLIED;
 export const HEADLESS_VALIDATE_RESULT = IPC_CHANNELS.HEADLESS_VALIDATE_RESULT;
+// v1.51.0 PATCH T2 -- top-level alias for FEATURE_FLAGS_GET (mirrors
+// the DCM_CONFIG / DBC_IMPORT_COM_STACK convention above).
+export const FEATURE_FLAGS_GET = IPC_CHANNELS.FEATURE_FLAGS_GET;
 // v1.23.0 T3 — top-level alias for DBC_IMPORT_COM_STACK (mirrors the
 // sibling alias convention above). Both compile to the same string.
 export const DBC_IMPORT_COM_STACK = IPC_CHANNELS.DBC_IMPORT_COM_STACK;
