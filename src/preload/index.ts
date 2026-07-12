@@ -78,6 +78,20 @@ import type {
 
 import { getRendererPlatform } from './platform.js';
 
+// v1.49.0 PATCH T1 -- idempotent listener registration (Round-8 F-2).
+//
+// Module-scope Map tracking the most-recently-registered handler per
+// IPC push channel. Survives Fast Refresh HMR re-execution of this
+// preload module because module-scope closures are preserved across
+// HMR module evaluation. See onScriptProgress in the `api` object
+// below for the registration pattern.
+// Module-scope Map tracking the most-recently-registered handler per
+// IPC push channel. The signature is loose (`Function`) because the
+// Map spans heterogeneous handler shapes across channel types; the
+// call site at `onScriptProgress` below narrows to the channel's
+// concrete shape before invoking.
+const recentHandlersByChannel = new Map<string, (...args: unknown[]) => unknown>();
+
 const api = {
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),
   // v1.6.0 Cluster U — expose `process.platform` to the renderer.
@@ -210,9 +224,52 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.SCRIPT_RUN, req),
   onScriptProgress: (cb: (e: ScriptProgressEvent) => void): (() => void) => {
     const handler = (_evt: unknown, e: ScriptProgressEvent): void => cb(e);
+    // Idempotent registration: remove the prior handler on this
+    // channel (if any) before adding the new one. Closure-scoped
+    // Map survives Fast Refresh HMR re-execution of this module.
+    // The two casts (`handler as ...`) cross the loose Map<> type
+    // back to the concrete `(unknown, ScriptProgressEvent) => void`
+    // signature that `ipcRenderer.off` expects.
+    const prior = recentHandlersByChannel.get(IPC_CHANNELS.SCRIPT_PROGRESS);
+    if (prior !== undefined) {
+      ipcRenderer.off(
+        IPC_CHANNELS.SCRIPT_PROGRESS,
+        prior as (event: unknown, ...args: unknown[]) => void,
+      );
+    }
     ipcRenderer.on(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
-    return () => ipcRenderer.off(IPC_CHANNELS.SCRIPT_PROGRESS, handler);
+    recentHandlersByChannel.set(
+      IPC_CHANNELS.SCRIPT_PROGRESS,
+      handler as (...args: unknown[]) => unknown,
+    );
+    return () => {
+      // Idempotent unsubscribe: if a re-registration already
+      // replaced our handler reference, this is a no-op.
+      const current = recentHandlersByChannel.get(IPC_CHANNELS.SCRIPT_PROGRESS);
+      if (current === (handler as (...args: unknown[]) => unknown)) {
+        ipcRenderer.off(
+          IPC_CHANNELS.SCRIPT_PROGRESS,
+          handler as (event: unknown, ...args: unknown[]) => void,
+        );
+        recentHandlersByChannel.delete(IPC_CHANNELS.SCRIPT_PROGRESS);
+      }
+    };
   },
+  // v1.49.0 PATCH T1 -- idempotent listener registration pattern.
+  // (Round-8 F-2: see `recentHandlersByChannel` declaration at
+  // module-scope above.) The Map tracks the most-recently-registered
+  // handler per IPC push channel. Re-registrations remove the prior
+  // handler before adding the new one, surviving Fast Refresh HMR
+  // re-execution of this preload module. Unsubscribe returned to the
+  // renderer is also idempotent (a subsequent call after a
+  // re-registration is a no-op since the prior handler reference was
+  // already replaced).
+  //
+  // Production runtime ships with `sandbox: true` + `contextIsolation:
+  // true` (Round-8 F-10 negative-evidence verified) so the leak is
+  // bounded to dev-mode HMR. The fix is non-load-bearing for
+  // production but worth shipping for dev ergonomics.
+
   // v1.8.0 K — Stencil Wizard (Task 7). Renderer invokes
   // `window.autosarApi.stencilGenerate(req)` to ask main to build a
   // minimal valid ECUC module skeleton (.arxml) for one of 4 families
