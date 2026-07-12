@@ -1,71 +1,35 @@
-// v1.21.0 Bug #5 — `dbc:open` IPC handler.
+// v1.21.0 Bug #5 -- `dbc:open` IPC handler.
 //
 // Thin wrapper around `dialog.showOpenDialog` filtered to `.dbc`
 // files. Reads the chosen file's content into memory and returns it
-// alongside the path. Mirrors the `OPEN_ARXML` handler at
-// `register.ts:92-121`.
+// alongside the path.
 //
-// Design notes (mirrors `OPEN_ARXML`):
-//   - Single-file picker (`properties: ['openFile']`); multi-DBC
-//     import is not a Bug #5 use case.
-//   - Returns a discriminated union (`canceled` / `opened` /
-//     `read-failed`) so the renderer can distinguish a user cancel
-//     from a real read failure (per CLAUDE.md "errors handled
-//     explicitly, never silently swallowed").
-//   - The read-failure dialog is shown via `dialog.showMessageBox`
-//     BEFORE returning `read-failed` so the user sees both the OS
-//     dialog and the renderer's error banner — same dual-surface
-//     pattern as `OPEN_ARXML`.
-//
-// v1.40.0 MINOR T1 (H1) — read uses the shared `readFileWithCap`
-// helper (32 MiB cap). Both `too-large` and `read-failed` fold into
-// the IPC-level `read-failed` envelope to preserve the renderer
-// contract (the renderer's `dbc:open` consumer does not differentiate
-// the cause — the `dialog.showMessageBox` text + the `message` field
-// are the user-facing surface).
+// v1.52.0 MINOR T1: the picker+read+messagebox body was extracted
+// to `src/main/io/pickFile.ts:pickFileWithCap`. The handler now
+// delegates the entire shape to the helper, keeping only the
+// handler-specific titles and filter surface. Per Round-10 audit
+// F-3 closure (Round-9 F-3 + Round-10 F-3 share root cause: source
+// structured for production not test isolation).
 
-import { dialog, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type { OpenDbcResult } from '../../shared/types.js';
-
-import { readFileWithCap } from './sizeCap.js';
+import { pickFileWithCap } from '../io/pickFile.js';
 
 export async function openDbcDialog(): Promise<OpenDbcResult> {
-  const result = await dialog.showOpenDialog({
+  return pickFileWithCap({
     title: 'Open DBC',
-    properties: ['openFile'],
+    failureTitle: 'Failed to read DBC',
     filters: [
       { name: 'DBC', extensions: ['dbc'] },
       { name: 'All', extensions: ['*'] },
     ],
   });
-  if (result.canceled || result.filePaths.length === 0) {
-    return { kind: 'canceled' };
-  }
-  const path = result.filePaths[0]!;
-  const read = await readFileWithCap(path);
-  if (read.ok) {
-    return { kind: 'opened', path, content: read.content };
-  }
-  await dialog.showMessageBox({
-    type: 'error',
-    title: 'Failed to read DBC',
-    message: read.message,
-  });
-  return {
-    kind: 'read-failed',
-    message: read.message,
-  };
 }
 
 /**
- * Register the `dbc:open` IPC handler. Called from
- * `register.ts` alongside the other handler registrations.
- *
- * Extracted as a separate function (vs inlined like `OPEN_ARXML`)
- * for symmetry with the `parseDbcHandler` / `parseArxmlHandler`
- * pairing — keeps the parse path testable in isolation.
+ * Register the `dbc:open` IPC handler.
  */
 export function registerOpenDbcHandler(): void {
   ipcMain.handle(IPC_CHANNELS.DBC_OPEN, async (): Promise<OpenDbcResult> => {
