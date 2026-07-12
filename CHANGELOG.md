@@ -5,6 +5,41 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.52.0 (2026-07-12) — MINOR (DRY consolidation + bridge-runtime seam refactor + F-3 closure)
+
+**Closes Round-9 audit F-3 (MEDIUM, bridge-failed kind behavioral coverage)** + **Round-10 audit F-3 (MEDIUM, picker-handler DRY)** dispatched across 3 atomic commits. Tree-touching refactors per v1.45.0 D1 complement → MINOR scope.
+
+**T1 (`68fdef1`)** — refactor(io): NEW `src/main/io/pickFile.ts:pickFileWithCap(opts)` consolidates the 3 picker handlers (`openDbcHandler.ts`, `openOdxWithDefaultHandler.ts`, `bswmdPickHandler.ts`) into a single helper. Closes Round-10 F-3 (3-handler clone). ~80 LoC net dedup; BSWMD picker collapses `read-failed` → `canceled` per v1.33.0 T2 design.
+
+**T2 (`62775d7`)** — refactor(ipc): NEW `src/main/ipc/_bridge-runtime.ts` extracts the inline-private `runBridgeForProject` + `applyPlanToFile` + format\*Error helpers from `dbcImportComStackHandler.ts:183-321` into exported functions. Per lesson `#15` (function-extract-must-clip-verbatim-not-reimplement), the body bytes were moved character-for-character with zero logic edits. Sets up the vi.spyOn-able seam for the F-3 behavioral test.
+
+**T3 (`874cfa3`)** — test(ipc): NEW `bridge-failed` behavioral case at `dbcImportComStackHandler.test.ts:503-583`. Uses `vi.spyOn(_bridge_runtime, 'runBridgeForProject')` (note: spying `applyPlanToFile` does NOT propagate — vi.spyOn mutates only the export binding, not module-internal lexical references). Mock returns `{ ok: true, value: { outcomes: [null, null, null] } }` which triggers the bridge-failed guard at handler line 296. Closes Round-9 F-3 + the v1.51.0 PATCH T4 deferral stub.
+
+**T4 (this commit)** — docs(release): CHANGELOG v1.52.0 entry + `docs/release-notes/v1.52.0/README.md` NEW.
+
+**3156 + 7 SKIP / 0 fail** → **3157 + 7 SKIP / 0 fail** (+1 from T3). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — `pnpm verify` 8-stage state confirmed at every commit boundary.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T1 traced the 3 picker handlers' shared body shape before extraction; T2 traced the bridge-runtime internals + verified parse-error path type-coercion; T3 verified vitest vi.spyOn limitation (module-internal lexical refs) before attempting the mock.
+- **Lesson #14** (chunk-replacement guard) — N/A (3 separate Edit tool commits; T2 also used Python range-removal script for the 171-309 line extraction in `dbcImportComStackHandler.ts`).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — applied to T2 (move body bytes character-for-character; only imports list + signatures + function names changed).
+
+**Honest deviations**:
+
+- **(a)** T1 net LoC change: ~80 LoC new in `pickFile.ts` + ~107 LoC deleted across 3 handlers = **~27 LoC net reduction** with a single ~80-LoC reusable helper instead of 3x 30+ LoC duplication. Minor: 3 handlers each retain a small per-handler signature (title + filters + defaultPath pass-through) which slightly differs from the helper's identity-collision-candidate surface.
+- **(b)** T3 mockImplementation requires `mockImplementation` (not `mockImplementationOnce`) — the originally-written `mockImplementationOnce` only intercepts the FIRST call to `applyPlanToFile`, leaving canIf + pduR to fall through to the real implementation. Switched to spy on `runBridgeForProject` (the public coordinator) which intercepts ALL calls transitively.
+
+**NEW lesson-candidate observation this cycle**:
+
+- **`vi-spyon-export-binding-does-not-intercept-module-internal-lexical-references`** — vitest's `vi.spyOn(module, 'name')` mutates only the exported binding; module-internal references to the same name resolve at module-load time via lexical scope, so the spy does NOT propagate. To intercept internal callers, spy the public entry point (`runBridgeForProject`) or refactor the module to self-reference via the exported name (`module.applyPlanToFile(...)`). 1 of 3 observations; promotion requires 2 more.
+
+**NEW lesson-candidate PROMOTION this cycle**:
+
+- **`function-extract-for-test-seam-needs-deeper-integration-test-architecture`** — Round-9 F-3 + Round-10 F-5 a/b/c deferrals (v1.51.0 PATCH) were both rooted in the same problem: source structured for production not for test isolation. v1.52.0 T2 resolves the F-3 side via seam extraction (Round-9's specific deferral closes). Round-10 F-5 a/b/c remains deferred (frozen `node:fs/promises` namespace). 2/3 confirmations after this cycle; **1 more observation promotes to standalone tier**.
+
 ## v1.51.0 (2026-07-12) — PATCH (Round-10 audit follow-up closure: 4th-cycle drift + feature-flags channel + writeAtomic hardening + Round-9 F-4 behavioral)
 
 **Closes Round-10 audit findings F-1 CRITICAL + F-2 HIGH + F-4 MEDIUM + Round-9 F-4 MEDIUM** dispatched across 5 atomic commits. Round-10 F-3 MEDIUM (picker handler DRY clone) deferred to v1.52.x MINOR (3-handler cross-cut scope). Round-9 F-3 (`bridge-failed` kind) closed as audit-trail stub (deferred to v1.52.x seam refactor). Round-10 F-5 a/b/c (writeAtomic crash-scenario branches) deferred to v1.51.x (DI-seam refactor preferred).
