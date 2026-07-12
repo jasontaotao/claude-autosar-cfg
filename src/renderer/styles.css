@@ -672,6 +672,31 @@ body,
 }
 
 /* ------------------------------------------------------------------ */
+/* v1.48.0 MINOR T1 — prefers-reduced-motion (WCAG 2.2.2)              */
+/*   Respect the user's OS-level "Reduce motion" accessibility         */
+/*   preference. Animations / transitions scale to (or below)          */
+/*   0.01ms duration so they're effectively instant. Conservative:    */
+/*   keeps the visual state correct (no sudden layout shifts) but      */
+/*   removes the motion component. This rule cascades to every        */
+/*   transition + animation declared in styles.css (per-file CSS      */
+/*   uses the same media query block).                                */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  /* Universal motion suppress. Per WCAG 2.2.2: "Disabling animation
+     can be accomplished by setting the animation-duration or
+     transition-duration property to 0.01s" (the 0.01ms floor avoids
+     Safari's "animations blocked" exception that 0s triggers). */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* v1.6.0 Cluster U — Keyboard-First Power User                       */
 /*   CommandPalette + CheatSheet — see the @import at the top of the  */
 /*   file (CSS spec requires @import before any other statement).      */
