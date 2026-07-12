@@ -7,9 +7,22 @@
 ## Pre-ship gate (run before `git commit` of ship commit)
 
 ```bash
-# 1. CHANGELOG.md top entry must match package.json "version"
+# 1. CHANGELOG.md top entry must match package.json "version" MUST MATCH
 grep -m1 '^## ' CHANGELOG.md   # expect: ## vX.Y.Z ...
 grep -m1 '"version"' package.json   # expect: "version": "X.Y.Z",
+
+# 1a. **v1.48.1 PATCH T1** (Round-8 audit enforcement): `package.json`
+#     "version" must equal the version that `electron-builder` will
+#     bake into the installer. F-1 CRITICAL (3rd drift recurrence):
+#     v1.47.0 PATCH T1 (22120b1) and v1.48.0 MINOR T1 (719ec40) both
+#     bypassed this parity check, leaving package.json stuck at
+#     v1.46.0 for 2 consecutive cycles. The original v1.46.1 PATCH
+#     gate only checked CHANGELOG + git tag; this amendment explicitly
+#     covers package.json. **all three MUST match**.
+#
+#     If package.json version differs from CHANGELOG top entry:
+#       STOP. Fix package.json version bump in a separate atomic
+#       commit BEFORE the ship commit. Then continue.
 
 # 2. Tagged release must exist (or be about to exist)
 git tag --list 'vX.Y.Z' 2>/dev/null   # expect: empty (we tag after commit)
