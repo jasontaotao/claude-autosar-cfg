@@ -87,6 +87,15 @@ describe('useArxmlStore — ImportSession (Sprint 14 / Phase 3)', () => {
       expect(next.importSession.resolutions).toEqual([]);
       expect(next.importSession.activeModuleForDiff).toBeNull();
       expect(next.importSession.id).toMatch(/^import-/);
+      // v1.50.0 PATCH T4 -- Round-9 F-8: tighten regex to catch a
+      // regression that drops the random suffix (would otherwise pass
+      // the /^import-/ prefix-only assertion). Format:
+      //   `import-<base36 timestamp>-<base36 random 6 chars>`
+      // Two hyphens + base36 characters + length range pin both the
+      // Date.now() AND Math.random() sources. Mutating either source
+      // to a different format (e.g., a single timestamp segment) would
+      // fail this assertion.
+      expect(next.importSession.id).toMatch(/^import-[0-9a-z]+-[0-9a-z]{2,12}$/);
       expect(typeof next.importSession.createdAt).toBe('number');
       expect(next.viewMode).toBe('import-merged');
     });

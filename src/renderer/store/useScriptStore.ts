@@ -340,12 +340,28 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
     // The disk write must cross the IPC boundary via
     // `window.autosarApi.projectSave` (which itself uses `writeAtomic`
     // on the main side).
-    const { useArxmlStore } = await import('./useArxmlStore.js');
-    const { applyPatchSteps } = await import('../../core/mutation/applyPatchSteps.js');
-    const { serializeArxml } = await import('../../core/arxml/serializer.js');
-    const { scriptMutationToPatchStep } = await import('./helpers/scriptMutationToPatchStep.js');
-    const { resolveModuleDefForActiveDoc } =
-      await import('./helpers/resolveModuleDefForActiveDoc.js');
+    //
+    // v1.50.0 PATCH T4 -- Round-9 F-10: parallelize the dynamic-import
+    // fan-out. ES module import is the slow path on first call (Vite
+    // dev mode loads each module on demand; production pre-bundles
+    // but the `await` still serializes a microtask per module). Using
+    // `Promise.all` reduces 5 sequential awaits to 1 batched await.
+    // Static-cycle rationale (the prior sequential pattern's comment)
+    // is preserved: each module path is its own string literal, so
+    // the bundler dependency graph is unchanged.
+    const [
+      { useArxmlStore },
+      { applyPatchSteps },
+      { serializeArxml },
+      { scriptMutationToPatchStep },
+      { resolveModuleDefForActiveDoc },
+    ] = await Promise.all([
+      import('./useArxmlStore.js'),
+      import('../../core/mutation/applyPatchSteps.js'),
+      import('../../core/arxml/serializer.js'),
+      import('./helpers/scriptMutationToPatchStep.js'),
+      import('./helpers/resolveModuleDefForActiveDoc.js'),
+    ]);
 
     const arxmlState = useArxmlStore.getState();
     const filePath = arxmlState.activeDocumentPath;
