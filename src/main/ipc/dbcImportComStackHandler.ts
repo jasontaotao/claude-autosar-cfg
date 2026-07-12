@@ -29,35 +29,17 @@
 import { promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-import type { ParseError } from '../../core/arxml/parser.js';
-import { parseArxml } from '../../core/arxml/parser.js';
-import type { SerializeError } from '../../core/arxml/serializer.js';
-import { serializeArxml } from '../../core/arxml/serializer.js';
-import type { DbcBridgePlan, DbcToComStackInput } from '../../core/bridge/dbcToComStack.js';
 import { dbcToComStack } from '../../core/bridge/dbcToComStack.js';
-import type { ApplyContext } from '../../core/mutation/applyPatchSteps.js';
-import { applyPatchSteps } from '../../core/mutation/applyPatchSteps.js';
-import type { BswModuleDef, BswmdError } from '../../core/project/bswmd.js';
+import type { DbcBridgePlan, DbcToComStackInput } from '../../core/bridge/dbcToComStack.js';
+import type { BswModuleDef } from '../../core/project/bswmd.js';
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type { DbcImportComStackRequest, DbcImportComStackResponse } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
 
+import { formatBridgeBswmdError, runBridgeForProject } from './_bridge-runtime.js';
 import { dbcParseForBridgeHandler, DBC_MAX_BYTES } from './dbcParseForBridgeHandler.js';
 import { getOpenProjectManifestPath } from './project-manifest-state.js';
-
-/**
- * Per-file mutation accumulator. Holds the new serialized ARXML text
- * + the number of `add-child` steps that actually mutated the
- * document (the `applied` counter from `applyPatchSteps`).
- */
-interface BridgeFileOutcome {
-  readonly path: string;
-  readonly serialized: string;
-  readonly added: number;
-}
-
-type BridgeFileOutcomeOrNull = BridgeFileOutcome | null;
 
 /**
  * Locate the 3 canonical Com-stack files (Com / CanIf / PduR) by
@@ -164,7 +146,7 @@ async function loadBswmdDefs(
       return {
         ok: false,
         kind: 'read-failed',
-        message: `BSWMD ${abs} parse failed: ${formatBswmdError(res.error)}`,
+        message: `BSWMD ${abs} parse failed: ${formatBridgeBswmdError(res.error)}`,
       };
     }
     for (const mod of res.value.modules) {
@@ -180,145 +162,6 @@ async function loadBswmdDefs(
  * `applyAddChild` engine can validate the new container against the
  * schema.
  */
-async function applyPlanToFile(
-  filePath: string,
-  planSteps: DbcBridgePlan['comPatches'],
-  moduleDef: BswModuleDef | undefined,
-): Promise<{ ok: true; value: BridgeFileOutcome } | { ok: false; message: string }> {
-  let sourceText: string;
-  try {
-    sourceText = await fs.readFile(filePath, 'utf-8');
-  } catch (err) {
-    return {
-      ok: false,
-      message: `Failed to read ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
-    };
-  }
-  const docRes = parseArxml(sourceText);
-  if (!docRes.ok) {
-    return {
-      ok: false,
-      message: `${filePath}: parse failed: ${formatParseError(docRes.error)}`,
-    };
-  }
-  // v1.23.0 T3 — `exactOptionalPropertyTypes: true` requires us to
-  // conditionally include `moduleDef` rather than passing
-  // `{ moduleDef: undefined }` (which the compiler rejects).
-  const ctx: ApplyContext = moduleDef !== undefined ? { moduleDef } : {};
-  const applyRes = applyPatchSteps(docRes.value, planSteps, ctx);
-  // v1.23.0 T3 fix — filter "BSWMD does not declare a child container"
-  // errors as advisory rather than fatal. The T2 mapper emits
-  // ComSignal `add-child` steps inside a new ComIPdu, but the demo-ecu
-  // BSWMDs do NOT declare a `ComSignal` child under `ComConfig` (only
-  // `ComIPdu` with `ComPduId` parameter). The T2 mapper can't know the
-  // BSWMD shape ahead of time — it emits the full plan; the T3 handler
-  // is the layer that knows which steps the BSWMD actually validates.
-  //
-  // Without this filter, a single phantom step fails the whole file
-  // even though the parent ComIPdu was added successfully. With the
-  // filter, the bridge gracefully degrades: schema-valid steps land,
-  // schema-incompatible steps are skipped (and could be surfaced to
-  // the renderer as warnings in a future PATCH if the wizard wants
-  // per-step diagnostics).
-  //
-  // Errors with kinds other than `path-not-found` (e.g.
-  // `multiplicity-exceeded`, `cascade-required`, etc.) remain fatal —
-  // those represent real corruption / user-error that the bridge
-  // cannot recover from. `path-not-found` errors are advisory
-  // (skipped silently) — see the v1.23.0 T3 rationale in the module
-  // header.
-  const fatalErrors = applyRes.errors.filter((e) => e.kind !== 'path-not-found');
-  if (fatalErrors.length > 0) {
-    const details = fatalErrors
-      .map((e) => `step ${e.stepIndex} (${e.kind}): ${e.message}`)
-      .join('; ');
-    return { ok: false, message: `${filePath}: ${details}` };
-  }
-  // `applyPatchSteps.applied` already counts the steps that actually
-  // mutated the document (it skips both `noChange` and errored
-  // steps). The recoverable errors here are for steps that were
-  // skipped — so `applied` is already the right "landed" count.
-  // Previously we subtracted `recoverableErrors.length`, but that
-  // double-counted: the engine doesn't increment `applied` for
-  // errored steps, so subtracting again produced 0 for the common
-  // "ComIPdu added, ComSignals skipped" case. Use `applied` as-is.
-  const actuallyApplied = applyRes.applied;
-  const serRes = serializeArxml(applyRes.doc, { sourceArxml: sourceText });
-  if (!serRes.ok) {
-    return {
-      ok: false,
-      message: `${filePath}: serialize failed: ${formatSerializeError(serRes.error)}`,
-    };
-  }
-  return {
-    ok: true,
-    value: { path: filePath, serialized: serRes.value, added: actuallyApplied },
-  };
-}
-
-/** Render a `ParseError` as a one-line string for IPC error envelopes. */
-function formatParseError(err: ParseError): string {
-  // Discriminated union: not every kind carries `path` + `message`
-  // (e.g. `unsupported-version` carries `version` only, `xml-malformed`
-  // carries `message` only). Stringify the discriminant so callers see
-  // a uniform one-line message.
-  if (err.kind === 'unsupported-version') {
-    return `unsupported-version (got "${err.version}")`;
-  }
-  // The remaining kinds (`xml-malformed`, `missing-root`,
-  // `invalid-structure`) all carry `message`; only
-  // `invalid-structure` adds `path`.
-  const path = 'path' in err && typeof err.path === 'string' ? ` at ${err.path}` : '';
-  return `${err.kind}${path}: ${err.message}`;
-}
-
-/** Render a `SerializeError` as a one-line string. */
-function formatSerializeError(err: SerializeError): string {
-  return `${err.kind} at ${err.path}: ${err.message}`;
-}
-
-/** Render a `BswmdError` as a one-line string. Same shape as `ParseError`. */
-function formatBswmdError(err: BswmdError): string {
-  if (err.kind === 'unsupported-version') {
-    return `unsupported-version (got "${err.version}")`;
-  }
-  const path = 'path' in err && typeof err.path === 'string' ? ` at ${err.path}` : '';
-  return `${err.kind}${path}: ${err.message}`;
-}
-
-/**
- * Run the bridge against the 3 manifest-relative Com-stack files.
- * Returns each file's `BridgeFileOutcome` so the caller can compute
- * `addedCounts` AND build the write-batch input.
- */
-async function runBridgeForProject(
-  paths: { comPath: string; canIfPath: string; pduRPath: string },
-  plan: DbcBridgePlan,
-  bswmdDefs: ReadonlyMap<string, BswModuleDef>,
-): Promise<
-  | {
-      ok: true;
-      value: {
-        readonly outcomes: readonly [
-          BridgeFileOutcomeOrNull,
-          BridgeFileOutcomeOrNull,
-          BridgeFileOutcomeOrNull,
-        ];
-      };
-    }
-  | { ok: false; kind: 'read-failed' | 'bridge-failed'; message: string }
-> {
-  const com = await applyPlanToFile(paths.comPath, plan.comPatches, bswmdDefs.get('Com'));
-  if (!com.ok) return { ok: false, kind: 'read-failed', message: com.message };
-  const canIf = await applyPlanToFile(paths.canIfPath, plan.canIfPatches, bswmdDefs.get('CanIf'));
-  if (!canIf.ok) return { ok: false, kind: 'read-failed', message: canIf.message };
-  const pduR = await applyPlanToFile(paths.pduRPath, plan.pduRPatches, bswmdDefs.get('PduR'));
-  if (!pduR.ok) return { ok: false, kind: 'read-failed', message: pduR.message };
-  return {
-    ok: true,
-    value: { outcomes: [com.value, canIf.value, pduR.value] },
-  };
-}
 
 /**
  * v1.23.0 T3 — IPC handler entry point.
@@ -564,6 +407,10 @@ export async function dbcImportComStackHandler(
   };
 }
 
-export { formatParseError, formatSerializeError };
+export {
+  formatBridgeBswmdError,
+  formatBridgeParseError,
+  formatBridgeSerializeError,
+} from './_bridge-runtime.js';
 
 export type { DbcBridgePlan };
