@@ -5,6 +5,42 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.50.0 (2026-07-12) — PATCH (Round-9 audit follow-up closure: error-path coverage + perf)
+
+**Closes Round-9 audit findings (8 actionable + 3 verified-stale)** dispatched across 4 atomic commits. **T1 doc-only** (F-1 stale, no test needed), **T2** F-2 HIGH (openOdxHandler test), **T3** structural-verify suite (F-3..F-7 stale-closure audit pins the audit trail; 2 truly-open deferred to v1.51.x), **T4** F-8 regex tighten + F-10 Promise.all.
+
+**T1 (doc-only, F-1 stale verified)** — Round-9 F-1 (`xlsxEcucBatchParseHandler.ts` missing test file) was a Round-9 sub-agent grep-by-literal-name miss. The handler IS already covered at `src/main/ipc/__tests__/xlsxEcucBatchImportHandler.test.ts:173-280` (4 test cases pin the parse contract). Verified first-hand before this PATCH.
+
+**T2 (`8cda9c8`)** — test(ipc): NEW `src/main/ipc/__tests__/openOdxHandler.test.ts` (103 LoC, 4 cases). Closes F-2 HIGH: `openOdxHandler.ts` was wired into `register.ts` but had no test file. Mirrors `openDbcHandler.test.ts` pattern.
+
+**T3 (`f3fabf9`)** — test(ipc): NEW `src/main/ipc/__tests__/error-path-coverage-round-9.verify.test.ts` (153 LoC, 10 cases). Structural-verify audit pins the F-3..F-7 stale-closure status. F-5 `internal-error` / F-6 `write-failed` (odxImport) / F-7 `write-failed` (xlsxImport) verified already-closed via existing tests at lines 261 / 139 + 151 / 383 + 496 respectively. F-3 `bridge-failed` + F-4 `serialize-failed` flagged TRULY OPEN — deferred to v1.51.x (deep-harness-mock risk).
+
+**T4 (`abd3d39`)** — perf(renderer): 5 sequential `await import(...)` calls in `useScriptStore.ts:343-348` converted to single `Promise.all([...])` for ~5x faster cold-path commit. Plus F-8: tighten `importSession.id` regex from `/^import-/` to `/^import-[0-9a-z]+-[0-9a-z]{2,12}$/` to pin both `Date.now()` and `Math.random()` sources in mutation-coverage.
+
+**T5 (this commit)** — docs(release): CHANGELOG v1.50.0 entry + `docs/release-notes/v1.50.0/README.md` NEW.
+
+**3135 + 7 SKIP / 0 fail** → **3149 + 7 SKIP / 0 fail** (+14 net from v1.49.0: 4 new F-2 cases + 10 new F-3..F-7 verify cases, **T3 doesn't add new functionality**, only structural pins). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — `pnpm verify` 8-stage state confirmed at every commit boundary.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T3 verified 3-of-5 findings already-closed via grep of existing test files (negative-evidence structural pattern); T4 traced actual dynamic-import dep graph before flattening to Promise.all.
+- **Round-N review preflight** (now STANDALONE-tier per v1.48.1 PATCH T1 promotion) — verified each F-1/F-5/F-6/F-7 finding against existing tests + git log before action; 4 of 5 Round-9 findings were stale to some degree.
+- **Lesson #14** (chunk-replacement guard) — N/A (4 separate Edit tool commits; no marker-based bulk replacement needed).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — N/A (no file-split; pure test additions + 1 perf improvement).
+
+**Honest deviations**:
+
+- **(a)** F-3 `bridge-failed` (dbcImportComStackHandler:456) + F-4 `serialize-failed` (saveArxmlHandler:79) **deferred to v1.51.x PATCH**. The handlers require deep harness mocking (`seedRealProject()` + `vi.spyOn(fs, 'rename')` patches) brittle to shape against. Structural-verify test (T3) pins the OPEN status so future cycles don't silently miss them.
+- **(b)** F-9 / F-11 / F-13 / F-14 / F-20 (info-only or design-by-purpose) **closed as monitored**, not blocking. Round-9 reported them without concrete fix recommendation; this PATCH does not action them.
+- **(c)** F-12 vendor/`@dbc-forge/core` already tracked per Round-8 F-5 closure at v1.49.0.
+- **(d)** mutation-coverage sample size is 5/5 (per Round-9 sample); F-8 closure tightens 1 of those samples. Other samples not assertion-tightened.
+
+**NEW lesson-candidate** (this cycle):
+
+- **`error-path-coverage-audit-via-test-suite-shape`** — Round-9 audit found 5 untested error kinds; on manual cross-check 3 were already exercised in existing tests but the audit grep-by-literal-name missed them. The structural-verify test pattern (read handler source + read existing test source + assert both reference the kind) is the canonical methodology for future Round-N audits. Promotion requires 2 more observations.
+
 ## v1.49.0 (2026-07-12) — PATCH (Round-8 F-2 closure: onScriptProgress HMR listener idempotent registration)
 
 **Closes Round-8 audit F-2 (MEDIUM, dev-only)** — `src/preload/index.ts:225 onScriptProgress` previously called `ipcRenderer.on(channel, handler)` directly with an unsubscribe closure. In dev-mode Vite Fast Refresh HMR, the preload module can re-execute while the renderer's previous React component tree still holds the OLD handler reference. The unsubscribe would only fire on the OLD component's effect cleanup; if HMR fires mid-`useEffect`, the new registration lands with the new handler while the old handler stays bound to `ipcRenderer`'s EventEmitter. Renderer page refresh cleans it up but Fast Refresh doesn't, so over a long dev session stale handler closures accumulate on the EventEmitter holding kernel handles.
