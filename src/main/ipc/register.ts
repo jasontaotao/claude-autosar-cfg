@@ -56,6 +56,7 @@ import type {
   XlsxCommitBatchRequest,
   XlsxCommitBatchResponse,
 } from '../../shared/types.js';
+import { ScriptError } from '../script/errors.js';
 import { trackHandler } from '../shutdown/drain.js';
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
@@ -450,7 +451,19 @@ export function registerIpcHandlers(): void {
 
   // Sprint 13 #1 — built-in template IPC.
   ipcMain.handle(IPC_CHANNELS.TEMPLATES_LIST, async (_e, req) => templatesListHandler(req));
-  ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => templatesCopyHandler(req));
+  // v1.54.0 PATCH T3 (F-A2-03 closure) — wrap the templatesCopy
+  // handler so any thrown `TemplateError` (plain object shape, NOT
+  // Error subclass) is converted to the typed IPC envelope
+  // `{ok:false, error:{kind,message}}`. `templatesListHandler`
+  // does NOT throw, so it stays unwrapped. Both channels are
+  // `@deprecated` (v1.53.0 PATCH T3) but still reachable.
+  ipcMain.handle(IPC_CHANNELS.TEMPLATES_COPY, async (_e, req) => {
+    try {
+      return await templatesCopyHandler(req);
+    } catch (e) {
+      return wrapTemplateErrorAsEnvelope(e);
+    }
+  });
 
   // Sprint 14 — BSWMD-to-ECUC skeleton creation. Both handlers are
   // extracted to their own modules for parity with `bswmdReadHandler`
@@ -518,12 +531,29 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.SCRIPT_LIST, async (_evt, req: ScriptListRequest) =>
     scriptListHandler(req),
   );
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_SAVE, async (_evt, req: ScriptSaveRequest) =>
-    scriptSaveHandler(req),
-  );
-  ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) =>
-    scriptDeleteHandler(req),
-  );
+  // v1.54.0 PATCH T2 (F-A2-02 closure) — wrap the script handlers
+  // so any thrown `ScriptError` is converted to the typed IPC
+  // envelope shape that other handlers (`saveArxmlHandler`,
+  // `dcmConfigHandler`) follow. Without this, the renderer
+  // `await window.autosarApi.saveScript(req)` would receive a
+  // `Promise.reject(ScriptError)` instead of `{ok:false, error:{...}}`,
+  // breaking the entire error-rendering path. `scriptListHandler`
+  // does NOT throw (it returns discriminated unions) so it stays
+  // unwrapped for clarity.
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_SAVE, async (_evt, req: ScriptSaveRequest) => {
+    try {
+      return await scriptSaveHandler(req);
+    } catch (e) {
+      return wrapScriptErrorAsEnvelope(e);
+    }
+  });
+  ipcMain.handle(IPC_CHANNELS.SCRIPT_DELETE, async (_evt, req: ScriptDeleteRequest) => {
+    try {
+      return await scriptDeleteHandler(req);
+    } catch (e) {
+      return wrapScriptErrorAsEnvelope(e);
+    }
+  });
   // v1.18.0 MINOR T6 (PB-3) — wrap the SCRIPT_RUN invoke so the
   // graceful-shutdown drain in src/main/index.ts `before-quit` can await
   // an in-flight script execution. `scriptRunHandler` is the longest-
@@ -699,4 +729,73 @@ function describeManifestError(err: ManifestError): string {
     case 'invalid-field':
       return `${err.field}: ${err.message}`;
   }
+}
+
+/**
+ * v1.54.0 PATCH T2 (F-A2-02 closure) — convert any thrown `ScriptError`
+ * (or unknown Error) into the typed IPC envelope `{ok:false, error:{kind,message}}`.
+ * The script handlers `scriptSaveHandler` / `scriptDeleteHandler` throw
+ * `ScriptError` directly. Without this wrapper the renderer would
+ * receive a `Promise.reject(ScriptError)`, breaking its error-rendering
+ * path. The `kind` field is propagated from `ScriptError.payload.kind`
+ * so the renderer can dispatch a localized toast per failure class.
+ */
+function wrapScriptErrorAsEnvelope(e: unknown): {
+  readonly ok: false;
+  readonly error: { readonly kind: string; readonly message: string };
+} {
+  if (e instanceof ScriptError) {
+    return {
+      ok: false,
+      error: {
+        kind: e.payload.kind,
+        message: e.payload.message,
+      },
+    };
+  }
+  const message = e instanceof Error ? e.message : String(e);
+  return {
+    ok: false,
+    error: {
+      kind: 'unknown',
+      message: `Script handler unexpected error: ${message}`,
+    },
+  };
+}
+
+/**
+ * v1.54.0 PATCH T3 (F-A2-03 closure) — convert any thrown `TemplateError`
+ * (which is a PLAIN OBJECT, not an Error subclass — see
+ * `src/main/templates/errors.ts`) into the typed IPC envelope
+ * `{ok:false, error:{kind,message}}`. Duck-typed detection: must have
+ * string `kind` + string `message` properties.
+ */
+function wrapTemplateErrorAsEnvelope(e: unknown): {
+  readonly ok: false;
+  readonly error: { readonly kind: string; readonly message: string };
+} {
+  if (
+    typeof e === 'object' &&
+    e !== null &&
+    'kind' in e &&
+    'message' in e &&
+    typeof (e as { kind: unknown }).kind === 'string' &&
+    typeof (e as { message: unknown }).message === 'string'
+  ) {
+    return {
+      ok: false,
+      error: {
+        kind: (e as { kind: string }).kind,
+        message: (e as { message: string }).message,
+      },
+    };
+  }
+  const message = e instanceof Error ? e.message : String(e);
+  return {
+    ok: false,
+    error: {
+      kind: 'unknown',
+      message: `Template handler unexpected error: ${message}`,
+    },
+  };
 }
