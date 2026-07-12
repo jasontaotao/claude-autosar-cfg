@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.48.0 (2026-07-12) — MINOR (A11y & polish: prefers-reduced-motion CSS + role=status live-region empty-state UI)
+
+**Closes WCAG 2.2.2 ("Pause, Stop, Hide")** — adds a global `@media (prefers-reduced-motion: reduce)` rule in `src/renderer/styles.css` that scales all animation + transition durations to 0.01ms (the floor avoids Safari's animation-blocked exception). Universal selector `*, *::before, *::after` with `!important` cascades to the 10+ per-component CSS files that use transition keyframes. No per-file edit required.
+
+**Closes WCAG 4.1.3 ("Status Messages")** — adds `role="status"` + `aria-live="polite"` to the empty-state containers in **3 components** (ProjectPanel.tsx + FileListTab.tsx + Tree.tsx). Empty states were previously rendered with i18n copy but lacked live-region semantics, so screen readers did not announce them on first focus.
+
+**T1 (`719ec40`)** — style(a11y): prefers-reduced-motion CSS in `styles.css` + audit (negative-evidence) of ErrorBanner.tsx (`role="alert"` line 120) + ErrorBoundary.tsx (`role="alert"` line 89) — both already WCAG-compliant from earlier MINORs.
+
+**T2 (`0f4df73`)** — style(a11y): role="status" + aria-live="polite" for 3 empty-state containers (ProjectPanel.tsx + FileListTab.tsx + Tree.tsx).
+
+**T3 (this commit)** — docs(release): CHANGELOG v1.48.0 entry + `docs/release-notes/v1.48.0/README.md` NEW.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — pure CSS + 6 lines TSX adds). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — Round-7 verified pnpm verify 8-stage state before T1 commit + after T2 commit (2nd confirmation today).
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T1 verified that per-component CSS uses the same media query via global cascade (universal selector + `!important`); no per-file fan-out required. T2 verified all 3 components already render empty-state markup (no new copy needed) → scope collapsed to attribute adds only.
+- **Lesson #14** (chunk-replacement guard) — N/A (no Python marker-based text replacement in this cycle; 3 small Edit tool replacements instead).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — N/A (no file-split in this cycle; pure a11y polish).
+
+**Negative-evidence audit results** (per Round-7 protocol baked in v1.47.0 release-checklist.md):
+
+- ErrorBanner.tsx already `role="alert"` + `aria-live` (verified at original ship v1.16.0 MINOR) — no code change needed.
+- ErrorBoundary.tsx already `role="alert"` (verified at original ship v1.21.0 MINOR) — no code change needed.
+- Empty-state markup in ProjectPanel.tsx + FileListTab.tsx + Tree.tsx already exists from Sprint 11 / Sprint 12 — T2 only adds the a11y attributes.
+
 ## v1.47.0 (2026-07-12) — PATCH (Round-7 audit follow-up: 5000 magic-number dedup + release-checklist Round-N protocol anchors)
 
 **Closes Round-7 review INFO finding #6** — the literal `5000` (5s VM timeout default) appeared 4x across the vm-runner + script-handler surface (vm-runner.ts:113 + vm-runner.ts:146 + script-handler.ts:368 via SAFE_TIMEOUT_FALLBACK_MS + engine.ts:28 already-anchored DEFAULT_TIMEOUT_MS). Replaces 4 inline literals with a new shared `DEFAULT_VM_TIMEOUT_MS` export from `core/sws-validator/types.ts:121`. Behavior: zero. Default unchanged at 5000 ms.
