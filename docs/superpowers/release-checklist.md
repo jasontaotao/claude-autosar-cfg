@@ -110,7 +110,7 @@ convention (informal)**:
 
 - Default timeout constants already named: `DEFAULT_VM_TIMEOUT_MS`
   (v1.47.0 PATCH T1, exported from `core/sws-validator/types.ts:121`)
-  + `DEFAULT_TIMEOUT_MS` (private local anchor at `engine.ts:28`).
+  - `DEFAULT_TIMEOUT_MS` (private local anchor at `engine.ts:28`).
 - New timeout / threshold literals in production code: prefer named
   const over inline. Per-site named const is acceptable for one-off
   use; cross-module reuse = the existing exported const.
@@ -119,12 +119,12 @@ convention (informal)**:
 
 ### Test SKIP / open-by-design tracking (informal ledger)
 
-| File:line | Tag | Why-skipped | Round-7 verdict |
-|---|---|---|---|
-| `src/main/ipc/__tests__/dcmConfigRegistration.test.ts:32` | GENUINE-SKIP | electron `app.whenReady` required | leave as-is |
-| `src/shared/paths/__tests__/isPathInsideReal.test.ts:56,74,91,109` | GENUINE-SKIP | Windows symlink edge cases | leave as-is |
-| `src/core/generator/__tests__/ecuc.snapshot.capture.test.ts:71` | GENUINE-SKIP | manual capture-harness gate | leave as-is |
-| `src/core/bridge/__tests__/{addChildSiblingStep,dcmConfigPipeline,xlsxDcmServicesToEcucBatch}.test.ts` | OPEN-by-design | `as unknown as T` test fixtures | ergonomic |
+| File:line                                                                                              | Tag            | Why-skipped                       | Round-7 verdict |
+| ------------------------------------------------------------------------------------------------------ | -------------- | --------------------------------- | --------------- |
+| `src/main/ipc/__tests__/dcmConfigRegistration.test.ts:32`                                              | GENUINE-SKIP   | electron `app.whenReady` required | leave as-is     |
+| `src/shared/paths/__tests__/isPathInsideReal.test.ts:56,74,91,109`                                     | GENUINE-SKIP   | Windows symlink edge cases        | leave as-is     |
+| `src/core/generator/__tests__/ecuc.snapshot.capture.test.ts:71`                                        | GENUINE-SKIP   | manual capture-harness gate       | leave as-is     |
+| `src/core/bridge/__tests__/{addChildSiblingStep,dcmConfigPipeline,xlsxDcmServicesToEcucBatch}.test.ts` | OPEN-by-design | `as unknown as T` test fixtures   | ergonomic       |
 
 The "Informal ledger" is here so future Round-N+1 review rounds don't
 have to re-classify the same SKIPs. Future Round-N should append new

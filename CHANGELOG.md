@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.47.0 (2026-07-12) — PATCH (Round-7 audit follow-up: 5000 magic-number dedup + release-checklist Round-N protocol anchors)
+
+**Closes Round-7 review INFO finding #6** — the literal `5000` (5s VM timeout default) appeared 4x across the vm-runner + script-handler surface (vm-runner.ts:113 + vm-runner.ts:146 + script-handler.ts:368 via SAFE_TIMEOUT_FALLBACK_MS + engine.ts:28 already-anchored DEFAULT_TIMEOUT_MS). Replaces 4 inline literals with a new shared `DEFAULT_VM_TIMEOUT_MS` export from `core/sws-validator/types.ts:121`. Behavior: zero. Default unchanged at 5000 ms.
+
+**Bakes Round-7 audit protocol into release-checklist** — adds pre-flight `git log --oneline -20 + git rev-parse HEAD` gate (2nd confirmation of lesson candidate `round-X-review-must-check-PARENT-commit-history` 1/3 → 2/3), test-SKIP classification framework (GENUINE/STALE/FUTURE-SKIP/COVERAGE-GAP), magic-number convention informal ledger, + 4-row SKIP-classification table so future Round-N reviews append rather than re-investigate.
+
+**T1 (`22120b1`)** — refactor(core): `DEFAULT_VM_TIMEOUT_MS` shared const hoisted from `engine.ts:28` to `types.ts:121`. 4 magic-5000 sites replaced with named import.
+
+**T2 (`dd38f23`)** — docs(release-checklist): Round-7 audit axis anchors + SKIP classification framework + magic-number convention. 88 lines added.
+
+**T3 (this commit)** — docs(release): CHANGELOG v1.47.0 entry + `docs/release-notes/v1.47.0/README.md` NEW.
+
+**3128 + 7 SKIP / 0 fail** (zero test delta — pure refactor + docs). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Lessons**:
+
+- **`round-X-review-must-check-PARENT-commit-history`** — 1/3 → **2/3** confirmation at Round-7 dispatch (pre-flight `git log --oneline -20 + git rev-parse HEAD` applied systematically). Now written into release-checklist § "Pre-review gate" so the discipline is enforced-by-documentation.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T1 dedup flow-mapped: 4 magic-5000 sites across 3 files (sandbox/vm-runner.ts + main/script/vm-runner.ts + main/ipc/script-handler.ts) all derive from `engine.ts:28` private anchor; the exported `DEFAULT_VM_TIMEOUT_MS` from `types.ts` is now the canonical single source of truth.
+- **Lesson #14** (chunk-replacement guard) — applied to T1 via 4 separate `Edit` tool replacements (smaller chunks = lower risk than a single marker-based script for a 4-site literal replacement).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — applied to T1 by clipping the `const DEFAULT_TIMEOUT_MS = 5000;` declaration verbatim from `engine.ts:28`, only renaming to `DEFAULT_VM_TIMEOUT_MS` + export promotion.
+
+**Process lessons applied**:
+
+- Round-7 preflight (`git log --oneline -20` + close-check Round-6 findings) confirmed **0 actionable CRITICAL/HIGH/MEDIUM** findings: repo at stable state. Cycle scope therefore pivoted from "review findings" to "round-7 protocol anchor + lowest-risk INFO finding (magic-number dedup)". Avoids premature commitment to Scope A or C from the dispatch options table.
+- `pnpm verify` 8-stage maintained across all 3 commits with **1 auto-fix** (`eslint --fix` for `import/order` in `script-handler.ts`). No amend cycles; no post-commit fixes.
+- Capture-decisions written inline (lesson #11) rather than dispatching a pkm-capture sub-agent per commit. Avoids the Round-4-6 stall pattern noted in v1.43.0 D5.
+
 ## v1.46.1 (2026-07-12) — PATCH (Round-6 follow-up: package.json drift recurrence closure + L8 residue closure)
 
 **Closes F-5a (Round-6 review HIGH finding)** — `package.json` was stuck at `"version": "1.45.2"` despite CHANGELOG.md documenting `v1.46.0`. This is the **EXACT same bug class** closed by v1.45.2 PATCH `0d7ad33` one ship-cycle earlier — recurrence within 1 cycle. Defense: NEW `docs/superpowers/release-checklist.md` formalizes the pre-ship + post-ship gate that cross-checks CHANGELOG + package.json + git tag.
