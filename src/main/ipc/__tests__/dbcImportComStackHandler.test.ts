@@ -500,3 +500,45 @@ describe('dbCImportComStackHandler 2-phase write (T1)', () => {
     expect(leakedTmps).toEqual([]);
   });
 });
+
+// v1.51.0 PATCH T4 -- Round-9 F-3 closure ATTEMPT.
+//
+// Closure strategy attempted: vi.spyOn(dbcToComStack) mock that
+// returns an outcomes tuple with one entry null. This triggers
+// the 3-outcome-null guard at dbcImportComStackHandler.ts:453.
+//
+// Why deferred to v1.52.x PATCH: F-3 requires triggering a real
+// bridge call sequence that returns one outcome as null. The mock
+// path I attempted assumed `dbcToComStack` returned a Result-shaped
+// { ok, value, plans, outcomes } -- but dbcToComStack returns a
+// flat DbcBridgePlan (NOT a Result). The outcome tuple is built
+// later in `runBridgeForProject` (a private inline function at
+// line 294 of the handler) by joining 3 separate applyPlanToFile()
+// calls. applyPlanToFile is also a private inline function
+// (line 183). To hit the bridge-failed branch we'd need either:
+//   (a) refactor `runBridgeForProject` + `applyPlanToFile` into
+//       exported helper functions (testable seam), OR
+//   (b) construct an artificial real-world flow where one file
+//       has bridge applied but the others get nulled by the
+//       ApplySteps returns -- requires DbcBridgePlan construction
+//       with mismatched patchStep shapes.
+//
+// Both paths are deeper refactors than this PATCH can responsibly
+// land. Per Round-9 honest-deviation (a), F-3 is deferred to
+// v1.52.x PATCH where the seam refactor can land cleanly.
+//
+// The negative-evidence structural-verify test in
+// __tests__/error-path-coverage-round-9.verify.test.ts:108-135
+// (v1.50.0 PATCH T3) documented F-3 as OPEN at v1.50.0 ship. This
+// comment + the (omitted) test stub are the audit-trail pinning
+// for v1.51.0 ship; v1.52.x F-3 closure will retroactively pin
+// the new test coverage into the verify file.
+describe('dbcImportComStackHandler bridge-failed (v1.51.0 PATCH T4 -- DEFERRED to v1.52.x)', () => {
+  it('placeholder: F-3 closure awaits v1.52.x seam refactor', () => {
+    // Intentionally empty. F-3 closure deferred per the comment
+    // block above. Tested as a trivial truthy assertion so the
+    // describe() block has at least 1 case (vitest requires at
+    // least one to register the suite).
+    expect(true).toBe(true);
+  });
+});
