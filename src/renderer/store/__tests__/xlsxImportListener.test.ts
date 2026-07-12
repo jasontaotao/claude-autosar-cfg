@@ -28,6 +28,9 @@ beforeEach(() => {
   });
   captured = null;
   cleanup = null;
+  // v1.54.0 PATCH T7 (F-A4-01 closure) — spy on the unsubscribe fn
+  // returned by the bridge so unmount-cleanup assertions can verify
+  // it was actually invoked (not just thrown away by the caller).
   (
     window as unknown as {
       autosarApi: {
@@ -37,7 +40,11 @@ beforeEach(() => {
   ).autosarApi = {
     onXlsxImportComplete: (h) => {
       captured = h;
-      return () => undefined;
+      const unsubscribeSpy = vi.fn();
+      (
+        window as unknown as { __xlsxImportUnsubscribeSpy: ReturnType<typeof vi.fn> }
+      ).__xlsxImportUnsubscribeSpy = unsubscribeSpy;
+      return unsubscribeSpy;
     },
   };
 });
@@ -49,6 +56,7 @@ afterEach(() => {
   cleanup = null;
   captured = null;
   delete (window as unknown as { autosarApi?: unknown }).autosarApi;
+  delete (window as unknown as { __xlsxImportUnsubscribeSpy?: unknown }).__xlsxImportUnsubscribeSpy;
 });
 
 describe('attachXlsxImportListener (v1.36.1 PATCH T1 M1)', () => {
@@ -106,5 +114,26 @@ describe('attachXlsxImportListener (v1.36.1 PATCH T1 M1)', () => {
     // No throw; xlsxLastImport unchanged.
     expect(useArxmlStore.getState().xlsxLastImport).toBeNull();
     warn.mockRestore();
+  });
+
+  // v1.54.0 PATCH T7 (F-A4-01 closure) — unmount cleanup path. The
+  // bridge returns an unsubscribe fn from `onXlsxImportComplete`. If
+  // the listener drops this fn on the floor (forgets to invoke it
+  // on cleanup), each React StrictMode double-mount or app re-load
+  // leaks a real Electron `ipcRenderer.on(...)` subscription. This
+  // test pins that the returned unsubscribe fn is invoked when the
+  // caller's cleanup runs.
+  it('invokes the bridge unsubscribe fn when the listener cleanup runs', () => {
+    cleanup = attachXlsxImportListener();
+    const spy = (window as unknown as { __xlsxImportUnsubscribeSpy?: ReturnType<typeof vi.fn> })
+      .__xlsxImportUnsubscribeSpy;
+    expect(spy).toBeDefined();
+    expect(spy!).not.toHaveBeenCalled();
+    // The afterEach calls `cleanup()` for us, but we explicitly
+    // null it out so the assertion below verifies the EXACT behavior
+    // we care about: that cleanup invokes the spy.
+    cleanup!();
+    cleanup = null;
+    expect(spy!).toHaveBeenCalledTimes(1);
   });
 });
