@@ -266,3 +266,67 @@ describe('saveArxmlHandler errno mapping (Sprint 17b T7)', () => {
     expect(err.code).toBe('EIO');
   });
 });
+
+// v1.51.0 PATCH T3 -- Round-9 F-4 closure: serialize-failed kind
+// discriminator (saveArxmlHandler.ts:79). The previous test file
+// header at line 18 commented that "9. serializeArxml failure ->
+// serialize-failed" was a planned case but the case was never
+// written. Closes Round-9 F-4 + Round-10 F-4 stale-closure pin
+// (the corresponding verify.test.ts at __tests__/error-path-coverage-
+// round-9.verify.test.ts:137-152 documented this case as OPEN).
+//
+// Implementation: use vi.spyOn on the serializeArxml module's
+// exported function so the spy tracks the SAME function reference
+// that saveArxmlHandler captured at module import time. vi.mock()
+// did not propagate because the dynamic import chain re-evaluates
+// the serializer module resolution cache, leaving the handler
+// pointing at the un-mocked original. vi.spyOn mutates in place.
+
+describe('saveArxmlHandler serialize-failed (v1.51.0 PATCH T3 -- Round-9 F-4 closure)', () => {
+  it('returns kind="serialize-failed" when serializeArxml rejects the doc', async () => {
+    const serializerModule = await import('../../../core/arxml/serializer.js');
+    const spy = vi.spyOn(serializerModule, 'serializeArxml').mockReturnValueOnce({
+      ok: false,
+      error: {
+        kind: 'invalid-document',
+        path: '/',
+        message: 'mocked serializer rejection (v1.51.0 T3)',
+      },
+    } as unknown as ReturnType<typeof serializerModule.serializeArxml>);
+    try {
+      const r = await saveArxmlHandler({
+        doc: makeDoc(),
+        currentPath: '/proj/X.arxml',
+      });
+      expect(r.ok).toBe(false);
+      if (r.ok) throw new Error('unreachable');
+      const err = r.error as SaveArxmlError;
+      expect(err.kind).toBe('serialize-failed');
+      expect(err.message).toContain('mocked serializer rejection');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('does NOT write to disk when serializeArxml rejects the doc', async () => {
+    const serializerModule = await import('../../../core/arxml/serializer.js');
+    const spy = vi.spyOn(serializerModule, 'serializeArxml').mockReturnValueOnce({
+      ok: false,
+      error: {
+        kind: 'invalid-document',
+        path: '/',
+        message: 'mocked serializer rejection -- no write should occur',
+      },
+    } as unknown as ReturnType<typeof serializerModule.serializeArxml>);
+    try {
+      const target = join(workDir, 'should-not-exist.arxml');
+      const r = await saveArxmlHandler({ doc: makeDoc(), currentPath: target });
+      expect(r.ok).toBe(false);
+      // The handler returns BEFORE the writeAtomic call (per
+      // saveArxmlHandler.ts:73-83 if !serialized.ok return).
+      expect(existsSync(target)).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
