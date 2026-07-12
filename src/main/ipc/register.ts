@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
-import { dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain } from 'electron';
 
 import { parseBswmd } from '../../core/project/bswmd.js';
 import { loadManifest } from '../../core/project/manifest.js';
@@ -119,7 +119,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, async () => {
-    return '0.11.0';
+    // v1.48.1 PATCH T2: was hard-coded `'0.11.0'` (predates v1.0.0);
+    // read from `app.getVersion()` so the channel returns the same
+    // value electron-builder bakes into the installer (the source-of-
+    // truth is `package.json` "version", bumped in T1 of this PATCH).
+    // Closes Round-8 F-3 LOW + side-effect closes F-1 caller leakage.
+    return app.getVersion();
   });
 
   ipcMain.handle(
