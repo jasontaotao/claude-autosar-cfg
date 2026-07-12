@@ -5,6 +5,40 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.48.1 (2026-07-12) — PATCH (Round-8 follow-up closure: package.json 3rd-cycle drift + GET_APP_VERSION literal)
+
+**Closes Round-8 review F-1 (CRITICAL)** — `package.json` was stuck at `"version": "1.46.0"` despite CHANGELOG.md documenting `v1.48.0` and tag `v1.48.0` already pushed. **3rd recurrence within 3 cycles** (v1.45.2 closure → v1.46.1 closure → still drifted at v1.47.0 + v1.48.0 ships). `electron-builder` reads package.json for installer version — silent user-facing regression for source-build users.
+
+**Closes F-3 (LOW)** — `src/main/ipc/register.ts:122` GET_APP_VERSION handler returned hard-coded `'0.11.0'` literal (predating v1.0.0), silently drifting from the real `package.json` "version". Now reads `app.getVersion()` so the channel returns the same value electron-builder bakes into the installer.
+
+**T1 (`a54b72e`)** — chore(release): `package.json:3` bump `1.46.0` → `1.48.0` + release-checklist § Pre-ship gate step 1a (NEW): explicit package.json parity check. The v1.46.1 PATCH gate only checked CHANGELOG + git tag; this amendment explicitly covers package.json with a "STOP. Fix package.json bump BEFORE ship" guard.
+
+**T2 (`4658c37`)** — fix(ipc): `GET_APP_VERSION` handler now `return app.getVersion()` (5 LoC) + NEW `src/main/ipc/__tests__/getAppVersion.test.ts` (3 test cases: literal-not-returned / channel string stability / ipcMain.handle registration).
+
+**T3 (this commit)** — docs(release): CHANGELOG v1.48.1 entry + `docs/release-notes/v1.48.1/README.md` NEW.
+
+**3128 + 7 SKIP / 0 fail** → **3131 + 7 SKIP / 0 fail** (+3 new test cases). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Honest deviations**:
+
+- **(a)** The release-checklist pre-ship gate artifact (committed at v1.46.1 PATCH `3afcb7d`) was bypassed on v1.47.0 (T1 `22120b1`) and v1.48.0 (T1 `719ec40`) ship cycles. The gate existed but was opt-in (`grep -m1 '^## ' CHANGELOG.md` does not surface `package.json` parity automatically). T1 of this PATCH adds explicit package.json parity check to the gate.
+- **(b)** `getAppVersion.test.ts` mocks `ipcMain.handle` into a Map rather than booting Electron. Same GENUINE-SKIP pattern as Round-7 audit (`src/main/ipc/__tests__/dcmConfigRegistration.test.ts:32`). The 3 cases pin: literal-not-returned, channel string stability, registration wiring.
+- **(c)** Round-8 F-2 (onScriptProgress HMR listener leak, MEDIUM dev-only) **deferred to v1.49.x** — not user-facing, production sandbox-safe, requires idempotent-listener pattern + dedicated test scaffold. Not blocking for this PATCH.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — `pnpm verify` 8-stage state confirmed at each commit boundary.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T1 verified which artifacts were stale vs which were current; T2 verified the GET_APP_VERSION contract via 3 negative-evidence test cases (handler returns mocked version + not literal + ipcMain.handle wired).
+- **Lesson #14** (chunk-replacement guard) — applied to T1 (`Edit` tool for 1-line package.json bump; no marker-based replacement needed).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — N/A (no file-split in this cycle).
+
+**Lesson-candidate promotions this cycle**:
+
+- **`round-X-review-must-check-PARENT-commit-history-before-marking-findings-as-open`** — Round-8 dispatch preflight (3rd confirmation observation) → **3/3 → STANDALONE PROMOTION**. The lesson is now in the Process Cluster catalog (Tier 14+). 3 confirmations: Round-5 marked 4 already-closed findings OPEN → Round-7 preflight verified branch state → Round-8 preflight explicitly caught F-1 (3rd-cycle drift).
+- `package.json-version-bump-must-be-on-every-version-ship` — 1/3 (NEW candidate, explicit F-1 confirmation).
+- `electron-builder-silently-uses-stale-package.json-version` — 1/3 (NEW candidate, F-1 sub-lesson).
+
 ## v1.48.0 (2026-07-12) — MINOR (A11y & polish: prefers-reduced-motion CSS + role=status live-region empty-state UI)
 
 **Closes WCAG 2.2.2 ("Pause, Stop, Hide")** — adds a global `@media (prefers-reduced-motion: reduce)` rule in `src/renderer/styles.css` that scales all animation + transition durations to 0.01ms (the floor avoids Safari's animation-blocked exception). Universal selector `*, *::before, *::after` with `!important` cascades to the 10+ per-component CSS files that use transition keyframes. No per-file edit required.
