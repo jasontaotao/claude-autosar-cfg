@@ -5,6 +5,30 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.54.0 (2026-07-12) — PATCH (whole-project multi-agent review closure)
+
+**Closes 5 confirmed HIGH bugs + 1 MEDIUM + 1 PARTIAL surfaced by the 2026-07-12 evidence-based whole-project review** (5 multi-lens agents + 2-verifier adversarial cross-check). All findings had file:line evidence + 2 independent confirmations before being prioritized for this PATCH.
+
+**T1 (`86339c6`)** — **fix+test(ipc)**: `dcmConfigHandler` path-containment (F-A3-01 HIGH). Handler accepted caller-supplied `bswmdPath` without any containment check; a tampered preload could read `/etc/passwd`. Fix: `resolveDcmBswmdPath` now async, validates caller-supplied path against `dirname(odxPath)` (the user-picked ODX directory). Manifest-resolved and walk-up paths skip the check (internally derived). New escape-reject test case.
+
+**T2+T3 (`dbedb2a`)** — **fix(ipc)**: Script-handler + templates-handler IPC envelope wrap (F-A2-02 + F-A2-03 HIGH). `scriptSaveHandler` / `scriptDeleteHandler` threw raw `ScriptError` (5 sites); `templatesCopyHandler` threw plain `TemplateError` objects. Wrapped at registration site so any throw becomes `{ok:false, error:{kind,message}}` matching the envelope shape that 7 other handlers follow.
+
+**T4 (`7092acf`)** — **fix(ipc)**: Batch handler tmp filename `randomUUID` migration (F-A2-01 HIGH). `dbcImportComStackHandler.ts` + `xlsxEcucBatchImportHandler.ts` still used `${path}.tmp.${pid}` for phase-1 tmp files. v1.51.0 PATCH T5 migrated `writeAtomic` to `randomUUID` but missed these 2 (the riskiest multi-file write paths). Now both use `${path}.tmp-${randomUUID()}` matching `writeAtomic`'s namespace.
+
+**T5 (`4ff8ba1`)** — **test(verify)**: F-3 bridge-failed negative-evidence regex fix (F-A5-01 HIGH). `error-path-coverage-round-9.verify.test.ts:127` used `/kind: 'bridge-failed'/g` which does NOT match the accessor form `.kind).toBe('bridge-failed')` (closing paren). The pin asserted `count === 0` (no exercise) and PASSED by accident — even though F-3 was closed by v1.52.0 T3. Updated regex + flipped to positive-evidence.
+
+**T6 (`874172c`)** — **test(core)**: `stripBswmdPackageRoot` unit test (F-A5-02 severity overstated HIGH → MEDIUM after verify). 28-LoC single-export module underpinning every xlsx mapper with zero direct coverage. 5 cases pin the regex behavior including a tolerant-passthrough case that documents the actual behavior for paths without leading slash.
+
+**T7 (`8d674f5`)** — **test(renderer)**: `xlsxImportListener` cleanup assertion (F-A4-01 MEDIUM, partial 1/3 closure). The bridge returns an unsubscribe fn; the existing test called cleanup in `afterEach` but never asserted it was actually invoked. New case uses a `vi.fn()` spy to verify the unsubscribe fn is invoked on cleanup. Remaining 2 listeners (`xlsxImportHistoryBootstrap` — no cleanup concept; `useScriptActions` — no test file) deferred.
+
+**3160 + 7 SKIP / 0 fail** → **3167 + 7 SKIP / 0 fail** (+7 net: T1 +1 + T6 +5 + T7 +1). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **`round-X-review-preflight`** (standalone since v1.48.1) — applied in this cycle (the review itself used the preflight protocol).
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (STANDALONE) — applied; package.json 1.53.0 → 1.54.0 verified pre-tag.
+
 ## v1.53.0 (2026-07-12) — PATCH (IPC dead-code audit closure + handler test coverage)
 
 **Closes 1 connectivity-audit gap + marks 3 dead-code channels `@deprecated`**. Dispatched after the 2026-07-12 evidence-based IPC review (verification-agent run with `pnpm test` + `pnpm verify` + grep) revealed:
