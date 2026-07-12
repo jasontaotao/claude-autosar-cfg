@@ -93,6 +93,9 @@ import { getRendererPlatform } from './platform.js';
 const recentHandlersByChannel = new Map<string, (...args: unknown[]) => unknown>();
 
 const api = {
+  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
+  // connectivity audit. No renderer caller exists. Kept so external
+  // headless harnesses do not break; removal candidate for v1.55.0.
   ping: (): Promise<{ ok: boolean; ts: number }> => ipcRenderer.invoke(IPC_CHANNELS.PING),
   // v1.6.0 Cluster U — expose `process.platform` to the renderer.
   // The renderer normalizes Mod → Cmd/Ctrl based on this value
@@ -178,10 +181,18 @@ const api = {
   // Sprint 13 #1 — built-in template list. Renderer does not call
   // this in Sprint 13 #1; it is exposed so the IPC contract is
   // complete and the bridge is ready for Sprint 13 #2's picker.
+  //
+  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
+  // connectivity audit. Renderer still does not call this; Sprint
+  // 13 #2's picker UI was never built. Removal candidate for
+  // v1.55.0 unless the picker UI is built first.
   listTemplates: (): Promise<TemplateListResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_LIST, {}),
   // Sprint 13 #1 — copy a template into a project dir. Not called
   // by the renderer in Sprint 13 #1.
+  //
+  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
+  // connectivity audit (same rationale as `listTemplates` above).
   copyTemplate: (req: TemplateCopyRequest): Promise<TemplateCopyResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_COPY, req),
   // Sprint 14 — BSWMD-to-ECUC skeleton creation. Renderer computes

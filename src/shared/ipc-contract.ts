@@ -1,5 +1,12 @@
 // IPC channel name constants. Shared across main, preload, renderer.
 export const IPC_CHANNELS = {
+  // v1.53.0 PATCH T3 -- `@deprecated` since 2026-07-12 IPC
+  // connectivity audit. No renderer caller exists in `src/renderer/`.
+  // Health-check channel was added in early scaffolding; headless
+  // CLI may still rely on it via a non-Electron harness, but the
+  // renderer-side API surface is dead. Kept to avoid breaking
+  // external headless scripts. Removal candidate for v1.55.0 unless
+  // a use case emerges before then.
   PING: 'app:ping',
   GET_APP_VERSION: 'app:get-version',
   // v1.51.0 PATCH T2 -- Round-10 F-2 closure: hoist the literal
@@ -44,11 +51,21 @@ export const IPC_CHANNELS = {
   // expected to translate `displayNameKey` / `descriptionKey` via
   // `t(locale, key)`. Empty `templates` array is a valid response
   // (the samples root may be missing in dev / portable builds).
+  //
+  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
+  // connectivity audit. Renderer does not call this; main test
+  // exists (`templatesHandler.test.ts`) but the renderer-side API
+  // surface is dead. Sprint 13 #2's "template picker" UI was never
+  // built — the user creates projects via `project:new` directly.
+  // Removal candidate for v1.55.0 unless the picker UI is built.
   TEMPLATES_LIST: 'templates:list',
   // Sprint 13 #1 — copy a template's files into a chosen directory.
   // Returns the relative paths of copied value-side and schema-side
   // files. Renderer does not call this in Sprint 13 #1; it is exposed
   // here so the IPC contract is complete and the handler is testable.
+  //
+  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
+  // connectivity audit (same rationale as `TEMPLATES_LIST` above).
   TEMPLATES_COPY: 'templates:copy',
   // Sprint 14 — BSWMD-to-ECUC skeleton creation.
   //
