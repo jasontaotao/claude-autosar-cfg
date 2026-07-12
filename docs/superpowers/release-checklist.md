@@ -58,3 +58,91 @@ Lesson candidate: `release-checklist-must-verify-package.json-bump-on-every-vers
 - New gate items: ADD them inline.
 - Removed items: TICK the `// REMOVED: ...` comment first to preserve history.
 - Closed findings affecting gates: update the relevant gate + reference the closing commit.
+
+## Round-7 audit-anchored items (v1.47.0 PATCH T2)
+
+### Pre-review gate (run before dispatching Round-N fresh code review)
+
+```bash
+# 1. Branch state sanity (lesson candidate
+#    `round-X-review-must-check-PARENT-commit-history` 1/3 -> 2/3 at Round-7).
+#    Without this preflight, Round-5 dispatch (134th) marked 4 findings
+#    as OPEN that were actually closed in v1.41.0 MINOR -- a stale-snapshot
+#    trap that pre-flight `git log --oneline -20` would have caught.
+git log --oneline -20
+git rev-parse HEAD
+git status --short
+
+# 2. Recent Round-N-1 review report cross-check
+ls -la docs/release-notes/v*/README.md 2>/dev/null | tail -5
+ls -la 01-Projects/claude-AutosarCfg/development/capture-decisions/*round-*.md 2>/dev/null | tail -5
+# Confirm the previous round's findings are reflected in MEMORY.md's
+# ship-log rotation before this round's review touches the codebase.
+```
+
+### Tests-with-skip classification policy (Round-7 audit axis #1)
+
+`vitest run` reports 3128 PASS + 7 SKIP. The SKIPs are documented
+case-by-case in `src/**/__tests__/` via `it.skip` / `describe.skip` /
+`it.skipIf(<cond>)` comments. **Classification convention**:
+
+- **GENUINE-SKIP** -- a SKIP that documents why the test cannot run in
+  the current harness (e.g., electron `app.whenReady` requirement,
+  Windows-only behavior). Tagged as "OPEN-by-design". Default: leave
+  as-is, do not chase.
+- **STALE-SKIP** -- a SKIP that was added before the underlying feature
+  shipped and the skip is now incorrect. **Action required**: remove
+  the skip + ensure the test passes against the shipped implementation.
+- **FUTURE-FEATURE SKIP** -- SKIP for a planned-but-not-yet-shipped
+  feature. Tag with a "// FUTURE: <feature> MINOR" comment so future
+  review rounds know to check on this when scoping new MINORs.
+- **COVERAGE GAP** -- new work needed; not flagged as a SKIP because
+  no test exists. Surface in Round-N review tables as new MEDIUM/HIGH
+  actionable finding.
+
+When a Round-N review inspects SKIPs, classify each one in the
+review report's table above and link to the relevant test file:line.
+
+### Magic-number convention (Round-7 audit axis #4)
+
+Currently informal -- no CONTRIBUTING.md in this repo. **Practiced
+convention (informal)**:
+
+- Default timeout constants already named: `DEFAULT_VM_TIMEOUT_MS`
+  (v1.47.0 PATCH T1, exported from `core/sws-validator/types.ts:121`)
+  + `DEFAULT_TIMEOUT_MS` (private local anchor at `engine.ts:28`).
+- New timeout / threshold literals in production code: prefer named
+  const over inline. Per-site named const is acceptable for one-off
+  use; cross-module reuse = the existing exported const.
+- Test fixtures: tolerate magic numbers (test ergonomics); production
+  code: name them.
+
+### Test SKIP / open-by-design tracking (informal ledger)
+
+| File:line | Tag | Why-skipped | Round-7 verdict |
+|---|---|---|---|
+| `src/main/ipc/__tests__/dcmConfigRegistration.test.ts:32` | GENUINE-SKIP | electron `app.whenReady` required | leave as-is |
+| `src/shared/paths/__tests__/isPathInsideReal.test.ts:56,74,91,109` | GENUINE-SKIP | Windows symlink edge cases | leave as-is |
+| `src/core/generator/__tests__/ecuc.snapshot.capture.test.ts:71` | GENUINE-SKIP | manual capture-harness gate | leave as-is |
+| `src/core/bridge/__tests__/{addChildSiblingStep,dcmConfigPipeline,xlsxDcmServicesToEcucBatch}.test.ts` | OPEN-by-design | `as unknown as T` test fixtures | ergonomic |
+
+The "Informal ledger" is here so future Round-N+1 review rounds don't
+have to re-classify the same SKIPs. Future Round-N should append new
+classifications rather than re-investigate.
+
+## Related lessons
+
+- `round-X-review-must-check-PARENT-commit-history` (1/3 confirmed at
+  Round-5 -> 2/3 confirmed at Round-7). 1 more confirmation promotes
+  to standalone tier.
+- `function-extract-must-clip-verbatim-not-reimplement` (#15, 2/3 at
+  v1.47.0). Cross-referenced in `release-checklist.md` because
+  file-split commits are the most common "behavior change disguised
+  as refactor" pattern that a Round-N review might miss.
+
+## v1.47.0 cycle context
+
+This file was originally amended in v1.46.1 PATCH (T1) to close F-5a
+HIGH (package.json drift recurrence). v1.47.0 PATCH T2 adds the
+Round-7 audit axis anchors so future Round-N code reviews inherit
+the pre-flight protocol + the SKIP classification framework.
