@@ -113,25 +113,26 @@ describe('Round-9 F-3..F-7 stale-closure audit (v1.50.0 PATCH T3)', () => {
     expect(src).toContain("kind: 'bridge-failed'");
   });
 
-  it('F-3 bridge-failed: NOT directly exercised in existing tests (DEFERRED)', () => {
-    // F-3 is TRULY OPEN: no existing test exercises the
-    // bridge-failed branch (only write-failed + read-failed are).
+  it('F-3 bridge-failed: IS directly exercised in existing tests (CLOSED by v1.52.0 T3)', () => {
+    // v1.52.0 MINOR T3 closed F-3 by adding the bridge-failed
+    // behavioral case at `dbcImportComStackHandler.test.ts:566`.
+    // v1.54.0 PATCH T5 (F-A5-01 closure) — the previous pin used
+    // `/kind: 'bridge-failed'/g` which does NOT match the accessor
+    // form `.kind).toBe('bridge-failed')` (closing paren). The
+    // negative-evidence assertion passed by accident, masking the
+    // real coverage. Updated regex below matches both literal AND
+    // accessor forms.
     const testSrc = readFileSync(
       'src/main/ipc/__tests__/dbcImportComStackHandler.test.ts',
       'utf-8',
     );
-    // This pin asserts that the closure-of-F-3 IS in fact OPEN at the
-    // time of v1.50.0 ship. If a future cycle closes it, the test
-    // must be updated to reflect that closure (negative-evidence
-    // update).
-    const matches = testSrc.match(/kind: 'bridge-failed'/g) ?? [];
-    // No behavioral exercise of bridge-failed. The test file's
-    // structural reference may still appear in a comment;
-    // comment-only matches do not count.
+    // Match BOTH the object-literal form (`kind: 'bridge-failed'`)
+    // AND the accessor form (`.kind).toBe('bridge-failed')`).
+    const matches = testSrc.match(/\.kind\)?\.toBe\(['"]bridge-failed['"]\)/g) ?? [];
     expect(
       matches.length,
-      'Expected NO behavioral exercise of bridge-failed (deferred to v1.51.x)',
-    ).toBe(0);
+      'Expected AT LEAST ONE behavioral exercise of bridge-failed (closed by v1.52.0 T3)',
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('F-4 serialize-failed: handler emits the kind discriminator (TRULY OPEN)', () => {
