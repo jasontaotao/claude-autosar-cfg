@@ -163,7 +163,7 @@ describe('dcmConfigHandler — kind discriminator (v1.32.0 T1)', () => {
 // spec-canonical shape).
 
 // @vitest-environment node
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve as pathResolve } from 'node:path';
 
@@ -465,17 +465,15 @@ describe('dcmConfigHandler — v1.30.0 affordances', () => {
     const outputPath = pathResolve(workDir, 'Dcm_Config_BswmdOverride.arxml');
     writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
 
-    // Resolve the demo-ecu BSWMD via `process.cwd()` (where vitest's
-    // walkUpForFixture resolves it from). We can't use `workDir`-relative
-    // paths because workDir lives under /tmp and walking up does not
-    // reach the repo root.
-    const bswmdPath = pathResolve(
-      process.cwd(),
-      'samples',
-      'arxml',
-      'demo-ecu',
-      'bswmd',
-      'Bsw_Dcm_Bswmd.arxml',
+    // v1.54.0 PATCH T1 (F-A3-01) — the caller-supplied bswmdPath
+    // must live inside `dirname(odxPath)` (the user-picked ODX
+    // directory). Copy the demo-ecu BSWMD fixture into workDir so
+    // it's a sibling of the ODX. Pre-T1 this test relied on
+    // `process.cwd()`-relative lookup which is now correctly rejected.
+    const bswmdPath = pathResolve(workDir, 'Bsw_Dcm_Bswmd.arxml');
+    copyFileSync(
+      pathResolve(process.cwd(), 'samples', 'arxml', 'demo-ecu', 'bswmd', 'Bsw_Dcm_Bswmd.arxml'),
+      bswmdPath,
     );
 
     const xlsxRows: EcucInstanceRow[] = [
@@ -493,15 +491,54 @@ describe('dcmConfigHandler — v1.30.0 affordances', () => {
     const odxPath = pathResolve(workDir, 'input.odx-d');
     writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
 
+    // v1.54.0 PATCH T1 — use a path that EXISTS-but-outside-odxDir,
+    // OR a path that doesn't exist but IS inside odxDir. The
+    // unreadable-error class triggers after the containment check
+    // passes (so the path is in the ODX tree); the read fails for
+    // its own reason (file not present). Using a non-existent path
+    // inside the workDir tree exercises the right branch.
     const result = await dcmConfigHandler({
       odxPath,
       xlsxRows: [],
       outputPath: pathResolve(workDir, 'Dcm_Config_NoBswmd.arxml'),
-      bswmdPath: '/nonexistent/does-not-exist.arxml',
+      bswmdPath: pathResolve(workDir, 'does-not-exist.arxml'),
     });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toMatch(/BSWMD file unreadable/);
+  });
+
+  // v1.54.0 PATCH T1 (F-A3-01 closure) — caller-supplied bswmdPath
+  // that escapes the ODX directory tree must be rejected before any
+  // file read. Without this guard a tampered preload could request
+  // `bswmdPath: '/etc/passwd'` and main would happily read it.
+  it('rejects caller-supplied bswmdPath that escapes odxPath directory tree', async () => {
+    const odxPath = pathResolve(workDir, 'input.odx-d');
+    writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    // Use the repo's demo-ecu BSWMD which lives OUTSIDE workDir.
+    // Pre-T1 this case would attempt to read it and succeed (the
+    // original design trusted caller-supplied paths). Post-T1 it
+    // must be rejected with a containment error BEFORE the read.
+    const escapeAttempt = pathResolve(
+      process.cwd(),
+      'samples',
+      'arxml',
+      'demo-ecu',
+      'bswmd',
+      'Bsw_Dcm_Bswmd.arxml',
+    );
+
+    const result = await dcmConfigHandler({
+      odxPath,
+      xlsxRows: [],
+      outputPath: pathResolve(workDir, 'Dcm_Config_Escape.arxml'),
+      bswmdPath: escapeAttempt,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toMatch(/escapes the ODX project directory/);
+    expect(result.error.message).toContain('path-containment check');
   });
 
   it('falls back to discovery when bswmdPath is omitted (legacy v1.27.0 behavior)', async () => {
@@ -563,10 +600,13 @@ describe('dcmConfigHandler — v1.43.0 MINOR project-manifest bswmdPaths resolut
       odxPath,
       xlsxRows: [],
       outputPath: pathResolve(workDir, 'Dcm_Config_Explicit.arxml'),
-      bswmdPath: '/nonexistent/does-not-exist.arxml',
+      // v1.54.0 PATCH T1 — must live INSIDE odxDir tree (containment
+      // check). Use a path that exists in the tree but is unreadable
+      // to exercise the "explicit override wins → read fails" branch.
+      bswmdPath: pathResolve(workDir, 'does-not-exist.arxml'),
       // The manifest has a matching entry but explicit override
       // wins — the bad path should surface as BSWMD file unreadable.
-      bswmdPaths: ['/path/to/Bsw_Dcm_Bswmd.arxml'],
+      bswmdPaths: [pathResolve(workDir, 'Bsw_Dcm_Bswmd.arxml')],
     });
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -722,13 +762,18 @@ describe('dcmConfigHandler — v1.41.0 MINOR T3 typed envelope (M3)', () => {
 
   it('returns the success envelope when the cwd-resident sample fixture resolves (regression)', async () => {
     // Regression: the success path must still work when the
-    // fixture-discovery walk hits. `pathResolve(process.cwd(), ...)`
-    // resolves the canonical T1 fixture from the repo root (the
-    // vitest cwd is the project root via package.json's test runner
-    // config).
+    // fixture-discovery walk hits. v1.54.0 PATCH T1 — copy the
+    // fixture into workDir so it's a sibling of the ODX
+    // (containment check requires bswmdPath to live in odxDir tree).
     const odxPath = pathResolve(workDir, 'input.odx-d');
     const outputPath = pathResolve(workDir, 'Dcm_Config_FixtureHit.arxml');
     writeFileSync(odxPath, FIXTURE_ODX_XML, 'utf-8');
+
+    const bswmdPath = pathResolve(workDir, 'Bsw_Dcm_Bswmd.arxml');
+    copyFileSync(
+      pathResolve(process.cwd(), 'samples', 'arxml', 'demo-ecu', 'bswmd', 'Bsw_Dcm_Bswmd.arxml'),
+      bswmdPath,
+    );
 
     const xlsxRows: EcucInstanceRow[] = [
       { sheet: 'DcmReadDataById' as const, shortName: 'ReadVbatt', params: { didRef: 'Vbatt' } },
@@ -738,14 +783,7 @@ describe('dcmConfigHandler — v1.41.0 MINOR T3 typed envelope (M3)', () => {
       odxPath,
       xlsxRows,
       outputPath,
-      bswmdPath: pathResolve(
-        process.cwd(),
-        'samples',
-        'arxml',
-        'demo-ecu',
-        'bswmd',
-        'Bsw_Dcm_Bswmd.arxml',
-      ),
+      bswmdPath,
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

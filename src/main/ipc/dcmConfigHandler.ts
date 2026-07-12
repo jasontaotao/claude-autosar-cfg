@@ -41,7 +41,7 @@
 // `kind: 'bswmd-unreadable'`, message includes "file too large").
 
 import { existsSync } from 'node:fs';
-import { resolve as pathResolve } from 'node:path';
+import { dirname, resolve as pathResolve } from 'node:path';
 
 import { applyPatchesToExtract } from '../../core/arxml/extractPatch.js';
 import { DcmConfigError } from '../../core/bridge/dcmConfigError.js';
@@ -49,6 +49,7 @@ import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
+import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   DcmConfigHandlerResult,
   DcmConfigResponse,
@@ -167,12 +168,47 @@ function resolveBswmdPathFromManifest(bswmdPaths: readonly string[] | undefined)
  * not a hint; if the caller-supplied path is unreadable the handler
  * surfaces a specific `BSWMD file unreadable` error (caught at the
  * `readFileSync` site, not via the catch-all).
+ *
+ * v1.54.0 PATCH T1 (F-A3-01) — caller-supplied `bswmdPath` is now
+ * path-containment-checked against `dirname(odxPath)` (the user-picked
+ * ODX directory). Without this guard a tampered preload could request
+ * `bswmdPath: '/etc/passwd'` and main would happily read it. The ODX
+ * file is the trust anchor because it comes from a native
+ * `dialog.showOpenDialog` (user-picked). The BSWMD override must live
+ * in the same project tree. Manifest-resolved and walk-up paths are
+ * internally derived and require no containment check.
  */
-function resolveDcmBswmdPath(args: DcmConfigHandlerArgs): string {
-  if (args.bswmdPath !== undefined) return args.bswmdPath;
+async function resolveDcmBswmdPath(
+  args: DcmConfigHandlerArgs,
+): Promise<
+  | { readonly ok: true; readonly value: string }
+  | { readonly ok: false; readonly kind: 'bswmd-unreadable'; readonly message: string }
+> {
+  if (args.bswmdPath !== undefined) {
+    // F-A3-01 closure: enforce that caller-supplied BSWMD lives in
+    // the same directory tree as the user-picked ODX file.
+    const resolved = pathResolve(args.bswmdPath);
+    const odxDir = dirname(pathResolve(args.odxPath));
+    if (!(await isPathInsideReal(resolved, odxDir))) {
+      return {
+        ok: false,
+        kind: 'bswmd-unreadable',
+        message: `Caller-supplied bswmdPath '${resolved}' escapes the ODX project directory '${odxDir}' (path-containment check).`,
+      };
+    }
+    return { ok: true, value: resolved };
+  }
   const fromManifest = resolveBswmdPathFromManifest(args.bswmdPaths);
-  if (fromManifest !== null) return fromManifest;
-  return locateDcmBswmdPath(args.odxPath);
+  if (fromManifest !== null) return { ok: true, value: fromManifest };
+  const walkup = locateDcmBswmdPath(args.odxPath);
+  if (walkup === null) {
+    return {
+      ok: false,
+      kind: 'bswmd-unreadable',
+      message: `Dcm BSWMD fixture not found via discovery (walked up from ${args.odxPath})`,
+    };
+  }
+  return { ok: true, value: walkup };
 }
 
 /**
@@ -284,7 +320,17 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     //    helper (32 MiB cap) instead of `readFileSync`. Both
     //    `too-large` and `read-failed` fold into the existing
     //    `kind: 'bswmd-unreadable'` envelope.
-    const dcmBswmdPath = resolveDcmBswmdPath(args);
+    const dcmBswmdPathRes = await resolveDcmBswmdPath(args);
+    if (!dcmBswmdPathRes.ok) {
+      return {
+        ok: false,
+        error: {
+          kind: dcmBswmdPathRes.kind,
+          message: dcmBswmdPathRes.message,
+        },
+      };
+    }
+    const dcmBswmdPath = dcmBswmdPathRes.value;
     const bswmdRead = await readFileWithCap(dcmBswmdPath);
     let dcmBswmdXml: string;
     if (bswmdRead.ok) {
