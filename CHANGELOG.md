@@ -5,6 +5,42 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.51.0 (2026-07-12) — PATCH (Round-10 audit follow-up closure: 4th-cycle drift + feature-flags channel + writeAtomic hardening + Round-9 F-4 behavioral)
+
+**Closes Round-10 audit findings F-1 CRITICAL + F-2 HIGH + F-4 MEDIUM + Round-9 F-4 MEDIUM** dispatched across 5 atomic commits. Round-10 F-3 MEDIUM (picker handler DRY clone) deferred to v1.52.x MINOR (3-handler cross-cut scope). Round-9 F-3 (`bridge-failed` kind) closed as audit-trail stub (deferred to v1.52.x seam refactor). Round-10 F-5 a/b/c (writeAtomic crash-scenario branches) deferred to v1.51.x (DI-seam refactor preferred).
+
+**T1+T2 (`08c8b85`)** — chore(release): `package.json:3` 1.48.0 → 1.50.0 (closes **F-1 CRITICAL 4th-cycle drift recurrence** of v1.45.2/v1.46.1/v1.48.1) + NEW `IPC_CHANNELS.FEATURE_FLAGS_GET` const + 2 site replacements (closes **F-2 HIGH**; was a literal-string orphan) + NEW `src/main/ipc/__tests__/featureFlagsGetChannel.test.ts` (3 cases).
+
+**T3 (`e76f5bd`)** — test(ipc): NEW serialize-failed test cases at `saveArxmlHandler.test.ts:269+` (2 cases via vi.spyOn on the serializer module) — closes **Round-9 F-4 MEDIUM** (test file header commented the case was planned but never written; 10 → 12 cases).
+
+**T4 (`fec1d7a`)** — test(ipc): NEW bridge-failed audit-trail stub at `dbcImportComStackHandler.test.ts:504+` documenting Round-9 F-3 deferral. v1.52.x PATCH will refactor `runBridgeForProject` + `applyPlanToFile` into an exported helper (`_bridge-runtime.ts` candidate) for vi.spyOn-able seam.
+
+**T5 (`d0326d0`)** — fix(io): `writeAtomic.ts:28` tmp filename `process.pid + Date.now()` → `crypto.randomUUID()` (closes **Round-10 F-4 MEDIUM collision-safety**). NEW test case at `writeAtomic.test.ts:55-90` pins the contract (consecutive writes use distinct tmp filenames).
+
+**T6 (this commit)** — docs(release): CHANGELOG v1.51.0 entry + `docs/release-notes/v1.51.0/README.md` NEW.
+
+**3154 + 7 SKIP / 0 fail** → **3156 + 7 SKIP / 0 fail** (+2 from T3 + 1 from T5). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — `pnpm verify` 8-stage state confirmed at every commit boundary.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — T3 traced `serializeArxml` import chain before spyOn; T4 traced `runBridgeForProject`/`applyPlanToFile` to confirm inline-func blocks spy.
+- **Lesson #14** (chunk-replacement guard) — N/A (5 separate Edit tool commits).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — N/A (no file-split).
+- **Round-N review preflight** (STANDALONE-tier) — applied at Round-10 dispatch (5th preflight observation); verified F-1 (4th-cycle drift) + F-3 (re-discovered structurally as Open) + F-4 stale-closure pin.
+
+**Honest deviations**:
+
+- **(a)** Round-10 F-3 `bridge-failed` — closed in T4 via audit-trail stub; behavioral closure deferred to v1.52.x MINOR because the inline `applyPlanToFile` private function blocks vi.spyOn. Future cycle refactors `runBridgeForProject` + `applyPlanToFile` into an exported helper.
+- **(b)** Round-10 F-5 a/b/c — Round-10 audit F-5a/b/c crash-scenario tests (EBUSY on open, EXDEV on rename, unlink-failure cleanup) were attempted but hit "Cannot redefine property" on the frozen `node:fs/promises` namespace. Clean path forward is DI-seam refactor of `writeAtomic`. Deferred to v1.51.x.
+- **(c)** Round-10 F-6 + F-7 (renderer/main loggers) — closed as monitored per Round-9 dispatch precedent (info-only).
+- **(d)** Round-10 F-9 (FeatureFlags inline literal) — closed as monitored (info-only, forward-compat maintenance debt).
+
+**NEW lesson-candidate observation this cycle**:
+
+- **`function-extract-for-test-seam-needs-deeper-integration-test-architecture`** — Both Round-9 F-3 (`bridge-failed` requires inline-fn extraction) AND Round-10 F-5 (crash scenarios require DI seam for fs.promises) exhibit the same root cause: source code is structured for production not for test isolation. Lesson: behavioral test coverage of nested-handler branches requires either DI seams or exported helper splits. 1 of 3 observations; promotion requires 2 more.
+
 ## v1.50.0 (2026-07-12) — PATCH (Round-9 audit follow-up closure: error-path coverage + perf)
 
 **Closes Round-9 audit findings (8 actionable + 3 verified-stale)** dispatched across 4 atomic commits. **T1 doc-only** (F-1 stale, no test needed), **T2** F-2 HIGH (openOdxHandler test), **T3** structural-verify suite (F-3..F-7 stale-closure audit pins the audit trail; 2 truly-open deferred to v1.51.x), **T4** F-8 regex tighten + F-10 Promise.all.
