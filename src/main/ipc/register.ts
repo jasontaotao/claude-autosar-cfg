@@ -11,7 +11,6 @@ import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   OpenArxmlMultiResult,
   OpenArxmlResult,
-  OpenBswmdResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
   DcmConfigRequest,
@@ -60,6 +59,7 @@ import type {
 import { trackHandler } from '../shutdown/drain.js';
 
 import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
+import { registerBswmdOpenHandler } from './bswmdOpenHandler.js';
 import { registerBswmdPickHandler } from './bswmdPickHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
 import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
@@ -426,21 +426,12 @@ export function registerIpcHandlers(): void {
   // renderer calls the reader next, which applies the 32 MiB cap and
   // shape validation). Kept as a separate channel so a future change to
   // dialog filters doesn't have to touch the read path.
-  ipcMain.handle(IPC_CHANNELS.BSWMD_OPEN, async (): Promise<OpenBswmdResult> => {
-    const result = await dialog.showOpenDialog({
-      title: 'Load BSWMD',
-      properties: ['openFile'],
-      filters: [
-        { name: 'BSWMD', extensions: ['arxml'] },
-        { name: 'XML', extensions: ['xml'] },
-        { name: 'All', extensions: ['*'] },
-      ],
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return { kind: 'canceled' };
-    }
-    return { kind: 'ok', path: result.filePaths[0]! };
-  });
+  //
+  // v1.53.0 PATCH T1 — handler extracted to `bswmdOpenHandler.ts` for
+  // direct unit-testability (per `openDbcHandler.ts` /
+  // `openOdxHandler.ts` extraction pattern). Behavior is unchanged —
+  // the inline body moved verbatim.
+  registerBswmdOpenHandler();
 
   // Sprint 12 #3 — directory picker for the New Project flow. Pairs
   // with `PROJECT_NEW` (Task 4), which expects the user-supplied
