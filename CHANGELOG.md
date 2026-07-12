@@ -5,6 +5,25 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.53.0 (2026-07-12) — PATCH (IPC dead-code audit closure + handler test coverage)
+
+**Closes 1 connectivity-audit gap + marks 3 dead-code channels `@deprecated`**. Dispatched after the 2026-07-12 evidence-based IPC review (verification-agent run with `pnpm test` + `pnpm verify` + grep) revealed:
+
+- **Gap 1**: `bswmd:open` had a renderer caller (`useProjectActions.addBswmdFromDialog`) but NO main-side handler test — the handler shipped as inline `ipcMain.handle(...)` at `register.ts:429-443`.
+- **Dead-code channels (3)**: `app:ping` / `templates:list` / `templates:copy` had main handler + preload bridge + main test (some) but ZERO renderer callers. `@deprecated` markers added at IPC_CHANNELS definition + preload bridge sites; removal candidate v1.55.0 unless a use case emerges.
+- **Already-covered (no change)**: `xlsx:import-complete` push emit contract test already exists at `xlsxEcucBatchImportHandler.test.ts:443-491` (v1.40.0 MINOR T3 L1 — both ordering AND payload shape covered, including `persisted: false` failure case). Verification agent's report missed this; confirmed by direct grep.
+
+**T1 (`632cde2`)** — refactor+test(ipc): NEW `src/main/ipc/bswmdOpenHandler.ts` extracted from `register.ts:429-443` (verbatim body clip per lesson `#15`); NEW `__tests__/bswmdOpenHandler.test.ts` with 4 cases (canceled / ok-with-path / empty-filePaths-defensive / dialog-options). Mirrors `openDbcHandler.ts` extraction pattern.
+
+**T3 (`66402a8`)** — docs(ipc): `@deprecated` JSDoc markers added at `IPC_CHANNELS.PING`, `IPC_CHANNELS.TEMPLATES_LIST`, `IPC_CHANNELS.TEMPLATES_COPY` (single source of truth) AND at the preload bridge surfaces (`ping` / `listTemplates` / `copyTemplate`). Documents the removal candidate plan; preserves backwards compatibility for external headless harnesses.
+
+**3157 + 7 SKIP / 0 fail** → **3160 + 7 SKIP / 0 fail** (+3 net from T1). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **`round-X-review-preflight`** (standalone since v1.48.1) — the verification-agent run is itself a Round-11 audit, but it was a **methodology review** (string-match-vs-evidence), not a code-quality review. No code changes resulted from the agent's correctness findings; only its coverage-gap findings led to T1/T2/T3.
+
 ## v1.52.0 (2026-07-12) — MINOR (DRY consolidation + bridge-runtime seam refactor + F-3 closure)
 
 **Closes Round-9 audit F-3 (MEDIUM, bridge-failed kind behavioral coverage)** + **Round-10 audit F-3 (MEDIUM, picker-handler DRY)** dispatched across 3 atomic commits. Tree-touching refactors per v1.45.0 D1 complement → MINOR scope.
