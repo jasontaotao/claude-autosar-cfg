@@ -79,7 +79,11 @@ export function FileListTab(): JSX.Element {
           <ImportEntry />
         </div>
         {arxmlPaths.length === 0 ? (
-          <div className="file-list-tab-empty">{t(locale, 'projectPanel.arxml.empty')}</div>
+          // v1.48.0 MINOR T2 -- aria-live="polite" for first-time
+          // screen reader announcement (WCAG 4.1.3).
+          <div className="file-list-tab-empty" role="status" aria-live="polite">
+            {t(locale, 'projectPanel.arxml.empty')}
+          </div>
         ) : (
           <>
             {/* Sprint 13 Stage 3.5 — Combined Tree View entry. Sits at

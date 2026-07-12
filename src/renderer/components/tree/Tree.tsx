@@ -127,7 +127,11 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
 
   if (doc === null) {
     return (
-      <aside className="tree empty" data-testid="tree-empty">
+      // v1.48.0 MINOR T2 -- aria-live="polite" + role="status" for
+      // first-time screen reader announcement (WCAG 4.1.3). The empty
+      // aside is informational, not an alert; role="status" + polite
+      // live region is the correct pairing.
+      <aside className="tree empty" data-testid="tree-empty" role="status" aria-live="polite">
         {/* Sprint 11 Phase 1 (Option A) — tree-specific empty hint so the
             wording matches the action button name (Open ARXML) without
             having to alias arxmlPanel.empty. */}

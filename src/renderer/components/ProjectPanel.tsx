@@ -99,7 +99,14 @@ function FileList({
         )}
       </div>
       {paths.length === 0 ? (
-        <div className="project-panel-empty">{emptyHint}</div>
+        // v1.48.0 MINOR T2 -- aria-live="polite" so screen readers
+        // announce the empty state on first focus (first-time users).
+        // role="status" pairs with polite live region for non-urgent
+        // updates per WCAG 4.1.3. Empty state is informational, not
+        // an alert, so role="status" (not role="alert").
+        <div className="project-panel-empty" role="status" aria-live="polite">
+          {emptyHint}
+        </div>
       ) : (
         <ul className="project-panel-list" data-testid={`${testIdPrefix}-list`}>
           {paths.map((p, idx) => (
