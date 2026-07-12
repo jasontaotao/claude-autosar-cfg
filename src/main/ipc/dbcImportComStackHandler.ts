@@ -26,6 +26,7 @@
 // MUST return all-zeros counts (the T2 mapper dedups by shortName).
 // This is tested in `dbcImportComStackHandler.test.ts` case #4.
 
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
@@ -307,13 +308,21 @@ export async function dbcImportComStackHandler(
   //          with the in-memory originals. Clean up any leftover tmp
   //          files. The return shape carries `rolledBack: boolean` so
   //          the renderer can render a precise user-facing diagnostic.
-  const pid = process.pid;
+  //
+  // v1.54.0 PATCH T4 (F-A2-01 closure) — tmp filename now uses
+  // `randomUUID()` suffix instead of `process.pid`. The pid-based
+  // name collided under long-running Linux electron processes
+  // where pid-reuse is common (e.g. post-app-restart). `writeAtomic`
+  // was migrated to randomUUID in v1.51.0 PATCH T5 (commit
+  // `d0326d0`); this handler was missed. The dash separator
+  // matches `writeAtomic`'s `.tmp-<uuid>` namespace.
+  const uuid = randomUUID();
   const comPath = com.path;
   const canIfPath = canIf.path;
   const pduRPath = pduR.path;
-  const tmpCom = `${comPath}.tmp.${pid}`;
-  const tmpCanIf = `${canIfPath}.tmp.${pid}`;
-  const tmpPduR = `${pduRPath}.tmp.${pid}`;
+  const tmpCom = `${comPath}.tmp-${uuid}`;
+  const tmpCanIf = `${canIfPath}.tmp-${uuid}`;
+  const tmpPduR = `${pduRPath}.tmp-${uuid}`;
 
   // PHASE 1 — write 3 tmp files in parallel.
   try {

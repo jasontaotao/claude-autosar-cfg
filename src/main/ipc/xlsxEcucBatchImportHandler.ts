@@ -17,6 +17,7 @@
 //
 // Returns per-file counters so the wizard's "Added: N" line is exact.
 
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 
 import { BrowserWindow } from 'electron';
@@ -411,10 +412,14 @@ export async function xlsxEcucBatchImportHandler(
   if (!pduRRes.ok) return { ok: false, error: { kind: 'bridge-failed', message: pduRRes.message } };
 
   // 7. 2-phase atomic write + snapshot rollback (mirror dbcImportComStackHandler §8).
-  const pid = process.pid;
+  //
+  // v1.54.0 PATCH T4 (F-A2-01 closure) — tmp filename uses
+  // `randomUUID()` suffix instead of `process.pid` (collision-safety
+  // parity with `writeAtomic` migrated in v1.51.0 PATCH T5).
+  const uuid = randomUUID();
   const outcomes: FileOutcome[] = [comRes.value, canIfRes.value, pduRRes.value];
   const targets: string[] = [comPath, canIfPath, pduRPath];
-  const tmpFiles: string[] = outcomes.map((o) => `${o.path}.tmp.${pid}`);
+  const tmpFiles: string[] = outcomes.map((o) => `${o.path}.tmp-${uuid}`);
 
   // PHASE 1 — write 3 tmp files in parallel.
   try {
