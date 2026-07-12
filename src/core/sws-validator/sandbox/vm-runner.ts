@@ -16,6 +16,7 @@
 import { createContext, Script as VmScript } from 'node:vm';
 
 import type { InternalValidatorResult, ValidationContext } from '../types.js';
+import { DEFAULT_VM_TIMEOUT_MS } from '../types.js';
 
 import type { RuleCtx, RuleLogSink } from './types.js';
 
@@ -110,7 +111,7 @@ export function runRuleInSandbox(options: RunOptions): RuleRunResult {
   }
 
   try {
-    script.runInContext(context, { timeout: options.timeoutMs ?? 5000 });
+    script.runInContext(context, { timeout: options.timeoutMs ?? DEFAULT_VM_TIMEOUT_MS });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const isTimeout = /timed out/i.test(message);

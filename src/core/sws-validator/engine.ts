@@ -24,8 +24,9 @@ import type {
   Severity,
   ValidatorRule,
 } from './types.js';
+import { DEFAULT_VM_TIMEOUT_MS } from './types.js';
 
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = DEFAULT_VM_TIMEOUT_MS;
 const DEFAULT_SEVERITY_FLOOR: Severity = 'info';
 
 const SEVERITY_ORDER: Readonly<Record<Severity, number>> = {

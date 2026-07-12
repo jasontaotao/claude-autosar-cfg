@@ -109,6 +109,17 @@ export interface RunOptions {
   readonly tourState?: { readonly validationPaused: boolean };
 }
 
+/**
+ * Default wall-clock budget (in milliseconds) for VM sandbox timeouts.
+ *
+ * v1.47.0 PATCH T1: hoisted from `engine.ts` (line 28) and renamed from
+ * `DEFAULT_TIMEOUT_MS` so it can be reused across the 4 sites that
+ * previously hard-coded 5000 (vm-runner.ts:113 + vm-runner.ts:146 +
+ * script-handler.ts:368 (was `SAFE_TIMEOUT_FALLBACK_MS`)). Behavior
+ * unchanged; only naming and reachability expanded.
+ */
+export const DEFAULT_VM_TIMEOUT_MS = 5000;
+
 export interface RunResult {
   readonly results: readonly InternalValidatorResult[];
   readonly durationMs: number;

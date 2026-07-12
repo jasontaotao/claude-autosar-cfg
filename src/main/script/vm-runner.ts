@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { runInContext, createContext, Script as VmScript } from 'node:vm';
 
 import type { ArxmlDocument } from '../../core/arxml/types.js';
+import { DEFAULT_VM_TIMEOUT_MS } from '../../core/sws-validator/types.js';
 
 import { buildScriptCtx } from './ctx.js';
 import type {
@@ -143,7 +144,7 @@ export function runInSandbox(
   // or `timeout` (V8's internal interrupt throws "Script execution
   // timed out" when `timeout` is set on runInContext).
   try {
-    script.runInContext(context, { timeout: options.timeoutMs ?? 5000 });
+    script.runInContext(context, { timeout: options.timeoutMs ?? DEFAULT_VM_TIMEOUT_MS });
   } catch (e) {
     const stack = e instanceof Error ? e.stack : undefined;
     const parsed = parseStackLocation(stack ?? '');

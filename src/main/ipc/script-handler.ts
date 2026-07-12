@@ -23,6 +23,7 @@ import * as path from 'node:path';
 
 import type { ArxmlDocument, ArxmlVersion } from '../../core/arxml/types.js';
 import { loadManifest, saveManifest } from '../../core/project/manifest.js';
+import { DEFAULT_VM_TIMEOUT_MS } from '../../core/sws-validator/types.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import type {
   ScriptDeleteRequest,
@@ -365,7 +366,7 @@ export async function scriptRunHandler(req: ScriptRunRequest): Promise<ScriptRun
   // values fall back to 5000 ms (the renderer's default).
   const SAFE_TIMEOUT_MIN_MS = 1000;
   const SAFE_TIMEOUT_MAX_MS = 60_000;
-  const SAFE_TIMEOUT_FALLBACK_MS = 5000;
+  const SAFE_TIMEOUT_FALLBACK_MS = DEFAULT_VM_TIMEOUT_MS;
   const rawTimeoutMs = req.timeoutMs ?? SAFE_TIMEOUT_FALLBACK_MS;
   const clampedTimeoutMs =
     Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0
