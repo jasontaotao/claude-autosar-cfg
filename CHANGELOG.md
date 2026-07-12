@@ -5,6 +5,29 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.49.0 (2026-07-12) — PATCH (Round-8 F-2 closure: onScriptProgress HMR listener idempotent registration)
+
+**Closes Round-8 audit F-2 (MEDIUM, dev-only)** — `src/preload/index.ts:225 onScriptProgress` previously called `ipcRenderer.on(channel, handler)` directly with an unsubscribe closure. In dev-mode Vite Fast Refresh HMR, the preload module can re-execute while the renderer's previous React component tree still holds the OLD handler reference. The unsubscribe would only fire on the OLD component's effect cleanup; if HMR fires mid-`useEffect`, the new registration lands with the new handler while the old handler stays bound to `ipcRenderer`'s EventEmitter. Renderer page refresh cleans it up but Fast Refresh doesn't, so over a long dev session stale handler closures accumulate on the EventEmitter holding kernel handles.
+
+Production runtime ships with `sandbox: true` + `contextIsolation: true` (Round-8 F-10 negative-evidence verified), so the leak is bounded to dev-mode HMR. Fix is non-load-bearing for production but worth shipping for dev ergonomics.
+
+**T1 (`9c79475`)** — fix(preload): idempotent listener registration pattern. NEW module-scope `recentHandlersByChannel: Map<channel, handler>` tracks the most-recently-registered handler per IPC push channel. Re-registration removes the prior handler before adding the new one. Unsubscribe returned to renderer is idempotent (no-op if a re-registration has already replaced our handler reference). Loose Map type `(...args: unknown[]) => unknown` with narrowing casts at `ipcRenderer.off` call sites.
+
+**T2 (`77af9b0`)** — test(preload): NEW `src/preload/__tests__/onScriptProgress-idempotent.test.ts` with 4 cases pinning the contract: (a) first registration captures handler, (b) unsubscribe callable without throwing, (c) idempotent unsubscribe (calling twice safe), (d) re-registration replaces prior. Mocks `electron` via `vi.mock(...)` to capture `contextBridge.exposeInMainWorld` into a `globalThis.__testApi` shim (same GENUINE-SKIP pattern as Round-7 `dcmConfigRegistration.test.ts:32`).
+
+**T3 (this commit)** — docs(release): CHANGELOG v1.49.0 entry + `docs/release-notes/v1.49.0/README.md` NEW.
+
+**3131 + 7 SKIP / 0 fail** → **3135 + 7 SKIP / 0 fail** (+4 new test cases). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **Lesson #10** (devlog-follow-up-status-claims) — `pnpm verify` 8-stage state confirmed at every commit boundary.
+- **Lesson #11** (pkm-capture-stub-topic-file-recovery) — applied proactively; capture-decisions file written inline via Write tool.
+- **Lesson #13** (per-flow prereq analysis) — F-2 closure required `recentHandlersByChannel` Map + dual-cast at `ipcRenderer.off` call sites + idempotent unsubscribe. Three contract surfaces pinned.
+- **Lesson #14** (chunk-replacement guard) — N/A (single-file edit + new test file).
+- **Lesson #15** (`function-extract-must-clip-verbatim-not-reimplement`) — N/A (no file-split).
+- **Round-N review protocol** (baked in v1.47.0 release-checklist.md; promoted to standalone v1.48.1) — preflight `git log --oneline -20` confirmed Round-8 audit-driven F-2 closure scope. No stale-snapshot trap.
+
 ## v1.48.1 (2026-07-12) — PATCH (Round-8 follow-up closure: package.json 3rd-cycle drift + GET_APP_VERSION literal)
 
 **Closes Round-8 review F-1 (CRITICAL)** — `package.json` was stuck at `"version": "1.46.0"` despite CHANGELOG.md documenting `v1.48.0` and tag `v1.48.0` already pushed. **3rd recurrence within 3 cycles** (v1.45.2 closure → v1.46.1 closure → still drifted at v1.47.0 + v1.48.0 ships). `electron-builder` reads package.json for installer version — silent user-facing regression for source-build users.
