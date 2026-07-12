@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 
@@ -12,9 +13,10 @@ import * as path from 'node:path';
  * partial write.
  *
  * On any failure, the temp file is unlinked and the original `file`
- * (if any) is left untouched. The temp filename includes `pid` and a
- * monotonic timestamp to avoid collisions across concurrent writers
- * in the same directory.
+ * (if any) is left untouched. The temp filename is uniquely
+ * suffixed with `crypto.randomUUID()` (v1.51.0 PATCH T5) to ensure
+ * collision-safety across rapid pid-reuse cycles (Linux pid reuse
+ * after parent fakeroot + Dev-mode Electron renderer restarts).
  *
  * The trust-sprint invariant (v1.4.0) — "never partial-write a user's
  * project file" — is enforced here. Callers (project save handler,
@@ -25,7 +27,7 @@ import * as path from 'node:path';
  * @param content UTF-8 string content to write.
  */
 export async function writeAtomic(file: string, content: string): Promise<void> {
-  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
+  const tmp = `${file}.tmp-${randomUUID()}`;
   try {
     await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(tmp, content, 'utf-8');
