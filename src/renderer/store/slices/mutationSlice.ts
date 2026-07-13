@@ -9,6 +9,7 @@ import {
   addContainer as coreAddContainer,
   addParameter as coreAddParameter,
   addReference as coreAddReference,
+  coreBulkRemove,
   findReferencesTo,
   removeContainer as coreRemoveContainer,
   removeModuleFromDoc,
@@ -174,17 +175,60 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
   bulkDelete: (parentPath, baseShortName) => {
     const state = get();
     const moduleDef = findModuleDefForPath(state.bswmdSchemas, parentPath);
-    mutateParentChildren(set, state, parentPath, (doc, innerPath) => {
-      const target = findByPath(doc, innerPath);
-      if (target === null || target.element.kind !== 'container') return doc;
-      const paths = matchingContainers(target.element.children, baseShortName).map(
-        (child) => `${innerPath}/${child.shortName}`,
-      );
-      return paths.reduce((working, path) => {
-        const removed = coreRemoveContainer(working, path, false, moduleDef);
-        return removed.ok ? removed.value : working;
-      }, doc);
-    });
+    // Resolve the parent + matched siblings once BEFORE entering the
+    // mutation-pipeline helper. `coreBulkRemove` needs the resolved
+    // shortName list for both the multiplicity-floor pre-check AND
+    // the error-surfacing branch — the `mutateParentChildren` callback
+    // shape (where the old reducer lived) cannot reach an
+    // `applyMutationResult*` helper nor surface a `setErrorWithKind`
+    // error envelope, so we resolve here and commit the result
+    // ourselves.
+    const target = resolveContainerTarget(state, parentPath);
+    const sourceDoc = target === null ? state.doc : target.doc;
+    const resolvedParentPath = ((): string | null => {
+      if (state.viewMode === 'combined') {
+        if (target === null) return null;
+        return stripCombinedPrefix(parentPath, target.filePath);
+      }
+      return parentPath;
+    })();
+    if (sourceDoc === null || resolvedParentPath === null) return;
+    const located = findByPath(sourceDoc, resolvedParentPath);
+    if (located === null || located.element.kind !== 'container') return;
+    const matched = matchingContainers(located.element.children, baseShortName);
+    // Empty-match is a no-op. Returning early (instead of dispatching
+    // through `coreBulkRemove` with an empty list) avoids the
+    // `applyMutationResult*` reference-equality short-circuit and keeps
+    // the call site free of unnecessary store churn.
+    if (matched.length === 0) return;
+    const childShortNames = matched.map((child) => child.shortName);
+    const result = coreBulkRemove(sourceDoc, resolvedParentPath, childShortNames, moduleDef);
+    if (!result.ok) {
+      // P2 reviewer finding — the previous reducer swallowed per-call
+      // failures via `removed.ok ? removed.value : working`. We now
+      // surface the envelope error to the UI via the existing
+      // mutation-error helper so the user sees a localized toast.
+      setErrorWithKind(set, state.locale, result.error);
+      return;
+    }
+    // All-or-nothing atomicity: `coreBulkRemove` returns the
+    // post-removal doc when every shortName was successfully dropped
+    // (its pre-validation guarantees no floor violation can fire
+    // mid-sequence). When the batch removes zero siblings (caller
+    // passed `[]`), the doc is the input by reference and we skip the
+    // commit.
+    if (result.value.doc === sourceDoc) return;
+    if (state.viewMode === 'combined' && target !== null) {
+      const sourceIdx = state.documentPaths.indexOf(target.filePath);
+      if (sourceIdx === -1) return;
+      applyMutationResultToSource(set, state, sourceIdx, result.value.doc, target.filePath);
+      return;
+    }
+    // Single-mode dispatch.
+    if (state.activeDocumentPath === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    applyMutationResultToActive(set, state, activeIdx, result.value.doc, state.activeDocumentPath);
   },
 
   deleteContainer: (containerPath) => {

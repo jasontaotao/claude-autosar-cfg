@@ -3,10 +3,11 @@
 // `src/core/arxml/mutation.ts` as part of v1.41.x PATCH T2 (file-size
 // backlog).
 //
-// Public API: addContainer, removeContainer, removeModuleFromDoc,
-// removeWithCascade. Internal helpers: findInboundReferences,
-// collectPackageElements, removeReferenceParam, removeElementAtPath,
-// checkMultiplicityFloor, findElementByPath, removeElement.
+// Public API: addContainer, removeContainer, coreBulkRemove,
+// removeModuleFromDoc, removeWithCascade. Internal helpers:
+// findInboundReferences, collectPackageElements, removeReferenceParam,
+// removeElementAtPath, checkMultiplicityFloor, findElementByPath,
+// removeElement.
 
 import { fillParamsFromBswmd } from '../../arxml/defaultValue.js';
 import { findByPath } from '../../arxml/path.js';
@@ -204,6 +205,190 @@ export function removeContainer(
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
   return { ok: true, value: removed };
+}
+
+/**
+ * Result envelope for {@link coreBulkRemove}.
+ *
+ * `doc` is the post-removal `ArxmlDocument` — the pre-validation
+ * guarantees either every supplied shortName was removed (success,
+ * with `doc` differing from the input by reference equality) or the
+ * floor violation was rejected up front (`doc` matches the input by
+ * reference and `removed` is empty).
+ *
+ * `removed` lists the full `parentPath/<shortName>` paths actually
+ * dropped. Downstream callers can use this for audit logging or
+ * dirty-path bookkeeping without re-walking the tree.
+ */
+export interface BulkRemoveResult {
+  readonly doc: ArxmlDocument;
+  readonly removed: readonly string[];
+}
+
+/**
+ * Batch-validated bulk removal of multiple sibling containers sharing a
+ * common base path under a parent. Adds all-or-nothing atomicity on
+ * top of {@link removeContainer}: either every supplied shortName is
+ * dropped, or the returned doc matches the input by reference and the
+ * `multiplicity-floor` error is surfaced without any mutation.
+ *
+ * P2 reviewer finding — earlier `bulkDelete` ran
+ * `removeContainer` once per sibling. As soon as removal reached the
+ * BSWMD lower-multiplicity floor (e.g. `lower=1` on required
+ * siblings), the trailing calls failed silently and the reducer kept
+ * the unmodified state — leaving the user with a half-deleted parent
+ * and no visible diagnostic. This function fixes that by pre-computing
+ * the would-be parent-child count for the entire batch BEFORE calling
+ * any `removeContainer`, returning the hard floor error up front when
+ * the batch would violate the BSWMD invariant.
+ *
+ * Implementation strategy:
+ *   1. Locate the parent element once.
+ *   2. Count current siblings for each affected base shortName.
+ *   3. Compute the post-removal count (`current - toRemoveCount`). If
+ *      any goes below the matching `BswContainerDef.lowerMultiplicity`
+ *      (resolved via either `moduleDef.containers` for module parents
+ *      or `getContainerDefByPath` for container parents), return the
+ *      `multiplicity-floor` error WITHOUT calling any `removeContainer`.
+ *   4. Otherwise fold sequential `removeContainer` calls into the next
+ *      doc. The pre-check guarantees no per-call floor violation can
+ *      surface mid-sequence; any unexpected failure (e.g. vanished
+ *      path between the count pass and the remove pass) propagates as
+ *      an error and the next doc reference equals the input up to
+ *      that point, preserving the atomicity contract from the user's
+ *      perspective.
+ *
+ * `moduleDef === undefined | null` skips the floor check entirely
+ * (caller assertion: see `addContainer`'s BSWMD-required contract).
+ * When the BSWMD is absent, the function still removes every supplied
+ * path; the all-or-nothing guarantee only applies to the per-call
+ * error envelope, not to a BSWMD floor.
+ */
+export function coreBulkRemove(
+  doc: ArxmlDocument,
+  parentPath: string,
+  childShortNames: readonly string[],
+  moduleDef: BswModuleDef | null | undefined,
+): Result<BulkRemoveResult, MutationError> {
+  // Empty batch: a no-op rather than an error. The slice action treats
+  // this the same as "nothing matched" — but we surface `removed: []`
+  // explicitly so callers can distinguish the empty-batch case from a
+  // multi-zero-match situation at the slice layer.
+  if (childShortNames.length === 0) {
+    return { ok: true, value: { doc, removed: [] } };
+  }
+  // Step 1 — locate the parent. `findByPath` walks the entire pkg/module/
+  // container tree so the parent may itself be a module or a nested
+  // container. Non-module/container parents are silently treated as
+  // "no siblings" — `checkMultiplicityFloor` returns null in the same
+  // situation so we mirror that here rather than rejecting upfront.
+  const parentSegments = parentPath.split('/').filter(Boolean);
+  const parentEl = findElementByPath(doc, parentSegments);
+  if (parentEl === null || (parentEl.kind !== 'module' && parentEl.kind !== 'container')) {
+    return { ok: false, error: { kind: 'path-not-found', path: parentPath } };
+  }
+  // Multi-instance containers share a single BSWMD `ContainerDef` and
+  // distinguish their auto-suffixed siblings (`Cell`, `Cell_1`, ...)
+  // only at the tree layer. The floor check applies to the *base*
+  // shortName count — `Cell`, `Cell_1`, `Cell_2` are 3 instances of
+  // the same logical container. We replicate `components/tree/collections.ts#stripSuffix`
+  // inline so the core layer stays free of renderer-tree imports.
+  const stripNumericSuffix = (name: string): string => name.replace(/_[0-9]+$/, '');
+  // Group supplied shortNames by their base shortName. A batch that
+  // targets multiple unrelated bases (`Cell`, `Other`) is allowed;
+  // each base is checked independently against its own BSWMD def.
+  const perBaseBatch = new Map<string, string[]>();
+  for (const shortName of childShortNames) {
+    const base = stripNumericSuffix(shortName);
+    const bucket = perBaseBatch.get(base);
+    if (bucket === undefined) {
+      perBaseBatch.set(base, [shortName]);
+    } else {
+      bucket.push(shortName);
+    }
+  }
+  // Step 2 — pre-validation against the BSWMD floor. Skip when no
+  // moduleDef is supplied (mirrors `removeContainer`'s `moduleDef ===
+  // null` semantics — the BSWMD-absent path is for tests + edge cases
+  // where the floor cannot be evaluated).
+  if (moduleDef !== undefined && moduleDef !== null) {
+    for (const [base, batchForBase] of perBaseBatch) {
+      // Count current siblings whose stripSuffix matches the base.
+      // `Cell`, `Cell_1`, `Cell_2` all resolve to base `Cell` so the
+      // tally carries over from `addContainer`'s lower-bound guarantee.
+      let currentBaseCount = 0;
+      for (const child of parentEl.children) {
+        if (child.kind !== 'container' && child.kind !== 'module') continue;
+        if (stripNumericSuffix(child.shortName) === base) currentBaseCount += 1;
+      }
+      // Resolve the BSWMD def for the affected base. Parent-kind
+      // dispatch mirrors `checkMultiplicityFloor` (module parents
+      // look in `moduleDef.containers`; container parents go through
+      // `getContainerDefByPath` → walk `subContainers` + `choices`).
+      let def: ContainerDef | undefined;
+      if (parentEl.kind === 'module') {
+        def = moduleDef.containers.find((c) => c.shortName === base);
+      } else {
+        const parentSubPath = containerPathToSubPath(parentSegments.join('/'), moduleDef);
+        if (parentSubPath !== null) {
+          const parentDef = getContainerDefByPath(moduleDef, parentSubPath);
+          if (parentDef !== null) {
+            def =
+              parentDef.subContainers.find((c) => c.shortName === base) ??
+              parentDef.choices.find((c) => c.shortName === base);
+          }
+        }
+      }
+      if (def === undefined) continue;
+      // The post-removal base count drops by the size of this batch's
+      // base-subset. If the result is below the BSWMD floor, surface
+      // a hard error WITHOUT calling any `removeContainer` — the
+      // all-or-nothing contract is the whole point of this function.
+      const afterBaseCount = currentBaseCount - batchForBase.length;
+      if (afterBaseCount < def.lowerMultiplicity) {
+        return {
+          ok: false,
+          error: {
+            kind: 'multiplicity-floor',
+            // Surface the parent's path (not one of the children) so
+            // the UI toast highlights the relationship that would be
+            // violated.
+            path: parentPath,
+            lower: def.lowerMultiplicity,
+            current: currentBaseCount,
+          },
+        };
+      }
+    }
+  }
+  // Step 3 — sequential remove. The pre-validation guarantees no
+  // floor violation can fire; unexpected per-call errors (e.g. an
+  // already-removed target) abort the rest of the batch by returning
+  // the error without committing the partial doc — the slice treats
+  // the entire operation as a no-op in that case, matching the
+  // atomicity contract.
+  const removedPaths: string[] = [];
+  let working = doc;
+  for (const shortName of childShortNames) {
+    const fullPath = `${parentPath}/${shortName}`;
+    const result = removeContainer(working, fullPath, false, moduleDef ?? null);
+    if (!result.ok) {
+      // Mid-batch failure should be unreachable under BSWMD-loaded
+      // conditions (the pre-check above rules out the only known
+      // failure mode). If something else trips the call (path vanished
+      // between count and remove, parent unexpectedly empty), we
+      // bubble the error and drop the partial `working` doc — callers
+      // commit the atomic no-op and surface the message via
+      // `setErrorWithKind`. Returning the original `doc` reference
+      // here would lose the error envelope; using the partial doc
+      // would commit inconsistent state — the error-only return is
+      // the only correct choice.
+      return { ok: false, error: result.error };
+    }
+    working = result.value;
+    removedPaths.push(fullPath);
+  }
+  return { ok: true, value: { doc: working, removed: removedPaths } };
 }
 
 /**

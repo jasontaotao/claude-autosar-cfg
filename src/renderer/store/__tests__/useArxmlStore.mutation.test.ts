@@ -555,6 +555,73 @@ describe('bulkDelete', () => {
       getParentChildren(useArxmlStore.getState().documents[0]!).map((child) => child.shortName),
     ).toEqual(['Other']);
   });
+
+  it('refuses to bulk-delete when the batch would drop below the BSWMD lower-multiplicity', () => {
+    // P2 reviewer Important-1 — earlier `bulkDelete` ran
+    // `removeContainer` once per sibling and silently swallowed the
+    // floor failure on the trailing call, leaving a half-deleted
+    // parent with no diagnostic. `coreBulkRemove` must pre-validate
+    // the entire batch and surface a `multiplicity-floor` error
+    // envelope instead — which the slice action translates into
+    // `state.error` via `setErrorWithKind`.
+    //
+    // Build a BSWMD where the `Cell` sub-container has
+    // `lowerMultiplicity: 1, upperMultiplicity: 'infinite'` (the
+    // P2 brief example). Seed three siblings (`Cell`, `Cell_1`,
+    // `Cell_2`) into the parent + one unrelated sibling (`Other`).
+    // The user requests `bulkDelete('Cell')`; after the batch all
+    // three `Cell` instances would be gone, leaving the parent
+    // with 0 Cells — below lower=1 — so the call must fail and
+    // leave the doc unchanged.
+    const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+    const parent = (doc.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    const siblings: ArxmlContainer[] = ['Cell', 'Cell_1', 'Cell_2', 'Other'].map((shortName) => ({
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName,
+      params: {},
+      children: [],
+    }));
+    useArxmlStore
+      .getState()
+      .addDocument(withParentChildren(doc, parent, siblings), '/tmp/Adc.arxml');
+    // Build a BSWMD with `lowerMultiplicity: 1` on the `Cell`
+    // sub-container so the all-or-nothing floor check trips.
+    const bswmdMod = makeBswModule('Adc', 'AdcConfig', 'Cell');
+    const cellSub = bswmdMod.containers[0]!.subContainers.find((c) => c.shortName === 'Cell');
+    if (cellSub === undefined) throw new Error('Cell sub-container missing in fixture');
+    const requiredCellSub = { ...cellSub, lowerMultiplicity: 1 };
+    const bswmd = {
+      ...makeBswmd({
+        ...bswmdMod,
+        containers: [
+          {
+            ...bswmdMod.containers[0]!,
+            subContainers: bswmdMod.containers[0]!.subContainers.map((c) =>
+              c.shortName === 'Cell' ? requiredCellSub : c,
+            ),
+          },
+        ],
+      }),
+    };
+    useArxmlStore.setState({ bswmdSchemas: [bswmd], bswmdPaths: ['/schemas/Adc.bswmd.arxml'] });
+    const before = useArxmlStore.getState().documents[0]!;
+
+    useArxmlStore.getState().bulkDelete('/EAS/Adc/AdcConfig', 'Cell');
+
+    // All-or-nothing — the doc reference is preserved verbatim when
+    // the floor check rejects the batch.
+    expect(useArxmlStore.getState().documents[0]).toBe(before);
+    // The error envelope must surface via `state.error` so the UI can
+    // show a meaningful localized toast. The exact wording is
+    // locale-specific (zh-CN: "不能低于最小实例数 (3/1)"; en: a
+    // "minimum" / "below" phrase) — assert the (current / lower)
+    // pair is present in the message without locking to the exact
+    // Chinese/translated wording.
+    const surfacedError = useArxmlStore.getState().error;
+    expect(surfacedError).toBeTruthy();
+    expect(surfacedError).toMatch(/\(3\s*\/\s*1\)/);
+  });
 });
 
 function withParentChildren(
