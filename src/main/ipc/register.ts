@@ -9,7 +9,6 @@ import type { ManifestError } from '../../core/project/manifest.js';
 import { IPC_CHANNELS } from '../../shared/ipc-contract.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
-  OpenArxmlMultiResult,
   OpenArxmlResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
@@ -69,6 +68,7 @@ import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
+import { registerOpenArxmlMultiHandler } from './openArxmlMultiHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
 import { registerOpenOdxHandler } from './openOdxHandler.js';
 import { registerOpenOdxWithDefaultHandler } from './openOdxWithDefaultHandler.js';
@@ -214,50 +214,11 @@ export function registerIpcHandlers(): void {
   // "some opened, some failed" from "OS-level read error". Replaces the
   // silent-failure pattern where a read-failure was collapsed into a
   // canceled result (silent-failure-hunter finding #4).
-  ipcMain.handle(
-    IPC_CHANNELS.OPEN_ARXML_MULTI,
-    async (_evt, opts?: { readonly title?: string }): Promise<OpenArxmlMultiResult> => {
-      const result = await dialog.showOpenDialog({
-        title: opts?.title ?? 'Open ARXML',
-        properties: ['openFile', 'multiSelections'],
-        filters: [
-          { name: 'ARXML', extensions: ['arxml'] },
-          { name: 'XML', extensions: ['xml'] },
-          { name: 'All', extensions: ['*'] },
-        ],
-      });
-      if (result.canceled || result.filePaths.length === 0) {
-        return { kind: 'canceled' };
-      }
-      const opened: { path: string; content: string }[] = [];
-      const failed: { path: string; message: string }[] = [];
-      for (const path of result.filePaths) {
-        // v1.40.0 MINOR T1 (H1 + M4) — use the shared `readFileWithCap`
-        // helper (32 MiB cap). Per-file reject: `too-large` and
-        // `read-failed` both fold into the `failed[]` list with the
-        // helper's message so the existing `partial` / `read-failed`
-        // envelope contract is preserved. M4 specifically closes the
-        // "5 picks × 1 GB each = 5 GB heap pressure" vector — without
-        // the cap a multi-GB file in any single slot could OOM main.
-        const read = await readFileWithCap(path);
-        if (read.ok) {
-          opened.push({ path, content: read.content });
-        } else {
-          failed.push({ path, message: read.message });
-        }
-      }
-      if (failed.length === 0) {
-        return { kind: 'opened', results: opened };
-      }
-      if (opened.length === 0) {
-        return {
-          kind: 'read-failed',
-          message: failed.map((f) => `${f.path}: ${f.message}`).join('\n'),
-        };
-      }
-      return { kind: 'partial', opened, failed };
-    },
-  );
+  // v1.54.1 PATCH T4 (F-A5-12 closure) — handler extracted to
+  // `openArxmlMultiHandler.ts` for direct unit-testability.
+  // Verbatim body clip per lesson `#15`. Mirrors the
+  // `openDbcHandler.ts` / `openOdxHandler.ts` extraction pattern.
+  registerOpenArxmlMultiHandler();
 
   ipcMain.handle(
     IPC_CHANNELS.SAVE_ARXML,
