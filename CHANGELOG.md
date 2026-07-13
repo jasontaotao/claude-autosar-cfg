@@ -5,6 +5,30 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.54.1 (2026-07-13) — PATCH (Round-12 fresh-review closure)
+
+**Closes 4 confirmed HIGH bugs + 1 documentation drift** surfaced by the 2026-07-13 Round-12 fresh-review (5 multi-lens agents + 2-verifier adversarial cross-check, 5/5 HIGH survival rate = 100%).
+
+**T1 (`f6dfd44`)** — **docs(ipc)**: Remove erroneous `@deprecated` from `TEMPLATES_LIST` (Round-12 F-A1-02). Round-11 audit claimed zero renderer callers but `NewProjectDialog.tsx:191` actively calls `api.listTemplates()` via a shadowed `api` alias. Removing the `@deprecated` markers prevents the planned v1.55.0 channel deletion from silently breaking the dialog.
+
+**T2 (`035fdfc`)** — **test(verify)**: Widen tmp-leak regression regex (Round-12 F-A2-01). Changed `/tmp[.-]\d+/` to `/tmp[.-][0-9a-f-]+/` at 3 sites in `dbcImportComStackHandler.test.ts`. The original regex required literal digits; UUIDv4's 34% a-f-prefixed values silently bypassed the check. Empirical verification by Round-12 verify-batch-1: 34/100 randomUUID() outputs start with a-f.
+
+**T3 (`4a32dda`)** — **fix(ipc)**: `readFileWithCap` in `odxImportDiagnosticExtractHandler` (Round-12 F-1 partial closure). Replaces raw `fs.readFile(odxPath, 'utf8')` with the shared 32 MiB cap helper. **Partial closure** — the path-containment check on `outputDir` was originally scoped to `dirname(odxPath)` but rejected legitimate usage (real-OEM test wrote to `mkdtempSync` temp dir). Containment withdrawn; size cap is the operative defense.
+
+**T4 (`b39205f`)** — **refactor+test(ipc)**: Extract `arxml:open-multi` handler (Round-11 F-A5-12 / Round-12 re-verified). The 44-LoC inline handler at `register.ts:217-260` is now `openArxmlMultiHandler.ts` (Lesson #15 verbatim clip) with a 4-case test (canceled / all-opened / all-failed / partial).
+
+**T5 (`bfa8000`)** — **docs(renderer)**: Re-label `f1f50cf` source comments (Round-12 F-A1-01). The Round-12 prep commit self-labeled as "v1.54.0 PATCH C" but post-v1.54.0-ship. Comments now correctly say "v1.54.1 PATCH T1" with an explanatory parenthetical.
+
+**3168 + 7 SKIP / 0 fail** → **3172 + 7 SKIP / 0 fail** (+4 net from T4). `pnpm verify` **8-stage GREEN** (incl. python-self-test 8/8 PASS). tsc both configs clean.
+
+**Process lessons applied**:
+
+- **`round-X-review-preflight`** (standalone) — Round-12 review used the preflight protocol
+- **`string-matching-audit-agent-can-miss-pre-existing-tests-always-cross-check-before-scheduling`** (now 3/3 → **STANDALONE**) — Round-12 F-A1-02 is the 3rd confirmation of the pattern (Round-11 audit missed `api.listTemplates()` shadowed call)
+- **`cleanup-assertion-requires-spy-on-the-unsubscribe-fn`** (now 3/3 → **STANDALONE**) — Round-12 A5 directly promoted after verifying T7 + Round-12 prep both genuinely assert spy invocation
+- **`negative-evidence-verify-tests-are-fragile-to-regex-shape`** (now 2/3) — Round-12 F-A2-01 is the textbook case
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (standalone, 5th application) — package.json 1.54.0 → 1.54.1 verified pre-tag
+
 ## v1.54.0 (2026-07-12) — PATCH (whole-project multi-agent review closure)
 
 **Closes 5 confirmed HIGH bugs + 1 MEDIUM + 1 PARTIAL surfaced by the 2026-07-12 evidence-based whole-project review** (5 multi-lens agents + 2-verifier adversarial cross-check). All findings had file:line evidence + 2 independent confirmations before being prioritized for this PATCH.
