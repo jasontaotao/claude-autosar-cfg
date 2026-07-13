@@ -1,0 +1,303 @@
+// @vitest-environment jsdom
+//
+// Phase P1 T3 — CollectionHeader integration into Tree.renderChildren.
+//
+// Wires the synthetic CollectionHeader row above groups of same-shortName
+// siblings (≥2). Behavior pin (per the design spec at
+// docs/superpowers/specs/2026-07-13-multi-instance-tree-ui-design.md):
+//
+//   1. ≥2 same-shortName siblings → CollectionHeader renders with ×N count.
+//   2. <2 siblings (single child) → no CollectionHeader row.
+//   3. Default-collapsed → real sibling TreeNode rows are HIDDEN.
+//   4. Chevron click → toggles expand; real sibling rows become visible.
+//   5. `+` button disabled when count >= BSWMD upperMultiplicity.
+
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { ArxmlDocument, ArxmlElement } from '@core/arxml/types.js';
+import type { BswModuleDef, BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
+import type { Locale } from '@shared/i18n/index.js';
+
+import { Tree } from '../Tree.js';
+import type { ArxmlStoreApi } from '../Tree.js';
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a real container element. Mirrors the `makeContainer` shape used by
+ * Tree.optionalContainers.test.tsx:85-130 so the fixtures stay uniform.
+ */
+const makeEl = (shortName: string): ArxmlElement => ({
+  kind: 'container',
+  tagName: 'ECUC-CONTAINER-VALUE',
+  shortName,
+  params: {},
+  children: [],
+});
+
+/**
+ * Build the value-side doc containing a single parent container whose
+ * `children` array is `childElements`. The parent path is
+ * `/EAS/JWQ3399/JWQ3399ConfigSet` so the BSWMD walker can resolve it.
+ */
+function makeDocWithSiblings(childElements: readonly ArxmlElement[]): ArxmlDocument {
+  return {
+    path: '/fake/JWQ3399.ecuc.arxml',
+    version: '4.6',
+    sourceBswmdPath: '/fake/JWQ3399.arxml',
+    packages: [
+      {
+        shortName: 'EAS',
+        path: '/EAS',
+        elements: [
+          {
+            kind: 'module',
+            tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+            shortName: 'JWQ3399',
+            params: {},
+            children: [
+              {
+                kind: 'container',
+                tagName: 'ECUC-CONTAINER-VALUE',
+                shortName: 'JWQ3399ConfigSet',
+                params: {},
+                children: [...childElements],
+              },
+            ],
+            references: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * Build a BSWMD ContainerDef for a sibling child.
+ */
+const makeSiblingDef = (
+  shortName: string,
+  lowerMultiplicity: number,
+  upperMultiplicity: number | 'infinite',
+): ContainerDef => ({
+  shortName,
+  path: `/EAS/JWQ3399/JWQ3399ConfigSet/${shortName}`,
+  lowerMultiplicity,
+  upperMultiplicity,
+  subContainers: [],
+  parameters: [],
+  references: [],
+  choices: [],
+});
+
+/**
+ * Build a BSWMD BswModuleDef for JWQ3399 with the given sibling ContainerDefs.
+ */
+function makeBswmdModule(siblingDefs: readonly ContainerDef[]): BswModuleDef {
+  return {
+    shortName: 'JWQ3399',
+    path: '/EAS/JWQ3399',
+    dialect: 'ecuc-module-def',
+    moduleId: null,
+    containers: [
+      {
+        shortName: 'JWQ3399ConfigSet',
+        path: '/EAS/JWQ3399/JWQ3399ConfigSet',
+        lowerMultiplicity: 1,
+        upperMultiplicity: 1,
+        subContainers: [...siblingDefs],
+        parameters: [],
+        references: [],
+        choices: [],
+      },
+    ],
+    providedEntries: [],
+    lowerMultiplicity: 1,
+    upperMultiplicity: 1,
+  };
+}
+
+function makeBswmd(siblingDefs: readonly ContainerDef[]): BswmdDocument {
+  return {
+    version: '4.6',
+    modules: [makeBswmdModule(siblingDefs)],
+    warnings: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mock store factory
+// ---------------------------------------------------------------------------
+
+interface MockState {
+  doc: ArxmlDocument;
+  displayDoc: ArxmlDocument;
+  filePath: string;
+  selectedPath: string | null;
+  dirtyPaths: ReadonlySet<string>;
+  activeDocumentPath: string;
+  setDoc: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+  updateParam: ReturnType<typeof vi.fn>;
+  markSaved: ReturnType<typeof vi.fn>;
+  clear: ReturnType<typeof vi.fn>;
+  locale: Locale;
+  bswmdSchemas: readonly BswmdDocument[];
+  addContainer: ReturnType<typeof vi.fn>;
+}
+
+function makeStoreApi(opts: {
+  readonly doc: ArxmlDocument;
+  readonly bswmdSchemas: readonly BswmdDocument[];
+  readonly addContainer?: ReturnType<typeof vi.fn>;
+}): { api: ArxmlStoreApi; state: MockState } {
+  const state: MockState = {
+    doc: opts.doc,
+    displayDoc: opts.doc,
+    filePath: '/fake/JWQ3399.ecuc.arxml',
+    selectedPath: null,
+    dirtyPaths: new Set(),
+    activeDocumentPath: '/fake/JWQ3399.ecuc.arxml',
+    setDoc: vi.fn(),
+    select: vi.fn(),
+    updateParam: vi.fn(),
+    markSaved: vi.fn(),
+    clear: vi.fn(),
+    locale: 'en',
+    bswmdSchemas: opts.bswmdSchemas,
+    addContainer: opts.addContainer ?? vi.fn(),
+  };
+  const api: ArxmlStoreApi = {
+    getState: () => state,
+    subscribe: () => () => undefined,
+  };
+  return { api, state };
+}
+
+/**
+ * Expand `/EAS > JWQ3399 > JWQ3399ConfigSet` so the sibling children render.
+ */
+function expandToConfigSet(): void {
+  fireEvent.click(screen.getByTestId('chevron-/EAS'));
+  fireEvent.click(screen.getByTestId('chevron-/EAS/JWQ3399'));
+  fireEvent.click(screen.getByTestId('chevron-/EAS/JWQ3399/JWQ3399ConfigSet'));
+}
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// Scenarios
+// ---------------------------------------------------------------------------
+
+describe('Tree -- collection header integration (P1 T3)', () => {
+  it('renders collection header with ×N badge when ≥2 siblings share shortName', () => {
+    const doc = makeDocWithSiblings([
+      makeEl('AFECellValidSet'),
+      makeEl('AFECellValidSet_1'),
+      makeEl('AFECellValidSet_2'),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    // Collection header row appears with the base shortName.
+    const header = screen.getByTestId('treeitem-collection-AFECellValidSet');
+    expect(header).toBeInTheDocument();
+    expect(header).toHaveAttribute('data-kind', 'collection');
+    // The ×N count is the size of the largest same-baseName group.
+    expect(within(header).getByText(/×3/)).toBeInTheDocument();
+  });
+
+  it('does NOT render collection header when only 1 sibling shares the shortName', () => {
+    const doc = makeDocWithSiblings([makeEl('AFECellValidSet')]);
+    const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    // No collection header row for a single-element collection.
+    expect(screen.queryByTestId('treeitem-collection-AFECellValidSet')).toBeNull();
+    // The single real sibling still renders as a normal TreeNode.
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+    ).toBeInTheDocument();
+  });
+
+  it('hides real siblings under collection header when collapsed (default)', () => {
+    const doc = makeDocWithSiblings([
+      makeEl('AFECellValidSet'),
+      makeEl('AFECellValidSet_1'),
+      makeEl('AFECellValidSet_2'),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    // The header is present and expanded by default is FALSE → the real
+    // sibling rows must be hidden from the DOM (collapsed subtrees are
+    // not rendered, see TreeNode.tsx:10).
+    expect(screen.getByTestId('treeitem-collection-AFECellValidSet')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
+    ).toBeNull();
+  });
+
+  it('expands real siblings when the collection header chevron is clicked', () => {
+    const doc = makeDocWithSiblings([
+      makeEl('AFECellValidSet'),
+      makeEl('AFECellValidSet_1'),
+      makeEl('AFECellValidSet_2'),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    // Default-collapsed → real siblings hidden.
+    expect(
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
+    ).toBeNull();
+
+    // Click the chevron to expand the collection.
+    fireEvent.click(screen.getByTestId('chevron-collection-AFECellValidSet'));
+
+    // All three real siblings now render.
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
+    ).toBeInTheDocument();
+  });
+
+  it('disables + button in collection header when count >= upperMultiplicity', () => {
+    // Two siblings of AFETempValidSet → header renders (group.length >= 2),
+    // AND count=2 >= upperMultiplicity=1 → + button disabled with
+    // '已达上限' aria-label.
+    const doc = makeDocWithSiblings([makeEl('AFETempValidSet'), makeEl('AFETempValidSet_1')]);
+    const bswmd = makeBswmd([makeSiblingDef('AFETempValidSet', 0, 1)]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    const header = screen.getByTestId('treeitem-collection-AFETempValidSet');
+    expect(header).toBeInTheDocument();
+    const addBtn = screen.getByTestId('add-collection-AFETempValidSet');
+    expect(addBtn).toBeDisabled();
+    expect(addBtn).toHaveAttribute('aria-label', expect.stringContaining('已达上限'));
+  });
+});

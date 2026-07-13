@@ -22,12 +22,19 @@ import { useEffect, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
-import type { BswmdDocument } from '@core/project/bswmd.js';
+import type { BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 
+import {
+  findChildContainerDef,
+  resolveModuleAndParentContainer,
+} from '../../store/helpers/bswmdLookup.js';
+
+import { CollectionHeader } from './CollectionHeader.js';
 import { OptionalAddPlaceholder } from './OptionalAddPlaceholder.js';
 import { TreeNode } from './TreeNode.js';
+import { groupSiblingsByShortName } from './collections.js';
 import { findMissingOptionalSiblings } from './optionalContainers.js';
 
 // Sprint 15 / Phase 3.4 — re-export the TreeNode kind so consumers
@@ -297,6 +304,15 @@ function renderPackage(
 /**
  * Recursive renderer for child elements. Mirrors the call shape TreeNode
  * uses, so we get a single source of truth for child iteration.
+ *
+ * Phase P1 T3 — same-shortName collection branch. When a group of
+ * siblings (≥2 with the same base shortName, modulo the BSWMD
+ * auto-suffix `_<digits>`) exists, render a synthetic
+ * `CollectionHeader` row above the real children and gate the
+ * matching TreeNodes behind the collection's expanded state
+ * (default-collapsed). The collection's expansion key uses the
+ * `collection:` prefix so it never collides with a real node path
+ * in the existing `expanded` Set.
  */
 function renderChildren(
   elements: readonly ArxmlElement[],
@@ -310,12 +326,38 @@ function renderChildren(
   bswmdSchemas: readonly BswmdDocument[],
   locale: Locale,
 ): JSX.Element[] {
-  const realChildren = elements.map((el) => {
+  // Phase P1 T3 — group siblings by base shortName so ≥2 groups get a
+  // synthetic header. We also need the index→baseName map to decide
+  // whether each real sibling sits inside a collection (and is
+  // therefore gated by the collection's expanded state) or sits
+  // outside any collection (and renders as before).
+  const groups = groupSiblingsByShortName(elements);
+  const collectionBaseNames = new Set<string>();
+  for (const [baseName, group] of groups) {
+    if (group.length >= 2) collectionBaseNames.add(baseName);
+  }
+
+  // Helper — strip the `_<digits>` suffix so a real sibling like
+  // `AFECellValidSet_1` is correctly attributed to its baseName
+  // collection `AFECellValidSet`. Mirrors collections.ts stripSuffix.
+  const stripSuffix = (name: string): string => name.replace(/_[0-9]+$/, '');
+
+  const realChildren = elements.flatMap((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
     // v1.4.0 trust sprint — 17c. Unknown vendor extensions and
     // references are both leaves with no children to recurse into.
     const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
-    return (
+    // Phase P1 T3 — siblings inside a collection (≥2 same-baseName)
+    // are hidden when the collection is collapsed (default). Out-of-
+    // collection siblings render exactly as before — no behavior
+    // change for users with non-collected siblings.
+    const baseName = stripSuffix(shortNameOf(el));
+    const inCollection = collectionBaseNames.has(baseName);
+    if (inCollection) {
+      const collectionKey = `collection:${parentPath}/${baseName}`;
+      if (!expanded.has(collectionKey)) return [];
+    }
+    return [
       <TreeNode
         key={childPath}
         label={shortNameOf(el)}
@@ -342,9 +384,38 @@ function renderChildren(
             bswmdSchemas,
             locale,
           )}
-      </TreeNode>
-    );
+      </TreeNode>,
+    ];
   });
+
+  // Phase P1 T3 — collection headers (one per ≥2 baseName group).
+  // The header's `onAdd` invokes the existing `addContainer` mutation
+  // — `coreAddContainer` produces the auto-suffix `_N` (see
+  // src/core/arxml/mutation/container-ops.ts:98-103), so each click
+  // adds a new suffixed sibling that will appear inside the
+  // collection on next render.
+  const collectionHeaders: JSX.Element[] = [];
+  for (const [baseName, group] of groups) {
+    if (group.length < 2) continue;
+    const collectionKey = `collection:${parentPath}/${baseName}`;
+    const isExpanded = expanded.has(collectionKey);
+    const childDef = resolveCollectionChildDef(bswmdSchemas, parentPath, baseName);
+    if (childDef === null) continue;
+    collectionHeaders.push(
+      <CollectionHeader
+        key={collectionKey}
+        shortName={baseName}
+        count={group.length}
+        upperMultiplicity={childDef.upperMultiplicity}
+        isExpanded={isExpanded}
+        onToggle={() => toggle(collectionKey)}
+        onAdd={() => {
+          store.getState().addContainer?.(parentPath, baseName);
+        }}
+        depth={depth}
+      />,
+    );
+  }
 
   // S4 (v1.7.2) — append the optional-add placeholders after the
   // real children. The helper resolves the BSWMD-side parent
@@ -354,10 +425,11 @@ function renderChildren(
   // render the real children as before.
   const missing = findMissingOptionalSiblings(bswmdSchemas, parentPath, elements);
 
-  if (missing.length === 0) return realChildren;
+  if (missing.length === 0 && collectionHeaders.length === 0) return realChildren;
 
-  const addLabel = t(locale, 'tree.addOptionalContainer', { name: '' }).trim();
-  const hintLabel = t(locale, 'tree.optionalContainerHint');
+  const addLabel =
+    missing.length > 0 ? t(locale, 'tree.addOptionalContainer', { name: '' }).trim() : '';
+  const hintLabel = missing.length > 0 ? t(locale, 'tree.optionalContainerHint') : '';
   const placeholders = missing.map(({ cd }) => {
     const parentAbsPath = parentPath; // for `addContainer` we need the value-side path
     return (
@@ -381,7 +453,26 @@ function renderChildren(
     );
   });
 
-  return [...realChildren, ...placeholders];
+  return [...collectionHeaders, ...realChildren, ...placeholders];
+}
+
+/**
+ * Phase P1 T3 — resolve the BSWMD `ContainerDef` for a collection's
+ * child shortName under the given value-side parent path. Re-uses
+ * the `resolveModuleAndParentContainer` + `findChildContainerDef`
+ * pair that `addContainer` uses so the lookup is identical to the
+ * mutation's BSWMD-side check. Returns `null` when no BSWMD is
+ * loaded, the module is missing, or the child isn't declared on
+ * the parent (caller treats `null` as "skip the collection header").
+ */
+function resolveCollectionChildDef(
+  bswmd: readonly BswmdDocument[],
+  parentPath: string,
+  shortName: string,
+): ContainerDef | null {
+  const lookup = resolveModuleAndParentContainer(bswmd, parentPath);
+  if (lookup === null) return null;
+  return findChildContainerDef(lookup.moduleDef, lookup.parentContainerDef, shortName);
 }
 
 function shortNameOf(e: ArxmlElement): string {
