@@ -5,6 +5,44 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.54.2 (2026-07-14) — PATCH (Multi-Instance Tree Collection Header, Phase P1)
+
+**Phase P1 of the multi-instance tree UI enhancement.** Closes the user-reported UX gap where BSWMD `0..*` sub-containers (`AFECellValidSet`, `AFETempValidSet`) showed grey `[+]` dialog buttons without explanation when ≥2 same-`shortName` siblings existed. Pure UI enhancement; zero IPC / zero backend / zero schema changes. Per `release-checklist-must-verify-package.json-bump-on-every-version-ship` (standalone): `package.json` `1.54.1` → `1.54.2` verified pre-tag.
+
+**T1 (`9d86997` + `9e7f4d2`)** — **feat + fix(tree)**: Pure helpers + `optionalContainers` filter extension. New `src/renderer/components/tree/collections.ts` exports `groupSiblingsByShortName(siblings)` (strips `_<digits>$` suffixes; matches `coreAddContainer` auto-suffix semantics at `container-ops.ts:98-103`) + `maxCollectionSize(siblings)`. Extended `findMissingOptionalSiblings` to return `MissingOptionalSibling[]` with `cd` + per-cd `currentCount` + `upperMultiplicity`. Reviewer fix: `currentCount` switched from exact-name to base-name matching (suffixed siblings `Cell_1` + `Cell_2` + `Cell_10` now correctly count as 3 in the `Cell` collection). 2 contract tests pin the base-name grouping + upper-multiplicity round-trip.
+
+**T2 (`5e1183f`)** — **feat(tree)**: `CollectionHeader.tsx` presentational component (75 LoC). Props: `shortName`, `count`, `upperMultiplicity`, `isExpanded`, `onToggle`, `onAdd`, `depth`. Renders a synthetic treeitem row with: chevron toggle button (a11y `aria-expanded`), `(×N)` count badge, `+ 1` button disabled when `count >= upperMultiplicity` (or unbounded when `upperMultiplicity === 'infinite'`). All 4 testid values match brief verbatim (`treeitem-collection-*`, `chevron-collection-*`, `count-collection-*`, `add-collection-*`). 3 tests: badge renders, at-max disabled, click fires onAdd. CSS appended to `styles.css` (~35 LoC) following existing `var(--name, #hex)` variable pattern.
+
+**T3 (`3618901` + `d815fcd`)** — **feat + fix(tree)**: Tree integration of `CollectionHeader` into `Tree.tsx:renderChildren`. Collection branch conditional on `group.length >= 2` (existing N=1 behavior preserved unchanged). Default-collapsed: real siblings hidden via early `return []` in `flatMap` until chevron toggles. Expansion keys use `collection:${parentPath}/${baseName}` prefix to coexist with real-node keys in the existing `expanded: Set<string>`. Inline BSWMD lookup reuses `resolveModuleAndParentContainer + findChildContainerDef` from `bswmdLookup.ts` (same path `mutationSlice.addContainer` uses; no new helper). 5 integration scenarios: header renders when ≥2; no header when N=1; default-collapsed hides siblings; chevron expands; at-max disabled. Reviewer fix: scenario 4 extended with `vi.fn()` spy asserting `addContainer(parentPath, 'AFECellValidSet')` invoked exactly once on `+ 1` click.
+
+**T4 (`22acf14`)** — **feat(i18n)**: 4 new keys × 2 locales + CollectionHeader i18n swap + parity test. Keys: `tree.expandCollection`, `tree.collapseCollection`, `tree.collectionAdd`, `tree.collectionAtMax`. Translations in `src/shared/i18n.en/editor.ts` + `src/shared/i18n.zh-CN/editor.ts`. CollectionHeader uses `useArxmlStore((s) => s.locale) + t(locale, key)` (project's existing i18n plumbing — `react-i18next` is not in `package.json`; brief's `useTranslation`/`editorBundle` references were inaccurate). Parity test at `src/shared/i18n/__tests__/editor.parity.test.ts` pins all 4 keys × 2 locales. Side-fix: `.prettierignore` excludes `.superpowers/sdd/` (gitignored workflow artifacts; 5 false-positive format warnings per verify run; follows `docs/release-notes/**` + `docs/superpowers/archive/` precedent).
+
+**Test results**: **3168 + 7 SKIP / 0 fail** → **3190 + 7 SKIP / 0 fail** (+22 net: T1 +3 + T1-fix +2 + T2 +3 + T3 +5 + T3-fix +1 + T4 +3 + pre-existing +5). `pnpm verify` **8-stage GREEN** (format / lint / type-check / test / coverage / build / import-regression / python-self-test). tsc both `tsconfig.json` + `tsconfig.web.json` clean. Coverage maintained ≥ 96.69%.
+
+**Process lessons applied**:
+
+- **`function-extract-must-clip-verbatim-not-reimplement`** (3/3 confirmations + **STANDALONE**) — T3 followed verbatim clip protocol for inline BSWMD lookup (mirrors `mutationSlice.addContainer` character-for-character rather than reimplementing).
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (standalone, 6th application) — `package.json` `1.54.1` → `1.54.2` verified pre-tag.
+- **`round-X-review-preflight`** (standalone) — Whole-branch review applied (single feature, not multi-area; preflight N/A).
+- **NEW 1/3 candidates** (awaiting 2 more confirmations each):
+  - `brief-stale-fact-claims-require-codebase-cross-check-before-action` (T4 D1 + D2: brief referenced `useTranslation` + `editorBundle` that don't exist; resolved by using project's existing i18n plumbing)
+  - `click-handler-coverage-test-must-verify-real-action-invocation-not-just-button-presence` (T3 reviewer finding F-1: spy assertion added)
+  - `prettier-drift-in-orchestrator-authored-md-blocks-format-stage-unrelated-to-task-scope` (T2 fix: `.prettierignore` side-fix)
+
+**Defer to future cycle (per spec §Phased delivery §P2 / §P3)**:
+
+- **P2**: row buttons (duplicate / sort / bulk-delete) + `ContextMenu` action union extension + `mutationSlice` actions. Separate plan when shipping.
+- **P3**: view-density auto-switching (N>15 → toggle + scroll; N>30 → virtual scroll). YAGNI until OEM ticket demonstrates N>15 instance pain.
+
+**Defer to P2 cycle (whole-branch finding F2 — MEDIUM)**: synthetic `CollectionHeader` uses `role="treeitem"` + `aria-expanded` but its "children" are DOM siblings (gated via `flatMap → return []` early return), not DOM children. WAI-ARIA tree pattern prefers `aria-owns` or actual DOM children. Functional today (keyboard nav works via sibling `treeitem` traversal); a11y audit deferred to P2 row-buttons cycle.
+
+**Spec + plan + per-task reports**:
+
+- Spec: `docs/superpowers/specs/2026-07-13-multi-instance-tree-ui-design.md`
+- Plan: `docs/superpowers/plans/2026-07-13-multi-instance-tree-ui-phase-p1.md`
+- Per-task reports: `.superpowers/sdd/task-{1,2,3,4}-report.md`
+- Whole-branch review: `.superpowers/sdd/review-8381982..22acf14.diff`
+
 ## v1.54.1 (2026-07-13) — PATCH (Round-12 fresh-review closure)
 
 **Closes 4 confirmed HIGH bugs + 1 documentation drift** surfaced by the 2026-07-13 Round-12 fresh-review (5 multi-lens agents + 2-verifier adversarial cross-check, 5/5 HIGH survival rate = 100%).

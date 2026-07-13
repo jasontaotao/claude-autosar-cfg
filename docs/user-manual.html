@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>claude-AutosarCfg 用户手册 · v1.23.1</title>
+    <title>claude-AutosarCfg 用户手册 · v1.54.2</title>
     <style>
       /* ============================================================
    claude-AutosarCfg User Manual
@@ -848,7 +848,7 @@
           <div class="brand-logo">A·C</div>
           <div class="brand-text">
             <strong>claude-AutosarCfg</strong>
-            <span>v1.27.0 · manual</span>
+            <span>v1.54.2 · manual</span>
           </div>
         </div>
 
@@ -905,7 +905,7 @@
       <!-- ============ MAIN ============ -->
       <main>
         <header class="hero">
-          <span class="hero-eyebrow"><span class="dot"></span>v1.27.0 · 2026-07-06</span>
+          <span class="hero-eyebrow"><span class="dot"></span>v1.54.2 · 2026-07-14</span>
           <h1>claude-AutosarCfg <span class="accent">用户手册</span></h1>
           <p class="hero-sub">
             AUTOSAR Classic Platform BSW 配置的桌面 GUI：从 ARXML / BSWMD 到可编译 ECU 配置
@@ -913,13 +913,416 @@
           </p>
           <div class="hero-meta">
             <span>📦 Electron 30 · TypeScript 5 · React 18</span>
-            <span>🧪 2713 tests · 96.31% stmts</span>
+            <span>🧪 3172 tests · pnpm verify 8-stage GREEN</span>
             <span>🪟 Windows / macOS / Linux</span>
             <span>📄 License: <strong>MIT</strong></span>
           </div>
         </header>
 
         <div class="content">
+          <!-- ============================================ -->
+          <!-- RELEASE HISTORY: v1.27.1 → v1.54.2           -->
+          <!-- 2026-07-06 → 2026-07-14 · 29 ships           -->
+          <!-- ============================================ -->
+          <section id="release-history" class="whats-new">
+            <div class="wn-header">
+              <span class="wn-badge">📜 RELEASE HISTORY</span>
+              <strong class="wn-version">v1.27.1 → v1.54.2</strong>
+              <span class="wn-since">29 ships · 2026-07-06 → 2026-07-14</span>
+            </div>
+            <p class="wn-intro">
+              本节汇总自 v1.27.0 MINOR 之后 <strong>29 个 ship cycle</strong>
+              (10 个 MINOR + 19 个 PATCH) 的所有功能/修复/重构。详细决策与代码层细节请参阅
+              <code>docs/release-notes/v1.x.x/README.md</code>。
+            </p>
+
+            <!-- ==================== Dcm Services + Config SERIES (v1.27.1 → v1.38.0) ==================== -->
+            <h3 style="margin-top: 1.4em; color: #0ea5e9">
+              ◆ Dcm Services + Config 收敛期 (2026-07-06 → 2026-07-08,共 12 ships)
+            </h3>
+            <ul class="wn-list">
+              <li>
+                <strong>v1.27.1 PATCH · 2026-07-06</strong> — Dcm Config Silent-Filter Bug Chain
+                Closed。关闭 v1.27.0 静默 <code>.filter</code> 返回 <code>undefined</code> → IPC
+                envelope 失败的连锁 bug + 6 个 regression guard。+7 tests。<a
+                  href="docs/release-notes/v1.27.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.28.0 MINOR · 2026-07-06</strong> — Pure-Refactor Closure of v1.27.x
+                Deferred Items。3 个延期项清理: bridge plan pure-function 化、arxml 元数据剥离、enum
+                解析幂等化。<a href="docs/release-notes/v1.28.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.28.1 PATCH · 2026-07-06</strong> —
+                <code>addChildSiblingStep</code> Direct Unit Test +
+                <code>applyPatchesToExtract</code> Envelope Unification。新增直接单元测试覆盖
+                mutation engine 边界 case, IPC error envelope 统一
+                <code>{ok,error:{kind,message}}</code> 形态。<a
+                  href="docs/release-notes/v1.28.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.29.0 MINOR · 2026-07-06</strong> — Com-Stack Mapper Shape Alignment to
+                <code>addChildSiblingStep</code>。DBC→Com-Stack mapper 内部数据结构改为
+                <code>addChildSiblingStep</code> 同形,简化 bridge runtime +1 减少分支。<a
+                  href="docs/release-notes/v1.29.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.30.0 MINOR · 2026-07-06</strong> — dcmConfig IPC Bridge Wiring。把
+                v1.27.0 的 <code>dcmConfigHandler</code> 通过新的 IPC bridge 接到 renderer
+                DcmConfigWizard。<a href="docs/release-notes/v1.30.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.31.0 PATCH · 2026-07-06</strong> — Dcm Config Renderer UX。14 commits /
+                26 文件,加 DcmConfigWizard 4 步向导 + 错误反馈 + preview。+35 tests。<a
+                  href="docs/release-notes/v1.31.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.31.1 PATCH · 2026-07-06</strong> — Dcm Config Renderer UX Polish
+                (9-batch)。v1.31.0 whole-branch review 9 项 POLISH/Minor 一次性关。+10 tests。<a
+                  href="docs/release-notes/v1.31.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.32.0 MINOR · 2026-07-07</strong> — Dcm Config Hardening + UX
+                Completion。<code>DcmConfigEnvelope</code> 多错误变体统一 + Override 选择 + preview
+                的 source/target 标记。+52 tests。<a href="docs/release-notes/v1.32.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.32.1 PATCH · 2026-07-07</strong> — Override UI (disabled) + release-notes
+                SHA backfill。<code>DcmConfigOverridePicker</code> 以 disabled 状态保留(为 v1.33.0
+                activation 做准备), 把历史 release-notes 的 SHA 引用回填。<a
+                  href="docs/release-notes/v1.32.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.33.0 MINOR · 2026-07-07</strong> — Dcm Config Cleanup + Override
+                Activation。<code>DcmConfigOverridePicker</code> 启用, + 生成新 DcmConfig
+                入口上线。+16 tests。<a href="docs/release-notes/v1.33.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.33.1 PATCH · 2026-07-07</strong> — Override UI Debt Cleanup + Generate
+                New Action。删除 v1.33.0 的 stub 组件(<code>DcmConfigOverridePicker</code> 改为内嵌
+                <code>&lt;details&gt;</code>), 引入 <code>launcher.handleGenerateNew</code>。<a
+                  href="docs/release-notes/v1.33.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.34.0 MINOR · 2026-07-07</strong> — xlsxImportHistory UI Surface。xlsx
+                导入历史 store + UI 列表 + 重用/导出按钮。+10 tests。<a
+                  href="docs/release-notes/v1.34.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.35.0 MINOR · 2026-07-08</strong> — Dcm Config Error Surface Closure +
+                tier3_push commit。所有 Dcm 配置错误变体都有 UI feedback, parser error 全链路上报, +
+                dev-tier3 CI push。<a href="docs/release-notes/v1.35.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.36.0 MINOR · 2026-07-08</strong> — xlsxImportHistory Persistence +
+                Generate New Confirmation + ops polish + T-fix bug review。历史持久化到 disk +
+                二次确认对话框。<a href="docs/release-notes/v1.36.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.36.1 PATCH · 2026-07-08</strong> — T-fix review closure (M1 + M2 +
+                L1)。v1.36.0 review 留下的 3 个 MEDIUM/LOW 项集中关。<a
+                  href="docs/release-notes/v1.36.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.37.0 MINOR · 2026-07-08</strong> — Mutation Engine Purity + Reference
+                Correctness + BSWMD Module-Level Validation。3 个独立改进:M1 mutation engine 去隐式
+                IO、M2 cross-container 引用解析 + 错误传播、M3 BSWMD module-level 参数校验。+9
+                tests。<a href="docs/release-notes/v1.37.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.37.1 PATCH · 2026-07-08</strong> — BSWMD Parser Module-Level
+                Parameters/References + Un-bound H2 Validation。补 BSWMD parser 对
+                <code>MODULE-REF</code> 类型参数的解析,未绑引用零警告。<a
+                  href="docs/release-notes/v1.37.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.38.0 MINOR · 2026-07-08</strong> — Wiring Integrity (C1) + Parser
+                Hardening (H1/H2) + DBC Transmitter Safety (H3) + Polish。Round-3 review 一次性关 1
+                CRITICAL + 3 HIGH + 多项 MEDIUM。<a href="docs/release-notes/v1.38.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+            </ul>
+
+            <!-- ==================== Code Quality + Refactor SERIES (v1.39.0 → v1.45.2) ==================== -->
+            <h3 style="margin-top: 1.4em; color: #0ea5e9">
+              ◆ 代码质量 + 重构期 (2026-07-09 → 2026-07-11,共 12 ships)
+            </h3>
+            <ul class="wn-list">
+              <li>
+                <strong>v1.39.0 MINOR · 2026-07-09</strong> — Generator Output Correctness + CLI
+                Stub Closure。BSW 代码生成器输出对照 AUTOSAR 规范 +5 处修正; CLI 命令补全 stub
+                实现。<a href="docs/release-notes/v1.39.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.40.0 MINOR · 2026-07-09</strong> — IPC Size-Cap Parity + Launcher
+                Stale-Closure。所有 IPC 读文件入口统一 32 MiB cap(<code>readFileWithCap</code> 引入)
+                + 修复 Electron 主进程旧 launcher handle 未关闭造成的 fd 泄漏。<a
+                  href="docs/release-notes/v1.40.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.41.0 MINOR · 2026-07-09</strong> — Script Store + i18n + Error Envelope
+                Cleanup。Script runtime store 上线 + i18n.parity test 全覆盖 +
+                错误信封跨模块统一。<a href="docs/release-notes/v1.41.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.41.1 PATCH · 2026-07-09</strong> — File-Size Backlog Mechanical
+                Split。<code>App.tsx</code> 1457 → 1375、<code>parse.ts</code> 1407 → 3 files、<code
+                  >types.ts</code
+                >
+                1240 → 14 files。Round-1 L8 file-size 8/9 关。<a
+                  href="docs/release-notes/v1.41.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.41.2 PATCH · 2026-07-09</strong> — Round-5 Deferred Sweep。Round-5 review
+                留下的 6 个 MEDIUM/LOW 一次性扫尾关。<a href="docs/release-notes/v1.41.2/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.41.3 PATCH · 2026-07-09</strong> — Drive-By Prettier
+                Pass。全仓库代码格式化 drift 修复(prettier 一致性, 0 LoC 行为变化)。<a
+                  href="docs/release-notes/v1.41.3/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.42.1 MINOR · 2026-07-10</strong> — App.tsx + AppHeader.tsx JSX Refactor
+                (per-flow)。App.tsx 1375 → 840 (-38.9%)。4 个 hook:<code>useAppMainHandlers</code> /
+                <code>useFileViewerHandlers</code> / <code>useDiagExtractHandlers</code> /
+                <code>useWizardHandlers</code>。4 NEW lessons。<a
+                  href="docs/release-notes/v1.42.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.42.2 PATCH · 2026-07-10</strong> — AppHeader sub-component 提取
+                (BrandMenu + ActionBar + StatusBadge, render-prop pattern)。AppHeader.tsx 894 → 661
+                (-26.1%)。Round-1 L8 backlog 9/9 全关。<a
+                  href="docs/release-notes/v1.42.2/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.42.3 PATCH · 2026-07-10</strong> — AppHeader handler cluster 提取 (<code
+                  >useAppHeaderHandlers</code
+                >
+                22-field bundle)。AppHeader.tsx 661 → 415 (-37.2%)。Lesson #14 1/3 → 2/3。<a
+                  href="docs/release-notes/v1.42.3/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.42.4 PATCH · 2026-07-10</strong> — AppHeader shell lifecycle 提取 (<code
+                  >useAppHeaderShell</code
+                >
+                4-field bundle)。AppHeader.tsx 415 → 362 (-12.8%)。Lesson #14 PROMOTED to
+                STANDALONE。<a href="docs/release-notes/v1.42.4/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.43.0 MINOR · 2026-07-11</strong> — DcmConfigHandler project-manifest
+                BSWMD resolution。IPC 扩展,向后兼容;新 <code>resolveBswmdPathFromManifest</code> +
+                walk-up fallback from <code>odxPath</code>。<a
+                  href="docs/release-notes/v1.43.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.43.1 PATCH · 2026-07-11</strong> — code-reviewer hardening。<code
+                  >setStencilOpen</code
+                >
+                ReferenceError 修复(CustomEvent 替代) + DCM wire 0 coverage + 8 个 renderer tsc 错误
+                + 2 MEDIUM。Lesson #14 单 session caveat 加注。<a
+                  href="docs/release-notes/v1.43.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.44.0 PATCH · 2026-07-11</strong> — lessons-sweep vault-only
+                PATCH。Process Cluster catalog 14 → 17 lessons。0 source changes,D3 vault-only PATCH
+                惯例 formalize。<a href="docs/release-notes/v1.44.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.44.1 PATCH · 2026-07-11</strong> — Round-5 follow-up closure (tier3 push
+                drift + .review 治理 + script progress unsubscribe)。<a
+                  href="docs/release-notes/v1.44.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.45.0 MINOR · 2026-07-11</strong> — Drift Cleanup + Verify Closure (首次
+                <strong>pnpm verify 8-stage GREEN</strong>)。gitignore pycache + python self-test +
+                prettier/eslint 统一 + useCallback fix。Round-1 L8 backlog 9/9 关。<a
+                  href="docs/release-notes/v1.45.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.45.1 PATCH · 2026-07-11</strong> — Regex Over-Anchoring Closure。<code
+                  >_HOOK_DECL_RE</code
+                >
+                单标识符形式覆盖修复 (+4 新 test)。Lesson #14 单 session caveat 加注。<a
+                  href="docs/release-notes/v1.45.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.45.2 PATCH · 2026-07-11</strong> — package.json + CHANGELOG Drift
+                Closure。<code>package.json</code> 1.20.0 → 1.45.2 (electron-builder silent-drift
+                fix)。NEW 1/3 lesson
+                <code>round-X-review-must-check-PARENT-commit-history</code>。<a
+                  href="docs/release-notes/v1.45.2/README.md"
+                  >release-notes</a
+                >
+              </li>
+            </ul>
+
+            <!-- ==================== Whole-Project Review SERIES (v1.46.0 → v1.54.2) ==================== -->
+            <h3 style="margin-top: 1.4em; color: #0ea5e9">
+              ◆ Whole-Project Review 期 (2026-07-12 → 2026-07-13,共 10 ships)
+            </h3>
+            <ul class="wn-list">
+              <li>
+                <strong>v1.46.0 MINOR · 2026-07-12</strong> — <code>bswmd/parse.ts</code> Round-2
+                File-Split (Round-1 L8 closure)。<code>parse.ts</code> 1196 → 248 (-79.3%), 5 atomic
+                sub-splits。<a href="docs/release-notes/v1.46.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.46.1 PATCH · 2026-07-12</strong> — Round-6 follow-up closure
+                (package.json drift recurrence + L8 residue App.tsx)。2 NEW 2/3 lessons。<a
+                  href="docs/release-notes/v1.46.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.47.0 PATCH · 2026-07-12</strong> — Round-7 audit follow-up closure。<code
+                  >DEFAULT_VM_TIMEOUT_MS</code
+                >
+                dedup + release-checklist Round-N anchors。0 actionable, 1 INFO closed。<a
+                  href="docs/release-notes/v1.47.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.48.0 MINOR · 2026-07-12</strong> — A11y &amp; polish (WCAG 2.2.2 +
+                4.1.3)。prefers-reduced-motion CSS + <code>role=status</code> +
+                <code>aria-live=polite</code> 空态。<a href="docs/release-notes/v1.48.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.48.1 PATCH · 2026-07-12</strong> — Round-8 F-1+F-3 closure。package.json
+                1.46.0 → 1.48.0 (3rd cycle drift) + <code>app.getVersion()</code> + 测试。<code
+                  >round-X-review-preflight</code
+                >
+                PROMOTED to STANDALONE。<a href="docs/release-notes/v1.48.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.49.0 PATCH · 2026-07-12</strong> — Round-8 F-2 closure (HMR idempotent
+                listener)。<code>idempotent Map</code> pattern + regression test。<a
+                  href="docs/release-notes/v1.49.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.50.0 PATCH · 2026-07-12</strong> — Round-9 audit follow-up closure。T2
+                openOdxHandler test + T3 error-path verify + T4 importSession regex + T10
+                Promise.all。<a href="docs/release-notes/v1.50.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.51.0 PATCH · 2026-07-12</strong> — Round-10 follow-up closure。<code
+                  >FEATURE_FLAGS_GET</code
+                >
+                + saveArxmlHandler serialize-failed test + bridge-failed audit-trail stub +
+                writeAtomic tmp randomUUID。<a href="docs/release-notes/v1.51.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.52.0 MINOR · 2026-07-12</strong> — DRY consolidation + bridge-runtime
+                seam refactor。<code>pickFileWithCap</code> 3 picker 合并 +
+                <code>_bridge-runtime.ts</code> 提取 inline-private。<code>App.tsx</code>
+                文件大小下降到 729 LoC。<a href="docs/release-notes/v1.52.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.53.0 PATCH · 2026-07-12</strong> — IPC dead-code audit closure + handler
+                test coverage。<code>bswmdOpenHandler.ts</code> 48 LoC 提取 + 4 cases + 3
+                <code>@deprecated</code> 标记 (app:ping / templates:list / templates:copy)。<a
+                  href="docs/release-notes/v1.53.0/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.54.0 PATCH · 2026-07-12</strong> — Whole-Project Multi-Agent Review
+                Closure (5 lenses + 2 verify adversarial)。<code>dcmConfigHandler</code> containment
+                + script/template envelope wrap + tmp filename randomUUID + bridge-failed verify
+                regex + <code>stripBswmdPackageRoot</code> 5 cases + xlsxImportListener cleanup
+                spy。<a href="docs/release-notes/v1.54.0/README.md">release-notes</a>
+              </li>
+              <li>
+                <strong>v1.54.1 PATCH · 2026-07-13</strong> — Round-12 Fresh-Review Closure。<code
+                  >TEMPLATES_LIST</code
+                >
+                un-deprecate (F-A1-02 false-negative) + tmp-leak regex 拓宽 +
+                <code>readFileWithCap</code> in odxImport + <code>arxml:open-multi</code> 提取 +
+                commit-comment 重标。2 lessons PROMOTED to STANDALONE。<a
+                  href="docs/release-notes/v1.54.1/README.md"
+                  >release-notes</a
+                >
+              </li>
+              <li>
+                <strong>v1.54.2 PATCH · 2026-07-14</strong> — Multi-Instance Tree Collection Header
+                (Phase P1)。当 ≥2 个同类型 siblings 存在时, 在它们上方显示集合头 <code>(×N)</code> +
+                默认折叠 + 行内 <code>+ 1</code> 按钮 (upper=1 时禁用 + tooltip "已达上限")。修复了
+                AFECellValidSet / AFETempValidSet 对话框灰色 <code>+</code> 按钮无说明的 UX 痛点。零
+                IPC / 零 backend / 零 schema 改动, 纯 UI enhancement。
+                <a href="docs/release-notes/v1.54.2/README.md">release-notes</a>
+              </li>
+            </ul>
+
+            <p class="wn-intro" style="margin-top: 1.2em">
+              <strong>📊 29 ship 汇总</strong>: 10 MINOR + 19 PATCH · 净增 test count 2701 → 3190
+              (+489 tests) · pnpm verify 7-stage → 8-stage GREEN (v1.45.0 起)。
+              <strong>5 个 STANDALONE lessons</strong>:round-X-review-preflight ·
+              release-checklist-must-verify-package.json-bump ·
+              function-extract-for-test-seam-needs-deeper-integration-test-architecture ·
+              string-matching-audit-agent-can-miss-pre-existing-tests-always-cross-check-before-scheduling
+              · cleanup-assertion-requires-spy-on-the-unsubscribe-fn。
+            </p>
+          </section>
+
           <!-- ============================================ -->
           <!-- CHAPTER 1: 入门 / GETTING STARTED             -->
           <!-- ============================================ -->
