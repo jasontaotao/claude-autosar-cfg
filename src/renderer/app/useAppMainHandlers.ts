@@ -389,6 +389,21 @@ export function useAppMainHandlers(args: {
           // action.path verbatim.
           void dcmLauncher.open({ odxPath, xlsxRows: [] });
           return;
+        case 'duplicate-children':
+        case 'sort-children':
+        case 'bulk-delete-children':
+          // Phase P2 T2 — Collection menu actions are emitted by
+          // ContextMenu (T2) but their real handlers land in T3
+          // (Tree.tsx wired directly to the mutation slice, with
+          // a confirmation dialog for bulk-delete). For T2 the
+          // menu surfaces the items + the action types compile,
+          // and this switch swallows them so the exhaustive
+          // `never` fallback below stays happy. T3 will replace
+          // this no-op branch with real routing (likely a direct
+          // path from the Tree.tsx CollectionHeader right-click
+          // that bypasses `handleContextMenuAction` entirely, per
+          // brief note #4).
+          return;
         default: {
           // Exhaustiveness — TS will error here if a new action is
           // added without a handler.

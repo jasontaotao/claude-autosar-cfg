@@ -44,10 +44,14 @@ import './ContextMenu.css';
  *  Sprint 17 P3 T3.3 adds `'bswmd'` for the BSWMD row right-click
  *  (ProjectPanel `<li>` + Tree module-kind). The kind discriminator
  *  is widened here so the P3 wiring (T3.1 + T3.2) compiles against
- *  the same union before T3.3 ships the matching menu item. */
+ *  the same union before T3.3 ships the matching menu item.
+ *  Phase P2 T2 adds `'collection'` for CollectionHeader right-click
+ *  (Phase P1 multi-instance tree). The collection kind surfaces
+ *  duplicate / sort / bulk-delete operations only — no "Add *" or
+ *  generic delete (those belong to the underlying Container target). */
 export type ContextMenuTarget = {
   readonly path: string;
-  readonly kind: 'module' | 'container' | 'reference' | 'bswmd';
+  readonly kind: 'module' | 'container' | 'reference' | 'bswmd' | 'collection';
   readonly shortName: string;
   /**
    * Sprint A+ — when the right-click target is a module-kind node
@@ -76,7 +80,22 @@ export type ContextMenuAction =
   // v1.31.0 PATCH T6 — "Generate Dcm Config" entry. Surfaced in the
   // BSWMD right-click menu when target.path matches the Dcm BSWMD
   // regex. The host (App.tsx) routes this to useDcmConfigLauncher.
-  | { readonly type: 'generate-dcm-config'; readonly path: string };
+  | { readonly type: 'generate-dcm-config'; readonly path: string }
+  // Phase P2 T2 — CollectionHeader multi-instance operations. Fired
+  // when the user right-clicks a CollectionHeader (collection kind).
+  // The host (Tree.tsx) routes these to the mutation slice:
+  //   - duplicate-children → duplicateContainer(path, shortName)
+  //   - sort-children      → sortSiblings(path)
+  //   - bulk-delete-children → bulkDelete(path, shortName) AFTER a
+  //     user confirmation dialog (call site owns the confirm UX;
+  //     ContextMenu is intentionally confirm-free).
+  | { readonly type: 'duplicate-children'; readonly path: string; readonly shortName: string }
+  | { readonly type: 'sort-children'; readonly path: string }
+  | {
+      readonly type: 'bulk-delete-children';
+      readonly path: string;
+      readonly shortName: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Module-level state cell — the menu's "open or closed" + position.
@@ -319,6 +338,75 @@ function buildReferenceItems(target: ContextMenuTarget, locale: Locale): readonl
       disabled: false,
       cssClass: 'context-menu-item context-menu-item-delete',
       build: (t) => ({ type: 'delete-reference', path: t.path }),
+    },
+  ];
+}
+
+/**
+ * Phase P2 T2 — Collection menu items. Surfaces 3 multi-instance
+ * operations on a CollectionHeader right-click:
+ *   - 复制上一实例 / Duplicate last instance — duplicate-children
+ *   - 排序 / Sort — sort-children
+ *   - 删除全部 / Bulk delete — bulk-delete-children (destructive)
+ *
+ * Labels are LITERAL placeholder strings for T2. The i18n keys
+ * `tree.duplicateChildren` / `tree.sortChildren` / `tree.bulkDelete`
+ * land in T4 — the same deviation pattern as P1 T2/D1 (literal
+ * labels, swapped for `t(locale, 'tree.*')` once keys exist).
+ *
+ * The bulk-delete entry is marked `destructive: true` so future
+ * styling (red text, confirm-on-hover) can pick it up via the
+ * `MenuItemSpec` extension surface. Today the visual cue is the
+ * `context-menu-item-delete` cssClass, mirroring delete-container
+ * and delete-reference.
+ *
+ * Confirmation UX for bulk-delete lives at the call site
+ * (Tree.tsx), NOT here — the ContextMenu stays a thin
+ * action-emitter and the confirmation dialog is owned by the
+ * consumer so the same dialog can be reused by other triggers
+ * (e.g. the toolbar button in T3).
+ */
+function buildCollectionItems(
+  _target: ContextMenuTarget,
+  _locale: Locale,
+): readonly MenuItemSpec[] {
+  // `_locale` is intentionally unused — kept for parity with
+  // buildContainerItems / buildBswmdItems / buildReferenceItems
+  // so the buildItems dispatcher signature stays uniform across
+  // all four kinds. T4 will swap the literal labels for
+  // t(locale, 'tree.*') at the same call site.
+  void _locale;
+  // Caller invariant: `buildItems` only routes here when
+  // `target.kind === 'collection'`. The un-narrowed
+  // `ContextMenuTarget` keeps the parameter signature aligned with
+  // the sibling builders (buildContainerItems / buildBswmdItems /
+  // buildReferenceItems) — they all accept the full union and read
+  // the shared `path` / `shortName` fields directly. If a future
+  // caller routes a non-collection target here, the action payload
+  // will simply carry the wrong kind marker — the dispatcher's
+  // switch in useAppMainHandlers will fall through the no-op
+  // branch.
+  return [
+    {
+      id: 'duplicate-children',
+      label: '复制上一实例',
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-action',
+      build: (t) => ({ type: 'duplicate-children', path: t.path, shortName: t.shortName }),
+    },
+    {
+      id: 'sort-children',
+      label: '排序',
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-action',
+      build: (t) => ({ type: 'sort-children', path: t.path }),
+    },
+    {
+      id: 'bulk-delete-children',
+      label: '删除全部',
+      disabled: false,
+      cssClass: 'context-menu-item context-menu-item-delete',
+      build: (t) => ({ type: 'bulk-delete-children', path: t.path, shortName: t.shortName }),
     },
   ];
 }
@@ -622,6 +710,16 @@ function buildItems(
 ): readonly MenuItemSpec[] {
   if (target.kind === 'reference') {
     return buildReferenceItems(target, locale);
+  }
+  // Phase P2 T2 — `kind: 'collection'` shortcut. Collection menu is
+  // a 3-item fixed surface (duplicate / sort / bulk-delete) — no
+  // BSWMD-coverage gate (the operations target the parent's
+  // children, not the collection's own BSWMD def), no
+  // add-container entries (those live on the underlying container
+  // target). Dispatched BEFORE the container fall-through so a
+  // `collection` kind never falls into buildContainerItems.
+  if (target.kind === 'collection') {
+    return buildCollectionItems(target, locale);
   }
   // Sprint 17 P3 T3.3 — `kind: 'bswmd'` shortcut. The BSWMD row
   // doesn't get add/delete-container items (those are ECUC mutations

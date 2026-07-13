@@ -14,7 +14,7 @@
 //     schema covers the path's owning module.
 //   - "Delete" item is always enabled.
 //
-// Tests pin (12):
+// Tests pin (13):
 //   1.  Renders nothing when state is null
 //   2.  Renders the 4 items for a container target
 //   3.  Boundary detection: flips to innerWidth - width when x is past
@@ -29,6 +29,7 @@
 //  10.  Localized label appears in the menu (mock the locale)
 //  11.  Container at root shows all 4 items
 //  12.  Reference target shows only the delete item (not add)
+//  13.  Collection target surfaces 3 multi-instance ops (Phase P2 T2)
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -445,6 +446,107 @@ describe('ContextMenu (keyboard navigation)', () => {
 // ---------------------------------------------------------------------------
 // Test 12: reference target shows only the delete item
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Phase P2 T2 — ContextMenu collection kind
+//
+// The collection kind surfaces 3 multi-instance operations on a
+// CollectionHeader right-click:
+//   - 复制上一实例 / Duplicate last instance — duplicate-children
+//   - 排序 / Sort — sort-children
+//   - 删除全部 / Bulk delete — bulk-delete-children (destructive)
+//
+// The brief pins literal placeholder labels for T2 (i18n keys
+// `tree.duplicateChildren` / `tree.sortChildren` / `tree.bulkDelete`
+// land in T4). The test matches the literal Chinese text so the
+// failure is precise when the labels drift.
+// ---------------------------------------------------------------------------
+describe('ContextMenu (collection kind)', () => {
+  it('renders duplicate / sort / bulk-delete items when target.kind === collection', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+    act(() => {
+      openContextMenu({ path: '/EcuC/Cell', kind: 'collection', shortName: 'Cell' }, 100, 100);
+    });
+
+    const items = screen.getAllByRole('menuitem');
+    // Collection menu: 3 items (duplicate / sort / bulk-delete). No
+    // "Add *" or "Delete" entries — the collection header surfaces
+    // only the multi-instance operations (Phase P2 spec §T2).
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent(/复制上一实例/);
+    expect(items[1]).toHaveTextContent(/排序/);
+    expect(items[2]).toHaveTextContent(/删除全部/);
+  });
+
+  it('does NOT show duplicate / sort / bulk-delete items for non-collection targets', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+    act(() => {
+      openContextMenu({ path: '/EcuC/Cell_0', kind: 'container', shortName: 'Cell_0' }, 100, 100);
+    });
+
+    // The collection-only entries must be absent for a plain
+    // container target. Use queryByTestId (returns null when absent).
+    expect(screen.queryByTestId('context-menu-item-duplicate-children')).toBeNull();
+    expect(screen.queryByTestId('context-menu-item-sort-children')).toBeNull();
+    expect(screen.queryByTestId('context-menu-item-bulk-delete-children')).toBeNull();
+  });
+
+  it('clicking the bulk-delete-children item fires the destructive action with path + shortName', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+    act(() => {
+      openContextMenu({ path: '/EcuC/Cell', kind: 'collection', shortName: 'Cell' }, 100, 100);
+    });
+
+    const bulkDeleteItem = screen.getByTestId('context-menu-item-bulk-delete-children');
+    fireEvent.click(bulkDeleteItem);
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledWith({
+      type: 'bulk-delete-children',
+      path: '/EcuC/Cell',
+      shortName: 'Cell',
+    });
+  });
+
+  it('clicking the duplicate-children item fires the action with path + shortName', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+    act(() => {
+      openContextMenu({ path: '/EcuC/Cell', kind: 'collection', shortName: 'Cell' }, 100, 100);
+    });
+
+    const dupItem = screen.getByTestId('context-menu-item-duplicate-children');
+    fireEvent.click(dupItem);
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledWith({
+      type: 'duplicate-children',
+      path: '/EcuC/Cell',
+      shortName: 'Cell',
+    });
+  });
+
+  it('clicking the sort-children item fires the action with path (no shortName)', async () => {
+    const onAction = vi.fn();
+    await mountHost(onAction);
+    act(() => {
+      openContextMenu({ path: '/EcuC/Cell', kind: 'collection', shortName: 'Cell' }, 100, 100);
+    });
+
+    const sortItem = screen.getByTestId('context-menu-item-sort-children');
+    fireEvent.click(sortItem);
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onAction).toHaveBeenCalledWith({
+      type: 'sort-children',
+      path: '/EcuC/Cell',
+    });
+  });
+});
+
 describe('ContextMenu (reference target)', () => {
   it('renders a single "Delete reference" item for a reference target', async () => {
     await mountHost(() => undefined);
