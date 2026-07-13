@@ -14,8 +14,9 @@
 import type { ArxmlElement } from '@core/arxml/types.js';
 import type { BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
 
-import { countChildrenWithShortName } from '../../../core/arxml/mutation/tree-ops.js';
 import { resolveContainerDefBySubPath } from '../../store/helpers/bswmdLookup.js';
+
+import { groupSiblingsByShortName } from './collections.js';
 
 export interface MissingOptionalSibling {
   readonly cd: ContainerDef;
@@ -82,20 +83,17 @@ export function findMissingOptionalSiblings(
       existingShortNames.add(c.shortName);
     }
   }
+  // Group siblings by BASE shortName (stripping the BSWMD auto-suffix
+  // `_N`/`_<digits>`) so suffixed siblings like `Cell` + `Cell_1` +
+  // `Cell_10` count as ONE collection. We reuse `groupSiblingsByShortName`
+  // so the grouping logic stays in one place — `collections.ts` is the
+  // single source of truth for "what counts as a collection row".
+  const groups = groupSiblingsByShortName(existingChildren);
   return candidates
     .filter((cd) => cd.lowerMultiplicity === 0 && !existingShortNames.has(cd.shortName))
     .map((cd) => ({
       cd,
-      currentCount: countChildrenWithShortName(
-        {
-          kind: 'container',
-          tagName: 'ECUC-CONTAINER-VALUE',
-          shortName: '',
-          params: {},
-          children: existingChildren,
-        },
-        cd.shortName,
-      ),
+      currentCount: groups.get(cd.shortName)?.length ?? 0,
       upperMultiplicity: cd.upperMultiplicity,
     }));
 }
