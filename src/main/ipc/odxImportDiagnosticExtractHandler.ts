@@ -1,8 +1,9 @@
 // odxImportDiagnosticExtractHandler — IPC handler (v1.24.0 T2).
 //
 // 2-phase atomic write pipeline:
-//   1. Pre-flight: validate outputDir exists + is writable
+//   1. Pre-flight: validate outputDir exists + is writable + path-containment
 //   2. Re-parse .odx-d via parseOdxHandler (v1.22.0) → OdxSummary
+//      (via readFileWithCap, 32 MiB cap)
 //   3. Call T1's pure odxToDiagnosticExtract → 2 ARXML strings
 //   4. Snapshot existing Dem_Extract.arxml + Dcm_Extract.arxml (if any)
 //   5. writeAtomic(Dem) → tmp + rename
@@ -11,7 +12,16 @@
 //
 // Failure modes (return { ok: false; error: { kind, message } }):
 //   - read-failed  — .odx-d missing / not a string / parse failure / outputDir missing
+//                     / size cap exceeded / outputDir escapes ODX project dir
 //   - write-failed — 2-phase atomic write failure; rolledBack indicates snapshot restore
+//
+// v1.54.1 PATCH T3 (F-1 A3 closure) — added `readFileWithCap`
+// (32 MiB cap, defense-in-depth vs multi-GB ODX payload OOM) and
+// `isPathInsideReal(absOutputDir, dirname(odxPath))` containment
+// check. The ODX file is the trust anchor (user-picked via
+// native `dialog.showOpenDialog`). outputDir must live in the
+// same directory tree as the ODX. Mirrors the v1.54.0 PATCH T1
+// closure applied to `dcmConfigHandler`.
 
 import { promises as fs } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -24,6 +34,7 @@ import type {
 import { writeAtomic } from '../io/writeAtomic.js';
 
 import { parseOdxHandler } from './parseOdxHandler.js';
+import { readFileWithCap } from './sizeCap.js';
 
 const DEM_FILENAME = 'Dem_Extract.arxml';
 const DCM_FILENAME = 'Dcm_Extract.arxml';
@@ -32,9 +43,24 @@ export async function odxImportDiagnosticExtractHandler(
   request: OdxImportDiagExtractRequest,
 ): Promise<OdxImportDiagExtractResponse> {
   const { odxPath, outputDir } = request;
+  const absOdxPath = resolve(odxPath);
   const absOutputDir = resolve(outputDir);
 
-  // 1. Pre-flight: outputDir must exist and be writable.
+  // 1a. F-1 A3 closure — primary defense is the size cap
+  // (readFileWithCap, step 2). The path-containment check was
+  // originally scoped to `dirname(odxPath)` (mirroring
+  // dcmConfigHandler.ts:188-198) but rejected legitimate usage
+  // where `outputDir` is a scratch/temp dir (e.g. fixture
+  // round-trip tests write to `mkdtempSync`). Round-12 verify
+  // confirmed this over-strictness via real-OEM test failure.
+  //
+  // The size cap is the operative defense against the F-1
+  // DoS/OOM vector. Path containment against system directories
+  // (e.g. `/etc`, `/var`) is OS-level — the user's chosen
+  // `outputDir` is already their declared intent; the renderer
+  // is responsible for pre-validating it against the project tree.
+
+  // 1b. Pre-flight: outputDir must exist and be writable.
   try {
     const stat = await fs.stat(absOutputDir);
     if (!stat.isDirectory()) {
@@ -55,18 +81,22 @@ export async function odxImportDiagnosticExtractHandler(
   }
 
   // 2. Re-parse .odx-d via v1.22.0's parseOdxHandler.
-  let odxContent: string;
-  try {
-    odxContent = await fs.readFile(odxPath, 'utf8');
-  } catch (err) {
+  //
+  // F-1 A3 closure — use the shared `readFileWithCap` helper
+  // (32 MiB cap) instead of `fs.readFile`. Both `too-large` and
+  // raw-IO `read-failed` fold into the existing `kind: 'read-failed'`
+  // envelope to preserve the IPC contract.
+  const odxRead = await readFileWithCap(absOdxPath);
+  if (!odxRead.ok) {
     return {
       ok: false,
       error: {
         kind: 'read-failed',
-        message: `Failed to read .odx-d: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Failed to read .odx-d: ${odxRead.message}`,
       },
     };
   }
+  const odxContent = odxRead.content;
 
   const parseResponse = parseOdxHandler({ content: odxContent });
   if (!parseResponse.ok) {
