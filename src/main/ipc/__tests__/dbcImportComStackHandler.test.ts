@@ -457,12 +457,18 @@ describe('dbCImportComStackHandler 2-phase write (T1)', () => {
     // v1.23.1 T1 code-review MEDIUM-2 — broadened the regex to catch
     // BOTH the handler's phase-1 naming `{path}.tmp.{pid}` (dot pid)
     // AND `writeAtomic`'s naming `{path}.tmp-{pid}-{ts}` (dash pid-ts,
-    // used by the rollback path). The two namespaces do not overlap
-    // (`/tmp[.-]\d+/` matches both `.tmp.123` and `tmp-456-789`),
-    // so a leak from either source now surfaces here instead of
-    // passing silently through the test gate.
+    // used by the rollback path).
+    //
+    // v1.54.1 PATCH T2 (F-A2-01 closure) — widened the character
+    // class from `\d+` (digits only) to `[0-9a-f-]+` (digits +
+    // lowercase hex + dash) so the regex also matches
+    // `.tmp-<randomUUID>` (Round-11 T4 introduced randomUUID
+    // tmp filenames; ~34% of UUIDv4 start with a-f so the original
+    // `\d+` quantifier missed them silently). Empirical verification
+    // by Round-12 verify-batch-1: 34/100 randomUUID() outputs start
+    // with a-f.
     const files = readdirSync(seeded.workDir);
-    const leakedTmps = files.filter((f) => /tmp[.-]\d+/.test(f));
+    const leakedTmps = files.filter((f) => /tmp[.-][0-9a-f-]+/.test(f));
     expect(leakedTmps).toEqual([]);
   });
 
@@ -495,8 +501,11 @@ describe('dbCImportComStackHandler 2-phase write (T1)', () => {
     // remain in the project dir. See MEDIUM-2 above for why the
     // regex matches both the handler's `.tmp.{pid}` and
     // `writeAtomic`'s `.tmp-{pid}-{ts}` namespaces.
+    //
+    // v1.54.1 PATCH T2 (F-A2-01 closure) — also matches `.tmp-<uuid>`
+    // (Round-11 T4 introduced randomUUID tmp filenames).
     const files = readdirSync(seeded.workDir);
-    const leakedTmps = files.filter((f) => /tmp[.-]\d+/.test(f));
+    const leakedTmps = files.filter((f) => /tmp[.-][0-9a-f-]+/.test(f));
     expect(leakedTmps).toEqual([]);
   });
 });
@@ -579,7 +588,11 @@ describe('dbcImportComStackHandler bridge-failed (v1.52.0 MINOR T3 -- Round-9 F-
       const entries = readdirSync(seeded.workDir);
       // Sanity: handler returned; no leftover tmp from the 2-phase
       // write (which the handler never reached).
-      const tmpArtifacts = entries.filter((f) => /\.tmp[.-]\d/.test(f));
+      //
+      // v1.54.1 PATCH T2 (F-A2-01 closure) — widened from `\.tmp[.-]\d`
+      // to `\.tmp[.-][0-9a-f-]` so the regex also catches
+      // `.tmp-<uuid>` (Round-11 T4 randomUUID).
+      const tmpArtifacts = entries.filter((f) => /\.tmp[.-][0-9a-f-]/.test(f));
       expect(tmpArtifacts).toEqual([]);
     } finally {
       runSpy.mockRestore();
