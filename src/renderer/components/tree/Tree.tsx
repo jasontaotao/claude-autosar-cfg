@@ -358,7 +358,7 @@ function renderChildren(
 
   const addLabel = t(locale, 'tree.addOptionalContainer', { name: '' }).trim();
   const hintLabel = t(locale, 'tree.optionalContainerHint');
-  const placeholders = missing.map((cd) => {
+  const placeholders = missing.map(({ cd }) => {
     const parentAbsPath = parentPath; // for `addContainer` we need the value-side path
     return (
       <OptionalAddPlaceholder

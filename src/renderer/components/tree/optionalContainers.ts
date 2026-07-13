@@ -14,7 +14,16 @@
 import type { ArxmlElement } from '@core/arxml/types.js';
 import type { BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
 
+import { countChildrenWithShortName } from '../../../core/arxml/mutation/tree-ops.js';
 import { resolveContainerDefBySubPath } from '../../store/helpers/bswmdLookup.js';
+
+export interface MissingOptionalSibling {
+  readonly cd: ContainerDef;
+  /** Count of existing siblings with same base shortName (0..N). */
+  readonly currentCount: number;
+  /** BSWMD-declared upper bound (`number` for finite, `'infinite'` for `0..*`). */
+  readonly upperMultiplicity: number | 'infinite';
+}
 
 /**
  * Given the BSWMD schema set, the value-side path of the parent
@@ -45,7 +54,7 @@ export function findMissingOptionalSiblings(
   bswmd: readonly BswmdDocument[] | null,
   valueParentPath: string,
   existingChildren: readonly ArxmlElement[],
-): readonly ContainerDef[] {
+): readonly MissingOptionalSibling[] {
   if (bswmd === null || bswmd.length === 0) return [];
   if (valueParentPath === '' || valueParentPath === '/') return [];
   // Re-use the same lookup core the mutation action uses. The helper
@@ -73,9 +82,22 @@ export function findMissingOptionalSiblings(
       existingShortNames.add(c.shortName);
     }
   }
-  return candidates.filter(
-    (cd) => cd.lowerMultiplicity === 0 && !existingShortNames.has(cd.shortName),
-  );
+  return candidates
+    .filter((cd) => cd.lowerMultiplicity === 0 && !existingShortNames.has(cd.shortName))
+    .map((cd) => ({
+      cd,
+      currentCount: countChildrenWithShortName(
+        {
+          kind: 'container',
+          tagName: 'ECUC-CONTAINER-VALUE',
+          shortName: '',
+          params: {},
+          children: existingChildren,
+        },
+        cd.shortName,
+      ),
+      upperMultiplicity: cd.upperMultiplicity,
+    }));
 }
 
 /**
