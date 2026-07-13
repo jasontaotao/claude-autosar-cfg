@@ -662,6 +662,44 @@ body,
 }
 
 /* ------------------------------------------------------------------ */
+/* v1.55.0 Phase P1 T2 — CollectionHeader (multi-instance tree row)   */
+/*   Synthetic treeitem row that renders above a group of same-base    */
+/*   shortName siblings. Carries an accent border + accent dot to      */
+/*   visually distinguish from regular containers; carries the        */
+/*   `×N` count badge and a `+ 1` add-button (disabled when at the     */
+/*   BSWMD-declared upperMultiplicity). All colors use CSS variables  */
+/*   with hex fallbacks so themes without the variables still render.  */
+/* ------------------------------------------------------------------ */
+.tree-item-collection {
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.03));
+  border-left: 2px solid var(--color-accent, #0ea5e9);
+}
+.kind-collection {
+  background: var(--color-accent, #0ea5e9);
+}
+.tree-collection-count {
+  margin-left: 0.5em;
+  padding: 0 0.4em;
+  border-radius: 4px;
+  background: var(--color-accent-fade, rgba(14, 165, 233, 0.15));
+  color: var(--color-accent, #0ea5e9);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.tree-add-collection {
+  margin-left: auto;
+  padding: 0 0.6em;
+  border-radius: 4px;
+  background: var(--color-accent, #0ea5e9);
+  color: white;
+  font-size: 0.85em;
+}
+.tree-add-collection:disabled {
+  background: var(--color-text-faint, #555);
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ */
 /* Editor                                                             */
 /* ------------------------------------------------------------------ */
 .editor {
