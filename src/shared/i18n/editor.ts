@@ -13,6 +13,13 @@ export interface EditorMessages {
   readonly 'tree.elementAria': string; // {kind} {name}
   readonly 'tree.addOptionalContainer': string; // {name}
   readonly 'tree.optionalContainerHint': string;
+  // Phase P1 T4 — multi-instance CollectionHeader chevron + add affordances.
+  // Chevron: toggle aria-label between expand / collapse based on isExpanded.
+  // Add button: aria-label + title swap to atMax message when upperMultiplicity is reached.
+  readonly 'tree.expandCollection': string;
+  readonly 'tree.collapseCollection': string;
+  readonly 'tree.collectionAdd': string;
+  readonly 'tree.collectionAtMax': string;
 
   // --- param editor ---
   readonly 'editor.noSelection': string;

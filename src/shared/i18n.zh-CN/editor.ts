@@ -9,6 +9,11 @@ export const EditorZhCN: EditorMessages = {
   'tree.elementAria': '{kind} {name}',
   'tree.addOptionalContainer': '添加 {name}',
   'tree.optionalContainerHint': '可选容器 — 点击 + 添加实例',
+  // Phase P1 T4 — 多实例 CollectionHeader 集合行（与 editor.ts 接口块对应）。
+  'tree.expandCollection': '展开集合',
+  'tree.collapseCollection': '折叠集合',
+  'tree.collectionAdd': '在此集合中再添加一个实例',
+  'tree.collectionAtMax': '已达上限 — 无法继续添加',
 
   // editor
   'editor.noSelection': '请从树中选择一个元素',

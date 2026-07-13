@@ -5,6 +5,10 @@
 // shortName. See:
 //   docs/superpowers/specs/2026-07-13-multi-instance-tree-ui-design.md
 
+import { t } from '@shared/i18n/index.js';
+
+import { useArxmlStore } from '../../store/useArxmlStore.js';
+
 export interface CollectionHeaderProps {
   /** Base shortName (without trailing `_<digits>`). */
   readonly shortName: string;
@@ -26,13 +30,14 @@ export function CollectionHeader(props: CollectionHeaderProps): JSX.Element {
   const { shortName, count, upperMultiplicity, isExpanded, onToggle, onAdd, depth } = props;
   const atMax = upperMultiplicity !== 'infinite' && count >= upperMultiplicity;
   const testKey = shortName;
-  // TODO(P1-T4): replace literal strings with useTranslation() calls once
-  // the i18n catalog exposes tree.expandCollection / tree.collapseCollection
-  // / tree.collectionAdd / tree.collectionAtMax keys.
-  const expandLabel = 'Expand collection';
-  const collapseLabel = 'Collapse collection';
-  const addLabel = 'Add to collection';
-  const atMaxLabel = '已达上限';
+  // Phase P1 T4 — locale-aware affordance strings. The 4 keys are
+  // declared in `EditorMessages` (src/shared/i18n/editor.ts) and
+  // localised in src/shared/i18n.{en,zh-CN}/editor.ts.
+  const locale = useArxmlStore((s) => s.locale);
+  const expandLabel = t(locale, 'tree.expandCollection');
+  const collapseLabel = t(locale, 'tree.collapseCollection');
+  const addLabel = t(locale, 'tree.collectionAdd');
+  const atMaxLabel = t(locale, 'tree.collectionAtMax');
 
   return (
     <div

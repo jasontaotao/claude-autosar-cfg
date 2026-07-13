@@ -9,6 +9,11 @@ export const EditorEn: EditorMessages = {
   'tree.elementAria': '{kind} {name}',
   'tree.addOptionalContainer': 'Add {name}',
   'tree.optionalContainerHint': 'Optional container — click + to add an instance',
+  // Phase P1 T4 — multi-instance CollectionHeader (see editor.ts interface block).
+  'tree.expandCollection': 'Expand collection',
+  'tree.collapseCollection': 'Collapse collection',
+  'tree.collectionAdd': 'Add another instance to this collection',
+  'tree.collectionAtMax': 'Reached upper bound — cannot add more',
 
   // editor
   'editor.noSelection': 'Open an ARXML file and select a node in the tree to edit its parameters.',

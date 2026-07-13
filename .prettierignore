@@ -18,3 +18,10 @@ docs/release-notes-v1.10.1.md
 docs/release-notes-v1.10.2.md
 docs/release-notes-v1.10.3.md
 docs/superpowers/archive/
+
+# Phase P1 sub-agent brief / report / progress files (gitignored workflow
+# artifacts). prettier --check walks the filesystem regardless of git
+# status; without this exclusion, every Phase P1 task would see 5+ false
+# "format warnings" from these ephemeral .md files. Same rationale as
+# .review/ above.
+.superpowers/sdd/
