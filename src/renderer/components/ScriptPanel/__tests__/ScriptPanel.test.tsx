@@ -35,11 +35,16 @@ function makeApi(): {
   runScript: ReturnType<typeof vi.fn>;
   onScriptProgress: ReturnType<typeof vi.fn>;
   /**
-   * v1.54.0 PATCH C (F-A4-01 2/3 closure) — spy on the unsubscribe
+   * v1.54.1 PATCH T1 (F-A4-01 2/3 closure) — spy on the unsubscribe
    * fn returned by `onScriptProgress` so unmount-cleanup assertions
    * can verify the panel actually invoked it. Without this spy
    * the original test passed silently even if the panel forgot
    * the cleanup.
+   *
+   * (Originally committed as `f1f50cf` "Round-12 prep" with a
+   * source comment that mis-labeled itself as "v1.54.0 PATCH C".
+   * Round-12 review caught the drift — this is the actual
+   * v1.54.1 PATCH T1 commit.)
    */
   onScriptProgressUnsubscribe: ReturnType<typeof vi.fn>;
 } {
@@ -210,7 +215,7 @@ describe('ScriptPanel', () => {
     expect((err as Error).message).toBe('IPC layer failure');
   });
 
-  // v1.54.0 PATCH C (F-A4-01 2/3 closure) — unmount cleanup path for
+  // v1.54.1 PATCH T1 (F-A4-01 2/3 closure) — unmount cleanup path for
   // `onScriptProgress` subscription. ScriptPanel subscribes via
   // useScriptActions().subscribeProgress() in a useEffect whose
   // cleanup returns the unsubscribe fn. Without an explicit assertion
