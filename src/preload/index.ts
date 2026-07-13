@@ -178,14 +178,12 @@ const api = {
   // that as `ProjectNewRequest.directory` when creating the project.
   pickDir: (req: PickDirRequest): Promise<PickDirResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PICK_DIR, req),
-  // Sprint 13 #1 — built-in template list. Renderer does not call
-  // this in Sprint 13 #1; it is exposed so the IPC contract is
-  // complete and the bridge is ready for Sprint 13 #2's picker.
+  // Sprint 13 #1 — built-in template list.
   //
-  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
-  // connectivity audit. Renderer still does not call this; Sprint
-  // 13 #2's picker UI was never built. Removal candidate for
-  // v1.55.0 unless the picker UI is built first.
+  // v1.54.1 PATCH T1 (F-A1-02 closure) — `@deprecated` marker
+  // removed. NewProjectDialog.tsx:191 actively calls
+  // `api.listTemplates()` via a local `api` alias. The channel
+  // is alive and must remain registered.
   listTemplates: (): Promise<TemplateListResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.TEMPLATES_LIST, {}),
   // Sprint 13 #1 — copy a template into a project dir. Not called

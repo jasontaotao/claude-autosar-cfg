@@ -52,12 +52,15 @@ export const IPC_CHANNELS = {
   // `t(locale, key)`. Empty `templates` array is a valid response
   // (the samples root may be missing in dev / portable builds).
   //
-  // v1.53.0 PATCH T3 — `@deprecated` since 2026-07-12 IPC
-  // connectivity audit. Renderer does not call this; main test
-  // exists (`templatesHandler.test.ts`) but the renderer-side API
-  // surface is dead. Sprint 13 #2's "template picker" UI was never
-  // built — the user creates projects via `project:new` directly.
-  // Removal candidate for v1.55.0 unless the picker UI is built.
+  // v1.54.1 PATCH T1 (F-A1-02 closure) — `@deprecated` marker
+  // removed. Round-12 fresh review caught a Round-11 audit
+  // false-negative: NewProjectDialog.tsx:191 actively calls
+  // `api.listTemplates()` via a local `api` alias (line 178:
+  // `const api = (globalThis as ...).window?.autosarApi`). The
+  // Round-11 grep was scoped to `autosarApi.listTemplates` and
+  // missed the shadowed call. Test mocks hide the regression
+  // because they mock `listTemplates` locally. Channel is alive
+  // and must remain registered.
   TEMPLATES_LIST: 'templates:list',
   // Sprint 13 #1 — copy a template's files into a chosen directory.
   // Returns the relative paths of copied value-side and schema-side
