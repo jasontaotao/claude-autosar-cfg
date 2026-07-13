@@ -260,7 +260,8 @@ describe('Tree -- collection header integration (P1 T3)', () => {
       makeEl('AFECellValidSet_2'),
     ]);
     const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
-    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    const addContainerSpy = vi.fn();
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd], addContainer: addContainerSpy });
     render(<Tree store={api} />);
     expandToConfigSet();
 
@@ -282,6 +283,18 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     expect(
       screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
     ).toBeInTheDocument();
+
+    // Clicking the enabled `+` button must invoke `addContainer` with the
+    // collection's parent path + base name (auto-suffix is produced by
+    // `coreAddContainer` at src/core/arxml/mutation/container-ops.ts:98-103;
+    // the renderer just passes base name). A wrong parent path or base
+    // name would pass all earlier scenarios, so we pin both args here.
+    fireEvent.click(screen.getByTestId('add-collection-AFECellValidSet'));
+    expect(addContainerSpy).toHaveBeenCalledTimes(1);
+    expect(addContainerSpy).toHaveBeenCalledWith(
+      '/EAS/JWQ3399/JWQ3399ConfigSet',
+      'AFECellValidSet',
+    );
   });
 
   it('disables + button in collection header when count >= upperMultiplicity', () => {
