@@ -40,8 +40,24 @@ export function maxCollectionSize(siblings: readonly ArxmlElement[]): number {
 }
 
 /** Strip trailing `_<digits>` from a shortName. */
-function stripSuffix(name: string): string {
+export function stripSuffix(name: string): string {
   return name.replace(/_[0-9]+$/, '');
+}
+
+/**
+ * Compare shortNames by base name, then by numeric suffix ascending.
+ * An unsuffixed name sorts before all suffixed instances.
+ */
+export function compareSuffix(a: string, b: string): number {
+  const aBase = stripSuffix(a);
+  const bBase = stripSuffix(b);
+  if (aBase !== bBase) return aBase.localeCompare(bBase);
+  return extractSuffix(a) - extractSuffix(b);
+}
+
+function extractSuffix(name: string): number {
+  const match = name.match(/_([0-9]+)$/);
+  return match === null ? -1 : Number.parseInt(match[1]!, 10);
 }
 
 /** Get the canonical shortName for any ArxmlElement kind. */

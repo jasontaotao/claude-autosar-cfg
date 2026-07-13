@@ -6,27 +6,25 @@ DONE
 
 ## Implementation
 
-- Added `src/renderer/components/tree/collections.ts` with `groupSiblingsByShortName` and `maxCollectionSize`.
-- Added `src/renderer/components/tree/__tests__/collections.test.ts` covering empty, grouping, suffix stripping, and maximum-size behavior.
-- Extended `findMissingOptionalSiblings` to return `MissingOptionalSibling` entries containing `cd`, per-definition `currentCount`, and `upperMultiplicity`.
-- Updated `Tree.tsx` to consume the wrapped `cd` return shape while preserving existing placeholder behavior.
-- Kept `package.json` unchanged.
+- Exported `stripSuffix` and added numeric `compareSuffix` in `src/renderer/components/tree/collections.ts`.
+- Added `duplicateContainer`, `sortSiblings`, and `bulkDelete` to `MutationSlice`, including single/combined document routing.
+- `duplicateContainer` copies parameters from the highest-suffix sibling and delegates creation/auto-suffixing to `coreAddContainer`.
+- `bulkDelete` delegates removals to `coreRemoveContainer` and passes the BSWMD module definition so multiplicity-floor checks remain active.
+- Added four behavioral cases to the existing mutation test file: duplicate happy path, duplicate no-op, numeric sort, and bulk delete.
 
 ## TDD Evidence
 
-- RED: `pnpm test src/renderer/components/tree/__tests__/collections.test.ts` failed because `../collections.js` did not exist.
-- GREEN: focused collections suite passed 5/5.
-- Integration: focused tree suites passed 10/10 across 2 files.
-- Full verification: `pnpm verify` completed all 8 stages; 359 test files passed, 1 skipped, import regression passed, and Python self-tests passed 8/8.
+- RED: focused suite failed 4 cases with `duplicateContainer`, `sortSiblings`, and `bulkDelete` not being functions.
+- GREEN: focused mutation suite passed 30/30.
+- Full `pnpm verify`: all 8 stages passed; 3194 tests passed, 7 skipped, 0 failed; import regression 2/2; Python self-test 8/8.
 
-## Self-review
+## Review
 
-- Completeness: required helpers, return-shape extension, caller update, tests, verification, report, and commit included.
-- Quality: exported APIs have explicit types; grouping preserves input order; no new dependencies or JSX were added.
-- Discipline: production helper followed a witnessed RED test; no version bump; task source files have trailing newlines.
-- Testing: focused and full verification output was clean after correcting format/lint/type issues.
+- Mandatory `code-reviewer` completed.
+- Addressed the multiplicity-floor finding before final verification.
+- Self-review confirms no dependencies or package-version changes and trailing newlines are preserved.
 
 ## Concerns
 
-- The brief referenced `src/renderer/components/tree/tree-ops.ts`, but the actual helper is at `src/core/arxml/mutation/tree-ops.ts`; implementation imports the existing helper from its real location.
-- `pnpm verify` regenerated existing user-manual artifacts. They were intentionally excluded from this task commit.
+- The task brief says three new scenarios, but explicitly specifies two `duplicateContainer` cases plus one sort and one bulk-delete case; implementation follows the explicit four-case requirement.
+- Runtime UI verification is deferred to P2 T3 because Task 1 adds store actions that are not yet wired to a user-facing control.

@@ -64,11 +64,13 @@
 ## Task 1: mutationSlice actions — `duplicateContainer` / `sortSiblings` / `bulkDelete`
 
 **Files:**
+
 - Modify: `src/renderer/store/slices/mutationSlice.ts:55-137`
 - Modify: `src/renderer/components/tree/collections.ts` (add `compareSuffix`)
 - Test: `src/renderer/store/__tests__/useArxmlStore.mutation.test.ts` (add 3 new scenarios)
 
 **Interfaces:**
+
 - Consumes: existing `coreAddContainer`, `coreRemoveContainer` from `src/core/arxml/mutation/container-ops.ts`
 - Produces: 3 new `StateCreator` actions on the mutation slice
 
@@ -78,7 +80,7 @@ In `useArxmlStore.mutation.test.ts`, append 3 new `describe` blocks:
 
 ```ts
 describe('duplicateContainer', () => {
-  it('creates a new sibling with auto-suffix _N+1 and copies the last sibling\'s params', () => {
+  it("creates a new sibling with auto-suffix _N+1 and copies the last sibling's params", () => {
     // fixture: parent has 3 children (Cell, Cell_1, Cell_2 with cellParams set)
     // action: store.getState().duplicateContainer(parentPath, 'Cell')
     // assertion: cellChildren.length === 4; cellChildren[3].shortName === 'Cell_3';
@@ -181,6 +183,7 @@ git commit -m "feat(tree): Phase P2 T1 -- mutationSlice duplicate/sort/bulk-dele
 ## Task 2: ContextMenu extension — 3 new action variants + collection-kind builder
 
 **Files:**
+
 - Modify: `src/renderer/components/ContextMenu.tsx:68-79` (action union) + `:617-653` (`buildItems` dispatch)
 - Test: `src/renderer/components/ContextMenu.test.tsx` (add 2 scenarios)
 
@@ -207,6 +210,7 @@ describe('ContextMenu — collection kind', () => {
 ### Step 3: Extend action union + buildItems
 
 Add to `ContextMenuAction` union (line 68-79):
+
 ```ts
 | 'duplicate-children' { path, shortName }
 | 'sort-children' { path }
@@ -214,17 +218,26 @@ Add to `ContextMenuAction` union (line 68-79):
 ```
 
 Add to `ContextMenuTarget` union (line 48-59):
+
 ```ts
 | { kind: 'collection', path, shortName }
 ```
 
 Add new builder `buildCollectionItems(target, ...)` (around line 343-396):
+
 ```ts
 function buildCollectionItems(target: Extract<ContextMenuTarget, { kind: 'collection' }>) {
   return [
-    { label: t('tree.duplicateChildren'), action: { kind: 'duplicate-children', path: target.path, shortName: target.shortName } },
+    {
+      label: t('tree.duplicateChildren'),
+      action: { kind: 'duplicate-children', path: target.path, shortName: target.shortName },
+    },
     { label: t('tree.sortChildren'), action: { kind: 'sort-children', path: target.path } },
-    { label: t('tree.bulkDelete'), action: { kind: 'bulk-delete-children', path: target.path, shortName: target.shortName }, destructive: true },
+    {
+      label: t('tree.bulkDelete'),
+      action: { kind: 'bulk-delete-children', path: target.path, shortName: target.shortName },
+      destructive: true,
+    },
   ];
 }
 ```
@@ -246,6 +259,7 @@ git commit -m "feat(tree): Phase P2 T2 -- ContextMenu collection kind + duplicat
 ## Task 3: CollectionHeader row buttons + Tree wiring
 
 **Files:**
+
 - Modify: `src/renderer/components/tree/CollectionHeader.tsx`
 - Modify: `src/renderer/components/tree/Tree.tsx`
 - Test: `src/renderer/components/tree/__tests__/CollectionHeader.test.tsx` (2 new scenarios)
@@ -254,12 +268,14 @@ git commit -m "feat(tree): Phase P2 T2 -- ContextMenu collection kind + duplicat
 ### Step 1: Write failing tests
 
 **CollectionHeader.test.tsx** (add 2 scenarios):
+
 ```ts
 it('renders 3 row buttons with hover-affordance CSS', () => { ... });
 it('fires onDuplicate / onSortChildren / onBulkDelete when buttons clicked', () => { ... });
 ```
 
 **Tree.rowButtons.test.tsx** (new file, 2 scenarios):
+
 ```ts
 it('wires CollectionHeader onDuplicate to mutationSlice.duplicateContainer', () => { ... });
 it('wires CollectionHeader onBulkDelete to mutationSlice.bulkDelete after confirm', () => { ... });
@@ -270,6 +286,7 @@ it('wires CollectionHeader onBulkDelete to mutationSlice.bulkDelete after confir
 ### Step 3: Extend CollectionHeader props + JSX
 
 Add 3 new props to `CollectionHeaderProps`:
+
 ```ts
 readonly onDuplicate?: () => void;
 readonly onSortChildren?: () => void;
@@ -279,6 +296,7 @@ readonly onBulkDelete?: () => void;
 Add 3 buttons in JSX (after the existing `+ 1` button), wrapped in a `<div className="tree-collection-actions">` with `opacity: 0` by default + `opacity: 1` on parent hover (CSS in `styles.css`).
 
 Buttons (only render if callback provided):
+
 - Duplicate button: `aria-label="复制上一实例"`, testid `duplicate-collection-${shortName}`
 - Sort button: `aria-label="排序"`, testid `sort-collection-${shortName}`
 - Bulk-delete button: `aria-label="删除全部"`, testid `bulk-delete-collection-${shortName}`, red color
@@ -286,6 +304,7 @@ Buttons (only render if callback provided):
 ### Step 4: Wire Tree.tsx to pass callbacks
 
 In `Tree.tsx`, in the collection-branch render:
+
 ```tsx
 <CollectionHeader
   ...
@@ -304,10 +323,18 @@ In `Tree.tsx`, in the collection-branch render:
 ### Step 5: CSS hover affordance
 
 Append to `styles.css`:
+
 ```css
-.tree-collection-actions { opacity: 0; pointer-events: none; transition: opacity 120ms; }
+.tree-collection-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
+}
 .tree-item-collection:hover .tree-collection-actions,
-.tree-collection-actions:focus-within { opacity: 1; pointer-events: auto; }
+.tree-collection-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
 ```
 
 ### Step 6: Run tests, verify PASS + pnpm verify 8-stage GREEN
@@ -328,6 +355,7 @@ git commit -m "feat(tree): Phase P2 T3 -- CollectionHeader row buttons (duplicat
 ## Task 4: i18n — 4 keys × 2 locales + useTranslation swap
 
 **Files:**
+
 - Modify: `src/shared/i18n/editor.ts` (interface + en + zh-CN bundles — 4 keys)
 - Modify: `src/renderer/components/tree/CollectionHeader.tsx` (swap literal hover-strings for `useArxmlStore((s) => s.locale) + t(locale, key)`)
 - Modify: `src/renderer/components/ContextMenu.tsx` (swap literal strings in `buildCollectionItems`)
@@ -336,8 +364,14 @@ git commit -m "feat(tree): Phase P2 T3 -- CollectionHeader row buttons (duplicat
 ### Step 1: Write failing parity test
 
 Append to `editor.parity.test.ts`:
+
 ```ts
-for (const key of ['tree.duplicateChildren', 'tree.sortChildren', 'tree.bulkDelete', 'tree.bulkDeleteConfirm']) {
+for (const key of [
+  'tree.duplicateChildren',
+  'tree.sortChildren',
+  'tree.bulkDelete',
+  'tree.bulkDeleteConfirm',
+]) {
   expect(en[key], `en.${key}`).toBeTruthy();
   expect(zh[key], `zh.${key}`).toBeTruthy();
 }
@@ -382,6 +416,7 @@ git commit -m "feat(i18n): Phase P2 T4 -- 4 collection-action keys x 2 locales +
 ## Task 5: Ship PATCH v1.54.3 — docs + CHANGELOG + release-notes + tag + GH release
 
 **Files:**
+
 - Modify: `package.json` (1.54.2 → 1.54.3)
 - Modify: `CHANGELOG.md` (append v1.54.3 entry)
 - Create: `docs/release-notes/v1.54.3/README.md`
@@ -443,6 +478,7 @@ Per v1.43.1 D5 + post-commit hook: dispatch `pkm-capture` agent to update vault 
 ## Verification (end-to-end)
 
 After T5 complete:
+
 1. `pnpm verify` exits 0 (8-stage GREEN)
 2. Test count 3198 + 7 SKIP / 0 fail (+8 net from v1.54.2)
 3. Manual smoke (T3 step analog): open fixture, expand collection header → hover reveals 3 buttons → click duplicate → new `_N+1` instance appears with copied params → click sort → siblings reorder → click bulk-delete → confirm dialog → all siblings removed
@@ -452,14 +488,14 @@ After T5 complete:
 
 ## Risk register
 
-| Risk | Mitigation |
-|---|---|
-| `duplicateContainer` triggers N mutations — partial failure leaves inconsistent state | Use `coreAddContainer` × N atomic batch wrapper (per spec §Risks); on failure, rollback via `coreRemoveContainer` |
-| `sortSiblings` mutates in-memory doc — race with concurrent edits | Single-store mutation; vitest 3 mock can test concurrent; runtime race window small (UI click); user can undo via manual reorder |
-| `bulkDelete` destroys user data without undo | ConfirmDialog before action (spec D-4); no undo for P2 (YAGNI; user can re-add via +1) |
-| ContextMenu collection kind collides with existing `bswmd` kind | New discriminator `'collection'` added to union; `buildItems` dispatches collection BEFORE bswmd fall-through |
-| `compareSuffix` divergence from `groupSiblingsByShortName` suffix logic | Both call same exported `stripSuffix` (T1 Step 3); single source of truth |
-| Row buttons hidden via `opacity: 0` not accessible to keyboard | Buttons stay `tabindex=0`; CSS `:focus-within` reveals them (T3 Step 5); screen-reader users discover them via tab |
+| Risk                                                                                  | Mitigation                                                                                                                       |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `duplicateContainer` triggers N mutations — partial failure leaves inconsistent state | Use `coreAddContainer` × N atomic batch wrapper (per spec §Risks); on failure, rollback via `coreRemoveContainer`                |
+| `sortSiblings` mutates in-memory doc — race with concurrent edits                     | Single-store mutation; vitest 3 mock can test concurrent; runtime race window small (UI click); user can undo via manual reorder |
+| `bulkDelete` destroys user data without undo                                          | ConfirmDialog before action (spec D-4); no undo for P2 (YAGNI; user can re-add via +1)                                           |
+| ContextMenu collection kind collides with existing `bswmd` kind                       | New discriminator `'collection'` added to union; `buildItems` dispatches collection BEFORE bswmd fall-through                    |
+| `compareSuffix` divergence from `groupSiblingsByShortName` suffix logic               | Both call same exported `stripSuffix` (T1 Step 3); single source of truth                                                        |
+| Row buttons hidden via `opacity: 0` not accessible to keyboard                        | Buttons stay `tabindex=0`; CSS `:focus-within` reveals them (T3 Step 5); screen-reader users discover them via tab               |
 
 ## Self-review checklist (before user review)
 

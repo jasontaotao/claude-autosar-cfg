@@ -477,6 +477,117 @@ describe('useArxmlStore — 3-layer AUTOSAR_R22/EcucDefs/Adc end-to-end (P2 regr
   });
 });
 
+describe('duplicateContainer', () => {
+  it("creates a new sibling with auto-suffix _N+1 and copies the last sibling's params", () => {
+    const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+    const parent = (doc.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    const siblings: ArxmlContainer[] = ['Cell', 'Cell_1', 'Cell_2'].map((shortName, index) => ({
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName,
+      params: { cellParam: { type: 'integer', value: index } },
+      children: [],
+    }));
+    const fixture = withParentChildren(doc, parent, siblings);
+    loadCellFixture(fixture);
+
+    useArxmlStore.getState().duplicateContainer('/EAS/Adc/AdcConfig', 'Cell');
+
+    const children = getParentChildren(useArxmlStore.getState().documents[0]!);
+    expect(children.map((child) => child.shortName)).toEqual([
+      'Cell',
+      'Cell_1',
+      'Cell_2',
+      'Cell_3',
+    ]);
+    expect(children[3]!.params).toEqual(children[2]!.params);
+  });
+
+  it('no-op when no siblings exist', () => {
+    const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+    loadCellFixture(doc);
+
+    useArxmlStore.getState().duplicateContainer('/EAS/Adc/AdcConfig', 'Cell');
+
+    expect(getParentChildren(useArxmlStore.getState().documents[0]!)).toHaveLength(0);
+  });
+});
+
+describe('sortSiblings', () => {
+  it('reorders siblings by shortName suffix numeric ascending', () => {
+    const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+    const parent = (doc.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    const siblings: ArxmlContainer[] = ['Cell_3', 'Cell_1', 'Cell_2', 'Cell_10', 'Cell'].map(
+      (shortName) => ({
+        kind: 'container',
+        tagName: 'ECUC-CONTAINER-VALUE',
+        shortName,
+        params: {},
+        children: [],
+      }),
+    );
+    loadCellFixture(withParentChildren(doc, parent, siblings));
+
+    useArxmlStore.getState().sortSiblings('/EAS/Adc/AdcConfig');
+
+    expect(
+      getParentChildren(useArxmlStore.getState().documents[0]!).map((child) => child.shortName),
+    ).toEqual(['Cell', 'Cell_1', 'Cell_2', 'Cell_3', 'Cell_10']);
+  });
+});
+
+describe('bulkDelete', () => {
+  it('removes all siblings matching the base shortName', () => {
+    const doc = makeDoc('/tmp/Adc.arxml', 'Adc', 'AdcConfig');
+    const parent = (doc.packages[0]!.elements[0] as ArxmlModule).children[0] as ArxmlContainer;
+    const siblings: ArxmlContainer[] = ['Cell', 'Cell_1', 'Cell_2', 'Other'].map((shortName) => ({
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName,
+      params: {},
+      children: [],
+    }));
+    loadCellFixture(withParentChildren(doc, parent, siblings));
+
+    useArxmlStore.getState().bulkDelete('/EAS/Adc/AdcConfig', 'Cell');
+
+    expect(
+      getParentChildren(useArxmlStore.getState().documents[0]!).map((child) => child.shortName),
+    ).toEqual(['Other']);
+  });
+});
+
+function withParentChildren(
+  doc: ArxmlDocument,
+  parent: ArxmlContainer,
+  children: readonly ArxmlContainer[],
+): ArxmlDocument {
+  const module = doc.packages[0]!.elements[0] as ArxmlModule;
+  return {
+    ...doc,
+    packages: [
+      {
+        ...doc.packages[0]!,
+        elements: [{ ...module, children: [{ ...parent, children: [...children] }] }],
+      },
+    ],
+  };
+}
+
+function loadCellFixture(doc: ArxmlDocument): void {
+  useArxmlStore.getState().addDocument(doc, '/tmp/Adc.arxml');
+  useArxmlStore.setState({
+    bswmdSchemas: [makeBswmd(makeBswModule('Adc', 'AdcConfig', 'Cell'))],
+    bswmdPaths: ['/schemas/Adc.bswmd.arxml'],
+  });
+}
+
+function getParentChildren(doc: ArxmlDocument): ArxmlContainer[] {
+  const module = doc.packages[0]!.elements[0] as ArxmlModule;
+  const parent = module.children[0] as ArxmlContainer;
+  return parent.children.filter((child): child is ArxmlContainer => child.kind === 'container');
+}
+
 // ---------------------------------------------------------------------------
 // addParameter
 // ---------------------------------------------------------------------------

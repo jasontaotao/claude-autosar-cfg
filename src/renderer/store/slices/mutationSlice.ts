@@ -15,10 +15,11 @@ import {
   removeParameter as coreRemoveParameter,
 } from '@core/arxml/mutation.js';
 import { findByPath } from '@core/arxml/path.js';
-import type { ArxmlDocument } from '@core/arxml/types';
+import type { ArxmlContainer, ArxmlDocument, ArxmlElement } from '@core/arxml/types';
 import { validateProjectForRenderer } from '@core/validation';
 import { t } from '@shared/i18n/index.js';
 
+import { compareSuffix, stripSuffix } from '../../components/tree/collections.js';
 import {
   findChildContainerDef,
   findModuleDefForPath,
@@ -53,6 +54,9 @@ export interface MutationSlice {
   //   4. On Result.fail: setError() with a localized message keyed by
   //      the MutationError kind.
   addContainer: (parentPath: string, shortName: string) => void;
+  duplicateContainer: (parentPath: string, baseShortName: string) => void;
+  sortSiblings: (parentPath: string) => void;
+  bulkDelete: (parentPath: string, baseShortName: string) => void;
   deleteContainer: (containerPath: string) => void;
   addParameter: (containerPath: string, paramShortName: string) => void;
   addReference: (containerPath: string, refShortName: string) => void;
@@ -134,6 +138,53 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
       return;
     }
     applyMutationResultToActive(set, state, activeIdx, result.value, state.activeDocumentPath);
+  },
+
+  duplicateContainer: (parentPath, baseShortName) => {
+    mutateParentChildren(set, get(), parentPath, (doc, innerPath, parent) => {
+      const siblings = matchingContainers(parent.children, baseShortName).sort((a, b) =>
+        compareSuffix(a.shortName, b.shortName),
+      );
+      const source = siblings.at(-1);
+      if (source === undefined) return doc;
+      const lookup = resolveModuleAndParentContainer(get().bswmdSchemas, innerPath);
+      if (lookup === null) return doc;
+      const childDef = findChildContainerDef(
+        lookup.moduleDef,
+        lookup.parentContainerDef,
+        baseShortName,
+      );
+      if (childDef === null) return doc;
+      const added = coreAddContainer(doc, innerPath, baseShortName, lookup.moduleDef, childDef);
+      if (!added.ok) return doc;
+      return replaceLastMatchingParams(added.value, innerPath, baseShortName, source.params);
+    });
+  },
+
+  sortSiblings: (parentPath) => {
+    mutateParentChildren(set, get(), parentPath, (doc, innerPath, parent) =>
+      replaceParentChildren(
+        doc,
+        innerPath,
+        [...parent.children].sort((a, b) => compareSuffix(shortNameOf(a), shortNameOf(b))),
+      ),
+    );
+  },
+
+  bulkDelete: (parentPath, baseShortName) => {
+    const state = get();
+    const moduleDef = findModuleDefForPath(state.bswmdSchemas, parentPath);
+    mutateParentChildren(set, state, parentPath, (doc, innerPath) => {
+      const target = findByPath(doc, innerPath);
+      if (target === null || target.element.kind !== 'container') return doc;
+      const paths = matchingContainers(target.element.children, baseShortName).map(
+        (child) => `${innerPath}/${child.shortName}`,
+      );
+      return paths.reduce((working, path) => {
+        const removed = coreRemoveContainer(working, path, false, moduleDef);
+        return removed.ok ? removed.value : working;
+      }, doc);
+    });
   },
 
   deleteContainer: (containerPath) => {
@@ -623,3 +674,99 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     );
   },
 });
+
+type SliceSet = Parameters<StateCreator<ArxmlState, [], [], MutationSlice>>[0];
+
+function mutateParentChildren(
+  set: SliceSet,
+  state: ArxmlState,
+  parentPath: string,
+  mutate: (doc: ArxmlDocument, innerPath: string, parent: ArxmlContainer) => ArxmlDocument,
+): void {
+  const target =
+    state.viewMode === 'combined'
+      ? resolveContainerTarget(state, parentPath)
+      : state.doc === null || state.activeDocumentPath === null
+        ? null
+        : { doc: state.doc, filePath: state.activeDocumentPath };
+  if (target === null) return;
+  const index = state.documentPaths.indexOf(target.filePath);
+  if (index === -1) return;
+  const innerPath =
+    state.viewMode === 'combined' ? stripCombinedPrefix(parentPath, target.filePath) : parentPath;
+  if (innerPath === null) return;
+  const located = findByPath(target.doc, innerPath);
+  if (located === null || located.element.kind !== 'container') return;
+  const nextDoc = mutate(target.doc, innerPath, located.element);
+  if (nextDoc === target.doc) return;
+  if (state.viewMode === 'combined') {
+    applyMutationResultToSource(set, state, index, nextDoc, target.filePath);
+  } else {
+    applyMutationResultToActive(set, state, index, nextDoc, target.filePath);
+  }
+}
+
+function matchingContainers(
+  children: readonly ArxmlElement[],
+  baseShortName: string,
+): ArxmlContainer[] {
+  return children.filter(
+    (child): child is ArxmlContainer =>
+      child.kind === 'container' && stripSuffix(child.shortName) === baseShortName,
+  );
+}
+
+function shortNameOf(element: ArxmlElement): string {
+  if (element.kind === 'reference') return element.shortName ?? element.value;
+  if (element.kind === 'unknown') return element.tagName;
+  return element.shortName;
+}
+
+function replaceParentChildren(
+  doc: ArxmlDocument,
+  parentPath: string,
+  children: readonly ArxmlElement[],
+): ArxmlDocument {
+  const located = findByPath(doc, parentPath);
+  if (located === null || located.element.kind !== 'container') return doc;
+  return replaceElement(doc, located.element, { ...located.element, children: [...children] });
+}
+
+function replaceLastMatchingParams(
+  doc: ArxmlDocument,
+  parentPath: string,
+  baseShortName: string,
+  params: ArxmlContainer['params'],
+): ArxmlDocument {
+  const located = findByPath(doc, parentPath);
+  if (located === null || located.element.kind !== 'container') return doc;
+  const added = matchingContainers(located.element.children, baseShortName).at(-1);
+  if (added === undefined) return doc;
+  return replaceParentChildren(
+    doc,
+    parentPath,
+    located.element.children.map((child) =>
+      child === added ? { ...added, params: { ...params } } : child,
+    ),
+  );
+}
+
+function replaceElement(
+  doc: ArxmlDocument,
+  target: ArxmlElement,
+  replacement: ArxmlElement,
+): ArxmlDocument {
+  const replaceChildren = (children: readonly ArxmlElement[]): ArxmlElement[] =>
+    children.map((child) => {
+      if (child === target) return replacement;
+      if (child.kind !== 'module' && child.kind !== 'container') return child;
+      const nextChildren = replaceChildren(child.children);
+      return nextChildren.some((nested, index) => nested !== child.children[index])
+        ? { ...child, children: nextChildren }
+        : child;
+    });
+  return {
+    ...doc,
+    packages: doc.packages.map((pkg) => ({ ...pkg, elements: replaceChildren(pkg.elements) })),
+  };
+}
