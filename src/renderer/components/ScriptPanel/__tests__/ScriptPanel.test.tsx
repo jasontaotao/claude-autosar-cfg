@@ -34,6 +34,14 @@ function makeApi(): {
   deleteScript: ReturnType<typeof vi.fn>;
   runScript: ReturnType<typeof vi.fn>;
   onScriptProgress: ReturnType<typeof vi.fn>;
+  /**
+   * v1.54.0 PATCH C (F-A4-01 2/3 closure) — spy on the unsubscribe
+   * fn returned by `onScriptProgress` so unmount-cleanup assertions
+   * can verify the panel actually invoked it. Without this spy
+   * the original test passed silently even if the panel forgot
+   * the cleanup.
+   */
+  onScriptProgressUnsubscribe: ReturnType<typeof vi.fn>;
 } {
   const listScripts = vi.fn().mockResolvedValue({
     scripts: [
@@ -46,12 +54,15 @@ function makeApi(): {
       },
     ],
   });
+  const onScriptProgressUnsubscribe = vi.fn();
+  const onScriptProgress = vi.fn().mockReturnValue(onScriptProgressUnsubscribe);
   return {
     listScripts,
     saveScript: vi.fn().mockResolvedValue({ id: 's1' }),
     deleteScript: vi.fn().mockResolvedValue({ ok: true }),
     runScript: vi.fn().mockResolvedValue(SAMPLE),
-    onScriptProgress: vi.fn().mockReturnValue(() => {}),
+    onScriptProgress,
+    onScriptProgressUnsubscribe,
   };
 }
 
@@ -197,5 +208,22 @@ describe('ScriptPanel', () => {
     expect(prefix).toBe('[ScriptPanel] runScript failed:');
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toBe('IPC layer failure');
+  });
+
+  // v1.54.0 PATCH C (F-A4-01 2/3 closure) — unmount cleanup path for
+  // `onScriptProgress` subscription. ScriptPanel subscribes via
+  // useScriptActions().subscribeProgress() in a useEffect whose
+  // cleanup returns the unsubscribe fn. Without an explicit assertion
+  // a regression that drops the unsubscribe would silently leak
+  // `ipcRenderer.on(...)` subscriptions across React StrictMode
+  // double-mount or app reload.
+  it('invokes the onScriptProgress unsubscribe on unmount', () => {
+    expect(api.onScriptProgress).not.toHaveBeenCalled();
+    expect(api.onScriptProgressUnsubscribe).not.toHaveBeenCalled();
+    const { unmount } = render(<ScriptPanel />);
+    expect(api.onScriptProgress).toHaveBeenCalledTimes(1);
+    expect(api.onScriptProgressUnsubscribe).not.toHaveBeenCalled();
+    unmount();
+    expect(api.onScriptProgressUnsubscribe).toHaveBeenCalledTimes(1);
   });
 });
