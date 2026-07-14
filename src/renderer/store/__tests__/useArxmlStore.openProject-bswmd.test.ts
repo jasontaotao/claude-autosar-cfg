@@ -348,4 +348,73 @@ describe('useArxmlStore — openProject with bswmds (Sprint A / P0-A2)', () => {
     expect(after.documents.length).toBe(3);
     expect(after.error).toBeNull();
   });
+
+  // Session 240 / Bug 5 (round 2) — single-mode Tree renders only
+  // the active doc's packages. With N>1 ECUC files loaded the user
+  // saw 2 of 8 root modules (the 2 belonging to the active doc).
+  // openProject must promote viewMode to 'combined' on every
+  // multi-doc open so the Tree shows every loaded ECUC, not just
+  // the active one. The user can still toggle back to single
+  // mode via the FileListTab header if they want.
+  it('promotes viewMode to "combined" when opening a multi-doc project (Session 240 / Bug 5)', () => {
+    useArxmlStore.setState({ viewMode: 'single' });
+    expect(useArxmlStore.getState().viewMode).toBe('single');
+
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/A.arxml', 'ecuc/B.arxml', 'ecuc/C.arxml'],
+    });
+
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/A.arxml',
+          path: 'D:/proj/ecuc/A.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/B.arxml',
+          path: 'D:/proj/ecuc/B.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/C.arxml',
+          path: 'D:/proj/ecuc/C.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    expect(useArxmlStore.getState().documents.length).toBe(3);
+    expect(useArxmlStore.getState().viewMode).toBe('combined');
+  });
+
+  it('leaves viewMode untouched when opening a single-doc project (Session 240 / Bug 5)', () => {
+    useArxmlStore.setState({ viewMode: 'single' });
+
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/Only.arxml'],
+    });
+
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Only.arxml',
+          path: 'D:/proj/ecuc/Only.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    expect(useArxmlStore.getState().documents.length).toBe(1);
+    // Single-doc projects should NOT be auto-promoted to combined —
+    // combined mode only earns its keep when there's more than one
+    // doc to combine.
+    expect(useArxmlStore.getState().viewMode).toBe('single');
+  });
 });

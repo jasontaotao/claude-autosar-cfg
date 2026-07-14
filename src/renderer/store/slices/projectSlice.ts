@@ -222,6 +222,13 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       doc: activeDoc,
       filePath: activePath,
       displayDoc: nextDisplayResult?.doc ?? null,
+      // Session 240 / Bug 5 — single-mode Tree only renders the
+      // active doc's packages; with N>1 ECUC files loaded, that
+      // hides 7 of 8 modules from the user. Promote to combined
+      // view on first multi-doc open so the Tree shows every doc
+      // the user just loaded. The user can still toggle back to
+      // single mode via the FileListTab header if they want.
+      viewMode: orderedDocuments.length > 1 ? 'combined' : get().viewMode,
       // Sprint A (P0-A2) — register the freshly-parsed BSWMDs so
       // downstream consumers (`BswmdPickerDialog`, the validation
       // layer, the `ProjectPanel` 0/0 chip) see them. Pre-fix this
