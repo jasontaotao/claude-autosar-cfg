@@ -574,3 +574,72 @@ describe('EcucDefs fold (tier 4)', () => {
     expect(hoisted.shortName).toBe('Adc');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 2026-07-14 — Bug 5 (session 245, user-reported).
+//
+// User repro: opens a project whose manifest references 5 ECUC value-side
+// ARXML files (each shaped `AUTOSAR_R22 > EcucDefs > <module>`) and the
+// Tree renders only 2 module roots. Root cause was that
+// `buildCombinedDocument` ran `dedupRootPackages` on UN-folded docs —
+// every ECUC value file shares the wrapper shortName (e.g. `AUTOSAR_R22`)
+// at the top, so dedup collapsed 5 to 1, then the post-hoc fold collapsed
+// the remaining wrapper to one module. The fix moved `foldVendorPackages`
+// INSIDE `buildCombinedDocument` (before dedup) so dedup sees the
+// already-unwrapped module shortNames and keeps all 5.
+// ---------------------------------------------------------------------------
+
+describe('Bug 5 — combined-mode dedup after vendor-fold (session 245)', () => {
+  it('keeps all 5 modules when 5 ECUC value docs each wrap their module in AUTOSAR_R22 > EcucDefs', () => {
+    // Arrange — mirrors the user-reported manifest of 5
+    // JWQ3399 / CanIf / CanNm / Com / ComM_ECUC values files. Each
+    // doc's structure is the canonical
+    // `AUTOSAR_R22 > EcucDefs > <module>` skeleton shape. Pre-fix,
+    // buildCombinedDocument saw 5 docs whose top-level package
+    // shortName was the same `AUTOSAR_R22`, dedup kept 1, and the
+    // Tree rendered exactly one module. Post-fix, the per-doc fold
+    // happens BEFORE dedup so the deduped list contains all 5
+    // distinct module shortNames.
+    const moduleNames = ['JWQ3399', 'CanIf', 'CanNm', 'Com', 'ComM'] as const;
+    const docs: ArxmlDocument[] = moduleNames.map((name) =>
+      makeEcucDefsDoc({ wrapShortName: 'AUTOSAR_R22', moduleShortName: name }),
+    );
+    const filePaths: readonly string[] = moduleNames.map(
+      (n) => `D:/proj/ecuc/${n}_EcucValues.arxml`,
+    );
+    // BSWMDs declare the same modules so the EcucDefs tier-4 fold
+    // can fire (no BSWMD gate is required for tier-4, but a
+    // corresponding BSWMD makes the realism check pass).
+    const bswmds: BswmdDocument[] = [makeBswmd([...moduleNames])];
+
+    // Act
+    const result = computeDisplayDoc('combined', null, docs, filePaths, bswmds);
+
+    // Assert — displayDoc must have 5 root packages, one per module.
+    // Pre-fix this was 1, post-fix it must be 5.
+    expect(result).not.toBeNull();
+    expect(result!.doc).not.toBeNull();
+    expect(result!.doc!.packages.length).toBe(5);
+    const renderedShortNames = result!.doc!.packages.map((p) => p.shortName).sort();
+    expect(renderedShortNames).toEqual([...moduleNames].sort());
+  });
+
+  it('keeps all modules even when the BSWMD list is empty (tier-4 naming-only fold still fires)', () => {
+    // Robustness variant — the user might open a project BEFORE
+    // loading any BSWMD. Tier 4 has no BSWMD gate, so the fold
+    // still collapses EcucDefs. Dedup must still keep all 5
+    // modules even with no schema-level match.
+    const moduleNames = ['JWQ3399', 'CanIf', 'CanNm', 'Com', 'ComM'] as const;
+    const docs: ArxmlDocument[] = moduleNames.map((name) =>
+      makeEcucDefsDoc({ wrapShortName: 'AUTOSAR_R22', moduleShortName: name }),
+    );
+    const filePaths: readonly string[] = moduleNames.map(
+      (n) => `D:/proj/ecuc/${n}_EcucValues.arxml`,
+    );
+
+    const result = computeDisplayDoc('combined', null, docs, filePaths, []);
+
+    expect(result).not.toBeNull();
+    expect(result!.doc!.packages.length).toBe(5);
+  });
+});

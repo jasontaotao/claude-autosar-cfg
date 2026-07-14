@@ -89,9 +89,19 @@ export function computeDisplayDoc(
     };
   }
   if (documents.length === 0) return null;
-  const built = buildCombinedDocument(documents, filePaths);
+  // Bug 5 (session 245) — pass bswmdSchemas into the build so
+  // per-doc vendor-fold happens BEFORE dedupRootPackages runs.
+  // Pre-fix, fold ran only on the final synthesised doc, AFTER dedup
+  // had already collapsed N ECUC value docs to 1 (they shared the
+  // wrapper shortName). The fix moved fold inside `buildCombinedDocument`
+  // (line ~136) so dedup operates on the unfolded module shortNames
+  // and keeps every distinct module.
+  const built = buildCombinedDocument(documents, filePaths, bswmdSchemas);
   return {
-    doc: built.doc === null ? null : foldVendorPackages(built.doc, bswmdSchemas ?? []),
+    // `built.doc` packages are already folded inside
+    // buildCombinedDocument; do NOT re-fold here (would re-run the
+    // fold on a doc whose modules are now top-level leaves).
+    doc: built.doc,
     warnings: built.warnings,
   };
 }
@@ -136,6 +146,7 @@ function lastSegment(p: string): string {
 function buildCombinedDocument(
   documents: readonly ArxmlDocument[],
   filePaths: readonly string[],
+  bswmdSchemas?: readonly BswmdDocument[],
 ): CombinedDocumentResult {
   // Sprint 16 — smart basename wrapper skip. When no collision exists
   // (basenames all unique AND module shortNames don't overlap across
@@ -156,10 +167,25 @@ function buildCombinedDocument(
   // been wrapped under `[doc:1]`), and the warning tells the
   // user why the second file's content didn't make it into the
   // tree.
+  //
+  // Bug 5 (session 245) — fold BEFORE dedup. Pre-fix the dedup
+  // ran on raw `documents[i].packages` (the un-folded top of the
+  // vendor AR-PACKAGE chain, e.g. `AUTOSAR_R22`). All ECUC value
+  // ARXML files share that wrapper shortName, so dedup dropped
+  // 4 of 5 entries to keep the first — and the post-hoc
+  // `foldVendorPackages` applied at the end of `computeDisplayDoc`
+  // only saw a single root package, collapsing to one module for
+  // the whole project. User reported "Tree 2 of 8 modules". The
+  // fix: per-doc fold first so dedup sees the un-wrapped module
+  // shortNames (each unique, all preserved), then collect.
+  const foldedDocuments: ArxmlDocument[] = [];
+  for (const d of documents) {
+    foldedDocuments.push(foldVendorPackages(d, bswmdSchemas ?? []));
+  }
   const allPackages: { readonly pkg: ArxmlPackage; readonly filePath: string }[] = [];
-  for (let i = 0; i < documents.length; i += 1) {
+  for (let i = 0; i < foldedDocuments.length; i += 1) {
     const filePath = filePaths[i] ?? '';
-    for (const pkg of documents[i]?.packages ?? []) {
+    for (const pkg of foldedDocuments[i]?.packages ?? []) {
       allPackages.push({ pkg, filePath });
     }
   }
