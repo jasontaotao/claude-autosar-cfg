@@ -40,6 +40,8 @@ export const AppZhCN: AppMessages = {
   'app.error.openProjectParse': '打开项目: {message}',
   'app.error.readBswmdFailed': '读取 BSWMD 失败: {message}',
   'app.error.parseBswmdFailed': 'BSWMD 解析失败: {message}',
+  'app.error.openProjectMissingArxml':
+    '项目部分打开：IPC 包未提供这些 ARXML 文件（可能已从磁盘删除或移动）：{paths}',
   'app.error.duplicateBswmd': 'BSWMD 已加载过: {path}',
   'app.error.removeBswmdFromDisk': '从磁盘移除 BSWMD 失败: {message}',
   'app.error.needProject': '需要先打开或创建项目',

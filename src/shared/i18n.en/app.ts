@@ -40,6 +40,8 @@ export const AppEn: AppMessages = {
   'app.error.openProjectParse': 'Open Project: {message}',
   'app.error.readBswmdFailed': 'Failed to read BSWMD: {message}',
   'app.error.parseBswmdFailed': 'BSWMD parse failed: {message}',
+  'app.error.openProjectMissingArxml':
+    'Project opened partially: the IPC bundle did not deliver these ARXML files (they may have been deleted from disk or moved since the project was last opened): {paths}',
   'app.error.duplicateBswmd': 'BSWMD already loaded: {path}',
   'app.error.removeBswmdFromDisk': 'Failed to remove BSWMD from disk: {message}',
   'app.error.needProject': 'Please open or create a project first',

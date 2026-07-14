@@ -46,6 +46,7 @@ export interface AppMessages {
   readonly 'app.error.openProjectParse': string; // {message}
   readonly 'app.error.readBswmdFailed': string; // {message}
   readonly 'app.error.parseBswmdFailed': string; // {message}
+  readonly 'app.error.openProjectMissingArxml': string; // {paths} — Session 240 / Bug 5 — manifest entries the IPC bundle did not deliver
   readonly 'app.error.duplicateBswmd': string; // {path}
   readonly 'app.error.removeBswmdFromDisk': string; // {message}
   readonly 'app.error.needProject': string;

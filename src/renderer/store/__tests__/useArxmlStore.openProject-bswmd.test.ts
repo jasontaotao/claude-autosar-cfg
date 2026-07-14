@@ -89,6 +89,37 @@ const MALFORMED_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
       <ELEMENTS>
 `;
 
+// ---------------------------------------------------------------------------
+// Minimal valid ECUC value-side ARXML (one EcuC module + one container).
+// parseArxml's value-side walker expects <AR-PACKAGES>/<AR-PACKAGE>/
+// <ELEMENTS>/<ECUC-MODULE-CONFIGURATION-VALUES>/... with at least
+// one <SHORT-NAME> on the module configuration. The contents inside
+// the container don't matter for the openProject test — only that
+// the doc parses.
+// ---------------------------------------------------------------------------
+const MIN_ECUC_VALUES = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.6"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.6 AUTOSAR_00046.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>EcucValues</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>TestModule</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/EcucDefs/TestModule</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>TestContainer</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/EcucDefs/TestModule/TestContainer</DEFINITION-REF>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
 function sampleManifest(overrides: Partial<ProjectManifest> = {}): ProjectManifest {
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
@@ -219,5 +250,102 @@ describe('useArxmlStore — openProject with bswmds (Sprint A / P0-A2)', () => {
       'D:/proj/c/C.arxml',
     ]);
     expect((after.bswmdSchemas[1] as BswmdDocument).modules[0]?.shortName).toBe('EcuC');
+  });
+
+  // Session 240 / Bug 5 — when the IPC bundle is missing one or more
+  // manifest entries (e.g. an ARXML file was deleted from disk between
+  // project open and now), openProject used to silently `continue`
+  // past the miss and the user saw a Tree with only the docs that
+  // happened to match. The fix: collect the missing rels and
+  // surface a single localized error in `state.error`. The store
+  // still keeps the docs that DID match (best-effort partial load)
+  // — the user can keep editing the modules that opened, but
+  // sees a banner naming the missing files so they can re-add or
+  // remove them from the manifest.
+  it('surfaces a localized error when the IPC bundle is missing manifest entries (Session 240 / Bug 5)', () => {
+    // Manifest references 3 ECUC files; the IPC bundle only delivers 2.
+    const manifest = sampleManifest({
+      valueArxmlPaths: [
+        'ecuc/Nm_EcucValues.arxml',
+        'ecuc/PduR_EcucValues.arxml',
+        'ecuc/JWQ3399_EcucValues.arxml',
+      ],
+    });
+
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        // Only 2 of the 3 manifest entries are delivered. The
+        // third (PduR_EcucValues) was lost — pre-fix this was
+        // silent; post-fix the missing rel is reported.
+        {
+          rel: 'ecuc/Nm_EcucValues.arxml',
+          path: 'D:/proj/ecuc/Nm_EcucValues.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/JWQ3399_EcucValues.arxml',
+          path: 'D:/proj/ecuc/JWQ3399_EcucValues.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    const after = useArxmlStore.getState();
+
+    // The 2 docs that DID match must still be in the store — the
+    // user can keep editing them. The missing doc is reported via
+    // `error`, not by removing the matched ones.
+    expect(after.documents.length).toBe(2);
+    expect(after.documentPaths).toEqual([
+      'D:/proj/ecuc/Nm_EcucValues.arxml',
+      'D:/proj/ecuc/JWQ3399_EcucValues.arxml',
+    ]);
+
+    // The error message must name the missing rel so the user
+    // knows which file to re-add or remove from the manifest.
+    expect(after.error).not.toBeNull();
+    expect(after.error).toContain('PduR_EcucValues.arxml');
+  });
+
+  it('keeps `error` null when the IPC bundle matches every manifest entry (Session 240 / Bug 5)', () => {
+    // Happy path: all 3 manifest entries are delivered. No missing
+    // rels, so no error banner should appear.
+    const manifest = sampleManifest({
+      valueArxmlPaths: [
+        'ecuc/Nm_EcucValues.arxml',
+        'ecuc/PduR_EcucValues.arxml',
+        'ecuc/JWQ3399_EcucValues.arxml',
+      ],
+    });
+
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Nm_EcucValues.arxml',
+          path: 'D:/proj/ecuc/Nm_EcucValues.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/PduR_EcucValues.arxml',
+          path: 'D:/proj/ecuc/PduR_EcucValues.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/JWQ3399_EcucValues.arxml',
+          path: 'D:/proj/ecuc/JWQ3399_EcucValues.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    const after = useArxmlStore.getState();
+    expect(after.documents.length).toBe(3);
+    expect(after.error).toBeNull();
   });
 });

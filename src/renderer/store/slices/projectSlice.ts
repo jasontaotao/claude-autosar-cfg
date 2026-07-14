@@ -146,6 +146,10 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
     const docsByRel = new Map(docs.map((d) => [d.rel, d] as const));
     const orderedDocuments = [];
     const orderedPaths: string[] = [];
+    // Session 240 / Bug 5 — collect manifest entries the IPC bundle
+    // did not deliver, so the post-hydrate state surfaces a clear
+    // error instead of a silently-partial Tree.
+    const missingRels: string[] = [];
     // Bug 3 — hydrate each ECUC doc's in-memory `sourceBswmdPath`
     // from `manifest.ecucSources[relPath]`. Pre-Bug-3 this was always
     // `undefined` after restart because the field was never
@@ -175,7 +179,17 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
     }
     for (const relPath of manifest.valueArxmlPaths) {
       const entry = docsByRel.get(relPath);
-      if (entry === undefined) continue;
+      // Session 240 / Bug 5 — pre-fix the missing entry was
+      // `continue`-silenced, which produced a partial hydrate where
+      // the Tree showed only the docs that happened to match and
+      // the rest of the manifest's valueArxmlPaths vanished without
+      // a hint. Track the missing rels and surface a single
+      // localized error so the user (and the next dev) can see what
+      // went wrong.
+      if (entry === undefined) {
+        missingRels.push(relPath);
+        continue;
+      }
       const parsed = parseArxmlOrThrow(entry.content);
       const recordedSourceRel = ecucSources[relPath];
       let sourceBswmdPath: string | undefined;
@@ -232,8 +246,14 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       // stale open-failure banner doesn't survive a successful open,
       // UNLESS we hit a BSWMD parse error above (in which case the
       // banner takes priority — the user needs to know the partial
-      // load).
-      error: lastParseError,
+      // load). Session 240 / Bug 5 — if the IPC bundle was missing
+      // some manifest entries, surface those too so the user sees
+      // the partial load, not a silent Tree of N-1 modules.
+      error:
+        lastParseError ??
+        (missingRels.length > 0
+          ? t(locale, 'app.error.openProjectMissingArxml', { paths: missingRels.join(', ') })
+          : null),
       toast: null,
       project: manifest,
       projectPath: manifestPath,
