@@ -46,7 +46,12 @@ export function CollectionHeader(props: CollectionHeaderProps): JSX.Element {
       data-kind="collection"
       data-testid={`treeitem-collection-${testKey}`}
       className="tree-item tree-item-collection"
-      style={{ paddingLeft: `${depth * 1.25}rem` }}
+      /* Padding-left must use the same `depth * 16px` formula as TreeNode
+         (TreeNode.tsx:239) so a collection header at depth=1 visually
+         aligns with sibling TreeNodes at the same depth. The previous
+         `depth * 1.25rem` (= 20px at depth=1) caused a 4px right-shift
+         that the user noticed in screenshot #9. */
+      style={{ paddingLeft: `${depth * 16}px` }}
     >
       <button
         type="button"

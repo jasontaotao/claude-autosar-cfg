@@ -230,7 +230,7 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides real siblings under collection header when collapsed (default)', () => {
+  it('shows real siblings under collection header by default (expanded)', () => {
     const doc = makeDocWithSiblings([
       makeEl('AFECellValidSet'),
       makeEl('AFECellValidSet_1'),
@@ -241,19 +241,25 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     render(<Tree store={api} />);
     expandToConfigSet();
 
-    // The header is present and expanded by default is FALSE → the real
-    // sibling rows must be hidden from the DOM (collapsed subtrees are
-    // not rendered, see TreeNode.tsx:10).
+    // Default-EXPANDED: the collection header renders alongside the
+    // 3 real sibling rows. The header carries the synthetic `×N`
+    // count and the chevron shows ▾ (expanded) — clicking it will
+    // collapse the whole group. This is the behavior the user
+    // asked for in session 225 (default-expanded, opposite of the
+    // earlier default-collapsed design).
     expect(screen.getByTestId('treeitem-collection-AFECellValidSet')).toBeInTheDocument();
     expect(
-      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
-    ).toBeNull();
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
-    ).toBeNull();
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
+    ).toBeInTheDocument();
   });
 
-  it('expands real siblings when the collection header chevron is clicked', () => {
+  it('collapses real siblings when the collection header chevron is clicked', () => {
     const doc = makeDocWithSiblings([
       makeEl('AFECellValidSet'),
       makeEl('AFECellValidSet_1'),
@@ -265,24 +271,24 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     render(<Tree store={api} />);
     expandToConfigSet();
 
-    // Default-collapsed → real siblings hidden.
-    expect(
-      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
-    ).toBeNull();
-
-    // Click the chevron to expand the collection.
-    fireEvent.click(screen.getByTestId('chevron-collection-AFECellValidSet'));
-
-    // All three real siblings now render.
-    expect(
-      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
-    ).toBeInTheDocument();
+    // Default-expanded → all 3 real siblings visible.
     expect(
       screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
     ).toBeInTheDocument();
+
+    // Click the chevron to collapse the collection.
+    fireEvent.click(screen.getByTestId('chevron-collection-AFECellValidSet'));
+
+    // After collapse all 3 real siblings are hidden from the DOM.
     expect(
-      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
-    ).toBeInTheDocument();
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_1'),
+    ).toBeNull();
+    expect(
+      screen.queryByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet_2'),
+    ).toBeNull();
 
     // Clicking the enabled `+` button must invoke `addContainer` with the
     // collection's parent path + base name (auto-suffix is produced by

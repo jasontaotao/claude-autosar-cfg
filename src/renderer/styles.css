@@ -670,12 +670,43 @@ body,
 /*   BSWMD-declared upperMultiplicity). All colors use CSS variables  */
 /*   with hex fallbacks so themes without the variables still render.  */
 /* ------------------------------------------------------------------ */
-.tree-item-collection {
+/* Selector elevated to `.tree .tree-item-collection` (specificity 0,2,0)
+   to win the cascade over the base `.tree [role='treeitem']` rule at
+   line 571, which forces `flex-direction: column` on every treeitem.
+   Without this specificity bump the column rule overrides and the 4
+   inline children (chevron / kind-dot / label+badge / +1 button)
+   stack vertically instead of sitting on one row. */
+.tree .tree-item-collection {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.5em;
   background: var(--color-surface-2, rgba(255, 255, 255, 0.03));
   border-left: 2px solid var(--color-accent, #0ea5e9);
+}
+
+/* Label group must be allowed to shrink below its intrinsic content
+   width inside the row flex container, otherwise `+1` button gets
+   pushed onto a second visual line in narrow widths. */
+.tree-label-collection {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+/* `+1` button must not be allowed to shrink — it owns its own width
+   and `margin-left: auto` keeps it pinned to the row's right edge. */
+.tree-add-collection {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 0.6em;
+  border-radius: 4px;
+  background: var(--color-accent, #0ea5e9);
+  color: white;
+  font-size: 0.85em;
 }
 .kind-collection {
   background: var(--color-accent, #0ea5e9);
@@ -700,6 +731,21 @@ body,
 .tree-add-collection:disabled {
   background: var(--color-text-faint, #555);
   cursor: not-allowed;
+}
+
+/* CollectionHeader's `+ 1` row is a flex container; if real sibling
+   TreeNodes were rendered as direct children of that same root div
+   they would inherit the row flex layout and be painted inline to
+   the right of the header — which is what we want to AVOID. Wrap
+   them in a block-level container so they stack vertically beneath
+   the header row, each at its own depth+1 indent. The block layout
+   also lets us reuse the existing `.tree-children` left-border +
+   padding convention from TreeNode. */
+.tree-collection-children {
+  display: block;
+  margin-left: 16px;
+  border-left: 1px dashed #dce0e6;
+  padding-left: 4px;
 }
 
 /* ------------------------------------------------------------------ */

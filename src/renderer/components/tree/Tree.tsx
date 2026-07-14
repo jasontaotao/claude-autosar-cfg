@@ -18,7 +18,7 @@
 // mutation surface — `addContainer(parentPath, shortName)` was shipped
 // in v1.5.1 PR(4) and is reused as-is.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
@@ -342,20 +342,28 @@ function renderChildren(
   // collection `AFECellValidSet`. Mirrors collections.ts stripSuffix.
   const stripSuffix = (name: string): string => name.replace(/_[0-9]+$/, '');
 
+  // Phase P1 T3 (collection default-EXPANDED fold): siblings whose
+  // base shortName is in a ≥2 group no longer render as direct
+  // children of `parentPath`. They are surfaced as indented
+  // children of the matching CollectionHeader so the tree visually
+  // groups them under the synthetic `×N` row. Siblings outside any
+  // collection render exactly as before (no behavior change for
+  // users with non-collected siblings). To collapse a collection the
+  // user clicks the header's chevron; the toggle adds the
+  // `collection:...` key to `expanded` and the realChildren block
+  // (below) hides those siblings.
   const realChildren = elements.flatMap((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
     // v1.4.0 trust sprint — 17c. Unknown vendor extensions and
     // references are both leaves with no children to recurse into.
     const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
-    // Phase P1 T3 — siblings inside a collection (≥2 same-baseName)
-    // are hidden when the collection is collapsed (default). Out-of-
-    // collection siblings render exactly as before — no behavior
-    // change for users with non-collected siblings.
     const baseName = stripSuffix(shortNameOf(el));
-    const inCollection = collectionBaseNames.has(baseName);
-    if (inCollection) {
-      const collectionKey = `collection:${parentPath}/${baseName}`;
-      if (!expanded.has(collectionKey)) return [];
+    if (collectionBaseNames.has(baseName)) {
+      // Sibling belongs to a collection — render it inside the
+      // CollectionHeader (not here). The visibility of this
+      // rendered-as-header-child sibling is driven by the
+      // collection's own expanded state, handled by CollectionHeader.
+      return [];
     }
     return [
       <TreeNode
@@ -398,22 +406,92 @@ function renderChildren(
   for (const [baseName, group] of groups) {
     if (group.length < 2) continue;
     const collectionKey = `collection:${parentPath}/${baseName}`;
-    const isExpanded = expanded.has(collectionKey);
+    // Default-EXPANDED: the user sees the synthetic `×N` header with
+    // its real siblings listed underneath. Clicking the header's
+    // chevron adds `collectionKey` to the `expanded` Set — at that
+    // point `isCollapsed` flips to `true` and the entire branch
+    // (header + children) is hidden behind a single `▶` so the
+    // user can collapse a long collection out of the way. The
+    // earlier `default-collapsed` design hid the children under
+    // the header on first paint, which made the group read as
+    // empty; expanded-by-default is the spec the user actually
+    // wanted (verified against screenshot #11 in session 225).
+    const isCollapsed = expanded.has(collectionKey);
+    const isExpanded = !isCollapsed;
     const childDef = resolveCollectionChildDef(bswmdSchemas, parentPath, baseName);
     if (childDef === null) continue;
+    // Real siblings inside the collection: render as TreeNodes at
+    // `depth + 1` so they indent one level beneath the header. The
+    // visibility of the whole group is driven by `isExpanded` —
+    // when collapsed the header passes `null` for `children` and
+    // the entire branch is omitted from the DOM. When expanded
+    // each sibling is a normal TreeNode with its own expand/select/
+    // context-menu behavior; the CollectionHeader just owns the
+    // visual grouping + `+ 1` add affordance above them.
+    const collectionChildren: JSX.Element[] = isExpanded
+      ? group.map((el) => {
+          const childPath = `${parentPath}/${shortNameOf(el)}`;
+          const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
+          return (
+            <TreeNode
+              key={childPath}
+              label={shortNameOf(el)}
+              kind={el.kind === 'unknown' ? undefined : el.kind}
+              path={childPath}
+              depth={depth + 1}
+              isLeaf={isLeaf}
+              isExpanded={expanded.has(childPath)}
+              isSelected={selectedPath === childPath}
+              onToggle={toggle}
+              onSelect={(p) => store.getState().select(p)}
+              onContextMenu={onContextMenu}
+            >
+              {!isLeaf &&
+                renderChildren(
+                  el.children,
+                  childPath,
+                  depth + 2,
+                  expanded,
+                  toggle,
+                  selectedPath,
+                  store,
+                  onContextMenu,
+                  bswmdSchemas,
+                  locale,
+                )}
+            </TreeNode>
+          );
+        })
+      : [];
+    // The collection header and its real sibling rows are rendered
+    // as a pair of siblings in the parent's render output, NOT as
+    // children of the CollectionHeader root. Why: the header's root
+    // <div> is a flex *row* (chevron / dot / label / +1 must sit on
+    // one line). If we nested the real TreeNodes inside that root
+    // they would inherit the row flex layout and be painted inline
+    // to the right of the header — which is what screenshot #12
+    // showed. Instead we keep the header a self-contained flex row
+    // and render the sibling rows as a separate block-level element
+    // immediately after it, indented one level deeper.
     collectionHeaders.push(
-      <CollectionHeader
-        key={collectionKey}
-        shortName={baseName}
-        count={group.length}
-        upperMultiplicity={childDef.upperMultiplicity}
-        isExpanded={isExpanded}
-        onToggle={() => toggle(collectionKey)}
-        onAdd={() => {
-          store.getState().addContainer?.(parentPath, baseName);
-        }}
-        depth={depth}
-      />,
+      <Fragment key={collectionKey}>
+        <CollectionHeader
+          shortName={baseName}
+          count={group.length}
+          upperMultiplicity={childDef.upperMultiplicity}
+          isExpanded={isExpanded}
+          onToggle={() => toggle(collectionKey)}
+          onAdd={() => {
+            store.getState().addContainer?.(parentPath, baseName);
+          }}
+          depth={depth}
+        />
+        {isExpanded ? (
+          <div className="tree-collection-children" data-testid={`collection-children-${baseName}`}>
+            {collectionChildren}
+          </div>
+        ) : null}
+      </Fragment>,
     );
   }
 
