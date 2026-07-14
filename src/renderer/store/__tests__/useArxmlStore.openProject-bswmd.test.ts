@@ -33,6 +33,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import type { ImportSession } from '@core/import/types.js';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 
 import { MANIFEST_SCHEMA_VERSION } from '../../../shared/project.js';
@@ -347,5 +348,184 @@ describe('useArxmlStore — openProject with bswmds (Sprint A / P0-A2)', () => {
     const after = useArxmlStore.getState();
     expect(after.documents.length).toBe(3);
     expect(after.error).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // Bug 5 — viewMode promote on multi-doc open
+  //
+  // Pre-fix the openProject reducer only rendered the first loaded
+  // value-side doc in single-mode (computeDisplayDoc single-branch
+  // returns `activeDoc = documentPaths[0]`), so an 8-ECUC project
+  // showed only one module in the Tree. The fix promotes viewMode to
+  // 'combined' when the bundle holds 2+ docs and no importSession is
+  // active — combined mode routes path lookup through findByPathMultiDoc
+  // (combined flat fallback at path.ts:393-407) so all docs become
+  // visible without any mutation / path code change.
+  // -------------------------------------------------------------------------
+
+  it('promotes viewMode to "combined" when orderedDocuments.length > 1', () => {
+    // Arrange — 2 distinct ECUC value-side docs.
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/Can.arxml', 'ecuc/EcuC.arxml'],
+    });
+
+    // Act
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Can.arxml',
+          path: 'D:/proj/ecuc/Can.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/EcuC.arxml',
+          path: 'D:/proj/ecuc/EcuC.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    // Assert — promote flipped the default 'single' to 'combined'
+    // because the bundle holds 2 value-side docs.
+    const after = useArxmlStore.getState();
+    expect(after.documents.length).toBe(2);
+    expect(after.viewMode).toBe('combined');
+  });
+
+  it('leaves viewMode at "single" when only 1 doc is in the bundle', () => {
+    // Arrange — 1 doc, default viewMode 'single'.
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/Can.arxml'],
+    });
+
+    // Act
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Can.arxml',
+          path: 'D:/proj/ecuc/Can.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    // Assert — single-doc open must NOT trigger the promote branch.
+    const after = useArxmlStore.getState();
+    expect(after.documents.length).toBe(1);
+    expect(after.viewMode).toBe('single');
+  });
+
+  it('does NOT promote when importSession is active (combined-mode lockout)', () => {
+    // Arrange — pre-seed an importSession so the three-state guard
+    // at uiSlice.ts:189-194 must be respected. Pin viewMode to
+    // 'import-merged' so the assertion is concrete; pre-fix the
+    // promote would have flipped this to 'combined' (illegal — the
+    // user is mid-import).
+    const importSession: ImportSession = {
+      id: 'import-test-lockout',
+      incomingDocs: [],
+      originalPaths: [],
+      selections: [],
+      resolutions: [],
+      activeModuleForDiff: null,
+      createdAt: Date.now(),
+      undoStack: [],
+    };
+    useArxmlStore.setState({ importSession, viewMode: 'import-merged' });
+
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/Can.arxml', 'ecuc/EcuC.arxml'],
+    });
+
+    // Act — open with 2 docs.
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Can.arxml',
+          path: 'D:/proj/ecuc/Can.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/EcuC.arxml',
+          path: 'D:/proj/ecuc/EcuC.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    // Assert — viewMode must stay at 'import-merged' (NOT flipped to
+    // 'combined' even though the bundle has 2+ docs). Respecting the
+    // user's explicit in-flight import choice is the contract.
+    const after = useArxmlStore.getState();
+    expect(after.documents.length).toBe(2);
+    expect(after.viewMode).toBe('import-merged');
+  });
+
+  it('re-promotes to combined on second openProject after importSession is cleared', () => {
+    // Arrange — first open promotes (2 docs → combined). Then user
+    // resolves the import (session cleared, viewMode back to single).
+    // Second open with 2 docs must re-promote.
+    const manifest = sampleManifest({
+      valueArxmlPaths: ['ecuc/Can.arxml', 'ecuc/EcuC.arxml'],
+    });
+
+    // First open — promote fires.
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Can.arxml',
+          path: 'D:/proj/ecuc/Can.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/EcuC.arxml',
+          path: 'D:/proj/ecuc/EcuC.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+    expect(useArxmlStore.getState().viewMode).toBe('combined');
+
+    // User clears the import session (cancelImport flips viewMode
+    // back to 'single') and resets importSession to null.
+    useArxmlStore.setState({ importSession: null });
+    useArxmlStore.getState().setViewMode('single');
+    expect(useArxmlStore.getState().viewMode).toBe('single');
+
+    // Act — second openProject with 2 docs.
+    useArxmlStore.getState().openProject({
+      manifestPath: 'D:/proj/P.autosarcfg.json',
+      manifest,
+      docs: [
+        {
+          rel: 'ecuc/Can.arxml',
+          path: 'D:/proj/ecuc/Can.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+        {
+          rel: 'ecuc/EcuC.arxml',
+          path: 'D:/proj/ecuc/EcuC.arxml',
+          content: MIN_ECUC_VALUES,
+        },
+      ],
+      bswmds: [],
+    });
+
+    // Assert — re-promote to combined must fire.
+    const after = useArxmlStore.getState();
+    expect(after.documents.length).toBe(2);
+    expect(after.viewMode).toBe('combined');
   });
 });

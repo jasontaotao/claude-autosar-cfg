@@ -207,8 +207,24 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
     // manifest is the source of truth for what's "in" the project.
     const activeDoc = orderedDocuments[0] ?? null;
     const activePath = orderedPaths[0] ?? null;
-    const nextDisplayResult = computeDisplayDoc(
-      get().viewMode,
+    // Bug 5 — promote viewMode='combined' when the open bundle holds
+    // 2+ value-side docs. Pre-fix the Tree only rendered
+    // `documentPaths[0]`'s root package in single-mode (computeDisplayDoc
+    // single-mode branch in combinedDoc.ts), so users importing 8
+    // ECUC files saw 1 module. The combined view already routes the
+    // path lookup through `findByPathMultiDoc`'s flat-mode fallback
+    // (core/arxml/path.ts:393-407 — iterates docs trying `findByPath`
+    // verbatim), so promoting viewMode is sufficient — no path or
+    // mutation changes needed. Skip when an import session is active
+    // (the three-state guard at uiSlice.ts:189-194 would reject the
+    // 'single'->'combined' flip; respect the user's explicit choice).
+    const wantCombined =
+      orderedDocuments.length > 1 && get().viewMode === 'single' && get().importSession === null;
+    const resolvedViewMode: 'single' | 'combined' | 'import-merged' = wantCombined
+      ? 'combined'
+      : get().viewMode;
+    const finalDisplayResult = computeDisplayDoc(
+      resolvedViewMode,
       activeDoc,
       orderedDocuments,
       orderedPaths,
@@ -221,7 +237,7 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       activeDocumentPath: activePath,
       doc: activeDoc,
       filePath: activePath,
-      displayDoc: nextDisplayResult?.doc ?? null,
+      displayDoc: finalDisplayResult?.doc ?? null,
       // Sprint A (P0-A2) — register the freshly-parsed BSWMDs so
       // downstream consumers (`BswmdPickerDialog`, the validation
       // layer, the `ProjectPanel` 0/0 chip) see them. Pre-fix this
@@ -233,11 +249,17 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       // add SpiSequenceRef".
       bswmdSchemas: bswmdSchemasOut,
       bswmdPaths: bswmdPathsOut,
-      // Sprint 17c T10 — refresh warnings in combined mode.
+      // Bug 5 — refresh warnings using the resolved (post-promote)
+      // viewMode so a freshly-promoted 2-doc open correctly populates
+      // the combined-mode warnings slice.
       warnings:
-        get().viewMode === 'combined' && nextDisplayResult !== null
-          ? nextDisplayResult.warnings
+        resolvedViewMode === 'combined' && finalDisplayResult !== null
+          ? finalDisplayResult.warnings
           : [],
+      // Bug 5 — write the promoted viewMode alongside the rest of
+      // the hydrate payload so the single `set(...)` call is the
+      // only state transition.
+      viewMode: resolvedViewMode,
       selectedPath: null,
       // A freshly-opened project is, by definition, saved on disk; the
       // renderer has not modified anything yet, so all dirty bits clear.
