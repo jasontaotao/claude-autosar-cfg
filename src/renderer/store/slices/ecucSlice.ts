@@ -11,6 +11,7 @@ import type { StateCreator } from 'zustand';
 import type { ArxmlDocument, ParamValue } from '@core/arxml/types';
 import type { ValidationError } from '@core/validation';
 import { buildSchemaLayer, validateProjectForRenderer } from '@core/validation';
+import { t } from '@shared/i18n/index.js';
 import { dirname as sharedDirname } from '@shared/path';
 
 import {
@@ -182,7 +183,18 @@ export const createEcucSlice: StateCreator<ArxmlState, [], [], EcucSlice> = (set
   removeDocument: (filePath) => {
     const state = get();
     const idx = state.documentPaths.indexOf(filePath);
-    if (idx === -1) return;
+    if (idx === -1) {
+      // Sprint A+ T-fix — surface a typed toast instead of a silent
+      // no-op when the caller hands us a path we don't hold. Common
+      // cause: the `ProjectPanel` × button forwarded a relative
+      // manifest path that the path-translation helper couldn't map
+      // (stale manifest, doc never opened, etc.). The user needs to
+      // see the failure to understand why the click did nothing.
+      get().setError(
+        t(state.locale, 'mutation.error.removeDocument-not-found', { path: filePath }),
+      );
+      return;
+    }
     const nextPaths = state.documentPaths.filter((_, i) => i !== idx);
     const nextDocuments = state.documents.filter((_, i) => i !== idx);
     // If we removed the active doc, promote the first remaining (or null).

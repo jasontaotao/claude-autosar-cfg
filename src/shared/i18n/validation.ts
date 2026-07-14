@@ -61,6 +61,8 @@ export interface ValidationMessages {
   readonly 'mutation.error.no-bswmd-for-module': string;
   readonly 'mutation.error.invalid-param-type': string; // {key}
   readonly 'mutation.error.module-not-found': string; // {path}
+  readonly 'mutation.error.removeDocument-not-found': string; // {path}
+  readonly 'mutation.error.removeBswmd-not-found': string; // {path}
   readonly 'mutation.action.addContainer': string;
   readonly 'mutation.action.addParameter': string;
   readonly 'mutation.action.addReference': string;

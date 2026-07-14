@@ -24,7 +24,7 @@ import { useMemo } from 'react';
 import type { BswmdDocument } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
-import { basename, bswmdKeyFor } from '@shared/path';
+import { basename, bswmdKeyFor, dirname as sharedDirname, toManifestRelative } from '@shared/path';
 import type { ProjectManifest } from '@shared/project';
 
 import { useArxmlStore } from '../store/useArxmlStore';
@@ -42,6 +42,20 @@ interface FileListProps {
   readonly addLabel?: string;
   readonly addAriaLabel?: string;
   readonly onRemove?: (path: string) => void;
+  /**
+   * Sprint A+ T-fix — optional relative→absolute path translator.
+   * When the user clicks × on a row whose `path` is the manifest's
+   * relative POSIX form (e.g. `ecuc/EcuC.arxml`) but the host
+   * `onRemove` callback expects the store's absolute Windows form
+   * (e.g. `D:/proj/ecuc/EcuC.arxml`), the × handler consults this
+   * helper. Returns `undefined` when the relative path doesn't
+   * resolve to any loaded document (a stale manifest entry); the
+   * handler then falls through and calls `onRemove(p)` with the raw
+   * relative path so the slice's `setError` path can surface a
+   * user-facing toast. Optional so the existing tests that don't
+   * need translation stay green.
+   */
+  readonly toAbsolutePath?: (relativePath: string) => string | undefined;
   /**
    * Sprint 17 P3 T3.1 — optional row-level right-click handler. When set,
    * FileList attaches an `onContextMenu` to each `<li>` that calls
@@ -78,6 +92,7 @@ function FileList({
   onRemove,
   onContextMenuRow,
   renderTrailing,
+  toAbsolutePath,
 }: FileListProps): JSX.Element {
   // Read locale on demand so re-renders track the store-level flip
   // without subscribing here (FileList is a small leaf component).
@@ -140,7 +155,21 @@ function FileList({
                     name: basename(p),
                   })}
                   data-testid={`${testIdPrefix}-remove-${p}`}
-                  onClick={() => onRemove(p)}
+                  onClick={() => {
+                    // Sprint A+ T-fix — translate the relative
+                    // manifest path to the store's absolute path
+                    // before forwarding to the host. The host
+                    // (`LeftPanel` → `removeDocument` /
+                    // `removeBswmdWithFullFlow`) looks up the path
+                    // via `indexOf` / `.includes` against the
+                    // store's absolute path arrays; a relative
+                    // manifest path always misses, so the click was
+                    // a silent no-op. `toAbsolutePath === undefined`
+                    // (older call sites, loose-mode tests) leaves
+                    // the raw `p` in place — the legacy contract.
+                    const target = toAbsolutePath === undefined ? p : (toAbsolutePath(p) ?? p);
+                    onRemove(target);
+                  }}
                 >
                   ×
                 </button>
@@ -230,6 +259,13 @@ export function ProjectPanelInfo({
   // ECUC-instantiated docs (filtered by sourceBswmdPath in the render
   // callback below). Selector-scoped to keep re-renders targeted.
   const documents = useArxmlStore((s) => s.documents);
+  // Sprint A+ T-fix — read `documentPaths` so the ARXML × button can
+  // translate the manifest's relative POSIX row path to the store's
+  // absolute Windows path before calling `onRemoveArxml`. The
+  // `bswmdPathsInStore` is parallel to `documentPaths` for the BSWMD
+  // case (paired by `bswmdKeyFor`, same pattern as
+  // `bswmdKeyToSchema` below).
+  const documentPaths = useArxmlStore((s) => s.documentPaths);
 
   // Sprint A (P0-A1) — derive a `bswmdKey → schema` lookup so the
   // trailing chip can pair a manifest row (relative POSIX path) to
@@ -252,6 +288,48 @@ export function ProjectPanelInfo({
     });
     return map;
   }, [bswmdSchemas, bswmdPathsInStore]);
+
+  // Sprint A+ T-fix — build a `bswmdKey → absolutePath` map so the
+  // BSWMD × button can translate the manifest's relative POSIX row
+  // path to the store's absolute Windows path before calling
+  // `onRemoveBswmd`. The `bswmdKey` collapses both shapes (last 2
+  // segments, lowercased, forward-slashed), same as `bswmdKeyFor`.
+  const bswmdKeyToPath = useMemo<ReadonlyMap<string, string>>(() => {
+    const map = new Map<string, string>();
+    bswmdPathsInStore.forEach((path) => {
+      map.set(bswmdKeyFor(path), path);
+    });
+    return map;
+  }, [bswmdPathsInStore]);
+
+  // Sprint A+ T-fix — translate a relative ARXML manifest path
+  // (`ecuc/EcuC.arxml`) to the store's absolute path
+  // (`D:/proj/ecuc/EcuC.arxml`). Strategy: walk every loaded
+  // document path and check whether its `toManifestRelative` form
+  // matches the input. The store mirrors what `addDocument` /
+  // `addBswmd` insert — both absolute, so this translation is
+  // always 1:1 once the doc is loaded. Returns `undefined` for
+  // stale manifest entries so the slice's `setError` can surface
+  // a user-facing toast.
+  const manifestDir = sharedDirname(manifestPath);
+  const toAbsoluteArxml = useMemo<(rel: string) => string | undefined>(() => {
+    return (rel: string): string | undefined => {
+      // Fast path: the relative form is also a valid absolute path
+      // (rare; mostly defensive).
+      if (documentPaths.includes(rel)) return rel;
+      for (const abs of documentPaths) {
+        if (toManifestRelative(manifestDir, abs) === rel) return abs;
+      }
+      return undefined;
+    };
+  }, [documentPaths, manifestDir]);
+
+  // Sprint A+ T-fix — translate a relative BSWMD manifest path to
+  // the store's absolute path. `bswmdKeyFor` collapses both shapes
+  // to a canonical last-2-segments key.
+  const toAbsoluteBswmd = useMemo<(rel: string) => string | undefined>(() => {
+    return (rel: string): string | undefined => bswmdKeyToPath.get(bswmdKeyFor(rel));
+  }, [bswmdKeyToPath]);
 
   return (
     <div className="project-panel project-panel-open" data-testid="project-panel-open">
@@ -304,6 +382,7 @@ export function ProjectPanelInfo({
         emptyHint={t(locale, 'projectPanel.arxml.empty')}
         testIdPrefix="project-panel-arxml"
         onRemove={onRemoveArxml}
+        toAbsolutePath={toAbsoluteArxml}
       />
       <FileList
         title={t(locale, 'projectPanel.bswmd.title')}
@@ -314,6 +393,7 @@ export function ProjectPanelInfo({
         addLabel={t(locale, 'projectPanel.bswmd.add')}
         addAriaLabel={t(locale, 'projectPanel.bswmd.addAria', { name: '' })}
         onRemove={onRemoveBswmd}
+        toAbsolutePath={toAbsoluteBswmd}
         // Sprint 17 P3 T3.1 — wire right-click on the BSWMD row to
         // open the global ContextMenu with `kind: 'bswmd'`. The menu
         // renders the "Remove module" item (added in T3.3) which

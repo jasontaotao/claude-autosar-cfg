@@ -258,9 +258,17 @@ export const createBswmdSlice: StateCreator<ArxmlState, [], [], BswmdSlice> = (s
   removeBswmd: (path) => {
     const state = get();
     const idx = state.bswmdPaths.indexOf(path);
-    // No-op on unknown path — a stale id from the renderer shouldn't
-    // blow up; it just doesn't match anything we hold.
-    if (idx === -1) return;
+    // Sprint A+ T-fix — surface a typed toast instead of a silent
+    // no-op when the caller hands us a path we don't hold. The
+    // legacy behavior (`if (idx === -1) return`) was a footgun:
+    // the `ProjectPanel` × button silently no-op'd when the
+    // manifest's relative path couldn't be translated to an
+    // absolute store path (stale manifest). The user now sees a
+    // toast explaining the failure.
+    if (idx === -1) {
+      get().setError(t(state.locale, 'mutation.error.removeBswmd-not-found', { path }));
+      return;
+    }
 
     // BswmdDocument carries no source path; the parallel arrays
     // guarantee the entry at the same index in bswmdSchemas is the

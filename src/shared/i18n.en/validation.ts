@@ -60,6 +60,8 @@ export const ValidationEn: ValidationMessages = {
   'mutation.error.no-bswmd-for-module': 'Load BSWMD first',
   'mutation.error.invalid-param-type': "Parameter '{key}' is not defined in the BSWMD",
   'mutation.error.module-not-found': "ECUC module not found at '{path}'",
+  'mutation.error.removeDocument-not-found': "ARXML '{path}' is not loaded, cannot remove",
+  'mutation.error.removeBswmd-not-found': "BSWMD '{path}' is not loaded, cannot remove",
   'mutation.action.addContainer': 'Add sub-container',
   'mutation.action.addParameter': 'Add parameter',
   'mutation.action.addReference': 'Add reference',

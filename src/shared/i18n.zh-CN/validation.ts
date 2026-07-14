@@ -58,6 +58,8 @@ export const ValidationZhCN: ValidationMessages = {
   'mutation.error.no-bswmd-for-module': '需要先加载 BSWMD',
   'mutation.error.invalid-param-type': "参数 '{key}' 未在 BSWMD 中定义",
   'mutation.error.module-not-found': "找不到 ECUC 模块 '{path}'",
+  'mutation.error.removeDocument-not-found': "未加载 ARXML '{path}',无法移除",
+  'mutation.error.removeBswmd-not-found': "未加载 BSWMD '{path}',无法移除",
   'mutation.action.addContainer': '添加子容器',
   'mutation.action.addParameter': '添加参数',
   'mutation.action.addReference': '添加引用',

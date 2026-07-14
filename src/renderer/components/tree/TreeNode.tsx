@@ -19,6 +19,7 @@
 
 import { useCallback, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 
+import { findByPathMultiDoc } from '@core/arxml/path.js';
 import { basename } from '@shared/path';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
@@ -206,14 +207,27 @@ export function TreeNode({
           // `path` is the canonical post-fold module path (e.g.
           // `/Adc/Adc` for the package shortName == module shortName
           // shape) — exactly the path `findByPath` resolves.
+          //
+          // Bug fix (Sprint A+ T-fix): the BSWMD path must come from
+          // the row's OWNING document, not the active doc. In a
+          // multi-doc session (combined view, Adc + JWQ3399 loaded),
+          // right-clicking the Adc row while active=JWQ3399 used to
+          // leak JWQ3399's sourceBswmdPath. Resolve the row's owning
+          // doc via `findByPathMultiDoc` against the current tree
+          // path, then read its `sourceBswmdPath`. Falls back to the
+          // legacy host forwarding when:
+          //   - the path doesn't resolve (e.g. outside combined mode)
+          //   - the owning doc has no `sourceBswmdPath` (legacy ECUC)
           const state = useArxmlStore.getState();
-          const doc = state.doc ?? state.displayDoc;
-          if (doc?.sourceBswmdPath !== undefined) {
+          const owning = findByPathMultiDoc(state.documents, state.documentPaths, path);
+          const owningDoc = owning?.doc ?? null;
+          const bswmdPath = owningDoc?.sourceBswmdPath;
+          if (bswmdPath !== undefined) {
             openContextMenu(
               {
-                path: doc.sourceBswmdPath,
+                path: bswmdPath,
                 kind: 'bswmd',
-                shortName: basename(doc.sourceBswmdPath),
+                shortName: basename(bswmdPath),
                 modulePath: path,
               },
               e.clientX,
