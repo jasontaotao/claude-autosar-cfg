@@ -5,6 +5,31 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.55.0 (2026-07-15) — MINOR (Project Tab Collapse/Expand)
+
+Adds a collapse/expand toggle to the left sidebar's '项目' tab body so the user can free vertical space for the right-pane ParamEditor. State persists in localStorage across page reloads.
+
+**`a58c114`** — **feat(i18n): add 3 leftPanel.projectTab.\* keys for collapse/expand**. Three new keys (`toggleCollapse` / `toggleExpand` / `collapsedNotice`) added to `src/shared/i18n.en/editor.ts` and `src/shared/i18n.zh-CN/editor.ts`. Parity test pinned.
+
+**`5953aa5`** — **feat(store): add leftPanelProjectCollapsed slice field + localStorage persist**. New `uiSlice` boolean field with `setLeftPanelProjectCollapsed(value)` setter that writes localStorage key `claude-autosarcfg:leftPanel:projectCollapsed` on every flip (try/catch + `console.warn` on quota/disabled-storage). `useArxmlStore` constructor rehydrates from localStorage at store-init time (try/catch + warn on parse error, defaults to `false` on missing/corrupt entry). 2 new it() cases in `useArxmlStore.leftPanelCollapse.test.ts`.
+
+**`aab864c`** — **chore(test): add in-process localStorage shim to vitest setup (node-env)**. 1-line `globalThis.localStorage` polyfill in `src/test/setup.ts` so slice tests that touch localStorage don't need per-file stubs. Used by the new collapse/rehydrate tests; benefits any future test touching localStorage.
+
+**`2abc938`** — **feat(project-panel): add chevron toggle button to collapse project tab**. Chevron-up button next to the × close in `ProjectPanelInfo` header. ARIA `aria-expanded` / `aria-controls` / `aria-label` (uses `leftPanel.projectTab.toggleCollapse` / `toggleExpand`). CSS appended (~45 LoC) using the project's existing `var(--name, #hex)` pattern.
+
+**`eb731c1`** — **feat(left-panel): wire collapse/expand + collapsed placeholder**. `LeftPanel.tsx` swaps the `<ProjectPanelInfo>` for a 1-line compact placeholder (`~40px` vs `~350px` expanded) when `leftPanelProjectCollapsed === true`. Placeholder shows the `collapsedNotice` text + an inline [Expand] button. State is independent of `leftTab` — switching to 文件 / 验证 and back preserves the collapse. CSS: new `.left-panel-pane-collapsed` + `.left-panel-pane-collapsed-notice` + `.left-panel-pane-collapsed-expand` rules. 3 new it() cases in `LeftPanel.collapse.test.tsx`.
+
+**Test results**: **3221 + 7 SKIP / 0 fail** → **3226 + 7 SKIP / 0 fail** (+5 net: 2 slice tests + 3 component tests). `pnpm verify` **8-stage GREEN**. tsc both `tsconfig.json` + `tsconfig.web.json` clean.
+
+**Process lessons applied**:
+
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (standalone) — `package.json` `1.54.5` → `1.55.0` verified pre-tag.
+- **`systematic-debugging` Iron Law** (NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST, meta-lesson) — the plan's localStorage-gap surface during Task 2 was the implementer catching a real plan blind spot; the ship-time reward is a 1-line `setup.ts` shim that benefits every future test using localStorage.
+
+**NEW 1/3 candidate** (awaiting 2 more confirmations):
+
+- **`plan-test-code-requires-deps-not-listed-in-file-map`** — the plan's Task 4 test code used `userEvent.setup()` without listing `@testing-library/user-event` in the file map; the Task 4 implementer caught it. Worth capturing as a 1/3 candidate if a 2nd such instance occurs.
+
 ## v1.54.5 (2026-07-15) — PATCH (+ Add Parameter/Reference button enable for vendor-wrapped BSWMDs)
 
 **Bug 8 closure**. Closes the user-reported "添加参数/添加引用按钮一直 disabled" UX gap from 2026-07-15. In a project whose BSWMD nests a 2-segment vendor wrapper around the module shortName (e.g. JWQ3399 at `/JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...`), the `+ Add Parameter` and `+ Add Reference` buttons on every container inside the module stayed disabled even when the module was correctly registered. Root cause: `hasBswmdForModule`'s fallback branch (used when the document has no `sourceBswmdPath` stamp) read `selectedPath.split('/')[1]` as the module shortName — a pre-Sprint 13 assumption that the value path is `/<pkg>/<module>/...`. The 2-segment vendor wrapper pushed the module shortName to `segments[2]`, and the combined Tree View (Sprint 13 Stage 3.5) basename prefix pushed it to `segments[3]`. The fallback walk never matched, so the `hasBswmdForModule` gate returned `false` and the buttons stayed disabled. Zero IPC / zero backend / zero schema change.
