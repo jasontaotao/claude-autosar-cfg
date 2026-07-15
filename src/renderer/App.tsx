@@ -40,7 +40,7 @@ import { useEffect } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 
 import { t } from '@shared/i18n/index.js';
-import { toManifestRelative } from '@shared/path';
+import { dirname, toManifestRelative } from '@shared/path';
 
 import { useAppMainHandlers } from './app/useAppMainHandlers';
 import { useDiagExtractHandlers } from './app/useDiagExtractHandlers';
@@ -587,6 +587,18 @@ export function App(): JSX.Element {
                   // store is stale and can manually reopen.
                   setStoreError(t(loc, 'app.error.openProjectFailed', { message: reload.message }));
                 } else {
+                  // Bug 6 FIX — toManifestRelative expects a manifest
+                  // DIRECTORY, not a manifest file path. Passing
+                  // projPath (the manifest file) caused toManifestRelative
+                  // to fail on every docs entry: the file path's
+                  // prefix includes `111.autosarcfg.json` which
+                  // never matches the docs prefix `ecuc/...`, so the
+                  // docs round-trip dropped to bswmds and state.documents
+                  // came back empty (manifest showed "project open"
+                  // because state.project != null, but Tree was empty
+                  // because no doc hydrated). User confirmed via
+                  // window.alert at commit 025a015.
+                  const manifestDir = dirname(projPath);
                   const docs: { rel: string; path: string; content: string }[] = [];
                   const bswmds: { rel: string; path: string; content: string }[] = [];
                   const docsRelSet = new Set(proj.valueArxmlPaths);
@@ -599,7 +611,7 @@ export function App(): JSX.Element {
                   let probeIdx = 0;
                   const probeLines: string[] = [];
                   for (const f of reload.files) {
-                    const rel = toManifestRelative(projPath, f.path) ?? f.path;
+                    const rel = toManifestRelative(manifestDir, f.path) ?? f.path;
                     if (docsRelSet.has(rel)) {
                       docs.push({ rel, path: f.path, content: f.content });
                     } else {
@@ -713,11 +725,16 @@ export function App(): JSX.Element {
                       } else {
                         const proj = useArxmlStore.getState().project;
                         if (proj !== null) {
+                          // Bug 6 fix — same dirname normalisation as
+                          // the dBC apply path above; toManifestRelative
+                          // expects the manifest directory, not the
+                          // manifest file path.
+                          const xlsxManifestDir = dirname(projPath);
                           const docs: { rel: string; path: string; content: string }[] = [];
                           const bswmds: { rel: string; path: string; content: string }[] = [];
                           const docsRelSet = new Set(proj.valueArxmlPaths);
                           for (const f of reload.files) {
-                            const rel = toManifestRelative(projPath, f.path) ?? f.path;
+                            const rel = toManifestRelative(xlsxManifestDir, f.path) ?? f.path;
                             if (docsRelSet.has(rel)) {
                               docs.push({ rel, path: f.path, content: f.content });
                             } else {
