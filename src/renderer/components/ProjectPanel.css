@@ -93,6 +93,49 @@
   background: rgba(185, 28, 28, 0.06);
 }
 
+/* v1.55.0 — Project Tab Collapse/Expand. Chevron button in the
+   ProjectPanelInfo header next to the × close button. Mirrors the
+   close-button styling (small, round, hover-grey) but the icon is
+   a chevron-up (collapse) — the user clicks it to fold the project
+   tab body into a 1-line compact placeholder. */
+.project-panel-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: rgb(100 116 139); /* slate-500 */
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.project-panel-collapse-toggle:hover {
+  background: rgb(241 245 249); /* slate-100 */
+  color: rgb(15 23 42); /* slate-900 */
+}
+
+.project-panel-collapse-toggle:focus-visible {
+  outline: 2px solid rgb(59 130 246); /* blue-500 */
+  outline-offset: 1px;
+}
+
+.project-panel-collapse-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* v1.55.0 — flex container for the collapse-toggle + close buttons
+   so they sit side by side at the right of the header. */
+.project-panel-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 /* Sprint 13+ Q5 — project meta block. Sits between the header and
    the ARXML/BSWMD sections. Each line is small monospace text; the
    block is intentionally compact so it doesn't crowd the file lists

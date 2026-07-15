@@ -345,15 +345,51 @@ export function ProjectPanelInfo({
             })}
           </div>
         </div>
-        <button
-          type="button"
-          className="project-panel-close"
-          onClick={onClose}
-          data-testid="project-panel-close-btn"
-          aria-label={t(locale, 'projectPanel.closeAria', { name: manifest.name })}
-        >
-          ×
-        </button>
+        <div className="project-panel-header-actions">
+          {/* v1.55.0 — Project Tab Collapse/Expand. Chevron-up
+              button collapses the entire project tab body into a
+              1-line compact placeholder (see LeftPanel.tsx). The
+              Tree and the tabs bar at the top of the LeftPanel stay
+              visible. The toggle is independent of `×` (close
+              project) — collapsing the panel does NOT close the
+              project. ARIA: aria-expanded reflects the state
+              (always true here since the button only renders when
+              expanded); aria-controls points to the left-pane-
+              project tabpanel. i18n: title + aria-label share the
+              same action-verb key (leftPanel.projectTab.toggleCollapse)
+              so the screen-reader announcement is the action, not
+              the state. */}
+          <button
+            type="button"
+            className="project-panel-collapse-toggle"
+            onClick={() => useArxmlStore.getState().setLeftPanelProjectCollapsed(true)}
+            aria-label={t(locale, 'leftPanel.projectTab.toggleCollapse')}
+            aria-expanded="true"
+            aria-controls="left-pane-project"
+            title={t(locale, 'leftPanel.projectTab.toggleCollapse')}
+            data-testid="project-panel-collapse-toggle"
+          >
+            {/* chevron-up (svg, 14x14, stroke 2) */}
+            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path
+                d="M3 9 L7 5 L11 9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="project-panel-close"
+            onClick={onClose}
+            data-testid="project-panel-close-btn"
+            aria-label={t(locale, 'projectPanel.closeAria', { name: manifest.name })}
+          >
+            ×
+          </button>
+        </div>
       </header>
       {/* Sprint 13+ Q5 — project meta block. Localized, with the
           dirty count bound to the store so it tracks the live
