@@ -84,6 +84,55 @@
   line-height: 1.5;
 }
 
+/* v1.55.0 — Project Tab Collapse/Expand. 1-line compact placeholder
+   shown when the project tab body is collapsed. Notice text on the
+   left, [Expand] button on the right; the row sits in the same
+   scrollable area that ProjectPanelInfo used to occupy but is
+   roughly 40px tall instead of ~350px. */
+.left-panel-pane-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 40px;
+  background: rgb(248 250 252); /* slate-50 */
+  border-bottom: 1px solid rgb(226 232 240); /* slate-200 */
+}
+
+.left-panel-pane-collapsed-notice {
+  font-size: 12px;
+  color: rgb(100 116 139); /* slate-500 */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.left-panel-pane-collapsed-expand {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid rgb(203 213 225); /* slate-300 */
+  background: white;
+  color: rgb(15 23 42); /* slate-900 */
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 150ms ease;
+}
+
+.left-panel-pane-collapsed-expand:hover {
+  background: rgb(241 245 249); /* slate-100 */
+}
+
+.left-panel-pane-collapsed-expand:focus-visible {
+  outline: 2px solid rgb(59 130 246); /* blue-500 */
+  outline-offset: 1px;
+}
+
 /* ── Tree area ── */
 
 .left-panel-tree {

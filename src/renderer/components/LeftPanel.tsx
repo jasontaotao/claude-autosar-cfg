@@ -74,6 +74,14 @@ export interface LeftPanelProps {
 
 export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps = {}): JSX.Element {
   const leftTab = useArxmlStore((s) => s.leftTab);
+  // v1.55.0 — project tab collapse. Read the field and the setter
+  // from the uiSlice. The collapse state is independent of the
+  // `leftTab` value (the user can be on the "文件" or "验证" tab
+  // while the project body is collapsed) but the test setup
+  // explicitly lands on `leftTab: 'project'` to make the swap
+  // observable.
+  const projectCollapsed = useArxmlStore((s) => s.leftPanelProjectCollapsed);
+  const setProjectCollapsed = useArxmlStore((s) => s.setLeftPanelProjectCollapsed);
   const setLeftTab = useArxmlStore((s) => s.setLeftTab);
   const locale = useArxmlStore((s) => s.locale);
   const project = useArxmlStore((s) => s.project);
@@ -132,7 +140,36 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
             aria-labelledby="left-tab-project"
             data-testid="left-pane-project"
           >
-            {isProjectOpen ? (
+            {/* v1.55.0 — Project Tab Collapse/Expand. When the user
+                clicked the chevron in the ProjectPanelInfo header,
+                the body collapses into a 1-line compact placeholder
+                with an inline [展开] / [Expand] button. The Tree
+                below and the tabs bar above stay visible. The
+                collapsed state is independent of `leftTab` — the
+                user can switch to the "文件" / "验证" tabs while
+                the project body stays collapsed, and switching
+                back to "项目" renders the same collapsed state. */}
+            {projectCollapsed ? (
+              <div
+                className="left-panel-pane left-panel-pane-collapsed"
+                data-testid="left-pane-project-collapsed"
+              >
+                <span className="left-panel-pane-collapsed-notice">
+                  {t(locale, 'leftPanel.projectTab.collapsedNotice')}
+                </span>
+                <button
+                  type="button"
+                  className="left-panel-pane-collapsed-expand"
+                  onClick={() => setProjectCollapsed(false)}
+                  aria-label={t(locale, 'leftPanel.projectTab.toggleExpand')}
+                  aria-expanded="false"
+                  aria-controls="left-pane-project"
+                  data-testid="left-pane-project-collapsed-expand"
+                >
+                  {t(locale, 'leftPanel.projectTab.toggleExpand')}
+                </button>
+              </div>
+            ) : isProjectOpen ? (
               <ProjectPanelInfo
                 locale={locale}
                 manifest={project}
