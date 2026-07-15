@@ -37,6 +37,27 @@ import { createUiSlice, type UiSlice } from './slices/uiSlice.js';
 import { createXlsxImportSlice, type XlsxImportSlice } from './slices/xlsxImportSlice.js';
 
 // ---------------------------------------------------------------------------
+// v1.55.0 — one-shot localStorage read for the project tab collapse
+// state. Called once at module load; the result is fed into the
+// uiSlice's initial state via Pattern A (`useArxmlStore.setState(...)`
+// immediately after the `create(...)` returns). Returns false on any
+// read failure (private mode, quota, malformed JSON) so the store
+// always has a valid boolean to start with. The `console.warn` mirrors
+// the pattern in `useDefaultLayout`-style persistence (App.tsx) and
+// the setter's write-side catch.
+// ---------------------------------------------------------------------------
+function loadLeftPanelProjectCollapsedFromStorage(): boolean {
+  try {
+    const raw = localStorage.getItem('claude-autosarcfg:leftPanel:projectCollapsed');
+    if (raw === null) return false;
+    return raw === 'true';
+  } catch (e) {
+    console.warn('[ui] failed to read leftPanelProjectCollapsed from localStorage', e);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared types (kept in the root so every slice imports from one place).
 // ---------------------------------------------------------------------------
 
@@ -146,6 +167,21 @@ export const useArxmlStore = create<ArxmlState>()((...a) => ({
   ...createTourSlice(...a),
   ...createXlsxImportSlice(...a),
 }));
+
+// ---------------------------------------------------------------------------
+// v1.55.0 — Pattern A: rehydrate `leftPanelProjectCollapsed` from
+// localStorage ONCE at module load. The slice's default value is `false`
+// (see createUiSlice); the setState call below replaces it with the
+// persisted value before the first React render runs. This keeps the
+// slice creator parameter-free (no factory args) and matches the
+// Process Cluster lesson `repeated-parent-kind-dispatch-lookup-pattern`
+// by avoiding a fan-out of slice-level init params. Subsequent state
+// changes go through `setLeftPanelProjectCollapsed`, which writes
+// back to localStorage.
+// ---------------------------------------------------------------------------
+useArxmlStore.setState({
+  leftPanelProjectCollapsed: loadLeftPanelProjectCollapsedFromStorage(),
+});
 
 // Re-export slice types so downstream consumers can pick a slice's
 // shape without importing the slice file directly.

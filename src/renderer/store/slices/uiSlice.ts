@@ -27,6 +27,18 @@ export interface UiSlice {
   readonly leftTab: LeftTabId;
   setLeftTab: (tab: LeftTabId) => void;
 
+  /**
+   * v1.55.0 — Project Tab Collapse/Expand. When true, the "项目" tab
+   * body (header + meta + ARXML/BSWMD lists) is replaced by a 1-line
+   * compact placeholder so the right-pane ParamEditor can use the
+   * freed vertical space. The Tree and the tabs bar at the top of
+   * the LeftPanel stay visible. Persisted to localStorage under
+   * `claude-autosarcfg:leftPanel:projectCollapsed` so the user's
+   * last choice survives page reload. Default false.
+   */
+  readonly leftPanelProjectCollapsed: boolean;
+  setLeftPanelProjectCollapsed: (value: boolean) => void;
+
   // Sprint 13 Stage 3.5 — Combined Tree View. `viewMode` switches
   // between the legacy single-doc Tree and the synthesised multi-doc
   // view. `displayDoc` is the derived field Tree reads: in single mode
@@ -139,6 +151,11 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // initial active tab visually (hiding 'project' in loose mode) but
   // the store-level default stays 'files'.
   leftTab: 'files',
+  // v1.55.0 — project tab collapse state. Default false (panel
+  // expanded). The localStorage rehydrate at useArxmlStore.ts module
+  // load replaces this default if the user previously collapsed the
+  // panel — see `loadLeftPanelProjectCollapsedFromStorage()`.
+  leftPanelProjectCollapsed: false,
   // Sprint 13 Stage 3.5 — combined view defaults. `viewMode` starts
   // 'single' so the existing 746-test baseline sees no change; the
   // 'combined' mode is opt-in via the [Combined] virtual entry in
@@ -173,6 +190,25 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // of project lifecycle (e.g. closing a project doesn't force the
   // user back to the files tab).
   setLeftTab: (tab) => set({ leftTab: tab }),
+
+  // v1.55.0 — toggle the project tab collapse. Wraps the `set(...)`
+  // call in a try/catch + localStorage write so quota / private-mode
+  // errors degrade to a console.warn (matches the existing
+  // useDefaultLayout-onLayoutChanged pattern in App.tsx). The
+  // in-memory state flip is unconditional — a failed write still
+  // flips the UI; the next page reload simply reverts to whatever
+  // the storage had (likely the previous value, which is fine).
+  setLeftPanelProjectCollapsed: (value) => {
+    set({ leftPanelProjectCollapsed: value });
+    try {
+      localStorage.setItem(
+        'claude-autosarcfg:leftPanel:projectCollapsed',
+        String(value),
+      );
+    } catch (e) {
+      console.warn('[ui] failed to persist leftPanelProjectCollapsed', e);
+    }
+  },
 
   // Sprint 13 Stage 3.5 — combined view toggle. Resets selectedPath
   // so a path from the previous mode doesn't survive the flip (a
