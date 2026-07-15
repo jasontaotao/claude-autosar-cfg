@@ -625,6 +625,20 @@ export function App(): JSX.Element {
                 res.value.addedCounts.com +
                 res.value.addedCounts.canIf +
                 res.value.addedCounts.pduR;
+              // DEBUG-DIAGNOSTIC Bug 6 (2026-07-15) — surface post-reload
+              // store counts so the user can see EXACTLY which slice
+              // is empty when the project looks closed after dBC import.
+              // Strip once root cause confirmed (see CHANGELOG future
+              // work note).
+              const afterState = useArxmlStore.getState();
+              const diag =
+                `DIAG dBC apply: proj=${afterState.project !== null ? 'YES' : 'NULL'} ` +
+                `projPath=${afterState.projectPath !== null ? 'YES' : 'NULL'} ` +
+                `docs=${afterState.documents.length} ` +
+                `paths=${afterState.documentPaths.length} ` +
+                `viewMode=${afterState.viewMode} ` +
+                `displayDoc.pkg=${afterState.displayDoc?.packages.length ?? 0}`;
+              setInfo(diag);
               setInfo(t(loc, 'dbc.import.success', { count: totalAdded }));
               closeDbcImportWizard();
             }}
