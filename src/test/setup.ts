@@ -67,3 +67,39 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     w.ResizeObserver = ResizeObserverPolyfill;
   }
 }
+
+// v1.55.0 — localStorage polyfill for node-environment tests.
+// The project's vitest config (`vitest.config.ts`) sets
+// `environment: 'node'` for the whole tree; jsdom is not used.
+// The renderer store's localStorage-hydration helpers (e.g.
+// `loadLeftPanelProjectCollapsedFromStorage` in useArxmlStore.ts)
+// read `localStorage` at module load, BEFORE per-test `import`s
+// evaluate, so a polyfill installed inside a test file never runs
+// in time. Centralising the shim in this setup file (run once via
+// `setupFiles` before any test module loads) keeps the renderer's
+// production module-level reads silent in the test log while
+// preserving the documented contract: quota / private-mode errors
+// inside the setter's try/catch degrade to `console.warn` only.
+// The shim is a no-op for quota / private-mode behavior — those
+// errors are caught INSIDE the setter and fallback to `false`.
+if (typeof globalThis.localStorage === 'undefined') {
+  const localStorageStore = new Map<string, string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).localStorage = {
+    getItem: (k: string) =>
+      localStorageStore.has(k) ? (localStorageStore.get(k) as string) : null,
+    setItem: (k: string, v: string) => {
+      localStorageStore.set(k, v);
+    },
+    removeItem: (k: string) => {
+      localStorageStore.delete(k);
+    },
+    clear: () => {
+      localStorageStore.clear();
+    },
+    key: (i: number) => Array.from(localStorageStore.keys())[i] ?? null,
+    get length() {
+      return localStorageStore.size;
+    },
+  };
+}
