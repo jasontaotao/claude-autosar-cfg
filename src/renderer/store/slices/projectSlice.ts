@@ -271,26 +271,11 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       // load). Session 240 / Bug 5 — if the IPC bundle was missing
       // some manifest entries, surface those too so the user sees
       // the partial load, not a silent Tree of N-1 modules.
-      // DEBUG-DIAGNOSTIC 2026-07-14 (Bug 5 user-reported repro) —
-      // TEMPORARY: always emit a "diagnostic" error string on
-      // openProject with concrete counts (loaded / manifest paths /
-      // displayDoc.packages). Strip once root cause confirmed.
-      // Reads: orderedDocuments.length  (= IPC delivered after parse),
-      //        manifest.valueArxmlPaths.length  (= target),
-      //        finalDisplayResult.doc.packages.length  (= post-fold).
-      // If user reports "Tree 2/8" and this banner reads "loaded
-      // 2/5", IPC was incomplete. If "loaded 5/5, pkgs=2", the fold
-      // or Tree dropped some modules. If "loaded 5/5, pkgs=5", the
-      // bug is in Tree.render (CSS, expanded set, etc).
       error:
         lastParseError ??
         (missingRels.length > 0
           ? t(locale, 'app.error.openProjectMissingArxml', { paths: missingRels.join(', ') })
-          : null) ??
-        // DIAG OVERRIDE — last-wins, always shows on success path.
-        // Cast to `string` so the existing `error: string | null`
-        // union accepts it (t() returns string).
-        `DIAG: loaded ${orderedDocuments.length}/${manifest.valueArxmlPaths.length} docs, displayDoc.packages=${finalDisplayResult?.doc?.packages.length ?? 0}`,
+          : null),
       toast: null,
       project: manifest,
       projectPath: manifestPath,
