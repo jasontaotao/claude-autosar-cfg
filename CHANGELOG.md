@@ -5,6 +5,34 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.54.3 (2026-07-15) — PATCH (Multi-Instance Tree Multi-Doc Hydration)
+
+**Bug 5 closure**. Closes the user-reported UX gap (2026-07-14) where opening a project with 5 ECUC value-side ARXML files (canonical `AUTOSAR_R22 > EcucDefs > <module>` shape) rendered only 2 module roots in the Tree, even though ProjectPanel correctly listed all 5 files. Root cause: `buildCombinedDocument` ran `dedupRootPackages` on UN-folded docs (every ECUC value file shares the wrapper shortName `AUTOSAR_R22` at the top, so dedup collapsed 5 to 1, then `foldVendorPackages` collapsed the single remaining wrapper to one module). Zero IPC / zero backend / zero schema change. Per `release-checklist-must-verify-package.json-bump-on-every-version-ship` (standalone): `package.json` `1.54.2` → `1.54.3` verified pre-tag.
+
+**`b9f641a`** — **fix(store): openProject auto-promotes viewMode to combined on multi-doc open**. One new variable `resolvedViewMode` computed BEFORE the existing single `set(...)` call. Promote when `orderedDocuments.length > 1 && viewMode === 'single' && importSession === null`; respect the import-session lockout at `uiSlice.ts:189-194` (no toast, no UI nudge). Existing single-`set` discipline preserved (no second `setViewMode('combined')` call that would force a warnings-slice rekey through `setViewMode`'s own reset). 4 new it() cases added to `useArxmlStore.openProject-bswmd.test.ts` lines 354-530 covering promote / single-doc / importSession-lockout / re-promote.
+
+**`6478fbd`** — **fix(store): combined-mode vendor-fold runs BEFORE root dedup**. `foldVendorPackages` moved INSIDE `buildCombinedDocument` (now `buildCombinedDocument(docs, filePaths, bswmdSchemas?): CombinedDocumentResult`) so it runs per-doc BEFORE `dedupRootPackages`. Trailing `foldVendorPackages` call in `computeDisplayDoc` removed (would re-run fold on a doc whose modules are now top-level leaves). Result: dedup now sees the already-unwrapped module shortNames (each unique across N docs) and keeps every entry. 2 new it() cases added to `combinedDoc.test.ts` lines 581-636 covering the user-reported 5 ECUC value doc scenario + an empty-BSWMD robustness variant.
+
+**`79e3590` + `a9939cd`** — **fix + Revert "fix(store): openProject surfaces DIAG banner for Bug 5 root-cause"**. One-shot diagnostic that overrode the post-hydrate `error` field with `DIAG: loaded N/M docs, displayDoc.packages=P` so the user could see exact counts in the existing ErrorBanner UI (avoids DevTools console — user explicitly forbade code paste there for security). Reverted once the user confirmed the post-fix Tree renders all 5 modules. The pair net-diff is zero on `state.error` semantics.
+
+**Test results**: **3209 + 7 SKIP / 0 fail** → **3215 + 7 SKIP / 0 fail** (+6 net: 4 promote + 2 dedup-after-fold). `pnpm verify` **8-stage GREEN**. tsc both `tsconfig.json` + `tsconfig.web.json` clean.
+
+**Process lessons applied**:
+
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (standalone) — `package.json` `1.54.2` → `1.54.3` verified pre-tag.
+- **`function-extract-must-clip-verbatim-not-reimplement`** (standalone) — T2 root-cause fix reused existing `foldVendorPackages` + `dedupRootPackages` signatures verbatim.
+
+**NEW 1/3 candidates** (awaiting 2 more confirmations each):
+
+- **`dedup-helper-must-run-after-fold-or-on-equivalent-shape`** — root cause of Bug 5; both helpers were independently correct, the composition order was the bug.
+- **`vitest-mock-must-replicate-real-call-chain-not-just-leaf-input`** — mock `[doc1, doc2, ...]` directly into the leaf reducer skips the IPC → `buildCombinedDocument` → dedup chain entirely.
+- **`user-screenshot-with-facts-doesnt-need-mock-tests-just-trace-calls`** — user screenshot listing 5 + tree showing 2 surfaced the diagnosis in static-read time; mock-test cycle consumed ~15 min for 0 information.
+
+**Deferred to next PATCH**:
+
+- **Bug 4 — `CanIfHrhCfg_1` collection fold**. The `stripSuffix` widening reverted at `9b1b2c7` is the candidate; separate repro needed.
+- **single-mode multi-doc mutation** — promote resolves Tree display only; mutation paths still operate on `state.doc` (activeDoc). Feature work, not PATCH.
+
 ## v1.54.2 (2026-07-14) — PATCH (Multi-Instance Tree Collection Header, Phase P1)
 
 **Phase P1 of the multi-instance tree UI enhancement.** Closes the user-reported UX gap where BSWMD `0..*` sub-containers (`AFECellValidSet`, `AFETempValidSet`) showed grey `[+]` dialog buttons without explanation when ≥2 same-`shortName` siblings existed. Pure UI enhancement; zero IPC / zero backend / zero schema changes. Per `release-checklist-must-verify-package.json-bump-on-every-version-ship` (standalone): `package.json` `1.54.1` → `1.54.2` verified pre-tag.
