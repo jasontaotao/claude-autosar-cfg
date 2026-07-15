@@ -602,14 +602,6 @@ export function App(): JSX.Element {
                   const docs: { rel: string; path: string; content: string }[] = [];
                   const bswmds: { rel: string; path: string; content: string }[] = [];
                   const docsRelSet = new Set(proj.valueArxmlPaths);
-                  // DEBUG-DIAGNOSTIC Bug 6 — belt-and-braces: ALSO
-                  // surface a window.alert() with a multi-line
-                  // diagnostic block because ErrorBanner has proven
-                  // to clip / hide the message in this environment.
-                  // window.alert is OS-native, large, modal, copy-
-                  // able through standard dialog Copy / Ctrl+A.
-                  let probeIdx = 0;
-                  const probeLines: string[] = [];
                   for (const f of reload.files) {
                     const rel = toManifestRelative(manifestDir, f.path) ?? f.path;
                     if (docsRelSet.has(rel)) {
@@ -617,26 +609,7 @@ export function App(): JSX.Element {
                     } else {
                       bswmds.push({ rel, path: f.path, content: f.content });
                     }
-                    if (probeIdx < 3) {
-                      probeLines.push(
-                        `[${probeIdx}] f.path=${f.path} | rel=${rel} | match=${docsRelSet.has(rel)} -> ${docsRelSet.has(rel) ? 'docs' : 'bswmds'}`,
-                      );
-                      probeIdx += 1;
-                    }
                   }
-                  const alertText =
-                    `[Bug6 DIAG]\nreload.files=${reload.files.length}  docs=${docs.length}  bswmds=${bswmds.length}\n` +
-                    `projPath=${projPath}\n` +
-                    `proj.valueArxmlPaths.len=${proj.valueArxmlPaths.length}\n` +
-                    `proj.first-rel=${proj.valueArxmlPaths[0] ?? '<empty>'}\n` +
-                    `first 3 files:\n` +
-                    probeLines.join('\n');
-                  // window.alert is synchronous modal — blocks the
-                  // event loop until the user clicks OK. Set the
-                  // banner too as a fallback in case alert is
-                  // suppressed (some Electron contexts disable it).
-                  window.alert(alertText);
-                  setStoreError(alertText);
                   useArxmlStore.getState().openProject({
                     manifestPath: projPath,
                     manifest: reload.manifest,
@@ -655,16 +628,20 @@ export function App(): JSX.Element {
                 );
               }
               // HIGH-2 (v1.23.0 PATCH) — total added counts across all
-              // 3 ECUC files (Com / CanIf / PduR). The Preview step
-              // shows "N messages will be imported" using
-              // `dbc.messages.length`; matching the success toast to
-              // the same total (not just `com`) keeps the contract
-              // honest if the bridge drops a message at CanIf/PduR.
-              const totalAdded =
+              // HIGH-2 (v1.23.0 PATCH) — total added counts across all
+              // 3 ECUC files (Com / CanIf / PduR) for the success
+              // toast. Bug 6 closeout dropped the success toast on
+              // purpose so the diag banner stays as the only UI
+              // surface; re-add `setInfo(t(loc, 'dbc.import.success',
+              // { count: totalAdded }))` here when the user reports
+              // Bug 6 fixed in dev. totalAdded is computed below
+              // for completeness; it's unused until then.
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const _totalAdded =
                 res.value.addedCounts.com +
                 res.value.addedCounts.canIf +
                 res.value.addedCounts.pduR;
-              // DEBUG-DIAGNOSTIC Bug 6 (2026-07-15) — surface post-reload
+              void _totalAdded;
               // store counts as an error toast (forced visible, manual
               // dismiss). Previous attempt used setInfo which auto-
               // dismissed after 3s and raced with the success toast,

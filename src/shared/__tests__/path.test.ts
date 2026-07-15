@@ -98,6 +98,25 @@ describe('shared/path.toManifestRelative', () => {
     expect(toManifestRelative('D:\\proj', 'E:\\proj\\X.arxml')).toBeNull();
   });
 
+  // 2026-07-15 Bug 6 regression — caller MUST pass the manifest
+  // DIRECTORY, not the manifest file path. Passing a file path
+  // produces null on the prefix-match (file path's basename seg
+  // never matches the docs' sibling dir), which forces the
+  // fallback `?? f.path` to the absolute path — that absolute
+  // path never appears in `manifest.valueArxmlPaths` (which holds
+  // POSIX-relative entries), so every doc gets mis-routed to
+  // bswmds and `state.documents` comes back empty after a reload.
+  // Pin this expectation so future refactors see the behaviour
+  // spelled out next to the function they touch.
+  it('manifest-FILE as dir (caller bug) returns null — caller should pass dirname()', () => {
+    expect(
+      toManifestRelative(
+        'D:\\Users\\13777\\Desktop\\ClaudeAutosarWorkSpace\\111.autosarcfg.json',
+        'D:\\Users\\13777\\Desktop\\ClaudeAutosarWorkSpace\\ecuc\\JWQ3399_EcucValues.arxml',
+      ),
+    ).toBeNull();
+  });
+
   it('mixed drive prefix: dir is relative, file is absolute → null', () => {
     // Asymmetric: dir has no drive letter but file does.
     expect(toManifestRelative('/proj', 'D:\\proj\\X.arxml')).toBeNull();

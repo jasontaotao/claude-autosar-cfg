@@ -22,7 +22,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   border-bottom: 1px solid transparent;
   flex: 0 0 auto;
-  max-height: 90vh;
+  max-height: 200px;
   min-height: 32px;
 }
 
