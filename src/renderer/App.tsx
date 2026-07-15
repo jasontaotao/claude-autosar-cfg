@@ -590,12 +590,12 @@ export function App(): JSX.Element {
                   const docs: { rel: string; path: string; content: string }[] = [];
                   const bswmds: { rel: string; path: string; content: string }[] = [];
                   const docsRelSet = new Set(proj.valueArxmlPaths);
-                  // DEBUG-DIAGNOSTIC Bug 6 — multi-line banner so
-                  // the user can read everything in one view, and
-                  // cross-check projPath + first 3 files. Multi-line
-                  // exceeds MAX_BANNER_LINES so ErrorBanner shows
-                  // the [View] button which opens the full-text
-                  // modal (no DevTools paste).
+                  // DEBUG-DIAGNOSTIC Bug 6 — belt-and-braces: ALSO
+                  // surface a window.alert() with a multi-line
+                  // diagnostic block because ErrorBanner has proven
+                  // to clip / hide the message in this environment.
+                  // window.alert is OS-native, large, modal, copy-
+                  // able through standard dialog Copy / Ctrl+A.
                   let probeIdx = 0;
                   const probeLines: string[] = [];
                   for (const f of reload.files) {
@@ -607,19 +607,24 @@ export function App(): JSX.Element {
                     }
                     if (probeIdx < 3) {
                       probeLines.push(
-                        `f.path=${f.path}\n     rel=${rel}\n     match=${docsRelSet.has(rel)} -> ${docsRelSet.has(rel) ? 'docs' : 'bswmds'}`,
+                        `[${probeIdx}] f.path=${f.path} | rel=${rel} | match=${docsRelSet.has(rel)} -> ${docsRelSet.has(rel) ? 'docs' : 'bswmds'}`,
                       );
                       probeIdx += 1;
                     }
                   }
-                  const bannerText =
-                    `[Bug6 DIAG] reload.files=${reload.files.length} docs=${docs.length} bswmds=${bswmds.length}\n` +
+                  const alertText =
+                    `[Bug6 DIAG]\nreload.files=${reload.files.length}  docs=${docs.length}  bswmds=${bswmds.length}\n` +
                     `projPath=${projPath}\n` +
                     `proj.valueArxmlPaths.len=${proj.valueArxmlPaths.length}\n` +
                     `proj.first-rel=${proj.valueArxmlPaths[0] ?? '<empty>'}\n` +
-                    `\n--- first 3 file probes ---\n` +
+                    `first 3 files:\n` +
                     probeLines.join('\n');
-                  setStoreError(bannerText);
+                  // window.alert is synchronous modal — blocks the
+                  // event loop until the user clicks OK. Set the
+                  // banner too as a fallback in case alert is
+                  // suppressed (some Electron contexts disable it).
+                  window.alert(alertText);
+                  setStoreError(alertText);
                   useArxmlStore.getState().openProject({
                     manifestPath: projPath,
                     manifest: reload.manifest,
