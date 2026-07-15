@@ -590,12 +590,14 @@ export function App(): JSX.Element {
                   const docs: { rel: string; path: string; content: string }[] = [];
                   const bswmds: { rel: string; path: string; content: string }[] = [];
                   const docsRelSet = new Set(proj.valueArxmlPaths);
-                  // DEBUG-DIAGNOSTIC Bug 6 — log the per-file
-                  // `toManifestRelative` decision for the first 3
-                  // files so we can see whether the rel-classify step
-                  // drops them or whether openProject itself drops
-                  // them later.
+                  // DEBUG-DIAGNOSTIC Bug 6 — multi-line banner so
+                  // the user can read everything in one view, and
+                  // cross-check projPath + first 3 files. Multi-line
+                  // exceeds MAX_BANNER_LINES so ErrorBanner shows
+                  // the [View] button which opens the full-text
+                  // modal (no DevTools paste).
                   let probeIdx = 0;
+                  const probeLines: string[] = [];
                   for (const f of reload.files) {
                     const rel = toManifestRelative(projPath, f.path) ?? f.path;
                     if (docsRelSet.has(rel)) {
@@ -604,15 +606,20 @@ export function App(): JSX.Element {
                       bswmds.push({ rel, path: f.path, content: f.content });
                     }
                     if (probeIdx < 3) {
-                      console.log(
-                        `[Bug6 DIAG] file[${probeIdx}] f.path=${f.path} rel=${rel} docsRelSet.has=${docsRelSet.has(rel)} sizeBefore=${docs.length + bswmds.length - 1} sizeAfter=${docs.length + bswmds.length}`,
+                      probeLines.push(
+                        `f.path=${f.path}\n     rel=${rel}\n     match=${docsRelSet.has(rel)} -> ${docsRelSet.has(rel) ? 'docs' : 'bswmds'}`,
                       );
                       probeIdx += 1;
                     }
                   }
-                  setStoreError(
-                    `[Bug6 DIAG] reload.files=${reload.files.length} docs=${docs.length} bswmds=${bswmds.length} proj.valueArxmlPaths.len=${proj.valueArxmlPaths.length} first-proj-rel=${proj.valueArxmlPaths[0] ?? '<empty>'}`,
-                  );
+                  const bannerText =
+                    `[Bug6 DIAG] reload.files=${reload.files.length} docs=${docs.length} bswmds=${bswmds.length}\n` +
+                    `projPath=${projPath}\n` +
+                    `proj.valueArxmlPaths.len=${proj.valueArxmlPaths.length}\n` +
+                    `proj.first-rel=${proj.valueArxmlPaths[0] ?? '<empty>'}\n` +
+                    `\n--- first 3 file probes ---\n` +
+                    probeLines.join('\n');
+                  setStoreError(bannerText);
                   useArxmlStore.getState().openProject({
                     manifestPath: projPath,
                     manifest: reload.manifest,
