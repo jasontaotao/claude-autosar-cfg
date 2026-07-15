@@ -228,7 +228,20 @@ export const createProjectSlice: StateCreator<ArxmlState, [], [], ProjectSlice> 
       activeDoc,
       orderedDocuments,
       orderedPaths,
-      get().bswmdSchemas,
+      // Bug 7 — use the locally-built `bswmdSchemasOut` (the
+      // freshly-parsed bswmds from this openProject call) rather
+      // than `get().bswmdSchemas` (the store's *previous* bswmd
+      // set, which is empty on a fresh open and stale on a reload).
+      // `foldVendorPackages` keys on the bswmd module shortNames to
+      // decide which generic-prefix wrappers (e.g. `EcucDefs`,
+      // `AUTOSAR_R22`) to fold; without the local set the fold
+      // skips and the 3 ECUC value-side docs (all sharing the
+      // wrapper shortName `AUTOSAR_R22` or `EcucDefs`) end up
+      // dedup-collapsed in `buildCombinedDocument` — the user sees
+      // 1 module in the Tree instead of N. Set 7 here is what gets
+      // written to the store payload, so using the same source
+      // keeps the display path consistent with the persisted state.
+      bswmdSchemasOut,
     );
 
     set({
