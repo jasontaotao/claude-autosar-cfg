@@ -201,10 +201,7 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   setLeftPanelProjectCollapsed: (value) => {
     set({ leftPanelProjectCollapsed: value });
     try {
-      localStorage.setItem(
-        'claude-autosarcfg:leftPanel:projectCollapsed',
-        String(value),
-      );
+      localStorage.setItem('claude-autosarcfg:leftPanel:projectCollapsed', String(value));
     } catch (e) {
       console.warn('[ui] failed to persist leftPanelProjectCollapsed', e);
     }

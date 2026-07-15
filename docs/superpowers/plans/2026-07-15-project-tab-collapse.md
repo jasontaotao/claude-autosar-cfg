@@ -22,21 +22,21 @@
 
 ## File Map (locked before tasks)
 
-| File | Role | Type |
-|---|---|---|
-| `src/shared/i18n/editor.ts` | Interface for new keys | Modify (3 new lines in interface) |
-| `src/shared/i18n.en/editor.ts` | English text for new keys | Modify (3 new lines) |
-| `src/shared/i18n.zh-CN/editor.ts` | Chinese text for new keys | Modify (3 new lines) |
-| `src/renderer/store/slices/uiSlice.ts` | Slice field + setter + localStorage write | Modify (~15 lines) |
-| `src/renderer/store/useArxmlStore.ts` | localStorage read on store init | Modify (~10 lines) |
-| `src/renderer/components/LeftPanel.tsx` | Conditional render + collapsed placeholder | Modify (~20 lines) |
-| `src/renderer/components/ProjectPanel.tsx` | Chevron toggle button in header | Modify (~25 lines) |
-| `src/renderer/components/ProjectPanel.css` | Toggle button styling | Modify (~15 lines) |
-| `src/renderer/components/__tests__/LeftPanel.collapse.test.tsx` | Component tests (3 cases) | Create |
-| `src/renderer/store/__tests__/useArxmlStore.leftPanelCollapse.test.ts` | Slice + rehydrate tests (2 cases) | Create |
-| `docs/release-notes/v1.55.0/README.md` | Release notes | Create |
-| `CHANGELOG.md` | v1.55.0 entry at top | Modify (prepend) |
-| `package.json` | `"version": "1.54.5"` → `"version": "1.55.0"` | Modify (1 line) |
+| File                                                                   | Role                                          | Type                              |
+| ---------------------------------------------------------------------- | --------------------------------------------- | --------------------------------- |
+| `src/shared/i18n/editor.ts`                                            | Interface for new keys                        | Modify (3 new lines in interface) |
+| `src/shared/i18n.en/editor.ts`                                         | English text for new keys                     | Modify (3 new lines)              |
+| `src/shared/i18n.zh-CN/editor.ts`                                      | Chinese text for new keys                     | Modify (3 new lines)              |
+| `src/renderer/store/slices/uiSlice.ts`                                 | Slice field + setter + localStorage write     | Modify (~15 lines)                |
+| `src/renderer/store/useArxmlStore.ts`                                  | localStorage read on store init               | Modify (~10 lines)                |
+| `src/renderer/components/LeftPanel.tsx`                                | Conditional render + collapsed placeholder    | Modify (~20 lines)                |
+| `src/renderer/components/ProjectPanel.tsx`                             | Chevron toggle button in header               | Modify (~25 lines)                |
+| `src/renderer/components/ProjectPanel.css`                             | Toggle button styling                         | Modify (~15 lines)                |
+| `src/renderer/components/__tests__/LeftPanel.collapse.test.tsx`        | Component tests (3 cases)                     | Create                            |
+| `src/renderer/store/__tests__/useArxmlStore.leftPanelCollapse.test.ts` | Slice + rehydrate tests (2 cases)             | Create                            |
+| `docs/release-notes/v1.55.0/README.md`                                 | Release notes                                 | Create                            |
+| `CHANGELOG.md`                                                         | v1.55.0 entry at top                          | Modify (prepend)                  |
+| `package.json`                                                         | `"version": "1.54.5"` → `"version": "1.55.0"` | Modify (1 line)                   |
 
 Each task's commit set is explicit. Do not bundle tasks.
 
@@ -45,11 +45,13 @@ Each task's commit set is explicit. Do not bundle tasks.
 ## Task 1: i18n keys (3 new keys × 2 locales + interface)
 
 **Files:**
+
 - Modify: `src/shared/i18n/editor.ts:46-49` (interface — add 3 new readonly fields)
 - Modify: `src/shared/i18n.en/editor.ts:40-43` (en bundle — add 3 new entries)
 - Modify: `src/shared/i18n.zh-CN/editor.ts:40-43` (zh-CN bundle — add 3 new entries)
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces: i18n keys available to `t()` from anywhere
 
@@ -120,11 +122,13 @@ green. type-check both configs clean."
 ## Task 2: Slice field + localStorage read/write + slice tests
 
 **Files:**
+
 - Modify: `src/renderer/store/slices/uiSlice.ts:16-128` (interface) + `:129-304` (defaults + setter)
 - Modify: `src/renderer/store/useArxmlStore.ts` (localStorage read on init — see Step 3)
 - Create: `src/renderer/store/__tests__/useArxmlStore.leftPanelCollapse.test.ts`
 
 **Interfaces:**
+
 - Consumes: `t()` from `@shared/i18n/index.js` (already imported)
 - Produces:
   - `leftPanelProjectCollapsed: boolean` — slice field
@@ -317,10 +321,12 @@ No regression: 3221 + 7 SKIP / 0 fail baseline → 3223 + 7 SKIP /
 ## Task 3: Component — Chevron toggle button in `ProjectPanelInfo` header
 
 **Files:**
+
 - Modify: `src/renderer/components/ProjectPanel.tsx:336-357` (header) + add chevron button
 - Modify: `src/renderer/components/ProjectPanel.css` (toggle button styling)
 
 **Interfaces:**
+
 - Consumes: `setLeftPanelProjectCollapsed` from store (Task 2)
 - Produces: A clickable chevron button in the `ProjectPanelInfo` header
 
@@ -345,7 +351,9 @@ Open the file and find the existing `.project-panel-close` rule (search for `.pr
   background: transparent;
   color: rgb(100 116 139); /* slate-500 */
   cursor: pointer;
-  transition: background 150ms ease, color 150ms ease;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
 }
 
 .project-panel-collapse-toggle:hover {
@@ -371,8 +379,8 @@ In `src/renderer/components/ProjectPanel.tsx`, find the `<header className="proj
 Replace the existing `<button className="project-panel-close" ...>×</button>` block with:
 
 ```tsx
-        <div className="project-panel-header-actions">
-          {/* v1.55.0 — Project Tab Collapse/Expand. Chevron-up
+<div className="project-panel-header-actions">
+  {/* v1.55.0 — Project Tab Collapse/Expand. Chevron-up
               button collapses the entire project tab body into a
               1-line compact placeholder (see LeftPanel.tsx). The
               Tree and the tabs bar at the top of the LeftPanel stay
@@ -385,37 +393,37 @@ Replace the existing `<button className="project-panel-close" ...>×</button>` b
               same action-verb key (leftPanel.projectTab.toggleCollapse)
               so the screen-reader announcement is the action, not
               the state. */}
-          <button
-            type="button"
-            className="project-panel-collapse-toggle"
-            onClick={() => useArxmlStore.getState().setLeftPanelProjectCollapsed(true)}
-            aria-label={t(locale, 'leftPanel.projectTab.toggleCollapse')}
-            aria-expanded="true"
-            aria-controls="left-pane-project"
-            title={t(locale, 'leftPanel.projectTab.toggleCollapse')}
-            data-testid="project-panel-collapse-toggle"
-          >
-            {/* chevron-up (svg, 14x14, stroke 2) */}
-            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <path
-                d="M3 9 L7 5 L11 9"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="project-panel-close"
-            onClick={onClose}
-            data-testid="project-panel-close-btn"
-            aria-label={t(locale, 'projectPanel.closeAria', { name: manifest.name })}
-          >
-            ×
-          </button>
-        </div>
+  <button
+    type="button"
+    className="project-panel-collapse-toggle"
+    onClick={() => useArxmlStore.getState().setLeftPanelProjectCollapsed(true)}
+    aria-label={t(locale, 'leftPanel.projectTab.toggleCollapse')}
+    aria-expanded="true"
+    aria-controls="left-pane-project"
+    title={t(locale, 'leftPanel.projectTab.toggleCollapse')}
+    data-testid="project-panel-collapse-toggle"
+  >
+    {/* chevron-up (svg, 14x14, stroke 2) */}
+    <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path
+        d="M3 9 L7 5 L11 9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </button>
+  <button
+    type="button"
+    className="project-panel-close"
+    onClick={onClose}
+    data-testid="project-panel-close-btn"
+    aria-label={t(locale, 'projectPanel.closeAria', { name: manifest.name })}
+  >
+    ×
+  </button>
+</div>
 ```
 
 - [ ] **Step 3: Add a CSS rule for the `.project-panel-header-actions` flex container**
@@ -436,10 +444,12 @@ In `src/renderer/components/ProjectPanel.css`, after the `.project-panel-collaps
 - [ ] **Step 4: Run type-check + full test suite to confirm no regression**
 
 Run:
+
 ```bash
 pnpm type-check 2>&1 | tail -10
 pnpm test 2>&1 | tail -8
 ```
+
 Expected: type-check clean; 3223 + 7 SKIP / 0 fail (same as Task 2). No existing test should break — `ProjectPanel.test.tsx` doesn't assert on the header's button count, but if any test does fail, investigate before committing.
 
 - [ ] **Step 5: Commit**
@@ -472,10 +482,12 @@ State: read + set via the slice field added in the previous commit
 ## Task 4: Component — LeftPanel conditional render + collapsed placeholder
 
 **Files:**
+
 - Modify: `src/renderer/components/LeftPanel.tsx:75-191` (add collapsed branch in the 'project' tab pane)
 - Create: `src/renderer/components/__tests__/LeftPanel.collapse.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `leftPanelProjectCollapsed` + `setLeftPanelProjectCollapsed` from store
 - Produces: A `CollapsedProjectPanelPlaceholder` (inline subcomponent or top-level) + the wiring that swaps the body
 
@@ -595,14 +607,14 @@ Expected: FAIL — `project-panel-collapse-toggle` doesn't exist yet, and the co
 In `src/renderer/components/LeftPanel.tsx`, after the existing `useArxmlStore((s) => s.leftTab)` selector (line 76), add:
 
 ```tsx
-  // v1.55.0 — project tab collapse. Read the field and the setter
-  // from the uiSlice. The collapse state is independent of the
-  // `leftTab` value (the user can be on the "文件" or "验证" tab
-  // while the project body is collapsed) but the test setup
-  // explicitly lands on `leftTab: 'project'` to make the swap
-  // observable.
-  const projectCollapsed = useArxmlStore((s) => s.leftPanelProjectCollapsed);
-  const setProjectCollapsed = useArxmlStore((s) => s.setLeftPanelProjectCollapsed);
+// v1.55.0 — project tab collapse. Read the field and the setter
+// from the uiSlice. The collapse state is independent of the
+// `leftTab` value (the user can be on the "文件" or "验证" tab
+// while the project body is collapsed) but the test setup
+// explicitly lands on `leftTab: 'project'` to make the swap
+// observable.
+const projectCollapsed = useArxmlStore((s) => s.leftPanelProjectCollapsed);
+const setProjectCollapsed = useArxmlStore((s) => s.setLeftPanelProjectCollapsed);
 ```
 
 - [ ] **Step 4: Conditionally render the project tab body**
@@ -610,15 +622,16 @@ In `src/renderer/components/LeftPanel.tsx`, after the existing `useArxmlStore((s
 In the same file, find the `{activeTab === 'project' && (` ... `)}` block (line 127-159). Replace its inner content so the `ProjectPanelInfo` only renders when not collapsed, and the collapsed placeholder renders when collapsed. Replace the entire inner JSX (the `<div className="left-panel-pane" role="tabpanel" ...>` and its children) with:
 
 ```tsx
-        {activeTab === 'project' && (
-          <div
-            className="left-panel-pane"
-            role="tabpanel"
-            id="left-pane-project"
-            aria-labelledby="left-tab-project"
-            data-testid="left-pane-project"
-          >
-            {/* v1.55.0 — Project Tab Collapse/Expand. When the user
+{
+  activeTab === 'project' && (
+    <div
+      className="left-panel-pane"
+      role="tabpanel"
+      id="left-pane-project"
+      aria-labelledby="left-tab-project"
+      data-testid="left-pane-project"
+    >
+      {/* v1.55.0 — Project Tab Collapse/Expand. When the user
                 clicked the chevron in the ProjectPanelInfo header,
                 the body collapses into a 1-line compact placeholder
                 with an inline [展开] / [Expand] button. The Tree
@@ -627,45 +640,46 @@ In the same file, find the `{activeTab === 'project' && (` ... `)}` block (line 
                 user can switch to the "文件" / "验证" tabs while
                 the project body stays collapsed, and switching
                 back to "项目" renders the same collapsed state. */}
-            {projectCollapsed ? (
-              <div
-                className="left-panel-pane left-panel-pane-collapsed"
-                data-testid="left-pane-project-collapsed"
-              >
-                <span className="left-panel-pane-collapsed-notice">
-                  {t(locale, 'leftPanel.projectTab.collapsedNotice')}
-                </span>
-                <button
-                  type="button"
-                  className="left-panel-pane-collapsed-expand"
-                  onClick={() => setProjectCollapsed(false)}
-                  aria-label={t(locale, 'leftPanel.projectTab.toggleExpand')}
-                  aria-expanded="false"
-                  aria-controls="left-pane-project"
-                  data-testid="left-pane-project-collapsed-expand"
-                >
-                  {t(locale, 'leftPanel.projectTab.toggleExpand')}
-                </button>
-              </div>
-            ) : isProjectOpen ? (
-              <ProjectPanelInfo
-                locale={locale}
-                manifest={project}
-                manifestPath={projectPath}
-                onClose={closeProject}
-                onRemoveArxml={removeDocument}
-                onAddBswmd={() => void addBswmdFromDialog()}
-                onRemoveBswmd={(path) => void removeBswmdWithFullFlow(path)}
-                onAddEcuc={onAddEcucFromBswmd}
-                onConfigureModules={onAddEcucFromBswmd}
-              />
-            ) : (
-              <div className="left-panel-pane-empty" data-testid="left-pane-project-empty">
-                {t(locale, 'leftPanel.project.empty')}
-              </div>
-            )}
-          </div>
-        )}
+      {projectCollapsed ? (
+        <div
+          className="left-panel-pane left-panel-pane-collapsed"
+          data-testid="left-pane-project-collapsed"
+        >
+          <span className="left-panel-pane-collapsed-notice">
+            {t(locale, 'leftPanel.projectTab.collapsedNotice')}
+          </span>
+          <button
+            type="button"
+            className="left-panel-pane-collapsed-expand"
+            onClick={() => setProjectCollapsed(false)}
+            aria-label={t(locale, 'leftPanel.projectTab.toggleExpand')}
+            aria-expanded="false"
+            aria-controls="left-pane-project"
+            data-testid="left-pane-project-collapsed-expand"
+          >
+            {t(locale, 'leftPanel.projectTab.toggleExpand')}
+          </button>
+        </div>
+      ) : isProjectOpen ? (
+        <ProjectPanelInfo
+          locale={locale}
+          manifest={project}
+          manifestPath={projectPath}
+          onClose={closeProject}
+          onRemoveArxml={removeDocument}
+          onAddBswmd={() => void addBswmdFromDialog()}
+          onRemoveBswmd={(path) => void removeBswmdWithFullFlow(path)}
+          onAddEcuc={onAddEcucFromBswmd}
+          onConfigureModules={onAddEcucFromBswmd}
+        />
+      ) : (
+        <div className="left-panel-pane-empty" data-testid="left-pane-project-empty">
+          {t(locale, 'leftPanel.project.empty')}
+        </div>
+      )}
+    </div>
+  );
+}
 ```
 
 - [ ] **Step 5: Add CSS for the collapsed placeholder**
@@ -774,11 +788,13 @@ No regression: 3221 + 7 SKIP / 0 fail baseline → 3226 + 7 SKIP /
 ## Task 5: T-ship — version bump + CHANGELOG + release notes + tag v1.55.0
 
 **Files:**
+
 - Modify: `package.json:3` (`"version": "1.54.5"` → `"version": "1.55.0"`)
 - Modify: `CHANGELOG.md` (prepend v1.55.0 entry at the top, after the `# Changelog` header)
 - Create: `docs/release-notes/v1.55.0/README.md`
 
 **Interfaces:**
+
 - Consumes: previous release notes pattern (read `docs/release-notes/v1.54.5/README.md` if it exists, or `v1.54.4/README.md` as template)
 - Produces: v1.55.0 release commit, tag `v1.55.0` annotated
 
@@ -853,6 +869,7 @@ tsc both configs clean."
 - [ ] **Step 7: Tag v1.55.0 (annotated)**
 
 Run:
+
 ```bash
 git tag -a v1.55.0 -m "v1.55.0 MINOR — Project Tab Collapse/Expand
 

@@ -36,18 +36,18 @@
 
 ### Files
 
-| File | Change |
-|---|---|
-| `src/renderer/store/useArxmlStore.ts` (or `slices/uiSlice.ts` if it exists) | Add `leftPanelProjectCollapsed: boolean` field + `setLeftPanelProjectCollapsed(value: boolean): void` action. Add localStorage read in store init; add localStorage write in setter. |
-| `src/renderer/components/LeftPanel.tsx` | Read `leftPanelProjectCollapsed` from store. Conditionally render `ProjectPanelInfo` (expanded) vs the compact 1-line placeholder (collapsed) inside the existing `left-pane-project` div. Render the chevron toggle in BOTH branches (always discoverable). |
-| `src/renderer/components/ProjectPanel.tsx` | Add a chevron toggle button to the existing `ProjectPanelInfo` header. The toggle calls `useArxmlStore((s) => s.setLeftPanelProjectCollapsed)(!collapsed)`. |
-| `src/renderer/components/ProjectPanel.css` | New class `.project-panel-collapse-toggle` (chevron button styling). |
-| `src/renderer/components/__tests__/LeftPanel.collapse.test.tsx` (NEW) | 3 cases: (1) initial state is expanded, (2) click toggle → state persists to store, (3) rehydrate from localStorage on init. |
-| `src/renderer/store/__tests__/useArxmlStore.leftPanelCollapse.test.ts` (NEW) | 2 cases: (1) default is `false`, (2) setter writes to localStorage. |
-| `src/shared/i18n/locales/{zh-CN,en}.json` | 2 new keys: `leftPanel.projectTab.toggleCollapse`, `leftPanel.projectTab.toggleExpand` (and `leftPanel.projectTab.collapsedNotice` for the placeholder). |
-| `docs/release-notes/v1.55.0/README.md` (NEW, MINOR) | Per release-checklist; this is the user's first PATCH/MINOR on a new feature, and v1.55.0 follows the established sequence (last ship v1.54.5 PATCH). |
-| `CHANGELOG.md` | v1.55.0 entry per Keep-a-Changelog. |
-| `package.json` | `"version": "1.54.5"` → `"version": "1.55.0"`. |
+| File                                                                         | Change                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/renderer/store/useArxmlStore.ts` (or `slices/uiSlice.ts` if it exists)  | Add `leftPanelProjectCollapsed: boolean` field + `setLeftPanelProjectCollapsed(value: boolean): void` action. Add localStorage read in store init; add localStorage write in setter.                                                                         |
+| `src/renderer/components/LeftPanel.tsx`                                      | Read `leftPanelProjectCollapsed` from store. Conditionally render `ProjectPanelInfo` (expanded) vs the compact 1-line placeholder (collapsed) inside the existing `left-pane-project` div. Render the chevron toggle in BOTH branches (always discoverable). |
+| `src/renderer/components/ProjectPanel.tsx`                                   | Add a chevron toggle button to the existing `ProjectPanelInfo` header. The toggle calls `useArxmlStore((s) => s.setLeftPanelProjectCollapsed)(!collapsed)`.                                                                                                  |
+| `src/renderer/components/ProjectPanel.css`                                   | New class `.project-panel-collapse-toggle` (chevron button styling).                                                                                                                                                                                         |
+| `src/renderer/components/__tests__/LeftPanel.collapse.test.tsx` (NEW)        | 3 cases: (1) initial state is expanded, (2) click toggle → state persists to store, (3) rehydrate from localStorage on init.                                                                                                                                 |
+| `src/renderer/store/__tests__/useArxmlStore.leftPanelCollapse.test.ts` (NEW) | 2 cases: (1) default is `false`, (2) setter writes to localStorage.                                                                                                                                                                                          |
+| `src/shared/i18n/locales/{zh-CN,en}.json`                                    | 2 new keys: `leftPanel.projectTab.toggleCollapse`, `leftPanel.projectTab.toggleExpand` (and `leftPanel.projectTab.collapsedNotice` for the placeholder).                                                                                                     |
+| `docs/release-notes/v1.55.0/README.md` (NEW, MINOR)                          | Per release-checklist; this is the user's first PATCH/MINOR on a new feature, and v1.55.0 follows the established sequence (last ship v1.54.5 PATCH).                                                                                                        |
+| `CHANGELOG.md`                                                               | v1.55.0 entry per Keep-a-Changelog.                                                                                                                                                                                                                          |
+| `package.json`                                                               | `"version": "1.54.5"` → `"version": "1.55.0"`.                                                                                                                                                                                                               |
 
 ### State changes
 
