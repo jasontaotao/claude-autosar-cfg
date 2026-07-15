@@ -5,6 +5,27 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.54.4 (2026-07-15) — PATCH (dBC-Apply Tree Display)
+
+**Bug 7 closure**. Closes the user-reported "导入 dBC 后 com/canif/pdur 容器未更新" UX gap from 2026-07-15. The user opened a 3 ECUC value-side doc project (canonical `AUTOSAR_R22 > EcucDefs > <module>` shape), applied a dBC import (which atomically writes the 3 Com / CanIf / PduR ARXMLs), and saw the Tree render 1 module instead of 3 — actually 1-of-3 dedup-collapsed, not a stale "project closed" state. Root cause: `projectSlice.openProject:231` called `computeDisplayDoc(..., get().bswmdSchemas)` — the *previous* store state (empty on a fresh open, stale on a reload) — instead of the locally-built `bswmdSchemasOut` (the freshly-parsed bswmds from *this* openProject call). Downstream effect: `foldVendorPackages` could not identify `AUTOSAR_R22` / `EcucDefs` generic vendor wrappers as foldable (it needs the inner module shortNames in the bswmd set as a positive gate). Without the fold, the 3 ECUC value-side docs each kept their `AUTOSAR_R22` root shortName, and the Sprint 17c T10 dedup pass in `buildCombinedDocument` collapsed 3-of-3 to 1. Zero IPC / zero backend / zero schema change. Per `release-checklist-must-verify-package.json-bump-on-every-version-ship` (standalone): `package.json` `1.54.3` → `1.54.4` verified pre-tag.
+
+**`63459bd`** — **fix(store): use locally-built bswmdSchemasOut in openProject's computeDisplayDoc (Bug 7)**. 1-line surgical change in `src/renderer/store/slices/projectSlice.ts:231` — `get().bswmdSchemas` → `bswmdSchemasOut` (the value being persisted to the store payload via `set({ bswmdSchemas: bswmdSchemasOut, ... })`). The display path now sees the same bswmd set as the persisted state, so fold + dedup are consistent. No changes to `buildCombinedDocument`, `foldVendorPackages`, `dedupRootPackages`, `validateProjectForRenderer`, or the set payload — minimum diff to close the gap. 1 new it() case added in `useArxmlStore.bug7-dbc-reload-reflects-new-containers.test.ts` (1 test, 359 LoC including the canonical `AUTOSAR_R22 > EcucDefs > <module>` fixture + 3 BSWMDs + assertions on displayDoc.packages module shortNames and dBC-mapped container children).
+
+**`c26a2a0`** — **chore(release): bump version 1.54.3 → 1.54.4**. Per release-checklist.
+
+**Test results**: **3215 + 7 SKIP / 0 fail** → **3217 + 7 SKIP / 0 fail** (+2 net: 1 from this commit's regression test, 1 from the `expect.arrayContaining` symmetry pair the TS narrowing required). `pnpm verify` **8-stage GREEN**. tsc both `tsconfig.json` + `tsconfig.web.json` clean.
+
+**Process lessons applied**:
+
+- **`release-checklist-must-verify-package.json-bump-on-every-version-ship`** (standalone) — `package.json` `1.54.3` → `1.54.4` verified pre-tag.
+- **`function-extract-must-clip-verbatim-not-reimplement`** (standalone) — the regression test fixture uses verbatim copies of the `MIN_BSWMD_*` template pattern from `useArxmlStore.openProject-bswmd.test.ts`; no reimplementation drift.
+- **`systematic-debugging` Iron Law** (NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST) — the fix is not at the symptom (the visible 1-of-3 dedup). The fix is at the source (the stale `get().bswmdSchemas` read in `computeDisplayDoc`). 22 SANITY-shape vitest variants + isolated Pin A were used to confirm the fold path is the only one that breaks, ruling out the dBC-apply IPC path, the docs/bswmds partition step (Bug 6 territory), and the validateProjectForRenderer call.
+
+**NEW 1/3 candidates** (awaiting 2 more confirmations each):
+
+- **`stale-get-state-read-in-pre-set-call-corrupts-derived-display`** — the pattern of `computeDisplayDoc(..., get().someField)` (reading the *previous* store state during a write cycle) silently produces wrong display when the field is updated by the same call. The fix has two layers: (a) use the local variable that's about to be written, (b) make `computeDisplayDoc` accept the freshly-built bswmd set as an explicit required parameter so the call site can't reach back into `get()` accidentally. Needs 1 more observation before promotion to 2/3.
+- **`dedup-after-fold-needs-2-piece-bug-prevention-fixture`** — the test fixture must use a canonical-shape (foldable) root package; an `EcucValues` root would trigger the same dedup bug but for a different reason (no fold attempt). The canonical shape is the only one that distinguishes the bug from a dedup-only failure. Awaits 1 more observation.
+
 ## v1.54.3 (2026-07-15) — PATCH (Multi-Instance Tree Multi-Doc Hydration)
 
 **Bug 5 closure**. Closes the user-reported UX gap (2026-07-14) where opening a project with 5 ECUC value-side ARXML files (canonical `AUTOSAR_R22 > EcucDefs > <module>` shape) rendered only 2 module roots in the Tree, even though ProjectPanel correctly listed all 5 files. Root cause: `buildCombinedDocument` ran `dedupRootPackages` on UN-folded docs (every ECUC value file shares the wrapper shortName `AUTOSAR_R22` at the top, so dedup collapsed 5 to 1, then `foldVendorPackages` collapsed the single remaining wrapper to one module). Zero IPC / zero backend / zero schema change. Per `release-checklist-must-verify-package.json-bump-on-every-version-ship` (standalone): `package.json` `1.54.2` → `1.54.3` verified pre-tag.
