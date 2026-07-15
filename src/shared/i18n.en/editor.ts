@@ -41,6 +41,10 @@ export const EditorEn: EditorMessages = {
   'leftPanel.tab.files': 'Files',
   'leftPanel.tab.validate': 'Validate',
   'leftPanel.project.empty': 'No project open. Use the "Files" tab to create or open one.',
+  // v1.55.0 — Project Tab Collapse/Expand
+  'leftPanel.projectTab.toggleCollapse': 'Collapse project panel',
+  'leftPanel.projectTab.toggleExpand': 'Expand project panel',
+  'leftPanel.projectTab.collapsedNotice': 'Project panel is collapsed. Click to expand.',
 
   // project panel
   'projectPanel.loose.text': 'No project loaded.',

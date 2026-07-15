@@ -47,6 +47,10 @@ export interface EditorMessages {
   readonly 'leftPanel.tab.files': string;
   readonly 'leftPanel.tab.validate': string;
   readonly 'leftPanel.project.empty': string;
+  // v1.55.0 — Project Tab Collapse/Expand (3 keys).
+  readonly 'leftPanel.projectTab.toggleCollapse': string;
+  readonly 'leftPanel.projectTab.toggleExpand': string;
+  readonly 'leftPanel.projectTab.collapsedNotice': string;
 
   // --- project panel ---
   readonly 'projectPanel.loose.text': string;

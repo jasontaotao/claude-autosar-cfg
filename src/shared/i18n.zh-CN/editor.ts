@@ -41,6 +41,10 @@ export const EditorZhCN: EditorMessages = {
   'leftPanel.tab.files': '文件',
   'leftPanel.tab.validate': '验证',
   'leftPanel.project.empty': '未打开项目。请到"文件"标签新建或打开一个项目。',
+  // v1.55.0 — 项目面板折叠/展开
+  'leftPanel.projectTab.toggleCollapse': '折叠项目面板',
+  'leftPanel.projectTab.toggleExpand': '展开项目面板',
+  'leftPanel.projectTab.collapsedNotice': '项目面板已折叠。点击展开。',
 
   // project panel
   'projectPanel.loose.text': '未加载项目。',
