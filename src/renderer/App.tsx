@@ -590,6 +590,12 @@ export function App(): JSX.Element {
                   const docs: { rel: string; path: string; content: string }[] = [];
                   const bswmds: { rel: string; path: string; content: string }[] = [];
                   const docsRelSet = new Set(proj.valueArxmlPaths);
+                  // DEBUG-DIAGNOSTIC Bug 6 — log the per-file
+                  // `toManifestRelative` decision for the first 3
+                  // files so we can see whether the rel-classify step
+                  // drops them or whether openProject itself drops
+                  // them later.
+                  let probeIdx = 0;
                   for (const f of reload.files) {
                     const rel = toManifestRelative(projPath, f.path) ?? f.path;
                     if (docsRelSet.has(rel)) {
@@ -597,7 +603,16 @@ export function App(): JSX.Element {
                     } else {
                       bswmds.push({ rel, path: f.path, content: f.content });
                     }
+                    if (probeIdx < 3) {
+                      console.log(
+                        `[Bug6 DIAG] file[${probeIdx}] f.path=${f.path} rel=${rel} docsRelSet.has=${docsRelSet.has(rel)} sizeBefore=${docs.length + bswmds.length - 1} sizeAfter=${docs.length + bswmds.length}`,
+                      );
+                      probeIdx += 1;
+                    }
                   }
+                  setStoreError(
+                    `[Bug6 DIAG] reload.files=${reload.files.length} docs=${docs.length} bswmds=${bswmds.length} proj.valueArxmlPaths.len=${proj.valueArxmlPaths.length} first-proj-rel=${proj.valueArxmlPaths[0] ?? '<empty>'}`,
+                  );
                   useArxmlStore.getState().openProject({
                     manifestPath: projPath,
                     manifest: reload.manifest,
