@@ -17,12 +17,16 @@ declare module '*.mjs' {
 
   export interface TransformMaps {
     tokenMap?: Record<string, string>;
+    adjudicatedMap?: Record<string, string>;
+    fileOverrides?: Record<string, Record<string, string>>;
     alphaMap?: Record<string, string>;
     gradientMap?: Record<string, string>;
     exceptions?: Set<string>;
   }
 
   export const TOKEN_MAP: Record<string, string>;
+  export const ADJUDICATED_TOKEN_MAP: Record<string, string>;
+  export const FILE_OVERRIDES: Record<string, Record<string, string>>;
   export const ALPHA_MAP: Record<string, string>;
   export const GRADIENT_MAP: Record<string, string>;
   export const EXCEPTIONS: Set<string>;
@@ -31,7 +35,11 @@ declare module '*.mjs' {
   export function rgbSpaceToHex(fn: string): string | null;
   export function normalizeAlpha(fn: string): string;
   export function findCssFiles(root?: string): string[];
-  export function scanResidue(css: string): Array<{ line: number; kind: string; value: string }>;
+  export function scanResidue(
+    css: string,
+    relFile?: string,
+    exceptions?: Set<string>,
+  ): Array<{ line: number; kind: string; value: string }>;
   export function transformCss(
     css: string,
     relFile: string,

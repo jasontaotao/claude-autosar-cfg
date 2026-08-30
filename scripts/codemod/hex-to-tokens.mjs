@@ -6,9 +6,10 @@
 //   --write    落盘
 //   --check    残留裸值即 exit 1（P1 门禁，spec §10.2）
 //
-// 映射语义 = 纯值映射（spec §9.7）。TOKEN_MAP / ALPHA_MAP / GRADIENT_MAP / EXCEPTIONS
-// 是映射的唯一数据源，实施者不得另建映射。T3 偏差裁决后把裁决结果填入
-// ALPHA_MAP / GRADIENT_MAP / EXCEPTIONS（seed TOKEN_MAP 不动）。
+// 映射语义 = 纯值映射（spec §9.7）。TOKEN_MAP（seed，冻结 27 键）/ ADJUDICATED_TOKEN_MAP /
+// ALPHA_MAP / GRADIENT_MAP / FILE_OVERRIDES / EXCEPTIONS 是映射的唯一数据源，实施者不得另建
+// 映射。T3 偏差裁决结果（2026-08-30 用户整体确认）已填入 ADJUDICATED_TOKEN_MAP / ALPHA_MAP /
+// GRADIENT_MAP / EXCEPTIONS（seed TOKEN_MAP 不动；B9/B16/B18 上下文拆分入 FILE_OVERRIDES）。
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -53,14 +54,219 @@ export const TOKEN_MAP = {
   '#f9e2af': '--accent-amber',
 };
 
-/** alpha/overlay 值映射；key = 空白归一化后的小写 rgba 串。T3 裁决前为空（§3.2 dry-run 先行）。 */
-export const ALPHA_MAP = {};
+/**
+ * T3 偏差裁决 hex→token 映射（2026-08-30 用户整体确认；数据源 =
+ * docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md，dry-run 实测）。
+ * key = 展开 6 位小写 hex。seed TOKEN_MAP 冻结 27 键不动，裁决映射只进本表；
+ * B9/B16/B18 的 styles.css 上下文拆分走 FILE_OVERRIDES。
+ */
+export const ADJUDICATED_TOKEN_MAP = {
+  // B1 灰字 → --text-muted（rgb 空格语法 rgb(100 116 139) 经 rgbSpaceToHex 归一为 #64748b 同档）
+  '#6b7280': '--text-muted',
+  '#64748b': '--text-muted',
+  '#9ca3af': '--text-muted',
+  // B2 中灰字 → --text-secondary
+  '#555555': '--text-secondary',
+  '#666666': '--text-secondary',
+  '#4b5563': '--text-secondary',
+  '#374151': '--text-secondary',
+  '#757575': '--text-secondary',
+  // B3 深字 → --text-primary
+  '#111111': '--text-primary',
+  '#222222': '--text-primary',
+  '#1f2937': '--text-primary',
+  // B4 浅边 → --border-subtle
+  '#e5e7eb': '--border-subtle',
+  '#e4e6eb': '--border-subtle',
+  '#e8ecf1': '--border-subtle',
+  '#dce0e6': '--border-subtle',
+  '#eeeeee': '--border-subtle',
+  '#eef1f6': '--border-subtle',
+  // B5 中灰边 → --border-strong
+  '#cccccc': '--border-strong',
+  '#d1d5db': '--border-strong',
+  '#dddddd': '--border-strong',
+  '#d4d6db': '--border-strong',
+  // B6 近白底 → --surface-app
+  '#fafafa': '--surface-app',
+  '#f5f7fa': '--surface-app',
+  '#f9fafb': '--surface-app',
+  // B7 浅灰底 → --surface-subtle
+  '#f3f4f6': '--surface-subtle',
+  '#f3f3f3': '--surface-subtle',
+  '#f1f3f5': '--surface-subtle',
+  '#f5f5f5': '--surface-subtle',
+  '#f0f0f0': '--surface-subtle',
+  // B8 蓝变体 → --brand-500
+  '#2563eb': '--brand-500',
+  '#4a90e2': '--brand-500',
+  '#4f46e5': '--brand-500',
+  '#357abd': '--brand-500',
+  '#1e40af': '--brand-500',
+  '#82aaff': '--brand-500',
+  '#1e88e5': '--brand-500',
+  // B9 深蓝 → 文字 --text-primary（styles.css 深色区底拆分走 FILE_OVERRIDES --chrome-border）
+  '#1e3a8a': '--text-primary',
+  // B10 天蓝 → --accent-cyan
+  '#0ea5e9': '--accent-cyan',
+  // B11 红族 → --accent-rose
+  '#ff5370': '--accent-rose',
+  '#ff8a80': '--accent-rose',
+  '#cc0000': '--accent-rose',
+  '#ef4444': '--accent-rose',
+  '#f87171': '--accent-rose',
+  '#e53935': '--accent-rose',
+  // B12 深琥珀字 → --accent-amber-strong
+  '#92400e': '--accent-amber-strong',
+  '#8a6d00': '--accent-amber-strong',
+  '#9a3412': '--accent-amber-strong',
+  // B13 琥珀变体 → --accent-amber
+  '#ffcb6b': '--accent-amber',
+  '#e0c070': '--accent-amber',
+  '#f57c00': '--accent-amber',
+  // B14 绿族 → --accent-emerald
+  '#43a047': '--accent-emerald',
+  '#16a34a': '--accent-emerald',
+  '#15803d': '--accent-emerald',
+  '#166534': '--accent-emerald',
+  '#065f46': '--accent-emerald',
+  '#115e59': '--accent-emerald',
+  '#81c784': '--accent-emerald',
+  // B15 Catppuccin 表外 → 逐值归档
+  '#585b70': '--border-strong',
+  '#74c7ec': '--brand-300',
+  '#eba0ac': '--accent-rose',
+  '#b4befe': '--brand-400',
+  '#94e2d5': '--accent-cyan',
+  '#fab387': '--accent-amber',
+  // B16 深色 chrome（全局 = 浅色区文字用法；styles.css 深色 chrome 底拆分走 FILE_OVERRIDES）
+  '#1e293b': '--text-primary',
+  '#2d323b': '--chrome-border',
+  '#3d424b': '--chrome-border',
+  '#30363d': '--chrome-border',
+  '#484f58': '--chrome-border',
+  '#22262e': '--chrome-bg-deep',
+  '#262a31': '--chrome-bg-deep',
+  '#1a1d23': '--chrome-bg-deep',
+  // B18 中灰字 → --text-secondary（styles.css 保暗区拆分走 FILE_OVERRIDES --chrome-border）
+  '#334155': '--text-secondary',
+  // B19 红 tint 面
+  '#fef2f2': '--rose-tint',
+  '#fee2e2': '--rose-tint-strong',
+  '#fecaca': '--rose-tint-strong',
+  // B20 琥珀 tint 面
+  '#fef3c7': '--amber-tint',
+  '#fff8e1': '--amber-tint',
+  '#fff7ed': '--amber-tint',
+  '#ffedd5': '--amber-tint',
+  // B21 绿 tint 面
+  '#dcfce7': '--emerald-tint',
+  '#a7f3d0': '--emerald-tint',
+  '#ecfdf5': '--emerald-tint',
+  '#f0fdfa': '--emerald-tint',
+  // B22 蓝 tint 面
+  '#dbeafe': '--brand-tint',
+  '#bfdbfe': '--brand-tint',
+  '#eef2ff': '--brand-tint-soft',
+  '#eff6ff': '--brand-tint-soft',
+  // B23 深红字 → --accent-rose-strong
+  '#991b1b': '--accent-rose-strong',
+  '#b91c1c': '--accent-rose-strong',
+  '#7f1d1d': '--accent-rose-strong',
+};
 
-/** 整条渐变映射；key = 空白归一化后的小写渐变串。T3 裁决前为空。 */
-export const GRADIENT_MAP = {};
+/** alpha/overlay 值映射；key = 空白归一化后的小写 rgba 串。T3 裁决已填（R1–R5、R8）。 */
+export const ALPHA_MAP = {
+  // R1 弹窗/浮层遮罩 → --overlay-scrim
+  'rgba(0,0,0,0.4)': '--overlay-scrim',
+  'rgba(0,0,0,0.45)': '--overlay-scrim',
+  'rgba(0,0,0,0.5)': '--overlay-scrim',
+  'rgba(0,0,0,0.55)': '--overlay-scrim',
+  // R2 弱遮罩/浅投影 → --overlay-scrim-soft
+  'rgba(0,0,0,0.06)': '--overlay-scrim-soft',
+  'rgba(0,0,0,0.1)': '--overlay-scrim-soft',
+  'rgba(0,0,0,0.2)': '--overlay-scrim-soft',
+  'rgba(0,0,0,0.25)': '--overlay-scrim-soft',
+  'rgba(0,0,0,0.35)': '--overlay-scrim-soft',
+  // R8 slate 基遮罩 → --overlay-scrim（视觉归一）
+  'rgba(15,23,42,0.55)': '--overlay-scrim',
+  // R3 brand alpha（59,130,246 直档 + 137,180,250 反转面等价档）
+  'rgba(59,130,246,0.12)': '--brand-alpha',
+  'rgba(59,130,246,0.15)': '--brand-alpha',
+  'rgba(137,180,250,0.05)': '--brand-alpha',
+  'rgba(137,180,250,0.12)': '--brand-alpha',
+  'rgba(137,180,250,0.13)': '--brand-alpha',
+  'rgba(137,180,250,0.18)': '--brand-alpha',
+  'rgba(59,130,246,0.06)': '--brand-alpha-soft',
+  'rgba(59,130,246,0.08)': '--brand-alpha-soft',
+  // R4 保暗区发丝线/高光 → --chrome-hairline
+  'rgba(255,255,255,0.02)': '--chrome-hairline',
+  'rgba(255,255,255,0.03)': '--chrome-hairline',
+  'rgba(255,255,255,0.04)': '--chrome-hairline',
+  'rgba(255,255,255,0.05)': '--chrome-hairline',
+  'rgba(255,255,255,0.1)': '--chrome-hairline',
+  'rgba(255,255,255,0.18)': '--chrome-hairline',
+  'rgba(255,255,255,0.2)': '--chrome-hairline',
+  // R5 alpha 底 → 实 tint 底（视觉归一，裁决 R9）
+  'rgba(185,28,28,0.06)': '--rose-tint',
+  'rgba(252,165,165,0.1)': '--rose-tint-strong',
+  'rgba(14,165,233,0.15)': '--brand-tint-soft',
+  'rgba(249,226,175,0.25)': '--amber-tint',
+  'rgba(249,226,175,0.15)': '--amber-tint',
+  'rgba(245,158,11,0.3)': '--amber-tint',
+  'rgba(245,158,11,0.12)': '--amber-tint',
+  'rgba(243,139,168,0.1)': '--rose-tint',
+  'rgba(244,67,54,0.12)': '--rose-tint',
+  'rgba(67,160,71,0.12)': '--emerald-tint',
+};
 
-/** 用户裁决「保留原值」的豁免；元素形如 `<相对路径>:<小写色值>`。T3 裁决前为空。 */
-export const EXCEPTIONS = new Set();
+/** 整条渐变映射；key = 空白归一化后的小写渐变串。G1：ScriptPanel 渐变两 stop 同族，坍缩为纯色。 */
+export const GRADIENT_MAP = {
+  'linear-gradient(180deg, #1f232b 0%, #1a1d23 100%)': 'var(--chrome-bg-deep)',
+};
+
+/**
+ * 用户裁决「保留原值」的豁免（B17/B24/B25/B26/B27，全部为 hex）；元素形如
+ * `src/renderer/<相对路径（正斜杠）>:<展开6位小写hex>`，与 CLI 传入的 relFile 同构。
+ * 保留值在 transformCss 中原样保留，并在行尾注入 stylelint-disable-line color-no-hex 豁免注释。
+ */
+export const EXCEPTIONS = new Set([
+  // B17 Diff/语义高亮专色（#9333ea 按 dry-run 实测在 styles.css，其余 4 值在 ValidationPanel.css）
+  'src/renderer/styles.css:#9333ea',
+  'src/renderer/components/ValidationPanel.css:#6b21a8',
+  'src/renderer/components/ValidationPanel.css:#f3e8ff',
+  'src/renderer/components/ValidationPanel.css:#9d174d',
+  'src/renderer/components/ValidationPanel.css:#fdf2f8',
+  // B24 styles.css 保暗区橙（spec §3.1 明示 #c2410c/#ea580c 不预先合并）
+  'src/renderer/styles.css:#c2410c',
+  'src/renderer/styles.css:#ea580c',
+  // B25 ScriptPanel 保暗区散值（现有/提案 token 均无对应档）
+  'src/renderer/components/ScriptPanel/ScriptPanel.css:#b4b8bf',
+  'src/renderer/components/ScriptPanel/ScriptPanel.css:#8a8f99',
+  'src/renderer/components/ScriptPanel/ScriptPanel.css:#4d525b',
+  'src/renderer/components/ScriptPanel/ScriptPanel.css:#1e1e1e',
+  // B26 tint 面红描边（裁决 R5：「待定」两选项中取保守项，保留原值）
+  'src/renderer/components/dcmConfig/DcmConfigErrorToast.css:#fca5a5',
+  'src/renderer/styles.css:#fca5a5',
+  'src/renderer/components/ErrorBanner.css:#fca5a5',
+  'src/renderer/components/ConfirmDialog2.css:#fca5a5',
+  // B27 indigo-800 单发语义高亮（ValidationPanel.css）
+  'src/renderer/components/ValidationPanel.css:#3730a3',
+]);
+
+/**
+ * 上下文拆分（B9/B16/B18）：同一 hex 在 styles.css 深色 chrome 区与其余浅色区映射不同 token。
+ * key1 = 正斜杠相对路径（与 CLI relFile 同构），key2 = 展开 6 位小写 hex。
+ * 查找链（hex pass / rgb 空格语法 pass / 悬空 fallback pass 共用）：
+ * fileOverrides[relFile][hex] → adjudicatedMap[hex] → tokenMap[hex]。
+ */
+export const FILE_OVERRIDES = {
+  'src/renderer/styles.css': {
+    '#1e293b': '--chrome-bg', // B16: styles.css 6 处深色 chrome 底；其余 13 处浅色区文字走全局 --text-primary
+    '#334155': '--chrome-border', // B18: styles.css 6 处保暗区；ErrorBanner/ProjectPanel/LeftPanel 7 处走全局 --text-secondary
+    '#1e3a8a': '--chrome-border', // B9: styles.css 2 处深色区底；其余 10 处文字走全局 --text-primary
+  },
+};
 
 const HEX_RE = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
 const RGB_RE = /rgba?\([^)]*\)/gi;
@@ -71,6 +277,8 @@ const PLANNED_COMMENT_RE = /\s*\/\*\s*--color-[^*]*\*\//g;
 // 否则在首个 ) 处截断，尾部 hex 逃逸掩码被单值替换、偏差串残缺（spec §9.7）
 const GRADIENT_RE = /linear-gradient\((?:[^()]|\([^()]*\))*\)/gi;
 const DARK_SELECTOR_RE = /\.dark[\s{.,:[>#]/;
+// 例外保留行尾注入（裁决 R8）：--write 与 dry-run 预览一致，行尾已有则跳过
+const STYLELINT_DISABLE_MARKER = ' /* stylelint-disable-line color-no-hex */';
 
 export function expandHex(hex) {
   const h = hex.toLowerCase();
@@ -105,8 +313,15 @@ export function findCssFiles(root = CSS_ROOT) {
   return files.sort();
 }
 
-/** --check 残留扫描：hex/rgb/悬空 var/计划注释/.dark 选择器；注释内 hex 不计。 */
-export function scanResidue(css) {
+/**
+ * --check 残留扫描：hex/rgb/悬空 var/计划注释/.dark 选择器；注释内 hex 不计。
+ * 例外感知（裁决 R8）：hex/rgb 残留命中 `relFile:色值`（EXCEPTIONS）时过滤——
+ * 裁决保留值不算残留；planned-comment / dangling-var / dark-selector 永不过滤。
+ */
+export function scanResidue(css, relFile, exceptions = EXCEPTIONS) {
+  const normRel = relFile ? relFile.replaceAll('\\', '/') : undefined;
+  const exceptedValue = (value) =>
+    normRel !== undefined && exceptions.has(`${normRel}:${value.toLowerCase()}`);
   const residue = [];
   const add = (index, kind, value) => {
     const line = css.slice(0, index).split('\n').length;
@@ -121,8 +336,12 @@ export function scanResidue(css) {
   const maskedVars = masked.replace(/var\(--color-[a-z0-9-]+(?:,[^)]*)?\)/gi, (m) =>
     ' '.repeat(m.length),
   );
-  for (const m of maskedVars.matchAll(HEX_RE)) add(m.index, 'hex', m[0]);
-  for (const m of maskedVars.matchAll(RGB_RE)) add(m.index, 'rgb', m[0]);
+  for (const m of maskedVars.matchAll(HEX_RE)) {
+    if (!exceptedValue(expandHex(m[0]))) add(m.index, 'hex', m[0]);
+  }
+  for (const m of maskedVars.matchAll(RGB_RE)) {
+    if (!exceptedValue(normalizeAlpha(m[0]))) add(m.index, 'rgb', m[0]);
+  }
   const dark = masked.match(DARK_SELECTOR_RE);
   if (dark) add(dark.index, 'dark-selector', '.dark');
   return residue;
@@ -137,13 +356,19 @@ function noteDeviation(deviations, value) {
 
 export function transformCss(css, relFile, maps = {}) {
   const tokenMap = maps.tokenMap ?? TOKEN_MAP;
+  const adjudicatedMap = maps.adjudicatedMap ?? ADJUDICATED_TOKEN_MAP;
+  const fileOverrides = maps.fileOverrides ?? FILE_OVERRIDES;
   const alphaMap = maps.alphaMap ?? ALPHA_MAP;
   const gradientMap = maps.gradientMap ?? GRADIENT_MAP;
   const exceptions = maps.exceptions ?? EXCEPTIONS;
   const deviations = new Map();
   const stats = { plannedCommentsStripped: 0, danglingRewritten: 0, replaced: 0 };
-  const excepted = (value) =>
-    exceptions.has(`${relFile.replaceAll('\\', '/')}:${value.toLowerCase()}`);
+  const normRel = relFile.replaceAll('\\', '/');
+  const excepted = (value) => exceptions.has(`${normRel}:${value.toLowerCase()}`);
+  const keptExceptions = new Set();
+  // hex 查找链（hex pass / rgb 空格语法 pass / 悬空 fallback pass 共用，裁决 R6/R7）：
+  // 文件级覆盖（B9/B16/B18 上下文拆分）→ 裁决映射 → seed 映射
+  const lookup = (hex) => fileOverrides?.[normRel]?.[hex] ?? adjudicatedMap?.[hex] ?? tokenMap[hex];
   const note = (value) => noteDeviation(deviations, value);
 
   // 1) 计划注释删除（spec §3.4）
@@ -183,7 +408,10 @@ export function transformCss(css, relFile, maps = {}) {
     });
     out = out.replace(DANGLING_RE, (whole, fallback) => {
       const hex = fallback.startsWith('#') ? expandHex(fallback) : rgbSpaceToHex(fallback);
-      const target = hex ? tokenMap[hex] : null;
+      // 裁决例外（如 B26 #fca5a5）：fallback 原样保留，整段 var() 不动、不记偏差（hex pass 照常豁免）
+      if (hex && excepted(hex)) return whole;
+      // hex 查找链未命中时，rgba fallback 查 ALPHA_MAP（R4/R5 裁决值，如 --chrome-hairline）
+      const target = hex ? lookup(hex) : (alphaMap[normalizeAlpha(fallback)] ?? null);
       if (!target) {
         note(fallback);
         return whole;
@@ -193,9 +421,10 @@ export function transformCss(css, relFile, maps = {}) {
     });
     out = out.replace(RGB_RE, (whole) => {
       const asHex = rgbSpaceToHex(whole);
-      if (asHex && tokenMap[asHex]) {
+      const solid = asHex ? lookup(asHex) : null;
+      if (solid) {
         stats.replaced += 1;
-        return `var(${tokenMap[asHex]})`;
+        return `var(${solid})`;
       }
       const key = normalizeAlpha(whole);
       if (alphaMap[key]) {
@@ -207,8 +436,11 @@ export function transformCss(css, relFile, maps = {}) {
     });
     out = out.replace(HEX_RE, (whole) => {
       const hex = expandHex(whole);
-      if (excepted(hex)) return whole;
-      const target = tokenMap[hex];
+      if (excepted(hex)) {
+        keptExceptions.add(whole.toLowerCase());
+        return whole;
+      }
+      const target = lookup(hex);
       if (!target) {
         note(whole);
         return whole;
@@ -226,6 +458,21 @@ export function transformCss(css, relFile, maps = {}) {
 
   let output = '';
   for (const seg of segments) output += seg.code !== undefined ? mapCode(seg.code) : seg.comment;
+
+  // 例外保留行的行尾豁免注入（裁决 R8）：在 \r\n 或 \n 前插入，已注入则跳过
+  if (keptExceptions.size > 0) {
+    output = output
+      .split('\n')
+      .map((line) => {
+        const lower = line.toLowerCase();
+        if (![...keptExceptions].some((h) => lower.includes(h))) return line;
+        const hasCr = line.endsWith('\r');
+        const body = (hasCr ? line.slice(0, -1) : line).replace(/[ \t]+$/, '');
+        if (body.includes('stylelint-disable-line color-no-hex')) return line;
+        return `${body}${STYLELINT_DISABLE_MARKER}${hasCr ? '\r' : ''}`;
+      })
+      .join('\n');
+  }
 
   for (const d of deviations.values()) {
     const at = output.toLowerCase().indexOf(d.value);
@@ -260,7 +507,8 @@ function main(argv) {
   if (mode === 'check') {
     const offenders = [];
     for (const f of files) {
-      for (const r of scanResidue(readFileSync(f, 'utf8'))) {
+      const rel = f.replaceAll('\\', '/');
+      for (const r of scanResidue(readFileSync(f, 'utf8'), rel)) {
         offenders.push(`${f}:${r.line}: ${r.kind} ${r.value}`);
       }
     }

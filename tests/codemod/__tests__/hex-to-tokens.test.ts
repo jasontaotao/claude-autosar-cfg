@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADJUDICATED_TOKEN_MAP,
   ALPHA_MAP,
+  EXCEPTIONS,
+  FILE_OVERRIDES,
+  GRADIENT_MAP,
   TOKEN_MAP,
   expandHex,
   findCssFiles,
@@ -42,15 +46,15 @@ describe('纯值映射（spec §9.7）', () => {
     expect(TOKEN_MAP['#1c2128']).toBe('--surface-menu');
   });
   it('未命中 → 原样保留 + 偏差记录', () => {
-    const { output, deviations } = transformCss('color: #6b7280;', 'a.css');
-    expect(output).toBe('color: #6b7280;');
-    expect(deviations.map((d) => d.value)).toContain('#6b7280');
+    const { output, deviations } = transformCss('color: #123456;', 'a.css');
+    expect(output).toBe('color: #123456;');
+    expect(deviations.map((d) => d.value)).toContain('#123456');
   });
-  it('EXCEPTIONS 命中 → 原样保留且不计偏差', () => {
+  it('EXCEPTIONS 命中 → 原样保留且不计偏差，行尾注入 stylelint-disable', () => {
     const { output, deviations } = transformCss('color: #1a1d23;', 'a.css', {
       exceptions: new Set(['a.css:#1a1d23']),
     });
-    expect(output).toBe('color: #1a1d23;');
+    expect(output).toBe('color: #1a1d23; /* stylelint-disable-line color-no-hex */');
     expect(deviations).toHaveLength(0);
   });
 });
@@ -67,18 +71,43 @@ describe('悬空 var(--color-*, fallback)（spec §3.2）', () => {
     expect(stats.danglingRewritten).toBe(1);
   });
   it('fallback 不可映射 → 原样 + 偏差', () => {
-    const { output, deviations } = transformCss('color: var(--color-accent, #4a90e2);', 'a.css');
-    expect(output).toBe('color: var(--color-accent, #4a90e2);');
-    expect(deviations.map((d) => d.value)).toContain('#4a90e2');
+    const { output, deviations } = transformCss('color: var(--color-accent, #123456);', 'a.css');
+    expect(output).toBe('color: var(--color-accent, #123456);');
+    expect(deviations.map((d) => d.value)).toContain('#123456');
+  });
+  it('fallback 为裁决例外 hex → 整段原样保留、不记偏差，行尾注入 stylelint-disable（B26）', () => {
+    const css = 'border-color: var(--color-error-border, #fca5a5);';
+    const { output, deviations } = transformCss(css, 'src/renderer/components/ErrorBanner.css');
+    expect(output).toBe(
+      'border-color: var(--color-error-border, #fca5a5); /* stylelint-disable-line color-no-hex */',
+    );
+    expect(deviations).toHaveLength(0);
+  });
+  it('fallback 为 alpha 值 → 查 ALPHA_MAP 改写（R4/R5 裁决）', () => {
+    const { output, stats, deviations } = transformCss(
+      'background: var(--color-surface-2, rgba(255, 255, 255, 0.03));',
+      'src/renderer/styles.css',
+    );
+    expect(output).toBe('background: var(--chrome-hairline);');
+    expect(stats.danglingRewritten).toBe(1);
+    expect(deviations).toHaveLength(0);
   });
 });
 
 describe('渐变与注释', () => {
   it('渐变内 hex 不做单值替换：未精确命中 → 原样 + 偏差（spec §9.7）', () => {
-    const css = 'background: linear-gradient(180deg, #1f232b 0%, #1a1d23 100%);';
+    const css = 'background: linear-gradient(180deg, #1f232b 0%, #262a31 100%);';
     const { output, deviations } = transformCss(css, 'sp.css');
     expect(output).toBe(css);
     expect(deviations.some((d) => d.value.startsWith('gradient:'))).toBe(true);
+  });
+  it('G1：ScriptPanel 渐变精确命中 GRADIENT_MAP → 坍缩为 var(--chrome-bg-deep)', () => {
+    const { output, deviations } = transformCss(
+      'background: linear-gradient(180deg, #1f232b 0%, #1a1d23 100%);',
+      'src/renderer/components/ScriptPanel/ScriptPanel.css',
+    );
+    expect(output).toBe('background: var(--chrome-bg-deep);');
+    expect(deviations).toHaveLength(0);
   });
   it('整条渐变精确命中 GRADIENT_MAP → 整体替换', () => {
     const g = 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)';
@@ -122,8 +151,56 @@ describe('alpha / overlay', () => {
     expect(miss.output).toBe('background: rgba(0, 0, 0, 0.55);');
     expect(miss.deviations.map((d) => d.value)).toContain('rgba(0, 0, 0, 0.55)');
   });
-  it('seed ALPHA_MAP 裁决前为空（Task 3 checkpoint 强制）', () => {
-    expect(Object.keys(ALPHA_MAP)).toHaveLength(0);
+  it('裁决后状态：ALPHA_MAP / GRADIENT_MAP / EXCEPTIONS 已填（Task 3 裁决落盘）', () => {
+    expect(ALPHA_MAP['rgba(0,0,0,0.5)']).toBe('--overlay-scrim');
+    expect(ALPHA_MAP['rgba(15,23,42,0.55)']).toBe('--overlay-scrim');
+    expect(GRADIENT_MAP['linear-gradient(180deg, #1f232b 0%, #1a1d23 100%)']).toBe(
+      'var(--chrome-bg-deep)',
+    );
+    expect(EXCEPTIONS.has('src/renderer/styles.css:#c2410c')).toBe(true);
+    expect(EXCEPTIONS.has('src/renderer/components/ValidationPanel.css:#3730a3')).toBe(true);
+    expect(
+      EXCEPTIONS.has('src/renderer/components/dcmConfig/DcmConfigErrorToast.css:#fca5a5'),
+    ).toBe(true);
+  });
+});
+
+describe('T3 裁决落盘（ADJUDICATED_TOKEN_MAP / FILE_OVERRIDES / 例外门禁）', () => {
+  it('seed TOKEN_MAP 冻结 27 键（裁决映射只进 ADJUDICATED_TOKEN_MAP）', () => {
+    expect(Object.keys(TOKEN_MAP)).toHaveLength(27);
+  });
+  it('ADJUDICATED_TOKEN_MAP 裁决抽查（B1/B8/B15/B16 全局）', () => {
+    expect(ADJUDICATED_TOKEN_MAP['#6b7280']).toBe('--text-muted');
+    expect(ADJUDICATED_TOKEN_MAP['#2563eb']).toBe('--brand-500');
+    expect(ADJUDICATED_TOKEN_MAP['#585b70']).toBe('--border-strong');
+    expect(ADJUDICATED_TOKEN_MAP['#1e293b']).toBe('--text-primary'); // styles.css 走 FILE_OVERRIDES
+  });
+  it('FILE_OVERRIDES 上下文拆分（B16）：styles.css 走覆盖，其余文件走全局映射', () => {
+    const css = 'color: #1e293b;';
+    const inStyles = transformCss(css, 'src/renderer/styles.css');
+    expect(inStyles.output).toBe('color: var(--chrome-bg);');
+    const elsewhere = transformCss(css, 'src/renderer/components/ProjectPanel.css');
+    expect(elsewhere.output).toBe('color: var(--text-primary);');
+  });
+  it('EXCEPTIONS 与 FILE_OVERRIDES 均为裁决数据源（存在性抽查）', () => {
+    expect(FILE_OVERRIDES['src/renderer/styles.css']).toEqual({
+      '#1e293b': '--chrome-bg',
+      '#334155': '--chrome-border',
+      '#1e3a8a': '--chrome-border',
+    });
+  });
+  it('例外保留行尾注入 stylelint-disable（裁决 R8），已注入则跳过', () => {
+    const css = [
+      'color: #9333ea;',
+      'border-color: #9333ea; /* stylelint-disable-line color-no-hex */',
+      'margin: 0;',
+    ].join('\n');
+    const { output, deviations } = transformCss(css, 'src/renderer/styles.css');
+    const lines = output.split('\n');
+    expect(lines[0]).toBe('color: #9333ea; /* stylelint-disable-line color-no-hex */');
+    expect(lines[1]).toBe('border-color: #9333ea; /* stylelint-disable-line color-no-hex */');
+    expect(lines[2]).toBe('margin: 0;');
+    expect(deviations).toHaveLength(0);
   });
 });
 
@@ -141,6 +218,13 @@ describe('scanResidue / findCssFiles（--check 支撑）', () => {
     expect(kinds).toContain('dangling-var');
     expect(kinds).toContain('dark-selector');
     expect(kinds.filter((k) => k === 'hex')).toHaveLength(2); // 注释内不计
+  });
+  it('例外感知（裁决 R8）：relFile:hex 命中 EXCEPTIONS → 过滤；未命中 → 保留', () => {
+    const css = '.x { color: #9333ea; border-color: #9333eb; }';
+    const hit = scanResidue(css, 'src/renderer/styles.css');
+    expect(hit.filter((r) => r.kind === 'hex').map((r) => r.value)).toEqual(['#9333eb']);
+    const miss = scanResidue(css, 'src/renderer/components/ErrorBanner.css');
+    expect(miss.filter((r) => r.kind === 'hex')).toHaveLength(2);
   });
   it('findCssFiles：递归 32 个 CSS 且排除 tokens.css', () => {
     const files = findCssFiles();

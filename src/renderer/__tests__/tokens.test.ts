@@ -59,3 +59,36 @@ describe('P1 tokens.css（spec §3.1 / §10.3 唯一定义处）', () => {
     expect(idx).toBeLessThan(stylesCss.indexOf('@tailwind'));
   });
 });
+
+// T3 偏差裁决新增 15 token（2026-08-30，docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md）
+const T3_ADJUDICATED_TOKENS: Array<[string, string]> = [
+  ['--brand-tint', '#dbeafe'],
+  ['--brand-tint-soft', '#eff6ff'],
+  ['--accent-rose-strong', '#b91c1c'],
+  ['--chrome-bg', '#1e293b'],
+  ['--chrome-bg-deep', '#1a1d23'],
+  ['--chrome-border', '#334155'],
+  ['--chrome-hairline', 'rgba(255, 255, 255, 0.1)'],
+  ['--rose-tint', '#fef2f2'],
+  ['--rose-tint-strong', '#fee2e2'],
+  ['--amber-tint', '#fef3c7'],
+  ['--emerald-tint', '#dcfce7'],
+  ['--overlay-scrim', 'rgba(0, 0, 0, 0.5)'],
+  ['--overlay-scrim-soft', 'rgba(0, 0, 0, 0.2)'],
+  ['--brand-alpha', 'rgba(59, 130, 246, 0.12)'],
+  ['--brand-alpha-soft', 'rgba(59, 130, 246, 0.06)'],
+];
+
+describe('T3 裁决新增 token（偏差裁决 2026-08-30）', () => {
+  it.each(T3_ADJUDICATED_TOKENS)('定义 %s = %s', (name, value) => {
+    expect(tokensCss).toMatch(new RegExp(`${escapeRe(name)}:\\s*${escapeRe(value)}`));
+  });
+
+  it('每个 T3 token 均带「T3 裁决新增」标注', () => {
+    for (const [name] of T3_ADJUDICATED_TOKENS) {
+      const line = tokensCss.split('\n').find((l) => l.includes(`${name}:`));
+      expect(line).toBeDefined();
+      expect(line).toContain('T3 裁决新增');
+    }
+  });
+});

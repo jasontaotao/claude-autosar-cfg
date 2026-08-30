@@ -1,7 +1,8 @@
 /* tokens.css — UI v2 P1 唯一 token 定义处（spec §3.1 / §10.3）。
  * 值来源：docs/mockups/ui-v2-preview.html :root（25 token 逐字一致）
  *       + --surface-menu（spec §9.8 新增）
- *       + metrics 扩展（spec §3.1；字体栈为 §9.14 声明的 Windows/CJK 回退扩展）。
+ *       + metrics 扩展（spec §3.1；字体栈为 §9.14 声明的 Windows/CJK 回退扩展）
+ *       + T3 偏差裁决新增 15 token（2026-08-30，docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md）。
  * 规则：全仓 CSS 只允许消费本文件变量；裸 hex/rgb 由 stylelint 禁止（spec §3.5）。 */
 :root {
   /* —— surface —— */
@@ -11,11 +12,15 @@
   --surface-subtle: #f1f5f9;
   --surface-header: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   --surface-menu: #1c2128; /* mockup 外新增（spec §9.8），下拉菜单 chrome */
+  --chrome-bg: #1e293b; /* T3 裁决新增（B16，styles.css 深色 chrome 底） */
+  --chrome-bg-deep: #1a1d23; /* T3 裁决新增（B16，ScriptPanel 深底/渐变端） */
 
   /* —— brand —— */
   --brand-500: #3b82f6;
   --brand-400: #60a5fa;
   --brand-300: #93c5fd;
+  --brand-tint: #dbeafe; /* T3 裁决新增（B22 蓝 tint 面） */
+  --brand-tint-soft: #eff6ff; /* T3 裁决新增（B22 蓝 tint 面） */
 
   /* —— accent —— */
   --accent-cyan: #38bdf8;
@@ -23,6 +28,7 @@
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
   --accent-amber-strong: #b45309; /* dirty 按钮深档（spec §3.1；#c2410c/#ea580c 不预先合并） */
+  --accent-rose-strong: #b91c1c; /* T3 裁决新增（B23 深红字） */
 
   /* —— text —— */
   --text-primary: #0f172a;
@@ -34,6 +40,20 @@
   /* —— border —— */
   --border-subtle: #e2e8f0;
   --border-strong: #cbd5e1;
+  --chrome-border: #334155; /* T3 裁决新增（B9/B16/B18，保暗区边框） */
+
+  /* —— tint（T3 裁决新增：语义 tint 面） —— */
+  --rose-tint: #fef2f2; /* T3 裁决新增（B19） */
+  --rose-tint-strong: #fee2e2; /* T3 裁决新增（B19） */
+  --amber-tint: #fef3c7; /* T3 裁决新增（B20） */
+  --emerald-tint: #dcfce7; /* T3 裁决新增（B21） */
+
+  /* —— overlay / alpha（T3 裁决新增：遮罩与半透明面） —— */
+  --overlay-scrim: rgba(0, 0, 0, 0.5); /* T3 裁决新增（R1/R8） */
+  --overlay-scrim-soft: rgba(0, 0, 0, 0.2); /* T3 裁决新增（R2） */
+  --brand-alpha: rgba(59, 130, 246, 0.12); /* T3 裁决新增（R3） */
+  --brand-alpha-soft: rgba(59, 130, 246, 0.06); /* T3 裁决新增（R3） */
+  --chrome-hairline: rgba(255, 255, 255, 0.1); /* T3 裁决新增（R4，保暗区发丝线） */
 
   /* —— shadow（与 mockup 逐字一致） —— */
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
