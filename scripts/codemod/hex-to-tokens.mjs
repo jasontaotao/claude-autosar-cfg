@@ -67,7 +67,9 @@ const RGB_RE = /rgba?\([^)]*\)/gi;
 const DANGLING_RE = /var\(--color-[a-z0-9-]+,\s*(#[0-9a-fA-F]{3,8}|rgba?\([0-9a-z.,\s%]+\))\s*\)/gi;
 // 连同注释前的空白一起删除，避免残留尾随空格（spec §3.4）
 const PLANNED_COMMENT_RE = /\s*\/\*\s*--color-[^*]*\*\//g;
-const GRADIENT_RE = /linear-gradient\([^;]*?\)/gi;
+// 括号平衡匹配（一层嵌套足够）：嵌套 rgba()/rgb() stop 的渐变必须整条捕获，
+// 否则在首个 ) 处截断，尾部 hex 逃逸掩码被单值替换、偏差串残缺（spec §9.7）
+const GRADIENT_RE = /linear-gradient\((?:[^()]|\([^()]*\))*\)/gi;
 const DARK_SELECTOR_RE = /\.dark[\s{.,:[>#]/;
 
 export function expandHex(hex) {

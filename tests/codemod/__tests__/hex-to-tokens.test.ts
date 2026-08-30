@@ -101,6 +101,16 @@ describe('渐变与注释', () => {
     expect(output).toContain('#2d323b');
     expect(deviations).toHaveLength(0);
   });
+  it('嵌套括号渐变（rgba stop）整体捕获：内部 hex 不被单值替换（spec §9.7）', () => {
+    const css = 'background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, #1a1d23 100%);';
+    const { output, deviations } = transformCss(css, 'sp.css');
+    expect(output).toBe(css);
+    const g = deviations.find((d) => d.value.startsWith('gradient:'));
+    expect(g).toBeDefined();
+    // 偏差值必须是完整括号平衡的整条渐变，而非在首个 ) 处截断的残串
+    expect(g?.value).toContain('rgba(0,0,0,0.5)');
+    expect(g?.value).toContain('#1a1d23');
+  });
 });
 
 describe('alpha / overlay', () => {
