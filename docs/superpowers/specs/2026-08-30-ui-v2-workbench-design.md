@@ -117,6 +117,17 @@ P1 视觉地基（纯 CSS，零行为变化）
 | shadow | `--shadow-sm/md/lg` | `0 1px 2px rgba(15,23,42,0.05)` / `0 4px 12px rgba(15,23,42,0.08)` / `0 12px 32px rgba(15,23,42,0.12)`（与 mockup 逐字一致） |
 | radius | `--radius-sm/md/lg` | `4px` / `6px` / `10px` |
 
+**T3 裁决新增 15 token**（以下均为「T3 裁决新增」标注项，以 2026-08-30 P1 偏差裁决为准，见 `docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md`；分组同 tokens.css）：
+
+| 组 | Token | 值 |
+|---|---|---|
+| surface | `--chrome-bg` / `--chrome-bg-deep` | `#1e293b` / `#1a1d23` |
+| brand | `--brand-tint` / `--brand-tint-soft` | `#dbeafe` / `#eff6ff` |
+| accent | `--accent-rose-strong` | `#b91c1c` |
+| border | `--chrome-border` | `#334155` |
+| tint | `--rose-tint` / `--rose-tint-strong` / `--amber-tint` / `--emerald-tint` | `#fef2f2` / `#fee2e2` / `#fef3c7` / `#dcfce7` |
+| overlay/alpha | `--overlay-scrim` / `--overlay-scrim-soft` / `--brand-alpha` / `--brand-alpha-soft` / `--chrome-hairline` | `rgba(0,0,0,0.5)` / `rgba(0,0,0,0.2)` / `rgba(59,130,246,0.12)` / `rgba(59,130,246,0.06)` / `rgba(255,255,255,0.1)` |
+
 **metrics 扩展**（mockup 未覆盖，按现有值分布收敛）：
 
 | Token | 值 | 现状分布 / 收敛策略 |
@@ -313,7 +324,7 @@ dock 面板可关闭，且布局持久化会记住「已关闭」状态——必
 以下为 2026-08-30 spec review 新增裁决（消除实施歧义）：
 
 7. codemod 采用**纯值映射**（hex → 唯一 token，与属性上下文无关）；语义错位由重灾区人工 review 修正，不算偏离；渐变内 hex 不做单值替换
-8. 新增 `--surface-menu`（mockup 外唯一新增 token）；`.app-dropdown` 保持深色 chrome，仅做 token 化
+8. 新增 `--surface-menu`（mockup 外新增 token）；`.app-dropdown` 保持深色 chrome，仅做 token 化。mockup 外新增 token 以 §3.1 裁决清单为准（--surface-menu + T3 裁决 15 个）
 9. metrics token P1 只落地定义；存量使用点迁移不在 P1 验收范围
 10. P3 中 viewer 打开加入 `param-editor` 所在组；`'viewer'` 枚举 P4 启用
 11. header 新增「视图」面板恢复入口 + 重置布局（§5.6），P3 交付
@@ -322,6 +333,7 @@ dock 面板可关闭，且布局持久化会记住「已关闭」状态——必
 14. 字体栈 pin 为含 Windows/CJK 回退的具体值（mockup 栈的声明性扩展）
 15. `--accent-amber-strong` 仅精确命中 `#b45309`；`#c2410c`/`#ea580c` 走偏差清单，不预先合并
 16. P4 升级触发布局全量重置（P3 数据 version 不匹配 → 默认布局），属预期行为
+17. P1 偏差裁决结果以 `docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md` 为准（2026-08-30 用户整体确认）；B26（#fca5a5）保留原值 + EXCEPTIONS 豁免；实施机制注记（ADJUDICATED_TOKEN_MAP / FILE_OVERRIDES / scanResidue 例外感知）见该文档「机制注记（实施时裁决）」节
 
 ## 10. 实施一致性保障（交接协议）
 
