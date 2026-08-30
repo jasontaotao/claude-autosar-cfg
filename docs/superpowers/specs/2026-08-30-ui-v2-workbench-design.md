@@ -67,13 +67,13 @@
 
 **P3 Dock 工作台骨架**
 - 引入 `dockview`（MIT），工作区替换为 `<DockviewReact>`；header / status-footer 留在 dock 外
-- 面板注册表 `panels/registry.ts`，首批 7 面板
+- 面板注册表 `panels/registry.ts`，首批 5 面板（现状区域整体搬迁，不拆分内部）
 - 默认布局序列化等价当前布局（用户升级无感）
 - 布局持久化 localStorage（versioned key，坏数据回退默认）
 
 **P4 IA 重组落位**
-- 左面板 3 tab（项目/文件/验证）拆为 3 个独立 dock 面板（默认仍同 tab 组，观感不变）
-- Tree 独立成面板；DBC/ODX viewer 归组统一 viewer tab 组
+- 左面板 3 tab（项目/文件/验证）拆为 3 个独立 dock 面板 + Tree 独立成面板（LeftPanel 壳退役，终态 8 面板）
+- DBC/ODX viewer 归组统一 viewer tab 组
 - 验证面板 → ParamEditor 联动（点击问题定位树节点 + 滚动到参数）
 - react-resizable-panels 移除
 
@@ -129,13 +129,16 @@ P1 视觉地基（纯 CSS，零行为变化）
 
 ### 3.2 色值收敛 codemod
 
+- 脚本：`scripts/codemod/hex-to-tokens.mjs`（新增，入仓）。三种模式：默认 **dry-run**（输出替换预览 + 偏差清单）、`--write`（落盘）、`--check`（CI 用，发现残留裸值即 exit 1）
+- 映射表内嵌脚本（`TOKEN_MAP` 常量），来源 = §3.1 token 清单 + §3.3 反转表——**单一数据源**，实施者不得另建映射
+- **收敛范围 = 32 个手写 CSS 文件**。editor 子系统的 Tailwind slate 工具类（9 个 tsx）不在本阶段收敛范围：其色值与 token 同源、视觉一致，且框架统一是 §1 声明的 Non-goal
 - 脚本扫描 32 个 CSS 文件，按映射表替换裸值为 `var()`：
   - **Tailwind slate/blue 族（225 处）**：色值相等直映射（`#f8fafc→--surface-app`、`#0f172a→--text-primary` 等）
   - **GitHub dark 下拉（7 处，`styles.css .app-dropdown`）**：`#1c2128→--surface-header` 实色或新增 `--surface-menu`，`#c9d1d9→--text-inverse-muted`
   - **Catppuccin（336 处，13 组件）**：见 §3.3 反转表，非直映射
 - 119 处悬空 `var(--color-*, fallback)` 统一改写为新命名（fallback 删除，token 已有定义）
 - 无精确命中的近似色：全部进偏差清单，人工逐项裁决（不设自动阈值）
-- 15 个重灾区文件替换后人工 review + visual regression 对比
+- 15 个重灾区文件替换后人工 review + visual regression 对比（括号内为裸色值计数，合计 641 / 914 ≈ 70%）：`styles.css`(94)、`components/ScriptPanel/ScriptPanel.css`(83)、`components/NewProjectDialog.css`(55)、`components/ModuleFromBswmdPicker.css`(52)、`components/ValidationPanel.css`(46)、`components/ProjectPanel.css`(42)、`components/BswmdPickerDialog.css`(37)、`components/RemoveModuleConfirmDialog.css`(35)、`components/ErrorBanner.css`(35)、`components/CascadeConfirmDialog.css`(33)、`components/OdxViewer/OdxViewer.css`(33)、`components/FileListTab.css`(31)、`components/DbcViewer/DbcViewer.css`(30)、`components/ValidationPanel/ValidationPanel.css`(29)、`components/DbcImportWizard/DbcImportWizard.css`(29)
 
 ### 3.3 Catppuccin 暗色反转表（13 组件）
 
@@ -160,7 +163,9 @@ P1 视觉地基（纯 CSS，零行为变化）
 
 ### 3.5 防回潮
 
-- stylelint 规则禁裸 hex/rgb/rgba（`declaration-property-value-disallowed-list` 或自定义规则），`tokens.css` 自身豁免；进 CI lint 阶段
+- 新增 devDependency：`stylelint` + `stylelint-config-standard`（确切版本在 P1 plan 锁定）
+- 核心规则：`color-no-hex: true` + `declaration-property-value-disallowed-list` 对 `color/background/border/fill/stroke/box-shadow` 属性禁 `/rgba?\(/`；`overrides` 豁免 `tokens.css` 与 codemod 脚本
+- `pnpm stylelint "src/renderer/**/*.css"` 进 CI lint 阶段，0 error 为门禁；与 codemod `--check` 构成双保险
 
 ### 3.6 P1 验收
 
@@ -188,7 +193,7 @@ P1 视觉地基（纯 CSS，零行为变化）
 
 ### 5.1 技术选型
 
-**dockview**（mathuo/dockview）：MIT、React 一等支持、TS 原生、zero-deps（~40kb gz）、活跃维护。拖拽换位 / tab 合并分组 / split / 布局序列化齐备。
+**dockview**（mathuo/dockview）：MIT、React 一等支持、TS 原生、zero-deps（~40kb gz）、活跃维护。拖拽换位 / tab 合并分组 / split / 布局序列化齐备。**版本策略**：P3 plan 锁定确切版本，package.json 用精确版本（不带 caret），后续升级走独立 chore。
 
 否决项：flexlayout-react（API 繁、自定义 license）、golden-layout（React 支持弱、维护放缓）、react-resizable-panels 扩展（只能 split，tab 合并/拖拽换位需自研，等于重写 dockview 已解决的问题）。
 
@@ -215,11 +220,19 @@ interface PanelDef {
 }
 ```
 
-首批 7 面板：`project-files`（现左面板 3 tab 容器）、`arxml-tree`、`param-editor`、`script-panel`、`validation`、`dbc-viewer`、`odx-viewer`。
+首批 5 面板（现状区域**整体搬迁**，不拆分内部）：`left-panel`（现左面板含 3 tab + Tree）、`param-editor`、`script-panel`、`dbc-viewer`、`odx-viewer`。面板 id 一经注册**永不改名**（布局持久化引用 id）。
+
+| 面板 id | defaultGroup | 说明 |
+|---|---|---|
+| `left-panel` | `left` | 现左面板整体（3 tab + Tree） |
+| `param-editor` | `center` | 右侧参数编辑器 |
+| `script-panel` | `bottom` | 脚本面板，默认折叠 |
+| `dbc-viewer` | `viewer` | 按需打开 |
+| `odx-viewer` | `viewer` | 按需打开 |
 
 ### 5.4 默认布局与持久化
 
-- 默认布局序列化 JSON **等价当前布局**：左 ~30%（`project-files` + `arxml-tree` tab 组）、右 `param-editor`、`script-panel` 收底部默认折叠——**用户升级无感**为验收标准（截图对比）
+- 默认布局语义（P3 plan 据此生成序列化 JSON，比例/折叠态以本节为准）：`left-panel` 居左占 **30%**；`param-editor` 居右占 70%；`script-panel` 底部组**默认折叠**；viewer 面板按需打开时加入 `param-editor` 所在 tab 组——**用户升级无感**为验收标准（截图对比）
 - 持久化：`dockview.serialize()` → localStorage key `autosarcfg.layout.v1`；含 `version` 字段
 - 恢复策略：JSON 解析失败 / version 不匹配 / 引用了已删除面板 id → 静默回退默认布局（不阻塞启动，console.warn 一次）
 
@@ -235,8 +248,8 @@ interface PanelDef {
 
 ## 6. P4 IA 重组（详细设计）
 
-- 左面板 3 tab（项目 / 文件 / 验证）拆为 3 个独立 dock 面板，默认仍组在同一 tab 组——观感与现状一致，能力上各自可拖出/关闭/换位
-- `arxml-tree` 从 LeftPanel 内部独立成面板（LeftPanel 壳退役）
+- 左面板 3 tab（项目 / 文件 / 验证）拆为 3 个独立 dock 面板（id：`project` / `files` / `validation`）+ `arxml-tree` 从 LeftPanel 内部独立成面板，LeftPanel 壳退役——终态 8 面板：`project`、`files`、`validation`、`arxml-tree`、`param-editor`、`script-panel`、`dbc-viewer`、`odx-viewer`
+- P4 默认布局：左 30% 上下分——上为 `project`/`files`/`validation` tab 组，下为 `arxml-tree`；右侧 `param-editor` 与底部 `script-panel` 同 P3。观感与现状一致，能力上各自可拖出/关闭/换位
 - DBC / ODX viewer 归组为统一 `viewer` tab 组（打开 viewer 时加入该组而非弹层）
 - 验证联动：ValidationPanel 点击问题项 → 树选中对应节点 + ParamEditor 滚动定位（走既有 `selectedPath` store 通道，不新增状态）
 - 迁移约束：每 surface 只做「组件包装 + title i18n 接入」，不改内部逻辑与 props 契约
@@ -270,3 +283,54 @@ interface PanelDef {
 4. **dockview** 为 dock 库选型（§5.1 论证）
 5. **token 命名以 mockup 为准**，不沿用代码侧 `--color-*` 悬空命名
 6. 交互效率专项不在本期范围（后续单独立项）
+
+## 10. 实施一致性保障（交接协议）
+
+本节是 spec 交付实施的契约层：实施者（人或 agent）拿到本 spec + 当阶段 plan 后，按以下规则执行，保证实现与设计不跑偏。
+
+### 10.1 实施模型
+
+- 每阶段 = 独立实施 plan（writing-plans 产出，落 `docs/superpowers/plans/`）→ TDD 执行 → code review → ship
+- 实施者**只执行当阶段 plan**；本 spec 用于范围界定与冲突裁决，不直接作为施工清单
+- 冲突裁决优先级：**本 spec §9 决策记录 > 本 spec 正文 > 阶段 plan**
+- 发现 spec 内部矛盾、或与代码现实冲突 → **停手上报**，不得自行解释、变通或"选个看起来更合理的"
+
+### 10.2 每阶段 Definition of Done（机器可验证）
+
+| 阶段 | 门禁命令 | 通过标准 |
+|---|---|---|
+| P1 | `node scripts/codemod/hex-to-tokens.mjs --check` | 输出 0 残留裸色值 |
+| P1 | `pnpm stylelint "src/renderer/**/*.css"` | 0 error |
+| P1 | `pnpm test` + visual regression | 全绿；6 surface 基线通过（反转组件走新基线） |
+| P2 | `pnpm test`（含新增故障注入单测：Tree / ParamEditor / ScriptPanel 各一） | 全绿；注入故障不越出所在面板 |
+| P2 | e2e（空状态引导 + dialog 验证时机） | 通过 |
+| P3 | 单测（布局序列化/恢复/坏数据回退）+ e2e（拖拽换组 + reload 恢复） | 通过 |
+| P3 | 默认布局 vs 现布局截图等价 | 视觉 diff 在阈值内（阈值在 P3 plan 量化） |
+| P4 | `package.json` 无 `react-resizable-panels`；验证联动 e2e；`pnpm verify` | 依赖移除；全量绿 |
+
+每阶段 plan 必须从本表生成自己的「一致性自检清单」，逐项打勾后才允许进入 review。
+
+### 10.3 命名与位置契约（实施者不得另选）
+
+| 契约项 | 值 |
+|---|---|
+| tokens 唯一定义处 | `src/renderer/styles/tokens.css` |
+| codemod 脚本 | `scripts/codemod/hex-to-tokens.mjs`（dry-run 默认 / `--write` / `--check`） |
+| 面板注册表 | `src/renderer/panels/registry.ts` |
+| 布局持久化 key | localStorage `autosarcfg.layout.v1`（含 `version` 字段；坏数据/版本漂移 → 静默回退默认布局） |
+| 面板 id（P3） | `left-panel` / `param-editor` / `script-panel` / `dbc-viewer` / `odx-viewer` |
+| 面板 id（P4 新增） | `project` / `files` / `validation` / `arxml-tree`（`left-panel` 退役，旧布局数据走版本回退） |
+| visual regression 基线 | `tests/visual/baseline/`（入仓） |
+| 新增/修改样式 | 只允许消费 `tokens.css` 变量；裸 hex/rgb 一律 BLOCK（stylelint 强制） |
+
+面板 id 一经注册**永不改名**；需要重命名时新增 id + 布局版本号递增，旧 id 走回退路径。
+
+### 10.4 偏离协议
+
+- 实施中对 spec 的任何偏离——包括"看起来更合理"的替代做法——必须：先写入当阶段 plan 的 `## Deviations` 节 → 用户确认 → 才可实施
+- 未声明的偏离在 code review 中按 **BLOCK** 处理
+
+### 10.5 Spec 变更控制
+
+- 本 spec 的任何修改必须经用户批准；修订历史走 git commit
+- §9 决策记录的翻案（如重做 dark 主题、换 dock 库）必须新起 spec 修订 commit 并注明理由
