@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   ADJUDICATED_TOKEN_MAP,
   ALPHA_MAP,

@@ -30,6 +30,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
+      - run: pnpm stylelint
 
   # Stage 2: type-check
   type-check:

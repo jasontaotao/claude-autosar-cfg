@@ -31,38 +31,43 @@
 3. **ParamEditor.test.tsx 断言同步修改**。该测试文件 `dark:text-slate-50` 等断言（:339-355 两处）依赖将被删除的类名，Task 5 同步改为断言亮色类（spec 未提测试改动）。
 4. **ScriptPanel 渐变坍缩为实色**。ScriptPanel.css:301 `linear-gradient(180deg,#1f232b 0%,#1a1d23 100%)` 两 stop 均映射 `--chrome-bg-deep`，坍缩为实色（视觉变化 ≈ 0，两 stop 本就近似）。
 5. **6 个 visual surface 清单补全**。spec §3.6 说「6 个关键 surface」未列明，本 plan Task 7 枚举为：默认工作区 / 文件 tab / NewProjectDialog / ScriptPanel / RemoveModuleConfirmDialog / delete-ecuc ConfirmDialog。
+6. **Task 6 关闭 14 条 standard 预设风格类规则（与色值无关）**。首跑 173 error 中 144 条来自格式/结构类规则，逐条关闭：`comment-empty-line-before`（存量注释紧跟规则书写）、`selector-class-pattern`（存量 camelCase BEM 类名如 `--odxDcmLinkage`，改名波及 TSX）、`no-descending-specificity`（存量 `:disabled` 位于 `:hover` 后的顺序约定，重排有回归风险）、`rule-empty-line-before`、`font-family-name-quotes`（存量 `"Consolas"` 带引号）、`shorthand-property-no-redundant-values`（存量 4 值简写显式书写）、`value-keyword-case`（字体名/currentColor 大小写）、`declaration-block-no-duplicate-properties`（存量重复 `padding` 遗留写法）、`declaration-property-value-keyword-no-deprecated`（存量 `word-break: break-word`）、`declaration-block-no-shorthand-property-overrides`（存量 `border-left-color` 被简写覆盖）、`declaration-block-no-redundant-longhand-properties`（存量 `overflow`/`flex-flow` longhand）、`selector-not-notation`、`property-no-deprecated`（存量遗留 `clip`）、`no-duplicate-selectors`（存量 `.tree-add-collection` 重复）。色值规则一条未放松。
+7. **Task 6 tokens.css 豁免块追加 4 条裸值「记法」规则**。`color-hex-length`、`color-function-notation`、`color-function-alias-notation`、`alpha-value-notation` 仅约束裸值书写记法（`#ffffff`→`#fff`、`rgba()`→`rgb()` 现代记法、`0.5`→`50%`）；组件侧裸值已被 `color-no-hex` + `declaration-property-value-disallowed-list` 直接禁止，这 4 条只对豁免文件有实际约束。tokens.css 裸值按 mockup 逐字裁决（T3/T4），不改写记法，故在 tokens.css override 内置 null。
+8. **命名色 white ×3（codemod 只扫 hex/rgb 的盲区）按 R12 入 token**。LeftPanel.css:119 `background: white` → `var(--surface-panel)`（white=#ffffff=--surface-panel 值，纯值映射）；styles.css:709/729 `color: white`（accent-cyan 徽章文字）→ `var(--text-inverse)`（#f1f5f9，饱和青底上不可感知）。属 spec §9.7 人工语义修正，非偏离。
 
 ---
 
 ## 文件总览
 
-| 动作 | 文件 | 职责 |
-|---|---|---|
-| Create | `src/renderer/styles/tokens.css` | 唯一 token 定义（:root 单块） |
-| Modify | `src/renderer/styles.css`（头部 @import） | tokens 接入（必须在所有 @import/@tailwind 之前） |
-| Create | `scripts/codemod/hex-to-tokens.mjs` | 色值收敛 codemod（dry-run/--write/--check） |
-| Create | `tests/codemod/__tests__/hex-to-tokens.test.ts` | codemod 单测（vitest include 覆盖 `tests/**/__tests__/**/*.test.ts`） |
-| Create | `tests/codemod/codemod.d.ts` | `.mjs` 导入的 TS 模块声明 shim |
-| Modify | 32 个 `src/renderer/**/*.css` | 色值 → var()（codemod 自动）+ 语义修正（人工 review） |
-| Modify | `src/renderer/components/editor/modes/{EnumEditor,BooleanEditor}.css` | 删 `.dark` 死代码（codemod 之外的手工编辑） |
-| Modify | `src/renderer/components/editor/{ParamEditor,modes/*}.tsx`、`src/renderer/index.html` | 删 `dark:` 变体 |
-| Modify | `src/renderer/components/editor/__tests__/ParamEditor.test.tsx` | dark: 断言 → 亮色断言 |
-| Create | `src/renderer/__tests__/p1-single-theme.test.ts` | 单主题 guard 测试 |
-| Modify | `package.json`、`.github/workflows/ci.yml`、`scripts/verify.mjs` | stylelint 接线 |
-| Create | `stylelint.config.mjs` | stylelint 规则（bare-hex/rgba 门禁，tokens.css 豁免） |
-| Modify | `playwright.config.ts` | snapshot 路径指到 `tests/visual/baseline/` |
-| Create | `tests/e2e/visual-regression.spec.ts` + `tests/visual/baseline/**` | 6 surface 基线 |
+| 动作   | 文件                                                                                  | 职责                                                                  |
+| ------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Create | `src/renderer/styles/tokens.css`                                                      | 唯一 token 定义（:root 单块）                                         |
+| Modify | `src/renderer/styles.css`（头部 @import）                                             | tokens 接入（必须在所有 @import/@tailwind 之前）                      |
+| Create | `scripts/codemod/hex-to-tokens.mjs`                                                   | 色值收敛 codemod（dry-run/--write/--check）                           |
+| Create | `tests/codemod/__tests__/hex-to-tokens.test.ts`                                       | codemod 单测（vitest include 覆盖 `tests/**/__tests__/**/*.test.ts`） |
+| Create | `tests/codemod/codemod.d.ts`                                                          | `.mjs` 导入的 TS 模块声明 shim                                        |
+| Modify | 32 个 `src/renderer/**/*.css`                                                         | 色值 → var()（codemod 自动）+ 语义修正（人工 review）                 |
+| Modify | `src/renderer/components/editor/modes/{EnumEditor,BooleanEditor}.css`                 | 删 `.dark` 死代码（codemod 之外的手工编辑）                           |
+| Modify | `src/renderer/components/editor/{ParamEditor,modes/*}.tsx`、`src/renderer/index.html` | 删 `dark:` 变体                                                       |
+| Modify | `src/renderer/components/editor/__tests__/ParamEditor.test.tsx`                       | dark: 断言 → 亮色断言                                                 |
+| Create | `src/renderer/__tests__/p1-single-theme.test.ts`                                      | 单主题 guard 测试                                                     |
+| Modify | `package.json`、`.github/workflows/ci.yml`、`scripts/verify.mjs`                      | stylelint 接线                                                        |
+| Create | `stylelint.config.mjs`                                                                | stylelint 规则（bare-hex/rgba 门禁，tokens.css 豁免）                 |
+| Modify | `playwright.config.ts`                                                                | snapshot 路径指到 `tests/visual/baseline/`                            |
+| Create | `tests/e2e/visual-regression.spec.ts` + `tests/visual/baseline/**`                    | 6 surface 基线                                                        |
 
 ---
 
 ### Task 1: tokens.css 落地 + styles.css 接入
 
 **Files:**
+
 - Create: `src/renderer/styles/tokens.css`
 - Modify: `src/renderer/styles.css`（仅文件头部 @import 区，第 9-10 行附近）
 - Test: `src/renderer/__tests__/tokens.test.ts`
 
 **Interfaces:**
+
 - Consumes: 无（首个任务）
 - Produces: 44 个 CSS 自定义属性（Task 4 会追加裁决新增的 ~15 个）；后续所有任务的 `var(--*)` 消费以本文件为准
 
@@ -238,11 +243,13 @@ git commit -m "feat(p1): tokens.css 落地 mockup 25 token + --surface-menu + me
 ### Task 2: codemod 脚本 `scripts/codemod/hex-to-tokens.mjs` + 单测
 
 **Files:**
+
 - Create: `scripts/codemod/hex-to-tokens.mjs`
 - Create: `tests/codemod/codemod.d.ts`
 - Test: `tests/codemod/__tests__/hex-to-tokens.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 tokens.css（脚本本身不读它，只定义映射）
 - Produces（Task 3/4 依赖）:
   - `TOKEN_MAP: Record<string, string>`（seed 直映射 + Catppuccin 反转，30 项）
@@ -288,7 +295,9 @@ describe('基础归一化', () => {
 describe('纯值映射（spec §9.7）', () => {
   it('直映射命中（含大小写/缩写）', () => {
     const { output, stats } = transformCss('color: #FFF;\nborder-top: 1px solid #CBD5E1;', 'a.css');
-    expect(output).toBe('color: var(--surface-panel);\nborder-top: 1px solid var(--border-strong);');
+    expect(output).toBe(
+      'color: var(--surface-panel);\nborder-top: 1px solid var(--border-strong);',
+    );
     expect(stats.replaced).toBe(2);
   });
   it('Catppuccin 反转逐行一对一（spec §3.3）', () => {
@@ -476,8 +485,7 @@ export const EXCEPTIONS = new Set();
 
 const HEX_RE = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/g;
 const RGB_RE = /rgba?\([^)]*\)/gi;
-const DANGLING_RE =
-  /var\(--color-[a-z0-9-]+,\s*(#[0-9a-fA-F]{3,8}|rgba?\([0-9a-z.,\s%]+\))\s*\)/gi;
+const DANGLING_RE = /var\(--color-[a-z0-9-]+,\s*(#[0-9a-fA-F]{3,8}|rgba?\([0-9a-z.,\s%]+\))\s*\)/gi;
 const PLANNED_COMMENT_RE = /\/\*\s*--color-[^*]*\*\//g;
 const GRADIENT_RE = /linear-gradient\([^;]*?\)/gi;
 const DARK_SELECTOR_RE = /\.dark[\s{.,:[>#]/;
@@ -548,7 +556,8 @@ export function transformCss(css, relFile, maps = {}) {
   const exceptions = maps.exceptions ?? EXCEPTIONS;
   const deviations = new Map();
   const stats = { plannedCommentsStripped: 0, danglingRewritten: 0, replaced: 0 };
-  const excepted = (value) => exceptions.has(`${relFile.replaceAll('\\', '/')}:${value.toLowerCase()}`);
+  const excepted = (value) =>
+    exceptions.has(`${relFile.replaceAll('\\', '/')}:${value.toLowerCase()}`);
   const note = (value) => noteDeviation(deviations, value);
 
   // 1) 计划注释删除（spec §3.4）
@@ -648,7 +657,8 @@ function scanDarkGuard() {
       else if (/\.(tsx?|html)$/.test(name)) {
         const src = readFileSync(p, 'utf8');
         src.split('\n').forEach((line, idx) => {
-          if (/\bdark:[a-z]/i.test(line)) offenders.push(`${p}:${idx + 1}: dark-variant ${line.trim().slice(0, 80)}`);
+          if (/\bdark:[a-z]/i.test(line))
+            offenders.push(`${p}:${idx + 1}: dark-variant ${line.trim().slice(0, 80)}`);
         });
       }
     }
@@ -690,17 +700,23 @@ function main(argv) {
     totalComments += stats.plannedCommentsStripped;
     totalDeviations += deviations.length;
     const changed =
-      stats.replaced + stats.danglingRewritten + stats.plannedCommentsStripped + deviations.length > 0;
+      stats.replaced + stats.danglingRewritten + stats.plannedCommentsStripped + deviations.length >
+      0;
     if (!changed) continue;
-    console.log(`\n== ${rel}  (替换 ${stats.replaced} / 悬空改写 ${stats.danglingRewritten} / 删注释 ${stats.plannedCommentsStripped})`);
-    for (const d of deviations) console.log(`   偏差 ${d.value}  ×${d.count}  (首现 L${d.firstLine})`);
+    console.log(
+      `\n== ${rel}  (替换 ${stats.replaced} / 悬空改写 ${stats.danglingRewritten} / 删注释 ${stats.plannedCommentsStripped})`,
+    );
+    for (const d of deviations)
+      console.log(`   偏差 ${d.value}  ×${d.count}  (首现 L${d.firstLine})`);
     if (mode === 'write') writeFileSync(f, output);
   }
   console.log(
     `\n[${mode === 'write' ? '--write' : 'dry-run'}] 替换 ${totalReplaced} / 悬空改写 ${totalDangling} / 删注释 ${totalComments}；未映射偏差 ${totalDeviations} 种`,
   );
   if (mode === 'dry') {
-    console.log('[dry-run] 未落盘。按 spec §3.2 dry-run 先行：偏差裁决（Task 3 checkpoint）后才允许 --write。');
+    console.log(
+      '[dry-run] 未落盘。按 spec §3.2 dry-run 先行：偏差裁决（Task 3 checkpoint）后才允许 --write。',
+    );
   }
 }
 
@@ -735,12 +751,14 @@ git commit -m "feat(p1): hex-to-tokens codemod（dry-run/--write/--check，TOKEN
 ### Task 3: 【CHECKPOINT · 停手上报】dry-run 偏差清单 → 用户裁决 → spec 修订
 
 **Files:**
+
 - Create: `docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md`（裁决产物）
 - Modify: `scripts/codemod/hex-to-tokens.mjs`（裁决结果填入 ALPHA_MAP/GRADIENT_MAP/EXCEPTIONS）
 - Modify: `src/renderer/styles/tokens.css`（裁决通过的新 token）
 - Modify: `docs/superpowers/specs/2026-08-30-ui-v2-workbench-design.md`（§3.1/§9.8 修订，spec §10.5）
 
 **Interfaces:**
+
 - Consumes: Task 2 的 CLI dry-run 输出、本 plan 附录 A 推荐表
 - Produces: 填充完毕的 ALPHA_MAP/GRADIENT_MAP/EXCEPTIONS + tokens.css 最终 token 集（Task 4 `--write` 的前提）
 
@@ -779,9 +797,11 @@ git commit -m "docs(p1): 偏差裁决落盘 + spec §3.1/§9.8 修订（新增 t
 ### Task 4: 执行 `--write` + 重灾区人工 review
 
 **Files:**
+
 - Modify: 32 个 `src/renderer/**/*.css`（codemod 自动 + 人工语义修正）
 
 **Interfaces:**
+
 - Consumes: Task 3 填充完毕的映射表
 - Produces: 全仓 CSS 裸色值 = 0（EXCEPTIONS 豁免除外）；119 处悬空 var 已改写；53 处计划注释已删除
 
@@ -798,6 +818,7 @@ grep -rEoh "rgba?\(" src/renderer --include="*.css" | wc -l
 grep -rc "var(--color-" src/renderer --include="*.css" | grep -v ":0" | wc -l
 grep -rc -e "/\* --color-" src/renderer --include="*.css" | grep -v ":0" | wc -l
 ```
+
 Expected: 前两条 = EXCEPTIONS 内豁免数（裁决后为已知常量，通常 0-9）；后两条 = 0
 
 - [ ] **Step 3: 全量测试**
@@ -809,12 +830,12 @@ Expected: 全绿（CSS-only 改动不应破坏行为测试；若样式快照类�
 
 Run: `pnpm dev`（另开终端）后用浏览器逐个走查，对照 `docs/mockups/audit-2026-08-30/` 的 6 张改前截图：
 
-| 文件 | 走查 surface |
-|---|---|
-| styles.css | header / 下拉菜单 / 空态主区（重点：#f1f5f9/#cbd5e1 值冲突处按语义改 `--text-inverse`/`--text-inverse-muted`，styles.css 深色 chrome 区全部文本用 inverse 族） |
-| ScriptPanel.css | 脚本面板（保暗 chrome，确认 `--chrome-*` 观感） |
-| NewProjectDialog.css / ModuleFromBswmdPicker.css / BswmdPickerDialog.css / ConfirmDialog.css / ConfirmDialog2.css / CascadeConfirmDialog.css / RemoveModuleConfirmDialog.css / XlsxBatchWizard / DbcImportWizard | 反转组件：打开各 dialog，确认亮色观感（audit-03/04/05 对照） |
-| ValidationPanel.css / ProjectPanel.css / FileListTab.css / OdxViewer.css / DbcViewer.css / ErrorBanner.css | 左面板 tabs / viewer / 错误横幅 |
+| 文件                                                                                                                                                                                                             | 走查 surface                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| styles.css                                                                                                                                                                                                       | header / 下拉菜单 / 空态主区（重点：#f1f5f9/#cbd5e1 值冲突处按语义改 `--text-inverse`/`--text-inverse-muted`，styles.css 深色 chrome 区全部文本用 inverse 族） |
+| ScriptPanel.css                                                                                                                                                                                                  | 脚本面板（保暗 chrome，确认 `--chrome-*` 观感）                                                                                                                |
+| NewProjectDialog.css / ModuleFromBswmdPicker.css / BswmdPickerDialog.css / ConfirmDialog.css / ConfirmDialog2.css / CascadeConfirmDialog.css / RemoveModuleConfirmDialog.css / XlsxBatchWizard / DbcImportWizard | 反转组件：打开各 dialog，确认亮色观感（audit-03/04/05 对照）                                                                                                   |
+| ValidationPanel.css / ProjectPanel.css / FileListTab.css / OdxViewer.css / DbcViewer.css / ErrorBanner.css                                                                                                       | 左面板 tabs / viewer / 错误横幅                                                                                                                                |
 
 发现问题 = 语义错位（值映射对了角色不对）→ 直接把该处 `var(--A)` 改成语义正确的 `var(--B)`（spec §9.7 允许，不算偏离）；结构性视觉失衡 → 停手上报。
 
@@ -831,6 +852,7 @@ git commit -m "refactor(p1): 914 处裸色值收敛为 tokens 变量 + Catppucci
 ### Task 5: 单主题清理（.dark 死代码 / dark: 变体 / 测试断言）
 
 **Files:**
+
 - Modify: `src/renderer/components/editor/modes/EnumEditor.css`（:30-44）
 - Modify: `src/renderer/components/editor/modes/BooleanEditor.css`（:30-34）
 - Modify: `src/renderer/components/editor/ParamEditor.tsx`、`editor/modes/{StringEditor,IntegerEditor,MultilineEditor,FloatEditor,ReferenceEditor}.tsx`
@@ -839,6 +861,7 @@ git commit -m "refactor(p1): 914 处裸色值收敛为 tokens 变量 + Catppucci
 - Test: `src/renderer/__tests__/p1-single-theme.test.ts`
 
 **Interfaces:**
+
 - Consumes: 无
 - Produces: `dark:` / `.dark` 全仓为 0（guard 测试固化，防回潮）
 
@@ -924,6 +947,7 @@ sed -i -E 's/ ?dark:[^ "]+//g' \
   src/renderer/components/editor/modes/ReferenceEditor.tsx
 grep -rn "dark:" src/renderer --include="*.tsx" --include="*.html"
 ```
+
 Expected: grep 无输出
 
 sed 是全文替换——**注释里的 `dark:text-slate-50` 等字样也被移除**（如 ParamEditor.tsx:160 的 Sprint 13+ Q2 注释），替换后该类注释可能措辞不通。逐文件 `git diff` 检查被 sed 影响的注释行，把不通顺的注释手工改写为亮色描述（例如「explicit text-slate-900 / dark:text-slate-50」→「explicit text-slate-900」）。
@@ -931,11 +955,13 @@ sed 是全文替换——**注释里的 `dark:text-slate-50` 等字样也被移�
 `index.html` 第 9 行精确编辑：
 
 ```html
-<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-50">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-50"></body>
 ```
+
 →
+
 ```html
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900"></body>
 ```
 
 - [ ] **Step 4: 同步测试断言**
@@ -945,7 +971,9 @@ sed 是全文替换——**注释里的 `dark:text-slate-50` 等字样也被移�
 ```ts
 expect(h2.className).toMatch(/dark:text-slate-50/);
 ```
+
 改为
+
 ```ts
 expect(h2.className).toMatch(/text-slate-900/);
 expect(h2.className).not.toMatch(/dark:/);
@@ -971,12 +999,14 @@ git commit -m "refactor(p1): 删除 .dark 死代码与全部 dark: 变体，ligh
 ### Task 6: stylelint 门禁接线（deps / config / CI / verify）
 
 **Files:**
+
 - Modify: `package.json`（devDependencies 精确版本 + scripts）
 - Create: `stylelint.config.mjs`
 - Modify: `.github/workflows/ci.yml`（lint job，`- run: pnpm lint` 之后）
 - Modify: `scripts/verify.mjs`（STAGES 数组 lint 之后）
 
 **Interfaces:**
+
 - Consumes: Task 4 后的全仓 CSS（0 裸值）+ tokens.css（豁免）
 - Produces: `pnpm stylelint` 门禁（CI lint 阶段 + 本地 `pnpm verify`）；spec §3.5 版本锁定：stylelint **17.14.1**、stylelint-config-standard **40.0.0**
 
@@ -1025,7 +1055,7 @@ export default {
 `.github/workflows/ci.yml` lint job 内 `- run: pnpm lint`（约 :32）之后加一行：
 
 ```yaml
-      - run: pnpm stylelint
+- run: pnpm stylelint
 ```
 
 `scripts/verify.mjs` STAGES 数组 `{ name: 'lint', ... }` 之后插入：
@@ -1042,6 +1072,7 @@ pnpm stylelint; echo "exit=$?"
 rm src/renderer/__stylelint_probe__.css
 pnpm stylelint; echo "exit=$?"
 ```
+
 Expected: 第一次 exit=1（报 color-no-hex），第二次 exit=0
 
 - [ ] **Step 5: 提交**
@@ -1057,11 +1088,13 @@ git commit -m "chore(p1): stylelint 禁裸色值门禁接入 CI lint 与 pnpm ve
 ### Task 7: visual regression 6 surface 基线
 
 **Files:**
+
 - Modify: `playwright.config.ts`
 - Create: `tests/e2e/visual-regression.spec.ts`
 - Create: `tests/visual/baseline/**`（生成产物，入仓，spec §10.3）
 
 **Interfaces:**
+
 - Consumes: 现有 webServer（`pnpm dev` → localhost:5173，chromium headless）；既有 e2e 的打开助手（原样复制，见 Step 2）
 - Produces: `pnpm test:e2e visual-regression` 门禁；基线在 `tests/visual/baseline/visual-regression.spec.ts/`
 
@@ -1166,6 +1199,7 @@ git commit -m "test(p1): visual regression 6 surface 基线入仓（spec §3.6/�
 ### Task 8: P1 门禁全跑 + 一致性自检清单
 
 **Files:**
+
 - Modify: `docs/superpowers/plans/2026-08-30-p1-visual-foundation.md`（勾掉附录 B 自检清单）
 
 - [ ] **Step 1: §10.2 门禁逐条跑**
@@ -1197,58 +1231,58 @@ git commit -m "docs(p1): 一致性自检清单打勾，P1 达成 DoD"
 
 ### 第 0 节：新 token 提案（15 个，spec §3.1/§9.8 修订提案）
 
-| Token | 值 | 收敛对象（实测） |
-|---|---|---|
-| `--brand-tint` | `#dbeafe` | #dbeafe(4) #bfdbfe(1) |
-| `--brand-tint-soft` | `#eff6ff` | #eff6ff(1) #eef2ff(2) |
-| `--rose-tint` | `#fef2f2` | #fef2f2(6) |
-| `--rose-tint-strong` | `#fee2e2` | #fee2e2(4) #fecaca(1) |
-| `--amber-tint` | `#fef3c7` | #fef3c7(5) #fff8e1(2) #fff7ed(2) #ffedd5(1) |
-| `--emerald-tint` | `#dcfce7` | #dcfce7(1) #a7f3d0(1) #ecfdf5(1) #f0fdfa(1) |
-| `--accent-rose-strong` | `#b91c1c` | #991b1b(12) #b91c1c(4) #7f1d1d(3) |
-| `--chrome-bg` | `#1e293b` | #1e293b(20)（styles.css 深色 chrome 底） |
-| `--chrome-bg-deep` | `#1a1d23` | #1a1d23(3) #1f232b(1) #22262e(3) #262a31(1)（ScriptPanel 深底/渐变端） |
-| `--chrome-border` | `#334155` | #334155(13) #2d323b(14) #30363d(3) #3d424b(5) #484f58(2)（保暗区边框） |
-| `--overlay-scrim` | `rgba(0,0,0,0.5)` | rgba(0,0,0,0.4–0.55)（~22 处弹窗遮罩） |
-| `--overlay-scrim-soft` | `rgba(0,0,0,0.2)` | rgba(0,0,0,0.06–0.35)（~10 处弱遮罩） |
-| `--brand-alpha` | `rgba(59,130,246,0.12)` | rgba(59,130,246,0.06–0.15)(5) + 反转后 rgba(137,180,250,*)(6) |
-| `--brand-alpha-soft` | `rgba(59,130,246,0.06)` | rgba(59,130,246,0.06/0.08) 低档 |
-| `--chrome-hairline` | `rgba(255,255,255,0.1)` | rgba(255,255,255,0.02–0.2)(6)（保暗区发丝线） |
+| Token                  | 值                      | 收敛对象（实测）                                                       |
+| ---------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| `--brand-tint`         | `#dbeafe`               | #dbeafe(4) #bfdbfe(1)                                                  |
+| `--brand-tint-soft`    | `#eff6ff`               | #eff6ff(1) #eef2ff(2)                                                  |
+| `--rose-tint`          | `#fef2f2`               | #fef2f2(6)                                                             |
+| `--rose-tint-strong`   | `#fee2e2`               | #fee2e2(4) #fecaca(1)                                                  |
+| `--amber-tint`         | `#fef3c7`               | #fef3c7(5) #fff8e1(2) #fff7ed(2) #ffedd5(1)                            |
+| `--emerald-tint`       | `#dcfce7`               | #dcfce7(1) #a7f3d0(1) #ecfdf5(1) #f0fdfa(1)                            |
+| `--accent-rose-strong` | `#b91c1c`               | #991b1b(12) #b91c1c(4) #7f1d1d(3)                                      |
+| `--chrome-bg`          | `#1e293b`               | #1e293b(20)（styles.css 深色 chrome 底）                               |
+| `--chrome-bg-deep`     | `#1a1d23`               | #1a1d23(3) #1f232b(1) #22262e(3) #262a31(1)（ScriptPanel 深底/渐变端） |
+| `--chrome-border`      | `#334155`               | #334155(13) #2d323b(14) #30363d(3) #3d424b(5) #484f58(2)（保暗区边框） |
+| `--overlay-scrim`      | `rgba(0,0,0,0.5)`       | rgba(0,0,0,0.4–0.55)（~22 处弹窗遮罩）                                 |
+| `--overlay-scrim-soft` | `rgba(0,0,0,0.2)`       | rgba(0,0,0,0.06–0.35)（~10 处弱遮罩）                                  |
+| `--brand-alpha`        | `rgba(59,130,246,0.12)` | rgba(59,130,246,0.06–0.15)(5) + 反转后 rgba(137,180,250,\*)(6)         |
+| `--brand-alpha-soft`   | `rgba(59,130,246,0.06)` | rgba(59,130,246,0.06/0.08) 低档                                        |
+| `--chrome-hairline`    | `rgba(255,255,255,0.1)` | rgba(255,255,255,0.02–0.2)(6)（保暗区发丝线）                          |
 
 ### 第 1 节：hex 偏差 bucket（值(频次) → 建议目标）
 
-| # | bucket | 建议目标 | 备注 |
-|---|---|---|---|
-| B1 | #6b7280(14) #64748b(11) #9ca3af(1) | `--text-muted` | 灰字主力 |
-| B2 | #555(5) #666(2) #757575(1) #4b5563(1) #374151(2) | `--text-secondary` | 深灰字 |
-| B3 | #111(2) #222(1) #3c3c3c(1) #1f2937(1) | `--text-primary` | 近黑字 |
-| B4 | #e5e7eb(10) #e4e6eb(5) #e8ecf1(2) #eef1f6(1) #dce0e6(2) #eee(2) | `--border-subtle` | 浅灰边 |
-| B5 | #d1d5db(9) #ccc(8) #ddd(3) #d4d6db(1) | `--border-strong` | 中灰边 |
-| B6 | #f9fafb(3) #fafafa(2) #f5f7fa(4) | `--surface-app` | 极浅面 |
-| B7 | #f3f4f6(4) #f1f3f5(3) #f3f3f3(2) #f5f5f5(1) #f0f0f0(1) | `--surface-subtle` | 浅灰面 |
-| B8 | #2563eb(12) #4a90e2(5) #4f46e5(3) #357abd(2) #82aaff(1) #1e40af(2) | `--brand-500` | 蓝变体归一 |
-| B9 | #1e3a8a(12) | 文字处→`--text-primary`；styles.css:251 深色区底→`--chrome-border` | 需 dry-run 上下文拆分 |
-| B10 | #0ea5e9(5) | `--accent-cyan` | sky-500 |
-| B11 | #ef4444(2) #f87171(1) #e53935(1) #c00(1) #ff5370(2) #ff8a80(2) | `--accent-rose` | 红亮变体 |
-| B12 | #92400e(5) #8a6d00(2) #9a3412(1) | `--accent-amber-strong` | 深琥珀字 |
-| B13 | #f57c00(1) #ffcb6b(2) #e0c070(1) | `--accent-amber` | 亮琥珀 |
-| B14 | #43a047(2) #81c784(1) #16a34a(1) #15803d(1) #166534(1) #065f46(1) #115e59(1) | `--accent-emerald` | 绿变体 |
-| B15 | Catppuccin 表外 #585b70(20) #74c7ec(15) #b4befe(4) #eba0ac(6) #94e2d5(2) #fab387(2) | #585b70→`--border-strong`；#74c7ec→`--brand-300`（选区高亮）；#b4befe→`--brand-400`；#eba0ac→`--accent-rose`；#94e2d5→`--accent-cyan`；#fab387→`--accent-amber` | 反转组件内，视觉归一可接受 |
-| B16 | 深色 chrome 散值（styles.css/ScriptPanel 保暗区，见第 0 节三 token） | `--chrome-bg` / `--chrome-bg-deep` / `--chrome-border` | 按所在面取用 |
-| B17 | 单发紫/粉 #9333ea(1) #6b21a8(1) #f3e8ff(1) #9d174d(1) #fdf2f8(1) | **默认保留原值 + EXCEPTIONS 豁免** | 疑似 Diff/语义高亮专色，映射反而失真 |
-| B18 | #334155(13) | 浅色区文字→`--text-secondary`；保暗区→`--chrome-border` | 需上下文拆分 |
+| #   | bucket                                                                              | 建议目标                                                                                                                                                        | 备注                                 |
+| --- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| B1  | #6b7280(14) #64748b(11) #9ca3af(1)                                                  | `--text-muted`                                                                                                                                                  | 灰字主力                             |
+| B2  | #555(5) #666(2) #757575(1) #4b5563(1) #374151(2)                                    | `--text-secondary`                                                                                                                                              | 深灰字                               |
+| B3  | #111(2) #222(1) #3c3c3c(1) #1f2937(1)                                               | `--text-primary`                                                                                                                                                | 近黑字                               |
+| B4  | #e5e7eb(10) #e4e6eb(5) #e8ecf1(2) #eef1f6(1) #dce0e6(2) #eee(2)                     | `--border-subtle`                                                                                                                                               | 浅灰边                               |
+| B5  | #d1d5db(9) #ccc(8) #ddd(3) #d4d6db(1)                                               | `--border-strong`                                                                                                                                               | 中灰边                               |
+| B6  | #f9fafb(3) #fafafa(2) #f5f7fa(4)                                                    | `--surface-app`                                                                                                                                                 | 极浅面                               |
+| B7  | #f3f4f6(4) #f1f3f5(3) #f3f3f3(2) #f5f5f5(1) #f0f0f0(1)                              | `--surface-subtle`                                                                                                                                              | 浅灰面                               |
+| B8  | #2563eb(12) #4a90e2(5) #4f46e5(3) #357abd(2) #82aaff(1) #1e40af(2)                  | `--brand-500`                                                                                                                                                   | 蓝变体归一                           |
+| B9  | #1e3a8a(12)                                                                         | 文字处→`--text-primary`；styles.css:251 深色区底→`--chrome-border`                                                                                              | 需 dry-run 上下文拆分                |
+| B10 | #0ea5e9(5)                                                                          | `--accent-cyan`                                                                                                                                                 | sky-500                              |
+| B11 | #ef4444(2) #f87171(1) #e53935(1) #c00(1) #ff5370(2) #ff8a80(2)                      | `--accent-rose`                                                                                                                                                 | 红亮变体                             |
+| B12 | #92400e(5) #8a6d00(2) #9a3412(1)                                                    | `--accent-amber-strong`                                                                                                                                         | 深琥珀字                             |
+| B13 | #f57c00(1) #ffcb6b(2) #e0c070(1)                                                    | `--accent-amber`                                                                                                                                                | 亮琥珀                               |
+| B14 | #43a047(2) #81c784(1) #16a34a(1) #15803d(1) #166534(1) #065f46(1) #115e59(1)        | `--accent-emerald`                                                                                                                                              | 绿变体                               |
+| B15 | Catppuccin 表外 #585b70(20) #74c7ec(15) #b4befe(4) #eba0ac(6) #94e2d5(2) #fab387(2) | #585b70→`--border-strong`；#74c7ec→`--brand-300`（选区高亮）；#b4befe→`--brand-400`；#eba0ac→`--accent-rose`；#94e2d5→`--accent-cyan`；#fab387→`--accent-amber` | 反转组件内，视觉归一可接受           |
+| B16 | 深色 chrome 散值（styles.css/ScriptPanel 保暗区，见第 0 节三 token）                | `--chrome-bg` / `--chrome-bg-deep` / `--chrome-border`                                                                                                          | 按所在面取用                         |
+| B17 | 单发紫/粉 #9333ea(1) #6b21a8(1) #f3e8ff(1) #9d174d(1) #fdf2f8(1)                    | **默认保留原值 + EXCEPTIONS 豁免**                                                                                                                              | 疑似 Diff/语义高亮专色，映射反而失真 |
+| B18 | #334155(13)                                                                         | 浅色区文字→`--text-secondary`；保暗区→`--chrome-border`                                                                                                         | 需上下文拆分                         |
 
 ### 第 2 节：rgba/box-shadow 偏差
 
-| # | bucket | 建议目标 |
-|---|---|---|
-| R1 | rgba(0,0,0,0.4–0.55)（弹窗遮罩 ~22） | `--overlay-scrim` |
-| R2 | rgba(0,0,0,0.06–0.35)（弱遮罩 ~10） | `--overlay-scrim-soft` |
-| R3 | rgba(59,130,246,0.06–0.15)(5) + rgba(137,180,250,*)(6) | `--brand-alpha` / `--brand-alpha-soft` |
-| R4 | rgba(255,255,255,0.02–0.2)(6) | `--chrome-hairline` |
-| R5 | 状态 alpha 零散：rgba(185,28,28,0.06)(3) rgba(252,165,165,0.1)(2) rgba(249,226,175,0.25/0.15) rgba(245,158,11,0.3/0.12) rgba(243,139,168,0.1) rgba(244,67,54,0.12) rgba(14,165,233,0.15) rgba(67,160,71,0.12) | 改用对应实 tint 底色（`--rose-tint`/`--amber-tint`/`--emerald-tint`），alpha 底→实 tint 属视觉归一 |
-| R6 | box-shadow 一次值（自定义几何 + 黑 alpha） | 归并 `--shadow-sm/md/lg`（几何归一，spec §3.5 连 box-shadow 一起禁 rgba）；明显特异的（如 inset 焦点环）逐条裁决 |
-| R7 | rgb(59 130 246)(2) rgb(241 245 249)(2) rgb(15 23 42)(2) rgb(100 116 139)(2) rgb(248 250 252)(1) rgb(226 232 240)(1) rgb(203 213 225)(1) | 脚本自动归一化 hex 后走 seed TOKEN_MAP（B1 的 #64748b→`--text-muted`） |
+| #   | bucket                                                                                                                                                                                                        | 建议目标                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| R1  | rgba(0,0,0,0.4–0.55)（弹窗遮罩 ~22）                                                                                                                                                                          | `--overlay-scrim`                                                                                                |
+| R2  | rgba(0,0,0,0.06–0.35)（弱遮罩 ~10）                                                                                                                                                                           | `--overlay-scrim-soft`                                                                                           |
+| R3  | rgba(59,130,246,0.06–0.15)(5) + rgba(137,180,250,\*)(6)                                                                                                                                                       | `--brand-alpha` / `--brand-alpha-soft`                                                                           |
+| R4  | rgba(255,255,255,0.02–0.2)(6)                                                                                                                                                                                 | `--chrome-hairline`                                                                                              |
+| R5  | 状态 alpha 零散：rgba(185,28,28,0.06)(3) rgba(252,165,165,0.1)(2) rgba(249,226,175,0.25/0.15) rgba(245,158,11,0.3/0.12) rgba(243,139,168,0.1) rgba(244,67,54,0.12) rgba(14,165,233,0.15) rgba(67,160,71,0.12) | 改用对应实 tint 底色（`--rose-tint`/`--amber-tint`/`--emerald-tint`），alpha 底→实 tint 属视觉归一               |
+| R6  | box-shadow 一次值（自定义几何 + 黑 alpha）                                                                                                                                                                    | 归并 `--shadow-sm/md/lg`（几何归一，spec §3.5 连 box-shadow 一起禁 rgba）；明显特异的（如 inset 焦点环）逐条裁决 |
+| R7  | rgb(59 130 246)(2) rgb(241 245 249)(2) rgb(15 23 42)(2) rgb(100 116 139)(2) rgb(248 250 252)(1) rgb(226 232 240)(1) rgb(203 213 225)(1)                                                                       | 脚本自动归一化 hex 后走 seed TOKEN_MAP（B1 的 #64748b→`--text-muted`）                                           |
 
 ---
 

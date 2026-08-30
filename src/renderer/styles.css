@@ -706,7 +706,7 @@ body,
   padding: 0 0.6em;
   border-radius: 4px;
   background: var(--accent-cyan);
-  color: white;
+  color: var(--text-inverse);
   font-size: 0.85em;
 }
 .kind-collection {
@@ -726,7 +726,7 @@ body,
   padding: 0 0.6em;
   border-radius: 4px;
   background: var(--accent-cyan);
-  color: white;
+  color: var(--text-inverse);
   font-size: 0.85em;
 }
 .tree-add-collection:disabled {

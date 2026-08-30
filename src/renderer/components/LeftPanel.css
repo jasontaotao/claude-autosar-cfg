@@ -116,7 +116,7 @@
   padding: 4px 10px;
   border-radius: 4px;
   border: 1px solid var(--border-strong); /* slate-300 */
-  background: white;
+  background: var(--surface-panel);
   color: var(--text-primary); /* slate-900 */
   font-size: 12px;
   cursor: pointer;
