@@ -5,6 +5,7 @@
 /* CSS @import must precede all other statements (besides @charset or
    empty @layer) per the CSS spec; placing it here ahead of Tailwind
    keeps Vite's CSS pipeline from warning + failing to bundle. */
+@import url('./styles/tokens.css');
 @import url('./keyboard/keyboard.css');
 
 @tailwind base;

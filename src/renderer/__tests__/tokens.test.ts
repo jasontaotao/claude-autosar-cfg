@@ -1,0 +1,61 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+
+const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+const tokensCss = read('../styles/tokens.css');
+const stylesCss = read('../styles.css');
+
+// spec §3.1 token 清单 + §9.8 --surface-menu + §9.14 字体栈（关键项抽查）
+const REQUIRED_TOKENS: Array<[string, string]> = [
+  ['--surface-app', '#f8fafc'],
+  ['--surface-panel', '#ffffff'],
+  ['--surface-elevated', '#ffffff'],
+  ['--surface-subtle', '#f1f5f9'],
+  ['--surface-header', 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'],
+  ['--surface-menu', '#1c2128'],
+  ['--brand-500', '#3b82f6'],
+  ['--brand-400', '#60a5fa'],
+  ['--brand-300', '#93c5fd'],
+  ['--accent-cyan', '#38bdf8'],
+  ['--accent-amber', '#f59e0b'],
+  ['--accent-emerald', '#10b981'],
+  ['--accent-rose', '#f43f5e'],
+  ['--accent-amber-strong', '#b45309'],
+  ['--text-primary', '#0f172a'],
+  ['--text-secondary', '#475569'],
+  ['--text-muted', '#94a3b8'],
+  ['--text-inverse', '#f1f5f9'],
+  ['--text-inverse-muted', '#cbd5e1'],
+  ['--border-subtle', '#e2e8f0'],
+  ['--border-strong', '#cbd5e1'],
+  ['--shadow-sm', '0 1px 2px rgba(15, 23, 42, 0.05)'],
+  ['--shadow-md', '0 4px 12px rgba(15, 23, 42, 0.08)'],
+  ['--shadow-lg', '0 12px 32px rgba(15, 23, 42, 0.12)'],
+  ['--radius-sm', '4px'],
+  ['--radius-md', '6px'],
+  ['--radius-lg', '10px'],
+  ['--text-xs', '11px'],
+  ['--text-base', '13px'],
+  ['--text-lg', '16px'],
+  ['--space-1', '4px'],
+  ['--space-5', '16px'],
+  // 字体栈按 tokens.css §9.14 完整声明逐字断言（含 'Microsoft YaHei' / Consolas 关键回退）
+  ['--font-sans', "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif"],
+  ['--font-mono', 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'],
+];
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+describe('P1 tokens.css（spec §3.1 / §10.3 唯一定义处）', () => {
+  it.each(REQUIRED_TOKENS)('定义 %s = %s', (name, value) => {
+    expect(tokensCss).toMatch(new RegExp(`${escapeRe(name)}:\\s*${escapeRe(value)}`));
+  });
+
+  it('经 styles.css @import 接入，且位于所有 @import 之首', () => {
+    const idx = stylesCss.indexOf("@import url('./styles/tokens.css');");
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(idx).toBeLessThan(stylesCss.indexOf("@import url('./keyboard/keyboard.css');"));
+    expect(idx).toBeLessThan(stylesCss.indexOf('@tailwind'));
+  });
+});
