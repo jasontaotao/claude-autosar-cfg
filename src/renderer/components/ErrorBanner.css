@@ -31,27 +31,27 @@
  * large-text / AAA body) plus a darker bottom-border that reads as
  * a "subtle drop shadow" against the workspace below. */
 .error-banner--error {
-  background: #7f1d1d;
-  color: #fee2e2;
-  border-bottom-color: #991b1b;
+  background: var(--accent-rose-strong);
+  color: var(--rose-tint-strong);
+  border-bottom-color: var(--accent-rose-strong);
 }
 
 .error-banner--warning {
-  background: #92400e;
-  color: #fef3c7;
-  border-bottom-color: #b45309;
+  background: var(--accent-amber-strong);
+  color: var(--amber-tint);
+  border-bottom-color: var(--accent-amber-strong);
 }
 
 .error-banner--info {
-  background: #1e40af;
-  color: #dbeafe;
-  border-bottom-color: #2563eb;
+  background: var(--brand-500);
+  color: var(--brand-tint);
+  border-bottom-color: var(--brand-500);
 }
 
 .error-banner--success {
-  background: #166534;
-  color: #dcfce7;
-  border-bottom-color: #15803d;
+  background: var(--accent-emerald);
+  color: var(--emerald-tint);
+  border-bottom-color: var(--accent-emerald);
 }
 
 .error-banner-message {
@@ -71,7 +71,7 @@
 
 .error-banner-message:hover,
 .error-banner-message:focus {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--chrome-hairline);
   outline: 0;
 }
 
@@ -85,8 +85,8 @@
 
 .error-banner-btn {
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--chrome-hairline);
+  border: 1px solid var(--chrome-hairline);
   color: inherit;
   font-size: 11px;
   padding: 2px 8px;
@@ -97,7 +97,7 @@
 
 .error-banner-btn:hover,
 .error-banner-btn:focus {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--chrome-hairline);
   outline: 0;
 }
 
@@ -114,7 +114,7 @@
 .error-viewer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -122,15 +122,15 @@
 }
 
 .error-viewer-panel {
-  background: #1e293b;
-  color: #f1f5f9;
-  border: 1px solid #334155;
+  background: var(--text-primary);
+  color: var(--surface-subtle);
+  border: 1px solid var(--text-secondary);
   border-radius: 6px;
   width: min(960px, 100%);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 48px var(--overlay-scrim);
 }
 
 .error-viewer-header {
@@ -138,20 +138,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--text-secondary);
   font-size: 13px;
   font-weight: 600;
 }
 
 .error-viewer-title {
-  color: #fca5a5;
+  color: #fca5a5; /* stylelint-disable-line color-no-hex */
 }
 
 .error-viewer-close {
   appearance: none;
   background: transparent;
   border: 0;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
@@ -160,7 +160,7 @@
 
 .error-viewer-close:hover,
 .error-viewer-close:focus {
-  color: #f1f5f9;
+  color: var(--surface-subtle);
   outline: 0;
 }
 
@@ -168,8 +168,8 @@
   flex: 1 1 auto;
   margin: 0;
   padding: 12px;
-  background: #0f172a;
-  color: #fca5a5;
+  background: var(--text-primary);
+  color: #fca5a5; /* stylelint-disable-line color-no-hex */
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
@@ -184,14 +184,14 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 8px 12px;
-  border-top: 1px solid #334155;
+  border-top: 1px solid var(--text-secondary);
 }
 
 .error-viewer-btn {
   appearance: none;
-  background: #334155;
-  border: 1px solid #475569;
-  color: #f1f5f9;
+  background: var(--text-secondary);
+  border: 1px solid var(--text-secondary);
+  color: var(--surface-subtle);
   font-size: 12px;
   padding: 4px 12px;
   border-radius: 3px;
@@ -200,16 +200,16 @@
 
 .error-viewer-btn:hover,
 .error-viewer-btn:focus {
-  background: #475569;
+  background: var(--text-secondary);
   outline: 0;
 }
 
 .error-viewer-btn-danger {
-  background: #7f1d1d;
-  border-color: #991b1b;
+  background: var(--accent-rose-strong);
+  border-color: var(--accent-rose-strong);
 }
 
 .error-viewer-btn-danger:hover,
 .error-viewer-btn-danger:focus {
-  background: #991b1b;
+  background: var(--accent-rose-strong);
 }

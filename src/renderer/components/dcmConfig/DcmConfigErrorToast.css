@@ -5,10 +5,10 @@
   min-width: 320px;
   max-width: 480px;
   padding: 12px 16px;
-  background: var(--color-error-surface, #fef2f2);
-  border: 1px solid var(--color-error-border, #fca5a5);
+  background: var(--rose-tint);
+  border: 1px solid #fca5a5; /* stylelint-disable-line color-no-hex */
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px var(--overlay-scrim-soft);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -18,21 +18,21 @@
 .dcm-config-error-toast-message {
   flex: 1;
   font-size: 13px;
-  color: var(--color-error-text, #991b1b);
+  color: var(--accent-rose-strong);
 }
 
 .dcm-config-error-toast-dismiss {
   padding: 4px 12px;
-  border: 1px solid var(--color-error-border, #fca5a5);
+  border: 1px solid #fca5a5; /* stylelint-disable-line color-no-hex */
   border-radius: 4px;
   background: transparent;
-  color: var(--color-error-text, #991b1b);
+  color: var(--accent-rose-strong);
   cursor: pointer;
   font-size: 12px;
 }
 
 .dcm-config-error-toast-dismiss:hover {
-  background: var(--color-error-hover, #fee2e2);
+  background: var(--rose-tint-strong);
 }
 
 /* v1.35.0 MINOR T4 — 4 new error variants. All use the existing
@@ -45,13 +45,13 @@
 .dcm-config-error-toast--dcmModuleMissing,
 .dcm-config-error-toast--containerNotFound,
 .dcm-config-error-toast--patchFailed {
-  background: var(--color-error-surface, #fef2f2);
-  border-color: var(--color-error-border, #fca5a5);
+  background: var(--rose-tint);
+  border-color: #fca5a5; /* stylelint-disable-line color-no-hex */
 }
 
 .dcm-config-error-toast--odxDcmLinkage .dcm-config-error-toast-message,
 .dcm-config-error-toast--dcmModuleMissing .dcm-config-error-toast-message,
 .dcm-config-error-toast--containerNotFound .dcm-config-error-toast-message,
 .dcm-config-error-toast--patchFailed .dcm-config-error-toast-message {
-  color: var(--color-error-text, #991b1b);
+  color: var(--accent-rose-strong);
 }

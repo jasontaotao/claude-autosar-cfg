@@ -17,7 +17,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #475569;
+  color: var(--text-secondary);
   margin-bottom: 4px;
   display: flex;
   align-items: center;
@@ -27,8 +27,8 @@
 .file-list-tab-count {
   font-size: 9px;
   font-weight: 600;
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   border-radius: 8px;
   padding: 0 5px;
   line-height: 14px;
@@ -42,26 +42,26 @@
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
-  color: #1e293b;
+  color: var(--text-primary);
   transition: background 0.08s ease;
   border-left: 3px solid transparent;
 }
 
 .file-list-tab-item:hover {
-  background: #e8ecf1;
+  background: var(--border-subtle);
 }
 
 .file-list-tab-item.is-active-doc {
-  background: rgba(59, 130, 246, 0.08);
-  border-left-color: #3b82f6;
-  color: #1e3a8a;
+  background: var(--brand-alpha-soft);
+  border-left-color: var(--brand-500);
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .file-list-tab-item-icon {
   font-size: 11px;
   flex-shrink: 0;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .file-list-tab-item-name {
@@ -75,7 +75,7 @@
   appearance: none;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
@@ -102,9 +102,9 @@
 }
 
 .file-list-tab-item-badge-template {
-  background: #dbeafe;
-  color: #1e3a8a;
-  border: 1px solid #bfdbfe;
+  background: var(--brand-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--brand-tint);
 }
 
 .file-list-tab-item:hover .file-list-tab-item-remove {
@@ -112,12 +112,12 @@
 }
 
 .file-list-tab-item-remove:hover {
-  color: #b91c1c;
-  background: rgba(185, 28, 28, 0.06);
+  color: var(--accent-rose-strong);
+  background: var(--rose-tint);
 }
 
 .file-list-tab-empty {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 11px;
   padding: 2px 0;
@@ -126,8 +126,8 @@
 .file-list-tab-add {
   appearance: none;
   background: transparent;
-  border: 1px dashed #d1d5db;
-  color: #475569;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-secondary);
   font-size: 11px;
   font-family: inherit;
   padding: 3px 8px;
@@ -139,12 +139,12 @@
 }
 
 .file-list-tab-add:hover {
-  border-color: #3b82f6;
-  color: #1e3a8a;
+  border-color: var(--brand-500);
+  color: var(--text-primary);
 }
 
 .file-list-tab-add:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand-500);
   outline-offset: 1px;
 }
 
@@ -155,21 +155,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: 11px;
 }
 
 .file-list-tab-loose-text {
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
   flex: 1 1 auto;
 }
 
 .file-list-tab-loose-btn {
   appearance: none;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #1e293b;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -178,8 +178,8 @@
 }
 
 .file-list-tab-loose-btn:hover {
-  border-color: #3b82f6;
-  color: #1e3a8a;
+  border-color: var(--brand-500);
+  color: var(--text-primary);
 }
 
 /* Sprint 13 Stage 3.5 — Combined Tree View virtual entry. Same
@@ -187,11 +187,11 @@
    uses the link icon and an italic name to signal it's a virtual
    aggregate, not a real file on disk. */
 .file-list-tab-item-combined {
-  background: #f1f5f9;
-  border-bottom: 1px dashed #cbd5e1;
+  background: var(--surface-subtle);
+  border-bottom: 1px dashed var(--border-strong);
   font-weight: 600;
 }
 
 .file-list-tab-item-combined:hover {
-  background: #e2e8f0;
+  background: var(--border-subtle);
 }

@@ -10,9 +10,9 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: var(--color-surface, #fff);
+  background: var(--surface-panel);
 }
 
 .diff-table-header {
@@ -29,9 +29,9 @@
 
 .diff-table-close {
   padding: 0.3em 0.6em;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
-  background: var(--color-surface, #fff);
+  background: var(--surface-panel);
   cursor: pointer;
   font: inherit;
 }
@@ -44,20 +44,20 @@
 
 .diff-table-grid th,
 .diff-table-grid td {
-  border: 1px solid var(--color-border-muted, #ddd);
+  border: 1px solid var(--border-strong);
   padding: 0.25rem 0.5rem;
   text-align: left;
   vertical-align: top;
 }
 
 .diff-table-grid th {
-  background: var(--color-surface-alt, #fafafa);
+  background: var(--surface-app);
   font-weight: 600;
 }
 
 .diff-table-cell-highlight {
-  background: var(--color-warning-bg, #fff8e1);
-  color: var(--color-warning-text, #8a6d00);
+  background: var(--amber-tint);
+  color: var(--accent-amber-strong);
 }
 
 .diff-table-radio {
@@ -70,11 +70,11 @@
 
 .diff-table-footer {
   font-size: 0.85em;
-  color: var(--color-text-muted, #666);
+  color: var(--text-secondary);
 }
 
 .diff-table-error-message {
-  color: var(--color-error-text, #c00);
+  color: var(--accent-rose);
   font-weight: 500;
 }
 

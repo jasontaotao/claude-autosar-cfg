@@ -3,9 +3,9 @@
 .project-panel {
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
-  border-bottom: 1px solid #e5e7eb;
-  color: #0f172a;
+  background: var(--surface-app);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   font-size: 12px;
   max-height: 240px;
   overflow-y: auto;
@@ -21,16 +21,16 @@
 }
 
 .project-panel-loose-text {
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
   flex: 1 1 auto;
 }
 
 .project-panel-btn {
   appearance: none;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #1e293b;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
@@ -39,8 +39,8 @@
 }
 
 .project-panel-btn:hover {
-  border-color: #3b82f6;
-  color: #1e3a8a;
+  border-color: var(--brand-500);
+  color: var(--text-primary);
 }
 
 .project-panel-open {
@@ -62,7 +62,7 @@
 .project-panel-title {
   font-weight: 600;
   font-size: 13px;
-  color: #0f172a;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -70,7 +70,7 @@
 
 .project-panel-subtitle {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   margin-top: 1px;
 }
@@ -79,7 +79,7 @@
   appearance: none;
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -89,8 +89,8 @@
 }
 
 .project-panel-close:hover {
-  color: #b91c1c;
-  background: rgba(185, 28, 28, 0.06);
+  color: var(--accent-rose-strong);
+  background: var(--rose-tint);
 }
 
 /* v1.55.0 — Project Tab Collapse/Expand. Chevron button in the
@@ -107,7 +107,7 @@
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: rgb(100 116 139); /* slate-500 */
+  color: var(--text-muted); /* slate-500 */
   cursor: pointer;
   transition:
     background 150ms ease,
@@ -115,12 +115,12 @@
 }
 
 .project-panel-collapse-toggle:hover {
-  background: rgb(241 245 249); /* slate-100 */
-  color: rgb(15 23 42); /* slate-900 */
+  background: var(--surface-subtle); /* slate-100 */
+  color: var(--text-primary); /* slate-900 */
 }
 
 .project-panel-collapse-toggle:focus-visible {
-  outline: 2px solid rgb(59 130 246); /* blue-500 */
+  outline: 2px solid var(--brand-500); /* blue-500 */
   outline-offset: 1px;
 }
 
@@ -147,13 +147,13 @@
   flex-direction: column;
   gap: 1px;
   padding: 4px 0 6px;
-  border-bottom: 1px dashed #cbd5e1;
+  border-bottom: 1px dashed var(--border-strong);
   margin-bottom: 4px;
 }
 
 .project-panel-meta-line {
   font-size: 10px;
-  color: #475569;
+  color: var(--text-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -176,15 +176,15 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #475569;
+  color: var(--text-secondary);
   flex: 1 1 auto;
 }
 
 .project-panel-section-add {
   appearance: none;
   background: transparent;
-  border: 1px solid #d1d5db;
-  color: #475569;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
   font-size: 10px;
   font-family: inherit;
   line-height: 1.2;
@@ -195,17 +195,17 @@
 }
 
 .project-panel-section-add:hover {
-  background: #e5e7eb;
-  color: #1e293b;
+  background: var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .project-panel-section-add:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand-500);
   outline-offset: 1px;
 }
 
 .project-panel-empty {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 11px;
   padding: 2px 0;
@@ -230,14 +230,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .project-panel-list-remove {
   appearance: none;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
@@ -247,8 +247,8 @@
 }
 
 .project-panel-list-remove:hover {
-  color: #b91c1c;
-  background: rgba(185, 28, 28, 0.06);
+  color: var(--accent-rose-strong);
+  background: var(--rose-tint);
 }
 
 /* Sprint 14 / Task 11 — BSWMD row trailing widgets:
@@ -259,9 +259,9 @@
 */
 .project-panel-bswmd-chip {
   appearance: none;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--text-primary);
+  border: 1px solid var(--text-secondary);
+  color: var(--border-strong);
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   line-height: 1;
@@ -276,16 +276,16 @@
 }
 
 .project-panel-bswmd-chip:hover {
-  background: #334155;
-  color: #f1f5f9;
-  border-color: #475569;
+  background: var(--text-secondary);
+  color: var(--surface-subtle);
+  border-color: var(--text-secondary);
 }
 
 .project-panel-bswmd-add-ecuc {
   appearance: none;
   background: transparent;
-  border: 1px solid #d1d5db;
-  color: #475569;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1;
   padding: 0 6px;
@@ -300,9 +300,9 @@
 }
 
 .project-panel-bswmd-add-ecuc:hover:not(:disabled) {
-  background: #1e3a8a;
-  color: #f1f5f9;
-  border-color: #1e3a8a;
+  background: var(--text-primary);
+  color: var(--surface-subtle);
+  border-color: var(--text-primary);
 }
 
 .project-panel-bswmd-add-ecuc:disabled {

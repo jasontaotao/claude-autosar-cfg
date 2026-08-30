@@ -29,6 +29,11 @@ import { ScriptEditor } from './ScriptEditor';
 import { ScriptLibrary } from './ScriptLibrary';
 import { ScriptOutput } from './ScriptOutput';
 
+// P1 视觉地基 Task 4 — 此前从未被 import（git 全历史均缺失），样式表
+// 从未生效导致面板裸渲染。与其它组件（如 ConfirmDialog.tsx）的
+// side-effect CSS import 惯例对齐。
+import './ScriptPanel.css';
+
 export interface ScriptPanelProps {
   /**
    * Optional callback invoked when the user commits a run's mutations

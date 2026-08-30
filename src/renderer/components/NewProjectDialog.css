@@ -13,17 +13,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-scrim);
 }
 
 .npd-dialog {
-  background: #313244; /* --color-surface */
-  border: 1px solid #45475a; /* --color-border */
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   width: 520px;
   max-width: calc(100vw - 32px);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  color: #cdd6f4; /* --color-text */
+  box-shadow: 0 24px 48px var(--overlay-scrim);
+  color: var(--text-primary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -33,23 +33,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #181825; /* --color-bg (darker) */
+  background: var(--surface-elevated);
   padding: 16px 20px;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .npd-header h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .npd-close {
   appearance: none;
   background: transparent;
   border: none;
-  color: #a6adc8; /* --color-text-dim */
+  color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
   padding: 4px 8px;
@@ -61,8 +61,8 @@
 }
 
 .npd-close:hover {
-  background: #45475a;
-  color: #cdd6f4;
+  background: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .npd-body {
@@ -87,16 +87,16 @@
 .npd-label {
   font-size: 13px;
   font-weight: 500;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .npd-input {
   flex: 1;
   padding: 8px 12px;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 120ms ease;
@@ -104,27 +104,27 @@
 }
 
 .npd-input:focus {
-  border-color: #89b4fa;
+  border-color: var(--brand-500);
 }
 
 .npd-input--error,
 .npd-input.npd-input--error {
-  border-color: #f38ba8;
+  border-color: var(--accent-rose);
 }
 
 .npd-input--error:focus,
 .npd-input.npd-input--error:focus {
-  border-color: #f38ba8;
+  border-color: var(--accent-rose);
 }
 
 .npd-field-hint {
   font-size: 12px;
-  color: #6c7086;
+  color: var(--text-muted);
 }
 
 .npd-field-error {
   font-size: 12px;
-  color: #f38ba8;
+  color: var(--accent-rose);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -132,8 +132,8 @@
 
 .npd-filename-preview {
   font-size: 12px;
-  color: #a6adc8;
-  background: #1e1e2e;
+  color: var(--text-secondary);
+  background: var(--surface-panel);
   padding: 6px 10px;
   border-radius: 4px;
   font-family: 'Cascadia Code', 'Consolas', monospace;
@@ -142,10 +142,10 @@
 
 .npd-browse {
   padding: 8px 14px;
-  background: #45475a;
-  border: 1px solid #585b70;
+  background: var(--border-strong);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
@@ -153,7 +153,7 @@
 }
 
 .npd-browse:hover {
-  background: #585b70;
+  background: var(--border-strong);
 }
 
 .npd-footer {
@@ -161,8 +161,8 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 20px;
-  background: #181825;
-  border-top: 1px solid #45475a;
+  background: var(--surface-elevated);
+  border-top: 1px solid var(--border-strong);
 }
 
 .npd-btn {
@@ -181,25 +181,25 @@
 }
 
 .npd-btn-cancel {
-  background: #45475a;
-  color: #cdd6f4;
-  border-color: #585b70;
+  background: var(--border-strong);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .npd-btn-cancel:hover {
-  background: #585b70;
+  background: var(--border-strong);
 }
 
 .npd-btn-create {
-  background: #89b4fa; /* --color-accent */
-  color: #1e1e2e;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   font-weight: 600;
-  border-color: #89b4fa;
+  border-color: var(--brand-500);
 }
 
 .npd-btn-create:hover:not(:disabled) {
-  background: #74c7ec;
-  border-color: #74c7ec;
+  background: var(--brand-300);
+  border-color: var(--brand-300);
 }
 
 .npd-btn-create:disabled {
@@ -213,20 +213,20 @@
   gap: 16px;
   padding: 8px;
   font-size: 11px;
-  color: #585b70;
-  background: #181825;
-  border-top: 1px solid #45475a;
+  color: var(--border-strong);
+  background: var(--surface-elevated);
+  border-top: 1px solid var(--border-strong);
 }
 
 .npd-kbd-hint kbd {
   display: inline-block;
   padding: 1px 6px;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 11px;
-  color: #6c7086;
+  color: var(--text-muted);
 }
 
 /* Sprint 13+ Stage 3.3 — TemplateCardRow embedded in the body.
@@ -241,7 +241,7 @@
 .npd-template-row-label {
   font-size: 13px;
   font-weight: 500;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .npd-template-row-grid {
@@ -255,8 +255,8 @@
   /* Tiny placeholder so the grid keeps its min-height before the IPC
      resolves. Visually subtle; the user perceives it as the card
      still loading. */
-  background: #1e1e2e;
-  border: 1px dashed #45475a;
+  background: var(--surface-panel);
+  border: 1px dashed var(--border-strong);
   border-radius: 8px;
   min-height: 96px;
 }
@@ -272,8 +272,8 @@
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
 }
 
@@ -285,7 +285,7 @@
 .npd-template-preview-hint {
   margin: 0;
   font-size: 12px;
-  color: #6c7086;
+  color: var(--text-muted);
   text-align: center;
   font-style: italic;
 }
@@ -301,14 +301,14 @@
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .npd-template-preview-files {
   font-size: 11px;
   font-weight: 500;
-  color: #89b4fa;
-  background: rgba(137, 180, 250, 0.12);
+  color: var(--brand-500);
+  background: var(--brand-alpha);
   padding: 2px 8px;
   border-radius: 10px;
   font-family: 'Cascadia Code', 'Consolas', monospace;
@@ -319,7 +319,7 @@
   margin: 0;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .npd-template-preview-bswmd {
@@ -327,13 +327,13 @@
   flex-direction: column;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid #313244;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .npd-template-preview-bswmd-label {
   font-size: 11px;
   font-weight: 500;
-  color: #6c7086;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

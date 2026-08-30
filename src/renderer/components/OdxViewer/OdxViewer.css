@@ -9,18 +9,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-scrim);
 }
 
 .odx-viewer-modal {
-  background: #313244; /* --color-surface */
-  border: 1px solid #45475a; /* --color-border */
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   width: 720px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 64px);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  color: #cdd6f4; /* --color-text */
+  box-shadow: 0 24px 48px var(--overlay-scrim);
+  color: var(--text-primary);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -30,9 +30,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #181825; /* --color-bg (darker) */
+  background: var(--surface-elevated);
   padding: 14px 20px;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid var(--border-strong);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -42,7 +42,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
   font-family: 'Cascadia Code', 'Consolas', monospace;
 }
 
@@ -50,7 +50,7 @@
   appearance: none;
   background: transparent;
   border: none;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-size: 22px;
   cursor: pointer;
   padding: 0 8px;
@@ -62,17 +62,17 @@
 }
 
 .odx-viewer-close:hover {
-  background: #45475a;
-  color: #cdd6f4;
+  background: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .odx-viewer-error {
   margin: 20px;
   padding: 14px 16px;
-  background: rgba(243, 139, 168, 0.1);
-  border: 1px solid #f38ba8;
+  background: var(--rose-tint);
+  border: 1px solid var(--accent-rose);
   border-radius: 6px;
-  color: #f38ba8;
+  color: var(--accent-rose);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -85,9 +85,9 @@
   margin: 14px 20px 4px;
   align-self: flex-end;
   padding: 6px 14px;
-  background: #89b4fa;
-  color: #1e1e2e;
-  border: 1px solid #89b4fa;
+  background: var(--brand-500);
+  color: var(--surface-panel);
+  border: 1px solid var(--brand-500);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -99,8 +99,8 @@
 }
 
 .odx-viewer-export:hover:not(:disabled) {
-  background: #b4befe;
-  border-color: #b4befe;
+  background: var(--brand-400);
+  border-color: var(--brand-400);
 }
 
 .odx-viewer-export:disabled {
@@ -125,7 +125,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #6c7086;
+  color: var(--text-muted);
   font-weight: 500;
   margin: 0;
 }
@@ -134,7 +134,7 @@
   margin: 0;
   font-size: 13px;
   font-weight: 500;
-  color: #89b4fa;
+  color: var(--brand-500);
   font-family: 'Cascadia Code', 'Consolas', monospace;
 }
 
@@ -151,24 +151,24 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #a6adc8;
+  color: var(--text-secondary);
 }
 
 .odx-viewer-empty {
   margin: 0;
   padding: 12px 16px;
-  background: #1e1e2e;
-  border: 1px dashed #45475a;
+  background: var(--surface-panel);
+  border: 1px dashed var(--border-strong);
   border-radius: 6px;
-  color: #6c7086;
+  color: var(--text-muted);
   font-size: 12px;
   font-style: italic;
   text-align: center;
 }
 
 .odx-viewer-table-wrap {
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   overflow-x: auto;
 }
@@ -183,13 +183,13 @@
 .odx-viewer-table thead th {
   text-align: left;
   padding: 8px 12px;
-  background: #181825;
-  color: #a6adc8;
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
   font-weight: 500;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid var(--border-strong);
   /* No `position: sticky` here — the modal already has a sticky
      header at `top: 0` (`.odx-viewer-header`); a second sticky
      element on the same scroll axis would overlap the modal
@@ -200,8 +200,8 @@
 
 .odx-viewer-table tbody td {
   padding: 6px 12px;
-  border-bottom: 1px solid #313244;
-  color: #cdd6f4;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   vertical-align: top;
 }
 
@@ -210,5 +210,5 @@
 }
 
 .odx-viewer-table tbody tr:hover {
-  background: rgba(137, 180, 250, 0.05);
+  background: var(--brand-alpha);
 }

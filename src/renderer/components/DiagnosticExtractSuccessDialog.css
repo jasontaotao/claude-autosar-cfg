@@ -12,17 +12,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-scrim);
 }
 
 .diag-extract-success-card {
-  background: #313244; /* --color-surface */
-  border: 1px solid #45475a; /* --color-border */
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   width: 520px;
   max-width: calc(100vw - 32px);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
-  color: #cdd6f4; /* --color-text */
+  box-shadow: 0 24px 48px var(--overlay-scrim);
+  color: var(--text-primary);
   padding: 24px 24px 20px;
   display: flex;
   flex-direction: column;
@@ -33,7 +33,7 @@
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #a6e3a1; /* green = success accent */
+  color: var(--accent-emerald); /* green = success accent */
   font-family: 'Cascadia Code', 'Consolas', monospace;
 }
 
@@ -41,14 +41,14 @@
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .diag-extract-success-paths {
   margin: 0;
   padding: 12px 14px;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -65,7 +65,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #6c7086;
+  color: var(--text-muted);
   font-weight: 500;
   margin: 0;
 }
@@ -77,7 +77,7 @@
 .diag-extract-success-path-row code {
   font-family: 'Cascadia Code', 'Consolas', monospace;
   font-size: 11px;
-  color: #89b4fa;
+  color: var(--brand-500);
   word-break: break-all;
   user-select: text;
 }
@@ -90,9 +90,9 @@
 .diag-extract-success-close {
   appearance: none;
   padding: 6px 16px;
-  background: #89b4fa;
-  color: #1e1e2e;
-  border: 1px solid #89b4fa;
+  background: var(--brand-500);
+  color: var(--surface-panel);
+  border: 1px solid var(--brand-500);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -104,6 +104,6 @@
 }
 
 .diag-extract-success-close:hover {
-  background: #b4befe;
-  border-color: #b4befe;
+  background: var(--brand-400);
+  border-color: var(--brand-400);
 }

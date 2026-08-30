@@ -12,11 +12,11 @@
   position: relative;
   appearance: none;
   text-align: left;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
   padding: 12px 12px 10px 12px;
-  color: #cdd6f4;
+  color: var(--text-primary);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -29,23 +29,23 @@
 }
 
 .tpl-card:hover:not(.tpl-card--disabled):not(.tpl-card--selected) {
-  border-color: #585b70;
-  background: #181825;
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
 }
 
 .tpl-card:focus-visible {
-  outline: 2px solid #89b4fa;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }
 
 .tpl-card--selected {
-  border-color: #89b4fa;
-  background: rgba(137, 180, 250, 0.13);
+  border-color: var(--brand-500);
+  background: var(--brand-alpha);
 }
 
 .tpl-card--selected:hover {
-  border-color: #89b4fa;
-  background: rgba(137, 180, 250, 0.18);
+  border-color: var(--brand-500);
+  background: var(--brand-alpha);
 }
 
 .tpl-card--disabled {
@@ -56,13 +56,13 @@
 .tpl-card-name {
   font-size: 13px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
   padding-right: 56px; /* room for the "coming soon" badge */
 }
 
 .tpl-card-desc {
   font-size: 11px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   line-height: 1.45;
 }
 
@@ -71,7 +71,7 @@
   align-items: center;
   gap: 4px;
   font-size: 10px;
-  color: #6c7086;
+  color: var(--text-muted);
   margin-top: auto;
 }
 
@@ -82,9 +82,9 @@
   font-size: 9px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(249, 226, 175, 0.15);
-  color: #f9e2af;
-  border: 1px solid rgba(249, 226, 175, 0.25);
+  background: var(--amber-tint);
+  color: var(--accent-amber);
+  border: 1px solid var(--amber-tint);
   font-weight: 500;
   letter-spacing: 0.02em;
   pointer-events: none; /* don't block hover/click on the card */

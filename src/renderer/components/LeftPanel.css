@@ -12,8 +12,8 @@
 
 .left-panel-tabs {
   display: flex;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
 
@@ -25,7 +25,7 @@
   padding: 6px 12px;
   font-size: 11px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   transition:
     color 0.1s ease,
@@ -38,21 +38,21 @@
 }
 
 .left-panel-tab:hover {
-  color: #334155;
-  background: #e8ecf1;
+  color: var(--text-secondary);
+  background: var(--border-subtle);
 }
 
 .left-panel-tab.is-active {
-  color: #1e3a8a;
-  border-bottom-color: #3b82f6;
-  background: #f5f7fa;
+  color: var(--text-primary);
+  border-bottom-color: var(--brand-500);
+  background: var(--surface-app);
 }
 
 .left-panel-tab-badge {
   font-size: 10px;
   font-weight: 600;
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--accent-rose);
+  color: var(--surface-panel);
   border-radius: 8px;
   padding: 0 5px;
   line-height: 16px;
@@ -65,7 +65,7 @@
 .left-panel-content {
   min-height: 0;
   overflow-y: auto;
-  background: #f5f7fa;
+  background: var(--surface-app);
 }
 
 .left-panel-pane {
@@ -78,7 +78,7 @@
    feel visually consistent. */
 .left-panel-pane-empty {
   padding: 16px 12px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-style: italic;
   line-height: 1.5;
@@ -96,13 +96,13 @@
   gap: 8px;
   padding: 8px 12px;
   min-height: 40px;
-  background: rgb(248 250 252); /* slate-50 */
-  border-bottom: 1px solid rgb(226 232 240); /* slate-200 */
+  background: var(--surface-app); /* slate-50 */
+  border-bottom: 1px solid var(--border-subtle); /* slate-200 */
 }
 
 .left-panel-pane-collapsed-notice {
   font-size: 12px;
-  color: rgb(100 116 139); /* slate-500 */
+  color: var(--text-muted); /* slate-500 */
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -115,9 +115,9 @@
   align-items: center;
   padding: 4px 10px;
   border-radius: 4px;
-  border: 1px solid rgb(203 213 225); /* slate-300 */
+  border: 1px solid var(--border-strong); /* slate-300 */
   background: white;
-  color: rgb(15 23 42); /* slate-900 */
+  color: var(--text-primary); /* slate-900 */
   font-size: 12px;
   cursor: pointer;
   flex-shrink: 0;
@@ -125,18 +125,18 @@
 }
 
 .left-panel-pane-collapsed-expand:hover {
-  background: rgb(241 245 249); /* slate-100 */
+  background: var(--surface-subtle); /* slate-100 */
 }
 
 .left-panel-pane-collapsed-expand:focus-visible {
-  outline: 2px solid rgb(59 130 246); /* blue-500 */
+  outline: 2px solid var(--brand-500); /* blue-500 */
   outline-offset: 1px;
 }
 
 /* ── Tree area ── */
 
 .left-panel-tree {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border-subtle);
   min-height: 0;
   overflow: hidden;
   display: flex;

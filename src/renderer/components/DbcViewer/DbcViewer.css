@@ -18,7 +18,7 @@
 .dbc-viewer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -26,16 +26,16 @@
 }
 
 .dbc-viewer-modal {
-  background: #ffffff;
+  background: var(--surface-panel);
   border-radius: 8px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 16px 48px var(--overlay-scrim-soft);
   width: min(960px, 92vw);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-size: 13px;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .dbc-viewer-header {
@@ -43,15 +43,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-app);
 }
 
 .dbc-viewer-title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: 0.01em;
 }
 
@@ -59,7 +59,7 @@
   appearance: none;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 20px;
   cursor: pointer;
   padding: 0 6px;
@@ -69,8 +69,8 @@
 }
 
 .dbc-viewer-close:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--border-subtle);
+  color: var(--text-primary);
 }
 
 /* Stats strip (version / nodes / messages). */
@@ -80,7 +80,7 @@
   gap: 12px;
   margin: 0;
   padding: 14px 18px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dbc-viewer-stat {
@@ -93,7 +93,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
@@ -101,7 +101,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 /* Nodes chip row. */
@@ -110,8 +110,8 @@
   flex-wrap: wrap;
   gap: 6px;
   padding: 10px 18px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f1f5f9;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-subtle);
 }
 
 .dbc-viewer-node-chip {
@@ -119,9 +119,9 @@
   padding: 2px 10px;
   font-size: 12px;
   font-weight: 500;
-  background: #ffffff;
-  color: #1e3a8a;
-  border: 1px solid #cbd5e1;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
 }
 
@@ -140,46 +140,46 @@
 .dbc-viewer-table thead th {
   position: sticky;
   top: 0;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--surface-app);
+  border-bottom: 1px solid var(--border-subtle);
   padding: 8px 12px;
   text-align: left;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .dbc-viewer-table tbody tr {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--surface-subtle);
   transition: background-color 0.08s ease;
 }
 
 .dbc-viewer-table tbody tr:hover {
-  background: #f8fafc;
+  background: var(--surface-app);
 }
 
 .dbc-viewer-table tbody td {
   padding: 8px 12px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .dbc-viewer-table tbody td:nth-child(1) {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
-  color: #1e3a8a;
+  color: var(--text-primary);
 }
 
 .dbc-viewer-error {
   padding: 24px 18px;
   font-size: 13px;
-  color: #b91c1c;
-  background: #fef2f2;
+  color: var(--accent-rose-strong);
+  background: var(--rose-tint);
 }
 
 .dbc-viewer-error strong {
-  color: #7f1d1d;
+  color: var(--accent-rose-strong);
   margin-right: 6px;
 }

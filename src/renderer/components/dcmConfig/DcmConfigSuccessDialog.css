@@ -1,7 +1,7 @@
 .dcm-config-success-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,12 +9,12 @@
 }
 
 .dcm-config-success-card {
-  background: var(--color-surface, #fff);
+  background: var(--surface-panel);
   border-radius: 8px;
   padding: 24px;
   min-width: 360px;
   max-width: 560px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px var(--overlay-scrim-soft);
 }
 
 .dcm-config-success-title {
@@ -24,13 +24,13 @@
 
 .dcm-config-success-body {
   margin: 0 0 16px;
-  color: var(--color-text-secondary, #555);
+  color: var(--text-secondary);
 }
 
 .dcm-config-success-paths {
   margin: 0 0 16px;
   padding: 12px;
-  background: var(--color-surface-muted, #f5f5f5);
+  background: var(--surface-subtle);
   border-radius: 4px;
 }
 
@@ -69,14 +69,14 @@
 
 .dcm-config-success-close {
   padding: 6px 16px;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: var(--color-surface, #fff);
+  background: var(--surface-panel);
   cursor: pointer;
 }
 
 .dcm-config-success-close:hover {
-  background: var(--color-surface-hover, #f0f0f0);
+  background: var(--surface-subtle);
 }
 
 /* v1.34.0 MINOR T3 — xlsx import history <details> surface.
@@ -102,14 +102,14 @@
 
 .xlsx-import-history__list > li {
   padding: 4px 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .xlsx-import-history__list > li > time {
-  color: var(--color-text-secondary, #555);
+  color: var(--text-secondary);
 }
 
 .xlsx-import-history__list > li > button {

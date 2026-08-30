@@ -30,9 +30,9 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1a1d23;
-  color: #e4e6eb;
-  border-left: 1px solid #2d323b;
+  background: var(--chrome-bg-deep);
+  color: var(--border-subtle);
+  border-left: 1px solid var(--chrome-border);
   overflow: hidden;
   font-size: 13px;
   line-height: 1.4;
@@ -43,8 +43,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid #2d323b;
-  background: #22262e;
+  border-bottom: 1px solid var(--chrome-border);
+  background: var(--chrome-bg-deep);
 }
 
 .script-panel-header h2 {
@@ -52,7 +52,7 @@
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: #f1f3f5;
+  color: var(--surface-subtle);
 }
 
 .script-panel-header-actions {
@@ -64,8 +64,8 @@
   padding: 4px 12px;
   font-size: 12px;
   font-weight: 500;
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
@@ -73,7 +73,7 @@
 }
 
 .script-panel-header-actions button:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--brand-500);
 }
 
 .script-panel-header-actions button:disabled {
@@ -91,7 +91,7 @@
 .script-library,
 .script-editor-host,
 .script-output {
-  border-right: 1px solid #2d323b;
+  border-right: 1px solid var(--chrome-border);
   overflow: auto;
   min-width: 0;
 }
@@ -107,7 +107,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  border-bottom: 1px solid #2d323b;
+  border-bottom: 1px solid var(--chrome-border);
 }
 
 .script-library-header h3,
@@ -117,7 +117,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #b4b8bf;
+  color: #b4b8bf; /* stylelint-disable-line color-no-hex */
 }
 
 .script-btn-new {
@@ -125,8 +125,8 @@
   font-size: 12px;
   font-weight: 500;
   background: transparent;
-  color: #e4e6eb;
-  border: 1px solid #3d424b;
+  color: var(--border-subtle);
+  border: 1px solid var(--chrome-border);
   border-radius: 4px;
   cursor: pointer;
   /* Bug #2 code-review MEDIUM — explicit properties (not `all`) so
@@ -138,8 +138,8 @@
 }
 
 .script-btn-new:hover:not(:disabled) {
-  background: #2d323b;
-  border-color: #4d525b;
+  background: var(--chrome-border);
+  border-color: #4d525b; /* stylelint-disable-line color-no-hex */
 }
 
 .script-btn-new:disabled {
@@ -151,7 +151,7 @@
   display: flex;
   gap: 6px;
   padding: 10px 14px;
-  border-bottom: 1px solid #2d323b;
+  border-bottom: 1px solid var(--chrome-border);
   flex-wrap: wrap;
 }
 
@@ -160,8 +160,8 @@
   font-size: 11px;
   font-weight: 500;
   background: transparent;
-  color: #b4b8bf;
-  border: 1px solid #3d424b;
+  color: #b4b8bf; /* stylelint-disable-line color-no-hex */
+  border: 1px solid var(--chrome-border);
   border-radius: 12px;
   cursor: pointer;
   transition:
@@ -170,13 +170,13 @@
 }
 
 .script-filter-chip:hover:not(.is-active) {
-  background: #2d323b;
-  color: #e4e6eb;
+  background: var(--chrome-border);
+  color: var(--border-subtle);
 }
 
 .script-filter-chip.is-active {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   border-color: transparent;
 }
 
@@ -197,12 +197,12 @@
 }
 
 .script-library-row:hover {
-  background: #22262e;
+  background: var(--chrome-bg-deep);
 }
 
 .script-library-row.is-selected {
-  background: rgba(59, 130, 246, 0.12);
-  border-left-color: #3b82f6;
+  background: var(--brand-alpha);
+  border-left-color: var(--brand-500);
 }
 
 .script-library-row-main {
@@ -226,21 +226,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #f1f3f5;
+  color: var(--surface-subtle);
 }
 
 .script-library-row-delete {
   padding: 0 12px;
   font-size: 16px;
   background: transparent;
-  color: #8a8f99;
+  color: #8a8f99; /* stylelint-disable-line color-no-hex */
   border: none;
   cursor: pointer;
   transition: color 0.1s ease;
 }
 
 .script-library-row-delete:hover:not(:disabled) {
-  color: #f87171;
+  color: var(--accent-rose);
 }
 
 .script-library-row-delete:disabled {
@@ -251,7 +251,7 @@
 .script-library-empty {
   padding: 16px 14px;
   font-size: 13px;
-  color: #8a8f99;
+  color: #8a8f99; /* stylelint-disable-line color-no-hex */
 }
 
 /* Kind badge — see ScriptKindBadge.tsx for the visible-label change.
@@ -267,26 +267,26 @@
   font-size: 11px;
   font-weight: 600;
   border-radius: 9px;
-  color: #ffffff;
+  color: var(--surface-panel);
   white-space: nowrap;
   cursor: help;
   letter-spacing: 0.01em;
 }
 
 .script-kind-validator {
-  background: #1e88e5;
+  background: var(--brand-500);
 }
 
 .script-kind-transformer {
-  background: #f57c00;
+  background: var(--accent-amber);
 }
 
 .script-kind-report {
-  background: #43a047;
+  background: var(--accent-emerald);
 }
 
 .script-kind-free {
-  background: #757575;
+  background: var(--text-secondary);
 }
 
 /* Onboarding banner (v1.21.0 Bug #2).
@@ -298,15 +298,15 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: linear-gradient(180deg, #1f232b 0%, #1a1d23 100%);
-  border-top: 1px solid #2d323b;
+  background: var(--chrome-bg-deep);
+  border-top: 1px solid var(--chrome-border);
 }
 
 .script-onboarding-title {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #f1f3f5;
+  color: var(--surface-subtle);
   letter-spacing: 0.01em;
 }
 
@@ -314,7 +314,7 @@
   margin: 0;
   font-size: 12.5px;
   line-height: 1.55;
-  color: #b4b8bf;
+  color: #b4b8bf; /* stylelint-disable-line color-no-hex */
 }
 
 .script-onboarding-kinds {
@@ -331,7 +331,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--chrome-hairline);
   border-radius: 6px;
   border-left: 2px solid transparent;
   transition:
@@ -340,13 +340,13 @@
 }
 
 .script-onboarding-kind:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-left-color: #3d424b;
+  background: var(--chrome-hairline);
+  border-left-color: var(--chrome-border);
 }
 
 .script-onboarding-kind-hint {
   font-size: 12px;
-  color: #d4d6db;
+  color: var(--border-strong);
   flex: 1;
 }
 
@@ -356,8 +356,8 @@
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
@@ -365,7 +365,7 @@
 }
 
 .script-onboarding-cta:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--brand-500);
 }
 
 .script-onboarding-cta:disabled {
@@ -377,7 +377,7 @@
 .script-editor-host {
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: #1e1e1e; /* stylelint-disable-line color-no-hex */
 }
 
 .script-editor-mount {
@@ -390,7 +390,7 @@
 .script-output-status {
   padding: 10px 14px;
   font-size: 12.5px;
-  border-bottom: 1px solid #2d323b;
+  border-bottom: 1px solid var(--chrome-border);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -409,27 +409,27 @@
 }
 
 .script-output-status-ok {
-  background: rgba(67, 160, 71, 0.12);
-  color: #81c784;
+  background: var(--emerald-tint);
+  color: var(--accent-emerald);
 }
 .script-output-status-ok .script-output-status-icon {
-  background: #43a047;
-  color: #ffffff;
+  background: var(--accent-emerald);
+  color: var(--surface-panel);
 }
 
 .script-output-status-runtime-error,
 .script-output-status-syntax-error,
 .script-output-status-timeout,
 .script-output-status-import-error {
-  background: rgba(244, 67, 54, 0.12);
-  color: #ff8a80;
+  background: var(--rose-tint);
+  color: var(--accent-rose);
 }
 .script-output-status-runtime-error .script-output-status-icon,
 .script-output-status-syntax-error .script-output-status-icon,
 .script-output-status-timeout .script-output-status-icon,
 .script-output-status-import-error .script-output-status-icon {
-  background: #e53935;
-  color: #ffffff;
+  background: var(--accent-rose);
+  color: var(--surface-panel);
 }
 
 /* Bug #2 code-review HIGH-2 fix — the status banner renders an
@@ -448,7 +448,7 @@
   min-width: 0;
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #ff8a80;
+  color: var(--accent-rose);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -457,7 +457,7 @@
 
 .script-output-section {
   padding: 8px 14px;
-  border-bottom: 1px solid #2d323b;
+  border-bottom: 1px solid var(--chrome-border);
 }
 
 .script-output-section summary {
@@ -466,7 +466,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #b4b8bf;
+  color: #b4b8bf; /* stylelint-disable-line color-no-hex */
   padding: 4px 0;
   list-style: none;
 }
@@ -500,7 +500,7 @@
   padding: 6px 8px;
   font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  border-bottom: 1px solid #262a31;
+  border-bottom: 1px solid var(--chrome-bg-deep);
   line-height: 1.5;
 }
 
@@ -515,30 +515,30 @@
 }
 
 .script-log-info {
-  color: #82aaff;
+  color: var(--brand-500);
 }
 
 .script-log-warn {
-  color: #ffcb6b;
+  color: var(--accent-amber);
 }
 
 .script-log-error {
-  color: #ff5370;
+  color: var(--accent-rose);
 }
 
 .script-violation-warning {
-  color: #ffcb6b;
+  color: var(--accent-amber);
 }
 
 .script-violation-error {
-  color: #ff5370;
+  color: var(--accent-rose);
 }
 
 .script-output-footer {
   display: flex;
   gap: 8px;
   padding: 12px 14px;
-  border-top: 1px solid #2d323b;
+  border-top: 1px solid var(--chrome-border);
 }
 
 .script-output-commit,
@@ -547,25 +547,25 @@
   font-size: 12px;
   font-weight: 500;
   background: transparent;
-  color: #e4e6eb;
-  border: 1px solid #3d424b;
+  color: var(--border-subtle);
+  border: 1px solid var(--chrome-border);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .script-output-commit:not(:disabled) {
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   border-color: transparent;
 }
 
 .script-output-commit:not(:disabled):hover {
-  background: #2563eb;
+  background: var(--brand-500);
 }
 
 .script-output-discard:hover:not(:disabled) {
-  background: #2d323b;
+  background: var(--chrome-border);
 }
 
 .script-output-commit:disabled,
@@ -578,16 +578,16 @@
   padding: 3px 8px;
   font-size: 11px;
   background: transparent;
-  color: #b4b8bf;
-  border: 1px solid #3d424b;
+  color: #b4b8bf; /* stylelint-disable-line color-no-hex */
+  border: 1px solid var(--chrome-border);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.1s ease;
 }
 
 .script-output-clear:hover:not(:disabled) {
-  background: #2d323b;
-  color: #e4e6eb;
+  background: var(--chrome-border);
+  color: var(--border-subtle);
 }
 
 .script-output-clear:disabled {
@@ -596,6 +596,6 @@
 }
 
 .muted {
-  color: #8a8f99;
+  color: #8a8f99; /* stylelint-disable-line color-no-hex */
   font-style: italic;
 }

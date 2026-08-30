@@ -16,21 +16,21 @@
   padding: 4px 8px;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  border: 1px solid #cbd5e1; /* slate-300 */
+  border: 1px solid var(--border-strong); /* slate-300 */
   border-radius: 4px;
-  background-color: #ffffff;
-  color: #0f172a; /* slate-900 */
+  background-color: var(--surface-panel);
+  color: var(--text-primary); /* slate-900 */
 }
 
 .enum-editor:focus {
-  outline: 2px solid #3b82f6; /* blue-500 */
+  outline: 2px solid var(--brand-500); /* blue-500 */
   outline-offset: 1px;
 }
 
 .dark .enum-editor {
-  background-color: #1e293b; /* slate-800 */
-  border-color: #475569; /* slate-600 */
-  color: #f8fafc; /* slate-50 */
+  background-color: var(--text-primary); /* slate-800 */
+  border-color: var(--text-secondary); /* slate-600 */
+  color: var(--surface-app); /* slate-50 */
 }
 
 /* The `<option>` elements inside an open `<select>` are rendered by the
@@ -39,6 +39,6 @@
  * closed-state text in the right color when the dropdown is open in
  * the same document. */
 .dark .enum-editor option {
-  background-color: #1e293b;
-  color: #f8fafc;
+  background-color: var(--text-primary);
+  color: var(--surface-app);
 }

@@ -11,34 +11,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-scrim);
 }
 
 .remove-dialog {
-  background: #313244; /* --color-surface */
-  border: 1px solid #45475a; /* --color-border */
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   min-width: 480px;
   max-width: 620px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  color: #cdd6f4; /* --color-text */
+  box-shadow: 0 12px 40px var(--overlay-scrim);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
 .remove-dialog-header {
-  background: #181825; /* --color-bg (darker) */
+  background: var(--surface-elevated);
   padding: 14px 20px;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .remove-dialog-header h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .remove-dialog-body {
@@ -52,7 +52,7 @@
 .remove-message {
   font-size: 14px;
   line-height: 1.6;
-  color: #cdd6f4;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
@@ -64,11 +64,11 @@
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #a6adc8; /* --color-text-dim */
+  color: var(--text-secondary);
   max-height: 280px;
   overflow-y: auto;
-  background: #1e1e2e;
-  border: 1px solid #313244;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
 }
 
@@ -79,13 +79,13 @@
 }
 
 .remove-dep-file {
-  color: #89b4fa; /* --color-accent */
+  color: var(--brand-500);
   font-weight: 600;
 }
 
 .remove-more {
   font-size: 12px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-style: italic;
   text-align: right;
 }
@@ -94,9 +94,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  background: #181825;
+  background: var(--surface-elevated);
   padding: 12px 20px;
-  border-top: 1px solid #45475a;
+  border-top: 1px solid var(--border-strong);
 }
 
 .remove-btn {
@@ -114,50 +114,50 @@
 }
 
 .remove-btn-cancel {
-  background: #45475a;
-  color: #cdd6f4;
-  border-color: #585b70;
+  background: var(--border-strong);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .remove-btn-cancel:hover {
-  background: #585b70;
+  background: var(--border-strong);
 }
 
 .remove-btn-only {
-  background: #89b4fa; /* --color-accent — safe default, the autoFocus target */
-  color: #1e1e2e;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   font-weight: 600;
-  border-color: #89b4fa;
+  border-color: var(--brand-500);
 }
 
 .remove-btn-only:hover {
-  background: #74c7ec;
-  border-color: #74c7ec;
+  background: var(--brand-300);
+  border-color: var(--brand-300);
 }
 
 .remove-btn-cascade {
-  background: #f38ba8; /* --color-error — destructive, also cascades */
-  color: #1e1e2e;
+  background: var(--accent-rose);
+  color: var(--surface-panel);
   font-weight: 600;
-  border-color: #f38ba8;
+  border-color: var(--accent-rose);
 }
 
 .remove-btn-cascade:hover {
-  background: #eba0ac;
-  border-color: #eba0ac;
+  background: var(--accent-rose);
+  border-color: var(--accent-rose);
 }
 
 .remove-btn-cascadeAndUnlink {
   /* 4th option — even more destructive (deletes BSWMD from disk on
      top of cascade). Distinct color (warning yellow) so the user can
      tell it apart from the 3rd option at a glance. */
-  background: #f9e2af; /* --color-warning */
-  color: #1e1e2e;
+  background: var(--accent-amber);
+  color: var(--surface-panel);
   font-weight: 600;
-  border-color: #f9e2af;
+  border-color: var(--accent-amber);
 }
 
 .remove-btn-cascadeAndUnlink:hover {
-  background: #fab387;
-  border-color: #fab387;
+  background: var(--accent-amber);
+  border-color: var(--accent-amber);
 }

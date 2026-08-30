@@ -11,40 +11,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-scrim);
 }
 
 .bspd-dialog {
-  background: #313244; /* --color-surface */
-  border: 1px solid #45475a; /* --color-border */
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   min-width: 420px;
   max-width: 560px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  color: #cdd6f4; /* --color-text */
+  box-shadow: 0 12px 40px var(--overlay-scrim);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
 .bspd-header {
-  background: #181825; /* --color-bg (darker) */
+  background: var(--surface-elevated);
   padding: 14px 20px;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .bspd-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #cdd6f4;
+  color: var(--text-primary);
 }
 
 .bspd-parent {
   margin-top: 4px;
   font-size: 12px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   word-break: break-all;
 }
@@ -58,9 +58,9 @@
 }
 
 .bspd-search {
-  background: #1e1e2e;
-  color: #cdd6f4;
-  border: 1px solid #45475a;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   padding: 8px 12px;
   font-size: 13px;
@@ -69,21 +69,21 @@
 }
 
 .bspd-search:focus {
-  border-color: #89b4fa;
+  border-color: var(--brand-500);
 }
 
 .bspd-error {
   font-size: 13px;
-  color: #f38ba8;
+  color: var(--accent-rose);
   padding: 12px;
-  background: #1e1e2e;
+  background: var(--surface-panel);
   border-radius: 6px;
-  border: 1px solid #45475a;
+  border: 1px solid var(--border-strong);
 }
 
 .bspd-empty {
   font-size: 13px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   padding: 12px;
   text-align: center;
   font-style: italic;
@@ -98,8 +98,8 @@
   gap: 4px;
   max-height: 320px;
   overflow-y: auto;
-  background: #1e1e2e;
-  border: 1px solid #313244;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 6px;
 }
@@ -118,21 +118,21 @@
 }
 
 .bspd-row:hover:not(.bspd-row-disabled) {
-  background: #313244;
+  background: var(--border-subtle);
 }
 
 .bspd-row-selected {
-  background: #89b4fa;
-  color: #1e1e2e;
+  background: var(--brand-500);
+  color: var(--surface-panel);
   font-weight: 600;
 }
 
 .bspd-row-selected:hover {
-  background: #74c7ec;
+  background: var(--brand-300);
 }
 
 .bspd-row-disabled {
-  color: #585b70;
+  color: var(--border-strong);
   cursor: not-allowed;
   font-style: italic;
 }
@@ -144,23 +144,23 @@
 
 .bspd-row-mult {
   font-size: 11px;
-  color: #a6adc8;
+  color: var(--text-secondary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: nowrap;
   margin-left: 12px;
 }
 
 .bspd-row-selected .bspd-row-mult {
-  color: #1e1e2e;
+  color: var(--surface-panel);
 }
 
 .bspd-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  background: #181825;
+  background: var(--surface-elevated);
   padding: 12px 20px;
-  border-top: 1px solid #45475a;
+  border-top: 1px solid var(--border-strong);
 }
 
 .bspd-btn {
@@ -184,23 +184,23 @@
 }
 
 .bspd-btn-cancel {
-  background: #45475a;
-  color: #cdd6f4;
-  border-color: #585b70;
+  background: var(--border-strong);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 .bspd-btn-cancel:hover {
-  background: #585b70;
+  background: var(--border-strong);
 }
 
 .bspd-btn-done {
-  background: #a6e3a1; /* --color-success */
-  color: #1e1e2e;
+  background: var(--accent-emerald);
+  color: var(--surface-panel);
   font-weight: 600;
-  border-color: #a6e3a1;
+  border-color: var(--accent-emerald);
 }
 
 .bspd-btn-done:hover:not(:disabled) {
-  background: #94e2d5;
-  border-color: #94e2d5;
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
 }

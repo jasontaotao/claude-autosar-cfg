@@ -10,9 +10,9 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: var(--color-surface, #fff);
+  background: var(--surface-panel);
 }
 
 .module-selection-header {
@@ -41,11 +41,11 @@
 .module-selection-row {
   padding: 0.25rem 0.5rem;
   border-radius: 3px;
-  background: var(--color-surface-alt, #fafafa);
+  background: var(--surface-app);
 }
 
 .module-selection-row:hover {
-  background: var(--color-surface-hover, #f3f3f3);
+  background: var(--surface-subtle);
 }
 
 .module-selection-row-label {
@@ -62,7 +62,7 @@
 }
 
 .module-selection-row-source {
-  color: var(--color-text-muted, #666);
+  color: var(--text-secondary);
   font-size: 0.85em;
   white-space: nowrap;
   overflow: hidden;
@@ -70,9 +70,9 @@
 }
 
 .module-selection-collision-badge {
-  background: var(--color-warning-bg, #fff8e1);
-  color: var(--color-warning-text, #8a6d00);
-  border: 1px solid var(--color-warning-border, #e0c070);
+  background: var(--amber-tint);
+  color: var(--accent-amber-strong);
+  border: 1px solid var(--accent-amber);
   padding: 0 0.4em;
   border-radius: 3px;
   font-size: 0.8em;
@@ -84,23 +84,23 @@
   gap: 0.5rem;
   justify-content: flex-end;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--color-border, #ccc);
+  border-top: 1px solid var(--border-strong);
 }
 
 .module-selection-cancel,
 .module-selection-commit {
   padding: 0.3em 0.8em;
   border-radius: 3px;
-  border: 1px solid var(--color-border, #ccc);
-  background: var(--color-surface, #fff);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-panel);
   cursor: pointer;
   font: inherit;
 }
 
 .module-selection-commit:not(:disabled) {
-  background: var(--color-accent, #4a90e2);
-  color: #fff;
-  border-color: var(--color-accent, #4a90e2);
+  background: var(--brand-500);
+  color: var(--surface-panel);
+  border-color: var(--brand-500);
 }
 
 .module-selection-commit:disabled,

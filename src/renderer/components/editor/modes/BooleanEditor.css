@@ -20,21 +20,23 @@
    * Firefox 92+, Safari 15.4+). Older engines fall through to
    * browser-default chrome but the box itself stays visible because
    * we set a contrasting border below. */
-  accent-color: #2563eb; /* blue-600 */
-  border: 1px solid #cbd5e1; /* slate-300 */
+  accent-color: var(--brand-500); /* blue-600 */
+  border: 1px solid var(--border-strong); /* slate-300 */
   border-radius: 4px;
-  background-color: #ffffff;
-  color: #0f172a; /* slate-900 — drives the check tick via currentColor */
+  background-color: var(--surface-panel);
+  color: var(--text-primary); /* slate-900 — drives the check tick via currentColor */
 }
 
 .dark .boolean-editor {
-  background-color: #1e293b; /* slate-800 */
-  border-color: #94a3b8; /* slate-400 — bumped from slate-600 so the
+  background-color: var(--text-primary); /* slate-800 */
+  border-color: var(
+    --text-muted
+  ); /* slate-400 — bumped from slate-600 so the
                                 box stays visible against slate-800. */
-  color: #f8fafc; /* slate-50 */
+  color: var(--surface-app); /* slate-50 */
 }
 
 .boolean-editor:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--brand-500);
   outline-offset: 2px;
 }

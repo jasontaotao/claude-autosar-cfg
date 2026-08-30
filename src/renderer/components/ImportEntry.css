@@ -11,10 +11,10 @@
   align-items: center;
   gap: 0.4em;
   padding: 0.25em 0.6em;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: var(--color-surface, #fff);
-  color: var(--color-text, #222);
+  background: var(--surface-panel);
+  color: var(--text-primary);
   cursor: pointer;
   font: inherit;
   font-size: 0.85em;
@@ -22,8 +22,8 @@
 }
 
 .import-entry:hover:not(:disabled) {
-  background: var(--color-surface-hover, #f3f3f3);
-  border-color: var(--color-accent, #4a90e2);
+  background: var(--surface-subtle);
+  border-color: var(--brand-500);
 }
 
 .import-entry:disabled {
@@ -34,15 +34,15 @@
 .import-entry-standalone {
   padding: 0.4em 0.8em;
   font-size: 0.95em;
-  background: var(--color-accent, #4a90e2);
-  color: #fff;
-  border-color: var(--color-accent, #4a90e2);
+  background: var(--brand-500);
+  color: var(--surface-panel);
+  border-color: var(--brand-500);
 }
 
 .import-entry-standalone:hover:not(:disabled) {
-  background: var(--color-accent-hover, #357abd);
-  border-color: var(--color-accent-hover, #357abd);
-  color: #fff;
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: var(--surface-panel);
 }
 
 .import-entry-icon {
