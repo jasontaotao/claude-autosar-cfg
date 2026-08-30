@@ -5,8 +5,8 @@
  * `prefers-color-scheme`, and Firefox sometimes renders the box
  * dark-on-dark in dark mode. We pin both states explicitly with
  * `accent-color` (which colors the checkbox tick + box on every
- * modern engine) and a transparent fill so the dark-mode section
- * background (`bg-slate-800`) shows through.
+ * modern engine) and a transparent fill so the light section
+ * background shows through.
  *
  * The rule uses CSS custom-property fallbacks (`transparent` and the
  * `currentColor` for the check tick) so the visual integrates with
@@ -25,15 +25,6 @@
   border-radius: 4px;
   background-color: var(--surface-panel);
   color: var(--text-primary); /* slate-900 — drives the check tick via currentColor */
-}
-
-.dark .boolean-editor {
-  background-color: var(--text-primary); /* slate-800 */
-  border-color: var(
-    --text-muted
-  ); /* slate-400 — bumped from slate-600 so the
-                                box stays visible against slate-800. */
-  color: var(--surface-app); /* slate-50 */
 }
 
 .boolean-editor:focus-visible {

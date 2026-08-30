@@ -327,7 +327,7 @@ describe('ParamEditor', () => {
     expect(within(referenceSection).getByText(/\(none\)|（无）/)).toBeInTheDocument();
   });
 
-  it('Q2: h2 has explicit text color in both light and dark mode', () => {
+  it('Q2: h2 has explicit text color', () => {
     const doc = makeDoc();
     useArxmlStore.getState().setDoc(doc, '/EAS');
     useArxmlStore.getState().select('/EAS/EcuCGeneral');
@@ -336,50 +336,49 @@ describe('ParamEditor', () => {
 
     const h2 = screen.getByRole('heading', { name: 'EcuCGeneral', level: 2 });
     // Tailwind compiles to a static class list; the explicit
-    // text-slate-900 dark:text-slate-50 is what makes the h2
-    // unambiguous in both themes (the previous default inherited
-    // the body's text color, which was low-contrast in some setups).
+    // text-slate-900 is what makes the h2 unambiguous (the previous
+    // default inherited the body's text color, which was
+    // low-contrast in some setups).
     expect(h2.className).toMatch(/text-slate-900/);
-    expect(h2.className).toMatch(/dark:text-slate-50/);
+    expect(h2.className).not.toMatch(/dark:/);
   });
 
   // ---------- Sprint 13+ Q2-2 (editor sub-components color contract) ----------
   // Sprint 13+ Stage 4 Q2-2 — every input that renders a parameter
-  // value MUST carry an explicit `text-slate-900` (light) and
-  // `dark:text-slate-50` (dark) class. Without this, the value text
-  // inherits the body color, which can match the dark-mode input
-  // background (`dark:bg-slate-800`) on some browsers and make the
-  // value invisible. The EnumEditor additionally requires a CSS
-  // file because `<select>` does not honor Tailwind utilities in
-  // dark mode across all browsers.
-  it('Q2-2: integer input has explicit text-slate-900 + dark:text-slate-50', () => {
+  // value MUST carry an explicit `text-slate-900` class. Without
+  // this, the value text inherits the body color, which can be
+  // low-contrast against the input background on some browsers and
+  // make the value invisible. The EnumEditor additionally requires a
+  // CSS file because `<select>` does not honor Tailwind utilities
+  // across all browsers.
+  it('Q2-2: integer input has explicit text-slate-900', () => {
     const doc = makeDoc();
     useArxmlStore.getState().setDoc(doc, '/EAS');
     useArxmlStore.getState().select('/EAS/EcuCGeneral');
     render(<ParamEditor />);
     const input = screen.getByLabelText('Count value');
     expect(input.className).toMatch(/text-slate-900/);
-    expect(input.className).toMatch(/dark:text-slate-50/);
+    expect(input.className).not.toMatch(/dark:/);
   });
 
-  it('Q2-2: float input has explicit text-slate-900 + dark:text-slate-50', () => {
+  it('Q2-2: float input has explicit text-slate-900', () => {
     const doc = makeDoc();
     useArxmlStore.getState().setDoc(doc, '/EAS');
     useArxmlStore.getState().select('/EAS/EcuCGeneral');
     render(<ParamEditor />);
     const input = screen.getByLabelText('Ratio value');
     expect(input.className).toMatch(/text-slate-900/);
-    expect(input.className).toMatch(/dark:text-slate-50/);
+    expect(input.className).not.toMatch(/dark:/);
   });
 
-  it('Q2-2: string input has explicit text-slate-900 + dark:text-slate-50', () => {
+  it('Q2-2: string input has explicit text-slate-900', () => {
     const doc = makeDoc();
     useArxmlStore.getState().setDoc(doc, '/EAS');
     useArxmlStore.getState().select('/EAS/EcuCGeneral');
     render(<ParamEditor />);
     const input = screen.getByLabelText('Name value');
     expect(input.className).toMatch(/text-slate-900/);
-    expect(input.className).toMatch(/dark:text-slate-50/);
+    expect(input.className).not.toMatch(/dark:/);
   });
 
   it('Q2-2: multiline (Comment) textarea has explicit text color', () => {
@@ -389,14 +388,14 @@ describe('ParamEditor', () => {
     render(<ParamEditor />);
     const ta = screen.getByLabelText('Comment value');
     expect(ta.className).toMatch(/text-slate-900/);
-    expect(ta.className).toMatch(/dark:text-slate-50/);
+    expect(ta.className).not.toMatch(/dark:/);
   });
 
   it('Q2-2: enum editor mounts with its enum-editor CSS class (select or fallback input)', () => {
     // The Mode enum in makeDoc may render as <select> (if the schema
     // maps it to literals) or as the free-form <input> fallback. Both
     // branches carry the `enum-editor` class so the value text colour
-    // is pinned by EnumEditor.css in both themes.
+    // is pinned by EnumEditor.css.
     const doc = makeDoc();
     useArxmlStore.getState().setDoc(doc, '/EAS');
     useArxmlStore.getState().select('/EAS/EcuCGeneral');
@@ -410,12 +409,12 @@ describe('ParamEditor', () => {
 
   // Sprint 13+ Q2-2 — 11 boolean params in AdcGeneral style containers
   // were reported as "same color as the background". The fix pins an
-  // explicit text-slate-900 / dark:text-slate-50 on every <td> in the
-  // param row so the param name and the type badge are visible in
-  // both themes. This test mirrors the user's reported scenario:
+  // explicit text-slate-900 on every <td> in the param row so the
+  // param name and the type badge are visible. This test mirrors the
+  // user's reported scenario:
   // a container with a long list of boolean params, where the row
   // text was previously invisible.
-  it('Q2-2: every row in an 11-boolean container has explicit text-slate-900 + dark:text-slate-50 on the name cell', () => {
+  it('Q2-2: every row in an 11-boolean container has explicit text-slate-900 on the name cell', () => {
     // Build an AdcGeneral-style container: 11 boolean params, no
     // value column content beyond the checkboxes.
     const booleanKeys = [
@@ -455,7 +454,7 @@ describe('ParamEditor', () => {
 
     // All 11 param names should render in the value section, and
     // each one should be inside a <td> that carries the explicit
-    // text-slate-900 / dark:text-slate-50 contract.
+    // text-slate-900 contract.
     const valueSection = screen.getByTestId('editor-category-value');
     for (const key of booleanKeys) {
       const cell = within(valueSection).getByText(key);
@@ -464,7 +463,7 @@ describe('ParamEditor', () => {
       const td = cell.closest('td');
       expect(td, `${key} should be inside a <td>`).not.toBeNull();
       expect(td!.className).toMatch(/text-slate-900/);
-      expect(td!.className).toMatch(/dark:text-slate-50/);
+      expect(td!.className).not.toMatch(/dark:/);
     }
   });
 

@@ -1,15 +1,13 @@
 /* EnumEditor — Sprint 13+ Q2-2.
  *
- * The `<select>` element in dark mode renders inconsistently across
- * browsers (Chrome on Windows uses the OS-native chrome; Firefox applies
- * `prefers-color-scheme: dark` but only for the chrome, not the options
- * dropdown). This file pins both the closed select and the open
- * option-list so the value is always visible regardless of the host
+ * The `<select>` element renders inconsistently across browsers
+ * (Chrome on Windows uses the OS-native chrome). This file pins the
+ * closed select so the value is always visible regardless of the host
  * browser.
  *
  * The same color tokens as the other editor inputs are used (slate-900
- * text on white / slate-50 text on slate-800) so the picker visually
- * matches the table cell around it. */
+ * text on white) so the picker visually matches the table cell around
+ * it. */
 
 .enum-editor {
   width: 100%;
@@ -25,20 +23,4 @@
 .enum-editor:focus {
   outline: 2px solid var(--brand-500); /* blue-500 */
   outline-offset: 1px;
-}
-
-.dark .enum-editor {
-  background-color: var(--text-primary); /* slate-800 */
-  border-color: var(--text-secondary); /* slate-600 */
-  color: var(--surface-app); /* slate-50 */
-}
-
-/* The `<option>` elements inside an open `<select>` are rendered by the
- * OS, not the page CSS, on most platforms — but Firefox and some
- * Chromium builds honor the rule below, which at least keeps the
- * closed-state text in the right color when the dropdown is open in
- * the same document. */
-.dark .enum-editor option {
-  background-color: var(--text-primary);
-  color: var(--surface-app);
 }
