@@ -3,6 +3,12 @@
 // Panel id 一经注册永不改名（布局持久化引用 id）。
 import type { ComponentType } from 'react';
 
+import { LeftPanelWrapper } from './wrappers/LeftPanelWrapper.js';
+import { ParamEditorWrapper } from './wrappers/ParamEditorWrapper.js';
+import { ScriptPanelWrapper } from './wrappers/ScriptPanelWrapper.js';
+import { DbcViewerWrapper } from './wrappers/DbcViewerWrapper.js';
+import { OdxViewerWrapper } from './wrappers/OdxViewerWrapper.js';
+
 /** Stable panel id — never rename (layout persistence references id). */
 export type PanelId =
   | 'left-panel'
@@ -20,13 +26,6 @@ export interface PanelDef {
   readonly titleKey: string;
   readonly defaultGroup: DefaultGroup;
 }
-
-// Placeholder wrappers — replaced in Task 3 with real components.
-const LeftPanelWrapper: ComponentType = () => null;
-const ParamEditorWrapper: ComponentType = () => null;
-const ScriptPanelWrapper: ComponentType = () => null;
-const DbcViewerWrapper: ComponentType = () => null;
-const OdxViewerWrapper: ComponentType = () => null;
 
 export const PANEL_REGISTRY: readonly PanelDef[] = [
   { id: 'left-panel', component: LeftPanelWrapper, titleKey: 'panels.leftPanel', defaultGroup: 'left' },
