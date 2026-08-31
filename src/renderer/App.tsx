@@ -60,6 +60,7 @@ import { OdxViewer } from './components/OdxViewer';
 import { ScriptPanel } from './components/ScriptPanel';
 import { XlsxBatchWizard } from './components/XlsxBatchWizard';
 import { ParamEditor } from './components/editor/ParamEditor';
+import { PanelErrorBoundary } from './components/PanelErrorBoundary';
 import { AppShell } from './hooks/useAppShell';
 import { useBswmdHasDcm } from './hooks/useBswmdHasDcm';
 import { useDcmConfigLauncher } from './hooks/useDcmConfigLauncher';
@@ -435,7 +436,9 @@ export function App(): JSX.Element {
             </Panel>
             <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
             <Panel id="workspace-right" data-tour-id="right-pane-content">
-              <ParamEditor />
+              <PanelErrorBoundary panel="param-editor" locale={locale}>
+                <ParamEditor />
+              </PanelErrorBoundary>
             </Panel>
           </Group>
         </main>
@@ -445,7 +448,9 @@ export function App(): JSX.Element {
           // so CodeMirror is only loaded when the user explicitly opens
           // the panel (the panel toggle is in AppHeader).
           <div className="app-script-panel-host" data-testid="app-script-panel-host">
-            <ScriptPanel />
+            <PanelErrorBoundary panel="script-panel" locale={locale}>
+              <ScriptPanel />
+            </PanelErrorBoundary>
           </div>
         )}
         <ArxmlPanel />
