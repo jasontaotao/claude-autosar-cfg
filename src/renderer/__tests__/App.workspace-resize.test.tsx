@@ -158,7 +158,9 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('App workspace resizer (Q1: drag-to-resize left column)', () => {
+// P3: workspace splitter replaced by dockview. Superseded by dock-workbench tests.
+// Full removal of react-resizable-panels in P4.
+describe.skip('App workspace resizer (Q1: drag-to-resize left column)', () => {
   it('mounts a Separator inside the .workspace container', () => {
     render(<App />);
     // The handle carries our `className="workspace-resize-h"` and

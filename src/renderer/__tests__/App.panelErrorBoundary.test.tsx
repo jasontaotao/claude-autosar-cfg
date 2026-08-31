@@ -9,16 +9,29 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../App.jsx';
 
-vi.mock('../components/editor/ParamEditor.js', () => ({
-  ParamEditor: () => {
-    throw new Error('boom: param editor fault');
-  },
-}));
-vi.mock('../components/ScriptPanel/ScriptPanel.js', () => ({
-  ScriptPanel: () => {
-    throw new Error('boom: script panel fault');
-  },
-}));
+// P3 note: ParamEditor is now inside a dockview panel via ParamEditorWrapper.
+// The fault-injection mocks the WRAPPER component (which dockview renders)
+// and wraps the throwing element in PanelErrorBoundary to mirror the real
+// wrapper structure (wrapper = PanelErrorBoundary + business component).
+vi.mock('../panels/wrappers/ParamEditorWrapper.js', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../panels/wrappers/ParamEditorWrapper.js')>();
+  const { PanelErrorBoundary } = await import('../components/PanelErrorBoundary.js');
+  const { useArxmlStore } = await import('../store/useArxmlStore.js');
+  return {
+    ...mod,
+    ParamEditorWrapper: () => {
+      const locale = useArxmlStore.getState().locale;
+      const ThrowingParamEditor = (): never => {
+        throw new Error('boom: param editor fault');
+      };
+      return (
+        <PanelErrorBoundary panel="param-editor" locale={locale}>
+          <ThrowingParamEditor />
+        </PanelErrorBoundary>
+      );
+    },
+  };
+});
 
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 afterEach(() => {

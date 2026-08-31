@@ -36,8 +36,10 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useEffect } from 'react';
-import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { DockviewReact } from 'dockview-react';
+import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview-react';
+import 'dockview/dist/styles/dockview.css';
 
 import { t } from '@shared/i18n/index.js';
 import { dirname, toManifestRelative } from '@shared/path';
@@ -53,7 +55,6 @@ import { DbcViewer } from './components/DbcViewer';
 import { DiagnosticExtractSuccessDialog } from './components/DiagnosticExtractSuccessDialog';
 import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
-import { LeftPanel } from './components/LeftPanel';
 import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
 import { OdxViewer } from './components/OdxViewer';
@@ -70,6 +71,23 @@ import { useProjectActions } from './hooks/useProjectActions';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
 import { useArxmlStore } from './store/useArxmlStore';
+import { PANEL_REGISTRY } from './panels/registry.js';
+import { WorkspaceContext } from './panels/WorkspaceContext.js';
+import { loadLayout, saveLayout } from './panels/useDockLayout.js';
+
+function buildDefaultLayout(api: DockviewApi): void {
+  api.addPanel({ id: 'left-panel', component: 'left-panel' });
+  api.addPanel({
+    id: 'param-editor',
+    component: 'param-editor',
+    position: { referencePanel: 'left-panel', direction: 'right' },
+  });
+}
+
+const panelComponents: Record<string, React.ComponentType<IDockviewPanelProps>> = {};
+for (const def of PANEL_REGISTRY) {
+  panelComponents[def.id] = def.component as React.ComponentType<IDockviewPanelProps>;
+}
 import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
 import { attachXlsxImportListener } from './store/xlsxImportListener.js';
 
@@ -108,19 +126,43 @@ export function App(): JSX.Element {
     };
   }, []);
 
-  // Sprint 13+ Stage 4 Q1 — react-resizable-panels v4 has no
-  // `autoSaveId` prop (verified in node_modules/.../dist/.d.ts:60-142
-  // and confirmed by code-reviewer HIGH finding on the C4 commit).
-  // The library expects callers to wire `useDefaultLayout({ groupId })`
-  // for localStorage persistence: the hook returns a `defaultLayout`
-  // (read from storage on mount, falls back to `undefined` first time)
-  // and an `onLayoutChanged` callback that writes the new layout to
-  // storage. We thread both into the `<Group>` below so the splitter
-  // position survives page reloads.
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    groupId: 'workspace',
-  });
-  const fallbackLayout = { 'workspace-left': 30 } as const;
+  // P3 Dock 工作台 (spec §5) — dockview replaces react-resizable-panels
+  // for the main workspace split. Layout persists to localStorage via
+  // useDockLayout (autosarcfg.layout.v1, schema version 1, 500ms debounce).
+  const dockApiRef = useRef<DockviewApi | null>(null);
+
+  const handleDockReady = useCallback((event: DockviewReadyEvent): void => {
+    const api = event.api;
+    dockApiRef.current = api;
+    const stored = loadLayout();
+    if (stored) {
+      try {
+        api.fromJSON(stored as never);
+      } catch {
+        console.warn('[dock-layout] fromJSON failed, building default layout');
+        buildDefaultLayout(api);
+      }
+    } else {
+      buildDefaultLayout(api);
+    }
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedSave = (): void => {
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        saveLayout(api.toJSON() as Record<string, unknown>);
+        debounceTimer = null;
+      }, 500);
+    };
+    api.onDidLayoutChange(() => debouncedSave());
+    const flushOnUnload = (): void => {
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
+        saveLayout(api.toJSON() as Record<string, unknown>);
+      }
+    };
+    window.addEventListener('beforeunload', flushOnUnload);
+  }, []);
+
 
   // Sprint 12 #3 Phase 1 Task 5 — `submitNewProject` is the dirty-
   // guarded submitter for `<NewProjectDialog />`. When the user clicks
@@ -294,6 +336,23 @@ export function App(): JSX.Element {
     diagExtractModal,
     diagExtractExporting,
   } = useDiagExtractHandlers({ odxModal });
+  const workspaceCtx = useMemo(() => ({
+    handleAddEcucFromBswmd,
+    handleContextMenu,
+    openProjectFromDialog,
+    newProject,
+    dbcOpen: dbcModal.kind !== 'closed',
+    dbcPath: dbcModal.kind === 'open' ? dbcModal.path : '',
+    dbcSummary: dbcModal.kind === 'open' ? dbcModal.summary : null,
+    dbcOnClose: closeDbcViewer,
+    odxOpen: odxModal.kind !== 'closed',
+    odxPath: odxModal.kind === 'open' ? odxModal.path : '',
+    odxSummary: odxModal.kind === 'open' ? odxModal.summary : null,
+    odxOnClose: closeOdxViewer,
+    odxOnExport: handleExportOdxDiagnosticExtract,
+    odxExporting: diagExtractExporting,
+  }), [handleAddEcucFromBswmd, handleContextMenu, openProjectFromDialog, newProject, dbcModal, closeDbcViewer, odxModal, closeOdxViewer, handleExportOdxDiagnosticExtract, diagExtractExporting]);
+
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
@@ -412,35 +471,28 @@ export function App(): JSX.Element {
             is the drag handle — it carries the
             `data-testid="workspace-resize-h"` selector the workspace
             tests target. */}
-          <Group
-            orientation="horizontal"
-            id="workspace"
-            defaultLayout={defaultLayout ?? fallbackLayout}
-            onLayoutChanged={onLayoutChanged}
-          >
-            <Panel id="workspace-left" minSize="20%" defaultSize="30%">
-              {isImportMerged ? (
-                <div className="app-import-merged-column" data-testid="app-import-merged-column">
-                  <ModuleSelectionPanel />
-                  <DiffTable />
-                </div>
-              ) : (
-                // Sprint A X2 — wire handleContextMenu so a right-click
-                // on a Tree row opens the global ContextMenu, which in
-                // turn routes back through handleContextMenuAction.
-                <LeftPanel
-                  onAddEcucFromBswmd={handleAddEcucFromBswmd}
-                  onContextMenu={handleContextMenu}
-                />
-              )}
-            </Panel>
-            <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
-            <Panel id="workspace-right" data-tour-id="right-pane-content">
-              <PanelErrorBoundary panel="param-editor" locale={locale}>
-                <ParamEditor onOpenProject={openProjectFromDialog} onNewProject={newProject} />
-              </PanelErrorBoundary>
-            </Panel>
-          </Group>
+          {isImportMerged ? (
+            <div className="app-import-merged-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 30%) 1fr', height: '100%' }}>
+              <div className="app-import-merged-column" data-testid="app-import-merged-column">
+                <ModuleSelectionPanel />
+                <DiffTable />
+              </div>
+              <div data-tour-id="right-pane-content">
+                <PanelErrorBoundary panel="param-editor" locale={locale}>
+                  <ParamEditor onOpenProject={openProjectFromDialog} onNewProject={newProject} />
+                </PanelErrorBoundary>
+              </div>
+            </div>
+          ) : (
+            <WorkspaceContext.Provider value={workspaceCtx}>
+              <DockviewReact
+                components={panelComponents}
+                onReady={handleDockReady}
+                className="dockview-theme-reambia"
+                style={{ height: '100%', width: '100%' }}
+              />
+            </WorkspaceContext.Provider>
+          )}
         </main>
         {scriptPanelOpen && (
           // Sprint 14 / Phase C (T14) — ScriptPanel sits below the
