@@ -65,6 +65,17 @@ describe('parseDbcHandler (Bug #5)', () => {
     expect(frameB?.dlc).toBe(4);
   });
 
+  it('marks 11-bit and 29-bit extended CAN IDs for the viewer', () => {
+    const extendedDbc =
+      MINIMAL_DBC +
+      'BO_ 2048 Frame_C: 8 ECU1\n SG_ Signal_C : 0|8@1+ (1,0) [0|255] "" Vector__XXX\n';
+    const res = parseDbcHandler({ path: '/tmp/extended.dbc', content: extendedDbc });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.messages.find((m) => m.id === 100)?.isExtended).toBe(false);
+    expect(res.value.messages.find((m) => m.id === 2048)?.isExtended).toBe(true);
+  });
+
   it('cap exceeded: returns ok=false kind="dbc-too-large"', () => {
     // Construct a string one code unit over the cap. We don't need to
     // ship a real 32 MiB DBC — the cap check fires before parsing.

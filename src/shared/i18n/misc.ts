@@ -138,7 +138,6 @@ export interface MiscMessages {
   // drive per-kind failure toasts; `*.success.*` drive the commit
   // summary toast.
   readonly 'xlsxBatch.menu.label': string;
-  readonly 'xlsxBatch.menu.icon': string;
   readonly 'xlsxBatch.wizard.title': string;
   readonly 'xlsxBatch.wizard.close': string;
   readonly 'xlsxBatch.wizard.step1.download': string;

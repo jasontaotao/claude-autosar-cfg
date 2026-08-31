@@ -180,3 +180,17 @@
   background: var(--brand-300); /* Catppuccin Mocha sapphire */
   border-color: var(--brand-300);
 }
+
+.dbc-wizard-msg-frame {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--brand-tint);
+  color: var(--text-primary);
+  border: 1px solid var(--brand-500);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}

@@ -132,7 +132,6 @@ export const MiscEn: MiscMessages = {
 
   // v1.25.0 T5 — Excel→Com-Stack ECUC batch wizard
   'xlsxBatch.menu.label': 'Batch-create ECUC from Excel…',
-  'xlsxBatch.menu.icon': '📊',
   'xlsxBatch.wizard.title': 'Batch-create ECUC instances from Excel',
   'xlsxBatch.wizard.close': 'Close',
   'xlsxBatch.wizard.step1.download': 'Download starter template (from project BSWMD)',

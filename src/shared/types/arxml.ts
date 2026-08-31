@@ -128,6 +128,7 @@ export interface DbcMessageSummary {
   readonly dlc: number;
   readonly transmitter: string;
   readonly signalCount: number;
+  readonly isExtended: boolean;
 }
 
 // v1.23.0 T1 — Extended DBC parser types.

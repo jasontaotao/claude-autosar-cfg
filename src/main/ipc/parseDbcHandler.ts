@@ -131,6 +131,7 @@ function summarizeNetwork(network: Network): DbcSummary {
       // messages would need a separate column (Bug #5 follow-up).
       transmitter: m.transmitter,
       signalCount: m.signals.length,
+      isExtended: m.isExtended,
     }))
     .sort((a, b) => a.id - b.id);
   return {

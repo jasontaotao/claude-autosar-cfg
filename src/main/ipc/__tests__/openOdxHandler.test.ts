@@ -9,7 +9,7 @@
 //   1. canceled: dialog dismissed → `{ kind: 'canceled' }`
 //   2. opened:   user picked a valid .odx file → `{ kind: 'opened', path, content }`
 //   3. read-failed: chosen file unreadable → `{ kind: 'read-failed', message }` + messagebox
-//   4. dialog options: title='Open ODX' + .odx filter
+//   4. dialog options: title='Open ODX' + .odx/.odx-d filter
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -96,7 +96,7 @@ describe('openOdxDialog (v1.50.0 PATCH T2 -- Round-9 F-2 closure)', () => {
     };
     expect(call.title).toBe('Open ODX');
     expect(call.filters).toEqual([
-      { name: 'ODX', extensions: ['odx'] },
+      { name: 'ODX', extensions: ['odx', 'odx-d'] },
       { name: 'All', extensions: ['*'] },
     ]);
   });

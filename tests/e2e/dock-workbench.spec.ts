@@ -54,3 +54,34 @@ test.describe('Dock workbench (P4)', () => {
     expect(stored).toBeNull();
   });
 });
+
+test('file template badge remains readable against its chip background', async ({ page }) => {
+  await page.goto('/');
+  await waitForAppReady(page);
+  await expect(page.locator('.dv-dockview').first()).toBeVisible();
+  const path = '/tmp/OpenedTemplate.arxml';
+  const storePath = '/store/useArxmlStore.ts';
+  await page.evaluate(
+    async ({ filePath, modulePath }: { filePath: string; modulePath: string }) => {
+      const mod = await import(/* @vite-ignore */ modulePath);
+      mod.useArxmlStore.setState({
+        documentPaths: [filePath],
+        activeDocumentPath: filePath,
+        templatePaths: new Set([filePath]),
+        viewMode: 'single',
+      });
+    },
+    { filePath: path, modulePath: storePath },
+  );
+  await page.click('[data-testid="btn-view-menu"]');
+  await page.click('[data-testid="menu-item-files"]');
+  const badge = page.getByTestId(`file-list-tab-arxml-badge-template-${path}`);
+  await expect(badge).toBeVisible();
+  const style = await badge.evaluate((el) => {
+    const css = window.getComputedStyle(el);
+    return { color: css.color, backgroundColor: css.backgroundColor };
+  });
+  expect(style.color).not.toBe('rgb(15, 23, 42)');
+  expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(style.color).not.toBe(style.backgroundColor);
+});

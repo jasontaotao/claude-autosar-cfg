@@ -102,8 +102,8 @@ const SAMPLE_DBC_SUMMARY: DbcSummaryWithSignals = {
   messageCount: 2,
   nodes: ['ECM', 'TCM'],
   messages: [
-    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 2 },
-    { id: 544, name: 'TransState', dlc: 8, transmitter: 'TCM', signalCount: 2 },
+    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', isExtended: false, signalCount: 2 },
+    { id: 544, name: 'TransState', dlc: 8, transmitter: 'TCM', isExtended: false, signalCount: 2 },
   ],
   signals: [
     {
@@ -315,7 +315,7 @@ describe('dbcToComStack (T2 unit)', () => {
         nodes: ['ECM', 'TCM'],
         messages: [
           // Empty-string transmitter with targetNode defined → ambiguous
-          { id: 272, name: 'EngState', dlc: 8, transmitter: '', signalCount: 0 },
+          { id: 272, name: 'EngState', dlc: 8, transmitter: '', isExtended: false, signalCount: 0 },
         ],
         signals: [],
       };
@@ -371,6 +371,7 @@ describe('dbcToComStack (T2 unit)', () => {
             dlc: 8,
             transmitter: undefined as unknown as string,
             signalCount: 0,
+            isExtended: false,
           },
         ],
         signals: [],

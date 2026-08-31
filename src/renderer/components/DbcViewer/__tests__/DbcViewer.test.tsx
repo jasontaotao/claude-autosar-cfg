@@ -30,8 +30,8 @@ const SAMPLE_SUMMARY: DbcSummary = {
   messageCount: 2,
   nodes: ['ECU1', 'ECU2'],
   messages: [
-    { id: 100, name: 'Frame_A', dlc: 8, transmitter: 'ECU1', signalCount: 1 },
-    { id: 200, name: 'Frame_B', dlc: 4, transmitter: 'ECU2', signalCount: 2 },
+    { id: 100, name: 'Frame_A', dlc: 8, transmitter: 'ECU1', signalCount: 1, isExtended: false },
+    { id: 2048, name: 'Frame_B', dlc: 4, transmitter: 'ECU2', signalCount: 2, isExtended: true },
   ],
 };
 
@@ -79,18 +79,19 @@ describe('DbcViewer (Bug #5)', () => {
       />,
     );
     expect(screen.getByTestId('dbc-message-100')).not.toBeNull();
-    expect(screen.getByTestId('dbc-message-200')).not.toBeNull();
+    expect(screen.getByTestId('dbc-message-2048')).not.toBeNull();
     // Frame_A row contains id 100, name Frame_A, dlc 8, ECU1, 1 signal
     const rowA = screen.getByTestId('dbc-message-100').textContent ?? '';
-    expect(rowA).toMatch(/100/);
+    expect(rowA).toMatch(/0x064/);
     expect(rowA).toMatch(/Frame_A/);
     expect(rowA).toMatch(/8/);
     expect(rowA).toMatch(/ECU1/);
     expect(rowA).toMatch(/1/);
-    // Frame_B row contains 2 signals — distinct from Frame_A so the
+    // Frame_B is extended and contains 2 signals — distinct from Frame_A so the
     // signalCount column is wired correctly.
-    const rowB = screen.getByTestId('dbc-message-200').textContent ?? '';
-    expect(rowB).toMatch(/2/);
+    const rowB = screen.getByTestId('dbc-message-2048').textContent ?? '';
+    expect(rowB).toMatch(/0x00000800/i);
+    expect(rowB).toMatch(/Ext/);
   });
 
   it('renders nodes as a chip row (each node name appears)', () => {

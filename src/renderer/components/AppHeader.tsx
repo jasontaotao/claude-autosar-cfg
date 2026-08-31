@@ -147,9 +147,6 @@ export function AppHeader({
                 disabled={state.busy}
                 data-testid="btn-project-new"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  📁
-                </span>
                 {t(api.locale, 'app.project.new')}
               </button>
               <button
@@ -163,9 +160,6 @@ export function AppHeader({
                 disabled={state.busy}
                 data-testid="btn-project-open"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  📂
-                </span>
                 {t(api.locale, 'app.project.open')}
               </button>
               <div className="app-dropdown-divider" role="separator" />
@@ -181,9 +175,6 @@ export function AppHeader({
                 disabled={state.busy}
                 data-testid="btn-open"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  📄
-                </span>
                 {t(api.locale, 'app.open.arxml')}
               </button>
               <button
@@ -197,9 +188,6 @@ export function AppHeader({
                 disabled={dbcBusy}
                 data-testid="btn-open-dbc"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  🗂️
-                </span>
                 {t(api.locale, 'app.open.dbc')}
               </button>
               <button
@@ -213,9 +201,6 @@ export function AppHeader({
                 disabled={odxBusy}
                 data-testid="btn-open-odx"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  🩺
-                </span>
                 {t(api.locale, 'app.open.odx')}
               </button>
               <button
@@ -236,9 +221,6 @@ export function AppHeader({
                 }
                 data-testid="btn-open-dcm-config"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  ⚙️
-                </span>
                 {t(api.locale, 'app.open.dcmConfig')}
               </button>
               <button
@@ -252,9 +234,6 @@ export function AppHeader({
                 disabled={dbcImportBusy}
                 data-testid="btn-import-dbc-com"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  {t(api.locale, 'dbc.import.menu.icon')}
-                </span>
                 {t(api.locale, 'dbc.import.menu.label')}
               </button>
               <button
@@ -268,9 +247,6 @@ export function AppHeader({
                 disabled={xlsxBatchBusy}
                 data-testid="btn-import-xlsx-batch"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  {t(api.locale, 'xlsxBatch.menu.icon')}
-                </span>
                 {t(api.locale, 'xlsxBatch.menu.label')}
               </button>
               <button
@@ -284,9 +260,6 @@ export function AppHeader({
                 disabled={!canSelectEcucModule}
                 data-testid="btn-ecuc-from-bswmd"
               >
-                <span className="app-dropdown-icon" aria-hidden="true">
-                  ✨
-                </span>
                 {t(api.locale, 'ecuc.fromBswmd.menu')}
               </button>
               {stencilFlagOn && (
@@ -309,9 +282,6 @@ export function AppHeader({
                   }}
                   data-testid="btn-stencil-new"
                 >
-                  <span className="app-dropdown-icon" aria-hidden="true">
-                    🧩
-                  </span>
                   {t(api.locale, 'stencil.title')}
                 </button>
               )}

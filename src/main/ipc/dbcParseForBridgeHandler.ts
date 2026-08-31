@@ -108,6 +108,7 @@ function projectMessage(m: Message): DbcMessageSummary {
     dlc: m.dlc,
     transmitter: m.transmitter,
     signalCount: m.signals.length,
+    isExtended: m.isExtended,
   };
 }
 

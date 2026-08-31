@@ -55,6 +55,11 @@ export interface DbcViewerInnerProps {
   readonly onClose: () => void;
 }
 
+function formatCanId(id: number, isExtended: boolean): string {
+  const width = isExtended ? 8 : 3;
+  return `0x${id.toString(16).toUpperCase().padStart(width, '0')}`;
+}
+
 export function DbcViewerInner({
   open,
   path,
@@ -162,16 +167,22 @@ export function DbcViewerInner({
                     <th>{t(locale, 'dbc.viewer.column.dlc')}</th>
                     <th>{t(locale, 'dbc.viewer.column.transmitter')}</th>
                     <th>{t(locale, 'dbc.viewer.column.signals')}</th>
+                    <th>{t(locale, 'dbc.viewer.column.frame')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summary.messages.map((m) => (
                     <tr key={m.id} data-testid={`dbc-message-${m.id}`}>
-                      <td>{m.id}</td>
+                      <td>{formatCanId(m.id, m.isExtended)}</td>
                       <td>{m.name}</td>
                       <td>{m.dlc}</td>
                       <td>{m.transmitter}</td>
                       <td>{m.signalCount}</td>
+                      <td data-testid={`dbc-message-frame-${m.id}`}>
+                        {m.isExtended
+                          ? t(locale, 'dbc.viewer.frame.extended')
+                          : t(locale, 'dbc.viewer.frame.standard')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

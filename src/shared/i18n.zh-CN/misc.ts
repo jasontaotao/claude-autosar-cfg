@@ -130,7 +130,6 @@ export const MiscZhCN: MiscMessages = {
 
   // v1.25.0 T5 — Excel→Com-Stack ECUC batch wizard
   'xlsxBatch.menu.label': '从 Excel 批量创建 ECUC…',
-  'xlsxBatch.menu.icon': '📊',
   'xlsxBatch.wizard.title': '从 Excel 批量创建 ECUC 实例',
   'xlsxBatch.wizard.close': '关闭',
   'xlsxBatch.wizard.step1.download': '下载起始模板（基于工程 BSWMD 生成）',

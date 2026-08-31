@@ -102,9 +102,9 @@
 }
 
 .file-list-tab-item-badge-template {
-  background: var(--brand-tint);
-  color: var(--text-primary);
-  border: 1px solid var(--brand-tint);
+  background: var(--brand-500);
+  color: var(--surface-panel);
+  border: 1px solid var(--brand-500);
 }
 
 .file-list-tab-item:hover .file-list-tab-item-remove {

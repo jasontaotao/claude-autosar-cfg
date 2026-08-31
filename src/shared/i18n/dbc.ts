@@ -16,6 +16,9 @@ export interface DbcMessages {
   readonly 'dbc.viewer.column.dlc': string;
   readonly 'dbc.viewer.column.transmitter': string;
   readonly 'dbc.viewer.column.signals': string;
+  readonly 'dbc.viewer.column.frame': string;
+  readonly 'dbc.viewer.frame.standard': string;
+  readonly 'dbc.viewer.frame.extended': string;
   readonly 'dbc.viewer.errorTitle': string;
   readonly 'dbc.open.failed': string; // {message}
   readonly 'dbc.parse.failed': string; // {message}
@@ -25,7 +28,6 @@ export interface DbcMessages {
   readonly 'dbc.import.step.preview': string;
   readonly 'dbc.import.step.confirm': string;
   readonly 'dbc.import.menu.label': string;
-  readonly 'dbc.import.menu.icon': string;
   readonly 'dbc.import.select.button': string;
   readonly 'dbc.import.preview.messages': string; // {count}
   readonly 'dbc.import.preview.next': string;

@@ -88,8 +88,8 @@ const SAMPLE_DBC: DbcSummaryWithSignals = {
   messageCount: 2,
   nodes: ['ECM', 'TCM'],
   messages: [
-    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 1 },
-    { id: 544, name: 'TransState', dlc: 8, transmitter: 'TCM', signalCount: 1 },
+    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', isExtended: false, signalCount: 1 },
+    { id: 544, name: 'TransState', dlc: 8, transmitter: 'TCM', isExtended: false, signalCount: 1 },
   ],
   signals: [
     {
@@ -326,7 +326,16 @@ describe('dbCToComStack edge cases (v1.23.1 T3)', () => {
       nodeCount: 2,
       messageCount: 1,
       nodes: ['ECM', 'TCM'],
-      messages: [{ id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 0 }],
+      messages: [
+        {
+          id: 272,
+          name: 'EngState',
+          dlc: 8,
+          transmitter: 'ECM',
+          isExtended: false,
+          signalCount: 0,
+        },
+      ],
       signals: [],
     };
     const plan = dbcToComStack({

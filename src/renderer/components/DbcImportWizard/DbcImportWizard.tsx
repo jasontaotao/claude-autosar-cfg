@@ -44,6 +44,11 @@ import './DbcImportWizard.css';
 
 type Step = 'select' | 'preview' | 'confirm';
 
+function formatCanId(id: number, isExtended: boolean): string {
+  const width = isExtended ? 8 : 3;
+  return `0x${id.toString(16).toUpperCase().padStart(width, '0')}`;
+}
+
 export interface DbcImportWizardProps {
   readonly onClose: () => void;
   /**
@@ -203,7 +208,12 @@ export function DbcImportWizard({
                   data-testid={`dbc-wizard-msg-${m.id}`}
                 >
                   <span className="dbc-wizard-msg-name">{m.name}</span>
-                  <span className="dbc-wizard-msg-id">CAN ID 0x{m.id.toString(16)}</span>
+                  <span className="dbc-wizard-msg-id">
+                    CAN ID {formatCanId(m.id, m.isExtended)}
+                  </span>
+                  <span className="dbc-wizard-msg-frame" data-testid={`dbc-wizard-frame-${m.id}`}>
+                    {m.isExtended ? 'EXT' : 'STD'}
+                  </span>
                   <span className="dbc-wizard-msg-meta">
                     DLC {m.dlc} · tx {m.transmitter} · {m.signalCount} signals
                   </span>

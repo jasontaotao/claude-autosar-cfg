@@ -35,12 +35,12 @@ export async function openOdxDialog(): Promise<OpenOdxResult> {
     title: 'Open ODX',
     properties: ['openFile'],
     filters: [
-      // `.odx` is the ODX-D XML. `.pdx` is the ODX-D "package" (a
-      // zip of multiple .odx files) — parseOdxHandler only handles
-      // a single .odx for T1, so we filter to .odx only. A future
-      // "extract + parse .pdx" T can extend the filter without
-      // changing the dialog contract.
-      { name: 'ODX', extensions: ['odx'] },
+      // `.odx` and `.odx-d` are ODX-D XML extensions. `.pdx` is the
+      // ODX-D "package" (a zip of multiple .odx files) — parseOdxHandler
+      // only handles a single XML file, so we filter to XML extensions
+      // only. A future "extract + parse .pdx" T can extend the filter
+      // without changing the dialog contract.
+      { name: 'ODX', extensions: ['odx', 'odx-d'] },
       { name: 'All', extensions: ['*'] },
     ],
   });

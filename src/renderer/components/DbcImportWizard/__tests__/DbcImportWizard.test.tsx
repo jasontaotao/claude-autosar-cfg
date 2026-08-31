@@ -29,8 +29,15 @@ const SAMPLE_SUMMARY: DbcSummary = {
   messageCount: 2,
   nodes: ['ECM', 'TCM'],
   messages: [
-    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 2 },
-    { id: 273, name: 'TransState', dlc: 8, transmitter: 'TCM', signalCount: 1 },
+    { id: 272, name: 'EngState', dlc: 8, transmitter: 'ECM', signalCount: 2, isExtended: false },
+    {
+      id: 2048,
+      name: 'TransStateExt',
+      dlc: 8,
+      transmitter: 'TCM',
+      signalCount: 1,
+      isExtended: true,
+    },
   ],
 };
 
@@ -59,7 +66,12 @@ describe('DbcImportWizard (v1.23.0 T4)', () => {
     expect(screen.getByTestId('dbc-wizard-step-preview')).not.toBeNull();
     // DBC messages from the summary are listed
     expect(screen.getByText(/EngState/)).not.toBeNull();
-    expect(screen.getByText(/TransState/)).not.toBeNull();
+    const standard = screen.getByTestId('dbc-wizard-msg-272').textContent ?? '';
+    expect(standard).toContain('0x110');
+    const extended = screen.getByTestId('dbc-wizard-msg-2048').textContent ?? '';
+    expect(extended).toContain('0x00000800');
+    expect(extended).toContain('EXT');
+    expect(screen.getByText(/TransStateExt/)).not.toBeNull();
     // CRITICAL: targetNode <select> is populated from dbc.nodes
     const select = screen.getByTestId('dbc-wizard-target-node') as HTMLSelectElement;
     expect(select).not.toBeNull();
