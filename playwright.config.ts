@@ -7,6 +7,11 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // P1 visual regression (spec §3.6) — baselines live in-repo under
+  // tests/visual/baseline/, one folder per spec file. Deliberately no
+  // {platform}: baselines are shared cross-platform, font-rendering
+  // drift is absorbed by toHaveScreenshot maxDiffPixelRatio 0.02.
+  snapshotPathTemplate: 'tests/visual/baseline/{testFileName}/{arg}{ext}',
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
