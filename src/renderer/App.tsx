@@ -79,11 +79,27 @@ import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.j
 import { attachXlsxImportListener } from './store/xlsxImportListener.js';
 
 function buildDefaultLayout(api: DockviewApi): void {
-  api.addPanel({ id: 'left-panel', component: 'left-panel' });
+  // P4 default layout: left 30% vertical split (tabs top, tree bottom) + right param-editor
+  api.addPanel({ id: 'project', component: 'project' });
+  api.addPanel({
+    id: 'files',
+    component: 'files',
+    position: { referencePanel: 'project', direction: 'within' },
+  });
+  api.addPanel({
+    id: 'validation',
+    component: 'validation',
+    position: { referencePanel: 'project', direction: 'within' },
+  });
+  api.addPanel({
+    id: 'arxml-tree',
+    component: 'arxml-tree',
+    position: { referencePanel: 'project', direction: 'below' },
+  });
   api.addPanel({
     id: 'param-editor',
     component: 'param-editor',
-    position: { referencePanel: 'left-panel', direction: 'right' },
+    position: { referencePanel: 'project', direction: 'right' },
   });
 }
 
@@ -406,18 +422,8 @@ export function App(): JSX.Element {
     const api = dockApiRef.current;
     if (!api) return;
     api.clear();
-    api.addPanel({
-      id: 'left-panel',
-      component: 'left-panel',
-      title: t(locale, 'panels.leftPanel' as Parameters<typeof t>[1]),
-    });
-    api.addPanel({
-      id: 'param-editor',
-      component: 'param-editor',
-      title: t(locale, 'panels.paramEditor' as Parameters<typeof t>[1]),
-      position: { referencePanel: 'left-panel', direction: 'right' },
-    });
-  }, [locale]);
+    buildDefaultLayout(api);
+  }, []);
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
