@@ -10,14 +10,21 @@ describe('ViewMenu', () => {
     expect(screen.getByTestId('btn-view-menu')).toBeDefined();
   });
 
-  it('opens dropdown and shows all 5 panels + reset', () => {
+  it('opens dropdown and shows all 8 panels + reset', () => {
     render(<ViewMenu onTogglePanel={vi.fn()} onResetLayout={vi.fn()} />);
     fireEvent.click(screen.getByTestId('btn-view-menu'));
-    expect(screen.getByTestId('menu-item-left-panel')).toBeDefined();
-    expect(screen.getByTestId('menu-item-param-editor')).toBeDefined();
-    expect(screen.getByTestId('menu-item-script-panel')).toBeDefined();
-    expect(screen.getByTestId('menu-item-dbc-viewer')).toBeDefined();
-    expect(screen.getByTestId('menu-item-odx-viewer')).toBeDefined();
+    for (const id of [
+      'project',
+      'files',
+      'validation',
+      'arxml-tree',
+      'param-editor',
+      'script-panel',
+      'dbc-viewer',
+      'odx-viewer',
+    ]) {
+      expect(screen.getByTestId(`menu-item-${id}`)).toBeDefined();
+    }
     expect(screen.getByTestId('btn-reset-layout')).toBeDefined();
   });
 
@@ -25,8 +32,8 @@ describe('ViewMenu', () => {
     const togglePanel = vi.fn();
     render(<ViewMenu onTogglePanel={togglePanel} onResetLayout={vi.fn()} />);
     fireEvent.click(screen.getByTestId('btn-view-menu'));
-    fireEvent.click(screen.getByTestId('menu-item-left-panel'));
-    expect(togglePanel).toHaveBeenCalledWith('left-panel');
+    fireEvent.click(screen.getByTestId('menu-item-project'));
+    expect(togglePanel).toHaveBeenCalledWith('project');
   });
 
   it('calls onResetLayout on reset click', () => {

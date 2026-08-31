@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { PANEL_REGISTRY, getPanelDef } from '../registry';
 
 describe('PanelRegistry', () => {

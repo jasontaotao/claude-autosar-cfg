@@ -2,10 +2,11 @@
 // P4 IA 重组 — ProjectPanel 独立 dock 面板包装（spec §6）
 // 从 LeftPanel project tab 中提取，渲染 ProjectPanelInfo。
 import { useContext } from 'react';
+
 import { PanelErrorBoundary } from '../../components/PanelErrorBoundary.js';
 import { ProjectPanelInfo } from '../../components/ProjectPanel.js';
-import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { useProjectActions } from '../../hooks/useProjectActions.js';
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { WorkspaceContext } from '../WorkspaceContext.js';
 
 export function ProjectPanelWrapper(): JSX.Element {

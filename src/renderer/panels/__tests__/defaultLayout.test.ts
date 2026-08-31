@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { DEFAULT_LAYOUT } from '../defaultLayout';
 
 describe('DEFAULT_LAYOUT', () => {
@@ -7,7 +8,11 @@ describe('DEFAULT_LAYOUT', () => {
   });
   it('has 5 default panels (no script-panel/viewers)', () => {
     expect(DEFAULT_LAYOUT.panels).toEqual([
-      'project', 'files', 'validation', 'arxml-tree', 'param-editor',
+      'project',
+      'files',
+      'validation',
+      'arxml-tree',
+      'param-editor',
     ]);
   });
   it('splits are 30/70 horizontal', () => {

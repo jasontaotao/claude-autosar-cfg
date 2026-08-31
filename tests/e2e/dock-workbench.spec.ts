@@ -19,7 +19,16 @@ test.describe('Dock workbench (P4)', () => {
     await page.goto('/');
     await waitForAppReady(page);
     await page.click('[data-testid="btn-view-menu"]');
-    for (const id of ['project', 'files', 'validation', 'arxml-tree', 'param-editor', 'script-panel', 'dbc-viewer', 'odx-viewer']) {
+    for (const id of [
+      'project',
+      'files',
+      'validation',
+      'arxml-tree',
+      'param-editor',
+      'script-panel',
+      'dbc-viewer',
+      'odx-viewer',
+    ]) {
       await expect(page.locator(`[data-testid="menu-item-${id}"]`)).toBeVisible();
     }
     await expect(page.locator('[data-testid="btn-reset-layout"]')).toBeVisible();
