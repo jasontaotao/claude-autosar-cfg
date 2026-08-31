@@ -44,6 +44,7 @@ import type {
   ArxmlDocument,
   ArxmlElement,
   ArxmlModule,
+  ArxmlPackage,
   Result,
 } from '../arxml/types.js';
 
@@ -71,6 +72,15 @@ export interface DbcToComStackInput {
    * migration path. New callers MUST pass `targetNode`.
    */
   readonly targetNode?: string;
+  /**
+   * R22 CanIf BSWMDs may declare Tx/Rx PDU containers directly under
+   * CanIfInitCfg (rather than the older Tx/Rx group containers). The
+   * handler derives this from the BSWMD because the empty value-side
+   * file cannot reveal it.
+   */
+  readonly canIfDirectPdu?: boolean;
+  /** Some BSWMDs declare ComSignal directly under ComConfig, not under each ComIPdu. */
+  readonly comSignalDirect?: boolean;
 }
 
 /**
@@ -90,20 +100,53 @@ export interface DbcToComStackInput {
  * parses each input ARXML exactly once instead of re-parsing inside each
  * helper call. Returns null when the parse failed or the module is absent.
  */
-function discoverPrimaryContainer(
-  parsed: Result<ArxmlDocument, ParseError>,
+/** Resolve the source-document path to an ECUC module (vendor nested packages included). */
+function findEcucModulePath(
+  doc: ArxmlDocument,
   moduleName: string,
 ): string | null {
+  function walk(pkgs: readonly ArxmlPackage[]): string | null {
+    for (const pkg of pkgs) {
+      for (const el of pkg.elements) {
+        if (el.kind === 'module' && el.shortName === moduleName) {
+          return `${pkg.path}/${el.shortName}`;
+        }
+      }
+      if (pkg.packages !== undefined) {
+        const hit = walk(pkg.packages);
+        if (hit !== null) return hit;
+      }
+    }
+    return null;
+  }
+  return walk(doc.packages);
+}
+
+interface EcucModuleLayout {
+  readonly modulePath: string;
+  readonly primaryContainer: string;
+}
+
+/**
+ * Prefer the canonical primary container, but never blindly use the first
+ * top-level child: vendor files often put CanIfCtrlDrvCfg/PduRBswModules
+ * first. Falls back to the first child only for unknown layouts.
+ */
+function discoverModuleLayout(
+  parsed: Result<ArxmlDocument, ParseError>,
+  moduleName: string,
+  preferredPrimary: string,
+): EcucModuleLayout | null {
   if (!parsed.ok) return null;
   const mod = findEcucModuleByShortName(parsed.value, moduleName);
-  if (mod === null) return null;
-  // First child is conventionally the primary container (ComConfig,
-  // CanIfInitCfg, PduRRoutingPaths). Fall back to scanning all
-  // children if the first is missing.
-  for (const c of mod.children) {
-    if (c.kind === 'module' || c.kind === 'container') return c.shortName;
-  }
-  return null;
+  const modulePath = findEcucModulePath(parsed.value, moduleName);
+  if (mod === null || modulePath === null) return null;
+  const childNames = mod.children
+    .filter((c): c is Extract<typeof c, { kind: 'container' }> => c.kind === 'container')
+    .map((c) => c.shortName);
+  const primaryContainer = childNames.find((name) => name === preferredPrimary) ?? childNames[0];
+  if (primaryContainer === undefined) return null;
+  return { modulePath, primaryContainer };
 }
 
 /**
@@ -205,6 +248,9 @@ function extractExistingComIpduNames(
 interface CanIfSubContainers {
   readonly txSubName: string;
   readonly rxSubName: string;
+  /** AUTOSAR R22 CanIf may declare Tx/Rx PDU containers directly under CanIfInitCfg. */
+  readonly txDirect: boolean;
+  readonly rxDirect: boolean;
 }
 
 const CANIF_TX_SUBCANONICAL = 'CanIfTxPduCfgs';
@@ -243,23 +289,31 @@ function findCanIfSubChild(
 function discoverCanIfSubContainers(
   parsed: Result<ArxmlDocument, ParseError>,
   primaryContainer: string,
+  canIfDirectPdu = false,
 ): CanIfSubContainers {
-  if (!parsed.ok) {
-    return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
-  }
+  const fallback = (): CanIfSubContainers => ({
+    txSubName: CANIF_TX_SUBCANONICAL,
+    rxSubName: CANIF_RX_SUBCANONICAL,
+    txDirect: false,
+    rxDirect: false,
+  });
+  if (!parsed.ok) return fallback();
   const mod = findEcucModuleByShortName(parsed.value, CANIF_MODULE);
-  if (mod === null) {
-    return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
-  }
+  if (mod === null) return fallback();
   const primary = findModuleOrContainerByShortName(mod.children, primaryContainer);
-  if (primary === null) {
-    return { txSubName: CANIF_TX_SUBCANONICAL, rxSubName: CANIF_RX_SUBCANONICAL };
-  }
+  if (primary === null) return fallback();
   const txChild = findCanIfSubChild(primary, CANIF_TX_SUBCANONICAL, CANIF_TX_SUBCANONICAL_ALIASES);
   const rxChild = findCanIfSubChild(primary, CANIF_RX_SUBCANONICAL, CANIF_RX_SUBCANONICAL_ALIASES);
+  const directChild = (name: string): boolean => primary.children.some(
+    (c) => (c.kind === 'container') && c.shortName === name,
+  );
+  const txDirect = txChild === undefined && (canIfDirectPdu || directChild('CanIfTxPduCfg'));
+  const rxDirect = rxChild === undefined && (canIfDirectPdu || directChild('CanIfRxPduCfg'));
   return {
-    txSubName: txChild?.shortName ?? CANIF_TX_SUBCANONICAL,
-    rxSubName: rxChild?.shortName ?? CANIF_RX_SUBCANONICAL,
+    txSubName: txChild?.shortName ?? 'CanIfTxPduCfg',
+    rxSubName: rxChild?.shortName ?? 'CanIfRxPduCfg',
+    txDirect,
+    rxDirect,
   };
 }
 
@@ -287,24 +341,45 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
   // instead of using hardcoded constants. The fallback to BSWMD
   // canonical names (when the value-side file is empty) keeps the
   // bridge usable on fresh skeletons.
-  const comPrimary = discoverPrimaryContainer(comParsed, COM_MODULE) ?? 'ComConfig';
-  const canIfPrimary = discoverPrimaryContainer(canIfParsed, CANIF_MODULE) ?? 'CanIfInitCfg';
-  const pduRPrimary = discoverPrimaryContainer(pduRParsed, PDUR_MODULE) ?? 'PduRRoutingPaths';
-  const canIfSubs = discoverCanIfSubContainers(canIfParsed, canIfPrimary);
+  const comLayout = discoverModuleLayout(comParsed, COM_MODULE, 'ComConfig') ?? {
+    modulePath: `/${COM_MODULE}/${COM_MODULE}`,
+    primaryContainer: 'ComConfig',
+  };
+  const canIfLayout = discoverModuleLayout(canIfParsed, CANIF_MODULE, 'CanIfInitCfg') ?? {
+    modulePath: `/${CANIF_MODULE}/${CANIF_MODULE}`,
+    primaryContainer: 'CanIfInitCfg',
+  };
+  const pduRLayout = discoverModuleLayout(pduRParsed, PDUR_MODULE, 'PduRRoutingPaths') ?? {
+    modulePath: `/${PDUR_MODULE}/${PDUR_MODULE}`,
+    primaryContainer: 'PduRRoutingPaths',
+  };
+  const comPrimary = comLayout.primaryContainer;
+  const canIfPrimary = canIfLayout.primaryContainer;
+  const pduRPrimary = pduRLayout.primaryContainer;
+  const canIfSubs = discoverCanIfSubContainers(
+    canIfParsed,
+    canIfPrimary,
+    input.canIfDirectPdu,
+  );
 
   const existingComIpdu = extractExistingComIpduNames(comParsed, comPrimary);
-  const existingCanIfTx = extractExistingGrandchildShortNames(
-    canIfParsed,
-    CANIF_MODULE,
-    canIfPrimary,
-    canIfSubs.txSubName,
-  );
-  const existingCanIfRx = extractExistingGrandchildShortNames(
-    canIfParsed,
-    CANIF_MODULE,
-    canIfPrimary,
-    canIfSubs.rxSubName,
-  );
+  const existingComSignals = extractExistingChildShortNames(comParsed, COM_MODULE, comPrimary);
+  const existingCanIfTx = canIfSubs.txDirect
+    ? extractExistingChildShortNames(canIfParsed, CANIF_MODULE, canIfPrimary)
+    : extractExistingGrandchildShortNames(
+        canIfParsed,
+        CANIF_MODULE,
+        canIfPrimary,
+        canIfSubs.txSubName,
+      );
+  const existingCanIfRx = canIfSubs.rxDirect
+    ? extractExistingChildShortNames(canIfParsed, CANIF_MODULE, canIfPrimary)
+    : extractExistingGrandchildShortNames(
+        canIfParsed,
+        CANIF_MODULE,
+        canIfPrimary,
+        canIfSubs.rxSubName,
+      );
   const existingPduRRoutes = extractExistingChildShortNames(pduRParsed, PDUR_MODULE, pduRPrimary);
 
   const comPatches: PatchStep[] = [];
@@ -327,7 +402,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
         // broke `findParentContainerDef` once `applyPatchSteps` was
         // called with a real `moduleDef` (T1+T2 only call it on the
         // patch PLAN — T3 actually applies the patches).
-        parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}`,
+        parentPath: `${comLayout.modulePath}/${comPrimary}`,
         shortName: msg.name,
         definitionRef: `/AUTOSAR/Com/${comPrimary}/ComIPdu`,
         kind: 'com-ipdu',
@@ -335,11 +410,16 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       // ComSignal children — same fix: parentPath is the parent
       // container (the new ComIPdu), `shortName` is the new signal.
       for (const sig of signals) {
+        if (input.comSignalDirect === true && existingComSignals.has(sig.name)) continue;
         comPatches.push({
           op: 'add-child',
-          parentPath: `/${COM_MODULE}/${COM_MODULE}/${comPrimary}/${msg.name}`,
+          parentPath: input.comSignalDirect === true
+            ? `${comLayout.modulePath}/${comPrimary}`
+            : `${comLayout.modulePath}/${comPrimary}/${msg.name}`,
           shortName: sig.name,
-          definitionRef: `/AUTOSAR/Com/${comPrimary}/ComIPdu/ComSignal`,
+          definitionRef: input.comSignalDirect === true
+            ? `/AUTOSAR/Com/${comPrimary}/ComSignal`
+            : `/AUTOSAR/Com/${comPrimary}/ComIPdu/ComSignal`,
           kind: 'com-signal',
         });
       }
@@ -372,9 +452,13 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       if (!existingCanIfTx.has(msg.name)) {
         canIfPatches.push({
           op: 'add-child',
-          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.txSubName}`,
+          parentPath: canIfSubs.txDirect
+            ? `${canIfLayout.modulePath}/${canIfPrimary}`
+            : `${canIfLayout.modulePath}/${canIfPrimary}/${canIfSubs.txSubName}`,
           shortName: msg.name,
-          definitionRef: `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.txSubName}/CanIfTxPduCfg`,
+          definitionRef: canIfSubs.txDirect
+            ? `/AUTOSAR/CanIf/${canIfPrimary}/CanIfTxPduCfg`
+            : `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.txSubName}/CanIfTxPduCfg`,
           kind: 'canif-tx-pdu',
         });
       }
@@ -382,9 +466,13 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       if (!existingCanIfRx.has(msg.name)) {
         canIfPatches.push({
           op: 'add-child',
-          parentPath: `/${CANIF_MODULE}/${CANIF_MODULE}/${canIfPrimary}/${canIfSubs.rxSubName}`,
+          parentPath: canIfSubs.rxDirect
+            ? `${canIfLayout.modulePath}/${canIfPrimary}`
+            : `${canIfLayout.modulePath}/${canIfPrimary}/${canIfSubs.rxSubName}`,
           shortName: msg.name,
-          definitionRef: `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.rxSubName}/CanIfRxPduCfg`,
+          definitionRef: canIfSubs.rxDirect
+            ? `/AUTOSAR/CanIf/${canIfPrimary}/CanIfRxPduCfg`
+            : `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.rxSubName}/CanIfRxPduCfg`,
           kind: 'canif-rx-pdu',
         });
       }
@@ -394,7 +482,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
     if (!existingPduRRoutes.has(msg.name)) {
       pduRPatches.push({
         op: 'add-child',
-        parentPath: `/${PDUR_MODULE}/${PDUR_MODULE}/${pduRPrimary}`,
+        parentPath: `${pduRLayout.modulePath}/${pduRPrimary}`,
         shortName: msg.name,
         definitionRef: `/AUTOSAR/PduR/${pduRPrimary}/PduRRoutingPath`,
         kind: 'pdur-route',

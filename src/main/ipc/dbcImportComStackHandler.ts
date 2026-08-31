@@ -114,6 +114,24 @@ async function resolveStackPaths(
  * path-containment-checked against the manifest directory (same as
  * `resolveStackPaths`).
  */
+/** Detect Com BSWMDs that declare signals directly under ComConfig. */
+function comUsesDirectSignalDefs(moduleDef: BswModuleDef | undefined): boolean {
+  if (moduleDef === undefined) return false;
+  const config = moduleDef.containers.find((c) => c.shortName === 'ComConfig');
+  if (config === undefined) return false;
+  const names = [...config.subContainers, ...config.choices].map((c) => c.shortName);
+  return names.includes('ComSignal');
+}
+
+/** Detect R22 CanIf BSWMDs that declare Tx/Rx PDU containers directly under CanIfInitCfg. */
+function canIfUsesDirectPduDefs(moduleDef: BswModuleDef | undefined): boolean {
+  if (moduleDef === undefined) return false;
+  const init = moduleDef.containers.find((c) => c.shortName === 'CanIfInitCfg');
+  if (init === undefined) return false;
+  const names = [...init.subContainers, ...init.choices].map((c) => c.shortName);
+  return names.includes('CanIfTxPduCfg') && names.includes('CanIfRxPduCfg');
+}
+
 async function loadBswmdDefs(
   projectManifestPath: string,
   manifest: DbcImportComStackRequest['manifest'],
@@ -282,6 +300,8 @@ export async function dbcImportComStackHandler(
   // build the input object in one expression that conditionally carries
   // `targetNode` (rather than post-mutation, which the strict
   // `exactOptionalPropertyTypes: true` setting rejects).
+  const canIfDirectPdu = canIfUsesDirectPduDefs(bswmdRes.value.get('CanIf'));
+  const comSignalDirect = comUsesDirectSignalDefs(bswmdRes.value.get('Com'));
   const mapperInput: DbcToComStackInput =
     req.targetNode !== undefined
       ? {
@@ -290,12 +310,16 @@ export async function dbcImportComStackHandler(
           canIfConfig: canIfText,
           pduRConfig: pduRText,
           targetNode: req.targetNode,
+          canIfDirectPdu,
+          comSignalDirect,
         }
       : {
           dbc: parseRes.value,
           comConfig: comText,
           canIfConfig: canIfText,
           pduRConfig: pduRText,
+          canIfDirectPdu,
+          comSignalDirect,
         };
   const plan = dbcToComStack(mapperInput);
   const planDiagnostics = {

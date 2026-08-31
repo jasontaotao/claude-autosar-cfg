@@ -149,13 +149,17 @@ export function findParentContainerDef(
   }
   if (segments.length < 2) return null;
   let subSegments: string[] = [];
-  if (segments[1] === moduleDef.shortName) {
-    subSegments = segments.slice(2);
-  } else if (segments[0] === moduleDef.shortName) {
-    subSegments = segments.slice(1);
-  } else {
-    return null;
+  // Locate the module segment anywhere in the path. Canonical paths use
+  // `/Module/Module/...`, while vendor R22 paths use
+  // `/AUTOSAR_R22/EcucDefs/Module/...`. Taking the LAST module-name
+  // segment handles both without treating a same-named package as the
+  // module itself.
+  let moduleIndex = -1;
+  for (let i = 0; i < segments.length; i += 1) {
+    if (segments[i] === moduleDef.shortName) moduleIndex = i;
   }
+  if (moduleIndex < 0) return null;
+  subSegments = segments.slice(moduleIndex + 1);
   if (subSegments.length === 0) {
     // Module-level parent (2-segment form, e.g. `Dcm/Dcm`) — same
     // synthetic-parent fallback as the 1-segment form above.
