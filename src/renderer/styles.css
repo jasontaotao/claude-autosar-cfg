@@ -336,31 +336,52 @@ body,
   cursor: not-allowed;
 }
 
+/* P2 (spec §4.2) — save action hierarchy. The active-ARXML Save is
+ * the primary button: amber base while dirty with a subtle pulse
+ * (static under prefers-reduced-motion), deepening to amber-strong on
+ * hover/press. Save Project / Save All moved into the overflow menu. */
+.app-save-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.app-save-overflow {
+  position: relative;
+}
+
+.app-save-overflow .app-dropdown {
+  top: calc(100% + var(--space-2));
+  right: 0;
+  left: auto;
+}
+
 .app-btn-save.is-dirty {
+  background: var(--accent-amber);
+  border-color: var(--accent-amber-strong);
+  color: var(--text-inverse);
+  animation: app-save-pulse 1.6s ease-in-out infinite;
+}
+
+.app-btn-save.is-dirty:hover:not(:disabled),
+.app-btn-save.is-dirty:active:not(:disabled) {
   background: var(--accent-amber-strong);
-  border-color: #c2410c; /* stylelint-disable-line color-no-hex */
-  color: var(--amber-tint);
 }
 
-.app-btn-save.is-dirty:hover:not(:disabled) {
-  background: #c2410c; /* stylelint-disable-line color-no-hex */
-  border-color: #ea580c; /* stylelint-disable-line color-no-hex */
+@keyframes app-save-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
 }
 
-/* Sprint 17a T3 — Save All button gets the same amber highlight as
- * the per-doc Save button when any document is dirty. Mirrors
- * `.app-btn-save.is-dirty` palette (amber-700 base, amber-600 hover,
- * orange-50 text) so users see at a glance there's multi-file work
- * to save. */
-.app-btn-save-all.is-dirty {
-  background: var(--accent-amber-strong);
-  border-color: #c2410c; /* stylelint-disable-line color-no-hex */
-  color: var(--amber-tint);
-}
-
-.app-btn-save-all.is-dirty:hover:not(:disabled) {
-  background: #c2410c; /* stylelint-disable-line color-no-hex */
-  border-color: #ea580c; /* stylelint-disable-line color-no-hex */
+@media (prefers-reduced-motion: reduce) {
+  .app-btn-save.is-dirty {
+    animation: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -12,6 +12,9 @@ export const AppEn: AppMessages = {
   'app.saveAllDirtyTitle': '{count} ECUCs pending',
   'app.saveAllDone': 'Saved {count} files',
   'app.saveAllPartial': 'Saved {saved}, {failed} failed: {firstError}',
+
+  // --- P2 save hierarchy (spec §4.2) ---
+  'app.saveMore': 'More save actions',
   'app.save.error.permission-denied': 'Permission denied. Check file/folder permissions.',
 
   // --- P2 panel error card (spec §4.1) ---

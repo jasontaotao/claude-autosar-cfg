@@ -12,6 +12,9 @@ export const AppZhCN: AppMessages = {
   'app.saveAllDirtyTitle': '{count} 个 ECUC 待保存',
   'app.saveAllDone': '已保存 {count} 个文件',
   'app.saveAllPartial': '已保存 {saved} 个，{failed} 个失败：{firstError}',
+
+  // --- P2 save hierarchy (spec §4.2) ---
+  'app.saveMore': '更多保存操作',
   'app.save.error.permission-denied': '权限被拒绝。请检查文件/文件夹权限。',
 
   // --- P2 panel error card (spec §4.1) ---

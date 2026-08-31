@@ -19,6 +19,9 @@ export interface AppMessages {
   readonly 'app.saveAllDone': string; // {count}
   readonly 'app.saveAllPartial': string; // {saved}, {failed}, {firstError}
 
+  // --- P2 save hierarchy (spec §4.2) ---
+  readonly 'app.saveMore': string;
+
   // --- P2 panel error card (spec §4.1) ---
   readonly 'panel.error.title': string;
   readonly 'panel.error.retry': string;

@@ -328,6 +328,8 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
     });
 
     render(<AppHeader {...noopProps} />);
+    // Menu open (P2) — Save All lives in the overflow dropdown.
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
     fireEvent.click(screen.getByTestId('btn-save-all'));
 
     // Three silent saves, one per dirty path.
@@ -359,6 +361,8 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
     useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
     // dirtyPaths stays empty.
     render(<AppHeader {...noopProps} />);
+    // Menu open (P2) — Save All lives in the overflow dropdown.
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
     const btn = screen.getByTestId('btn-save-all');
     expect(btn).toBeDisabled();
   });
@@ -378,6 +382,8 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
       return { dirtyPaths: nextDirty };
     });
     render(<AppHeader {...noopProps} />);
+    // Menu open (P2) — Save All lives in the overflow dropdown.
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
     const btn = screen.getByTestId('btn-save-all');
     expect(btn.className).toContain('is-dirty');
   });
@@ -387,6 +393,8 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
     useArxmlStore.getState().addDocument(makeDoc(), '/p/B.arxml');
     // No dirty mark → dirtyPaths stays empty.
     render(<AppHeader {...noopProps} />);
+    // Menu open (P2) — Save All lives in the overflow dropdown.
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
     const btn = screen.getByTestId('btn-save-all');
     expect(btn.className).not.toContain('is-dirty');
   });
@@ -411,6 +419,8 @@ describe('AppHeader Save All button (Sprint 16b T7)', () => {
     useArxmlStore.setState({ dirtyPaths: new Set(['/p/A.arxml', '/p/B.arxml']) });
 
     render(<AppHeader {...noopProps} />);
+    // Menu open (P2) — Save All lives in the overflow dropdown.
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
     fireEvent.click(screen.getByTestId('btn-save-all'));
 
     await vi.waitFor(() => expect(api.saveArxml).toHaveBeenCalledTimes(2));
@@ -781,5 +791,27 @@ describe('AppHeader (v1.11.4 PATCH-B — headless E2E fallback)', () => {
     render(<AppHeader {...noopProps} />);
     const ver = await screen.findByText(/^v\?$/);
     expect(ver).toBeInTheDocument();
+  });
+});
+
+describe('AppHeader save overflow menu (P2, spec §4.2)', () => {
+  beforeEach(() => {
+    useArxmlStore.getState().clear();
+    useArxmlStore.getState().setLocale('en');
+  });
+
+  it('overflow menu contains Project Save and Save All', () => {
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
+    expect(screen.getByTestId('btn-project-save')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
+  });
+
+  it('Escape closes the save overflow menu', () => {
+    render(<AppHeader {...noopProps} />);
+    fireEvent.click(screen.getByTestId('btn-save-overflow'));
+    expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('btn-save-all')).toBeNull();
   });
 });
