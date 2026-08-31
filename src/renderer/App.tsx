@@ -36,6 +36,7 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
+import { themeLight } from 'dockview';
 import { DockviewReact } from 'dockview-react';
 import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -569,7 +570,7 @@ export function App(): JSX.Element {
                 <DockviewReact
                   components={panelComponents}
                   onReady={handleDockReady}
-                  className="dockview-theme-reambia"
+                  theme={themeLight}
                 />
               </div>
             </WorkspaceContext.Provider>

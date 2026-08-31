@@ -85,3 +85,38 @@ test('file template badge remains readable against its chip background', async (
   expect(style.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
   expect(style.color).not.toBe(style.backgroundColor);
 });
+
+test('file list text remains readable in dockview', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('app-header')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.dv-dockview').first()).toBeVisible();
+  const path = '/tmp/OpenedTemplate.arxml';
+  await page.evaluate(
+    async ({ filePath, modulePath }) => {
+      const mod = await import(/* @vite-ignore */ modulePath);
+      mod.useArxmlStore.setState({
+        documentPaths: [filePath],
+        activeDocumentPath: filePath,
+        templatePaths: new Set([filePath]),
+        viewMode: 'single',
+      });
+    },
+    { filePath: path, modulePath: '/store/useArxmlStore.ts' },
+  );
+  await page.click('[data-testid="btn-view-menu"]');
+  await page.click('[data-testid="menu-item-files"]');
+  await expect(page.locator('.dv-shell')).toHaveClass(/dockview-theme-light/);
+  const item = page.getByTestId(`file-list-tab-arxml-${path}`);
+  await expect(item).toBeVisible();
+  const style = await item.evaluate((el) => {
+    const group = el.closest('.dv-groupview');
+    return {
+      itemColor: window.getComputedStyle(el).color,
+      itemBackground: window.getComputedStyle(el).backgroundColor,
+      groupBackground: group ? window.getComputedStyle(group).backgroundColor : '',
+    };
+  });
+  expect(style.itemColor).toBe('rgb(15, 23, 42)');
+  expect(style.itemBackground).toBe('rgba(59, 130, 246, 0.06)');
+  expect(style.groupBackground).toBe('rgb(255, 255, 255)');
+});

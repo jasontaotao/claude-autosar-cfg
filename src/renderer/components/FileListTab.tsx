@@ -30,6 +30,49 @@ import { ImportEntry } from './ImportEntry';
 
 import './FileListTab.css';
 
+function FileIcon(): JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M4 1.75h5L13 5.5v8.75a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2.75a1 1 0 0 1 1-1Z" />
+      <path d="M9 1.75V5.5h4" />
+      <path d="M5.5 9h5" />
+      <path d="M5.5 11.5h3" />
+    </svg>
+  );
+}
+
+function CombinedIcon(): JSX.Element {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M2.75 5.25 8 2.5l5.25 2.75L8 8 2.75 5.25Z" />
+      <path d="m2.75 8.5 5.25 2.75 5.25-2.75" />
+      <path d="m2.75 11.5 5.25 2.75 5.25-2.75" />
+    </svg>
+  );
+}
+
 export function FileListTab(): JSX.Element {
   const project = useArxmlStore((s) => s.project);
   const documentPaths = useArxmlStore((s) => s.documentPaths);
@@ -106,7 +149,9 @@ export function FileListTab(): JSX.Element {
                 }
               }}
             >
-              <span className="file-list-tab-item-icon">🔗</span>
+              <span className="file-list-tab-item-icon">
+                <CombinedIcon />
+              </span>
               <span className="file-list-tab-item-name">{t(locale, 'fileList.combinedView')}</span>
             </div>
             {arxmlPaths.map((p) => {
@@ -136,7 +181,9 @@ export function FileListTab(): JSX.Element {
                     }
                   }}
                 >
-                  <span className="file-list-tab-item-icon">📄</span>
+                  <span className="file-list-tab-item-icon">
+                    <FileIcon />
+                  </span>
                   <span className="file-list-tab-item-name" title={p}>
                     {basename(p)}
                   </span>
