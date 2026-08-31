@@ -15,7 +15,6 @@ import type { Locale } from '../../shared/i18n/index.js';
 
 import type { RuleRegistry } from './RuleRegistry.js';
 import { buildValidationContext } from './context.js';
-import { subscribeToValidationPaused } from './hooks/useTourState.js';
 import type {
   InternalValidatorResult,
   RunInput,
@@ -36,26 +35,19 @@ const SEVERITY_ORDER: Readonly<Record<Severity, number>> = {
 };
 
 /**
- * In-process mirror of `useArxmlStore.tour.validationPaused`. Updated
- * via `subscribeToValidationPaused()` at engine-init time (see
- * `installTourSubscription` below). The debounce handler reads this
- * flag — when `true`, it silently skips rule execution per G spec §3.9
+ * Process-local mirror of the renderer tour state. Updated explicitly
+ * by the renderer zustand subscription via `setValidationPaused`.
+ * The debounce handler reads this flag — when `true`, it silently skips rule execution per G spec §3.9
  * (Round 3 in-process refinement).
  */
 let inProcessValidationPaused = false;
 
 /**
- * Install the in-process tour subscription. Idempotent — multiple
- * callers are safe (the engine will overwrite the previous mirror
- * with the latest value, which is what we want).
- *
- * Called from the renderer at app-boot (e.g. ValidationPanel mount
- * or App.tsx). NOT called from the CLI path (no tour in headless).
+ * Update the process-local tour mirror. Called by the renderer zustand
+ * subscription; headless callers do not install a subscription.
  */
-export function installTourSubscription(): () => void {
-  return subscribeToValidationPaused((paused) => {
-    inProcessValidationPaused = paused;
-  });
+export function setValidationPaused(paused: boolean): void {
+  inProcessValidationPaused = paused;
 }
 
 /**
@@ -75,7 +67,7 @@ export async function runValidation(
   // Tour coordination (G spec §3.9): silent skip when W tour is running.
   // Two triggers fire this gate:
   //   1. opts.tourState (explicit, e.g. test fixture)
-  //   2. inProcessValidationPaused (set by installTourSubscription())
+  //   2. inProcessValidationPaused (set by setValidationPaused())
   // Either one being true returns [].
   const tourPaused = opts.tourState?.validationPaused === true || inProcessValidationPaused;
   if (tourPaused) {

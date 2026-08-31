@@ -1,4 +1,4 @@
-// src/core/sws-validator/__tests__/tourPause.test.ts
+// src/renderer/store/__tests__/useArxmlStore.tourSubscription.test.ts
 // Cluster G (v1.6.0) — In-process tour-pause subscribe test.
 //
 // Verifies G spec §3.9 + §7.5 acceptance:
@@ -10,13 +10,14 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { reduceTour } from '../../../renderer/onboarding/tourState.js';
-import { useArxmlStore } from '../../../renderer/store/useArxmlStore.js';
+import { RuleRegistry } from '../../../core/sws-validator/RuleRegistry.js';
+import { runValidation } from '../../../core/sws-validator/engine.js';
+import type { ValidatorRule } from '../../../core/sws-validator/types.js';
+import type { SchemaLayer } from '../../../core/validation/runtimeSchema.js';
 import type { NormalizedDocument } from '../../../shared/normalized-document.js';
-import type { SchemaLayer } from '../../validation/runtimeSchema.js';
-import { RuleRegistry } from '../RuleRegistry.js';
-import { installTourSubscription, runValidation } from '../engine.js';
-import type { ValidatorRule } from '../types.js';
+import { reduceTour } from '../../onboarding/tourState.js';
+import { installTourSubscription } from '../helpers/tourSubscription.js';
+import { useArxmlStore } from '../useArxmlStore.js';
 
 const EMPTY_DOC: NormalizedDocument = {
   version: '4.2',
