@@ -25,6 +25,7 @@
 ### Task 1: PanelErrorBoundary 组件 + i18n keys
 
 **Files:**
+
 - Create: `src/renderer/components/PanelErrorBoundary.tsx`
 - Create: `src/renderer/components/PanelErrorBoundary.css`
 - Create: `src/renderer/components/__tests__/PanelErrorBoundary.test.tsx`
@@ -32,6 +33,7 @@
 - Modify: `src/shared/i18n.en/app.ts`、`src/shared/i18n.zh-CN/app.ts`（同名 key 的 en/zh 值）
 
 **Interfaces:**
+
 - Consumes: 现有 `ErrorBoundary`（`src/renderer/components/ErrorBoundary.tsx`）的 `fallback?: (error: Error, reset: () => void) => ReactNode` render-prop。
 - Produces: `PanelErrorBoundary({ panel, locale, onClose?, children })`，`panel` 为字面量联合 `'tree' | 'param-editor' | 'script-panel' | 'dbc-viewer' | 'odx-viewer' | 'validation-panel'`；fallback 卡片带 `data-testid="panel-error-<panel>"`，内含重试 / 复制详情 /（可选）关闭三个按钮。Task 3-5 依赖此签名。
 
@@ -88,7 +90,13 @@ class Bomb extends Component<{ shouldThrow: boolean }, object> {
   }
 }
 
-function Harness({ shouldThrow, onClose }: { shouldThrow: boolean; onClose?: () => void }): JSX.Element {
+function Harness({
+  shouldThrow,
+  onClose,
+}: {
+  shouldThrow: boolean;
+  onClose?: () => void;
+}): JSX.Element {
   return (
     <PanelErrorBoundary panel="tree" locale="en" onClose={onClose}>
       <Bomb shouldThrow={shouldThrow} />
@@ -181,7 +189,13 @@ interface PanelErrorCardProps {
   readonly reset: () => void;
 }
 
-function PanelErrorCard({ error, panel, locale, onClose, reset }: PanelErrorCardProps): JSX.Element {
+function PanelErrorCard({
+  error,
+  panel,
+  locale,
+  onClose,
+  reset,
+}: PanelErrorCardProps): JSX.Element {
   const [copied, setCopied] = useState(false);
   const copyDetails = (): void => {
     const detail = `${error.message}\n${error.stack ?? ''}`;
@@ -227,7 +241,13 @@ export function PanelErrorBoundary({
   return (
     <ErrorBoundary
       fallback={(error, reset) => (
-        <PanelErrorCard error={error} panel={panel} locale={locale} onClose={onClose} reset={reset} />
+        <PanelErrorCard
+          error={error}
+          panel={panel}
+          locale={locale}
+          onClose={onClose}
+          reset={reset}
+        />
       )}
     >
       {children}
@@ -299,12 +319,14 @@ git commit -m "feat(p2): PanelErrorBoundary 组件 + 面板错误卡片 i18n（s
 ### Task 2: App 级兜底 fallback 样式化
 
 **Files:**
+
 - Modify: `src/renderer/components/ErrorBoundary.tsx`（默认 fallback 分支重写）
 - Create: `src/renderer/components/ErrorBoundary.css`
 - Modify: `src/renderer/components/__tests__/ErrorBoundary.test.tsx`（补复制/重置断言）
 - Modify: `src/shared/i18n/app.ts`、`src/shared/i18n.en/app.ts`、`src/shared/i18n.zh-CN/app.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 的 i18n 追加模式。
 - Produces: App 级 fallback DOM：`<div class="app-error-page" role="alert">` + `data-testid="app-error-page"` + 复制按钮 `data-testid="app-error-copy"` + Reset 按钮 `data-testid="app-error-reset"`。语义不变（仍是 `ErrorBoundary` 默认 fallback，`fallback` render-prop 调用方不受影响）。
 
@@ -343,33 +365,33 @@ en 的 `'app.errorPage.title'` 取值 `Something went wrong`，与现有测试�
 - [ ] **Step 2: 更新测试**（在 `ErrorBoundary.test.tsx` 现有 describe 内追加两个 it；沿用文件内已有 `Bomb` fixture 与其 testid）
 
 ```tsx
-  it('app-level fallback is a styled page with copy + reset actions', () => {
-    render(
-      <ErrorBoundary>
-        <Bomb shouldThrow />
-      </ErrorBoundary>,
-    );
-    const page = screen.getByTestId('app-error-page');
-    expect(page).toHaveAttribute('role', 'alert');
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
-    expect(screen.getByTestId('app-error-copy')).toBeInTheDocument();
-    expect(screen.getByTestId('app-error-reset')).toBeInTheDocument();
-  });
+it('app-level fallback is a styled page with copy + reset actions', () => {
+  render(
+    <ErrorBoundary>
+      <Bomb shouldThrow />
+    </ErrorBoundary>,
+  );
+  const page = screen.getByTestId('app-error-page');
+  expect(page).toHaveAttribute('role', 'alert');
+  expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+  expect(screen.getByTestId('app-error-copy')).toBeInTheDocument();
+  expect(screen.getByTestId('app-error-reset')).toBeInTheDocument();
+});
 
-  it('app-level fallback Reset clears the error and re-renders children', () => {
-    const { rerender } = render(
-      <ErrorBoundary>
-        <Bomb shouldThrow />
-      </ErrorBoundary>,
-    );
-    rerender(
-      <ErrorBoundary>
-        <Bomb shouldThrow={false} />
-      </ErrorBoundary>,
-    );
-    fireEvent.click(screen.getByTestId('app-error-reset'));
-    expect(screen.getByTestId('panel-content')).toBeInTheDocument();
-  });
+it('app-level fallback Reset clears the error and re-renders children', () => {
+  const { rerender } = render(
+    <ErrorBoundary>
+      <Bomb shouldThrow />
+    </ErrorBoundary>,
+  );
+  rerender(
+    <ErrorBoundary>
+      <Bomb shouldThrow={false} />
+    </ErrorBoundary>,
+  );
+  fireEvent.click(screen.getByTestId('app-error-reset'));
+  expect(screen.getByTestId('panel-content')).toBeInTheDocument();
+});
 ```
 
 - [ ] **Step 3: 运行测试确认失败**
@@ -380,28 +402,28 @@ Expected: FAIL（无 app-error-page testid）
 - [ ] **Step 4: 实现** — `ErrorBoundary.tsx` 默认 fallback 分支替换为：
 
 ```tsx
-      const locale = useArxmlStore.getState().locale;
-      const copyStack = (): void => {
-        const detail = `${error.message}\n${error.stack ?? ''}`;
-        const clipboard = navigator.clipboard;
-        if (clipboard !== undefined) clipboard.writeText(detail).catch(() => undefined);
-      };
-      return (
-        <div className="app-error-page" role="alert" data-testid="app-error-page">
-          <h1>{t(locale, 'app.errorPage.title')}</h1>
-          <p className="app-error-page__message">{error.message}</p>
-          <pre className="app-error-page__stack">{error.stack ?? ''}</pre>
-          <div className="app-error-page__actions">
-            <button type="button" className="app-btn" data-testid="app-error-copy" onClick={copyStack}>
-              {t(locale, 'app.errorPage.copyStack')}
-            </button>
-            <button type="button" className="app-btn" data-testid="app-error-reset" onClick={this.reset}>
-              {t(locale, 'app.errorPage.reset')}
-            </button>
-          </div>
-          <p className="app-error-page__hint">{t(locale, 'app.errorPage.feedback')}</p>
-        </div>
-      );
+const locale = useArxmlStore.getState().locale;
+const copyStack = (): void => {
+  const detail = `${error.message}\n${error.stack ?? ''}`;
+  const clipboard = navigator.clipboard;
+  if (clipboard !== undefined) clipboard.writeText(detail).catch(() => undefined);
+};
+return (
+  <div className="app-error-page" role="alert" data-testid="app-error-page">
+    <h1>{t(locale, 'app.errorPage.title')}</h1>
+    <p className="app-error-page__message">{error.message}</p>
+    <pre className="app-error-page__stack">{error.stack ?? ''}</pre>
+    <div className="app-error-page__actions">
+      <button type="button" className="app-btn" data-testid="app-error-copy" onClick={copyStack}>
+        {t(locale, 'app.errorPage.copyStack')}
+      </button>
+      <button type="button" className="app-btn" data-testid="app-error-reset" onClick={this.reset}>
+        {t(locale, 'app.errorPage.reset')}
+      </button>
+    </div>
+    <p className="app-error-page__hint">{t(locale, 'app.errorPage.feedback')}</p>
+  </div>
+);
 ```
 
 文件头追加 import：
@@ -486,10 +508,12 @@ git commit -m "feat(p2): App 级 ErrorBoundary fallback 样式化错误页（spe
 ### Task 3: LeftPanel 局部 boundary（Tree + ValidationPanel）+ 故障注入单测
 
 **Files:**
+
 - Modify: `src/renderer/components/LeftPanel.tsx:225`（Tree 包裹）、`src/renderer/components/LeftPanel.tsx:216`（ValidationPanel 包裹）
 - Create: `src/renderer/components/__tests__/LeftPanel.errorBoundary.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 1 `PanelErrorBoundary`；LeftPanel 的 `locale`（若无现成订阅则新增 `useArxmlStore((s) => s.locale)`）。
 - Produces: 注入故障被限制在 `panel-error-tree` / `panel-error-validation-panel` 卡片内，ProjectPanel 等兄弟节点照常渲染。
 
@@ -549,7 +573,7 @@ describe('LeftPanel local error boundaries (P2 fault injection)', () => {
 - [ ] **Step 2: 运行测试确认失败**
 
 Run: `pnpm test src/renderer/components/__tests__/LeftPanel.errorBoundary.test.tsx`
-Expected: FAIL（错误冒泡到 App 级/测试崩溃，而非 panel-error-* 卡片）
+Expected: FAIL（错误冒泡到 App 级/测试崩溃，而非 panel-error-\* 卡片）
 
 - [ ] **Step 3: 实现包裹** — `LeftPanel.tsx`：
 
@@ -586,10 +610,12 @@ git commit -m "feat(p2): Tree/ValidationPanel 局部 boundary + 故障注入单�
 ### Task 4: App 局部 boundary（ParamEditor + ScriptPanel）+ 故障注入单测
 
 **Files:**
+
 - Modify: `src/renderer/App.tsx:438`（ParamEditor 包裹）、`src/renderer/App.tsx:447-449`（ScriptPanel 包裹）
 - Create: `src/renderer/__tests__/App.panelErrorBoundary.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 1 `PanelErrorBoundary`；App 内已有 `locale` 订阅（`App.tsx:248`）。
 - Produces: 注入故障限制在 `panel-error-param-editor` / `panel-error-script-panel` 卡片内；左面板照常渲染。
 
@@ -686,12 +712,14 @@ git commit -m "feat(p2): ParamEditor/ScriptPanel 局部 boundary + 故障注入�
 ### Task 5: DBC/ODX viewer 拆 Inner + wrapper boundary + 故障注入单测
 
 **Files:**
+
 - Modify: `src/renderer/components/DbcViewer/DbcViewer.tsx`（现实现移入 `DbcViewerInner.tsx`，原文件变 wrapper）
 - Modify: `src/renderer/components/OdxViewer/OdxViewer.tsx`（同构：`OdxViewerInner` + wrapper）
 - Create: `src/renderer/components/DbcViewer/__tests__/DbcViewer.errorBoundary.test.tsx`
 - Create: `src/renderer/components/OdxViewer/__tests__/OdxViewer.errorBoundary.test.tsx`
 
 **Interfaces:**
+
 - Consumes: Task 1 `PanelErrorBoundary`（带 `onClose`）。
 - Produces: `DbcViewer` / `OdxViewer` 对外 props 契约完全不变（spec §6 迁移约束），仅实现变为 Inner + boundary 包装；viewer 崩溃时错误卡片提供「关闭」直接退出模态。
 
@@ -778,11 +806,13 @@ git commit -m "feat(p2): DBC/ODX viewer 拆 Inner + 局部 boundary + 故障注�
 ### Task 6: NewProjectDialog 验证时机（blur / submit）
 
 **Files:**
+
 - Modify: `src/renderer/components/NewProjectDialog.tsx`（touched/attempted state + onBlur + handleSubmit + 错误渲染门控）
 - Modify: `src/renderer/components/__tests__/NewProjectDialog.test.tsx`（mount 即报错的断言改为 blur/submit 触发）
 - Modify: `tests/e2e/new-project-dialog.spec.ts`（追加时机用例）
 
 **Interfaces:**
+
 - Consumes: 现有 `validateProjectName(name)`、`nameErrorText` 映射（NewProjectDialog.tsx:243/357）。
 - Produces: 初始态干净；blur 后或 submit 尝试（含 Enter）后 `npd-name-error` 才可能出现；`canSubmit` 门控逻辑不变。
 
@@ -791,32 +821,32 @@ git commit -m "feat(p2): DBC/ODX viewer 拆 Inner + 局部 boundary + 故障注�
 现有「shows a red error … when the name is empty」（:170）与「invalid characters」（:180）用例改为：先 `fireEvent.change`（如需）+ `fireEvent.blur` 输入框，再断言错误。另追加：
 
 ```tsx
-  it('keeps the name field clean on mount (no premature error)', () => {
-    renderDialog();
-    expect(screen.queryByTestId('npd-name-error')).toBeNull();
-  });
+it('keeps the name field clean on mount (no premature error)', () => {
+  renderDialog();
+  expect(screen.queryByTestId('npd-name-error')).toBeNull();
+});
 
-  it('shows the empty-name error only after blur', () => {
-    renderDialog();
-    fireEvent.blur(screen.getByTestId('npd-name-input'));
-    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
-  });
+it('shows the empty-name error only after blur', () => {
+  renderDialog();
+  fireEvent.blur(screen.getByTestId('npd-name-input'));
+  expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+});
 
-  it('submit attempt (Enter with empty name) surfaces the error without submitting', () => {
-    const onSubmit = vi.fn();
-    renderDialog(onSubmit);
-    fireEvent.keyDown(screen.getByTestId('npd-name-input'), { key: 'Enter' });
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
-  });
+it('submit attempt (Enter with empty name) surfaces the error without submitting', () => {
+  const onSubmit = vi.fn();
+  renderDialog(onSubmit);
+  fireEvent.keyDown(screen.getByTestId('npd-name-input'), { key: 'Enter' });
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+});
 
-  it('typing a valid name clears the error', () => {
-    renderDialog();
-    fireEvent.blur(screen.getByTestId('npd-name-input'));
-    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
-    fireEvent.change(screen.getByTestId('npd-name-input'), { target: { value: 'Valid_Name' } });
-    expect(screen.queryByTestId('npd-name-error')).toBeNull();
-  });
+it('typing a valid name clears the error', () => {
+  renderDialog();
+  fireEvent.blur(screen.getByTestId('npd-name-input'));
+  expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+  fireEvent.change(screen.getByTestId('npd-name-input'), { target: { value: 'Valid_Name' } });
+  expect(screen.queryByTestId('npd-name-error')).toBeNull();
+});
 ```
 
 （`renderDialog` 为该文件现有 render helper；若不接受 onSubmit 参数，按文件内现有模式内联 render。）
@@ -829,19 +859,19 @@ Expected: mount-即报错相关断言 FAIL
 - [ ] **Step 3: 实现** — `NewProjectDialog.tsx`：
 
 ```tsx
-  // P2 (spec §4.2) — validation timing: the field starts clean; the
-  // error appears only after the user leaves the field (blur) or
-  // attempts a submit (button or Enter).
-  const [nameTouched, setNameTouched] = useState(false);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-  const showNameError = (nameTouched || submitAttempted) && nameError !== null;
+// P2 (spec §4.2) — validation timing: the field starts clean; the
+// error appears only after the user leaves the field (blur) or
+// attempts a submit (button or Enter).
+const [nameTouched, setNameTouched] = useState(false);
+const [submitAttempted, setSubmitAttempted] = useState(false);
+const showNameError = (nameTouched || submitAttempted) && nameError !== null;
 ```
 
 open-effect reset 块（:229 附近）追加：
 
 ```tsx
-    setNameTouched(false);
-    setSubmitAttempted(false);
+setNameTouched(false);
+setSubmitAttempted(false);
 ```
 
 input（:403-414）追加 `onBlur={() => setNameTouched(true)}`，className 门控改为：
@@ -870,12 +900,12 @@ Expected: 全 PASS
 - [ ] **Step 5: 追加 e2e 用例**（`tests/e2e/new-project-dialog.spec.ts` 的 describe 内）
 
 ```ts
-  test('validation timing: no error on mount; appears after blur', async ({ page }) => {
-    await openNewProjectDialog(page);
-    await expect(page.getByTestId('npd-name-error')).not.toBeVisible();
-    await page.getByTestId('npd-name-input').blur();
-    await expect(page.getByTestId('npd-name-error')).toBeVisible();
-  });
+test('validation timing: no error on mount; appears after blur', async ({ page }) => {
+  await openNewProjectDialog(page);
+  await expect(page.getByTestId('npd-name-error')).not.toBeVisible();
+  await page.getByTestId('npd-name-input').blur();
+  await expect(page.getByTestId('npd-name-error')).toBeVisible();
+});
 ```
 
 - [ ] **Step 6: 运行 e2e 确认通过**
@@ -895,6 +925,7 @@ git commit -m "feat(p2): NewProjectDialog 空名验证改为 blur/submit 触发�
 ### Task 7: 主区空状态引导面板
 
 **Files:**
+
 - Create: `src/renderer/components/editor/ParamEditorEmptyState.tsx`
 - Create: `src/renderer/components/editor/ParamEditorEmptyState.css`
 - Modify: `src/renderer/components/editor/ParamEditor.tsx:122-134`（空态分支替换）+ props 追加
@@ -904,6 +935,7 @@ git commit -m "feat(p2): NewProjectDialog 空名验证改为 blur/submit 触发�
 - Create: `tests/e2e/empty-state.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `useProjectActions()` 返回的 `newProject()`（打开新建项目 dialog）与 `openProjectFromDialog()`（带 dirty guard 的打开项目）；现有 i18n key `'app.project.open'`。
 - Produces: `ParamEditor` 新增可选 props `onOpenProject?: () => void; onNewProject?: () => void`；空态 DOM `data-testid="param-editor-empty-state"`，保留外层 `aria-label="Parameter editor"`。
 
@@ -1070,15 +1102,15 @@ export function ParamEditorEmptyState({
 空态分支（:122-134）替换为：
 
 ```tsx
-  if (element === null || (element.kind !== 'module' && element.kind !== 'container')) {
-    return (
-      <ParamEditorEmptyState
-        locale={locale}
-        onOpenProject={onOpenProject}
-        onNewProject={onNewProject}
-      />
-    );
-  }
+if (element === null || (element.kind !== 'module' && element.kind !== 'container')) {
+  return (
+    <ParamEditorEmptyState
+      locale={locale}
+      onOpenProject={onOpenProject}
+      onNewProject={onNewProject}
+    />
+  );
+}
 ```
 
 签名与 props：
@@ -1176,6 +1208,7 @@ git commit -m "feat(p2): 主区空状态引导面板 + 打开/新建项目快捷
 ### Task 8: 保存按钮层级化（主按钮 + 溢出菜单）
 
 **Files:**
+
 - Modify: `src/renderer/components/AppHeader/AppHeaderActionBar.tsx`（重构为 主按钮 + 溢出菜单）
 - Modify: `src/renderer/styles.css`（`.app-save-group` / `.app-btn-save.is-dirty` amber 样式 / pulse keyframes / reduced-motion）
 - Modify: `src/shared/i18n/app.ts`、`src/shared/i18n.en/app.ts`、`src/shared/i18n.zh-CN/app.ts`
@@ -1183,6 +1216,7 @@ git commit -m "feat(p2): 主区空状态引导面板 + 打开/新建项目快捷
 - Update: `tests/visual/baseline/`（受影响 surface 重新截图）
 
 **Interfaces:**
+
 - Consumes: BrandMenu 的 menuRef + outside-click/Esc 关闭模式（`BrandMenu.tsx:14-15`）；`.app-dropdown` 既有样式（`styles.css:409`）。
 - Produces: `btn-save`（ARXML 保存）为主按钮常驻；`btn-save-overflow` 触发下拉；菜单内 `btn-project-save` / `btn-save-all` testid 保留（选择器兼容，但需先开菜单）。dirty 时主按钮 `.is-dirty`：`--accent-amber` 底 + `--text-inverse` 文字 + pulse；hover/按下 `--accent-amber-strong`；`prefers-reduced-motion` 时静态高亮（spec §4.2 原文语义）。
 
@@ -1195,20 +1229,20 @@ zh-CN：`'app.saveMore': '更多保存操作',`
 - [ ] **Step 2: 更新失败测试**（`AppHeader.test.tsx` 内直接点 `btn-project-save` / `btn-save-all` 的用例，统一改为先 `fireEvent.click(screen.getByTestId('btn-save-overflow'))`；并追加：）
 
 ```tsx
-  it('overflow menu contains Project Save and Save All', () => {
-    renderHeader();
-    fireEvent.click(screen.getByTestId('btn-save-overflow'));
-    expect(screen.getByTestId('btn-project-save')).toBeInTheDocument();
-    expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
-  });
+it('overflow menu contains Project Save and Save All', () => {
+  renderHeader();
+  fireEvent.click(screen.getByTestId('btn-save-overflow'));
+  expect(screen.getByTestId('btn-project-save')).toBeInTheDocument();
+  expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
+});
 
-  it('Escape closes the save overflow menu', () => {
-    renderHeader();
-    fireEvent.click(screen.getByTestId('btn-save-overflow'));
-    expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByTestId('btn-save-all')).toBeNull();
-  });
+it('Escape closes the save overflow menu', () => {
+  renderHeader();
+  fireEvent.click(screen.getByTestId('btn-save-overflow'));
+  expect(screen.getByTestId('btn-save-all')).toBeInTheDocument();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(screen.queryByTestId('btn-save-all')).toBeNull();
+});
 ```
 
 - [ ] **Step 3: 运行测试确认失败**
@@ -1219,103 +1253,103 @@ Expected: FAIL（btn-save-overflow 不存在）
 - [ ] **Step 4: 重构 `AppHeaderActionBar.tsx`** — 保留全部现有 props 与三个动作的 disabled/title/label 语义，返回结构替换为：
 
 ```tsx
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+const [menuOpen, setMenuOpen] = useState(false);
+const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return undefined;
-    const onDocMouseDown = (e: MouseEvent): void => {
-      if (menuRef.current !== null && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    const onEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDocMouseDown);
-    document.addEventListener('keydown', onEsc);
-    return () => {
-      document.removeEventListener('mousedown', onDocMouseDown);
-      document.removeEventListener('keydown', onEsc);
-    };
-  }, [menuOpen]);
+useEffect(() => {
+  if (!menuOpen) return undefined;
+  const onDocMouseDown = (e: MouseEvent): void => {
+    if (menuRef.current !== null && !menuRef.current.contains(e.target as Node)) {
+      setMenuOpen(false);
+    }
+  };
+  const onEsc = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') setMenuOpen(false);
+  };
+  document.addEventListener('mousedown', onDocMouseDown);
+  document.addEventListener('keydown', onEsc);
+  return () => {
+    document.removeEventListener('mousedown', onDocMouseDown);
+    document.removeEventListener('keydown', onEsc);
+  };
+}, [menuOpen]);
 
-  return (
-    <div className="app-save-group">
-      {/* Primary: Save active ARXML (spec §4.2) — semantics unchanged. */}
+return (
+  <div className="app-save-group">
+    {/* Primary: Save active ARXML (spec §4.2) — semantics unchanged. */}
+    <button
+      type="button"
+      onClick={() => {
+        void onSave();
+      }}
+      disabled={!canSave}
+      className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
+      data-testid="btn-save"
+      data-tour-id="app-save"
+    >
+      {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
+    </button>
+    {/* Overflow: Project Save + Save All. */}
+    <div className="app-save-overflow" ref={menuRef}>
       <button
         type="button"
+        className={`app-btn app-btn-save-overflow${dirtyPathsCount > 0 ? ' is-dirty' : ''}`}
+        data-testid="btn-save-overflow"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        aria-label={t(locale, 'app.saveMore')}
+        title={t(locale, 'app.saveMore')}
         onClick={() => {
-          void onSave();
+          setMenuOpen((open) => !open);
         }}
-        disabled={!canSave}
-        className={`app-btn app-btn-save ${isActiveDirty ? 'is-dirty' : ''}`}
-        data-testid="btn-save"
-        data-tour-id="app-save"
       >
-        {isActiveDirty ? t(locale, 'app.saveDirty') : t(locale, 'app.save')}
+        ▾
       </button>
-      {/* Overflow: Project Save + Save All. */}
-      <div className="app-save-overflow" ref={menuRef}>
-        <button
-          type="button"
-          className={`app-btn app-btn-save-overflow${dirtyPathsCount > 0 ? ' is-dirty' : ''}`}
-          data-testid="btn-save-overflow"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-label={t(locale, 'app.saveMore')}
-          title={t(locale, 'app.saveMore')}
-          onClick={() => {
-            setMenuOpen((open) => !open);
-          }}
-        >
-          ▾
-        </button>
-        {menuOpen && (
-          <div className="app-dropdown" role="menu">
-            <button
-              type="button"
-              role="menuitem"
-              className="app-dropdown-item"
-              data-testid="btn-project-save"
-              disabled={!canSaveProject}
-              title={
-                projectDirtyCount > 0
-                  ? t(locale, 'app.project.saveBlockedDirty', { count: projectDirtyCount })
-                  : undefined
-              }
-              onClick={() => {
-                setMenuOpen(false);
-                void onProjectSave();
-              }}
-            >
-              {t(locale, 'app.project.save')}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="app-dropdown-item"
-              data-testid="btn-save-all"
-              disabled={!canSaveAll}
-              title={
-                dirtyPathsCount > 0
-                  ? t(locale, 'app.saveAllDirtyTitle', { count: dirtyPathsCount })
-                  : t(locale, 'app.saveAllTitle')
-              }
-              onClick={() => {
-                setMenuOpen(false);
-                void onSaveAll();
-              }}
-            >
-              {dirtyPathsCount > 0
-                ? t(locale, 'app.saveAllDirty', { count: dirtyPathsCount })
-                : t(locale, 'app.saveAll')}
-            </button>
-          </div>
-        )}
-      </div>
+      {menuOpen && (
+        <div className="app-dropdown" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className="app-dropdown-item"
+            data-testid="btn-project-save"
+            disabled={!canSaveProject}
+            title={
+              projectDirtyCount > 0
+                ? t(locale, 'app.project.saveBlockedDirty', { count: projectDirtyCount })
+                : undefined
+            }
+            onClick={() => {
+              setMenuOpen(false);
+              void onProjectSave();
+            }}
+          >
+            {t(locale, 'app.project.save')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="app-dropdown-item"
+            data-testid="btn-save-all"
+            disabled={!canSaveAll}
+            title={
+              dirtyPathsCount > 0
+                ? t(locale, 'app.saveAllDirtyTitle', { count: dirtyPathsCount })
+                : t(locale, 'app.saveAllTitle')
+            }
+            onClick={() => {
+              setMenuOpen(false);
+              void onSaveAll();
+            }}
+          >
+            {dirtyPathsCount > 0
+              ? t(locale, 'app.saveAllDirty', { count: dirtyPathsCount })
+              : t(locale, 'app.saveAll')}
+          </button>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 ```
 
 文件头 import 增加：
