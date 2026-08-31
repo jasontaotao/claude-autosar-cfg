@@ -83,6 +83,14 @@ export const AppZhCN: AppMessages = {
   'app.menu.project': '项目',
   'app.menu.projectManage': '项目管理',
   'app.menu.fileOps': '文件操作',
+  // P3 Dock — View menu
+  'app.menu.view': '视图',
+  'app.menu.resetLayout': '重置布局',
+  'panels.leftPanel': '左面板',
+  'panels.paramEditor': '参数编辑器',
+  'panels.scriptPanel': '脚本',
+  'panels.dbcViewer': 'DBC 查看器',
+  'panels.odxViewer': 'ODX 查看器',
   'app.open.arxml': '打开 ARXML…',
   // v1.21.0 Bug #5 — DBC 打开入口，在 "文件操作" 下拉里。
   'app.open.dbc': '打开 DBC…',

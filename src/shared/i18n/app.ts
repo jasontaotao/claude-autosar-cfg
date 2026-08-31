@@ -89,6 +89,14 @@ export interface AppMessages {
   readonly 'app.menu.project': string;
   readonly 'app.menu.projectManage': string;
   readonly 'app.menu.fileOps': string;
+  // P3 Dock 工作台 — View menu (spec §5.6)
+  readonly 'app.menu.view': string;
+  readonly 'app.menu.resetLayout': string;
+  readonly 'panels.leftPanel': string;
+  readonly 'panels.paramEditor': string;
+  readonly 'panels.scriptPanel': string;
+  readonly 'panels.dbcViewer': string;
+  readonly 'panels.odxViewer': string;
   readonly 'app.open.arxml': string;
   readonly 'app.open.dbc': string;
   readonly 'app.open.odx': string;

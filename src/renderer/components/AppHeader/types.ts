@@ -94,4 +94,8 @@ export interface AppHeaderProps {
   readonly onOpenDcmConfig: () => void;
   readonly canOpenDcmConfig: boolean;
   readonly dcmConfigBusy: boolean;
+  // P3 Dock 工作台 (spec §5.6) — View menu callbacks. AppHeader forwards
+  // the clicks to App which wires them to the DockviewApi.
+  readonly onTogglePanel?: (panelId: import('../../panels/registry.js').PanelId) => void;
+  readonly onResetLayout?: () => void;
 }

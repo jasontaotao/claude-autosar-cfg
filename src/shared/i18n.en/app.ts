@@ -83,6 +83,14 @@ export const AppEn: AppMessages = {
   'app.menu.project': 'Project',
   'app.menu.projectManage': 'Project',
   'app.menu.fileOps': 'File Operations',
+  // P3 Dock — View menu
+  'app.menu.view': 'View',
+  'app.menu.resetLayout': 'Reset Layout',
+  'panels.leftPanel': 'Left Panel',
+  'panels.paramEditor': 'Param Editor',
+  'panels.scriptPanel': 'Scripts',
+  'panels.dbcViewer': 'DBC Viewer',
+  'panels.odxViewer': 'ODX Viewer',
   'app.open.arxml': 'Open ARXML…',
   // v1.21.0 Bug #5 — DBC open entry in the "File Operations" dropdown.
   'app.open.dbc': 'Open DBC…',

@@ -73,7 +73,9 @@ import { TourProvider } from './onboarding/TourProvider.js';
 import { useArxmlStore } from './store/useArxmlStore';
 import { PANEL_REGISTRY } from './panels/registry.js';
 import { WorkspaceContext } from './panels/WorkspaceContext.js';
-import { loadLayout, saveLayout } from './panels/useDockLayout.js';
+import { loadLayout, saveLayout, clearLayout } from './panels/useDockLayout.js';
+import { getPanelDef } from './panels/registry.js';
+import type { PanelId } from './panels/registry.js';
 
 function buildDefaultLayout(api: DockviewApi): void {
   api.addPanel({ id: 'left-panel', component: 'left-panel' });
@@ -353,6 +355,45 @@ export function App(): JSX.Element {
     odxExporting: diagExtractExporting,
   }), [handleAddEcucFromBswmd, handleContextMenu, openProjectFromDialog, newProject, dbcModal, closeDbcViewer, odxModal, closeOdxViewer, handleExportOdxDiagnosticExtract, diagExtractExporting]);
 
+  const handleTogglePanel = useCallback((panelId: PanelId): void => {
+    const api = dockApiRef.current;
+    if (!api) return;
+    const existing = api.getPanel(panelId);
+    if (existing) {
+      existing.api.setActive();
+      return;
+    }
+    const def = getPanelDef(panelId);
+    if (!def) return;
+    if (def.defaultGroup === 'viewer' || def.defaultGroup === 'center') {
+      const paramEditor = api.getPanel('param-editor');
+      if (paramEditor) {
+        api.addPanel({
+          id: panelId,
+          component: panelId,
+          title: t(locale, def.titleKey),
+          position: { referencePanel: 'param-editor', direction: 'within' },
+        });
+        return;
+      }
+    }
+    api.addPanel({ id: panelId, component: panelId, title: t(locale, def.titleKey) });
+  }, [locale]);
+
+  const handleResetLayout = useCallback((): void => {
+    clearLayout();
+    const api = dockApiRef.current;
+    if (!api) return;
+    api.clear();
+    api.addPanel({ id: 'left-panel', component: 'left-panel', title: t(locale, 'panels.leftPanel') });
+    api.addPanel({
+      id: 'param-editor',
+      component: 'param-editor',
+      title: t(locale, 'panels.paramEditor'),
+      position: { referencePanel: 'left-panel', direction: 'right' },
+    });
+  }, [locale]);
+
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
@@ -455,6 +496,8 @@ export function App(): JSX.Element {
           onOpenDcmConfig={handleOpenDcmConfig}
           canOpenDcmConfig={canOpenDcmConfig}
           dcmConfigBusy={dcmLauncher.state.mode === 'pending'}
+          onTogglePanel={handleTogglePanel}
+          onResetLayout={handleResetLayout}
         />
         {/* Sprint 13+ — full-width error strip below the header. Reads
           store.error; AppHeader no longer renders the inline corner
