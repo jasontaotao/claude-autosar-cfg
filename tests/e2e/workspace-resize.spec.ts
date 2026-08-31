@@ -25,7 +25,9 @@ async function waitForAppReady(page: Page): Promise<void> {
   await expect(page.getByTestId('left-tab-files')).toBeVisible();
 }
 
-test.describe('Workspace splitter (Q1)', () => {
+// P3: workspace splitter replaced by dockview. Superseded by dock-workbench.spec.ts.
+// Full removal of react-resizable-panels in P4.
+test.describe.skip('Workspace splitter (Q1)', () => {
   test('renders the splitter inside the workspace', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
@@ -109,3 +111,4 @@ test.describe('Workspace splitter (Q1)', () => {
     expect(Math.abs(reloadedWidth - draggedWidth)).toBeLessThan(4);
   });
 });
+

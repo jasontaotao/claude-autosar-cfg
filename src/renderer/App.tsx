@@ -136,6 +136,17 @@ export function App(): JSX.Element {
   const handleDockReady = useCallback((event: DockviewReadyEvent): void => {
     const api = event.api;
     dockApiRef.current = api;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedSave = (): void => {
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        saveLayout(api.toJSON() as Record<string, unknown>);
+        debounceTimer = null;
+      }, 500);
+    };
+    api.onDidLayoutChange(() => debouncedSave());
+    // Register listener BEFORE building/restoring layout so the initial
+    // addPanel / fromJSON events are captured by the debounce.
     const stored = loadLayout();
     if (stored) {
       try {
@@ -147,15 +158,6 @@ export function App(): JSX.Element {
     } else {
       buildDefaultLayout(api);
     }
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const debouncedSave = (): void => {
-      if (debounceTimer !== null) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        saveLayout(api.toJSON() as Record<string, unknown>);
-        debounceTimer = null;
-      }, 500);
-    };
-    api.onDidLayoutChange(() => debouncedSave());
     const flushOnUnload = (): void => {
       if (debounceTimer !== null) {
         clearTimeout(debounceTimer);
