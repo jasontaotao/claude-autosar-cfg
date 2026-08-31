@@ -121,6 +121,34 @@ export function findChildDefForAdd(
   return null;
 }
 
+/**
+ * Resolve a container definition directly from a BSWMD definitionRef.
+ *
+ * The normal add-child resolver assumes the instance hierarchy already
+ * exists. That is wrong for a two-step generated hierarchy when the first
+ * add-child auto-suffixes its shortName: the child's `parentPath` no longer
+ * exists even though the child definition is unambiguous. The definitionRef
+ * is a schema hint, so it can be resolved independently of the instance path.
+ */
+export function findContainerDefByDefinitionRef(
+  moduleDef: BswModuleDef,
+  definitionRef: string | undefined,
+): ContainerDef | null {
+  const segments = (definitionRef ?? '').split('/').filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  const targetShortName = segments[segments.length - 1];
+  if (targetShortName === undefined) return null;
+
+  const walk = (defs: readonly ContainerDef[]): ContainerDef | null => {
+    for (const def of defs) {
+      if (def.shortName === targetShortName) return def;
+      const nested = walk([...def.subContainers, ...def.choices]);
+      if (nested !== null) return nested;
+    }
+    return null;
+  };
+  return walk(moduleDef.containers);
+}
 export function findParentContainerDef(
   moduleDef: BswModuleDef,
   parentPath: string,

@@ -18,7 +18,12 @@ import type { ArxmlDocument, ArxmlElement, ParamValue } from '../../arxml/types.
 import { findContainerByPath, setParamInDocument } from '../../project/setters.js';
 import { variantDowngradeStep } from '../steps/variant-downgrade.js';
 
-import { coerceToParamValue, describeValueType, findChildDefForAdd } from './helpers.js';
+import {
+  coerceToParamValue,
+  describeValueType,
+  findChildDefForAdd,
+  findContainerDefByDefinitionRef,
+} from './helpers.js';
 import type { ApplyContext, ApplyResult, StepError, StepWarning } from './types.js';
 
 /**
@@ -56,6 +61,11 @@ export function applyPatchSteps(
     // shallow-clone-only (the step is a `{op:'set-param', ...}`
     // literal); a fresh object is needed because we don't mutate
     // the caller's `steps` array.
+    // v1.41.x HIERARCHY — `add-child` also needs remapping. A generated
+    // hierarchy may emit `[add Foo, add-child under /parent/Foo]`. If
+    // `add Foo` was auto-suffixed to `Foo_1`, the child step must follow
+    // the effective instance, not create an unexpected sibling (or fail
+    // with path-not-found).
     const step = remapStepForPendingAddChildSuffix(originalStep, pendingRemap);
     const result = applyOneStep(current, step, i, ctx);
     current = result.doc;
@@ -103,10 +113,15 @@ function remapStepForPendingAddChildSuffix(
   step: PatchStep,
   pendingRemap: ReadonlyMap<string, string>,
 ): PatchStep {
-  if (step.op !== 'set-param') return step;
-  const suffix = findPendingSuffixRemap(step.containerPath, pendingRemap);
-  if (suffix === null) return step;
-  return { ...step, containerPath: suffix };
+  if (step.op === 'set-param') {
+    const suffix = findPendingSuffixRemap(step.containerPath, pendingRemap);
+    return suffix === null ? step : { ...step, containerPath: suffix };
+  }
+  if (step.op === 'add-child') {
+    const suffix = findPendingSuffixRemap(step.parentPath, pendingRemap);
+    return suffix === null ? step : { ...step, parentPath: suffix };
+  }
+  return step;
 }
 
 /**
@@ -342,7 +357,9 @@ function applyAddChild(
     step.parentPath,
     step.definitionRef,
     step.shortName,
-  );
+  ) ?? (step.definitionRef !== undefined
+    ? findContainerDefByDefinitionRef(ctx.moduleDef, step.definitionRef)
+    : null);
   if (childDef === null) {
     return {
       doc,

@@ -109,7 +109,7 @@ function makeComModule(): BswModuleDef {
           makeContainerDef(
             'ComIPdu',
             [makeParam('ComPduDirection', 'enum', 'SEND')],
-            [makeContainerDef('ComTxIPdu'), makeContainerDef('ComRxIPdu')],
+            [makeContainerDef('ComSignal'), makeContainerDef('ComTxIPdu'), makeContainerDef('ComRxIPdu')],
           ),
         ],
       ),
@@ -266,6 +266,47 @@ describe('applyPatchSteps', () => {
       expect(comIPdu?.kind).toBe('container');
     });
 
+    // Regression: a generated hierarchy must survive add-child
+    // auto-suffix. A signal is intended as a child of the *instance*
+    // just created, not as a sibling of that instance. This mirrors the
+    // DBC import flow where a message name may collide with an existing
+    // ComIPdu and the engine rewrites the shortName to Foo_1.
+    it('adds dependent children under an auto-suffixed new parent', () => {
+      const doc = makeComDoc();
+      const moduleDef = makeComModule();
+      const result = applyPatchSteps(
+        doc,
+        [
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig',
+            shortName: 'BmsState',
+            definitionRef: '/D/Com/ComConfig/ComIPdu',
+          },
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig',
+            shortName: 'BmsState',
+            definitionRef: '/D/Com/ComConfig/ComIPdu',
+          },
+          {
+            op: 'add-child',
+            parentPath: '/EcucDefs/Com/ComConfig/BmsState',
+            shortName: 'BmsVoltage',
+            definitionRef: '/D/Com/ComConfig/ComIPdu/ComSignal',
+          },
+        ],
+        { moduleDef },
+      );
+      expect(result.errors).toEqual([]);
+      expect(result.applied).toBe(3);
+      const comConfig = findChild(result.doc, 'Com', 'ComConfig');
+      if (comConfig === undefined) throw new Error('expected ComConfig container');
+      const ipdu = findChildByShortName(comConfig, 'BmsState_1');
+      expect(ipdu).toBeDefined();
+      if (ipdu?.kind !== 'container') throw new Error('expected auto-suffixed IPdu container');
+      expect(findChildByShortName(ipdu, 'BmsVoltage')).toBeDefined();
+    });
     it('returns path-not-found when the parent path is missing', () => {
       const doc = makeComDoc();
       const moduleDef = makeComModule();
