@@ -9,7 +9,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PanelErrorBoundary } from '../PanelErrorBoundary.js';
 
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-afterEach(() => consoleErrorSpy.mockClear());
+afterEach(() => {
+  consoleErrorSpy.mockClear();
+});
 
 class Bomb extends Component<{ shouldThrow: boolean }, object> {
   override render(): ReactNode {
