@@ -20,9 +20,9 @@ import type { ArxmlElement, ParamValue } from '@core/arxml/types';
 import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
 import { t } from '@shared/i18n/index.js';
 
-import { ParamEditorEmptyState } from './ParamEditorEmptyState.js';
 import { useArxmlStore } from '../../store/useArxmlStore';
 
+import { ParamEditorEmptyState } from './ParamEditorEmptyState.js';
 import { selectParamMode } from './modes';
 import { BooleanEditor } from './modes/BooleanEditor';
 import { EnumEditor } from './modes/EnumEditor';

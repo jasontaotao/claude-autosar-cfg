@@ -4,6 +4,7 @@
 import { useState, type JSX, type ReactNode } from 'react';
 
 import { t, type Locale } from '../../shared/i18n/index.js';
+
 import { ErrorBoundary } from './ErrorBoundary.js';
 import './PanelErrorBoundary.css';
 

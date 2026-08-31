@@ -4,6 +4,7 @@
 import { type JSX } from 'react';
 
 import { PanelErrorBoundary } from '../PanelErrorBoundary.js';
+
 import { OdxViewerInner, type OdxViewerInnerProps } from './OdxViewerInner.js';
 
 export type OdxViewerProps = OdxViewerInnerProps;

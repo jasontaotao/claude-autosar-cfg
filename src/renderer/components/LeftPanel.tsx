@@ -28,8 +28,8 @@ import { useProjectActions } from '../hooks/useProjectActions';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import { FileListTab } from './FileListTab';
-import { ProjectPanelInfo } from './ProjectPanel';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
+import { ProjectPanelInfo } from './ProjectPanel';
 import { ValidationPanel } from './ValidationPanel';
 import { Tree } from './tree/Tree';
 

@@ -31,8 +31,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { Component, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ErrorBoundary } from '../ErrorBoundary.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
+import { ErrorBoundary } from '../ErrorBoundary.js';
 
 // ---------------------------------------------------------------------------
 // Test fixtures

@@ -4,6 +4,7 @@
 import { type JSX } from 'react';
 
 import { PanelErrorBoundary } from '../PanelErrorBoundary.js';
+
 import { DbcViewerInner, type DbcViewerInnerProps } from './DbcViewerInner.js';
 
 export type DbcViewerProps = DbcViewerInnerProps;
