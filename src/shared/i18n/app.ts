@@ -18,6 +18,13 @@ export interface AppMessages {
   readonly 'app.saveAllDirtyTitle': string; // {count}
   readonly 'app.saveAllDone': string; // {count}
   readonly 'app.saveAllPartial': string; // {saved}, {failed}, {firstError}
+
+  // --- P2 panel error card (spec §4.1) ---
+  readonly 'panel.error.title': string;
+  readonly 'panel.error.retry': string;
+  readonly 'panel.error.copyDetails': string;
+  readonly 'panel.error.copied': string;
+  readonly 'panel.error.close': string;
   readonly 'app.save.error.permission-denied': string;
   readonly 'app.save.error.disk-full': string;
   readonly 'app.save.error.path-not-found': string;

@@ -1,0 +1,41 @@
+/* P2 (spec §4.1) — in-panel error card. Fills the hosting panel,
+   never the viewport; sibling panels keep working. */
+.panel-error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: var(--space-4);
+  background: var(--rose-tint);
+  border: 1px solid var(--accent-rose);
+  border-radius: var(--radius-md);
+  color: var(--accent-rose-strong);
+  text-align: center;
+}
+
+.panel-error-card__icon {
+  font-size: var(--text-lg);
+}
+
+.panel-error-card__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.panel-error-card__message {
+  margin: 0;
+  max-width: 90%;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.panel-error-card__actions {
+  display: flex;
+  gap: var(--space-2);
+}

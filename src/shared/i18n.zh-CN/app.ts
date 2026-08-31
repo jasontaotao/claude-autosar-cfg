@@ -13,6 +13,13 @@ export const AppZhCN: AppMessages = {
   'app.saveAllDone': '已保存 {count} 个文件',
   'app.saveAllPartial': '已保存 {saved} 个，{failed} 个失败：{firstError}',
   'app.save.error.permission-denied': '权限被拒绝。请检查文件/文件夹权限。',
+
+  // --- P2 panel error card (spec §4.1) ---
+  'panel.error.title': '面板出现错误',
+  'panel.error.retry': '重试',
+  'panel.error.copyDetails': '复制详情',
+  'panel.error.copied': '已复制',
+  'panel.error.close': '关闭',
   'app.save.error.disk-full': '磁盘空间已满。请清理后重试。',
   'app.save.error.path-not-found': '目标路径不存在。请确认目录是否正确。',
   'app.save.error.serialize-failed': '序列化 ARXML 失败。如反复出现请报告 bug。',

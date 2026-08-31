@@ -13,6 +13,13 @@ export const AppEn: AppMessages = {
   'app.saveAllDone': 'Saved {count} files',
   'app.saveAllPartial': 'Saved {saved}, {failed} failed: {firstError}',
   'app.save.error.permission-denied': 'Permission denied. Check file/folder permissions.',
+
+  // --- P2 panel error card (spec §4.1) ---
+  'panel.error.title': 'Panel error',
+  'panel.error.retry': 'Retry',
+  'panel.error.copyDetails': 'Copy details',
+  'panel.error.copied': 'Copied',
+  'panel.error.close': 'Close',
   'app.save.error.disk-full': 'Disk full. Free up space and try again.',
   'app.save.error.path-not-found': 'Target path not found. Verify directory exists.',
   'app.save.error.serialize-failed': 'Failed to serialize ARXML. Report a bug if this persists.',
