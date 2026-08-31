@@ -26,6 +26,10 @@ export const AppEn: AppMessages = {
   'app.errorPage.copyStack': 'Copy error details',
   'app.errorPage.reset': 'Reset',
   'app.errorPage.feedback': 'Please copy the error details and report them to the developers.',
+  // --- P2 editor empty state (spec §4.2) ---
+  'editor.empty.title': 'Select an element in the tree to start editing',
+  'editor.empty.hint': 'Open a project, or create one to begin.',
+  'editor.empty.newProject': 'New Project',
   'app.save.error.disk-full': 'Disk full. Free up space and try again.',
   'app.save.error.path-not-found': 'Target path not found. Verify directory exists.',
   'app.save.error.serialize-failed': 'Failed to serialize ARXML. Report a bug if this persists.',

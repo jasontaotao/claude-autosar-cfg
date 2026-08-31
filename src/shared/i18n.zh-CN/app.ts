@@ -26,6 +26,10 @@ export const AppZhCN: AppMessages = {
   'app.errorPage.copyStack': '复制错误详情',
   'app.errorPage.reset': '重置',
   'app.errorPage.feedback': '请复制错误详情并反馈给开发者。',
+  // --- P2 editor empty state (spec §4.2) ---
+  'editor.empty.title': '从左侧树选择元素开始编辑',
+  'editor.empty.hint': '打开一个项目，或新建项目开始使用。',
+  'editor.empty.newProject': '新建项目',
   'app.save.error.disk-full': '磁盘空间已满。请清理后重试。',
   'app.save.error.path-not-found': '目标路径不存在。请确认目录是否正确。',
   'app.save.error.serialize-failed': '序列化 ARXML 失败。如反复出现请报告 bug。',

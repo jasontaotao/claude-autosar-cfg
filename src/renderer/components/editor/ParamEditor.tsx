@@ -20,6 +20,7 @@ import type { ArxmlElement, ParamValue } from '@core/arxml/types';
 import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
 import { t } from '@shared/i18n/index.js';
 
+import { ParamEditorEmptyState } from './ParamEditorEmptyState.js';
 import { useArxmlStore } from '../../store/useArxmlStore';
 
 import { selectParamMode } from './modes';
@@ -72,7 +73,14 @@ function typeBadgeClass(type: ParamValue['type']): string {
   }
 }
 
-export function ParamEditor(): JSX.Element {
+export interface ParamEditorProps {
+  /** Wired by App from useProjectActions().openProjectFromDialog. */
+  readonly onOpenProject?: () => void;
+  /** Wired by App from useProjectActions().newProject. */
+  readonly onNewProject?: () => void;
+}
+
+export function ParamEditor({ onOpenProject, onNewProject }: ParamEditorProps = {}): JSX.Element {
   const doc = useArxmlStore((s) => s.doc);
   const documents = useArxmlStore((s) => s.documents);
   const documentPaths = useArxmlStore((s) => s.documentPaths);
@@ -88,13 +96,13 @@ export function ParamEditor(): JSX.Element {
   const deleteParameter = useArxmlStore((s) => s.deleteParameter);
 
   if ((doc === null && viewMode === 'single') || selectedPath === null) {
+    // P2 (spec §4.2) — guided empty state replaces the bare hint line.
     return (
-      <section
-        className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500"
-        aria-label="Parameter editor"
-      >
-        {t(locale, 'editor.noSelection')}
-      </section>
+      <ParamEditorEmptyState
+        locale={locale}
+        onOpenProject={onOpenProject}
+        onNewProject={onNewProject}
+      />
     );
   }
   if (viewMode === 'combined' && documents.length === 0) {

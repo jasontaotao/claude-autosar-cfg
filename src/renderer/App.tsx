@@ -149,7 +149,7 @@ export function App(): JSX.Element {
   // Sprint 13+ Stage 3.4 — `opts` is the new third argument carrying
   // `bswmdPaths` (the absolute paths the user pre-selected via the
   // BSWMD chip row). We forward it verbatim to the hook.
-  const { submitNewProject } = useProjectActions();
+  const { submitNewProject, newProject, openProjectFromDialog } = useProjectActions();
   const handleNewProjectSubmit = (
     name: string,
     directory: string,
@@ -437,7 +437,7 @@ export function App(): JSX.Element {
             <Separator className="workspace-resize-h" data-testid="workspace-resize-h" />
             <Panel id="workspace-right" data-tour-id="right-pane-content">
               <PanelErrorBoundary panel="param-editor" locale={locale}>
-                <ParamEditor />
+                <ParamEditor onOpenProject={openProjectFromDialog} onNewProject={newProject} />
               </PanelErrorBoundary>
             </Panel>
           </Group>

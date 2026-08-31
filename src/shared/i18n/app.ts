@@ -31,6 +31,11 @@ export interface AppMessages {
   readonly 'app.errorPage.copyStack': string;
   readonly 'app.errorPage.reset': string;
   readonly 'app.errorPage.feedback': string;
+
+  // --- P2 editor empty state (spec §4.2) ---
+  readonly 'editor.empty.title': string;
+  readonly 'editor.empty.hint': string;
+  readonly 'editor.empty.newProject': string;
   readonly 'app.save.error.permission-denied': string;
   readonly 'app.save.error.disk-full': string;
   readonly 'app.save.error.path-not-found': string;

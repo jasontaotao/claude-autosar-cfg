@@ -126,9 +126,10 @@ describe('ParamEditor', () => {
     useArxmlStore.getState().clear();
   });
 
-  it('renders empty state when no doc is loaded', () => {
+  it('renders the guided empty state when no doc is loaded (P2)', () => {
     render(<ParamEditor />);
-    expect(screen.getByText(/Open an ARXML file and select a node/i)).toBeInTheDocument();
+    expect(screen.getByTestId('param-editor-empty-state')).toBeInTheDocument();
+    expect(screen.getByText(/Select an element in the tree/i)).toBeInTheDocument();
   });
 
   it('renders the element shortName + kind badge when a container is selected', () => {
