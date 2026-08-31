@@ -132,7 +132,15 @@ export const useScriptStore = create<ScriptState>((set, get) => ({
       // tests the host test wires vi.fn() into the bridge.
       const { useArxmlStore } = await import('./useArxmlStore');
       const projectId = useArxmlStore.getState().project?.id ?? '';
-      const result = await window.autosarApi.listScripts({ projectId });
+      // Defensive guard: in test environments (jsdom without the
+      // Electron preload stub) autosarApi may be undefined — bail
+      // out with an empty script list instead of throwing.
+      const api = window.autosarApi;
+      if (api === undefined || typeof api.listScripts !== 'function') {
+        set({ scripts: [], initialized: true });
+        return;
+      }
+      const result = await api.listScripts({ projectId });
       // Defensive default — a stale IPC mock from a previous test
       // suite may resolve to undefined; in that case keep the
       // previous scripts rather than crash.
