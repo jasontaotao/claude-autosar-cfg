@@ -29,6 +29,7 @@ import { useArxmlStore } from '../store/useArxmlStore';
 
 import { FileListTab } from './FileListTab';
 import { ProjectPanelInfo } from './ProjectPanel';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { ValidationPanel } from './ValidationPanel';
 import { Tree } from './tree/Tree';
 
@@ -213,7 +214,9 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
             aria-labelledby="left-tab-validate"
             data-testid="left-pane-validate"
           >
-            <ValidationPanel embedded />
+            <PanelErrorBoundary panel="validation-panel" locale={locale}>
+              <ValidationPanel embedded />
+            </PanelErrorBoundary>
           </div>
         )}
       </div>
@@ -222,7 +225,9 @@ export function LeftPanel({ onAddEcucFromBswmd, onContextMenu }: LeftPanelProps 
           host's onContextMenu so a right-click on a tree row opens
           the global ContextMenu via the host-wired router. */}
       <div className="left-panel-tree">
-        <Tree store={useArxmlStore} onContextMenu={onContextMenu} />
+        <PanelErrorBoundary panel="tree" locale={locale}>
+          <Tree store={useArxmlStore} onContextMenu={onContextMenu} />
+        </PanelErrorBoundary>
       </div>
     </div>
   );
