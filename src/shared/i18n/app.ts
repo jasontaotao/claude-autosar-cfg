@@ -97,6 +97,11 @@ export interface AppMessages {
   readonly 'panels.scriptPanel': string;
   readonly 'panels.dbcViewer': string;
   readonly 'panels.odxViewer': string;
+  // P4 IA 重组
+  readonly 'panels.project': string;
+  readonly 'panels.files': string;
+  readonly 'panels.validation': string;
+  readonly 'panels.arxmlTree': string;
   readonly 'app.open.arxml': string;
   readonly 'app.open.dbc': string;
   readonly 'app.open.odx': string;

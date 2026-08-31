@@ -91,6 +91,11 @@ export const AppZhCN: AppMessages = {
   'panels.scriptPanel': '脚本',
   'panels.dbcViewer': 'DBC 查看器',
   'panels.odxViewer': 'ODX 查看器',
+  // P4 IA
+  'panels.project': '项目',
+  'panels.files': '文件',
+  'panels.validation': '验证',
+  'panels.arxmlTree': 'ARXML 树',
   'app.open.arxml': '打开 ARXML…',
   // v1.21.0 Bug #5 — DBC 打开入口，在 "文件操作" 下拉里。
   'app.open.dbc': '打开 DBC…',

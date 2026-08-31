@@ -91,6 +91,11 @@ export const AppEn: AppMessages = {
   'panels.scriptPanel': 'Scripts',
   'panels.dbcViewer': 'DBC Viewer',
   'panels.odxViewer': 'ODX Viewer',
+  // P4 IA
+  'panels.project': 'Project',
+  'panels.files': 'Files',
+  'panels.validation': 'Validation',
+  'panels.arxmlTree': 'ARXML Tree',
   'app.open.arxml': 'Open ARXML…',
   // v1.21.0 Bug #5 — DBC open entry in the "File Operations" dropdown.
   'app.open.dbc': 'Open DBC…',
