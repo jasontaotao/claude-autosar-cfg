@@ -13,6 +13,31 @@ import type { CombinedDocumentWarning } from '../helpers/combinedDoc.js';
 import { computeDisplayDoc } from '../helpers/combinedDoc.js';
 import type { ArxmlState, LeftTabId, ToastKind, ToastState } from '../useArxmlStore.js';
 
+import type { DiagnosticEntry, DiagnosticLevel } from './diagnosticsTypes.js';
+
+let diagnosticSequence = 0;
+
+function createDiagnosticEntry(input: {
+  readonly level: DiagnosticLevel;
+  readonly message: string;
+  readonly source?: string;
+  readonly detail?: string;
+  readonly stack?: string;
+  readonly correlationId?: string;
+}): DiagnosticEntry {
+  diagnosticSequence += 1;
+  return {
+    id: `${Date.now()}-${diagnosticSequence}`,
+    ts: Date.now(),
+    level: input.level,
+    source: input.source ?? 'renderer',
+    message: input.message,
+    ...(input.detail !== undefined ? { detail: input.detail } : {}),
+    ...(input.stack !== undefined ? { stack: input.stack } : {}),
+    ...(input.correlationId !== undefined ? { correlationId: input.correlationId } : {}),
+  };
+}
+
 export interface UiSlice {
   // Sprint 17b T6 — typed toast envelope. Both fields default to
   // null; every setter keeps them in sync so the legacy `error`
@@ -20,6 +45,18 @@ export interface UiSlice {
   // `toast` readers see the same UI state.
   readonly error: string | null;
   readonly toast: ToastState | null;
+
+  /** Ring-buffered diagnostics history. Newest last. */
+  readonly diagnostics: readonly DiagnosticEntry[];
+  appendDiagnostic: (entry: {
+    readonly level: DiagnosticLevel;
+    readonly message: string;
+    readonly source?: string;
+    readonly detail?: string;
+    readonly stack?: string;
+    readonly correlationId?: string;
+  }) => DiagnosticEntry;
+  clearDiagnostics: () => void;
 
   // Sprint 13 refactor — left-column active tab. Default 'files' (see
   // LeftTabId JSDoc). `setLeftTab` is the only mutator; LeftPanel reads
@@ -145,6 +182,7 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // `toast` readers see the same UI state.
   error: null,
   toast: null,
+  diagnostics: [],
   // Sprint 13 refactor — left-tab default. 'files' is the post-Sprint-11
   // baseline: the project tab only makes sense when a project is open,
   // and the files tab is always visible. LeftPanel may override the
@@ -293,6 +331,17 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
     }),
   setPendingDelete: (pending) => set({ pendingDelete: pending }),
 
+  appendDiagnostic: (input) => {
+    const entry = createDiagnosticEntry(input);
+    // Keep enough history for a debugging session without letting a
+    // noisy IPC flow grow the renderer state unbounded.
+    const diagnostics = [...get().diagnostics, entry].slice(-500);
+    set({ diagnostics });
+    return entry;
+  },
+
+  clearDiagnostics: () => set({ diagnostics: [] }),
+
   setError: (msg) => {
     // Sprint 17b T6 — `setError` is the long-standing public surface
     // (AppHeader, useProjectActions, useRemoveEcucFiles, etc.). It
@@ -307,7 +356,8 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
       set({ error: null, toast: null });
       return;
     }
-    set({ error: msg, toast: { kind: 'error', message: msg } });
+    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'error', source: 'ui', message: msg })].slice(-500);
+    set({ error: msg, toast: { kind: 'error', message: msg }, diagnostics });
   },
 
   // Sprint 17b T6 — typed toast setters. Each replaces the current
@@ -316,9 +366,12 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // per-kind default (3s info/success, 5s warning). Errors are
   // always manual, so there is no `setError(msg, ms)` overload —
   // the long-standing public surface only ever needs a string.
-  setInfo: (message, autoDismissMs = 3000) =>
-    set({ error: message, toast: { kind: 'info', message, autoDismissMs } }),
-  setSuccess: (message, autoDismissMs = 3000, action) =>
+  setInfo: (message, autoDismissMs = 3000) => {
+    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'info', source: 'ui', message })].slice(-500);
+    set({ error: message, toast: { kind: 'info', message, autoDismissMs }, diagnostics });
+  },
+  setSuccess: (message, autoDismissMs = 3000, action) => {
+    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'success', source: 'ui', message })].slice(-500);
     // `exactOptionalPropertyTypes` rejects `action: undefined`; spread
     // the optional key only when it's actually set so the property is
     // either present or absent (never present-with-undefined).
@@ -330,9 +383,13 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
         autoDismissMs,
         ...(action !== undefined ? { action } : {}),
       },
-    }),
-  setWarning: (message, autoDismissMs = 5000) =>
-    set({ error: message, toast: { kind: 'warning', message, autoDismissMs } }),
+      diagnostics,
+    });
+  },
+  setWarning: (message, autoDismissMs = 5000) => {
+    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'warn', source: 'ui', message })].slice(-500);
+    set({ error: message, toast: { kind: 'warning', message, autoDismissMs }, diagnostics });
+  },
   dismissToast: () => set({ error: null, toast: null }),
 });
 

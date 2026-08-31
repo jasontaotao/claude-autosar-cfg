@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { PANEL_REGISTRY, getPanelDef } from '../registry';
 
 describe('PanelRegistry', () => {
-  it('registers exactly 8 panels with stable ids (P4)', () => {
+  it('registers exactly 9 panels with stable ids (P4)', () => {
     const ids = PANEL_REGISTRY.map((p) => p.id);
     expect(ids).toEqual([
       'project',
@@ -14,6 +14,7 @@ describe('PanelRegistry', () => {
       'script-panel',
       'dbc-viewer',
       'odx-viewer',
+      'diagnostics',
     ]);
   });
 

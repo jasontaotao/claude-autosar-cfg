@@ -102,6 +102,16 @@ export interface AppMessages {
   readonly 'panels.files': string;
   readonly 'panels.validation': string;
   readonly 'panels.arxmlTree': string;
+  readonly 'panels.diagnostics': string;
+  readonly 'diagnostics.empty': string;
+  readonly 'diagnostics.filter.all': string;
+  readonly 'diagnostics.filter.error': string;
+  readonly 'diagnostics.filter.warning': string;
+  readonly 'diagnostics.clear': string;
+  readonly 'diagnostics.copy': string;
+  readonly 'diagnostics.copied': string;
+  readonly 'diagnostics.expand': string;
+  readonly 'diagnostics.collapse': string;
   readonly 'app.open.arxml': string;
   readonly 'app.open.dbc': string;
   readonly 'app.open.odx': string;

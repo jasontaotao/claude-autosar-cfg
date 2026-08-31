@@ -14,7 +14,8 @@ export type PanelErrorId =
   | 'script-panel'
   | 'dbc-viewer'
   | 'odx-viewer'
-  | 'validation-panel';
+  | 'validation-panel'
+  | 'diagnostics';
 
 export interface PanelErrorBoundaryProps {
   /** Stable panel id — drives the `panel-error-<panel>` testid. */

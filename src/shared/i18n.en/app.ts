@@ -96,6 +96,17 @@ export const AppEn: AppMessages = {
   'panels.files': 'Files',
   'panels.validation': 'Validation',
   'panels.arxmlTree': 'ARXML Tree',
+
+  'panels.diagnostics': 'Diagnostics',
+  'diagnostics.empty': 'No diagnostics yet.',
+  'diagnostics.filter.all': 'All',
+  'diagnostics.filter.error': 'Errors',
+  'diagnostics.filter.warning': 'Warnings',
+  'diagnostics.clear': 'Clear',
+  'diagnostics.copy': 'Copy',
+  'diagnostics.copied': 'Copied',
+  'diagnostics.expand': 'Expand',
+  'diagnostics.collapse': 'Collapse',
   'app.open.arxml': 'Open ARXML…',
   // v1.21.0 Bug #5 — DBC open entry in the "File Operations" dropdown.
   'app.open.dbc': 'Open DBC…',

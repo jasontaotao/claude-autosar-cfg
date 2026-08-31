@@ -96,6 +96,17 @@ export const AppZhCN: AppMessages = {
   'panels.files': '文件',
   'panels.validation': '验证',
   'panels.arxmlTree': 'ARXML 树',
+
+  'panels.diagnostics': '诊断',
+  'diagnostics.empty': '暂无诊断记录。',
+  'diagnostics.filter.all': '全部',
+  'diagnostics.filter.error': '错误',
+  'diagnostics.filter.warning': '警告',
+  'diagnostics.clear': '清空',
+  'diagnostics.copy': '复制',
+  'diagnostics.copied': '已复制',
+  'diagnostics.expand': '展开',
+  'diagnostics.collapse': '收起',
   'app.open.arxml': '打开 ARXML…',
   // v1.21.0 Bug #5 — DBC 打开入口，在 "文件操作" 下拉里。
   'app.open.dbc': '打开 DBC…',

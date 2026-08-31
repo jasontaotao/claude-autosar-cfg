@@ -1,6 +1,6 @@
-// P4 (spec §6) — Dock workbench e2e (8-panel IA).
+// P4+ (spec §6) — Dock workbench e2e (9-panel IA).
 // Covers: default layout (project/files/validation tabs + arxml-tree below + param-editor right),
-// View menu (8 panels + reset), layout persistence, reset.
+// View menu (9 panels + reset), layout persistence, reset.
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -15,7 +15,7 @@ test.describe('Dock workbench (P4)', () => {
     await expect(page.locator('.dv-dockview').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('View menu opens and lists all 8 panels + reset', async ({ page }) => {
+  test('View menu opens and lists all 9 panels + reset', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
     await page.click('[data-testid="btn-view-menu"]');
@@ -28,10 +28,19 @@ test.describe('Dock workbench (P4)', () => {
       'script-panel',
       'dbc-viewer',
       'odx-viewer',
+      'diagnostics',
     ]) {
       await expect(page.locator(`[data-testid="menu-item-${id}"]`)).toBeVisible();
     }
     await expect(page.locator('[data-testid="btn-reset-layout"]')).toBeVisible();
+  });
+
+  test('View menu opens diagnostics panel', async ({ page }) => {
+    await page.goto('/');
+    await waitForAppReady(page);
+    await page.click('[data-testid="btn-view-menu"]');
+    await page.click('[data-testid="menu-item-diagnostics"]');
+    await expect(page.getByTestId('diagnostics-panel')).toBeVisible();
   });
 
   test('layout persists across reload', async ({ page }) => {

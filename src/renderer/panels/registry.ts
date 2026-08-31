@@ -1,10 +1,11 @@
 // src/renderer/panels/registry.ts
 // P4 IA 重组 — 面板注册表（spec §6）
-// 8 个面板：left-panel 退役，拆为 project/files/validation/arxml-tree。
+// 9 个面板：left-panel 退役，拆为 project/files/validation/arxml-tree/diagnostics。
 import type { ComponentType } from 'react';
 
 import { ArxmlTreePanelWrapper } from './wrappers/ArxmlTreePanelWrapper.js';
 import { DbcViewerWrapper } from './wrappers/DbcViewerWrapper.js';
+import { DiagnosticsPanelWrapper } from './wrappers/DiagnosticsPanelWrapper.js';
 import { FilesPanelWrapper } from './wrappers/FilesPanelWrapper.js';
 import { OdxViewerWrapper } from './wrappers/OdxViewerWrapper.js';
 import { ParamEditorWrapper } from './wrappers/ParamEditorWrapper.js';
@@ -21,7 +22,8 @@ export type PanelId =
   | 'param-editor'
   | 'script-panel'
   | 'dbc-viewer'
-  | 'odx-viewer';
+  | 'odx-viewer'
+  | 'diagnostics';
 
 /** defaultGroup: 'viewer' activates in P4 (DBC/ODX open into viewer tab group). */
 export type DefaultGroup = 'left' | 'center' | 'bottom' | 'viewer';
@@ -76,6 +78,12 @@ export const PANEL_REGISTRY: readonly PanelDef[] = [
     component: OdxViewerWrapper,
     titleKey: 'panels.odxViewer',
     defaultGroup: 'viewer',
+  },
+  {
+    id: 'diagnostics',
+    component: DiagnosticsPanelWrapper,
+    titleKey: 'panels.diagnostics',
+    defaultGroup: 'bottom',
   },
 ] as const;
 

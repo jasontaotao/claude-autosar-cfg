@@ -409,6 +409,28 @@ export function App(): JSX.Element {
           return;
         }
       }
+      if (def.defaultGroup === 'bottom') {
+        const scriptPanel = api.getPanel('script-panel');
+        if (scriptPanel) {
+          api.addPanel({
+            id: panelId,
+            component: panelId,
+            title: t(locale, def.titleKey as Parameters<typeof t>[1]),
+            position: { referencePanel: 'script-panel', direction: 'within' },
+          });
+          return;
+        }
+        const paramEditor = api.getPanel('param-editor');
+        if (paramEditor) {
+          api.addPanel({
+            id: panelId,
+            component: panelId,
+            title: t(locale, def.titleKey as Parameters<typeof t>[1]),
+            position: { referencePanel: 'param-editor', direction: 'below' },
+          });
+          return;
+        }
+      }
       api.addPanel({
         id: panelId,
         component: panelId,
@@ -766,35 +788,26 @@ export function App(): JSX.Element {
                   }),
                 );
               }
-              // HIGH-2 (v1.23.0 PATCH) — total added counts across all
-              // HIGH-2 (v1.23.0 PATCH) — total added counts across all
-              // 3 ECUC files (Com / CanIf / PduR) for the success
-              // toast. Bug 6 closeout dropped the success toast on
-              // purpose so the diag banner stays as the only UI
-              // surface; re-add `setInfo(t(loc, 'dbc.import.success',
-              // { count: totalAdded }))` here when the user reports
-              // Bug 6 fixed in dev. totalAdded is computed below
-              // for completeness; it's unused until then.
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-              const _totalAdded =
+              const totalAdded =
                 res.value.addedCounts.com +
                 res.value.addedCounts.canIf +
                 res.value.addedCounts.pduR;
-              void _totalAdded;
-              // store counts as an error toast (forced visible, manual
-              // dismiss). Previous attempt used setInfo which auto-
-              // dismissed after 3s and raced with the success toast,
-              // so the user could not see it. Error banner stays put
-              // until the user X's it. Strip once root cause confirmed.
               const afterState = useArxmlStore.getState();
+              afterState.setSuccess(t(loc, 'dbc.import.success', { count: totalAdded }));
               const diag =
-                `[Bug6 DIAG] proj=${afterState.project !== null ? 'YES' : 'NULL'} ` +
+                `proj=${afterState.project !== null ? 'YES' : 'NULL'} ` +
                 `projPath=${afterState.projectPath !== null ? 'YES' : 'NULL'} ` +
                 `docs=${afterState.documents.length} ` +
                 `paths=${afterState.documentPaths.length} ` +
                 `viewMode=${afterState.viewMode} ` +
                 `displayDoc.pkg=${afterState.displayDoc?.packages.length ?? 0}`;
-              setStoreError(diag);
+              afterState.appendDiagnostic({
+                level: 'debug',
+                source: 'dbc-import',
+                message: 'Bug6 post-apply store state',
+                detail: diag,
+                correlationId: 'bug6',
+              });
               closeDbcImportWizard();
             }}
           />

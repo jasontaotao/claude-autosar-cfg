@@ -1,0 +1,124 @@
+.diagnostics-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+}
+
+.diagnostics-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--chrome-hairline);
+  background: var(--chrome-background);
+}
+
+.diagnostics-filters,
+.diagnostics-actions,
+.diagnostics-item-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagnostics-filter,
+.diagnostics-button,
+.diagnostics-toggle {
+  appearance: none;
+  border: 1px solid var(--chrome-hairline);
+  border-radius: 3px;
+  background: var(--surface-background);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.diagnostics-filter.is-active {
+  border-color: var(--brand-500);
+  background: var(--brand-500);
+  color: var(--brand-tint);
+}
+
+.diagnostics-button-danger {
+  border-color: var(--accent-rose-strong);
+}
+
+.diagnostics-button:disabled,
+.diagnostics-filter:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.diagnostics-empty {
+  padding: 18px;
+  color: var(--text-muted);
+}
+
+.diagnostics-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.diagnostics-item {
+  margin: 0 0 5px;
+  padding: 5px 7px;
+  border-left: 3px solid var(--text-muted);
+  border-radius: 3px;
+  background: var(--surface-background);
+}
+
+.diagnostics-item--debug { border-left-color: var(--text-muted); }
+.diagnostics-item--info { border-left-color: var(--brand-500); }
+.diagnostics-item--success { border-left-color: var(--accent-emerald); }
+.diagnostics-item--warn { border-left-color: var(--accent-amber-strong); }
+.diagnostics-item--error { border-left-color: var(--accent-rose-strong); }
+
+.diagnostics-item-main {
+  min-width: 0;
+}
+
+.diagnostics-time,
+.diagnostics-level,
+.diagnostics-source {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.diagnostics-level {
+  text-transform: uppercase;
+}
+
+.diagnostics-message {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  white-space: pre-wrap;
+}
+
+.diagnostics-toggle {
+  margin-left: 4px;
+}
+
+.diagnostics-detail {
+  margin: 6px 0 0;
+  padding: 7px;
+  overflow: auto;
+  max-height: 180px;
+  border-radius: 3px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
