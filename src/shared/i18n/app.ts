@@ -25,6 +25,12 @@ export interface AppMessages {
   readonly 'panel.error.copyDetails': string;
   readonly 'panel.error.copied': string;
   readonly 'panel.error.close': string;
+
+  // --- P2 app-level error page (spec §4.1) ---
+  readonly 'app.errorPage.title': string;
+  readonly 'app.errorPage.copyStack': string;
+  readonly 'app.errorPage.reset': string;
+  readonly 'app.errorPage.feedback': string;
   readonly 'app.save.error.permission-denied': string;
   readonly 'app.save.error.disk-full': string;
   readonly 'app.save.error.path-not-found': string;

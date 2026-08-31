@@ -20,6 +20,12 @@ export const AppEn: AppMessages = {
   'panel.error.copyDetails': 'Copy details',
   'panel.error.copied': 'Copied',
   'panel.error.close': 'Close',
+
+  // --- P2 app-level error page (spec §4.1) ---
+  'app.errorPage.title': 'Something went wrong',
+  'app.errorPage.copyStack': 'Copy error details',
+  'app.errorPage.reset': 'Reset',
+  'app.errorPage.feedback': 'Please copy the error details and report them to the developers.',
   'app.save.error.disk-full': 'Disk full. Free up space and try again.',
   'app.save.error.path-not-found': 'Target path not found. Verify directory exists.',
   'app.save.error.serialize-failed': 'Failed to serialize ARXML. Report a bug if this persists.',

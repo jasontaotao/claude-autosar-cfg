@@ -29,9 +29,10 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Component, useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ErrorBoundary } from '../ErrorBoundary.js';
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -42,6 +43,12 @@ import { ErrorBoundary } from '../ErrorBoundary.js';
 // hook inside ErrorBoundary still runs (we just silence jsdom's stderr
 // red herring for cleaner test output).
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+beforeEach(() => {
+  // App-level fallback reads the store locale — pin to en so the
+  // English copy assertions are deterministic.
+  useArxmlStore.setState({ locale: 'en' });
+});
 
 afterEach(() => {
   consoleErrorSpy.mockClear();
@@ -158,5 +165,26 @@ describe('ErrorBoundary (v1.18.0 T7 / PB-4)', () => {
     expect(screen.getByTestId('bomb-normal')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText('Something went wrong')).toBeNull();
+  });
+
+  it('app-level fallback is a styled page with copy + reset actions', () => {
+    render(
+      <ErrorBoundary>
+        <Bomb shouldThrow={true} />
+      </ErrorBoundary>,
+    );
+    const page = screen.getByTestId('app-error-page');
+    expect(page).toHaveAttribute('role', 'alert');
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByTestId('app-error-copy')).toBeInTheDocument();
+    expect(screen.getByTestId('app-error-reset')).toBeInTheDocument();
+  });
+
+  it('app-level fallback Reset clears the error and re-renders children', () => {
+    render(<ControlledBomb />);
+    fireEvent.click(screen.getByTestId('flip-throw'));
+    fireEvent.click(screen.getByTestId('app-error-reset'));
+    expect(screen.getByTestId('bomb-normal')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-error-page')).toBeNull();
   });
 });

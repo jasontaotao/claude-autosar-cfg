@@ -39,6 +39,10 @@
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
+import { t } from '../../shared/i18n/index.js';
+import { useArxmlStore } from '../store/useArxmlStore.js';
+import './ErrorBoundary.css';
+
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
   /**
@@ -85,13 +89,36 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       if (custom !== undefined) {
         return custom(error, this.reset);
       }
+      const locale = useArxmlStore.getState().locale;
+      const copyStack = (): void => {
+        const detail = `${error.message}\n${error.stack ?? ''}`;
+        const clipboard = navigator.clipboard;
+        if (clipboard !== undefined) clipboard.writeText(detail).catch(() => undefined);
+      };
       return (
-        <div role="alert" style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-          <h1>Something went wrong</h1>
-          <p>{error.message}</p>
-          <button type="button" onClick={this.reset}>
-            Reset
-          </button>
+        <div className="app-error-page" role="alert" data-testid="app-error-page">
+          <h1>{t(locale, 'app.errorPage.title')}</h1>
+          <p className="app-error-page__message">{error.message}</p>
+          <pre className="app-error-page__stack">{error.stack ?? ''}</pre>
+          <div className="app-error-page__actions">
+            <button
+              type="button"
+              className="app-btn"
+              data-testid="app-error-copy"
+              onClick={copyStack}
+            >
+              {t(locale, 'app.errorPage.copyStack')}
+            </button>
+            <button
+              type="button"
+              className="app-btn"
+              data-testid="app-error-reset"
+              onClick={this.reset}
+            >
+              {t(locale, 'app.errorPage.reset')}
+            </button>
+          </div>
+          <p className="app-error-page__hint">{t(locale, 'app.errorPage.feedback')}</p>
         </div>
       );
     }

@@ -1,0 +1,50 @@
+/* P2 (spec §4.1) — App-level last-resort error page. */
+.app-error-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 100vh;
+  padding: var(--space-5);
+  background: var(--surface-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  text-align: center;
+}
+
+.app-error-page h1 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.app-error-page__message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+}
+
+.app-error-page__stack {
+  max-width: 80%;
+  max-height: 40vh;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: left;
+}
+
+.app-error-page__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.app-error-page__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
