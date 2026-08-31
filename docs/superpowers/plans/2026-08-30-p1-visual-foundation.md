@@ -69,9 +69,9 @@
 **Interfaces:**
 
 - Consumes: 无（首个任务）
-- Produces: 44 个 CSS 自定义属性（Task 4 会追加裁决新增的 ~15 个）；后续所有任务的 `var(--*)` 消费以本文件为准
+- Produces: 39 个 CSS 自定义属性（Task 4 会追加裁决新增的 ~15 个）；后续所有任务的 `var(--*)` 消费以本文件为准
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `src/renderer/__tests__/tokens.test.ts`：
 
@@ -138,12 +138,12 @@ describe('P1 tokens.css（spec §3.1 / §10.3 唯一定义处）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm vitest run src/renderer/__tests__/tokens.test.ts`
 Expected: FAIL（`tokens.css` 不存在，ENOENT）
 
-- [ ] **Step 3: 创建 `src/renderer/styles/tokens.css`**
+- [x] **Step 3: 创建 `src/renderer/styles/tokens.css`**
 
 ```css
 /* tokens.css — UI v2 P1 唯一 token 定义处（spec §3.1 / §10.3）。
@@ -213,7 +213,7 @@ Expected: FAIL（`tokens.css` 不存在，ENOENT）
 }
 ```
 
-- [ ] **Step 4: styles.css 头部插入 @import**
+- [x] **Step 4: styles.css 头部插入 @import**
 
 在 `src/renderer/styles.css` 现有 `@import url('./keyboard/keyboard.css');`（第 9 行）**之前**插入一行，使头部成为：
 
@@ -222,12 +222,12 @@ Expected: FAIL（`tokens.css` 不存在，ENOENT）
 @import url('./keyboard/keyboard.css');
 ```
 
-- [ ] **Step 5: 跑测试确认通过**
+- [x] **Step 5: 跑测试确认通过**
 
 Run: `pnpm vitest run src/renderer/__tests__/tokens.test.ts`
 Expected: PASS（35 项）
 
-- [ ] **Step 6: 全量回归 + 提交**
+- [x] **Step 6: 全量回归 + 提交**
 
 Run: `pnpm test`
 Expected: 全绿（~3003 + 新增）
@@ -252,14 +252,14 @@ git commit -m "feat(p1): tokens.css 落地 mockup 25 token + --surface-menu + me
 
 - Consumes: Task 1 的 tokens.css（脚本本身不读它，只定义映射）
 - Produces（Task 3/4 依赖）:
-  - `TOKEN_MAP: Record<string, string>`（seed 直映射 + Catppuccin 反转，30 项）
+  - `TOKEN_MAP: Record<string, string>`（seed 直映射 + Catppuccin 反转，27 项）
   - `ALPHA_MAP: Record<string, string>`（T3 裁决前为空）、`GRADIENT_MAP: Record<string, string>`（同）、`EXCEPTIONS: Set<string>`（同）
   - `transformCss(css: string, relFile: string, maps?): { output: string; deviations: Array<{ value: string; count: number; firstLine: number }>; stats: { plannedCommentsStripped: number; danglingRewritten: number; replaced: number } }`
   - `scanResidue(css: string): Array<{ line: number; kind: string; value: string }>`
   - `findCssFiles(root?): string[]`（递归 `src/renderer`，**排除 tokens.css**，排序）
   - CLI：`node scripts/codemod/hex-to-tokens.mjs [--write|--check]`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `tests/codemod/codemod.d.ts`：
 
@@ -412,12 +412,12 @@ describe('scanResidue / findCssFiles（--check 支撑）', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `pnpm vitest run tests/codemod/__tests__/hex-to-tokens.test.ts`
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现 `scripts/codemod/hex-to-tokens.mjs`**
+- [x] **Step 3: 实现 `scripts/codemod/hex-to-tokens.mjs`**
 
 ```js
 #!/usr/bin/env node
@@ -725,17 +725,17 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `pnpm vitest run tests/codemod/__tests__/hex-to-tokens.test.ts`
 Expected: PASS（约 17 项）
 
-- [ ] **Step 5: CLI dry-run 冒烟（只看输出，不落盘）**
+- [x] **Step 5: CLI dry-run 冒烟（只看输出，不落盘）**
 
 Run: `node scripts/codemod/hex-to-tokens.mjs`
 Expected: 逐文件输出替换统计 + 未映射偏差清单；末行提示 dry-run 未落盘；exit 0
 
-- [ ] **Step 6: 全量回归 + 提交**
+- [x] **Step 6: 全量回归 + 提交**
 
 Run: `pnpm test && pnpm type-check`
 Expected: 全绿、type-check 通过
@@ -764,26 +764,26 @@ git commit -m "feat(p1): hex-to-tokens codemod（dry-run/--write/--check，TOKEN
 
 > 本任务对应 spec §10.1「发现与代码现实冲突 → 停手上报」与 §3.2「dry-run 先行、偏差人工逐项裁决」。**未经用户确认不得执行 `--write`（Task 4）。**
 
-- [ ] **Step 1: 产出偏差清单**
+- [x] **Step 1: 产出偏差清单**
 
 Run: `node scripts/codemod/hex-to-tokens.mjs > /tmp/p1-dryrun.txt 2>&1 && tail -40 /tmp/p1-dryrun.txt`
 Expected: 偏差清单 ≈ 100 种 distinct 值（seed 覆盖 ~460/835 hex + 少量 rgba；其余进偏差）
 
-- [ ] **Step 2: 写裁决文档**
+- [x] **Step 2: 写裁决文档**
 
 创建 `docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md`：开头声明「本文件是 spec §3.2 偏差裁决产物」，然后逐 bucket 抄录 dry-run 实际偏差（以附录 A 推荐表为初始建议列），每 bucket 一行裁决位：`建议目标 / 用户裁决：________`。附录 A 第 0 节的新 token 提案原样附上。
 
-- [ ] **Step 3: 停手上报**
+- [x] **Step 3: 停手上报**
 
 向用户呈报：偏差文档路径 + 附录 A 的 15 个新 token 提案 + Deviations 1-5 项。**等待用户逐 bucket 确认**（可整体按推荐通过）。此步骤终止本轮执行，把用户裁决记录回 Step 2 文档。
 
-- [ ] **Step 4: 应用裁决（用户确认后）**
+- [x] **Step 4: 应用裁决（用户确认后）**
 
 - `scripts/codemod/hex-to-tokens.mjs`：把裁决为「映射」的 rgba 值填入 `ALPHA_MAP`、整条渐变填入 `GRADIENT_MAP`（ScriptPanel.css:301 的 `linear-gradient(180deg, #1f232b 0%, #1a1d23 100%)` 按裁决坍缩为 `var(--chrome-bg-deep)`，即两 stop 同 token 时取该 token 整体替换）、保留原值的填入 `EXCEPTIONS`（`'styles.css:#1a1d23'` 格式）。
 - `src/renderer/styles/tokens.css`：把通过的新 token 追加到对应分组（附录 A 第 0 节的值），并在注释里标注「T3 裁决新增」。
 - 重跑 Task 2 单测：若 seed 断言（`ALPHA_MAP` 为空）冲突，把该断言改为「裁决后 = 预期键集」。
 
-- [ ] **Step 5: spec 修订 + 提交**
+- [x] **Step 5: spec 修订 + 提交**
 
 按 spec §10.5 修订 spec §3.1 token 表（追加裁决 token）与 §9.8（改为「mockup 外新增 token 以 §3.1 裁决清单为准」），并在 §9 追加决策 17：P1 偏差裁决结果以 `docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md` 为准。
 
@@ -805,12 +805,12 @@ git commit -m "docs(p1): 偏差裁决落盘 + spec §3.1/§9.8 修订（新增 t
 - Consumes: Task 3 填充完毕的映射表
 - Produces: 全仓 CSS 裸色值 = 0（EXCEPTIONS 豁免除外）；119 处悬空 var 已改写；53 处计划注释已删除
 
-- [ ] **Step 1: 写入**
+- [x] **Step 1: 写入**
 
 Run: `node scripts/codemod/hex-to-tokens.mjs --write`
 Expected: 32 文件落盘；偏差种类 = 0（除 EXCEPTIONS）
 
-- [ ] **Step 2: 数量核账**
+- [x] **Step 2: 数量核账**
 
 ```bash
 grep -rEoh "#[0-9a-fA-F]{3,8}\b" src/renderer --include="*.css" | wc -l
@@ -821,12 +821,12 @@ grep -rc -e "/\* --color-" src/renderer --include="*.css" | grep -v ":0" | wc -l
 
 Expected: 前两条 = EXCEPTIONS 内豁免数（裁决后为已知常量，通常 0-9）；后两条 = 0
 
-- [ ] **Step 3: 全量测试**
+- [x] **Step 3: 全量测试**
 
 Run: `pnpm test && pnpm type-check`
 Expected: 全绿（CSS-only 改动不应破坏行为测试；若样式快照类断言失败，逐个核对是断言硬编码 hex 的更新——属于允许的测试同步，逐条记录进 Deviations）
 
-- [ ] **Step 4: 重灾区人工 review（15 文件，spec §3.2）**
+- [x] **Step 4: 重灾区人工 review（15 文件，spec §3.2）**
 
 Run: `pnpm dev`（另开终端）后用浏览器逐个走查，对照 `docs/mockups/audit-2026-08-30/` 的 6 张改前截图：
 
@@ -839,7 +839,7 @@ Run: `pnpm dev`（另开终端）后用浏览器逐个走查，对照 `docs/mock
 
 发现问题 = 语义错位（值映射对了角色不对）→ 直接把该处 `var(--A)` 改成语义正确的 `var(--B)`（spec §9.7 允许，不算偏离）；结构性视觉失衡 → 停手上报。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 pnpm format "src/renderer/**/*.css"
@@ -865,7 +865,7 @@ git commit -m "refactor(p1): 914 处裸色值收敛为 tokens 变量 + Catppucci
 - Consumes: 无
 - Produces: `dark:` / `.dark` 全仓为 0（guard 测试固化，防回潮）
 
-- [ ] **Step 1: 写失败 guard 测试**
+- [x] **Step 1: 写失败 guard 测试**
 
 创建 `src/renderer/__tests__/p1-single-theme.test.ts`：
 
@@ -901,7 +901,7 @@ describe('P1 单主题 guard（spec §3.4 / §9.1）', () => {
 Run: `pnpm vitest run src/renderer/__tests__/p1-single-theme.test.ts`
 Expected: FAIL（现状 EnumEditor/BooleanEditor/.tsx 有 `.dark`/`dark:`）
 
-- [ ] **Step 2: 删 `.dark` 死代码（精确编辑）**
+- [x] **Step 2: 删 `.dark` 死代码（精确编辑）**
 
 `EnumEditor.css` — 删除以下两段（连同 :36-40 解释 `<option>` 的注释块一并删除）：
 
@@ -935,7 +935,7 @@ Expected: FAIL（现状 EnumEditor/BooleanEditor/.tsx 有 `.dark`/`dark:`）
 
 并把 BooleanEditor.css 头部注释中「the dark-mode section background (`bg-slate-800`) shows through」一句改为「the light section background shows through」（其余不动）。
 
-- [ ] **Step 3: 删 `dark:` 变体**
+- [x] **Step 3: 删 `dark:` 变体**
 
 ```bash
 sed -i -E 's/ ?dark:[^ "]+//g' \
@@ -964,7 +964,7 @@ sed 是全文替换——**注释里的 `dark:text-slate-50` 等字样也被移�
 <body class="bg-slate-50 text-slate-900"></body>
 ```
 
-- [ ] **Step 4: 同步测试断言**
+- [x] **Step 4: 同步测试断言**
 
 `ParamEditor.test.tsx` :343 一带，把
 
@@ -981,12 +981,12 @@ expect(h2.className).not.toMatch(/dark:/);
 
 :355 起的 IntegerEditor 同名断言（`dark:text-slate-50`）同样改为 `toMatch(/text-slate-900/)` + `not.toMatch(/dark:/)`；文件内其余 `dark:` 相关注释（:339、:349-351）同步措辞为亮色描述。
 
-- [ ] **Step 5: 跑 guard + 相关测试**
+- [x] **Step 5: 跑 guard + 相关测试**
 
 Run: `pnpm vitest run src/renderer/__tests__/p1-single-theme.test.ts src/renderer/components/editor src/renderer/components/tree`
 Expected: guard PASS；ParamEditor/Enum/Boolean/Tree 既有测试全绿（Tree.tsx 的 selectedPath 行为不受影响）
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 pnpm format src/renderer/components/editor src/renderer/index.html src/renderer/__tests__/p1-single-theme.test.ts
@@ -1010,13 +1010,13 @@ git commit -m "refactor(p1): 删除 .dark 死代码与全部 dark: 变体，ligh
 - Consumes: Task 4 后的全仓 CSS（0 裸值）+ tokens.css（豁免）
 - Produces: `pnpm stylelint` 门禁（CI lint 阶段 + 本地 `pnpm verify`）；spec §3.5 版本锁定：stylelint **17.14.1**、stylelint-config-standard **40.0.0**
 
-- [ ] **Step 1: 安装（精确版本，spec §3.5 授权 plan 锁定）**
+- [x] **Step 1: 安装（精确版本，spec §3.5 授权 plan 锁定）**
 
 ```bash
 pnpm add -D -E stylelint@17.14.1 stylelint-config-standard@40.0.0
 ```
 
-- [ ] **Step 2: 创建 `stylelint.config.mjs`**
+- [x] **Step 2: 创建 `stylelint.config.mjs`**
 
 ```js
 /** P1 防回潮门禁（spec §3.5）。tokens.css 是唯一裸色值豁免处（spec §10.3）。 */
@@ -1044,7 +1044,7 @@ export default {
 
 > `at-rule-no-unknown` 必须忽略 Tailwind 指令，否则 styles.css 的 `@tailwind` 会误报。另外 `stylelint-config-standard` 预设含大量格式类规则（comment 空行、降序 specificity 等），若全量跑出**与色值无关**的存量风格 error：在 `rules` 里逐条关闭该规则并在本 plan `## Deviations` 记录一行（规则名 + 关闭原因）——不得为迁就存量风格放松任何色值规则。
 
-- [ ] **Step 3: 接线**
+- [x] **Step 3: 接线**
 
 `package.json` scripts 增加（`"lint"` 之后）：
 
@@ -1064,7 +1064,7 @@ export default {
   { name: 'stylelint', cmd: 'pnpm', args: ['stylelint'] },
 ```
 
-- [ ] **Step 4: 验证门禁有牙（先证伪再证真）**
+- [x] **Step 4: 验证门禁有牙（先证伪再证真）**
 
 ```bash
 printf '.x { color: #123456; }' > src/renderer/__stylelint_probe__.css
@@ -1073,9 +1073,9 @@ rm src/renderer/__stylelint_probe__.css
 pnpm stylelint; echo "exit=$?"
 ```
 
-Expected: 第一次 exit=1（报 color-no-hex），第二次 exit=0
+Expected: 第一次 exit=2（报 color-no-hex），第二次 exit=0
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 pnpm format package.json stylelint.config.mjs scripts/verify.mjs .github/workflows/ci.yml
@@ -1098,7 +1098,7 @@ git commit -m "chore(p1): stylelint 禁裸色值门禁接入 CI lint 与 pnpm ve
 - Consumes: 现有 webServer（`pnpm dev` → localhost:5173，chromium headless）；既有 e2e 的打开助手（原样复制，见 Step 2）
 - Produces: `pnpm test:e2e visual-regression` 门禁；基线在 `tests/visual/baseline/visual-regression.spec.ts/`
 
-- [ ] **Step 1: playwright.config.ts 指定基线目录**
+- [x] **Step 1: playwright.config.ts 指定基线目录**
 
 `defineConfig({...})` 内 `use` 同级增加：
 
@@ -1108,7 +1108,7 @@ git commit -m "chore(p1): stylelint 禁裸色值门禁接入 CI lint 与 pnpm ve
 
 （刻意不含 `{platform}`——基线跨平台共享，靠 maxDiffPixelRatio 容差吸收字体渲染差。）
 
-- [ ] **Step 2: 创建 `tests/e2e/visual-regression.spec.ts`**
+- [x] **Step 2: 创建 `tests/e2e/visual-regression.spec.ts`**
 
 ```ts
 // P1 visual regression（spec §3.6）— 6 surface 基线。
@@ -1173,7 +1173,7 @@ test.describe('P1 visual baselines', () => {
 
 （执行者把四个「复制」注释替换为对应 spec 文件的原样步骤代码——那些用例已在维护中，触发路径以它们为准。）
 
-- [ ] **Step 3: 生成基线并人工检查**
+- [x] **Step 3: 生成基线并人工检查**
 
 ```bash
 pnpm test:e2e visual-regression --update-snapshots
@@ -1182,12 +1182,12 @@ ls tests/visual/baseline/visual-regression.spec.ts/
 
 逐张 Read 基线图确认内容正确（不是白屏/错层）；发现 surface 未弹出（助手复制有误）→ 修复后重新 `--update-snapshots`。
 
-- [ ] **Step 4: 复跑确认通过**
+- [x] **Step 4: 复跑确认通过**
 
 Run: `pnpm test:e2e visual-regression`
 Expected: 6 passed（基线已入仓，重跑无 diff）
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add playwright.config.ts tests/e2e/visual-regression.spec.ts tests/visual/
@@ -1202,7 +1202,7 @@ git commit -m "test(p1): visual regression 6 surface 基线入仓（spec §3.6/�
 
 - Modify: `docs/superpowers/plans/2026-08-30-p1-visual-foundation.md`（勾掉附录 B 自检清单）
 
-- [ ] **Step 1: §10.2 门禁逐条跑**
+- [x] **Step 1: §10.2 门禁逐条跑**
 
 ```bash
 node scripts/codemod/hex-to-tokens.mjs --check   # 期望：0 残留，exit 0
@@ -1212,13 +1212,13 @@ pnpm test:e2e visual-regression                   # 期望：6 passed
 pnpm verify                                       # 期望：全阶段通过（含 build）
 ```
 
-- [ ] **Step 2: spec §3.6 验收核对**
+- [x] **Step 2: spec §3.6 验收核对**
 
 - 全仓 CSS 裸色值 = 0（tokens.css + EXCEPTIONS 豁免）✓/✗
 - 6 surface 基线建立且通过（反转组件走新基线）✓/✗
 - ~3003 单测全绿 ✓/✗
 
-- [ ] **Step 3: 更新附录 B 自检清单并提交**
+- [x] **Step 3: 更新附录 B 自检清单并提交**
 
 ```bash
 git add docs/superpowers/plans/2026-08-30-p1-visual-foundation.md
@@ -1288,12 +1288,12 @@ git commit -m "docs(p1): 一致性自检清单打勾，P1 达成 DoD"
 
 ## 附录 B：§10.2 P1 一致性自检清单（Task 8 逐项打勾）
 
-- [ ] `node scripts/codemod/hex-to-tokens.mjs --check` → 输出 0 残留裸色值，exit 0
-- [ ] `pnpm stylelint "src/renderer/**/*.css"` → 0 error
-- [ ] `pnpm test` 全绿（~3003 + 新增：tokens.test 35 项、codemod 17 项、p1-single-theme 2 项）
-- [ ] visual regression 6 surface 基线建立且通过（反转组件走新基线）
-- [ ] `pnpm verify` 全阶段通过
-- [ ] Deviations 1-5 项均已经用户确认（plan 评审 / Task 3 checkpoint）
-- [ ] spec §3.1/§9.8/§9.17 修订已按 §10.5 提交
-- [ ] 偏差裁决文档已入仓：`docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md`
-- [ ] 全部 commit 只包含本 plan 列出的文件（无 `git add -A`）
+- [x] `node scripts/codemod/hex-to-tokens.mjs --check` → 输出 0 残留裸色值，exit 0
+- [x] `pnpm stylelint "src/renderer/**/*.css"` → 0 error
+- [x] `pnpm test` 全绿（~3003 + 新增：tokens.test 35 项、codemod 17 项、p1-single-theme 2 项）
+- [x] visual regression 6 surface 基线建立且通过（反转组件走新基线）
+- [x] `pnpm verify` 全阶段通过
+- [x] Deviations 1-5 项均已经用户确认（plan 评审 / Task 3 checkpoint）
+- [x] spec §3.1/§9.8/§9.17 修订已按 §10.5 提交
+- [x] 偏差裁决文档已入仓：`docs/superpowers/plans/2026-08-30-p1-visual-foundation-deviations.md`
+- [x] 全部 commit 只包含本 plan 列出的文件（无 `git add -A`）
