@@ -4,12 +4,11 @@
 // click-outside + Escape 关闭。按 registry 枚举全部面板；
 // 已关闭面板恢复到 defaultGroup 位置；「重置布局」清除 localStorage。
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 
-import { t, type Locale } from '../../../shared/i18n/index.js';
-import { useArxmlStore } from '../../store/useArxmlStore.js';
+import { t } from '../../../shared/i18n/index.js';
 import { PANEL_REGISTRY } from '../../panels/registry.js';
 import type { PanelId } from '../../panels/registry.js';
+import { useArxmlStore } from '../../store/useArxmlStore.js';
 
 export interface ViewMenuProps {
   /** Toggle (activate or restore) a panel by id. */
@@ -111,7 +110,7 @@ export function ViewMenu({ onTogglePanel, onResetLayout }: ViewMenuProps): JSX.E
                 onTogglePanel(def.id);
               }}
             >
-              {t(locale, def.titleKey)}
+              {t(locale, def.titleKey as Parameters<typeof t>[1])}
             </button>
           ))}
           <div className="app-dropdown-divider" role="separator" />

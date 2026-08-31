@@ -7,10 +7,7 @@ import { createContext, useContext } from 'react';
 export interface WorkspaceContextValue {
   // LeftPanel
   readonly handleAddEcucFromBswmd: (bswmdPath: string) => void;
-  readonly handleContextMenu: (
-    path: string,
-    kind: 'module' | 'container' | 'reference' | 'bswmd',
-  ) => void;
+  readonly handleContextMenu: (...args: unknown[]) => void;
   // ParamEditor
   readonly openProjectFromDialog: () => void;
   readonly newProject: () => void;

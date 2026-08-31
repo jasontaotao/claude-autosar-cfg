@@ -3,8 +3,11 @@
 // P3 中 DBC viewer 保持 modal 行为；wrapper 为 P4 dock 迁移预留。
 // state 由 App 通过 WorkspaceContext 注入。
 import { useContext } from 'react';
-import { PanelErrorBoundary } from '../../components/PanelErrorBoundary.js';
+
+import type { DbcSummary } from '@shared/types';
+
 import { DbcViewer } from '../../components/DbcViewer/DbcViewer.js';
+import { PanelErrorBoundary } from '../../components/PanelErrorBoundary.js';
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 import { WorkspaceContext } from '../WorkspaceContext.js';
 
@@ -16,7 +19,7 @@ export function DbcViewerWrapper(): JSX.Element {
       <DbcViewer
         open={ctx?.dbcOpen ?? false}
         path={ctx?.dbcPath ?? ''}
-        summary={ctx?.dbcSummary ?? null}
+        summary={(ctx?.dbcSummary as DbcSummary) ?? null}
         locale={locale}
         onClose={ctx?.dbcOnClose ?? (() => {})}
       />

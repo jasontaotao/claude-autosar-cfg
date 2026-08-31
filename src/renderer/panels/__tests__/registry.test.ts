@@ -1,16 +1,11 @@
 import { describe, it, expect } from 'vitest';
+
 import { PANEL_REGISTRY, getPanelDef } from '../registry';
 
 describe('PanelRegistry', () => {
   it('registers exactly 5 panels with stable ids', () => {
     const ids = PANEL_REGISTRY.map((p) => p.id);
-    expect(ids).toEqual([
-      'left-panel',
-      'param-editor',
-      'script-panel',
-      'dbc-viewer',
-      'odx-viewer',
-    ]);
+    expect(ids).toEqual(['left-panel', 'param-editor', 'script-panel', 'dbc-viewer', 'odx-viewer']);
   });
 
   it('every panel has a component, titleKey, and defaultGroup', () => {

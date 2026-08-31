@@ -14,7 +14,7 @@ import { App } from '../App.jsx';
 // and wraps the throwing element in PanelErrorBoundary to mirror the real
 // wrapper structure (wrapper = PanelErrorBoundary + business component).
 vi.mock('../panels/wrappers/ParamEditorWrapper.js', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../panels/wrappers/ParamEditorWrapper.js')>();
+  const mod = await importOriginal<object>();
   const { PanelErrorBoundary } = await import('../components/PanelErrorBoundary.js');
   const { useArxmlStore } = await import('../store/useArxmlStore.js');
   return {

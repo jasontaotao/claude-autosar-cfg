@@ -43,6 +43,7 @@ import { useAppHeaderShell } from '../app/useAppHeaderShell.js';
 import { AppHeaderActionBar } from './AppHeader/AppHeaderActionBar.js';
 import { AppHeaderStatusBadge } from './AppHeader/AppHeaderStatusBadge.js';
 import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
+import { ViewMenu } from './AppHeader/ViewMenu.js';
 import type { AppHeaderProps } from './AppHeader/types.js';
 import { Logo } from './Logo.js';
 import { StencilWizard } from './StencilWizard/StencilWizard.js';
@@ -68,6 +69,8 @@ export function AppHeader({
   onOpenDcmConfig,
   canOpenDcmConfig,
   dcmConfigBusy,
+  onTogglePanel,
+  onResetLayout,
 }: AppHeaderProps): JSX.Element {
   // v1.42.3 PATCH T2: 6 async handlers + 1 useCallback + 3 predicates + 11 store
   // selectors extracted to useAppHeaderHandlers hook (T1 commit 65ab91e).
@@ -315,6 +318,11 @@ export function AppHeader({
             </>
           )}
         </AppHeaderBrandMenu>
+
+        {/* P3 Dock 工作台 (spec §5.6) — View menu for panel restore + layout reset. */}
+        {onTogglePanel !== undefined && onResetLayout !== undefined && (
+          <ViewMenu onTogglePanel={onTogglePanel} onResetLayout={onResetLayout} />
+        )}
 
         <span className="app-header-sep" aria-hidden="true" />
         <span className="app-header-sep" aria-hidden="true" />

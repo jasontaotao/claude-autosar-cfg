@@ -40,9 +40,10 @@ function validatePanelIds(node: unknown): boolean {
 }
 
 /** Wraps dockview serialize output in the version envelope. */
-export function serializeLayout(
-  layout: SerializedLayout,
-): { version: number; layout: SerializedLayout } {
+export function serializeLayout(layout: SerializedLayout): {
+  version: number;
+  layout: SerializedLayout;
+} {
   return { version: SCHEMA_VERSION, layout };
 }
 

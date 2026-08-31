@@ -29,6 +29,8 @@ export const INITIAL: AppHeaderState = { busy: false };
  * the open flag so it can keep `ScriptPanel` mount conditional
  * (lazy CodeMirror bundle). The button below flips it.
  */
+import type { PanelId } from '../../panels/registry.js';
+
 export interface AppHeaderProps {
   readonly onEcucModuleSelect: () => void;
   readonly canSelectEcucModule: boolean;
@@ -96,6 +98,6 @@ export interface AppHeaderProps {
   readonly dcmConfigBusy: boolean;
   // P3 Dock 工作台 (spec §5.6) — View menu callbacks. AppHeader forwards
   // the clicks to App which wires them to the DockviewApi.
-  readonly onTogglePanel?: (panelId: import('../../panels/registry.js').PanelId) => void;
+  readonly onTogglePanel?: (panelId: PanelId) => void;
   readonly onResetLayout?: () => void;
 }

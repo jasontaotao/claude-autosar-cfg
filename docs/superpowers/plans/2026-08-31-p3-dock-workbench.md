@@ -29,10 +29,12 @@
 ### Task 1: Install dockview + type setup
 
 **Files:**
+
 - Modify: package.json (add dockview dependency)
 - Modify: pnpm-lock.yaml
 
 **Interfaces:**
+
 - Produces: dockview available for import in renderer code
 
 - [ ] **Step 1: Install dockview with exact version**
@@ -62,55 +64,57 @@ git commit -m "chore(p3): install dockview@8.2.0 (exact pin)"
 ### Task 2: Panel registry
 
 **Files:**
+
 - Create: src/renderer/panels/registry.ts
-- Test: src/renderer/panels/__tests__/registry.test.ts
+- Test: src/renderer/panels/**tests**/registry.test.ts
 
 **Interfaces:**
+
 - Produces: `PanelDef` interface, `PANEL_REGISTRY` array, `PanelId` type, `DefaultGroup` type, `getPanelDef(id: string): PanelDef | undefined`
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { PANEL_REGISTRY, getPanelDef } from "../registry";
+import { describe, it, expect } from 'vitest';
+import { PANEL_REGISTRY, getPanelDef } from '../registry';
 
-describe("PanelRegistry", () => {
-  it("registers exactly 5 panels with stable ids", () => {
+describe('PanelRegistry', () => {
+  it('registers exactly 5 panels with stable ids', () => {
     const ids = PANEL_REGISTRY.map((p) => p.id);
-    expect(ids).toEqual(["left-panel", "param-editor", "script-panel", "dbc-viewer", "odx-viewer"]);
+    expect(ids).toEqual(['left-panel', 'param-editor', 'script-panel', 'dbc-viewer', 'odx-viewer']);
   });
 
-  it("every panel has a component, titleKey, and defaultGroup", () => {
+  it('every panel has a component, titleKey, and defaultGroup', () => {
     for (const p of PANEL_REGISTRY) {
       expect(p.component).toBeDefined();
-      expect(typeof p.titleKey).toBe("string");
-      expect(["left", "center", "bottom", "viewer"]).toContain(p.defaultGroup);
+      expect(typeof p.titleKey).toBe('string');
+      expect(['left', 'center', 'bottom', 'viewer']).toContain(p.defaultGroup);
     }
   });
 
-  it("getPanelDef returns undefined for unknown ids", () => {
-    expect(getPanelDef("nonexistent")).toBeUndefined();
-    expect(getPanelDef("left-panel")).toBeDefined();
+  it('getPanelDef returns undefined for unknown ids', () => {
+    expect(getPanelDef('nonexistent')).toBeUndefined();
+    expect(getPanelDef('left-panel')).toBeDefined();
   });
 });
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: pnpm vitest run src/renderer/panels/__tests__/registry.test.ts
+Run: pnpm vitest run src/renderer/panels/**tests**/registry.test.ts
 Expected: FAIL (module not found)
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/renderer/panels/registry.ts
-import type { ComponentType } from "react";
+import type { ComponentType } from 'react';
 
 /** Stable panel id - never rename (layout persistence references id). */
-export type PanelId = "left-panel" | "param-editor" | "script-panel" | "dbc-viewer" | "odx-viewer";
+export type PanelId = 'left-panel' | 'param-editor' | 'script-panel' | 'dbc-viewer' | 'odx-viewer';
 
 /** defaultGroup: viewer is defined for P4 but not consumed in P3. */
-export type DefaultGroup = "left" | "center" | "bottom" | "viewer";
+export type DefaultGroup = 'left' | 'center' | 'bottom' | 'viewer';
 
 export interface PanelDef {
   readonly id: PanelId;
@@ -127,11 +131,36 @@ const DbcViewerWrapper: ComponentType = () => null;
 const OdxViewerWrapper: ComponentType = () => null;
 
 export const PANEL_REGISTRY: readonly PanelDef[] = [
-  { id: "left-panel", component: LeftPanelWrapper, titleKey: "panels.leftPanel", defaultGroup: "left" },
-  { id: "param-editor", component: ParamEditorWrapper, titleKey: "panels.paramEditor", defaultGroup: "center" },
-  { id: "script-panel", component: ScriptPanelWrapper, titleKey: "panels.scriptPanel", defaultGroup: "bottom" },
-  { id: "dbc-viewer", component: DbcViewerWrapper, titleKey: "panels.dbcViewer", defaultGroup: "viewer" },
-  { id: "odx-viewer", component: OdxViewerWrapper, titleKey: "panels.odxViewer", defaultGroup: "viewer" },
+  {
+    id: 'left-panel',
+    component: LeftPanelWrapper,
+    titleKey: 'panels.leftPanel',
+    defaultGroup: 'left',
+  },
+  {
+    id: 'param-editor',
+    component: ParamEditorWrapper,
+    titleKey: 'panels.paramEditor',
+    defaultGroup: 'center',
+  },
+  {
+    id: 'script-panel',
+    component: ScriptPanelWrapper,
+    titleKey: 'panels.scriptPanel',
+    defaultGroup: 'bottom',
+  },
+  {
+    id: 'dbc-viewer',
+    component: DbcViewerWrapper,
+    titleKey: 'panels.dbcViewer',
+    defaultGroup: 'viewer',
+  },
+  {
+    id: 'odx-viewer',
+    component: OdxViewerWrapper,
+    titleKey: 'panels.odxViewer',
+    defaultGroup: 'viewer',
+  },
 ] as const;
 
 export function getPanelDef(id: string): PanelDef | undefined {
@@ -141,7 +170,7 @@ export function getPanelDef(id: string): PanelDef | undefined {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: pnpm vitest run src/renderer/panels/__tests__/registry.test.ts
+Run: pnpm vitest run src/renderer/panels/**tests**/registry.test.ts
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -156,6 +185,7 @@ git commit -m "feat(p3): panel registry with 5 stable panel ids"
 ### Task 3: Panel wrapper components
 
 **Files:**
+
 - Create: src/renderer/panels/wrappers/LeftPanelWrapper.tsx
 - Create: src/renderer/panels/wrappers/ParamEditorWrapper.tsx
 - Create: src/renderer/panels/wrappers/ScriptPanelWrapper.tsx
@@ -163,6 +193,7 @@ git commit -m "feat(p3): panel registry with 5 stable panel ids"
 - Create: src/renderer/panels/wrappers/OdxViewerWrapper.tsx
 
 **Interfaces:**
+
 - Consumes: existing components LeftPanel, ParamEditor, ScriptPanel, DbcViewer, OdxViewer
 - Produces: wrapper components with zero props (dockview panels read store directly)
 
@@ -171,17 +202,15 @@ git commit -m "feat(p3): panel registry with 5 stable panel ids"
 Each wrapper imports the business component and supplies props from store/hooks. The wrappers will be fully wired when integrated in Task 5.
 
 LeftPanelWrapper.tsx:
+
 ```tsx
-import { LeftPanel } from "../../components/LeftPanel";
-import { useAppMainHandlers } from "../../app/useAppMainHandlers";
+import { LeftPanel } from '../../components/LeftPanel';
+import { useAppMainHandlers } from '../../app/useAppMainHandlers';
 
 export function LeftPanelWrapper(): JSX.Element {
   const { handleAddEcucFromBswmd, handleContextMenu } = useAppMainHandlers();
   return (
-    <LeftPanel
-      onAddEcucFromBswmd={handleAddEcucFromBswmd}
-      onContextMenu={handleContextMenu}
-    />
+    <LeftPanel onAddEcucFromBswmd={handleAddEcucFromBswmd} onContextMenu={handleContextMenu} />
   );
 }
 ```
@@ -205,55 +234,59 @@ git commit -m "feat(p3): panel wrapper components"
 ### Task 4: Layout persistence
 
 **Files:**
+
 - Create: src/renderer/panels/useDockLayout.ts
 - Create: src/renderer/panels/defaultLayout.ts
-- Test: src/renderer/panels/__tests__/useDockLayout.test.ts
-- Test: src/renderer/panels/__tests__/defaultLayout.test.ts
+- Test: src/renderer/panels/**tests**/useDockLayout.test.ts
+- Test: src/renderer/panels/**tests**/defaultLayout.test.ts
 
 **Interfaces:**
+
 - Produces: parseStoredLayout(raw: string): SerializedLayout | null, serializeLayout(layout): { version, layout }, getLayoutStorageKey(): string, saveLayout(layout): void, loadLayout(): SerializedLayout | null, clearLayout(): void
 - Produces: DEFAULT_LAYOUT: { version: number, layout: object }
 
 - [ ] **Step 1: Write failing test for useDockLayout**
 
 ```ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseStoredLayout, serializeLayout } from "../useDockLayout";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { parseStoredLayout, serializeLayout } from '../useDockLayout';
 
-describe("parseStoredLayout", () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-
-  it("returns layout for valid stored data", () => {
-    const valid = JSON.stringify({ version: 1, layout: { grid: {}, activePanel: "x" } });
-    expect(parseStoredLayout(valid)).toEqual({ grid: {}, activePanel: "x" });
+describe('parseStoredLayout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("returns null for invalid JSON", () => {
-    expect(parseStoredLayout("not-json")).toBeNull();
+  it('returns layout for valid stored data', () => {
+    const valid = JSON.stringify({ version: 1, layout: { grid: {}, activePanel: 'x' } });
+    expect(parseStoredLayout(valid)).toEqual({ grid: {}, activePanel: 'x' });
   });
 
-  it("returns null for version mismatch", () => {
+  it('returns null for invalid JSON', () => {
+    expect(parseStoredLayout('not-json')).toBeNull();
+  });
+
+  it('returns null for version mismatch', () => {
     const wrong = JSON.stringify({ version: 99, layout: {} });
     expect(parseStoredLayout(wrong)).toBeNull();
   });
 
-  it("returns null for missing layout field", () => {
+  it('returns null for missing layout field', () => {
     const noLayout = JSON.stringify({ version: 1 });
     expect(parseStoredLayout(noLayout)).toBeNull();
   });
 
-  it("returns null when layout references unknown panel ids", () => {
+  it('returns null when layout references unknown panel ids', () => {
     const unknownPanel = JSON.stringify({
       version: 1,
-      layout: { grid: { root: { type: "leaf", data: { id: "ghost-panel", component: "ghost" } } } },
+      layout: { grid: { root: { type: 'leaf', data: { id: 'ghost-panel', component: 'ghost' } } } },
     });
     expect(parseStoredLayout(unknownPanel)).toBeNull();
   });
 });
 
-describe("serializeLayout", () => {
-  it("wraps dockview serialize output with version 1", () => {
-    const layout = { grid: {}, activePanel: "test" };
+describe('serializeLayout', () => {
+  it('wraps dockview serialize output with version 1', () => {
+    const layout = { grid: {}, activePanel: 'test' };
     const result = serializeLayout(layout);
     expect(result.version).toBe(1);
     expect(result.layout).toEqual(layout);
@@ -263,16 +296,16 @@ describe("serializeLayout", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: pnpm vitest run src/renderer/panels/__tests__/useDockLayout.test.ts
+Run: pnpm vitest run src/renderer/panels/**tests**/useDockLayout.test.ts
 Expected: FAIL (module not found)
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 // src/renderer/panels/useDockLayout.ts
-import { PANEL_REGISTRY } from "./registry";
+import { PANEL_REGISTRY } from './registry';
 
-const LAYOUT_KEY = "autosarcfg.layout.v1";
+const LAYOUT_KEY = 'autosarcfg.layout.v1';
 const SCHEMA_VERSION = 1;
 
 type SerializedLayout = Record<string, unknown>;
@@ -282,7 +315,7 @@ export function parseStoredLayout(raw: string): SerializedLayout | null {
   try {
     const parsed = JSON.parse(raw) as { version?: number; layout?: unknown };
     if (parsed.version !== SCHEMA_VERSION) return null;
-    if (!parsed.layout || typeof parsed.layout !== "object") return null;
+    if (!parsed.layout || typeof parsed.layout !== 'object') return null;
     if (!validatePanelIds(parsed.layout)) return null;
     return parsed.layout as SerializedLayout;
   } catch {
@@ -291,11 +324,11 @@ export function parseStoredLayout(raw: string): SerializedLayout | null {
 }
 
 function validatePanelIds(layout: unknown): boolean {
-  if (typeof layout !== "object" || layout === null) return true;
+  if (typeof layout !== 'object' || layout === null) return true;
   const obj = layout as Record<string, unknown>;
-  if ("data" in obj && typeof obj.data === "object" && obj.data !== null) {
+  if ('data' in obj && typeof obj.data === 'object' && obj.data !== null) {
     const data = obj.data as Record<string, unknown>;
-    if ("id" in data && typeof data.id === "string") {
+    if ('id' in data && typeof data.id === 'string') {
       if (!PANEL_REGISTRY.some((p) => p.id === data.id)) return false;
     }
   }
@@ -306,7 +339,10 @@ function validatePanelIds(layout: unknown): boolean {
 }
 
 /** Wraps dockview serialize output in the version envelope. */
-export function serializeLayout(layout: SerializedLayout): { version: number; layout: SerializedLayout } {
+export function serializeLayout(layout: SerializedLayout): {
+  version: number;
+  layout: SerializedLayout;
+} {
   return { version: SCHEMA_VERSION, layout };
 }
 
@@ -328,7 +364,7 @@ export function loadLayout(): SerializedLayout | null {
     if (!raw) return null;
     const parsed = parseStoredLayout(raw);
     if (!parsed) {
-      console.warn("[dock-layout] invalid stored layout, falling back to default");
+      console.warn('[dock-layout] invalid stored layout, falling back to default');
     }
     return parsed;
   } catch {
@@ -347,33 +383,33 @@ export function clearLayout(): void {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: pnpm vitest run src/renderer/panels/__tests__/useDockLayout.test.ts
+Run: pnpm vitest run src/renderer/panels/**tests**/useDockLayout.test.ts
 Expected: PASS
 
 - [ ] **Step 5: Write test for defaultLayout**
 
 ```ts
-import { describe, it, expect } from "vitest";
-import { DEFAULT_LAYOUT } from "../defaultLayout";
+import { describe, it, expect } from 'vitest';
+import { DEFAULT_LAYOUT } from '../defaultLayout';
 
-describe("DEFAULT_LAYOUT", () => {
-  it("has version 1", () => {
+describe('DEFAULT_LAYOUT', () => {
+  it('has version 1', () => {
     expect(DEFAULT_LAYOUT.version).toBe(1);
   });
-  it("contains left-panel and param-editor only in layout", () => {
+  it('contains left-panel and param-editor only in layout', () => {
     const str = JSON.stringify(DEFAULT_LAYOUT.layout);
-    expect(str).toContain("left-panel");
-    expect(str).toContain("param-editor");
-    expect(str).not.toContain("script-panel");
-    expect(str).not.toContain("dbc-viewer");
-    expect(str).not.toContain("odx-viewer");
+    expect(str).toContain('left-panel');
+    expect(str).toContain('param-editor');
+    expect(str).not.toContain('script-panel');
+    expect(str).not.toContain('dbc-viewer');
+    expect(str).not.toContain('odx-viewer');
   });
 });
 ```
 
 - [ ] **Step 6: Run test**
 
-Run: pnpm vitest run src/renderer/panels/__tests__/defaultLayout.test.ts
+Run: pnpm vitest run src/renderer/panels/**tests**/defaultLayout.test.ts
 Expected: PASS
 
 - [ ] **Step 7: Commit**
@@ -388,19 +424,21 @@ git commit -m "feat(p3): layout persistence with schema version and bad-data fal
 ### Task 5: Wire DockviewReact into App.tsx
 
 **Files:**
+
 - Modify: src/renderer/App.tsx (replace Group/Panel/Separator with DockviewReact)
 - Modify: src/renderer/styles CSS (dockview theme overrides)
 
 **Interfaces:**
+
 - Consumes: PANEL_REGISTRY, useDockLayout persistence functions, wrapper components
 - Produces: App renders DockviewReact instead of Group/Panel; dockApiRef for ViewMenu wiring
 
 - [ ] **Step 1: Import dockview CSS and components in App.tsx**
 
 ```tsx
-import { DockviewReact } from "dockview";
-import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from "dockview";
-import "dockview/dist/dockview.css";
+import { DockviewReact } from 'dockview';
+import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview';
+import 'dockview/dist/dockview.css';
 ```
 
 - [ ] **Step 2: Create panel components mapping for dockview**
@@ -421,11 +459,12 @@ Replace the <Group> block with:
   components={panelComponents}
   onReady={handleDockReady}
   className="dockview-theme-reambia"
-  style={{ height: "100%", width: "100%" }}
+  style={{ height: '100%', width: '100%' }}
 />
 ```
 
 The handleDockReady callback:
+
 1. Stores the DockviewApi in a ref (dockApiRef)
 2. Loads stored layout from localStorage (or uses DEFAULT_LAYOUT)
 3. Calls api.fromJSON(storedLayout) if valid stored layout exists
@@ -436,6 +475,7 @@ The handleDockReady callback:
 - [ ] **Step 4: Handle script-panel / dbc-viewer / odx-viewer transitions**
 
 The existing UI triggers (btn-scripts-toggle, DBC/ODX viewer opens) should now interact with the dockview api:
+
 - script-panel toggle: if open, activate/close; if closed, addPanel into dock
 - DBC viewer open: instead of rendering modal, addPanel("dbc-viewer") into param-editor group
 - ODX viewer open: instead of rendering modal, addPanel("odx-viewer") into param-editor group
@@ -445,6 +485,7 @@ This means the old modal/strip rendering code for these 3 panels is removed from
 - [ ] **Step 5: Skip workspace-resize e2e tests**
 
 Modify tests/e2e/workspace-resize.spec.ts: add test.skip() with comment:
+
 ```ts
 // P3: workspace splitter replaced by dockview. Superseded by dock-workbench.spec.ts.
 // Full removal of react-resizable-panels in P4.
@@ -472,18 +513,21 @@ git commit -m "feat(p3): replace workspace layout with dockview"
 ### Task 6: View menu (i18n + component)
 
 **Files:**
+
 - Create: src/renderer/components/AppHeader/ViewMenu.tsx
 - Modify: src/renderer/components/AppHeader.tsx (add ViewMenu next to BrandMenu)
 - Modify: src/shared/i18n/app.ts (add AppMessages keys)
 - Modify: src/shared/i18n/i18n.en/app.ts (add English values)
 - Modify: src/shared/i18n/i18n.zh-CN/app.ts (add Chinese values)
-- Test: src/renderer/components/AppHeader/__tests__/ViewMenu.test.tsx
+- Test: src/renderer/components/AppHeader/**tests**/ViewMenu.test.tsx
 
 **Interfaces:**
+
 - Produces: <ViewMenu onTogglePanel(id: PanelId): void, onResetLayout(): void />
 - Consumes: PANEL_REGISTRY, PanelId from registry
 
 i18n keys (all three files):
+
 - app.menu.view
 - app.menu.resetLayout
 - panels.leftPanel
@@ -495,6 +539,7 @@ i18n keys (all three files):
 - [ ] **Step 1: Add i18n keys to all three files**
 
 app.ts (AppMessages interface):
+
 ```ts
 readonly "app.menu.view": string;
 readonly "app.menu.resetLayout": string;
@@ -506,6 +551,7 @@ readonly "panels.odxViewer": string;
 ```
 
 i18n.en/app.ts:
+
 ```ts
 "app.menu.view": "View",
 "app.menu.resetLayout": "Reset Layout",
@@ -517,6 +563,7 @@ i18n.en/app.ts:
 ```
 
 i18n.zh-CN/app.ts:
+
 ```ts
 "app.menu.view": "视图",
 "app.menu.resetLayout": "重置布局",
@@ -530,40 +577,40 @@ i18n.zh-CN/app.ts:
 - [ ] **Step 2: Write failing test**
 
 ```tsx
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { ViewMenu } from "../ViewMenu";
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ViewMenu } from '../ViewMenu';
 
-describe("ViewMenu", () => {
-  it("renders trigger button", () => {
+describe('ViewMenu', () => {
+  it('renders trigger button', () => {
     render(<ViewMenu onTogglePanel={vi.fn()} onResetLayout={vi.fn()} />);
-    expect(screen.getByTestId("btn-view-menu")).toBeDefined();
+    expect(screen.getByTestId('btn-view-menu')).toBeDefined();
   });
 
-  it("opens dropdown and shows all 5 panels + reset", () => {
+  it('opens dropdown and shows all 5 panels + reset', () => {
     render(<ViewMenu onTogglePanel={vi.fn()} onResetLayout={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("btn-view-menu"));
-    expect(screen.getByTestId("menu-item-left-panel")).toBeDefined();
-    expect(screen.getByTestId("menu-item-param-editor")).toBeDefined();
-    expect(screen.getByTestId("menu-item-script-panel")).toBeDefined();
-    expect(screen.getByTestId("menu-item-dbc-viewer")).toBeDefined();
-    expect(screen.getByTestId("menu-item-odx-viewer")).toBeDefined();
-    expect(screen.getByTestId("btn-reset-layout")).toBeDefined();
+    fireEvent.click(screen.getByTestId('btn-view-menu'));
+    expect(screen.getByTestId('menu-item-left-panel')).toBeDefined();
+    expect(screen.getByTestId('menu-item-param-editor')).toBeDefined();
+    expect(screen.getByTestId('menu-item-script-panel')).toBeDefined();
+    expect(screen.getByTestId('menu-item-dbc-viewer')).toBeDefined();
+    expect(screen.getByTestId('menu-item-odx-viewer')).toBeDefined();
+    expect(screen.getByTestId('btn-reset-layout')).toBeDefined();
   });
 
-  it("calls onTogglePanel with correct panel id", () => {
+  it('calls onTogglePanel with correct panel id', () => {
     const togglePanel = vi.fn();
     render(<ViewMenu onTogglePanel={togglePanel} onResetLayout={vi.fn()} />);
-    fireEvent.click(screen.getByTestId("btn-view-menu"));
-    fireEvent.click(screen.getByTestId("menu-item-left-panel"));
-    expect(togglePanel).toHaveBeenCalledWith("left-panel");
+    fireEvent.click(screen.getByTestId('btn-view-menu'));
+    fireEvent.click(screen.getByTestId('menu-item-left-panel'));
+    expect(togglePanel).toHaveBeenCalledWith('left-panel');
   });
 
-  it("calls onResetLayout on reset click", () => {
+  it('calls onResetLayout on reset click', () => {
     const resetLayout = vi.fn();
     render(<ViewMenu onTogglePanel={vi.fn()} onResetLayout={resetLayout} />);
-    fireEvent.click(screen.getByTestId("btn-view-menu"));
-    fireEvent.click(screen.getByTestId("btn-reset-layout"));
+    fireEvent.click(screen.getByTestId('btn-view-menu'));
+    fireEvent.click(screen.getByTestId('btn-reset-layout'));
     expect(resetLayout).toHaveBeenCalledOnce();
   });
 });
@@ -571,7 +618,7 @@ describe("ViewMenu", () => {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: pnpm vitest run src/renderer/components/AppHeader/__tests__/ViewMenu.test.tsx
+Run: pnpm vitest run src/renderer/components/AppHeader/**tests**/ViewMenu.test.tsx
 Expected: FAIL
 
 - [ ] **Step 4: Implement ViewMenu.tsx**
@@ -580,12 +627,13 @@ Follow BrandMenu.tsx pattern: trigger div with testid btn-view-menu, dropdown wi
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: pnpm vitest run src/renderer/components/AppHeader/__tests__/ViewMenu.test.tsx
+Run: pnpm vitest run src/renderer/components/AppHeader/**tests**/ViewMenu.test.tsx
 Expected: PASS
 
 - [ ] **Step 6: Wire ViewMenu into AppHeader.tsx**
 
 Add alongside BrandMenu in AppHeader JSX:
+
 ```tsx
 <ViewMenu onTogglePanel={onTogglePanel} onResetLayout={onResetLayout} />
 ```
@@ -604,40 +652,45 @@ git commit -m "feat(p3): View menu for panel restore and layout reset"
 ### Task 7: Wire ViewMenu actions to dockview API
 
 **Files:**
+
 - Modify: src/renderer/App.tsx (connect ViewMenu callbacks to DockviewApi)
 - Modify: src/renderer/components/AppHeader.tsx (forward onTogglePanel/onResetLayout props)
 
 **Interfaces:**
+
 - Consumes: ViewMenu props, DockviewApi methods, loadLayout, clearLayout, saveLayout, DEFAULT_LAYOUT
 - Produces: handleTogglePanel and handleResetLayout callbacks
 
 - [ ] **Step 1: Implement handleTogglePanel in App**
 
 ```tsx
-const handleTogglePanel = useCallback((panelId: PanelId): void => {
-  const api = dockApiRef.current;
-  if (!api) return;
-  const existing = api.getPanel(panelId);
-  if (existing) {
-    existing.api.setActive();
-    return;
-  }
-  const def = getPanelDef(panelId);
-  if (!def) return;
-  if (def.defaultGroup === "viewer" || def.defaultGroup === "center") {
-    const paramEditor = api.getPanel("param-editor");
-    if (paramEditor) {
-      api.addPanel({
-        id: panelId,
-        component: panelId,
-        title: t(locale, def.titleKey),
-        position: { referencePanel: "param-editor", direction: "within" },
-      });
+const handleTogglePanel = useCallback(
+  (panelId: PanelId): void => {
+    const api = dockApiRef.current;
+    if (!api) return;
+    const existing = api.getPanel(panelId);
+    if (existing) {
+      existing.api.setActive();
       return;
     }
-  }
-  api.addPanel({ id: panelId, component: panelId, title: t(locale, def.titleKey) });
-}, [locale]);
+    const def = getPanelDef(panelId);
+    if (!def) return;
+    if (def.defaultGroup === 'viewer' || def.defaultGroup === 'center') {
+      const paramEditor = api.getPanel('param-editor');
+      if (paramEditor) {
+        api.addPanel({
+          id: panelId,
+          component: panelId,
+          title: t(locale, def.titleKey),
+          position: { referencePanel: 'param-editor', direction: 'within' },
+        });
+        return;
+      }
+    }
+    api.addPanel({ id: panelId, component: panelId, title: t(locale, def.titleKey) });
+  },
+  [locale],
+);
 ```
 
 - [ ] **Step 2: Implement handleResetLayout**
@@ -649,12 +702,12 @@ const handleResetLayout = useCallback((): void => {
   if (!api) return;
   // Remove all panels and rebuild default
   api.clear();
-  api.addPanel({ id: "left-panel", component: "left-panel", title: t(locale, "panels.leftPanel") });
+  api.addPanel({ id: 'left-panel', component: 'left-panel', title: t(locale, 'panels.leftPanel') });
   api.addPanel({
-    id: "param-editor",
-    component: "param-editor",
-    title: t(locale, "panels.paramEditor"),
-    position: { referencePanel: "left-panel", direction: "right" },
+    id: 'param-editor',
+    component: 'param-editor',
+    title: t(locale, 'panels.paramEditor'),
+    position: { referencePanel: 'left-panel', direction: 'right' },
   });
 }, [locale]);
 ```
@@ -677,47 +730,51 @@ git commit -m "feat(p3): wire ViewMenu toggle/reset to dockview api"
 ### Task 8: E2E tests for dock workbench
 
 **Files:**
+
 - Create: tests/e2e/dock-workbench.spec.ts
 
 **Interfaces:**
-- Consumes: dockview DOM classes (.dv-*), ViewMenu testids
+
+- Consumes: dockview DOM classes (.dv-\*), ViewMenu testids
 - Produces: e2e verification of default layout, toggle, close+restore, persist, reset
 
 - [ ] **Step 1: Write e2e tests**
 
 ```ts
 // tests/e2e/dock-workbench.spec.ts
-import { test, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 async function waitForAppReady(page: Page): Promise<void> {
-  await expect(page.getByTestId("app-header")).toBeVisible();
-  await expect(page.locator(".dv-workspace").first()).toBeVisible();
+  await expect(page.getByTestId('app-header')).toBeVisible();
+  await expect(page.locator('.dv-workspace').first()).toBeVisible();
 }
 
-test.describe("Dock workbench", () => {
-  test("default layout renders left-panel and param-editor", async ({ page }) => {
-    await page.goto("/");
+test.describe('Dock workbench', () => {
+  test('default layout renders left-panel and param-editor', async ({ page }) => {
+    await page.goto('/');
     await waitForAppReady(page);
     await expect(page.locator("[data-panel-id='left-panel']").first()).toBeVisible();
     await expect(page.locator("[data-panel-id='param-editor']").first()).toBeVisible();
   });
 
-  test("script-panel opens in dock when toggled", async ({ page }) => {
-    await page.goto("/");
+  test('script-panel opens in dock when toggled', async ({ page }) => {
+    await page.goto('/');
     await waitForAppReady(page);
     await page.click("[data-testid='btn-scripts-toggle']");
     await expect(page.locator("[data-panel-id='script-panel']").first()).toBeVisible();
   });
 
-  test("closed panel can be restored via View menu", async ({ page }) => {
-    await page.goto("/");
+  test('closed panel can be restored via View menu', async ({ page }) => {
+    await page.goto('/');
     await waitForAppReady(page);
     await page.click("[data-testid='btn-scripts-toggle']");
     await expect(page.locator("[data-panel-id='script-panel']").first()).toBeVisible();
     // Close via tab close button
-    const closeButton = page.locator("[data-panel-id='script-panel']").first()
-      .locator(".dv-default-tab-close-button");
+    const closeButton = page
+      .locator("[data-panel-id='script-panel']")
+      .first()
+      .locator('.dv-default-tab-close-button');
     await closeButton.click();
     await expect(page.locator("[data-panel-id='script-panel']")).not.toBeVisible();
     // Restore via View menu
@@ -726,8 +783,8 @@ test.describe("Dock workbench", () => {
     await expect(page.locator("[data-panel-id='script-panel']").first()).toBeVisible();
   });
 
-  test("layout persists across reload", async ({ page }) => {
-    await page.goto("/");
+  test('layout persists across reload', async ({ page }) => {
+    await page.goto('/');
     await waitForAppReady(page);
     await page.click("[data-testid='btn-scripts-toggle']");
     await expect(page.locator("[data-panel-id='script-panel']").first()).toBeVisible();
@@ -736,8 +793,8 @@ test.describe("Dock workbench", () => {
     await expect(page.locator("[data-panel-id='script-panel']").first()).toBeVisible();
   });
 
-  test("reset layout restores default", async ({ page }) => {
-    await page.goto("/");
+  test('reset layout restores default', async ({ page }) => {
+    await page.goto('/');
     await waitForAppReady(page);
     await page.click("[data-testid='btn-scripts-toggle']");
     await page.click("[data-testid='btn-view-menu']");

@@ -36,9 +36,9 @@
 // intentionally agnostic about stacking — the mount order in the
 // return statement documents the dependency graph, not the z-order.
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DockviewReact } from 'dockview-react';
 import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview-react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import 'dockview/dist/styles/dockview.css';
 
 import { t } from '@shared/i18n/index.js';
@@ -70,12 +70,13 @@ import { useGenerateCode } from './hooks/useGenerateCode';
 import { useProjectActions } from './hooks/useProjectActions';
 import { useSwsValidatorRunner } from './hooks/useSwsValidatorRunner';
 import { TourProvider } from './onboarding/TourProvider.js';
-import { useArxmlStore } from './store/useArxmlStore';
-import { PANEL_REGISTRY } from './panels/registry.js';
 import { WorkspaceContext } from './panels/WorkspaceContext.js';
-import { loadLayout, saveLayout, clearLayout } from './panels/useDockLayout.js';
-import { getPanelDef } from './panels/registry.js';
+import { PANEL_REGISTRY, getPanelDef } from './panels/registry.js';
 import type { PanelId } from './panels/registry.js';
+import { loadLayout, saveLayout, clearLayout } from './panels/useDockLayout.js';
+import { useArxmlStore } from './store/useArxmlStore';
+import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
+import { attachXlsxImportListener } from './store/xlsxImportListener.js';
 
 function buildDefaultLayout(api: DockviewApi): void {
   api.addPanel({ id: 'left-panel', component: 'left-panel' });
@@ -86,12 +87,10 @@ function buildDefaultLayout(api: DockviewApi): void {
   });
 }
 
-const panelComponents: Record<string, React.ComponentType<IDockviewPanelProps>> = {};
+const panelComponents: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {};
 for (const def of PANEL_REGISTRY) {
-  panelComponents[def.id] = def.component as React.ComponentType<IDockviewPanelProps>;
+  panelComponents[def.id] = def.component as React.FunctionComponent<IDockviewPanelProps>;
 }
-import { attachXlsxHistoryBootstrap } from './store/xlsxImportHistoryBootstrap.js';
-import { attachXlsxImportListener } from './store/xlsxImportListener.js';
 
 export function App(): JSX.Element {
   // Sprint 3: 300ms debounced revalidation safety net.
@@ -140,7 +139,7 @@ export function App(): JSX.Element {
     const debouncedSave = (): void => {
       if (debounceTimer !== null) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        saveLayout(api.toJSON() as Record<string, unknown>);
+        saveLayout(api.toJSON() as unknown as Record<string, unknown>);
         debounceTimer = null;
       }, 500);
     };
@@ -161,12 +160,11 @@ export function App(): JSX.Element {
     const flushOnUnload = (): void => {
       if (debounceTimer !== null) {
         clearTimeout(debounceTimer);
-        saveLayout(api.toJSON() as Record<string, unknown>);
+        saveLayout(api.toJSON() as unknown as Record<string, unknown>);
       }
     };
     window.addEventListener('beforeunload', flushOnUnload);
   }, []);
-
 
   // Sprint 12 #3 Phase 1 Task 5 — `submitNewProject` is the dirty-
   // guarded submitter for `<NewProjectDialog />`. When the user clicks
@@ -340,62 +338,86 @@ export function App(): JSX.Element {
     diagExtractModal,
     diagExtractExporting,
   } = useDiagExtractHandlers({ odxModal });
-  const workspaceCtx = useMemo(() => ({
-    handleAddEcucFromBswmd,
-    handleContextMenu,
-    openProjectFromDialog,
-    newProject,
-    dbcOpen: dbcModal.kind !== 'closed',
-    dbcPath: dbcModal.kind === 'open' ? dbcModal.path : '',
-    dbcSummary: dbcModal.kind === 'open' ? dbcModal.summary : null,
-    dbcOnClose: closeDbcViewer,
-    odxOpen: odxModal.kind !== 'closed',
-    odxPath: odxModal.kind === 'open' ? odxModal.path : '',
-    odxSummary: odxModal.kind === 'open' ? odxModal.summary : null,
-    odxOnClose: closeOdxViewer,
-    odxOnExport: handleExportOdxDiagnosticExtract,
-    odxExporting: diagExtractExporting,
-  }), [handleAddEcucFromBswmd, handleContextMenu, openProjectFromDialog, newProject, dbcModal, closeDbcViewer, odxModal, closeOdxViewer, handleExportOdxDiagnosticExtract, diagExtractExporting]);
+  const workspaceCtx = useMemo(
+    () => ({
+      handleAddEcucFromBswmd,
+      handleContextMenu: handleContextMenu as never,
+      openProjectFromDialog,
+      newProject,
+      dbcOpen: dbcModal.kind !== 'closed',
+      dbcPath: dbcModal.kind === 'open' ? dbcModal.path : '',
+      dbcSummary: dbcModal.kind === 'open' ? dbcModal.summary : null,
+      dbcOnClose: closeDbcViewer,
+      odxOpen: odxModal.kind !== 'closed',
+      odxPath: odxModal.kind === 'open' ? odxModal.path : '',
+      odxSummary: odxModal.kind === 'open' ? odxModal.summary : null,
+      odxOnClose: closeOdxViewer,
+      odxOnExport: handleExportOdxDiagnosticExtract,
+      odxExporting: diagExtractExporting,
+    }),
+    [
+      handleAddEcucFromBswmd,
+      handleContextMenu,
+      openProjectFromDialog,
+      newProject,
+      dbcModal,
+      closeDbcViewer,
+      odxModal,
+      closeOdxViewer,
+      handleExportOdxDiagnosticExtract,
+      diagExtractExporting,
+    ],
+  );
 
-  const handleTogglePanel = useCallback((panelId: PanelId): void => {
-    const api = dockApiRef.current;
-    if (!api) return;
-    const existing = api.getPanel(panelId);
-    if (existing) {
-      existing.api.setActive();
-      return;
-    }
-    const def = getPanelDef(panelId);
-    if (!def) return;
-    if (def.defaultGroup === 'viewer' || def.defaultGroup === 'center') {
-      const paramEditor = api.getPanel('param-editor');
-      if (paramEditor) {
-        api.addPanel({
-          id: panelId,
-          component: panelId,
-          title: t(locale, def.titleKey),
-          position: { referencePanel: 'param-editor', direction: 'within' },
-        });
+  const handleTogglePanel = useCallback(
+    (panelId: PanelId): void => {
+      const api = dockApiRef.current;
+      if (!api) return;
+      const existing = api.getPanel(panelId);
+      if (existing) {
+        existing.api.setActive();
         return;
       }
-    }
-    api.addPanel({ id: panelId, component: panelId, title: t(locale, def.titleKey) });
-  }, [locale]);
+      const def = getPanelDef(panelId);
+      if (!def) return;
+      if (def.defaultGroup === 'viewer' || def.defaultGroup === 'center') {
+        const paramEditor = api.getPanel('param-editor');
+        if (paramEditor) {
+          api.addPanel({
+            id: panelId,
+            component: panelId,
+            title: t(locale, def.titleKey as Parameters<typeof t>[1]),
+            position: { referencePanel: 'param-editor', direction: 'within' },
+          });
+          return;
+        }
+      }
+      api.addPanel({
+        id: panelId,
+        component: panelId,
+        title: t(locale, def.titleKey as Parameters<typeof t>[1]),
+      });
+    },
+    [locale],
+  );
 
   const handleResetLayout = useCallback((): void => {
     clearLayout();
     const api = dockApiRef.current;
     if (!api) return;
     api.clear();
-    api.addPanel({ id: 'left-panel', component: 'left-panel', title: t(locale, 'panels.leftPanel') });
+    api.addPanel({
+      id: 'left-panel',
+      component: 'left-panel',
+      title: t(locale, 'panels.leftPanel' as Parameters<typeof t>[1]),
+    });
     api.addPanel({
       id: 'param-editor',
       component: 'param-editor',
-      title: t(locale, 'panels.paramEditor'),
+      title: t(locale, 'panels.paramEditor' as Parameters<typeof t>[1]),
       position: { referencePanel: 'left-panel', direction: 'right' },
     });
   }, [locale]);
-
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export state machine.
   //
@@ -517,7 +539,14 @@ export function App(): JSX.Element {
             `data-testid="workspace-resize-h"` selector the workspace
             tests target. */}
           {isImportMerged ? (
-            <div className="app-import-merged-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 30%) 1fr', height: '100%' }}>
+            <div
+              className="app-import-merged-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(280px, 30%) 1fr',
+                height: '100%',
+              }}
+            >
               <div className="app-import-merged-column" data-testid="app-import-merged-column">
                 <ModuleSelectionPanel />
                 <DiffTable />
@@ -530,12 +559,13 @@ export function App(): JSX.Element {
             </div>
           ) : (
             <WorkspaceContext.Provider value={workspaceCtx}>
-              <DockviewReact
-                components={panelComponents}
-                onReady={handleDockReady}
-                className="dockview-theme-reambia"
-                style={{ height: '100%', width: '100%' }}
-              />
+              <div style={{ height: '100%', width: '100%' }}>
+                <DockviewReact
+                  components={panelComponents}
+                  onReady={handleDockReady}
+                  className="dockview-theme-reambia"
+                />
+              </div>
             </WorkspaceContext.Provider>
           )}
         </main>
