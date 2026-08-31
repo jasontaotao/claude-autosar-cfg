@@ -6,7 +6,7 @@
 import { PANEL_REGISTRY } from './registry.js';
 
 const LAYOUT_KEY = 'autosarcfg.layout.v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export type SerializedLayout = Record<string, unknown>;
 

@@ -8,7 +8,7 @@ describe('parseStoredLayout', () => {
   });
 
   it('returns layout for valid stored data', () => {
-    const valid = JSON.stringify({ version: 1, layout: { grid: {}, activePanel: 'x' } });
+    const valid = JSON.stringify({ version: 2, layout: { grid: {}, activePanel: 'x' } });
     expect(parseStoredLayout(valid)).toEqual({ grid: {}, activePanel: 'x' });
   });
 
@@ -28,7 +28,7 @@ describe('parseStoredLayout', () => {
 
   it('returns null when layout references unknown panel ids', () => {
     const unknownPanel = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: {
         grid: {
           root: { type: 'leaf', data: { id: 'ghost-panel', component: 'ghost' } },
@@ -40,10 +40,10 @@ describe('parseStoredLayout', () => {
 
   it('accepts layout with known panel ids', () => {
     const knownPanel = JSON.stringify({
-      version: 1,
+      version: 2,
       layout: {
         grid: {
-          root: { type: 'leaf', data: { id: 'left-panel', component: 'left-panel' } },
+          root: { type: 'leaf', data: { id: 'project', component: 'project' } },
         },
       },
     });
@@ -55,7 +55,7 @@ describe('serializeLayout', () => {
   it('wraps dockview serialize output with version 1', () => {
     const layout = { grid: {}, activePanel: 'test' };
     const result = serializeLayout(layout);
-    expect(result.version).toBe(1);
+    expect(result.version).toBe(2);
     expect(result.layout).toEqual(layout);
   });
 });
