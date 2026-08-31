@@ -135,13 +135,13 @@ describe('AppHeader (Sprint 9 #5 + Sprint 10 #2)', () => {
     (globalThis as any).window.autosarApi = makeWindowApi();
   });
 
-  it('renders the slim top bar (40px class, h-10 token) and the app name', () => {
+  it('renders the slim top bar without repeating native title branding', () => {
     render(<AppHeader {...noopProps} />);
     const header = screen.getByTestId('app-header');
     expect(header).toBeInTheDocument();
     expect(header.className).toContain('app-header');
-    expect(screen.getByText(/^AutosarCfg$/)).toBeInTheDocument();
-    expect(screen.getByTestId('app-logo')).toBeInTheDocument();
+    expect(screen.queryByText(/^AutosarCfg$/)).toBeNull();
+    expect(screen.queryByTestId('app-logo')).toBeNull();
   });
 
   it('renders the app version on the right side, dim and monospace', async () => {

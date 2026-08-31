@@ -41,5 +41,7 @@ describe('AppHeader project menu (UI-v2)', () => {
     fireEvent.click(screen.getByTestId('btn-menu-toggle'));
     expect(screen.getByTestId('btn-project-new')).toBeInTheDocument();
     expect(document.querySelectorAll('.app-dropdown-icon')).toHaveLength(0);
+    expect(screen.queryByTestId('app-logo')).toBeNull();
+    expect(screen.queryByText(/^AutosarCfg$/)).toBeNull();
   });
 });

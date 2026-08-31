@@ -45,7 +45,6 @@ import { AppHeaderStatusBadge } from './AppHeader/AppHeaderStatusBadge.js';
 import { AppHeaderBrandMenu } from './AppHeader/BrandMenu.js';
 import { ViewMenu } from './AppHeader/ViewMenu.js';
 import type { AppHeaderProps } from './AppHeader/types.js';
-import { Logo } from './Logo.js';
 import { StencilWizard } from './StencilWizard/StencilWizard.js';
 
 export type { AppHeaderProps };
@@ -117,16 +116,8 @@ export function AppHeader({
 
   return (
     <header className="app-header" data-testid="app-header" data-tour-id="app-header">
-      <div className="app-header-left">
-        <Logo size={20} />
-        <span className="app-name">AutosarCfg</span>
-        {/* Sprint 13+ — removed the active-doc basename + dirty marker
-            (app-doc-name) and AUTOSAR version chip (app-doc-version)
-            because the user considers them "ecuc 内容层级" — noise on
-            a menu bar that should only carry functional controls. The
-            tree view already names the loaded ECUC module; the menu
-            bar should just give the user buttons. */}
-      </div>
+      {/* Native window chrome already shows the product icon/title, so
+          the in-app header stays functional and does not repeat branding. */}
       <div className="app-header-actions">
         {/* v1.42.x PATCH T4: BrandMenu owns trigger + panel + refs/effects/callbacks;
             menu items live in shell as render-prop children for prop-drilling locality. */}
