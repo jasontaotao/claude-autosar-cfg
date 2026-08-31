@@ -1,18 +1,29 @@
 // src/renderer/panels/registry.ts
-// P3 Dock 工作台 — 面板注册表（spec §5.3）
-// Panel id 一经注册永不改名（布局持久化引用 id）。
+// P4 IA 重组 — 面板注册表（spec §6）
+// 8 个面板：left-panel 退役，拆为 project/files/validation/arxml-tree。
 import type { ComponentType } from 'react';
 
-import { DbcViewerWrapper } from './wrappers/DbcViewerWrapper.js';
-import { LeftPanelWrapper } from './wrappers/LeftPanelWrapper.js';
-import { OdxViewerWrapper } from './wrappers/OdxViewerWrapper.js';
+import { ProjectPanelWrapper } from './wrappers/ProjectPanelWrapper.js';
+import { FilesPanelWrapper } from './wrappers/FilesPanelWrapper.js';
+import { ValidationPanelWrapper } from './wrappers/ValidationPanelWrapper.js';
+import { ArxmlTreePanelWrapper } from './wrappers/ArxmlTreePanelWrapper.js';
 import { ParamEditorWrapper } from './wrappers/ParamEditorWrapper.js';
 import { ScriptPanelWrapper } from './wrappers/ScriptPanelWrapper.js';
+import { DbcViewerWrapper } from './wrappers/DbcViewerWrapper.js';
+import { OdxViewerWrapper } from './wrappers/OdxViewerWrapper.js';
 
 /** Stable panel id — never rename (layout persistence references id). */
-export type PanelId = 'left-panel' | 'param-editor' | 'script-panel' | 'dbc-viewer' | 'odx-viewer';
+export type PanelId =
+  | 'project'
+  | 'files'
+  | 'validation'
+  | 'arxml-tree'
+  | 'param-editor'
+  | 'script-panel'
+  | 'dbc-viewer'
+  | 'odx-viewer';
 
-/** defaultGroup: 'viewer' is defined for P4 but not consumed in P3. */
+/** defaultGroup: 'viewer' activates in P4 (DBC/ODX open into viewer tab group). */
 export type DefaultGroup = 'left' | 'center' | 'bottom' | 'viewer';
 
 export interface PanelDef {
@@ -23,36 +34,14 @@ export interface PanelDef {
 }
 
 export const PANEL_REGISTRY: readonly PanelDef[] = [
-  {
-    id: 'left-panel',
-    component: LeftPanelWrapper,
-    titleKey: 'panels.leftPanel',
-    defaultGroup: 'left',
-  },
-  {
-    id: 'param-editor',
-    component: ParamEditorWrapper,
-    titleKey: 'panels.paramEditor',
-    defaultGroup: 'center',
-  },
-  {
-    id: 'script-panel',
-    component: ScriptPanelWrapper,
-    titleKey: 'panels.scriptPanel',
-    defaultGroup: 'bottom',
-  },
-  {
-    id: 'dbc-viewer',
-    component: DbcViewerWrapper,
-    titleKey: 'panels.dbcViewer',
-    defaultGroup: 'viewer',
-  },
-  {
-    id: 'odx-viewer',
-    component: OdxViewerWrapper,
-    titleKey: 'panels.odxViewer',
-    defaultGroup: 'viewer',
-  },
+  { id: 'project', component: ProjectPanelWrapper, titleKey: 'panels.project', defaultGroup: 'left' },
+  { id: 'files', component: FilesPanelWrapper, titleKey: 'panels.files', defaultGroup: 'left' },
+  { id: 'validation', component: ValidationPanelWrapper, titleKey: 'panels.validation', defaultGroup: 'left' },
+  { id: 'arxml-tree', component: ArxmlTreePanelWrapper, titleKey: 'panels.arxmlTree', defaultGroup: 'left' },
+  { id: 'param-editor', component: ParamEditorWrapper, titleKey: 'panels.paramEditor', defaultGroup: 'center' },
+  { id: 'script-panel', component: ScriptPanelWrapper, titleKey: 'panels.scriptPanel', defaultGroup: 'bottom' },
+  { id: 'dbc-viewer', component: DbcViewerWrapper, titleKey: 'panels.dbcViewer', defaultGroup: 'viewer' },
+  { id: 'odx-viewer', component: OdxViewerWrapper, titleKey: 'panels.odxViewer', defaultGroup: 'viewer' },
 ] as const;
 
 export function getPanelDef(id: string): PanelDef | undefined {
