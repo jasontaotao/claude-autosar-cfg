@@ -227,9 +227,9 @@ describe('scanResidue / findCssFiles（--check 支撑）', () => {
     const miss = scanResidue(css, 'src/renderer/components/ErrorBanner.css');
     expect(miss.filter((r) => r.kind === 'hex')).toHaveLength(2);
   });
-  it('findCssFiles：递归 32 个 CSS 且排除 tokens.css', () => {
+  it('findCssFiles：递归 35 个 CSS 且排除 tokens.css（P2 新增 3 个组件样式）', () => {
     const files = findCssFiles();
-    expect(files.length).toBe(32);
+    expect(files.length).toBe(35);
     expect(files.some((f) => f.replace(/\\/g, '/').endsWith('styles/tokens.css'))).toBe(false);
   });
 });
