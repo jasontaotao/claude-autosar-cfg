@@ -692,6 +692,16 @@ export function App(): JSX.Element {
               if (proj === null || projPath === null) {
                 throw new Error('No project open');
               }
+              const correlationId =
+                dbcImportState.kind === 'preview' ? dbcImportState.correlationId : 'dbc-import';
+              const dbcSummary = dbcImportState.kind === 'preview' ? dbcImportState.summary : null;
+              state.appendDiagnostic({
+                level: 'debug',
+                source: 'dbc-import',
+                message: 'Apply requested',
+                detail: `bytes=${dbcContent.length} targetNode=${targetNode} messages=${dbcSummary?.messageCount ?? 0} signals=${dbcSummary?.signals?.length ?? 0}`,
+                correlationId,
+              });
               const res = await api.dbcImportComStack({
                 dbcContent,
                 projectManifestPath: projPath,
@@ -707,6 +717,13 @@ export function App(): JSX.Element {
                       ? 'dbc.import.error.write'
                       : 'dbc.import.error.read';
                 const baseMessage = t(loc, key, { message: res.error.message });
+                state.appendDiagnostic({
+                  level: 'error',
+                  source: 'dbc-import',
+                  message: `Bridge failed (${res.error.kind})`,
+                  detail: res.error.message,
+                  correlationId,
+                });
                 // v1.23.1 T1 — the 2-phase write reports `rolledBack` so
                 // the user knows whether the project is in a clean
                 // state (rolledBack=true) or partially-bridged
@@ -725,6 +742,18 @@ export function App(): JSX.Element {
                 }
                 throw new Error(res.error.message);
               }
+              const totalAdded =
+                res.value.addedCounts.com +
+                res.value.addedCounts.canIf +
+                res.value.addedCounts.pduR;
+              state.appendDiagnostic({
+                level: 'debug',
+                source: 'dbc-import',
+                message: 'Bridge result',
+                detail: `added=Com:${res.value.addedCounts.com},CanIf:${res.value.addedCounts.canIf},PduR:${res.value.addedCounts.pduR} plan=Com:${res.value.diagnostics.planCounts.com},CanIf:${res.value.diagnostics.planCounts.canIf},PduR:${res.value.diagnostics.planCounts.pduR} dbcMessages=${res.value.diagnostics.dbcMessages} dbcSignals=${res.value.diagnostics.dbcSignals}`,
+                correlationId,
+              });
+              let reloadFailure: string | null = null;
               // Success — surface a confirmation toast AND reload the
               // project so the store re-parses the 3 freshly-written
               // ARXMLs + any BSWMDs. Without the reload, the user
@@ -746,6 +775,14 @@ export function App(): JSX.Element {
                   // succeeded. Surface the reload failure as a
                   // localized warning so the user knows the in-memory
                   // store is stale and can manually reopen.
+                  reloadFailure = reload.message;
+                  state.appendDiagnostic({
+                    level: 'error',
+                    source: 'dbc-import',
+                    message: 'Project reload failed',
+                    detail: reload.message,
+                    correlationId,
+                  });
                   setStoreError(t(loc, 'app.error.openProjectFailed', { message: reload.message }));
                 } else {
                   // Bug 6 FIX — toManifestRelative expects a manifest
@@ -780,20 +817,27 @@ export function App(): JSX.Element {
                 }
               } catch (reloadErr) {
                 // Belt-and-braces — `projectReload` is async + IPC;
-                // a hard reject (channel missing, etc.) should not
-                // sink the apply-success toast.
+                // a hard reject should not hide that files were written.
+                reloadFailure = reloadErr instanceof Error ? reloadErr.message : String(reloadErr);
+                state.appendDiagnostic({
+                  level: 'error',
+                  source: 'dbc-import',
+                  message: 'Project reload rejected',
+                  detail: reloadFailure,
+                  correlationId,
+                });
                 setStoreError(
                   t(loc, 'app.error.openProjectFailed', {
                     message: reloadErr instanceof Error ? reloadErr.message : String(reloadErr),
                   }),
                 );
               }
-              const totalAdded =
-                res.value.addedCounts.com +
-                res.value.addedCounts.canIf +
-                res.value.addedCounts.pduR;
               const afterState = useArxmlStore.getState();
-              afterState.setSuccess(t(loc, 'dbc.import.success', { count: totalAdded }));
+              if (reloadFailure === null && totalAdded > 0) {
+                afterState.setSuccess(t(loc, 'dbc.import.success', { count: totalAdded }));
+              } else if (reloadFailure === null) {
+                afterState.setWarning(t(loc, 'dbc.import.warning.noChanges'));
+              }
               const diag =
                 `proj=${afterState.project !== null ? 'YES' : 'NULL'} ` +
                 `projPath=${afterState.projectPath !== null ? 'YES' : 'NULL'} ` +
@@ -806,7 +850,7 @@ export function App(): JSX.Element {
                 source: 'dbc-import',
                 message: 'Bug6 post-apply store state',
                 detail: diag,
-                correlationId: 'bug6',
+                correlationId,
               });
               closeDbcImportWizard();
             }}

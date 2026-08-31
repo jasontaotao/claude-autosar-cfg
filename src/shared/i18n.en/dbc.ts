@@ -46,6 +46,8 @@ export const DbcEn: DbcMessages = {
     'Failed to write 3 ARXML files: {message} (rolled back — project unchanged, please retry)',
   'dbc.import.error.write.partial':
     'Failed to write 3 ARXML files: {message} (rolled back partially — please check git status)',
+  'dbc.import.warning.noChanges': 'Import completed, but no new items were added (they may already exist).',
+  'dbc.import.error.noMessages': 'The DBC contains no messages to import (no BO_ entries).',
   'dbc.import.success': 'Successfully imported {count} messages',
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.

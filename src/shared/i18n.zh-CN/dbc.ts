@@ -42,6 +42,8 @@ export const DbcZhCN: DbcMessages = {
     '写入 3 个 ARXML 文件失败：{message}（已回滚，项目未变更，请重试）',
   'dbc.import.error.write.partial':
     '写入 3 个 ARXML 文件失败：{message}（部分回滚，请检查 git 状态）',
+  'dbc.import.warning.noChanges': '导入完成，但没有新增条目（可能是全部已存在）。',
+  'dbc.import.error.noMessages': 'DBC 中没有可导入的消息（缺少 BO_ 条目）。',
   'dbc.import.success': '成功导入 {count} 条消息',
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.

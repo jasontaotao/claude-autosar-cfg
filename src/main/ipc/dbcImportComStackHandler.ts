@@ -244,6 +244,17 @@ export async function dbcImportComStackHandler(
     };
   }
 
+  // ---- 4b. Reject a message-less DBC instead of reporting success + 0 ---
+  if (parseRes.value.messages.length === 0) {
+    return {
+      ok: false,
+      error: {
+        kind: 'read-failed',
+        message: 'DBC contains no messages to import (no BO_ entries)',
+      },
+    };
+  }
+
   // ---- 5. Read the 3 ECUC files + load BSWMDs in parallel ----------------
   const [texts, bswmdRes] = await Promise.all([
     Promise.all([
@@ -287,6 +298,15 @@ export async function dbcImportComStackHandler(
           pduRConfig: pduRText,
         };
   const plan = dbcToComStack(mapperInput);
+  const planDiagnostics = {
+    dbcMessages: parseRes.value.messages.length,
+    dbcSignals: parseRes.value.signals.length,
+    planCounts: {
+      com: plan.comPatches.length,
+      canIf: plan.canIfPatches.length,
+      pduR: plan.pduRPatches.length,
+    },
+  };
 
   // ---- 7. Apply each file's plan + serialize --------------------------
   const runRes = await runBridgeForProject(pathRes.value, plan, bswmdRes.value);
@@ -412,6 +432,7 @@ export async function dbcImportComStackHandler(
         canIf: canIf.added,
         pduR: pduR.added,
       },
+      diagnostics: planDiagnostics,
     },
   };
 }

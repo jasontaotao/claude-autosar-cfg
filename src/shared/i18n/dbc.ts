@@ -47,6 +47,8 @@ export interface DbcMessages {
   // code-review as MEDIUM-1).
   readonly 'dbc.import.error.write.rolledBack': string; // {message}
   readonly 'dbc.import.error.write.partial': string; // {message}
+  readonly 'dbc.import.warning.noChanges': string;
+  readonly 'dbc.import.error.noMessages': string;
   readonly 'dbc.import.success': string; // {count}
 
   // --- v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI ---

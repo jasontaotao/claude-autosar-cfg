@@ -39,6 +39,7 @@ export type DbcImportState =
       readonly kind: 'preview';
       readonly summary: DbcSummary;
       readonly content: string;
+      readonly correlationId: string;
     };
 
 export type WizardHandlers = {
@@ -97,6 +98,7 @@ export function useWizardHandlers(): WizardHandlers {
         return;
       }
       const locale = useArxmlStore.getState().locale;
+      const correlationId = `dbc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const opened = await api.openDbc();
       switch (opened.kind) {
         case 'canceled':
@@ -111,6 +113,13 @@ export function useWizardHandlers(): WizardHandlers {
           return;
         }
         case 'opened':
+          useArxmlStore.getState().appendDiagnostic({
+            level: 'debug',
+            source: 'dbc-import',
+            message: 'DBC file opened',
+            detail: `path=${opened.path} bytes=${opened.content.length}`,
+            correlationId,
+          });
           break;
         default: {
           const _exhaustive: never = opened;
@@ -123,9 +132,35 @@ export function useWizardHandlers(): WizardHandlers {
       });
       if (!parsed.ok) {
         const { setError: setStoreError } = useArxmlStore.getState();
+        useArxmlStore.getState().appendDiagnostic({
+          level: 'error',
+          source: 'dbc-import',
+          message: 'DBC parse failed',
+          detail: parsed.error.message,
+          correlationId,
+        });
         setStoreError(t(locale, 'dbc.parse.failed', { message: parsed.error.message }));
         return;
       }
+      if (parsed.value.messages.length === 0) {
+        const message = t(locale, 'dbc.import.error.noMessages');
+        useArxmlStore.getState().appendDiagnostic({
+          level: 'warn',
+          source: 'dbc-import',
+          message,
+          detail: `nodes=${parsed.value.nodeCount}`,
+          correlationId,
+        });
+        useArxmlStore.getState().setError(message);
+        return;
+      }
+      useArxmlStore.getState().appendDiagnostic({
+        level: 'debug',
+        source: 'dbc-import',
+        message: 'DBC parsed',
+        detail: `nodes=${parsed.value.nodeCount} messages=${parsed.value.messageCount}`,
+        correlationId,
+      });
       // Transition to the 'preview' arm — the wizard lands directly
       // on Step 2 (Preview) because the host has already done the
       // open + parse round-trip. The DbcSummary is the source of
@@ -135,6 +170,7 @@ export function useWizardHandlers(): WizardHandlers {
         kind: 'preview',
         summary: parsed.value,
         content: opened.content,
+        correlationId,
       });
     } finally {
       dbcImportInFlight.current = false;

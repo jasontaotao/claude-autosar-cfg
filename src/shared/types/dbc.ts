@@ -96,6 +96,16 @@ export type DbcImportComStackResponse =
           readonly canIf: number;
           readonly pduR: number;
         };
+        /** Counts useful for diagnostics when the bridge succeeds but adds 0 instances. */
+        readonly diagnostics: {
+          readonly dbcMessages: number;
+          readonly dbcSignals: number;
+          readonly planCounts: {
+            readonly com: number;
+            readonly canIf: number;
+            readonly pduR: number;
+          };
+        };
       };
     }
   | {

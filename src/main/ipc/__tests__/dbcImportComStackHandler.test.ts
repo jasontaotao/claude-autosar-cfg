@@ -297,6 +297,43 @@ describe('dbcImportComStackHandler (T3)', () => {
     expect(res.error.message).toContain('ECM');
     expect(res.error.message).toContain('TCM');
   });
+
+  it('rejects a message-less DBC instead of returning success with 0 adds', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const noMessages = ['VERSION ""', 'NS_ :', 'BS_:', 'BU_: ECM', ''].join('\n');
+    const res = await dbcImportComStackHandler({
+      dbcContent: noMessages,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'ECM',
+    });
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error.kind).toBe('read-failed');
+    expect(res.error.message).toContain('no messages');
+  });
+
+  it('returns plan diagnostics on successful bridge', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const res = await dbcImportComStackHandler({
+      dbcContent: seeded.dbcContent,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'ECM',
+    });
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.diagnostics.dbcMessages).toBeGreaterThan(0);
+    expect(res.value.diagnostics.dbcSignals).toBeGreaterThan(0);
+    expect(res.value.diagnostics.planCounts.com).toBeGreaterThan(0);
+    expect(res.value.diagnostics.planCounts.pduR).toBeGreaterThan(0);
+  });
 });
 
 // Suppress unused-vars lint — `mkdirSync` is intentionally imported
