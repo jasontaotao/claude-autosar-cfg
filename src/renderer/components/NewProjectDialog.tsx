@@ -174,6 +174,8 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
   useEffect(() => {
     if (!open) return undefined;
     let cancelled = false;
+    setNameTouched(false);
+    setSubmitAttempted(false);
     setTemplatesLoading(true);
     const api = (globalThis as { window?: { autosarApi?: AutosarApiLike } }).window?.autosarApi;
     if (api === undefined || typeof api.listTemplates !== 'function') {
@@ -236,11 +238,18 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
     return undefined;
   }, [open]);
 
+  // P2 (spec §4.2) — validation timing: the field starts clean; the
+  // error appears only after the user leaves the field (blur) or
+  // attempts a submit (button or Enter).
+  const [nameTouched, setNameTouched] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
   if (!open) return null;
 
   // Live validation — recomputed on every render. The function is
   // pure and allocation-free so this is cheaper than `useMemo`.
   const nameError = validateProjectName(name);
+  const showNameError = (nameTouched || submitAttempted) && nameError !== null;
   const hasDir = dir.trim().length > 0;
   const canSubmit = nameError === null && hasDir && !busy;
 
@@ -267,7 +276,10 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
   };
 
   const handleSubmit = (): void => {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      setSubmitAttempted(true);
+      return;
+    }
     // We snapshot name/dir at click-time (the form-state setters are
     // synchronous; capturing at the top is purely defensive against a
     // future React batching change).
@@ -404,15 +416,16 @@ export function NewProjectDialog({ onSubmit }: NewProjectDialogProps): JSX.Eleme
               ref={nameInputRef}
               id="npd-name"
               type="text"
-              className={`npd-input${nameError !== null ? ' npd-input--error' : ''}`}
+              className={`npd-input${showNameError ? ' npd-input--error' : ''}`}
               data-testid="npd-name-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={() => setNameTouched(true)}
               onKeyDown={handleNameKeyDown}
               autoComplete="off"
               spellCheck={false}
             />
-            {nameErrorText !== null ? (
+            {showNameError && nameErrorText !== null ? (
               <div className="npd-field-error" data-testid="npd-name-error">
                 {nameErrorText}
               </div>

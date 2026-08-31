@@ -182,6 +182,8 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     render(<NewProjectDialog onSubmit={() => {}} />);
     const nameInput = screen.getByTestId('npd-name-input');
     fireEvent.change(nameInput, { target: { value: 'foo<bar' } });
+    // P2 (spec §4.2) — error surfaces on blur, not while typing.
+    fireEvent.blur(nameInput);
     expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
     expect(nameInput.className).toMatch(/error/);
     expect(screen.getByTestId('npd-create')).toBeDisabled();
@@ -193,6 +195,7 @@ describe('NewProjectDialog (Sprint 12 #3 Task 1)', () => {
     fireEvent.change(screen.getByTestId('npd-name-input'), {
       target: { value: 'a'.repeat(65) },
     });
+    fireEvent.blur(screen.getByTestId('npd-name-input'));
     expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
     expect(screen.getByTestId('npd-create')).toBeDisabled();
   });
@@ -544,5 +547,40 @@ describe('NewProjectDialog (Sprint 13+ Stage 3.4 — BSWMD chips)', () => {
     fireEvent.click(screen.getByTestId('tpl-card-classic'));
     await waitFor(() => screen.getByTestId('bswmd-chip-Can.arxml'));
     expect(screen.getByTestId('bswmd-chip-Can.arxml').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('keeps the name field clean on mount (no premature error)', () => {
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => {}} />);
+    expect(screen.queryByTestId('npd-name-error')).toBeNull();
+  });
+
+  it('shows the empty-name error only after blur', () => {
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => {}} />);
+    expect(screen.queryByTestId('npd-name-error')).toBeNull();
+    fireEvent.blur(screen.getByTestId('npd-name-input'));
+    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+  });
+
+  it('submit attempt (Enter with empty name) surfaces the error without submitting', () => {
+    setOpen(true);
+    const onSubmit = vi.fn();
+    render(<NewProjectDialog onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByTestId('npd-dir-input'), {
+      target: { value: '/tmp/projects' },
+    });
+    fireEvent.keyDown(screen.getByTestId('npd-name-input'), { key: 'Enter' });
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+  });
+
+  it('typing a valid name clears the error after it was shown', () => {
+    setOpen(true);
+    render(<NewProjectDialog onSubmit={() => {}} />);
+    fireEvent.blur(screen.getByTestId('npd-name-input'));
+    expect(screen.getByTestId('npd-name-error')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('npd-name-input'), { target: { value: 'Valid_Name' } });
+    expect(screen.queryByTestId('npd-name-error')).toBeNull();
   });
 });

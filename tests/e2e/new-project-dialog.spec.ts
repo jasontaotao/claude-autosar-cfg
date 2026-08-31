@@ -21,8 +21,32 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+/** Minimal autosarApi stub: the dev harness has no Electron preload.
+ *  projectNew returns created so the submit flow can close the dialog. */
+async function installProjectApiStub(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (globalThis as unknown as { autosarApi: unknown }).autosarApi = {
+      getAppVersion: async (): Promise<string> => '0.0.0-e2e',
+      getFeatureFlags: async (): Promise<unknown> => ({ experimental: {} }),
+      projectNew: async (): Promise<unknown> => ({
+        kind: 'created',
+        path: '/tmp/e2e-project-target/.autosarcfg.json',
+        manifest: {},
+      }),
+    };
+  });
+}
 async function openNewProjectDialog(page: Page): Promise<void> {
+  // P2 fix (ledger R2) — the helper never navigated; on a fresh
+  // browser context the app never loads and every test 5s-times out
+  // waiting for app-header (pre-existing on main).
+  await installProjectApiStub(page);
+  await page.goto('/');
   await expect(page.getByTestId('app-header')).toBeVisible();
+  // btn-project-new lives inside the BrandMenu dropdown, which is
+  // conditionally mounted (`{menuOpen && ...}`) — open the menu first
+  // (same as visual-regression.spec.ts note 3).
+  await page.getByTestId('btn-menu-toggle').click();
   await page.getByTestId('btn-project-new').click();
   await expect(page.getByTestId('npd-overlay')).toBeVisible();
   await expect(page.getByTestId('npd-name-input')).toBeFocused();
@@ -34,7 +58,7 @@ test.describe('Sprint 12 #3 — New Project dialog (E2E)', () => {
     await page.getByTestId('npd-name-input').fill('E2E Project');
     await page.getByTestId('npd-dir-input').fill('/tmp/e2e-project-target');
     await expect(page.getByTestId('npd-filename-preview')).toContainText(
-      'E2E_Project.autosarcfg.json',
+      'E2E Project.autosarcfg.json',
     );
     await expect(page.getByTestId('npd-create')).toBeEnabled();
     await page.getByTestId('npd-create').click();
@@ -45,13 +69,17 @@ test.describe('Sprint 12 #3 — New Project dialog (E2E)', () => {
     await openNewProjectDialog(page);
     await page.getByTestId('npd-dir-input').fill('/tmp/e2e-project-target');
     await expect(page.getByTestId('npd-create')).toBeDisabled();
-    await expect(page.getByTestId('npd-name-error')).not.toBeVisible();
+    // P2 (spec §4.2) — filling the dir blurs the name field, which
+    // is now the trigger for showing the empty-name error.
+    await expect(page.getByTestId('npd-name-error')).toBeVisible();
   });
 
   test('validation: invalid characters show the localized error', async ({ page }) => {
     await openNewProjectDialog(page);
     await page.getByTestId('npd-name-input').fill('bad<name');
-    await page.getByTestId('npd-dir-input').fill('/tmp/e2e-project-target');
+    // P2 (spec §4.2) — the error surfaces on blur, not while typing.
+    // Click the dialog title to move focus away → blur fires.
+    await page.getByTestId('npd-title').click();
     await expect(page.getByTestId('npd-name-error')).toBeVisible();
     await expect(page.getByTestId('npd-name-error')).toHaveText(/.+/);
     await expect(page.getByTestId('npd-create')).toBeDisabled();
@@ -60,6 +88,8 @@ test.describe('Sprint 12 #3 — New Project dialog (E2E)', () => {
   test('validation: error clears when user types a valid name', async ({ page }) => {
     await openNewProjectDialog(page);
     await page.getByTestId('npd-name-input').fill('bad<name');
+    // P2 (spec §4.2) — blur first; the error appears only then.
+    await page.getByTestId('npd-name-input').blur();
     await expect(page.getByTestId('npd-name-error')).toBeVisible();
     await page.getByTestId('npd-name-input').fill('GoodName');
     await page.getByTestId('npd-dir-input').fill('/tmp/e2e-project-target');
@@ -73,6 +103,8 @@ test.describe('Sprint 12 #3 — New Project dialog (E2E)', () => {
     await page.getByTestId('npd-dir-input').fill('/tmp/e2e-project-target');
     await page.getByTestId('npd-cancel').click();
     await expect(page.getByTestId('npd-overlay')).not.toBeVisible();
+    // The menu closed when the dialog opened — reopen it first.
+    await page.getByTestId('btn-menu-toggle').click();
     await page.getByTestId('btn-project-new').click();
     await expect(page.getByTestId('npd-overlay')).toBeVisible();
     await expect(page.getByTestId('npd-name-input')).toHaveValue('');
@@ -107,5 +139,12 @@ test.describe('Sprint 12 #3 — New Project dialog (E2E)', () => {
     await page.getByTestId('npd-name-input').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('npd-overlay')).not.toBeVisible();
+  });
+
+  test('validation timing: no error on mount; appears after blur', async ({ page }) => {
+    await openNewProjectDialog(page);
+    await expect(page.getByTestId('npd-name-error')).not.toBeVisible();
+    await page.getByTestId('npd-name-input').blur();
+    await expect(page.getByTestId('npd-name-error')).toBeVisible();
   });
 });
