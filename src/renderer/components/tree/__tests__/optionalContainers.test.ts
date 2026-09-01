@@ -76,8 +76,23 @@ const PARENT_PATH = '/EAS/EcuC/EcuCGeneral';
 // Contract tests for MissingOptionalSibling fields
 // ---------------------------------------------------------------------------
 
+describe('findMissingOptionalSiblings — definition identity', () => {
+  it('does not surface an optional placeholder when custom instances already exist', () => {
+    const definitionRef = '/EAS/EcuC/EcuCGeneral/Cell';
+    const existingChildren = ['Cell_1', 'Cell_2', 'Cell_A'].map((shortName) => ({
+      ...makeChild(shortName),
+      definitionRef,
+    }));
+    const bswmd = makeBswmd({ cellUpper: 'infinite', tempUpper: 1 });
+
+    const result = findMissingOptionalSiblings(bswmd, PARENT_PATH, existingChildren);
+
+    expect(result.find((entry) => entry.cd.shortName === 'Cell')).toBeUndefined();
+  });
+});
+
 describe('findMissingOptionalSiblings — MissingOptionalSibling fields', () => {
-  it('currentCount matches base-name grouping (suffixed siblings count as one collection)', () => {
+  it('suppresses missing placeholder when suffixed instances already exist', () => {
     // Existing value-tree children carry only the suffixed siblings
     // `Cell_1`, `Cell_2`, `Cell_3` — the bare `Cell` is absent. The
     // BSWMD declares `Cell` with lowerMultiplicity=0, so the cd IS
@@ -92,9 +107,7 @@ describe('findMissingOptionalSiblings — MissingOptionalSibling fields', () => 
     const bswmd = makeBswmd({ cellUpper: 'infinite', tempUpper: 1 });
 
     const result = findMissingOptionalSiblings(bswmd, PARENT_PATH, existingChildren);
-    const cellEntry = result.find((m) => m.cd.shortName === 'Cell');
-    expect(cellEntry).toBeDefined();
-    expect(cellEntry?.currentCount).toBe(3);
+    expect(result.find((m) => m.cd.shortName === 'Cell')).toBeUndefined();
   });
 
   it('upperMultiplicity mirrors the BSWMD-declared upper bound (finite + infinite)', () => {

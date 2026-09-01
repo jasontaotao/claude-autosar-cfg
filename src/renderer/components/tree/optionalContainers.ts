@@ -16,7 +16,7 @@ import type { BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
 
 import { resolveContainerDefBySubPath } from '../../store/helpers/bswmdLookup.js';
 
-import { groupSiblingsByShortName } from './collections.js';
+import { groupSiblingsForCollection } from './collections.js';
 
 export interface MissingOptionalSibling {
   readonly cd: ContainerDef;
@@ -69,33 +69,21 @@ export function findMissingOptionalSiblings(
   // unions subContainers + choices because both are user-addable
   // from the BSWMD side.
   const candidates = [...parent.subContainers, ...parent.choices];
-  const existingShortNames = new Set<string>();
-  for (const c of existingChildren) {
-    // References and unknowns don't carry a `shortName`. Use whatever
-    // stable identifier matches the BSWMD-side shortName so dedup
-    // is correct: container/module → shortName, reference → value,
-    // unknown → tagName.
-    if (c.kind === 'reference') {
-      existingShortNames.add(c.value);
-    } else if (c.kind === 'unknown') {
-      existingShortNames.add(c.tagName);
-    } else {
-      existingShortNames.add(c.shortName);
-    }
-  }
-  // Group siblings by BASE shortName (stripping the BSWMD auto-suffix
-  // `_N`/`_<digits>`) so suffixed siblings like `Cell` + `Cell_1` +
-  // `Cell_10` count as ONE collection. We reuse `groupSiblingsByShortName`
-  // so the grouping logic stays in one place — `collections.ts` is the
-  // single source of truth for "what counts as a collection row".
-  const groups = groupSiblingsByShortName(existingChildren);
+  const groups = groupSiblingsForCollection(existingChildren);
+  const currentCountFor = (cd: ContainerDef): number => {
+    const definitionKey = 'definition:/' + cd.path.split('/').filter(Boolean).join('/');
+    const byDefinition = groups.get(definitionKey);
+    if (byDefinition !== undefined) return byDefinition.elements.length;
+    return groups.get('name:' + cd.shortName)?.elements.length ?? 0;
+  };
   return candidates
-    .filter((cd) => cd.lowerMultiplicity === 0 && !existingShortNames.has(cd.shortName))
+    .filter((cd) => cd.lowerMultiplicity === 0)
     .map((cd) => ({
       cd,
-      currentCount: groups.get(cd.shortName)?.length ?? 0,
+      currentCount: currentCountFor(cd),
       upperMultiplicity: cd.upperMultiplicity,
-    }));
+    }))
+    .filter((missing) => missing.currentCount === 0);
 }
 
 /**

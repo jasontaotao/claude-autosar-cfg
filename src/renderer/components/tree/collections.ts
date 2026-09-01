@@ -26,6 +26,59 @@ export function groupSiblingsByShortName(
   return groups;
 }
 
+export interface SiblingCollectionGroup {
+  /** Stable grouping key; definition identity wins over lexical suffix. */
+  readonly key: string;
+  /** User-visible definition name for the collection header. */
+  readonly label: string;
+  /** Normalized definition-ref when the sibling carries one. */
+  readonly definitionRef?: string;
+  elements: ArxmlElement[];
+}
+
+/**
+ * Group siblings for collection rendering.
+ *
+ * ECUC SHORT-NAME is an instance name and may be customized, so a numeric
+ * suffix is not a reliable type identity. When a container carries
+ * DEFINITION-REF, group by that full schema identity. Legacy values without
+ * a definition-ref keep the old _N suffix grouping.
+ */
+export function groupSiblingsForCollection(
+  siblings: readonly ArxmlElement[],
+): Map<string, SiblingCollectionGroup> {
+  const groups = new Map<string, SiblingCollectionGroup>();
+
+  for (const sibling of siblings) {
+    const definitionRef = sibling.kind === 'container' ? sibling.definitionRef : undefined;
+    const normalizedRef =
+      definitionRef === undefined || definitionRef === ''
+        ? undefined
+        : '/' + definitionRef.split('/').filter(Boolean).join('/');
+    const key =
+      normalizedRef === undefined
+        ? 'name:' + stripSuffix(getShortName(sibling))
+        : 'definition:' + normalizedRef;
+    const existing = groups.get(key);
+    if (existing !== undefined) {
+      existing.elements = [...existing.elements, sibling];
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      label:
+        normalizedRef === undefined
+          ? stripSuffix(getShortName(sibling))
+          : (normalizedRef.split('/').filter(Boolean).pop() ?? getShortName(sibling)),
+      ...(normalizedRef === undefined ? {} : { definitionRef: normalizedRef }),
+      elements: [sibling],
+    });
+  }
+
+  return groups;
+}
+
 /**
  * Return the size of the largest same-baseName group in the input. 0 for empty.
  * Used to drive view-density decisions (collapsing default, future virtual

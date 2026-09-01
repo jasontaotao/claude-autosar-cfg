@@ -34,10 +34,11 @@ import type { ArxmlStoreApi } from '../Tree.js';
  * Build a real container element. Mirrors the `makeContainer` shape used by
  * Tree.optionalContainers.test.tsx:85-130 so the fixtures stay uniform.
  */
-const makeEl = (shortName: string): ArxmlElement => ({
+const makeEl = (shortName: string, definitionRef?: string): ArxmlElement => ({
   kind: 'container',
   tagName: 'ECUC-CONTAINER-VALUE',
   shortName,
+  ...(definitionRef === undefined ? {} : { definitionRef }),
   params: {},
   children: [],
 });
@@ -198,6 +199,28 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 // Scenarios
 // ---------------------------------------------------------------------------
+
+describe('Tree -- definition-based collection grouping', () => {
+  it('groups numeric and custom instance names by definition-ref', () => {
+    const definitionRef = '/EAS/JWQ3399/JWQ3399ConfigSet/Cell';
+    const doc = makeDocWithSiblings([
+      makeEl('Cell_1', definitionRef),
+      makeEl('Cell_2', definitionRef),
+      makeEl('Cell_A', definitionRef),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('Cell', 0, 'infinite')]);
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    const header = screen.getByTestId('treeitem-collection-Cell');
+    expect(within(header).getByText(/×3/)).toBeInTheDocument();
+    expect(screen.queryByTestId('treeitem-collection-Cell_A')).toBeNull();
+    expect(screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/Cell_A')).toBeInTheDocument();
+    expect(screen.queryByTestId('add-optional-/EAS_JWQ3399_JWQ3399ConfigSet_Cell')).toBeNull();
+  });
+});
 
 describe('Tree -- collection header integration (P1 T3)', () => {
   it('renders collection header with ×N badge when ≥2 siblings share shortName', () => {

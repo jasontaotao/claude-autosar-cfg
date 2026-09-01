@@ -22,7 +22,11 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
-import type { BswmdDocument, ContainerDef } from '@core/project/bswmd.js';
+import {
+  findContainerDefByDefinitionRef,
+  type BswmdDocument,
+  type ContainerDef,
+} from '@core/project/bswmd.js';
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
 
@@ -35,7 +39,7 @@ import { CollectionHeader } from './CollectionHeader.js';
 import { KindIndicator } from './KindIndicator.js';
 import { OptionalAddPlaceholder } from './OptionalAddPlaceholder.js';
 import { TreeNode } from './TreeNode.js';
-import { groupSiblingsByShortName } from './collections.js';
+import { groupSiblingsForCollection } from './collections.js';
 import { findMissingOptionalSiblings } from './optionalContainers.js';
 
 // Sprint 15 / Phase 3.4 — re-export the TreeNode kind so consumers
@@ -344,35 +348,39 @@ function renderChildren(
   bswmdSchemas: readonly BswmdDocument[],
   locale: Locale,
 ): JSX.Element[] {
-  // Phase P1 T3 — group siblings by base shortName so collectible groups
-  // get a synthetic header. We also need the index→baseName map to decide
-  // whether each real sibling sits inside a collection (and is
-  // therefore gated by the collection's expanded state) or sits
-  // outside any collection (and renders as before).
-  const groups = groupSiblingsByShortName(elements);
-  // Resolve the BSWMD ContainerDef for every baseName group once so the
+  // Group siblings by definition identity so custom instance names such as
+  // `Cell_A` fold into the same collection as `Cell_1` / `Cell_2`.
+  const groups = groupSiblingsForCollection(elements);
+  // Resolve the BSWMD ContainerDef for every collection group once so the
   // collect threshold (below) and the header loop share the same
-  // upperMultiplicity source. Previously only ≥2 groups were looked up.
+  // upperMultiplicity source. Definition identity wins; suffix lookup is
+  // only the legacy fallback.
   const groupDefs = new Map<string, ContainerDef | null>();
-  for (const baseName of groups.keys()) {
-    groupDefs.set(baseName, resolveCollectionChildDef(bswmdSchemas, parentPath, baseName));
+  for (const [key, group] of groups) {
+    const byDefinition =
+      group.definitionRef === undefined
+        ? null
+        : findContainerDefByDefinitionRef(bswmdSchemas, group.definitionRef);
+    groupDefs.set(
+      key,
+      byDefinition !== null
+        ? byDefinition.containerDef
+        : resolveCollectionChildDef(bswmdSchemas, parentPath, group.label),
+    );
   }
-  const collectionBaseNames = new Set<string>();
-  for (const [baseName, group] of groups) {
-    const def = groupDefs.get(baseName);
+  const collectionGroupKeys = new Set<string>();
+  for (const [key, group] of groups) {
+    const def = groupDefs.get(key);
     if (def === null || def === undefined) continue;
-    if (shouldRenderCollectionHeader(group.length, def.upperMultiplicity)) {
-      collectionBaseNames.add(baseName);
+    if (shouldRenderCollectionHeader(group.elements.length, def.upperMultiplicity)) {
+      collectionGroupKeys.add(key);
     }
   }
+  const collectionKeyByElement = new Map<ArxmlElement, string>();
+  for (const [key, group] of groups) {
+    for (const element of group.elements) collectionKeyByElement.set(element, key);
+  }
 
-  // Helper — strip the `_<digits>` suffix so a real sibling like
-  // `AFECellValidSet_1` is correctly attributed to its baseName
-  // collection `AFECellValidSet`. Mirrors collections.ts stripSuffix.
-  const stripSuffix = (name: string): string => name.replace(/_[0-9]+$/, '');
-
-  // Phase P1 T3 (collection default-EXPANDED fold): siblings whose
-  // base shortName is in a ≥2 group no longer render as direct
   // children of `parentPath`. They are surfaced as indented
   // children of the matching CollectionHeader so the tree visually
   // groups them under the synthetic `×N` row. Siblings outside any
@@ -383,15 +391,19 @@ function renderChildren(
   // (below) hides those siblings.
   const realChildren = elements.flatMap((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
-    const baseName = stripSuffix(shortNameOf(el));
+    const groupKey = collectionKeyByElement.get(el);
     // Chevron semantics: a node is expandable only when it has real
     // content or the loaded BSWMD says that missing optional children
     // can be added. This avoids showing a false "expand me" affordance
     // for an empty 1..1 / 0..1 container that has nothing inside.
     const isLeaf = !elementIsExpandable(el, childPath, bswmdSchemas);
-    const tooltip = buildElementTooltip(el, groupDefs.get(baseName) ?? null, locale);
+    const tooltip = buildElementTooltip(
+      el,
+      groupKey === undefined ? null : (groupDefs.get(groupKey) ?? null),
+      locale,
+    );
     const kindLabel = el.kind === 'unknown' ? undefined : t(locale, treeKindLabelKey(el.kind));
-    if (collectionBaseNames.has(baseName)) {
+    if (groupKey !== undefined && collectionGroupKeys.has(groupKey)) {
       // Sibling belongs to a collection — render it inside the
       // CollectionHeader (not here). The visibility of this
       // rendered-as-header-child sibling is driven by the
@@ -439,11 +451,12 @@ function renderChildren(
   // adds a new suffixed sibling that will appear inside the
   // collection on next render.
   const collectionHeaders: JSX.Element[] = [];
-  for (const [baseName, group] of groups) {
-    const loopDef = groupDefs.get(baseName);
+  for (const [groupKey, group] of groups) {
+    const loopDef = groupDefs.get(groupKey);
     if (loopDef === null || loopDef === undefined) continue;
-    if (!shouldRenderCollectionHeader(group.length, loopDef.upperMultiplicity)) continue;
-    const collectionKey = `collection:${parentPath}/${baseName}`;
+    if (!shouldRenderCollectionHeader(group.elements.length, loopDef.upperMultiplicity)) continue;
+    const baseName = group.label;
+    const collectionKey = 'collection:' + parentPath + '/' + groupKey;
     // Default-EXPANDED: the user sees the synthetic `×N` header with
     // its real siblings listed underneath. Clicking the header's
     // chevron adds `collectionKey` to the `expanded` Set — at that
@@ -466,12 +479,14 @@ function renderChildren(
     // context-menu behavior; the CollectionHeader just owns the
     // visual grouping + `+ 1` add affordance above them.
     const collectionChildren: JSX.Element[] = isExpanded
-      ? group.map((el) => {
+      ? group.elements.map((el) => {
           const childPath = `${parentPath}/${shortNameOf(el)}`;
           const isLeaf = !elementIsExpandable(el, childPath, bswmdSchemas);
           const tooltip = buildElementTooltip(
             el,
-            groupDefs.get(stripSuffix(shortNameOf(el))) ?? null,
+            collectionKeyByElement.get(el) === undefined
+              ? null
+              : (groupDefs.get(collectionKeyByElement.get(el)!) ?? null),
             locale,
           );
           const kindLabel =
@@ -523,7 +538,7 @@ function renderChildren(
       <Fragment key={collectionKey}>
         <CollectionHeader
           shortName={baseName}
-          count={group.length}
+          count={group.elements.length}
           upperMultiplicity={childDef.upperMultiplicity}
           isExpanded={isExpanded}
           onToggle={() => toggle(collectionKey)}

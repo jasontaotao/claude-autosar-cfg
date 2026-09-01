@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { ArxmlElement } from '@core/arxml/types.js';
 
-import { groupSiblingsByShortName, maxCollectionSize } from '../collections.js';
+import {
+  groupSiblingsByShortName,
+  groupSiblingsForCollection,
+  maxCollectionSize,
+} from '../collections.js';
 
 const makeContainer = (shortName: string): ArxmlElement => ({
   kind: 'container',
@@ -36,6 +40,37 @@ describe('groupSiblingsByShortName', () => {
     const groups = groupSiblingsByShortName(elements);
     expect(groups.size).toBe(1);
     expect(groups.get('Cell')?.length).toBe(3);
+  });
+});
+
+describe('groupSiblingsForCollection', () => {
+  it('groups renamed custom instances by definition identity', () => {
+    const definitionRef = '/EAS/EcuCDefs/EcuC/Cell';
+    const elements = [
+      makeContainer('Cell_1'),
+      makeContainer('Cell_2'),
+      makeContainer('Cell_A'),
+    ].map((element) => (element.kind === 'container' ? { ...element, definitionRef } : element));
+
+    const groups = groupSiblingsForCollection(elements);
+
+    expect(groups.size).toBe(1);
+    expect(groups.get('definition:/EAS/EcuCDefs/EcuC/Cell')?.label).toBe('Cell');
+    expect(groups.get('definition:/EAS/EcuCDefs/EcuC/Cell')?.elements).toHaveLength(3);
+  });
+
+  it('falls back to numeric-suffix grouping when definition-ref is absent', () => {
+    const noRef = (shortName: string): ArxmlElement => {
+      const element = makeContainer(shortName);
+      if (element.kind !== 'container') return element;
+      const { definitionRef: _definitionRef, ...rest } = element;
+      void _definitionRef;
+      return rest;
+    };
+    const groups = groupSiblingsForCollection([noRef('Cell_1'), noRef('Cell_2'), noRef('Cell_A')]);
+
+    expect(groups.get('name:Cell')?.elements).toHaveLength(2);
+    expect(groups.get('name:Cell_A')?.elements).toHaveLength(1);
   });
 });
 
