@@ -63,6 +63,7 @@ export const DbcEn: DbcMessages = {
   'dbc.import.success': 'Successfully imported {count} messages',
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.
+  'odx.import.diagnosticExtract.menu.label': 'Import ODX-D → Diagnostic Extract…',
   'odx.export.diagnosticExtract.button': 'Export Diagnostic Extract',
   'odx.export.diagnosticExtract.exporting': 'Exporting…',
   'odx.export.diagnosticExtract.success.title': 'Diagnostic Extract Exported',

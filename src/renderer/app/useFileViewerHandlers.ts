@@ -44,7 +44,7 @@ export type FileViewerHandlers = {
   // 4 callbacks (verbatim from App.tsx Flow 2)
   openDbcViewer: () => Promise<void>;
   closeDbcViewer: () => void;
-  openOdxViewer: () => Promise<void>;
+  openOdxViewer: () => Promise<OdxModalState>;
   closeOdxViewer: () => void;
   // 2 state slots
   dbcModal: DbcModalState;
@@ -133,27 +133,32 @@ export function useFileViewerHandlers(): FileViewerHandlers {
   // In-flight ref — survives across the awaited IPC round-trip so a
   // concurrent click cannot race the in-flight call.
   const odxInFlight = useRef(false);
-  const openOdxViewer = useCallback(async (): Promise<void> => {
-    if (odxInFlight.current) return;
+  const openOdxViewer = useCallback(async (): Promise<OdxModalState> => {
+    if (odxInFlight.current) return { kind: 'closed' };
     odxInFlight.current = true;
     try {
       const api = window.autosarApi;
       if (api === undefined) {
-        setOdxModal({ kind: 'error', message: 'openOdx API not available' });
-        return;
+        const unavailable: OdxModalState = { kind: 'error', message: 'openOdx API not available' };
+        setOdxModal(unavailable);
+        return unavailable;
       }
       const locale = useArxmlStore.getState().locale;
       const opened = await api.openOdx();
       switch (opened.kind) {
-        case 'canceled':
-          setOdxModal({ kind: 'closed' });
-          return;
-        case 'read-failed':
-          setOdxModal({
+        case 'canceled': {
+          const canceled: OdxModalState = { kind: 'closed' };
+          setOdxModal(canceled);
+          return canceled;
+        }
+        case 'read-failed': {
+          const openFailed: OdxModalState = {
             kind: 'error',
             message: t(locale, 'odx.open.failed', { message: opened.message }),
-          });
-          return;
+          };
+          setOdxModal(openFailed);
+          return openFailed;
+        }
         case 'opened':
           break;
         default: {
@@ -166,13 +171,16 @@ export function useFileViewerHandlers(): FileViewerHandlers {
         content: opened.content,
       });
       if (!parsed.ok) {
-        setOdxModal({
+        const parseFailed: OdxModalState = {
           kind: 'error',
           message: t(locale, 'odx.parse.failed', { message: parsed.error.message }),
-        });
-        return;
+        };
+        setOdxModal(parseFailed);
+        return parseFailed;
       }
-      setOdxModal({ kind: 'open', path: opened.path, summary: parsed.value });
+      const openedState: OdxModalState = { kind: 'open', path: opened.path, summary: parsed.value };
+      setOdxModal(openedState);
+      return openedState;
     } finally {
       odxInFlight.current = false;
     }

@@ -69,6 +69,7 @@ export interface DbcMessages {
   // Export Diagnostic Extract button in OdxViewer + the success
   // dialog that surfaces 2 ARXML file paths + counts after the
   // T2 IPC handler returns ok=true.
+  readonly 'odx.import.diagnosticExtract.menu.label': string;
   readonly 'odx.export.diagnosticExtract.button': string;
   readonly 'odx.export.diagnosticExtract.exporting': string;
   readonly 'odx.export.diagnosticExtract.success.title': string;

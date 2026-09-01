@@ -355,6 +355,11 @@ export function App(): JSX.Element {
     diagExtractModal,
     diagExtractExporting,
   } = useDiagExtractHandlers({ odxModal });
+  const handleImportOdxDiagnosticExtract = useCallback(async (): Promise<void> => {
+    const opened = await openOdxViewer();
+    if (opened.kind !== 'open') return;
+    await handleExportOdxDiagnosticExtract({ odxPath: opened.path });
+  }, [openOdxViewer, handleExportOdxDiagnosticExtract]);
   const workspaceCtx = useMemo(
     () => ({
       handleAddEcucFromBswmd,
@@ -542,6 +547,8 @@ export function App(): JSX.Element {
           dbcBusy={dbcInFlight.current}
           onOpenOdx={openOdxViewer}
           odxBusy={odxInFlight.current}
+          onImportOdxExtract={handleImportOdxDiagnosticExtract}
+          odxExtractBusy={diagExtractExporting || odxInFlight.current}
           onOpenDbcImport={openDbcImportWizard}
           dbcImportBusy={dbcImportInFlight.current}
           onOpenXlsxBatch={openXlsxBatchWizard}

@@ -50,7 +50,7 @@ export type DiagExtractModalState =
 
 export type DiagExtractHandlers = {
   // 2 callbacks (verbatim from App.tsx Flow 3)
-  handleExportOdxDiagnosticExtract: () => Promise<void>;
+  handleExportOdxDiagnosticExtract: (options?: { readonly odxPath?: string }) => Promise<void>;
   closeDiagExtractDialog: () => void;
   // 2 state slots
   diagExtractModal: DiagExtractModalState;
@@ -66,11 +66,14 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
   });
   const [diagExtractExporting, setDiagExtractExporting] = useState(false);
 
-  const handleExportOdxDiagnosticExtract = useCallback(async (): Promise<void> => {
+  const handleExportOdxDiagnosticExtract = useCallback(async (options?: {
+    readonly odxPath?: string;
+  }): Promise<void> => {
     // Read-once pattern: `setStoreError` from the store at call time
     // (avoids useCallback dep-array churn + stale-closure trap).
     const { setError: setStoreError } = useArxmlStore.getState();
-    if (odxModal.kind !== 'open') return; // only meaningful while a parsed ODX is loaded
+    const activeOdxPath = options?.odxPath ?? (odxModal.kind === 'open' ? odxModal.path : null);
+    if (activeOdxPath === null) return; // only meaningful with a parsed ODX
     if (diagExtractExporting) return;
     const api = window.autosarApi;
     if (api === undefined) {
@@ -81,7 +84,7 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
     // manifest filename off `projectPath` to derive `projectDir` and
     // then append `samples/arxml/diagnostic-extract/`. The T2 handler
     // creates the Dem_Extract.arxml + Dcm_Extract.arxml inside that
-    // directory (or returns read-failed if the dir doesn't exist).
+    // directory, creating the folder when it is missing.
     // Per the brief, a user-selected path is out-of-scope for v1.24.0;
     // the project-relative default is the single source of truth.
     const state = useArxmlStore.getState();
@@ -91,11 +94,11 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
     const outputDir =
       projectDir.length > 0
         ? `${projectDir}/samples/arxml/diagnostic-extract`
-        : `${odxModal.path.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
+        : `${activeOdxPath.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
     setDiagExtractExporting(true);
     try {
       const res = await api.importDiagnosticExtract({
-        odxPath: odxModal.path,
+        odxPath: activeOdxPath,
         outputDir,
       });
       if (res.ok) {

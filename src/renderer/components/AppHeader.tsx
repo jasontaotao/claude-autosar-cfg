@@ -60,7 +60,9 @@ export function AppHeader({
   onOpenDbc,
   dbcBusy,
   onOpenOdx,
+  onImportOdxExtract,
   odxBusy,
+  odxExtractBusy,
   onOpenDbcImport,
   dbcImportBusy,
   onOpenXlsxBatch,
@@ -210,6 +212,21 @@ export function AppHeader({
                 {t(api.locale, 'app.open.odx')}
               </button>
               <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  api.closeMenu();
+                  onImportOdxExtract?.();
+                }}
+                disabled={odxBusy || odxExtractBusy === true}
+                data-testid="btn-import-odx-diagnostic-extract"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  📥
+                </span>
+                {t(api.locale, 'odx.import.diagnosticExtract.menu.label')}
+              </button>              <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"

@@ -63,7 +63,11 @@ export interface AppHeaderProps {
   // MEDIUM decoupling).
   readonly onOpenOdx: () => void;
   readonly odxBusy: boolean;
-  // v1.23.0 T4 — "File Operations → Import DBC → Com Stack…" menu
+  // v1.58.0 — explicit one-shot "Import ODX-D → Diagnostic Extract" entry.
+  // The host picks/parses the ODX-D file and immediately invokes the
+  // existing diagnostic-extract IPC; AppHeader only forwards intent.
+  readonly onImportOdxExtract?: () => void;
+  readonly odxExtractBusy?: boolean;  // v1.23.0 T4 — "File Operations → Import DBC → Com Stack…" menu
   // entry. The parent (App.tsx) owns the openDbc → parseDbc round
   // trip + the DbcImportWizard state machine + the v1.23.0 T3 IPC
   // apply handler. AppHeader just forwards the click + renders the

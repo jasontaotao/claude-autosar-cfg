@@ -58,6 +58,7 @@ export const DbcZhCN: DbcMessages = {
   'dbc.import.success': '成功导入 {count} 条消息',
 
   // v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI.
+  'odx.import.diagnosticExtract.menu.label': '导入 ODX-D → 诊断抽取…',
   'odx.export.diagnosticExtract.button': '导出诊断抽取',
   'odx.export.diagnosticExtract.exporting': '导出中…',
   'odx.export.diagnosticExtract.success.title': '诊断抽取已导出',
