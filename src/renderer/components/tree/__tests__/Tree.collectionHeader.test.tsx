@@ -7,7 +7,11 @@
 // docs/superpowers/specs/2026-07-13-multi-instance-tree-ui-design.md):
 //
 //   1. ≥2 same-shortName siblings → CollectionHeader renders with ×N count.
-//   2. <2 siblings (single child) → no CollectionHeader row.
+//   2. Single child with a finite upper bound → no CollectionHeader row.
+//   3. Single child with an 'infinite' upper bound → CollectionHeader
+//      renders with ×1 so the `+ 1` affordance stays available at count 1
+//      (fixes the dead zone where the optional-add placeholder disappears
+//      at count 1 but the header only appeared at ≥2).
 //   3. Default-collapsed → real sibling TreeNode rows are HIDDEN.
 //   4. Chevron click → toggles expand; real sibling rows become visible.
 //   5. `+` button disabled when count >= BSWMD upperMultiplicity.
@@ -215,18 +219,53 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     expect(within(header).getByText(/×3/)).toBeInTheDocument();
   });
 
-  it('does NOT render collection header when only 1 sibling shares the shortName', () => {
+  it('renders a collection header with an enabled +1 for a single unbounded (0..*) sibling', () => {
     const doc = makeDocWithSiblings([makeEl('AFECellValidSet')]);
     const bswmd = makeBswmd([makeSiblingDef('AFECellValidSet', 0, 'infinite')]);
+    const addContainerSpy = vi.fn();
+    const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd], addContainer: addContainerSpy });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    // Single-instance unbounded collections get the header so the
+    // `+ 1` affordance is available at count 1 — the placeholder row
+    // (count 0) hands off to the header row (count ≥1) without a gap.
+    const header = screen.getByTestId('treeitem-collection-AFECellValidSet');
+    expect(header).toBeInTheDocument();
+    expect(within(header).getByText(/×1/)).toBeInTheDocument();
+
+    // The single real sibling renders inside the collection branch.
+    expect(
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+    ).toBeInTheDocument();
+
+    // The + button is enabled and invokes addContainer with the
+    // collection's parent path + base name (auto-suffix is produced by
+    // coreAddContainer; the renderer passes the base name).
+    const addBtn = screen.getByTestId('add-collection-AFECellValidSet');
+    expect(addBtn).toBeEnabled();
+    fireEvent.click(addBtn);
+    expect(addContainerSpy).toHaveBeenCalledTimes(1);
+    expect(addContainerSpy).toHaveBeenCalledWith(
+      '/EAS/JWQ3399/JWQ3399ConfigSet',
+      'AFECellValidSet',
+    );
+  });
+
+  it('does NOT render a collection header for a single finite 0..1 sibling (already at max)', () => {
+    const doc = makeDocWithSiblings([makeEl('AFETempValidSet')]);
+    const bswmd = makeBswmd([makeSiblingDef('AFETempValidSet', 0, 1)]);
     const { api } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
     render(<Tree store={api} />);
     expandToConfigSet();
 
-    // No collection header row for a single-element collection.
-    expect(screen.queryByTestId('treeitem-collection-AFECellValidSet')).toBeNull();
-    // The single real sibling still renders as a normal TreeNode.
+    // Finite upper bounds keep the ≥2 threshold: a single 0..1
+    // container is already at max, so a header row would only add
+    // visual noise without enabling anything.
+    expect(screen.queryByTestId('treeitem-collection-AFETempValidSet')).toBeNull();
+    // The single real sibling renders as a normal TreeNode.
     expect(
-      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFECellValidSet'),
+      screen.getByTestId('treeitem-/EAS/JWQ3399/JWQ3399ConfigSet/AFETempValidSet'),
     ).toBeInTheDocument();
   });
 

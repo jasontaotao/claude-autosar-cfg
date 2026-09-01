@@ -326,15 +326,26 @@ function renderChildren(
   bswmdSchemas: readonly BswmdDocument[],
   locale: Locale,
 ): JSX.Element[] {
-  // Phase P1 T3 — group siblings by base shortName so ≥2 groups get a
-  // synthetic header. We also need the index→baseName map to decide
+  // Phase P1 T3 — group siblings by base shortName so collectible groups
+  // get a synthetic header. We also need the index→baseName map to decide
   // whether each real sibling sits inside a collection (and is
   // therefore gated by the collection's expanded state) or sits
   // outside any collection (and renders as before).
   const groups = groupSiblingsByShortName(elements);
+  // Resolve the BSWMD ContainerDef for every baseName group once so the
+  // collect threshold (below) and the header loop share the same
+  // upperMultiplicity source. Previously only ≥2 groups were looked up.
+  const groupDefs = new Map<string, ContainerDef | null>();
+  for (const baseName of groups.keys()) {
+    groupDefs.set(baseName, resolveCollectionChildDef(bswmdSchemas, parentPath, baseName));
+  }
   const collectionBaseNames = new Set<string>();
   for (const [baseName, group] of groups) {
-    if (group.length >= 2) collectionBaseNames.add(baseName);
+    const def = groupDefs.get(baseName);
+    if (def === null || def === undefined) continue;
+    if (shouldRenderCollectionHeader(group.length, def.upperMultiplicity)) {
+      collectionBaseNames.add(baseName);
+    }
   }
 
   // Helper — strip the `_<digits>` suffix so a real sibling like
@@ -396,15 +407,18 @@ function renderChildren(
     ];
   });
 
-  // Phase P1 T3 — collection headers (one per ≥2 baseName group).
-  // The header's `onAdd` invokes the existing `addContainer` mutation
+  // Phase P1 T3 — collection headers (one per collectible baseName
+  // group; see shouldRenderCollectionHeader for the threshold). The
+  // header's `onAdd` invokes the existing `addContainer` mutation
   // — `coreAddContainer` produces the auto-suffix `_N` (see
   // src/core/arxml/mutation/container-ops.ts:98-103), so each click
   // adds a new suffixed sibling that will appear inside the
   // collection on next render.
   const collectionHeaders: JSX.Element[] = [];
   for (const [baseName, group] of groups) {
-    if (group.length < 2) continue;
+    const loopDef = groupDefs.get(baseName);
+    if (loopDef === null || loopDef === undefined) continue;
+    if (!shouldRenderCollectionHeader(group.length, loopDef.upperMultiplicity)) continue;
     const collectionKey = `collection:${parentPath}/${baseName}`;
     // Default-EXPANDED: the user sees the synthetic `×N` header with
     // its real siblings listed underneath. Clicking the header's
@@ -418,8 +432,7 @@ function renderChildren(
     // wanted (verified against screenshot #11 in session 225).
     const isCollapsed = expanded.has(collectionKey);
     const isExpanded = !isCollapsed;
-    const childDef = resolveCollectionChildDef(bswmdSchemas, parentPath, baseName);
-    if (childDef === null) continue;
+    const childDef = loopDef;
     // Real siblings inside the collection: render as TreeNodes at
     // `depth + 1` so they indent one level beneath the header. The
     // visibility of the whole group is driven by `isExpanded` —
@@ -532,6 +545,29 @@ function renderChildren(
   });
 
   return [...collectionHeaders, ...realChildren, ...placeholders];
+}
+
+/**
+ * Collect threshold predicate for synthetic CollectionHeader rows.
+ *
+ * A baseName group renders a CollectionHeader when:
+ *   - it has ≥2 same-baseName siblings (the original Phase P1 T3 rule), OR
+ *   - it has exactly 1 sibling whose BSWMD upperMultiplicity is
+ *     'infinite' (0..* / 1..*).
+ *
+ * The single-instance unbounded rule fixes the count=1 dead zone where
+ * the optional-add placeholder (S4) disappears once the first instance
+ * exists, but the collection header's `+ 1` affordance only appeared
+ * at count ≥2 — leaving no way to add a second instance from the tree.
+ * Finite upper bounds keep the ≥2 threshold: a single 0..1 container is
+ * already at max, so a header row would only add noise.
+ */
+function shouldRenderCollectionHeader(
+  count: number,
+  upperMultiplicity: number | 'infinite',
+): boolean {
+  if (count >= 2) return true;
+  return upperMultiplicity === 'infinite' && count >= 1;
 }
 
 /**
