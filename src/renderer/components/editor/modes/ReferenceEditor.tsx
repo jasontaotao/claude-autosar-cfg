@@ -23,7 +23,7 @@ export function ReferenceEditor({ paramKey, value, containerPath }: Props): JSX.
         type="text"
         value={value.value}
         aria-label={`${paramKey} reference path`}
-        placeholder="/EAS/Com/SomeSignal"
+        placeholder="/AR-PACKAGE/Module/Container/Target"
         className="flex-1 rounded border border-slate-300 px-2 py-1 font-mono text-xs text-slate-900"
         onChange={(e) =>
           updateParam(containerPath, paramKey, {
