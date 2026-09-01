@@ -173,7 +173,7 @@ export function ParamEditor({ onOpenProject, onNewProject }: ParamEditorProps = 
 
   return (
     <section
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+      className="param-editor h-full min-h-0 overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
       aria-label="Parameter editor"
     >
       <header className="mb-4 flex items-center gap-2">

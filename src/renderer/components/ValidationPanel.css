@@ -181,3 +181,11 @@
   font-style: italic;
   margin: 4px 0;
 }
+
+.validation-panel-embedded {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-panel);
+}
+
