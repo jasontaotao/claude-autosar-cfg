@@ -23,5 +23,6 @@
 // './lookup.js'` + `export * from './validate.js'`.
 
 export * from './types.js';
+export * from './definitionLookup.js';
 export * from './parse.js';
 export * from './lookup.js';
