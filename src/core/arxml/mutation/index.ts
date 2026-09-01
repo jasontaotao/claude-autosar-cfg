@@ -15,3 +15,4 @@ export * from './container-ops.js';
 export * from './param-ref-ops.js';
 export * from './discovery.js';
 export * from './tree-ops.js';
+export * from './rename.js';
