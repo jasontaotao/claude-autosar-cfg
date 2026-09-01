@@ -3,6 +3,7 @@
 // closure, no I/O. Extracted from useArxmlStore.ts in PR(5).
 
 import {
+  findContainerDefByDefinitionRef,
   getContainerDefByPath,
   type BswModuleDef,
   type BswmdDocument,
@@ -11,6 +12,40 @@ import {
   type ReferenceDef,
 } from '@core/project/bswmd.js';
 
+export interface ContainerDefinitionContext {
+  readonly moduleDef: BswModuleDef;
+  readonly parentContainerDef: ContainerDef;
+}
+
+/**
+ * Resolve the selected ECUC container's BSWMD definition.
+ *
+ * `DEFINITION-REF` is authoritative because ECUC `SHORT-NAME` is an
+ * instance name. Path lookup remains as a fallback for legacy values
+ * without a definition ref (or when a loaded schema no longer contains
+ * the referenced definition).
+ */
+export function resolveContainerDefinitionContext(
+  schemas: readonly BswmdDocument[],
+  containerPath: string,
+  definitionRef: string | undefined,
+): ContainerDefinitionContext | null {
+  if (definitionRef !== undefined && definitionRef !== '') {
+    const byDefinition = findContainerDefByDefinitionRef(schemas, definitionRef);
+    if (byDefinition !== null) {
+      return {
+        moduleDef: byDefinition.moduleDef,
+        parentContainerDef: byDefinition.containerDef,
+      };
+    }
+  }
+  const byPath = resolveModuleAndParentContainer(schemas, containerPath);
+  if (byPath === null || byPath.parentContainerDef === null) return null;
+  return {
+    moduleDef: byPath.moduleDef,
+    parentContainerDef: byPath.parentContainerDef,
+  };
+}
 /**
  * Sprint 15 HIGH-2 — find the BswModuleDef whose shortName appears in
  * the value-side document path. Returns `null` when no BSWMD is loaded
