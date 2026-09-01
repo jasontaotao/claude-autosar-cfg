@@ -59,6 +59,8 @@ export const ValidationEn: ValidationMessages = {
   'mutation.error.multiplicity-floor': 'Cannot go below minimum ({current}/{min})',
   'mutation.error.no-bswmd-for-module': 'Load BSWMD first',
   'mutation.error.invalid-param-type': "Parameter '{key}' is not defined in the BSWMD",
+  'mutation.error.empty-short-name': 'Instance name cannot be empty',
+  'mutation.error.invalid-short-name': "Invalid instance name: '{shortName}'",
   'mutation.error.module-not-found': "ECUC module not found at '{path}'",
   'mutation.error.removeDocument-not-found': "ARXML '{path}' is not loaded, cannot remove",
   'mutation.error.removeBswmd-not-found': "BSWMD '{path}' is not loaded, cannot remove",

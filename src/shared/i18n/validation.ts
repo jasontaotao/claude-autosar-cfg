@@ -60,6 +60,8 @@ export interface ValidationMessages {
   readonly 'mutation.error.multiplicity-floor': string; // {current} {min}
   readonly 'mutation.error.no-bswmd-for-module': string;
   readonly 'mutation.error.invalid-param-type': string; // {key}
+  readonly 'mutation.error.empty-short-name': string;
+  readonly 'mutation.error.invalid-short-name': string; // {shortName}
   readonly 'mutation.error.module-not-found': string; // {path}
   readonly 'mutation.error.removeDocument-not-found': string; // {path}
   readonly 'mutation.error.removeBswmd-not-found': string; // {path}

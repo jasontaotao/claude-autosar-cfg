@@ -3,7 +3,7 @@
 // addParameter / addReference / deleteParameter / confirmDeleteContainer.
 // Pure — no store closure. Extracted from useArxmlStore.ts in PR(5).
 
-import type { MutationError } from '@core/arxml/mutation.js';
+import type { MutationError, RenameShortNameError } from '@core/arxml/mutation.js';
 import type { ArxmlDocument } from '@core/arxml/types';
 import { validateProjectForRenderer } from '@core/validation';
 import { t } from '@shared/i18n/index.js';
@@ -42,6 +42,20 @@ export function mutationErrorToI18n(locale: Locale, error: MutationError): strin
       return t(locale, 'mutation.error.no-bswmd-for-module');
     case 'invalid-param-type':
       return t(locale, 'mutation.error.invalid-param-type', { key: error.key });
+  }
+}
+
+export function renameErrorToI18n(locale: Locale, error: RenameShortNameError): string {
+  switch (error.kind) {
+    case 'path-not-found':
+    case 'not-container':
+      return t(locale, 'mutation.error.path-not-found');
+    case 'empty-short-name':
+      return t(locale, 'mutation.error.empty-short-name');
+    case 'invalid-short-name':
+      return t(locale, 'mutation.error.invalid-short-name', { shortName: error.shortName });
+    case 'sibling-name-conflict':
+      return t(locale, 'mutation.error.name-conflict', { shortName: error.shortName });
   }
 }
 

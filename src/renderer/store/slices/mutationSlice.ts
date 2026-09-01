@@ -14,6 +14,7 @@ import {
   removeContainer as coreRemoveContainer,
   removeModuleFromDoc,
   removeParameter as coreRemoveParameter,
+  renameContainer as coreRenameContainer,
 } from '@core/arxml/mutation.js';
 import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlContainer, ArxmlDocument, ArxmlElement } from '@core/arxml/types';
@@ -39,6 +40,7 @@ import {
   applyMutationResultToActive,
   applyMutationResultToSource,
   mutationErrorToI18n,
+  renameErrorToI18n,
   setErrorWithKind,
 } from '../helpers/mutationErrors.js';
 import type { ArxmlState } from '../useArxmlStore.js';
@@ -71,6 +73,7 @@ export interface MutationSlice {
    * No-op + error toast when the path does not resolve to a module.
    */
   deleteEcucModule: (modulePath: string) => void;
+  renameContainer: (containerPath: string, newShortName: string) => void;
 }
 
 export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice> = (set, get) => ({
@@ -736,6 +739,46 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
         { name: moduleShortName },
       ),
     );
+  },
+
+  renameContainer: (containerPath, newShortName) => {
+    const state = get();
+    if (state.viewMode === 'combined') {
+      const target = resolveContainerTarget(state, containerPath);
+      if (target === null) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: containerPath });
+        return;
+      }
+      const sourceIdx = state.documentPaths.indexOf(target.filePath);
+      if (sourceIdx === -1) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: containerPath });
+        return;
+      }
+      const innerPath = stripCombinedPrefix(containerPath, target.filePath);
+      if (innerPath === null) {
+        setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: containerPath });
+        return;
+      }
+      const result = coreRenameContainer(target.doc, innerPath, newShortName);
+      if (!result.ok) {
+        set({ error: renameErrorToI18n(state.locale, result.error) });
+        return;
+      }
+      applyMutationResultToSource(set, state, sourceIdx, result.value.doc, target.filePath);
+      const prefixLength = containerPath.length - innerPath.length;
+      set({ selectedPath: containerPath.slice(0, prefixLength) + result.value.newPath });
+      return;
+    }
+    if (state.activeDocumentPath === null || state.doc === null) return;
+    const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
+    if (activeIdx === -1) return;
+    const result = coreRenameContainer(state.doc, containerPath, newShortName);
+    if (!result.ok) {
+      set({ error: renameErrorToI18n(state.locale, result.error) });
+      return;
+    }
+    applyMutationResultToActive(set, state, activeIdx, result.value.doc, state.activeDocumentPath);
+    set({ selectedPath: result.value.newPath });
   },
 });
 
