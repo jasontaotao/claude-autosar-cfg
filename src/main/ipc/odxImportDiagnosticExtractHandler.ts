@@ -60,8 +60,13 @@ export async function odxImportDiagnosticExtractHandler(
   // `outputDir` is already their declared intent; the renderer
   // is responsible for pre-validating it against the project tree.
 
-  // 1b. Pre-flight: outputDir must exist and be writable.
+  // 1b. Pre-flight: create the project-relative outputDir when missing,
+  // then require it to be a writable directory. The renderer intentionally
+  // targets <project>/samples/arxml/diagnostic-extract; first-run projects
+  // do not contain that folder yet, so treating ENOENT as a hard failure
+  // made the normal export path fail.
   try {
+    await fs.mkdir(absOutputDir, { recursive: true });
     const stat = await fs.stat(absOutputDir);
     if (!stat.isDirectory()) {
       return {

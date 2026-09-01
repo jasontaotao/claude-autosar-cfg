@@ -81,15 +81,18 @@ describe('odxImportDiagnosticExtractHandler — failure paths', () => {
     if (!result.ok) expect(result.error.kind).toBe('read-failed');
   });
 
-  it('returns read-failed when outputDir does not exist', async () => {
+  it('creates a missing project-relative outputDir and writes output', async () => {
     const fixturePath = join(tmpDir, 'x.odx-d');
     writeFileSync(fixturePath, EMPTY_ODX_XML, 'utf8');
     const result = await odxImportDiagnosticExtractHandler({
       odxPath: fixturePath,
       outputDir: join(tmpDir, 'nonexistent-dir'),
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe('read-failed');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(existsSync(join(tmpDir, 'nonexistent-dir', DEM_FILENAME))).toBe(true);
+      expect(existsSync(join(tmpDir, 'nonexistent-dir', 'Dcm_Extract.arxml'))).toBe(true);
+    }
   });
 
   it('returns read-failed when .odx-d is malformed XML', async () => {
