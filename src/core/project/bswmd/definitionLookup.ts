@@ -13,6 +13,15 @@ export interface DefinitionLookupResult {
  * This helper deliberately compares the full `ContainerDef.path` and does
  * not apply any short-name suffix heuristics.
  */
+export function findContainerDefInModuleByDefinitionRef(
+  moduleDef: BswModuleDef,
+  definitionRef: string,
+): ContainerDef | null {
+  const normalized = `/${definitionRef.split('/').filter(Boolean).join('/')}`;
+  if (normalized === '/') return null;
+  return findContainerDefInTree(moduleDef.containers, normalized);
+}
+
 export function findContainerDefByDefinitionRef(
   schemas: readonly BswmdDocument[],
   definitionRef: string,

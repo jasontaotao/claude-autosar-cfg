@@ -21,12 +21,12 @@ import { validateProjectForRenderer } from '@core/validation';
 import { t } from '@shared/i18n/index.js';
 
 import { compareSuffix, stripSuffix } from '../../components/tree/collections.js';
+import type { resolveParamDefForPath, resolveReferenceDefForPath } from '../helpers/bswmdLookup.js';
 import {
   findChildContainerDef,
   findModuleDefForPath,
+  resolveContainerDefinitionContext,
   resolveModuleAndParentContainer,
-  resolveParamDefForPath,
-  resolveReferenceDefForPath,
 } from '../helpers/bswmdLookup.js';
 import {
   computeDisplayDoc,
@@ -94,7 +94,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
         setErrorWithKind(set, state.locale, { kind: 'path-not-found', path: parentPath });
         return;
       }
-      const lookup = resolveModuleAndParentContainer(state.bswmdSchemas, innerPath);
+      const lookup = resolveSchemaContextForMutation(sourceDoc, innerPath, state.bswmdSchemas);
       if (lookup === null) {
         set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
         return;
@@ -122,7 +122,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     if (state.activeDocumentPath === null || state.doc === null) return;
     const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
     if (activeIdx === -1) return;
-    const lookup = resolveModuleAndParentContainer(state.bswmdSchemas, parentPath);
+    const lookup = resolveSchemaContextForMutation(state.doc, parentPath, state.bswmdSchemas);
     if (lookup === null) {
       set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
       return;
@@ -148,7 +148,7 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
       );
       const source = siblings.at(-1);
       if (source === undefined) return doc;
-      const lookup = resolveModuleAndParentContainer(get().bswmdSchemas, innerPath);
+      const lookup = resolveSchemaContextForMutation(doc, innerPath, get().bswmdSchemas);
       if (lookup === null) return doc;
       const childDef = findChildContainerDef(
         lookup.moduleDef,
@@ -314,7 +314,12 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const lookup = resolveParamDefForPath(state.bswmdSchemas, innerPath, paramShortName);
+      const lookup = resolveParamContextForMutation(
+        sourceDoc,
+        innerPath,
+        state.bswmdSchemas,
+        paramShortName,
+      );
       if (lookup === null) {
         set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
         return;
@@ -339,7 +344,12 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     if (state.activeDocumentPath === null || state.doc === null) return;
     const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
     if (activeIdx === -1) return;
-    const lookup = resolveParamDefForPath(state.bswmdSchemas, containerPath, paramShortName);
+    const lookup = resolveParamContextForMutation(
+      state.doc,
+      containerPath,
+      state.bswmdSchemas,
+      paramShortName,
+    );
     if (lookup === null) {
       set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
       return;
@@ -383,7 +393,12 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
         set({ error: t(state.locale, 'mutation.error.path-not-found') });
         return;
       }
-      const lookup = resolveReferenceDefForPath(state.bswmdSchemas, innerPath, refShortName);
+      const lookup = resolveReferenceContextForMutation(
+        sourceDoc,
+        innerPath,
+        state.bswmdSchemas,
+        refShortName,
+      );
       if (lookup === null) {
         set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
         return;
@@ -406,7 +421,12 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
     if (state.activeDocumentPath === null || state.doc === null) return;
     const activeIdx = state.documentPaths.indexOf(state.activeDocumentPath);
     if (activeIdx === -1) return;
-    const lookup = resolveReferenceDefForPath(state.bswmdSchemas, containerPath, refShortName);
+    const lookup = resolveReferenceContextForMutation(
+      state.doc,
+      containerPath,
+      state.bswmdSchemas,
+      refShortName,
+    );
     if (lookup === null) {
       set({ error: t(state.locale, 'mutation.error.no-bswmd-for-module') });
       return;
@@ -813,4 +833,50 @@ function replaceElement(
     ...doc,
     packages: doc.packages.map((pkg) => ({ ...pkg, elements: replaceChildren(pkg.elements) })),
   };
+}
+function resolveSchemaContextForMutation(
+  doc: ArxmlDocument | null,
+  containerPath: string,
+  schemas: Parameters<typeof resolveContainerDefinitionContext>[0],
+): ReturnType<typeof resolveModuleAndParentContainer> {
+  const located = doc === null ? null : findByPath(doc, containerPath);
+  if (located?.element.kind === 'container') {
+    const byDefinition = resolveContainerDefinitionContext(
+      schemas,
+      containerPath,
+      located.element.definitionRef,
+    );
+    if (byDefinition !== null) return byDefinition;
+  }
+  return resolveModuleAndParentContainer(schemas, containerPath);
+}
+
+function resolveParamContextForMutation(
+  doc: ArxmlDocument | null,
+  containerPath: string,
+  schemas: Parameters<typeof resolveContainerDefinitionContext>[0],
+  paramShortName: string,
+): ReturnType<typeof resolveParamDefForPath> {
+  const context = resolveSchemaContextForMutation(doc, containerPath, schemas);
+  if (context === null) return null;
+  const paramDef =
+    context.parentContainerDef === null
+      ? null
+      : (context.parentContainerDef.parameters.find((p) => p.shortName === paramShortName) ?? null);
+  return { moduleDef: context.moduleDef, paramDef };
+}
+
+function resolveReferenceContextForMutation(
+  doc: ArxmlDocument | null,
+  containerPath: string,
+  schemas: Parameters<typeof resolveContainerDefinitionContext>[0],
+  refShortName: string,
+): ReturnType<typeof resolveReferenceDefForPath> {
+  const context = resolveSchemaContextForMutation(doc, containerPath, schemas);
+  if (context === null) return null;
+  const refDef =
+    context.parentContainerDef === null
+      ? null
+      : (context.parentContainerDef.references.find((r) => r.shortName === refShortName) ?? null);
+  return { moduleDef: context.moduleDef, refDef };
 }

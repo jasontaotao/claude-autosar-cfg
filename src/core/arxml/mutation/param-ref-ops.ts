@@ -15,7 +15,10 @@ import type {
   ParamValue,
   Result,
 } from '../../arxml/types.js';
-import { getContainerDefByPath } from '../../project/bswmd.js';
+import {
+  findContainerDefInModuleByDefinitionRef,
+  getContainerDefByPath,
+} from '../../project/bswmd.js';
 import type { BswModuleDef, ParamDef, ReferenceDef } from '../../project/bswmd.js';
 
 import { locateParent, replaceElement, zeroValueForKind } from './tree-ops.js';
@@ -58,8 +61,19 @@ export function addParameter(
   if (subPath === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
-  if (subPath !== '') {
-    // Sub-container: validate against the parent container def
+  const definitionContainer =
+    parent.kind === 'container' && parent.definitionRef !== undefined
+      ? findContainerDefInModuleByDefinitionRef(moduleDef, parent.definitionRef)
+      : null;
+  if (definitionContainer !== null) {
+    if (!definitionContainer.parameters.some((p) => p.shortName === paramDef.shortName)) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: paramDef.shortName, expected: paramDef.kind },
+      };
+    }
+  } else if (subPath !== '') {
+    // Sub-container fallback for legacy values without DEFINITION-REF.
     const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
     if (
       parentContainerDef === null ||
@@ -236,7 +250,19 @@ export function addReference(
   if (subPath === null) {
     return { ok: false, error: { kind: 'path-not-found', path: containerPath } };
   }
-  if (subPath !== '') {
+  const definitionContainer =
+    parent.kind === 'container' && parent.definitionRef !== undefined
+      ? findContainerDefInModuleByDefinitionRef(moduleDef, parent.definitionRef)
+      : null;
+  if (definitionContainer !== null) {
+    if (!definitionContainer.references.some((r) => r.shortName === refDef.shortName)) {
+      return {
+        ok: false,
+        error: { kind: 'invalid-param-type', key: refDef.shortName, expected: 'string' },
+      };
+    }
+  } else if (subPath !== '') {
+    // Sub-container fallback for legacy values without DEFINITION-REF.
     const parentContainerDef = getContainerDefByPath(moduleDef, subPath);
     if (
       parentContainerDef === null ||
