@@ -172,6 +172,7 @@ export function AppShell(props: AppShellProps): ReactNode {
         locale={locale}
         onClose={dcmLauncher.closeDialog}
         onGenerateNew={dcmLauncher.handleGenerateNew}
+        onOpenInWorkspace={dcmLauncher.openResultInWorkspace}
         history={useArxmlStore((s) => s.xlsxImportHistory)}
         onReuseFromHistory={(importedAt) => useArxmlStore.getState().reuseFromHistory(importedAt)}
       />

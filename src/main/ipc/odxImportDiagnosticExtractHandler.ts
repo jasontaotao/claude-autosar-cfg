@@ -141,7 +141,7 @@ export async function odxImportDiagnosticExtractHandler(
 
   return {
     ok: true,
-    value: { demPath, dcmPath, stats },
+    value: { demPath, dcmPath, demContent, dcmContent, stats },
   };
 }
 

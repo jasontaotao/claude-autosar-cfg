@@ -27,6 +27,7 @@ describe('DiagnosticExtractSuccessDialog (v1.24.0 T3)', () => {
     stats: { dtcCount: 99, didCount: 34, routineCount: 4 },
     locale: 'en' as const,
     onClose: vi.fn(),
+    onOpenInWorkspace: vi.fn(),
   };
 
   it('renders counts in success body', () => {
@@ -51,6 +52,17 @@ describe('DiagnosticExtractSuccessDialog (v1.24.0 T3)', () => {
     expect(screen.queryByTestId('diag-extract-success-dialog')).not.toBeInTheDocument();
   });
 
+  it('renders and calls the open-in-workspace action', () => {
+    const onOpenInWorkspace = vi.fn();
+    render(
+      <DiagnosticExtractSuccessDialog
+        {...baseProps}
+        onOpenInWorkspace={onOpenInWorkspace}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('diag-extract-open-in-workspace'));
+    expect(onOpenInWorkspace).toHaveBeenCalledOnce();
+  });
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
     render(<DiagnosticExtractSuccessDialog {...baseProps} onClose={onClose} />);

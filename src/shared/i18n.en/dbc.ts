@@ -66,6 +66,7 @@ export const DbcEn: DbcMessages = {
   'odx.import.diagnosticExtract.menu.label': 'Import ODX-D → Diagnostic Extract…',
   'odx.export.diagnosticExtract.button': 'Export Diagnostic Extract',
   'odx.export.diagnosticExtract.exporting': 'Exporting…',
+  'diagExtract.openInWorkspace.button': 'Open in workspace',
   'odx.export.diagnosticExtract.success.title': 'Diagnostic Extract Exported',
   'odx.export.diagnosticExtract.success.body':
     'Generated {dtcCount} DemEvents, {didCount} DIDs, {routineCount} Routines.',

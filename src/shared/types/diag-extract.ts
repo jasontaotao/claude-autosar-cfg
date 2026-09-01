@@ -31,7 +31,9 @@ export type OdxImportDiagExtractResponse =
       readonly ok: true;
       readonly value: {
         readonly demPath: string;
+        readonly demContent: string;
         readonly dcmPath: string;
+        readonly dcmContent: string;
         readonly stats: {
           readonly dtcCount: number;
           readonly didCount: number;

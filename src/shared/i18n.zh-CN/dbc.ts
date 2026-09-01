@@ -61,6 +61,7 @@ export const DbcZhCN: DbcMessages = {
   'odx.import.diagnosticExtract.menu.label': '导入 ODX-D → 诊断抽取…',
   'odx.export.diagnosticExtract.button': '导出诊断抽取',
   'odx.export.diagnosticExtract.exporting': '导出中…',
+  'diagExtract.openInWorkspace.button': '在工作区打开',
   'odx.export.diagnosticExtract.success.title': '诊断抽取已导出',
   'odx.export.diagnosticExtract.success.body':
     '已生成 {dtcCount} 个 DemEvent、{didCount} 个 DID、{routineCount} 个 Routine。',

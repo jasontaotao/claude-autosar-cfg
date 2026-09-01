@@ -221,21 +221,23 @@ export function App(): JSX.Element {
 
   // v1.31.0 PATCH T7 — App.tsx wiring for the dcm:config renderer UX.
   // The launcher hook owns the in-flight ref + state machine + error
-  // classifier. App.tsx (shell) owns the launcher + the derived
-  // gate values because the JSX (line ~606 + line ~1328) consumes
-  // both `dcmLauncher.state.mode` (for `dcmConfigBusy` prop) and
-  // `canOpenDcmConfig` (for the menu entry disabled state). These
-  // stay in App.tsx shell for T1 and will be extracted to
-  // useFileViewerHandlers (Flow 2) in T2.
-  //
-  // 3 gates (kept in App.tsx shell):
-  //   1. `odxPath` — active document path. coerce null → ''.
-  //   2. `odxLoaded` — derived from `odxPath`. Cheap filename check.
-  //   3. `hasDcmBswmd` — derived from `manifest.bswmdPaths`. Regex
-  //      match on filename (D4: no BSWMD parse in the renderer).
+  // classifier. App.tsx (shell) owns the launcher + the derived gate
+  // values. DCM config gates on the transient ODX viewer state, not the
+  // ARXML workspace's activeDocumentPath. ODX-D files (.odx-d) are valid
+  // ODX inputs and must pass the same extension gate as .odx.
+  const {
+    openDbcViewer,
+    closeDbcViewer,
+    openOdxViewer,
+    closeOdxViewer,
+    dbcModal,
+    odxModal,
+    dbcInFlight,
+    odxInFlight,
+  } = useFileViewerHandlers();
+  const odxPath = odxModal.kind === 'open' ? odxModal.path : '';
   const dcmLauncher = useDcmConfigLauncher();
-  const odxPath = useArxmlStore((s) => s.activeDocumentPath ?? '');
-  const odxLoaded = odxPath.toLowerCase().endsWith('.odx');
+  const odxLoaded = /\.(?:odx|odx-d)$/i.test(odxPath);
   // v1.32.0 MINOR T8 — read the project's parse-based Dcm gate via
   // the new `useBswmdHasDcm` selector. Replaces the v1.31.x filename
   // regex (`isDcmBswmdPath`); the helper at `dcmConfig/regex.ts` is
@@ -310,34 +312,6 @@ export function App(): JSX.Element {
   const locale = useArxmlStore((s) => s.locale);
   const setInfo = useArxmlStore((s) => s.setInfo);
 
-  // v1.42.1 MINOR T2 — extract file-viewer handlers (DBC viewer +
-  // ODX viewer) into a closure-scoped hook. 4 callbacks + 2 state
-  // slots + 2 in-flight refs, all previously inlined in App.tsx.
-  // The hook preserves all closure dependencies (useCallback deps
-  // arrays unchanged) and all store subscription semantics (read-once
-  // via getState() for ephemeral locale reads; subscribe for the
-  // dbcModal/odxModal state).
-  //
-  // `odxPath` is NOT passed as an arg because DBC + ODX viewers don't
-  // read it (they read `activeDocumentPath ?? ''` themselves). The
-  // App.tsx shell retains `odxPath` for Flow 3 (`useDiagExtractHandlers`)
-  // which will consume it from Flow 2's `odxModal` return value via
-  // the cross-flow parameter pattern (T3).
-  const {
-    // 4 callbacks
-    openDbcViewer,
-    closeDbcViewer,
-    openOdxViewer,
-    closeOdxViewer,
-    // 2 state slots (read-only — setDbcModal/setOdxModal stay in hook
-    // for callback closures; App.tsx shell does not need them as
-    // React state)
-    dbcModal,
-    odxModal,
-    // 2 in-flight refs
-    dbcInFlight,
-    odxInFlight,
-  } = useFileViewerHandlers();
 
   // v1.42.1 MINOR T3 — extract diag-extract handlers. The hook
   // takes `odxModal` as an arg from Flow 2's `useFileViewerHandlers`
@@ -350,6 +324,7 @@ export function App(): JSX.Element {
     // 2 callbacks (Flow 3: ODX→Diagnostic Extract)
     handleExportOdxDiagnosticExtract,
     closeDiagExtractDialog,
+    openExtractInWorkspace,
     // 2 read-only state slots (consumed by OdxViewer onExport prop
     // + DiagnosticExtractSuccessDialog mount)
     diagExtractModal,
@@ -666,6 +641,7 @@ export function App(): JSX.Element {
             stats={diagExtractModal.stats}
             locale={useArxmlStore.getState().locale}
             onClose={closeDiagExtractDialog}
+            onOpenInWorkspace={openExtractInWorkspace}
           />
         )}
 

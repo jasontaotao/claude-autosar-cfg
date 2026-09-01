@@ -68,6 +68,7 @@ export interface OdxMessages {
   // v1.33.0 Override <details> + Browse/Clear UI). Wired to
   // launcher.handleGenerateNew which re-fires dcm:config with the
   // captured lastOdxPath.
+  readonly 'dcmConfig.openInWorkspace.button': string;
   readonly 'dcmConfig.generateNew.button': string;
   // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
   readonly 'dcmConfig.generateNew.confirm.title': string;

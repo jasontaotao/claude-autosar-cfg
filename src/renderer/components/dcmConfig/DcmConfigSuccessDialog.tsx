@@ -39,6 +39,8 @@ export interface DcmConfigSuccessDialogProps {
    * Wires through to launcher.handleGenerateNew (T2) which re-fires
    * dcm:config with the captured lastOdxPath. */
   readonly onGenerateNew: () => void | Promise<void>;
+  /** Explicitly load the generated file into the workspace. */
+  readonly onOpenInWorkspace: () => void | Promise<void>;
   /** v1.34.0 MINOR T3 — xlsx import history snapshot. Drives the
    * collapsed <details> section below the Generate New button.
    * Ordered most-recent-first by the v1.33.0 slice cap-at-5 +
@@ -50,7 +52,7 @@ export interface DcmConfigSuccessDialogProps {
 }
 
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
-  const { open, result, locale, onClose, onGenerateNew, history, onReuseFromHistory } = props;
+  const { open, result, locale, onClose, onGenerateNew, onOpenInWorkspace, history, onReuseFromHistory } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -143,6 +145,16 @@ export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.
         {/* v1.33.1 PATCH T3 — "Generate New" button. Re-fires
             dcm:config with the captured lastOdxPath. Replaces the
             deleted v1.33.0 Override <details> + Browse/Clear UI. */}
+        <button
+          type="button"
+          onClick={() => {
+            void onOpenInWorkspace();
+          }}
+          data-testid="dcm-config-open-in-workspace"
+          className="dcm-config-generate-new"
+        >
+          {t(locale, 'dcmConfig.openInWorkspace.button')}
+        </button>
         <button
           type="button"
           onClick={() => {

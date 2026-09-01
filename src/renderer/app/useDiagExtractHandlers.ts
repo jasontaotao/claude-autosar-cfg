@@ -31,6 +31,8 @@ import { useCallback, useState } from 'react';
 
 import { t } from '@shared/i18n/index.js';
 
+import type { ArxmlDocument } from '../../core/arxml/types.js';
+import { formatParseError } from '../components/AppHeader/helpers.js';
 import { useArxmlStore } from '../store/useArxmlStore';
 
 import type { OdxModalState } from './useFileViewerHandlers';
@@ -40,7 +42,9 @@ export type DiagExtractModalState =
   | {
       readonly kind: 'open';
       readonly demPath: string;
+      readonly demContent: string;
       readonly dcmPath: string;
+      readonly dcmContent: string;
       readonly stats: {
         readonly dtcCount: number;
         readonly didCount: number;
@@ -52,6 +56,7 @@ export type DiagExtractHandlers = {
   // 2 callbacks (verbatim from App.tsx Flow 3)
   handleExportOdxDiagnosticExtract: (options?: { readonly odxPath?: string }) => Promise<void>;
   closeDiagExtractDialog: () => void;
+  openExtractInWorkspace: () => Promise<void>;
   // 2 state slots
   diagExtractModal: DiagExtractModalState;
   setDiagExtractModal: (state: DiagExtractModalState) => void;
@@ -71,7 +76,8 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
   }): Promise<void> => {
     // Read-once pattern: `setStoreError` from the store at call time
     // (avoids useCallback dep-array churn + stale-closure trap).
-    const { setError: setStoreError } = useArxmlStore.getState();
+    const storeState = useArxmlStore.getState();
+    const { setError: setStoreError } = storeState;
     const activeOdxPath = options?.odxPath ?? (odxModal.kind === 'open' ? odxModal.path : null);
     if (activeOdxPath === null) return; // only meaningful with a parsed ODX
     if (diagExtractExporting) return;
@@ -143,6 +149,41 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
       setDiagExtractExporting(false);
     }
   }, [odxModal, diagExtractExporting]);
+  // Explicitly open the generated extract documents in the workspace.
+  // This keeps "export to disk" semantically separate from "inspect in
+  // the app", while still giving the user a one-click verification path.
+  const openExtractInWorkspace = useCallback(async (): Promise<void> => {
+    if (diagExtractModal.kind !== 'open') return;
+    const storeState = useArxmlStore.getState();
+    const { setError: setStoreError, locale } = storeState;
+    const api = window.autosarApi;
+    if (api?.parseArxml === undefined) {
+      setStoreError('parseArxml API not available');
+      return;
+    }
+    const targets = [
+      { path: diagExtractModal.demPath, content: diagExtractModal.demContent },
+      { path: diagExtractModal.dcmPath, content: diagExtractModal.dcmContent },
+    ];
+    const documents: Array<{ path: string; doc: ArxmlDocument }> = [];
+    for (const target of targets) {
+      const parsed = await api.parseArxml(target);
+      if (!parsed.ok) {
+        setStoreError(
+          t(locale, 'odx.export.diagnosticExtract.error', {
+            error: formatParseError(parsed.error, locale),
+          }),
+        );
+        return;
+      }
+      documents.push({ path: target.path, doc: parsed.value });
+    }
+    const store = useArxmlStore.getState();
+    for (const item of documents) {
+      store.addDocument(item.doc, item.path, { template: true });
+    }
+    setDiagExtractModal({ kind: 'closed' });
+  }, [diagExtractModal]);
   const closeDiagExtractDialog = useCallback((): void => {
     setDiagExtractModal({ kind: 'closed' });
   }, []);
@@ -151,6 +192,7 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
     // 2 callbacks
     handleExportOdxDiagnosticExtract,
     closeDiagExtractDialog,
+    openExtractInWorkspace,
     // 2 state slots (App.tsx shell does not use the setters — they
     // stay in hook for callback closures)
     diagExtractModal,

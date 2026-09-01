@@ -191,6 +191,47 @@ describe('useDcmConfigLauncher (v1.31.0 PATCH T3)', () => {
     });
   });
 
+  it('openResultInWorkspace parses the generated XML and adds it to the workspace', async () => {
+    const generatedDoc = { path: '/out/Dcm_Config.arxml', version: '4.4', packages: [] };
+    const parseArxml = vi.fn().mockResolvedValue({ ok: true, value: generatedDoc });
+    (window as unknown as { autosarApi: Record<string, unknown> }).autosarApi = {
+      dcmConfig: invokeMock,
+      parseArxml,
+    };
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '<AR-PACKAGES/>',
+        odxLinkedDcmDspCount: 1,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 1,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '/out/Dcm_Config.arxml',
+        appliedStepCount: 1,
+        bswmdPath: dcmBswmdPath,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await act(async () => {
+      await result.current.open({ odxPath: '/x.odx-d', xlsxRows: [] });
+    });
+    await act(async () => {
+      await result.current.openResultInWorkspace();
+    });
+
+    expect(parseArxml).toHaveBeenCalledWith({
+      path: '/out/Dcm_Config.arxml',
+      content: '<AR-PACKAGES/>',
+    });
+    expect(useArxmlStore.getState().documentPaths).toContain('/out/Dcm_Config.arxml');
+    expect(useArxmlStore.getState().activeDocumentPath).toBe('/out/Dcm_Config.arxml');
+  });
   it('closeDialog returns to idle from success', async () => {
     invokeMock.mockResolvedValue({
       ok: true,
@@ -485,6 +526,75 @@ describe('useDcmConfigLauncher (v1.32.0 T5) — state machine extensions', () =>
     expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
+  it('promptAndOpen uses an .odx-d path override and skips the picker', async () => {
+    const odxPath = '/proj/input/DcmData.odx-d';
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: null,
+    });
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 1,
+        odxLinkedRoutineCount: 1,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 1,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 1,
+        },
+        outputPath: '/out/Dcm_Config.arxml',
+        appliedStepCount: 2,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
+    await act(async () => {
+      await result.current.promptAndOpen(odxPath);
+    });
+
+    expect(result.current.state.mode).toBe('success');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock.mock.calls[0]?.[0]?.odxPath).toBe(odxPath);
+  });
+  it('promptAndOpen skips picker when activeDocumentPath ends with .odx-d', async () => {
+    const odxPath = '/proj/input/DcmData.odx-d';
+    useArxmlStore.setState({
+      project: { bswmdPaths: [dcmBswmdPath] } as never,
+      activeDocumentPath: odxPath,
+    });
+    installReadBswmdStub({ pathToInclude: dcmBswmdPath });
+    invokeMock.mockResolvedValue({
+      ok: true,
+      value: {
+        dcmConfigXml: '',
+        odxLinkedDcmDspCount: 0,
+        odxLinkedRoutineCount: 0,
+        serviceCounts: {
+          DcmClearDTC: 0,
+          DcmReadDTC: 0,
+          DcmReadDataById: 0,
+          DcmWriteDataById: 0,
+          DcmRoutineControl: 0,
+        },
+        outputPath: '',
+        appliedStepCount: 0,
+      },
+    });
+
+    const { result } = renderHook(() => useDcmConfigLauncher());
+    await waitFor(() => expect(result.current.bswmdHasDcm.hasDcm).toBe(true));
+    await act(async () => {
+      await result.current.promptAndOpen();
+    });
+
+    expect(result.current.state.mode).toBe('success');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
   it('autofills bswmdPath from bswmdHasDcm.dcmBswmdPath into dcmConfig IPC args', async () => {
     // Seed: project has Dcm BSWMD and active .odx (so the shortcut
     // path fires and we can inspect the IPC arg shape directly).

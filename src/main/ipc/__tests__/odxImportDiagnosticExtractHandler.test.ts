@@ -59,6 +59,8 @@ describe('odxImportDiagnosticExtractHandler — success path', () => {
     if (result.ok) {
       expect(existsSync(join(tmpDir, 'Dem_Extract.arxml'))).toBe(true);
       expect(existsSync(join(tmpDir, 'Dcm_Extract.arxml'))).toBe(true);
+      expect(result.value.demContent).toBe(await fs.readFile(join(tmpDir, 'Dem_Extract.arxml'), 'utf8'));
+      expect(result.value.dcmContent).toBe(await fs.readFile(join(tmpDir, 'Dcm_Extract.arxml'), 'utf8'));
     }
   });
 });

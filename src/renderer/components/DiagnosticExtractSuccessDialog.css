@@ -107,3 +107,7 @@
   background: var(--brand-400);
   border-color: var(--brand-400);
 }
+
+.diag-extract-open-in-workspace {
+  align-self: flex-start;
+}

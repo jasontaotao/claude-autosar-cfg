@@ -43,12 +43,14 @@ export interface DiagnosticExtractSuccessDialogProps {
   };
   readonly locale: Locale;
   readonly onClose: () => void;
+  /** Explicitly load both generated extracts into the workspace. */
+  readonly onOpenInWorkspace: () => void | Promise<void>;
 }
 
 export function DiagnosticExtractSuccessDialog(
   props: DiagnosticExtractSuccessDialogProps,
 ): JSX.Element | null {
-  const { open, demPath, dcmPath, stats, locale, onClose } = props;
+  const { open, demPath, dcmPath, stats, locale, onClose, onOpenInWorkspace } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Escape-to-close. Mount the listener only while the modal is open
@@ -121,6 +123,16 @@ export function DiagnosticExtractSuccessDialog(
             </dd>
           </div>
         </dl>
+        <button
+          type="button"
+          className="diag-extract-success-close"
+          data-testid="diag-extract-open-in-workspace"
+          onClick={() => {
+            void onOpenInWorkspace();
+          }}
+        >
+          {t(locale, 'diagExtract.openInWorkspace.button')}
+        </button>
         <div className="diag-extract-success-actions">
           <button
             ref={closeButtonRef}

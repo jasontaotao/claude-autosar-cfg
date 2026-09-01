@@ -48,6 +48,7 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     // The 2 explicit "renders Generate New" tests below override it
     // with their own spy. Other tests don't trigger the button.
     onGenerateNew: vi.fn(),
+    onOpenInWorkspace: vi.fn(),
     // v1.34.0 MINOR T3 — xlsx import history surface. Default to an
     // empty list so the existing 15 tests don't accidentally render
     // the new <details> section. The 2 new T3 tests below override
@@ -73,6 +74,12 @@ describe('DcmConfigSuccessDialog (v1.31.0 PATCH T1)', () => {
     expect(screen.queryByTestId('dcm-config-success-dialog')).not.toBeInTheDocument();
   });
 
+  it('renders and calls the open-in-workspace action', () => {
+    const onOpenInWorkspace = vi.fn();
+    render(<DcmConfigSuccessDialog {...baseProps} onOpenInWorkspace={onOpenInWorkspace} />);
+    fireEvent.click(screen.getByTestId('dcm-config-open-in-workspace'));
+    expect(onOpenInWorkspace).toHaveBeenCalledOnce();
+  });
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
     render(<DcmConfigSuccessDialog {...baseProps} onClose={onClose} />);

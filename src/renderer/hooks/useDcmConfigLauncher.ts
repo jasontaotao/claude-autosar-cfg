@@ -42,6 +42,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { t } from '@shared/i18n/index.js';
 
+import type { ParseError } from '../../core/arxml/parser.js';
+import type { ArxmlDocument } from '../../core/arxml/types.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import type {
   DcmConfigError,
@@ -50,6 +52,7 @@ import type {
   EcucInstanceRow,
 } from '../../shared/types.js';
 import { arxmlModuleShortNames } from '../arxml/arxmlModuleShortNames.js';
+import { formatParseError } from '../components/AppHeader/helpers.js';
 import { confirmDestructive } from '../components/ConfirmDialog2.js';
 import { findDcmBswmd, type BswmdHasDcmResult } from '../components/dcmConfig/bswmdHasDcm.js';
 import { useArxmlStore } from '../store/useArxmlStore.js';
@@ -100,7 +103,7 @@ export interface DcmConfigLauncher {
    * (when no active .odx doc) and the shortcut (when one is loaded).
    * Re-entrancy-guarded via inFlightRef (existing lesson
    * re-entrancy-guard-via-useref-not-setstate-callback-state). */
-  promptAndOpen(): Promise<void>;
+  promptAndOpen(odxPathOverride?: string): Promise<void>;
   /** v1.32.0 T5 — wiring hook for `<DcmConfigPicker />`. Resolves
    * the picked path into `open()` and transitions picking-odx → pending. */
   handlePickerResolve(odxPath: string): Promise<void>;
@@ -117,6 +120,8 @@ export interface DcmConfigLauncher {
    * (existing lesson re-entrancy-guard-via-useref-not-setstate-callback-state). */
   handleGenerateNew(): Promise<void>;
   closeDialog(): void;
+  /** Parse the successful IPC XML and add it to the workspace store. */
+  openResultInWorkspace(): Promise<void>;
   dismissToast(): void;
 }
 
@@ -203,6 +208,13 @@ export function classifyError(error: DcmConfigError): RendererDcmConfigErrorClas
 
 /** Minimal `window.autosarApi.dcmConfig` shape (cast in caller). */
 interface DcmConfigApi {
+  parseArxml?: (req: {
+    readonly path: string;
+    readonly content: string;
+  }) => Promise<
+    | { readonly ok: true; readonly value: ArxmlDocument }
+    | { readonly ok: false; readonly error: ParseError }
+  >;
   dcmConfig(req: {
     odxPath: string;
     xlsxRows: readonly EcucInstanceRow[];
@@ -284,7 +296,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // "Open Dcm Config" entry off when an .odx is loaded — matches the
   // pre-existing `odxLoaded` UX contract from v1.31.0).
   const isActiveOdx = useMemo(
-    () => activeDocumentPath !== null && activeDocumentPath.toLowerCase().endsWith('.odx'),
+    () => activeDocumentPath !== null && /\.(?:odx|odx-d)$/i.test(activeDocumentPath),
     [activeDocumentPath],
   );
 
@@ -518,32 +530,30 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   // the active document. Both branches funnel through the existing
   // `open` IPC call so the in-flight guard + classifier + error
   // envelope remain a single source of truth.
-  const promptAndOpen = useCallback(async (): Promise<void> => {
-    if (inFlightRef.current) return;
-    if (!bswmdHasDcm.hasDcm) return;
-    if (isActiveOdx && activeDocumentPath !== null) {
-      // Shortcut: an .odx doc is already loaded — skip picker, fire
-      // open() directly. The T5 autofill pipes the T4-discovered
-      // bswmdPath into the IPC payload so the handler skips its
-      // sample-fixture walk-up.
-      // v1.33.0 MINOR T5 — xlsxRows sourced from xlsxLastImport store
-      // slice (lesson store-as-source-of-truth-for-async-args). The
-      // empty `[]` placeholder from v1.31.x+v1.32.x is gone.
-      // v1.33.1 PATCH — bswmdPathOverride removed; bswmdPath is plain
-      // autofill (override UI deleted in T3).
-      await open({
-        odxPath: activeDocumentPath,
-        xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
-        bswmdPath: bswmdHasDcm.dcmBswmdPath,
-      });
-      return;
-    }
-    // No active .odx — switch to the picker substate. App.tsx renders
-    // <DcmConfigPicker/> on top of this state and calls
-    // handlePickerResolve(odxPath) on user choice (or handlePickerCancel
-    // on dismiss).
-    setState((prev) => ({ ...prev, mode: 'picking-odx' }));
-  }, [bswmdHasDcm, isActiveOdx, activeDocumentPath, open]);
+  const promptAndOpen = useCallback(
+    async (odxPathOverride?: string): Promise<void> => {
+      if (inFlightRef.current) return;
+      if (!bswmdHasDcm.hasDcm) return;
+      // Callers that own a transient ODX viewer state (rather than an
+      // ARXML document) pass the active ODX path explicitly. Accept both
+      // canonical `.odx` and ODX-D's `.odx-d` extension.
+      const shortcutOdxPath =
+        odxPathOverride ??
+        (isActiveOdx && activeDocumentPath !== null ? activeDocumentPath : null);
+      const isShortcutOdx =
+        shortcutOdxPath !== null && /\.(?:odx|odx-d)$/i.test(shortcutOdxPath);
+      if (isShortcutOdx && shortcutOdxPath !== null) {
+        await open({
+          odxPath: shortcutOdxPath,
+          xlsxRows: useArxmlStore.getState().xlsxLastImport?.rows ?? [],
+          bswmdPath: bswmdHasDcm.dcmBswmdPath,
+        });
+        return;
+      }
+      setState((prev) => ({ ...prev, mode: 'picking-odx' }));
+    },
+    [bswmdHasDcm, isActiveOdx, activeDocumentPath, open],
+  );
 
   // v1.32.0 T5 — picker resolve callback. The <DcmConfigPicker />
   // component calls this with the OS-picked .odx path. We transition
@@ -680,6 +690,47 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
   const closeDialog = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', dialogOpen: false }));
   }, []);
+  // Explicitly promote the generated file into the workspace so users can
+  // inspect DIDs/Routines without confusing "generated file" with an
+  // automatic ECUC mutation.
+  const openResultInWorkspace = useCallback(async (): Promise<void> => {
+    const result = state.result;
+    if (result === null) return;
+    const api = (
+      window as unknown as {
+        autosarApi?: {
+          parseArxml?: (req: { path: string; content: string }) => Promise<
+            | {
+                readonly ok: true;
+                readonly value: ArxmlDocument;
+              }
+            | { readonly ok: false; readonly error: ParseError }
+          >;
+        };
+      }
+    ).autosarApi;
+    if (api?.parseArxml === undefined) {
+      useArxmlStore.getState().setError('parseArxml API not available');
+      return;
+    }
+    const parsed = await api.parseArxml({
+      path: result.outputPath,
+      content: result.dcmConfigXml,
+    });
+    if (!parsed.ok) {
+      const { setError, locale } = useArxmlStore.getState();
+      setError(
+        t(locale, 'odx.export.dcmConfig.error.unexpected', {
+          message: formatParseError(parsed.error, locale),
+        }),
+      );
+      return;
+    }
+    useArxmlStore
+      .getState()
+      .addDocument(parsed.value, result.outputPath, { template: true });
+    closeDialog();
+  }, [state.result, closeDialog]);
 
   const dismissToast = useCallback((): void => {
     setState((prev) => ({ ...prev, mode: 'idle', toastVisible: false, error: null }));
@@ -694,6 +745,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
     handlePickerResolve,
     handlePickerCancel,
     handleGenerateNew,
+    openResultInWorkspace,
     closeDialog,
     dismissToast,
   };

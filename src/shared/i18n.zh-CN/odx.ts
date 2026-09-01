@@ -57,6 +57,7 @@ export const OdxZhCN: OdxMessages = {
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': '已应用 {count} 行 xlsx 数据',
   // v1.33.1 PATCH T3 — "Generate New" button.
+  'dcmConfig.openInWorkspace.button': '在工作区打开',
   'dcmConfig.generateNew.button': '重新生成',
   // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
   'dcmConfig.generateNew.confirm.title': '确认重新生成 Dcm 配置？',

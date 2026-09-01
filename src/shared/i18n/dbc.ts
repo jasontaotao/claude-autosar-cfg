@@ -72,6 +72,7 @@ export interface DbcMessages {
   readonly 'odx.import.diagnosticExtract.menu.label': string;
   readonly 'odx.export.diagnosticExtract.button': string;
   readonly 'odx.export.diagnosticExtract.exporting': string;
+  readonly 'diagExtract.openInWorkspace.button': string;
   readonly 'odx.export.diagnosticExtract.success.title': string;
   readonly 'odx.export.diagnosticExtract.success.body': string; // {dtcCount} {didCount} {routineCount}
   readonly 'odx.export.diagnosticExtract.error': string; // {error}

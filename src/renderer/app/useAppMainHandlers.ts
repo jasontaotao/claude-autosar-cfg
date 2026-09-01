@@ -106,8 +106,8 @@ export function useAppMainHandlers(args: {
   // target (xlsxRows placeholder documented at
   // useDcmConfigLauncher.ts:484).
   const handleOpenDcmConfig = useCallback((): void => {
-    void dcmLauncher.promptAndOpen();
-  }, [dcmLauncher]);
+    void dcmLauncher.promptAndOpen(odxPath || undefined);
+  }, [dcmLauncher, odxPath]);
   // Sprint 14 / T13 — viewMode three-state guard. While
   // viewMode === 'import-merged' the import-merged panel mounts in
   // the left column and the Save / Combined UI affordances are

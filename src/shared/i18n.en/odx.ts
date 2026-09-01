@@ -58,6 +58,7 @@ export const OdxEn: OdxMessages = {
   // v1.33.0 MINOR T7 — applied step count surface (SuccessDialog).
   'dcmConfig.appliedCount.summary': 'Applied {count} xlsx rows',
   // v1.33.1 PATCH T3 — "Generate New" button.
+  'dcmConfig.openInWorkspace.button': 'Open in workspace',
   'dcmConfig.generateNew.button': 'Generate New',
   // v1.36.0 MINOR T4 — Generate New destructive confirm modal labels.
   'dcmConfig.generateNew.confirm.title': 'Regenerate Dcm Config?',
