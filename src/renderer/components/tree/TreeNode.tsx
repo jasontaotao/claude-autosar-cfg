@@ -25,6 +25,8 @@ import { basename } from '@shared/path';
 import { useArxmlStore } from '../../store/useArxmlStore';
 import { openContextMenu } from '../ContextMenu';
 
+import { KindIndicator } from './KindIndicator.js';
+
 /** Discriminator for the visual kind indicator (replaces the previous
  *  text subtitle on element rows). Packages use the text "package" badge
  *  instead — they do not have a `kind` field. Sprint 17 P3 T3.2 adds
@@ -40,8 +42,12 @@ interface TreeNodeProps {
    *  the text badge. Sprint 9 #4.x dropped the literal kind text; this prop
    *  is now reserved for the package "package" badge. */
   subtitle?: string;
-  /** Optional kind indicator — renders a colored dot before the label. */
+  /** Optional kind indicator — renders a localized type icon before the label. */
   kind?: TreeKind;
+  /** Localized singular label for the optional kind icon. */
+  kindLabel?: string;
+  /** Localized schema/element details shown as the row tooltip. */
+  tooltip?: string;
   path: string;
   depth: number;
   isLeaf: boolean;
@@ -64,6 +70,8 @@ export function TreeNode({
   label,
   subtitle,
   kind,
+  kindLabel,
+  tooltip,
   path,
   depth,
   isLeaf,
@@ -273,14 +281,12 @@ export function TreeNode({
           }}
           className="tree-label"
           data-testid={`label-${path}`}
+          title={tooltip}
         >
           {kind !== undefined && (
-            <span
-              className={`kind-dot kind-${kind}`}
-              data-testid={`kind-dot-${path}`}
-              title={kind}
-              aria-label={kind}
-            />
+            <span className="kind-indicator" data-testid={`kind-dot-${path}`}>
+              <KindIndicator kind={kind} label={kindLabel ?? kind} />
+            </span>
           )}
           <span className="tree-label-text">{label}</span>
           {subtitle && <span className="tree-label-subtitle">{subtitle}</span>}

@@ -15,6 +15,17 @@ export const EditorZhCN: EditorMessages = {
   'tree.collectionAdd': '在此集合中再添加一个实例',
   'tree.collectionAtMax': '已达上限 — 无法继续添加',
 
+  // P1 tree UX
+  'tree.kind.module': '模块',
+  'tree.kind.container': '容器',
+  'tree.kind.reference': '引用',
+  'tree.kind.collection': '集合',
+  'tree.kind.bswmd': 'BSWMD',
+  'tree.legend.label': '模块 · 容器 · 引用 · 集合',
+  'tree.tooltip.definition': '定义：{value}',
+  'tree.tooltip.multiplicity': '维度：{value}',
+  'tree.tooltip.children': '子节点：{count}',
+
   // editor
   'editor.noSelection': '请从树中选择一个元素',
   'editor.invalidValue': '无效值',

@@ -575,7 +575,15 @@ body,
 /* ------------------------------------------------------------------ */
 /* Tree — JetBrains-style light gray background                       */
 /* ------------------------------------------------------------------ */
+.tree-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .tree {
+  flex: 1 1 auto;
   background: var(--surface-app);
   color: var(--text-primary);
   overflow-y: auto;
@@ -638,11 +646,26 @@ body,
   box-shadow: inset 0 0 0 1px var(--brand-500);
 }
 
-.tree .chevron {
+.tree .tree-chevron {
   width: 16px;
-  display: inline-block;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 3px;
   color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1;
   user-select: none;
+  transition:
+    background 0.08s ease,
+    color 0.08s ease;
+}
+
+.tree .tree-chevron:hover {
+  background: var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .tree .subtitle {
@@ -663,24 +686,74 @@ body,
   display: block;
 }
 
-/* Kind indicator dot */
-.tree .kind-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-right: 6px;
-  vertical-align: middle;
+/* Persistent legend keeps icon semantics visible without scrolling. */
+.tree-shell .tree-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-app);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.tree .tree-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+/* Kind indicator: shape + color makes node type discoverable. */
+.tree .kind-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.tree .kind-dot,
+.tree-shell .kind-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  color: var(--text-muted);
 }
-.tree .kind-dot.kind-module {
-  background: var(--brand-500);
+
+.tree .kind-dot .kind-icon-svg,
+.tree-shell .kind-dot .kind-icon-svg {
+  width: 12px;
+  height: 12px;
 }
-.tree .kind-dot.kind-container {
-  background: var(--accent-emerald);
+
+.tree .kind-dot.kind-module,
+.tree-shell .kind-dot.kind-module {
+  color: var(--brand-500);
 }
-.tree .kind-dot.kind-reference {
-  background: #9333ea; /* stylelint-disable-line color-no-hex */
+
+.tree .kind-dot.kind-container,
+.tree-shell .kind-dot.kind-container {
+  color: var(--accent-emerald);
+}
+
+.tree .kind-dot.kind-reference,
+.tree-shell .kind-dot.kind-reference {
+  color: #9333ea; /* stylelint-disable-line color-no-hex */
+}
+
+.tree .kind-dot.kind-collection,
+.tree-shell .kind-dot.kind-collection {
+  color: var(--accent-cyan);
+}
+
+.tree .kind-dot.kind-bswmd,
+.tree-shell .kind-dot.kind-bswmd {
+  color: var(--text-secondary);
 }
 
 /* ------------------------------------------------------------------ */
@@ -729,9 +802,6 @@ body,
   background: var(--accent-cyan);
   color: var(--text-inverse);
   font-size: 0.85em;
-}
-.kind-collection {
-  background: var(--accent-cyan);
 }
 .tree-collection-count {
   margin-left: 0.5em;

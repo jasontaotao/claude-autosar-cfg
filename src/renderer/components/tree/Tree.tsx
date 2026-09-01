@@ -32,6 +32,7 @@ import {
 } from '../../store/helpers/bswmdLookup.js';
 
 import { CollectionHeader } from './CollectionHeader.js';
+import { KindIndicator } from './KindIndicator.js';
 import { OptionalAddPlaceholder } from './OptionalAddPlaceholder.js';
 import { TreeNode } from './TreeNode.js';
 import { groupSiblingsByShortName } from './collections.js';
@@ -148,53 +149,56 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
   }
 
   return (
-    <aside
-      className="tree"
-      role="tree"
-      aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })}
-      data-testid="tree-root"
-    >
-      {doc.packages.flatMap((pkg: ArxmlPackage): JSX.Element[] => {
-        // UI abstraction layer — independent of skeleton.ts.
-        // `foldVendorPackages` collapses the vendor-prefix AR-PACKAGE
-        // chain (e.g. JWQ_CDD_PACK > JWQ_Packet) to a single
-        // top-level package and flags it with `isVendorFoldResult:
-        // true` to mark the package as fold-synthesised (vs a
-        // source-doc package). Tree checks that single flag to
-        // decide whether to hoist the contained ECUC module past
-        // the vendor wrapper, so users see the module as the tree
-        // root. Source packages (legacy /EcuC + EcuC, combined-mode
-        // /Can.arxml/EAS + Can, etc.) leave the flag undefined and
-        // render normally.
-        if (pkg.isVendorFoldResult === true) {
-          return renderChildren(
-            pkg.elements,
-            '',
-            0,
-            expanded,
-            toggle,
-            selectedPath,
-            store,
-            onContextMenu,
-            bswmdSchemas,
-            locale,
-          );
-        }
-        return [
-          renderPackage(
-            pkg,
-            0,
-            expanded,
-            toggle,
-            selectedPath,
-            store,
-            onContextMenu,
-            bswmdSchemas,
-            locale,
-          ),
-        ];
-      })}
-    </aside>
+    <div className="tree-shell">
+      <aside
+        className="tree"
+        role="tree"
+        aria-label={t(locale, 'tree.elementAria', { kind: 'ARXML', name: 'structure' })}
+        data-testid="tree-root"
+      >
+        {doc.packages.flatMap((pkg: ArxmlPackage): JSX.Element[] => {
+          // UI abstraction layer — independent of skeleton.ts.
+          // `foldVendorPackages` collapses the vendor-prefix AR-PACKAGE
+          // chain (e.g. JWQ_CDD_PACK > JWQ_Packet) to a single
+          // top-level package and flags it with `isVendorFoldResult:
+          // true` to mark the package as fold-synthesised (vs a
+          // source-doc package). Tree checks that single flag to
+          // decide whether to hoist the contained ECUC module past
+          // the vendor wrapper, so users see the module as the tree
+          // root. Source packages (legacy /EcuC + EcuC, combined-mode
+          // /Can.arxml/EAS + Can, etc.) leave the flag undefined and
+          // render normally.
+          if (pkg.isVendorFoldResult === true) {
+            return renderChildren(
+              pkg.elements,
+              '',
+              0,
+              expanded,
+              toggle,
+              selectedPath,
+              store,
+              onContextMenu,
+              bswmdSchemas,
+              locale,
+            );
+          }
+          return [
+            renderPackage(
+              pkg,
+              0,
+              expanded,
+              toggle,
+              selectedPath,
+              store,
+              onContextMenu,
+              bswmdSchemas,
+              locale,
+            ),
+          ];
+        })}
+      </aside>
+      <TreeLegend locale={locale} />
+    </div>
   );
 }
 
@@ -365,10 +369,14 @@ function renderChildren(
   // (below) hides those siblings.
   const realChildren = elements.flatMap((el) => {
     const childPath = `${parentPath}/${shortNameOf(el)}`;
-    // v1.4.0 trust sprint — 17c. Unknown vendor extensions and
-    // references are both leaves with no children to recurse into.
-    const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
     const baseName = stripSuffix(shortNameOf(el));
+    // Chevron semantics: a node is expandable only when it has real
+    // content or the loaded BSWMD says that missing optional children
+    // can be added. This avoids showing a false "expand me" affordance
+    // for an empty 1..1 / 0..1 container that has nothing inside.
+    const isLeaf = !elementIsExpandable(el, childPath, bswmdSchemas);
+    const tooltip = buildElementTooltip(el, groupDefs.get(baseName) ?? null, locale);
+    const kindLabel = el.kind === 'unknown' ? undefined : t(locale, treeKindLabelKey(el.kind));
     if (collectionBaseNames.has(baseName)) {
       // Sibling belongs to a collection — render it inside the
       // CollectionHeader (not here). The visibility of this
@@ -381,6 +389,8 @@ function renderChildren(
         key={childPath}
         label={shortNameOf(el)}
         kind={el.kind === 'unknown' ? undefined : el.kind}
+        kindLabel={kindLabel}
+        tooltip={tooltip}
         path={childPath}
         depth={depth}
         isLeaf={isLeaf}
@@ -390,7 +400,7 @@ function renderChildren(
         onSelect={(p) => store.getState().select(p)}
         onContextMenu={onContextMenu}
       >
-        {!isLeaf &&
+        {(el.kind === 'module' || el.kind === 'container') &&
           renderChildren(
             el.children,
             childPath,
@@ -444,12 +454,21 @@ function renderChildren(
     const collectionChildren: JSX.Element[] = isExpanded
       ? group.map((el) => {
           const childPath = `${parentPath}/${shortNameOf(el)}`;
-          const isLeaf = el.kind === 'reference' || el.kind === 'unknown';
+          const isLeaf = !elementIsExpandable(el, childPath, bswmdSchemas);
+          const tooltip = buildElementTooltip(
+            el,
+            groupDefs.get(stripSuffix(shortNameOf(el))) ?? null,
+            locale,
+          );
+          const kindLabel =
+            el.kind === 'unknown' ? undefined : t(locale, treeKindLabelKey(el.kind));
           return (
             <TreeNode
               key={childPath}
               label={shortNameOf(el)}
               kind={el.kind === 'unknown' ? undefined : el.kind}
+              kindLabel={kindLabel}
+              tooltip={tooltip}
               path={childPath}
               depth={depth + 1}
               isLeaf={isLeaf}
@@ -459,7 +478,7 @@ function renderChildren(
               onSelect={(p) => store.getState().select(p)}
               onContextMenu={onContextMenu}
             >
-              {!isLeaf &&
+              {(el.kind === 'module' || el.kind === 'container') &&
                 renderChildren(
                   el.children,
                   childPath,
@@ -547,6 +566,79 @@ function renderChildren(
   return [...collectionHeaders, ...realChildren, ...placeholders];
 }
 
+/** Sticky, compact legend for the localized kind icons. */
+function treeKindLabelKey(
+  kind: 'module' | 'container' | 'reference' | 'collection',
+): 'tree.kind.module' | 'tree.kind.container' | 'tree.kind.reference' | 'tree.kind.collection' {
+  switch (kind) {
+    case 'module':
+      return 'tree.kind.module';
+    case 'container':
+      return 'tree.kind.container';
+    case 'reference':
+      return 'tree.kind.reference';
+    case 'collection':
+      return 'tree.kind.collection';
+  }
+}
+
+function TreeLegend({ locale }: { readonly locale: Locale }): JSX.Element {
+  const kinds = ['module', 'container', 'reference', 'collection'] as const;
+  return (
+    <footer className="tree-legend" aria-label={t(locale, 'tree.legend.label')}>
+      {kinds.map((kind) => (
+        <span key={kind} className="tree-legend-item">
+          <KindIndicator kind={kind} label={t(locale, treeKindLabelKey(kind))} />
+          <span>{t(locale, treeKindLabelKey(kind))}</span>
+        </span>
+      ))}
+    </footer>
+  );
+}
+
+/**
+ * Decide whether a real ARXML node has anything to reveal when expanded.
+ * Unknowns and references stay leaves. A module/container is expandable
+ * when it has children, or when the loaded BSWMD can still surface missing
+ * optional add placeholders below it.
+ */
+function elementIsExpandable(
+  element: ArxmlElement,
+  path: string,
+  bswmdSchemas: readonly BswmdDocument[],
+): boolean {
+  if (element.kind === 'module' || element.kind === 'container') {
+    if (element.children.length > 0) return true;
+    return findMissingOptionalSiblings(bswmdSchemas, path, element.children).length > 0;
+  }
+  return false;
+}
+
+/** Build a compact, localized schema tooltip for a tree row. */
+function buildElementTooltip(
+  element: ArxmlElement,
+  childDef: ContainerDef | null,
+  locale: Locale,
+): string {
+  if (element.kind === 'reference') return t(locale, 'tree.kind.reference');
+  if (element.kind === 'unknown') return element.tagName;
+
+  const lines: string[] = [t(locale, treeKindLabelKey(element.kind))];
+  const definitionRef = element.kind === 'container' ? element.definitionRef : undefined;
+  if (definitionRef !== undefined) {
+    lines.push(t(locale, 'tree.tooltip.definition', { value: definitionRef }));
+  }
+  if (childDef !== null) {
+    const upper = childDef.upperMultiplicity === 'infinite' ? '*' : childDef.upperMultiplicity;
+    lines.push(
+      t(locale, 'tree.tooltip.multiplicity', { value: childDef.lowerMultiplicity + '..' + upper }),
+    );
+  }
+  if (element.kind === 'container') {
+    lines.push(t(locale, 'tree.tooltip.children', { count: element.children.length }));
+  }
+  return lines.join('\n');
+}
 /**
  * Collect threshold predicate for synthetic CollectionHeader rows.
  *

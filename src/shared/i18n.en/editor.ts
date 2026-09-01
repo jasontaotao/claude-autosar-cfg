@@ -15,6 +15,17 @@ export const EditorEn: EditorMessages = {
   'tree.collectionAdd': 'Add another instance to this collection',
   'tree.collectionAtMax': 'Reached upper bound — cannot add more',
 
+  // P1 tree UX
+  'tree.kind.module': 'Module',
+  'tree.kind.container': 'Container',
+  'tree.kind.reference': 'Reference',
+  'tree.kind.collection': 'Collection',
+  'tree.kind.bswmd': 'BSWMD',
+  'tree.legend.label': 'Module · Container · Reference · Collection',
+  'tree.tooltip.definition': 'Definition: {value}',
+  'tree.tooltip.multiplicity': 'Multiplicity: {value}',
+  'tree.tooltip.children': 'Children: {count}',
+
   // editor
   'editor.noSelection': 'Open an ARXML file and select a node in the tree to edit its parameters.',
   'editor.invalidValue': 'Invalid value',

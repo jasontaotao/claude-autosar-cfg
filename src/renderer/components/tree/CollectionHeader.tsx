@@ -9,6 +9,8 @@ import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore.js';
 
+import { KindIndicator } from './KindIndicator.js';
+
 export interface CollectionHeaderProps {
   /** Base shortName (without trailing `_<digits>`). */
   readonly shortName: string;
@@ -62,7 +64,9 @@ export function CollectionHeader(props: CollectionHeaderProps): JSX.Element {
       >
         {isExpanded ? '▼' : '▶'}
       </button>
-      <span className="kind-dot kind-collection" />
+      <span className="kind-indicator">
+        <KindIndicator kind="collection" label={t(locale, 'tree.kind.collection')} />
+      </span>
       <span className="tree-label tree-label-collection">
         <span className="tree-label-text">{shortName}</span>
         <span className="tree-collection-count" data-testid={`count-collection-${testKey}`}>

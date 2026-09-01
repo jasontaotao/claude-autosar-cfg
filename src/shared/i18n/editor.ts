@@ -21,6 +21,17 @@ export interface EditorMessages {
   readonly 'tree.collectionAdd': string;
   readonly 'tree.collectionAtMax': string;
 
+  // P1 tree UX — localized kind icons, legend, and schema tooltips.
+  readonly 'tree.kind.module': string;
+  readonly 'tree.kind.container': string;
+  readonly 'tree.kind.reference': string;
+  readonly 'tree.kind.collection': string;
+  readonly 'tree.kind.bswmd': string;
+  readonly 'tree.legend.label': string;
+  readonly 'tree.tooltip.definition': string; // {value}
+  readonly 'tree.tooltip.multiplicity': string; // {value}
+  readonly 'tree.tooltip.children': string; // {count}
+
   // --- param editor ---
   readonly 'editor.noSelection': string;
   readonly 'editor.invalidValue': string;

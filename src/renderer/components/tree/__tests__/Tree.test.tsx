@@ -312,17 +312,17 @@ describe('Tree (with doc)', () => {
     const moduleLabelBtn = within(moduleRow).getByTestId('label-/EAS/EcuC');
     expect(within(moduleLabelBtn).queryByText(/^module$/)).toBeNull();
 
-    // 2. The kind must be conveyed by a dedicated dot indicator span with
-    //    the kind-{kind} modifier class for color styling.
-    const dot = within(moduleRow).getByTestId('kind-dot-/EAS/EcuC');
-    expect(dot.tagName).toBe('SPAN');
-    expect(dot.className).toContain('kind-dot');
-    expect(dot.className).toContain('kind-module');
+    // 2. The kind is conveyed by a shape-based icon with the stable
+    //    kind-dot testid and kind-{kind} color modifier.
+    const indicator = within(moduleRow).getByTestId('kind-dot-/EAS/EcuC');
+    expect(indicator.tagName).toBe('SPAN');
+    const icon = within(indicator).getByRole('img');
+    expect(icon.className).toContain('kind-dot');
+    expect(icon.className).toContain('kind-module');
 
-    // 3. The dot exposes the kind to assistive tech (aria-label) and
-    //    to sighted users on hover (title).
-    expect(dot).toHaveAttribute('aria-label', 'module');
-    expect(dot).toHaveAttribute('title', 'module');
+    // 3. The icon exposes the localized kind to assistive tech and hover.
+    expect(icon).toHaveAttribute('aria-label', 'Module');
+    expect(icon).toHaveAttribute('title', 'Module');
   });
 
   it('renders a green dot for container kind elements', () => {
@@ -342,11 +342,12 @@ describe('Tree (with doc)', () => {
     const containerLabelBtn = within(containerRow).getByTestId('label-/EAS/EcuC/EcuCGeneral');
     expect(within(containerLabelBtn).queryByText(/^container$/)).toBeNull();
 
-    const dot = within(containerRow).getByTestId('kind-dot-/EAS/EcuC/EcuCGeneral');
-    expect(dot.className).toContain('kind-dot');
-    expect(dot.className).toContain('kind-container');
-    expect(dot).toHaveAttribute('aria-label', 'container');
-    expect(dot).toHaveAttribute('title', 'container');
+    const indicator = within(containerRow).getByTestId('kind-dot-/EAS/EcuC/EcuCGeneral');
+    const icon = within(indicator).getByRole('img');
+    expect(icon.className).toContain('kind-dot');
+    expect(icon.className).toContain('kind-container');
+    expect(icon).toHaveAttribute('aria-label', 'Container');
+    expect(icon).toHaveAttribute('title', 'Container');
   });
 
   it('clicking a deep leaf does not collapse its ancestor treeitems (event-bubble guard)', () => {
@@ -574,7 +575,9 @@ describe('Tree (vendor-prefix fold UI hoist)', () => {
     // encodes the node's kind; we expect the module-kind dot, NOT
     // a package badge.
     expect(screen.getByTestId('kind-dot-/JWQ3399')).toBeInTheDocument();
-    expect(screen.getByTestId('kind-dot-/JWQ3399').className).toMatch(/kind-module/);
+    expect(within(screen.getByTestId('kind-dot-/JWQ3399')).getByRole('img').className).toMatch(
+      /kind-module/,
+    );
   });
 
   it('hoisted module path is /<shortName> (no double-segment prefix)', () => {
