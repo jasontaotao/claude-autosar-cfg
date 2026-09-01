@@ -35,7 +35,7 @@
 //     table-row clicks from accidentally dismissing
 //   - Initial focus moves to the close button on open
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { t, type Locale } from '@shared/i18n/index.js';
 import type { DbcSummary } from '@shared/types';
@@ -43,6 +43,8 @@ import type { DbcSummary } from '@shared/types';
 import './DbcImportWizard.css';
 
 type Step = 'select' | 'preview' | 'confirm';
+
+type FrameFilter = 'all' | 'standard' | 'extended';
 
 function formatCanId(id: number, isExtended: boolean): string {
   const width = isExtended ? 8 : 3;
@@ -105,6 +107,8 @@ export function DbcImportWizard({
   // client-side check here is purely a UX fast-path so the user
   // gets immediate feedback.
   const [targetNode, setTargetNode] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [frameFilter, setFrameFilter] = useState<FrameFilter>('all');
   // `applying` gates the Apply button so a second click cannot fire
   // a second IPC round-trip before the first resolves.
   const [applying, setApplying] = useState(false);
@@ -131,6 +135,25 @@ export function DbcImportWizard({
     });
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // Client-side preview filtering. This narrows the parsed message
+  // list for readability only; the bridge pipeline still consumes the
+  // full DBC content on Apply.
+  const filteredMessages = useMemo(() => {
+    const messages = initialDbc?.messages ?? [];
+    const query = search.trim().toLowerCase();
+    return messages.filter((m) => {
+      if (frameFilter === 'standard' && m.isExtended) return false;
+      if (frameFilter === 'extended' && !m.isExtended) return false;
+      if (query.length === 0) return true;
+      const canId = formatCanId(m.id, m.isExtended).toLowerCase();
+      return (
+        m.name.toLowerCase().includes(query) ||
+        m.transmitter.toLowerCase().includes(query) ||
+        canId.includes(query)
+      );
+    });
+  }, [frameFilter, initialDbc, search]);
 
   // Apply handler — fires from Step 3's Apply button. Disabled until
   // `targetNode` is non-empty AND `dbcContent` is non-empty (the
@@ -200,26 +223,68 @@ export function DbcImportWizard({
             <p className="dbc-wizard-step-desc">
               {t(locale, 'dbc.import.preview.messages', { count: initialDbc.messages.length })}
             </p>
-            <ul className="dbc-wizard-messages">
-              {initialDbc.messages.map((m) => (
-                <li
-                  key={m.id}
-                  className="dbc-wizard-message"
-                  data-testid={`dbc-wizard-msg-${m.id}`}
-                >
-                  <span className="dbc-wizard-msg-name">{m.name}</span>
-                  <span className="dbc-wizard-msg-id">
-                    CAN ID {formatCanId(m.id, m.isExtended)}
-                  </span>
-                  <span className="dbc-wizard-msg-frame" data-testid={`dbc-wizard-frame-${m.id}`}>
-                    {m.isExtended ? 'EXT' : 'STD'}
-                  </span>
-                  <span className="dbc-wizard-msg-meta">
-                    DLC {m.dlc} · tx {m.transmitter} · {m.signalCount} signals
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="dbc-wizard-controls">
+              <input
+                type="search"
+                className="dbc-wizard-search"
+                value={search}
+                onChange={(e): void => setSearch(e.target.value)}
+                placeholder={t(locale, 'dbc.import.preview.search')}
+                aria-label={t(locale, 'dbc.import.preview.search')}
+                data-testid="dbc-wizard-search"
+              />
+              <select
+                className="dbc-wizard-frame-filter"
+                value={frameFilter}
+                onChange={(e): void => setFrameFilter(e.target.value as FrameFilter)}
+                aria-label={t(locale, 'dbc.import.preview.table.frame')}
+                data-testid="dbc-wizard-frame-filter"
+              >
+                <option value="all">{t(locale, 'dbc.import.preview.filter.all')}</option>
+                <option value="standard">{t(locale, 'dbc.import.preview.filter.standard')}</option>
+                <option value="extended">{t(locale, 'dbc.import.preview.filter.extended')}</option>
+              </select>
+            </div>
+            <div className="dbc-wizard-table-wrap">
+              <table className="dbc-wizard-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.name')}</th>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.id')}</th>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.frame')}</th>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.dlc')}</th>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.transmitter')}</th>
+                    <th scope="col">{t(locale, 'dbc.import.preview.table.signals')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMessages.length === 0 ? (
+                    <tr>
+                      <td className="dbc-wizard-empty" colSpan={6}>
+                        {t(locale, 'dbc.import.preview.noMatches')}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMessages.map((m) => (
+                      <tr
+                        key={m.id}
+                        className="dbc-wizard-row"
+                        data-testid={`dbc-wizard-msg-${m.id}`}
+                      >
+                        <td>{m.name}</td>
+                        <td className="dbc-wizard-msg-id">{formatCanId(m.id, m.isExtended)}</td>
+                        <td data-testid={`dbc-wizard-frame-${m.id}`}>
+                          {m.isExtended ? 'EXT' : 'STD'}
+                        </td>
+                        <td>{m.dlc}</td>
+                        <td>{m.transmitter}</td>
+                        <td>{m.signalCount}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
             {/*
               CRITICAL: targetNode is sourced from `initialDbc.nodes`
               (DBC `BU_` line names) — NOT from the EcuC `<ECU-INSTANCE>`

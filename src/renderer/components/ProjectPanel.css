@@ -7,9 +7,10 @@
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-primary);
   font-size: 12px;
-  max-height: 240px;
+  height: 100%;
+  max-height: none;
   overflow-y: auto;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
 }
 
 .project-panel-loose {

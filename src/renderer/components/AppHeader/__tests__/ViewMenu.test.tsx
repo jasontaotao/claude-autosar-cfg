@@ -10,7 +10,7 @@ describe('ViewMenu', () => {
     expect(screen.getByTestId('btn-view-menu')).toBeDefined();
   });
 
-  it('opens dropdown and shows all 8 panels + reset', () => {
+  it('opens dropdown and shows dock panels but excludes modal viewers', () => {
     render(<ViewMenu onTogglePanel={vi.fn()} onResetLayout={vi.fn()} />);
     fireEvent.click(screen.getByTestId('btn-view-menu'));
     for (const id of [
@@ -20,11 +20,13 @@ describe('ViewMenu', () => {
       'arxml-tree',
       'param-editor',
       'script-panel',
-      'dbc-viewer',
-      'odx-viewer',
     ]) {
       expect(screen.getByTestId(`menu-item-${id}`)).toBeDefined();
     }
+    // DBC/ODX viewers remain modal file viewers, so they must not be
+    // offered as empty dock panels in the View menu.
+    expect(screen.queryByTestId('menu-item-dbc-viewer')).toBeNull();
+    expect(screen.queryByTestId('menu-item-odx-viewer')).toBeNull();
     expect(screen.getByTestId('btn-reset-layout')).toBeDefined();
   });
 

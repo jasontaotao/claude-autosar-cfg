@@ -98,7 +98,7 @@ export function ViewMenu({ onTogglePanel, onResetLayout }: ViewMenuProps): JSX.E
           onMouseEnter={openMenu}
           onMouseLeave={scheduleClose}
         >
-          {PANEL_REGISTRY.map((def) => (
+          {PANEL_REGISTRY.filter((def) => def.defaultGroup !== 'viewer').map((def) => (
             <button
               key={def.id}
               type="button"

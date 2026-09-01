@@ -30,6 +30,17 @@ export interface DbcMessages {
   readonly 'dbc.import.menu.label': string;
   readonly 'dbc.import.select.button': string;
   readonly 'dbc.import.preview.messages': string; // {count}
+  readonly 'dbc.import.preview.search': string;
+  readonly 'dbc.import.preview.filter.all': string;
+  readonly 'dbc.import.preview.filter.standard': string;
+  readonly 'dbc.import.preview.filter.extended': string;
+  readonly 'dbc.import.preview.noMatches': string;
+  readonly 'dbc.import.preview.table.name': string;
+  readonly 'dbc.import.preview.table.id': string;
+  readonly 'dbc.import.preview.table.frame': string;
+  readonly 'dbc.import.preview.table.dlc': string;
+  readonly 'dbc.import.preview.table.transmitter': string;
+  readonly 'dbc.import.preview.table.signals': string;
   readonly 'dbc.import.preview.next': string;
   readonly 'dbc.import.confirm.warning': string; // {targetNode}
   readonly 'dbc.import.confirm.apply': string;

@@ -28,6 +28,17 @@ export const DbcEn: DbcMessages = {
   'dbc.import.menu.label': 'Import DBC → Com Stack…',
   'dbc.import.select.button': 'Select DBC file…',
   'dbc.import.preview.messages': '{count} messages will be imported',
+  'dbc.import.preview.search': 'Search messages',
+  'dbc.import.preview.filter.all': 'All frames',
+  'dbc.import.preview.filter.standard': 'Standard',
+  'dbc.import.preview.filter.extended': 'Extended',
+  'dbc.import.preview.noMatches': 'No messages match the current filter',
+  'dbc.import.preview.table.name': 'Name',
+  'dbc.import.preview.table.id': 'CAN ID',
+  'dbc.import.preview.table.frame': 'Frame',
+  'dbc.import.preview.table.dlc': 'DLC',
+  'dbc.import.preview.table.transmitter': 'Transmitter',
+  'dbc.import.preview.table.signals': 'Signals',
   'dbc.import.preview.next': 'Next',
   'dbc.import.confirm.warning':
     'This will write 3 ARXML files (Com / CanIf / PduR) atomically for target node {targetNode}.',
@@ -46,7 +57,8 @@ export const DbcEn: DbcMessages = {
     'Failed to write 3 ARXML files: {message} (rolled back — project unchanged, please retry)',
   'dbc.import.error.write.partial':
     'Failed to write 3 ARXML files: {message} (rolled back partially — please check git status)',
-  'dbc.import.warning.noChanges': 'Import completed, but no new items were added (they may already exist).',
+  'dbc.import.warning.noChanges':
+    'Import completed, but no new items were added (they may already exist).',
   'dbc.import.error.noMessages': 'The DBC contains no messages to import (no BO_ entries).',
   'dbc.import.success': 'Successfully imported {count} messages',
 

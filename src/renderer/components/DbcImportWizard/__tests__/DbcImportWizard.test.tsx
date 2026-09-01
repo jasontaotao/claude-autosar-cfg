@@ -131,6 +131,53 @@ describe('DbcImportWizard (v1.23.0 T4)', () => {
     expect(onApply).toHaveBeenCalledWith('VERSION "" raw DBC content', 'TCM');
   });
 
+  it('filters preview messages by search text', () => {
+    render(
+      <DbcImportWizard
+        initialDbc={SAMPLE_SUMMARY}
+        dbcContent={SAMPLE_DBC_CONTENT}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+    const search = screen.getByTestId('dbc-wizard-search') as HTMLInputElement;
+    fireEvent.change(search, { target: { value: 'Trans' } });
+    expect(screen.getByTestId('dbc-wizard-msg-2048')).not.toBeNull();
+    expect(screen.queryByTestId('dbc-wizard-msg-272')).toBeNull();
+  });
+
+  it('filters preview messages by frame type', () => {
+    render(
+      <DbcImportWizard
+        initialDbc={SAMPLE_SUMMARY}
+        dbcContent={SAMPLE_DBC_CONTENT}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+      />,
+    );
+    const filter = screen.getByTestId('dbc-wizard-frame-filter') as HTMLSelectElement;
+    fireEvent.change(filter, { target: { value: 'standard' } });
+    expect(screen.getByTestId('dbc-wizard-msg-272')).not.toBeNull();
+    expect(screen.queryByTestId('dbc-wizard-msg-2048')).toBeNull();
+  });
+
+  it('shows an empty state when no messages match the filter', () => {
+    render(
+      <DbcImportWizard
+        initialDbc={SAMPLE_SUMMARY}
+        dbcContent={SAMPLE_DBC_CONTENT}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+        locale="en"
+      />,
+    );
+    const search = screen.getByTestId('dbc-wizard-search') as HTMLInputElement;
+    fireEvent.change(search, { target: { value: 'does-not-exist' } });
+    expect(screen.queryByTestId('dbc-wizard-msg-272')).toBeNull();
+    expect(screen.queryByTestId('dbc-wizard-msg-2048')).toBeNull();
+    expect(screen.getByText(/No messages match/i)).not.toBeNull();
+  });
+
   it('close button fires onClose; Escape key fires onClose', () => {
     const onClose = vi.fn();
     const { rerender } = render(<DbcImportWizard onClose={onClose} onApply={vi.fn()} />);
