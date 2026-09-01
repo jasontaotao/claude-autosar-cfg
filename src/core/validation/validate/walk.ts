@@ -80,7 +80,13 @@ function walkElements(
       const childPath = `${parentPath}/${el.shortName}`;
       if (!checked.has(childPath)) {
         checked.add(childPath);
-        checkContainerMultiplicity(childPath, childCounts.get(el.shortName) ?? 0, errors, layer);
+        checkContainerMultiplicity(
+          childPath,
+          childCounts.get(el.shortName) ?? 0,
+          errors,
+          layer,
+          el.kind === 'container' ? el.definitionRef : undefined,
+        );
       }
       walkContainer(parentPath, el, errors, layer);
     } else if (el.kind === 'reference') {

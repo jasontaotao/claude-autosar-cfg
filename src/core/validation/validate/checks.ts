@@ -129,6 +129,7 @@ export function checkContainerMultiplicity(
   instanceCount: number,
   errors: ValidationError[],
   layer?: SchemaLayer,
+  definitionRef?: string,
 ): void {
   // Sprint 17d — same normalisation as `walkContainer`. Layer keys are
   // folded at index time so the lookup needs the same shape. The
@@ -137,11 +138,14 @@ export function checkContainerMultiplicity(
   // does: a layer keyed under `/JWQ_CDD_PACK/JWQ_Packet/...` matches
   // value-side `/JWQ3399/...` queries via the cross-module-root
   // fallback in `lookupContainerSchemaAcrossModuleRoots`.
-  const schema = lookupContainerSchema(
-    resolveTargetPath(containerPath),
-    layer,
-    layer?.moduleRoots ?? [],
-  );
+  const normalisedPath = resolveTargetPath(containerPath);
+  const definitionLookupPath =
+    definitionRef === undefined || definitionRef === '' ? null : resolveTargetPath(definitionRef);
+  const schema =
+    lookupContainerSchema(normalisedPath, layer, layer?.moduleRoots ?? []) ??
+    (definitionLookupPath === null
+      ? null
+      : lookupContainerSchema(definitionLookupPath, layer, layer?.moduleRoots ?? []));
   if (schema === null) {
     // Layer-aware schema-unknown: same disambiguator as the param-level
     // check above — if the layer knows the *parent* module but didn't
