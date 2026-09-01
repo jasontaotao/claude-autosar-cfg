@@ -2,12 +2,13 @@
 // BSWMD lookup helpers used by the mutation actions. Pure — no store
 // closure, no I/O. Extracted from useArxmlStore.ts in PR(5).
 
-import type {
-  BswModuleDef,
-  BswmdDocument,
-  ContainerDef,
-  ParamDef,
-  ReferenceDef,
+import {
+  getContainerDefByPath,
+  type BswModuleDef,
+  type BswmdDocument,
+  type ContainerDef,
+  type ParamDef,
+  type ReferenceDef,
 } from '@core/project/bswmd.js';
 
 /**
@@ -193,28 +194,9 @@ export function resolveContainerDefBySubPath(
   mod: BswModuleDef,
   subPath: string,
 ): ContainerDef | null {
-  const segments = subPath.split('/').filter((s) => s.length > 0);
-  if (segments.length === 0) return null;
-  const [head, ...tail] = segments;
-  if (head === undefined) return null;
-  const first = mod.containers.find((c) => c.shortName === head);
-  if (first === undefined) return null;
-  if (tail.length === 0) return first;
-  return findContainerInTreeByPathLocal(first, tail);
-}
-
-function findContainerInTreeByPathLocal(
-  parent: ContainerDef,
-  segments: readonly string[],
-): ContainerDef | null {
-  if (segments.length === 0) return parent;
-  const [head, ...tail] = segments;
-  if (head === undefined) return null;
-  const candidates = [...parent.subContainers, ...parent.choices];
-  const found = candidates.find((c) => c.shortName === head);
-  if (found === undefined) return null;
-  if (tail.length === 0) return found;
-  return findContainerInTreeByPathLocal(found, tail);
+  // Delegate to the core lookup so renderer and mutations share one
+  // path-matching contract, including multi-instance `_<digits>` fallback.
+  return getContainerDefByPath(mod, subPath);
 }
 
 /**

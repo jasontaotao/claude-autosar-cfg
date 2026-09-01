@@ -256,6 +256,35 @@ export function findModuleForPath(layer: SchemaLayer, paramPath: string): string
 }
 
 /**
+ * Expand value-side path segments that carry a multi-instance suffix.
+ *
+ * `addContainer` keeps BSWMD definitions unsuffixed but names value-side
+ * siblings `Cell_1`, `Cell_2`, ... Layer keys always use the definition
+ * shortName. Exact candidates are generated first; the base-name variant
+ * is only an additional fallback candidate.
+ */
+function expandInstanceSuffixPaths(segments: readonly string[]): readonly string[] {
+  const [head, ...tail] = segments;
+  if (head === undefined) return [''];
+  const heads = [head];
+  const base = head.replace(/_[0-9]+$/, '');
+  if (base !== head) heads.push(base);
+
+  const out: string[] = [];
+  for (const prefix of heads) {
+    if (tail.length === 0) {
+      out.push(prefix);
+      continue;
+    }
+    for (const suffix of expandInstanceSuffixPaths(tail)) {
+      out.push(suffix === '' ? prefix : `${prefix}/${suffix}`);
+    }
+    if (out.length >= 64) break;
+  }
+  return out.slice(0, 64);
+}
+
+/**
  * Sprint 17d follow-up — vendor CDD namespace-mismatch lookup.
  *
  * The classic AUTOSAR vendor CDD layout has the value-side ECUC values
@@ -376,9 +405,11 @@ export function lookupSchemaAcrossModuleRoots(
     // shortName occupies segments[0] AND segments[1] and the suffix
     // starts with the original /container/... payload).
     for (let trim = 0; trim < suffixSegments.length; trim += 1) {
-      const candidate = root + '/' + suffixSegments.slice(trim).join('/');
-      const found = layer.params.get(candidate);
-      if (found !== undefined) return found;
+      for (const suffix of expandInstanceSuffixPaths(suffixSegments.slice(trim))) {
+        const candidate = root + '/' + suffix;
+        const found = layer.params.get(candidate);
+        if (found !== undefined) return found;
+      }
     }
     // Module-root candidate — restricted to the legacy 2-segment
     // `/<pkg>/<module>` shape where the suffix is a SINGLE segment
@@ -460,9 +491,11 @@ export function lookupContainerSchemaAcrossModuleRoots(
     const suffixSegments = segments.slice(modIdx + 1);
     if (suffixSegments.length === 0) continue;
     for (let trim = 0; trim < suffixSegments.length; trim += 1) {
-      const candidate = root + '/' + suffixSegments.slice(trim).join('/');
-      const found = layer.containers.get(candidate);
-      if (found !== undefined) return found;
+      for (const suffix of expandInstanceSuffixPaths(suffixSegments.slice(trim))) {
+        const candidate = root + '/' + suffix;
+        const found = layer.containers.get(candidate);
+        if (found !== undefined) return found;
+      }
     }
     // Module-root candidate — same restricted contract as the
     // param-side helper. Only fires when the suffix is a single

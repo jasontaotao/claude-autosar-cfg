@@ -554,6 +554,14 @@ describe('lookupSchemaAcrossModuleRoots — vendor CDD fallback (param side)', (
     );
   });
 
+  it('maps an auto-suffixed container instance back to its unsuffixed param definition', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    const valueSideParamPath =
+      '/JWQ3399/JWQ3399ConfigSet/JWQ3399AFECellValidSet_1/SampleValidBitSet';
+    expect(layer.params.has(valueSideParamPath)).toBe(false);
+    const entry = lookupSchemaAcrossModuleRoots(valueSideParamPath, layer, [moduleRoot]);
+    expect(entry).not.toBeNull();
+  });
   it('returns null when moduleRoots is empty (mirrors lookupSchema)', () => {
     const { layer } = vendorCddLayer();
     const valueSideParamPath = '/JWQ3399/JWQ3399/JWQ3399General/JWQ3399CommArch';
@@ -686,6 +694,16 @@ describe('lookupContainerSchemaAcrossModuleRoots — vendor CDD fallback (contai
     ).toBeNull();
   });
 
+  it('maps an auto-suffixed container instance back to its unsuffixed container definition', () => {
+    const { layer, moduleRoot } = vendorCddLayer();
+    const valueSideContainerPath = '/JWQ3399/JWQ3399ConfigSet/JWQ3399AFECellValidSet_1';
+    expect(layer.containers.has(valueSideContainerPath)).toBe(false);
+    const entry = lookupContainerSchemaAcrossModuleRoots(valueSideContainerPath, layer, [
+      moduleRoot,
+    ]);
+    expect(entry).not.toBeNull();
+    expect(entry!.upper).toBe('unbounded');
+  });
   it('returns null when moduleRoots is empty', () => {
     const { layer } = vendorCddLayer();
     expect(
