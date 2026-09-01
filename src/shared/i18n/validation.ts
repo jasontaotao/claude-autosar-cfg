@@ -66,6 +66,8 @@ export interface ValidationMessages {
   readonly 'mutation.error.removeDocument-not-found': string; // {path}
   readonly 'mutation.error.removeBswmd-not-found': string; // {path}
   readonly 'mutation.action.addContainer': string;
+  readonly 'mutation.action.renameContainer': string;
+  readonly 'mutation.prompt.instanceName': string;
   readonly 'mutation.action.addParameter': string;
   readonly 'mutation.action.addReference': string;
   readonly 'mutation.action.delete': string; // {name}

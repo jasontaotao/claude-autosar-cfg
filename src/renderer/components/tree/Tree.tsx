@@ -18,7 +18,7 @@
 // mutation surface — `addContainer(parentPath, shortName)` was shipped
 // in v1.5.1 PR(4) and is reused as-is.
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 
 import type { ArxmlDocument, ArxmlElement, ArxmlPackage } from '@core/arxml/types.js';
@@ -61,6 +61,12 @@ export interface ArxmlStoreSlice {
   // `useArxmlStore.bswmdSchemas` (the same field that powers the
   // BswmdPickerDialog and the validator).
   readonly bswmdSchemas: readonly BswmdDocument[];
+  /** Ephemeral rename event used to preserve local Tree expansion state. */
+  readonly lastContainerRename?: {
+    readonly id: number;
+    readonly from: string;
+    readonly to: string;
+  };
   /**
    * S4 (v1.7.2) — invoke the existing `addContainer` mutation.
    * Wired by the host (App.tsx) to `useArxmlStore.getState().addContainer`
@@ -110,6 +116,8 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
   const [bswmdSchemas, setBswmdSchemas] = useState<readonly BswmdDocument[]>(
     initialState.bswmdSchemas ?? [],
   );
+  const lastRenameId = useRef(0);
+
   useEffect(() => {
     return store.subscribe(() => {
       const s = store.getState();
@@ -117,6 +125,12 @@ export function Tree({ store, onContextMenu }: TreeProps): JSX.Element {
       setSelectedPath(s.selectedPath);
       setLocale(s.locale);
       setBswmdSchemas(s.bswmdSchemas ?? []);
+
+      const rename = s.lastContainerRename;
+      if (rename !== undefined && rename.id !== lastRenameId.current) {
+        lastRenameId.current = rename.id;
+        setExpanded((prev) => remapExpandedPaths(prev, rename.from, rename.to));
+      }
     });
   }, [store]);
 
@@ -593,6 +607,32 @@ function TreeLegend({ locale }: { readonly locale: Locale }): JSX.Element {
         </span>
       ))}
     </footer>
+  );
+}
+
+/**
+ * Remap Tree-local expansion keys after a container instance rename.
+ * Collection rows use a collection:<path> prefix, so only the embedded
+ * path is rewritten; ordinary paths are only replaced on an exact or
+ * strict descendant match. This avoids accidentally rewriting /Parent2.
+ */
+function remapExpandedPaths(
+  expanded: ReadonlySet<string>,
+  oldPath: string,
+  newPath: string,
+): Set<string> {
+  const remapPath = (path: string): string => {
+    if (path === oldPath) return newPath;
+    if (path.startsWith(oldPath + '/')) return newPath + path.slice(oldPath.length);
+    return path;
+  };
+
+  return new Set(
+    [...expanded].map((key) =>
+      key.startsWith('collection:')
+        ? 'collection:' + remapPath(key.slice('collection:'.length))
+        : remapPath(key),
+    ),
   );
 }
 

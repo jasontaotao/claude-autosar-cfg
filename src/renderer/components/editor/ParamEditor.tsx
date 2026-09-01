@@ -21,6 +21,7 @@ import { hasBswmdForModule } from '@core/ecuc/moduleMatch';
 import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
+import { prompt } from '../PromptDialog';
 
 import { ParamEditorEmptyState } from './ParamEditorEmptyState.js';
 import { selectParamMode } from './modes';
@@ -159,6 +160,17 @@ export function ParamEditor({ onOpenProject, onNewProject }: ParamEditorProps = 
   // schema; the tooltip mirrors `mutation.error.no-bswmd-for-module`.
   const hasBswmdForModuleValue = hasBswmdForModule(useArxmlStore.getState(), selectedPath);
 
+  const handleRenameContainer = (): void => {
+    if (element.kind !== 'container') return;
+    void prompt({
+      message: t(locale, 'mutation.prompt.instanceName'),
+      defaultValue: element.shortName,
+    }).then((newShortName) => {
+      if (newShortName === null) return;
+      useArxmlStore.getState().renameContainer(selectedPath, newShortName);
+    });
+  };
+
   return (
     <section
       className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -171,6 +183,18 @@ export function ParamEditor({ onOpenProject, onNewProject }: ParamEditorProps = 
             could collapse to a low-contrast tone in certain
             light-mode backgrounds. */}
         <h2 className="text-lg font-semibold text-slate-900">{element.shortName}</h2>
+        {element.kind === 'container' && (
+          <button
+            type="button"
+            data-testid="param-editor-rename"
+            aria-label={t(locale, 'mutation.action.renameContainer')}
+            title={t(locale, 'mutation.action.renameContainer')}
+            onClick={handleRenameContainer}
+            className="rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            ✎
+          </button>
+        )}
         <span
           className="rounded bg-slate-200 px-2 py-0.5 text-sm font-medium text-slate-700"
           data-testid="editor-kind-badge"

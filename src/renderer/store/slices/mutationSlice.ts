@@ -45,6 +45,12 @@ import {
 } from '../helpers/mutationErrors.js';
 import type { ArxmlState } from '../useArxmlStore.js';
 
+export interface PathRenameEvent {
+  readonly id: number;
+  readonly from: string;
+  readonly to: string;
+}
+
 export interface MutationSlice {
   // Sprint 15 Phase 2 — ECUC add/delete mutation actions. Each one
   // mirrors the combined-mode dispatch pattern from `updateParam`:
@@ -74,6 +80,8 @@ export interface MutationSlice {
    */
   deleteEcucModule: (modulePath: string) => void;
   renameContainer: (containerPath: string, newShortName: string) => void;
+  /** Ephemeral event consumed by Tree to remap local expansion keys. */
+  lastContainerRename?: PathRenameEvent;
 }
 
 export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice> = (set, get) => ({
@@ -766,7 +774,14 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
       }
       applyMutationResultToSource(set, state, sourceIdx, result.value.doc, target.filePath);
       const prefixLength = containerPath.length - innerPath.length;
-      set({ selectedPath: containerPath.slice(0, prefixLength) + result.value.newPath });
+      set({
+        selectedPath: containerPath.slice(0, prefixLength) + result.value.newPath,
+        lastContainerRename: {
+          id: Date.now(),
+          from: containerPath,
+          to: containerPath.slice(0, prefixLength) + result.value.newPath,
+        },
+      });
       return;
     }
     if (state.activeDocumentPath === null || state.doc === null) return;
@@ -778,7 +793,14 @@ export const createMutationSlice: StateCreator<ArxmlState, [], [], MutationSlice
       return;
     }
     applyMutationResultToActive(set, state, activeIdx, result.value.doc, state.activeDocumentPath);
-    set({ selectedPath: result.value.newPath });
+    set({
+      selectedPath: result.value.newPath,
+      lastContainerRename: {
+        id: Date.now(),
+        from: containerPath,
+        to: result.value.newPath,
+      },
+    });
   },
 });
 

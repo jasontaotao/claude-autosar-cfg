@@ -65,6 +65,8 @@ export const ValidationEn: ValidationMessages = {
   'mutation.error.removeDocument-not-found': "ARXML '{path}' is not loaded, cannot remove",
   'mutation.error.removeBswmd-not-found': "BSWMD '{path}' is not loaded, cannot remove",
   'mutation.action.addContainer': 'Add sub-container',
+  'mutation.action.renameContainer': 'Rename',
+  'mutation.prompt.instanceName': 'Instance name',
   'mutation.action.addParameter': 'Add parameter',
   'mutation.action.addReference': 'Add reference',
   'mutation.action.delete': "Delete '{name}'",

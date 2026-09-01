@@ -16,7 +16,7 @@
 //
 // Tests pin (13):
 //   1.  Renders nothing when state is null
-//   2.  Renders the 4 items for a container target
+//   2.  Renders the 5 items for a container target
 //   3.  Boundary detection: flips to innerWidth - width when x is past
 //       the right edge
 //   4.  Esc closes the menu
@@ -27,7 +27,7 @@
 //   8.  ArrowDown / ArrowUp navigates focus between items
 //   9.  Enter on a focused item triggers onAction
 //  10.  Localized label appears in the menu (mock the locale)
-//  11.  Container at root shows all 4 items
+//  11.  Container at root shows all 5 items
 //  12.  Reference target shows only the delete item (not add)
 //  13.  Collection target surfaces 3 multi-instance ops (Phase P2 T2)
 
@@ -117,7 +117,7 @@ describe('ContextMenu (container target)', () => {
     await mountHost(() => undefined);
   });
 
-  it('renders the 4 items when opened with a container target', () => {
+  it('renders the 5 items when opened with a container target', () => {
     act(() => {
       openContextMenu(
         { path: '/EAS/EcuC/EcuCGeneral', kind: 'container', shortName: 'EcuCGeneral' },
@@ -130,14 +130,14 @@ describe('ContextMenu (container target)', () => {
     expect(menu).toBeInTheDocument();
 
     const items = screen.getAllByRole('menuitem');
-    // Container menu: 4 items (add c/p/r + delete-container). The
+    // Container menu: 5 items (add c/p/r + rename + delete-container). The
     // "delete-module" entry lives in `buildBswmdItems` only — see
     // ContextMenu.deleteModule.test.tsx.
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(5);
     expect(items[0]).toHaveTextContent(/添加子容器|Add sub-container/);
     expect(items[1]).toHaveTextContent(/添加参数|Add parameter/);
     expect(items[2]).toHaveTextContent(/添加引用|Add reference/);
-    expect(items[3]).toHaveTextContent(/删除|Delete/);
+    expect(items[4]).toHaveTextContent(/删除|Delete/);
   });
 
   it('localized label appears in the menu (en locale)', () => {
@@ -163,9 +163,9 @@ describe('ContextMenu (container target)', () => {
     act(() => {
       openContextMenu({ path: '/EcuC', kind: 'container', shortName: 'EcuC' }, 100, 200);
     });
-    // Container menu has 4 items; "delete-module" lives in
+    // Container menu has 5 items; "delete-module" lives in
     // buildBswmdItems only (spec: container/reference menus unchanged).
-    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(5);
   });
 });
 
@@ -323,8 +323,9 @@ describe('ContextMenu (BSWMD-disabled items)', () => {
     expect(items[1]).toHaveAttribute('aria-disabled', 'true');
     // Add reference
     expect(items[2]).toHaveAttribute('aria-disabled', 'true');
-    // Delete container is always enabled
+    // Rename + delete are always enabled
     expect(items[3]).not.toHaveAttribute('aria-disabled', 'true');
+    expect(items[4]).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('enables the add items when a BSWMD covers the module shortName in the path', async () => {
@@ -395,7 +396,7 @@ describe('ContextMenu (keyboard navigation)', () => {
       openContextMenu({ path: '/EcuM', kind: 'container', shortName: 'EcuM' }, 100, 100);
     });
     const items = screen.getAllByRole('menuitem');
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(5);
 
     // Initial focus on the first item (auto-focus on open).
     expect(items[0]).toHaveFocus();

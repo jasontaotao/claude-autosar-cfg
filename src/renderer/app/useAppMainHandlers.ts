@@ -26,6 +26,7 @@ import { t as i18nT } from '@shared/i18n/index.js';
 
 import { openContextMenu } from '../components/ContextMenu';
 import type { ContextMenuAction } from '../components/ContextMenu';
+import { prompt } from '../components/PromptDialog';
 import { useCreateEcucFromBswmd } from '../hooks/useCreateEcucFromBswmd';
 import type { useDcmConfigLauncher } from '../hooks/useDcmConfigLauncher';
 import { useGenerateCode } from '../hooks/useGenerateCode';
@@ -349,6 +350,15 @@ export function useAppMainHandlers(args: {
           return;
         case 'delete-container':
           deleteContainerAction(action.path);
+          return;
+        case 'rename-container':
+          void prompt({
+            message: i18nT(useArxmlStore.getState().locale, 'mutation.prompt.instanceName'),
+            defaultValue: action.name,
+          }).then((newShortName) => {
+            if (newShortName === null) return;
+            useArxmlStore.getState().renameContainer(action.path, newShortName);
+          });
           return;
         case 'delete-reference':
           // No store action exists today; surface a localized

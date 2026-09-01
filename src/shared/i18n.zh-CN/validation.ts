@@ -63,6 +63,8 @@ export const ValidationZhCN: ValidationMessages = {
   'mutation.error.removeDocument-not-found': "未加载 ARXML '{path}',无法移除",
   'mutation.error.removeBswmd-not-found': "未加载 BSWMD '{path}',无法移除",
   'mutation.action.addContainer': '添加子容器',
+  'mutation.action.renameContainer': '重命名',
+  'mutation.prompt.instanceName': '实例名',
   'mutation.action.addParameter': '添加参数',
   'mutation.action.addReference': '添加引用',
   'mutation.action.delete': "删除 '{name}'",

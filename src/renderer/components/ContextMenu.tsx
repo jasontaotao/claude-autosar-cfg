@@ -74,6 +74,7 @@ export type ContextMenuAction =
   | { readonly type: 'add-parameter'; readonly path: string }
   | { readonly type: 'add-reference'; readonly path: string }
   | { readonly type: 'delete-container'; readonly path: string; readonly name: string }
+  | { readonly type: 'rename-container'; readonly path: string; readonly name: string }
   | { readonly type: 'delete-reference'; readonly path: string }
   | { readonly type: 'remove-module'; readonly path: string }
   | { readonly type: 'delete-module'; readonly path: string; readonly name: string }
@@ -307,6 +308,13 @@ function buildContainerItems(
       disabledTitle: covered ? undefined : disabledTitle,
       cssClass: 'context-menu-item context-menu-item-add',
       build: (t) => ({ type: 'add-reference', path: t.path }),
+    },
+    {
+      id: 'rename-container',
+      label: t(locale, 'mutation.action.renameContainer'),
+      disabled: false,
+      cssClass: 'context-menu-item',
+      build: (t) => ({ type: 'rename-container', path: t.path, name: t.shortName }),
     },
     // Sprint A+ — the "Delete ECUC module" entry lives in
     // `buildBswmdItems` only (it's the source-backed module-root
