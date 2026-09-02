@@ -15,6 +15,56 @@ describe('useDiagExtractHandlers — open extract in workspace', () => {
     } as never);
   });
 
+  it('passes the project BSWMD directory when exporting diagnostic extract', async () => {
+    useArxmlStore.setState({
+      projectPath: '/proj/demo.autosarcfg.json',
+      project: {
+        schemaVersion: '1',
+        id: 'p1',
+        name: 'demo',
+        valueArxmlPaths: [],
+        bswmdPaths: ['bswmd/Dcm_bswmd.arxml'],
+      } as never,
+    } as never);
+    const importDiagnosticExtract = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        demPath: '/proj/samples/arxml/diagnostic-extract/Dem_Extract.arxml',
+        demContent: '<Dem/>',
+        dcmPath: '/proj/samples/arxml/diagnostic-extract/Dcm_Extract.arxml',
+        dcmContent: '<Dcm/>',
+        stats: { dtcCount: 0, didCount: 0, routineCount: 0 },
+      },
+    });
+    (window as unknown as { autosarApi: Record<string, unknown> }).autosarApi = {
+      importDiagnosticExtract,
+    };
+
+    const { result } = renderHook(() => useDiagExtractHandlers({
+      odxModal: {
+      kind: 'open',
+      path: '/proj/Demo.odx-d',
+      summary: {
+        dtcCount: 0,
+        didCount: 0,
+        routineCount: 0,
+        dtcs: [],
+        dids: [],
+        routines: [],
+      },
+    },
+    }));
+    await act(async () => {
+      await result.current.handleExportOdxDiagnosticExtract();
+    });
+
+    expect(importDiagnosticExtract).toHaveBeenCalledWith({
+      odxPath: '/proj/Demo.odx-d',
+      outputDir: '/proj/samples/arxml/diagnostic-extract',
+      bswmdDir: '/proj/bswmd',
+    });
+  });
+
   it('parses both generated extracts and adds them to the workspace', async () => {
     const parseArxml = vi
       .fn()

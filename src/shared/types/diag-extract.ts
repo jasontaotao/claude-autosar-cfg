@@ -12,6 +12,8 @@ export interface OdxImportDiagExtractRequest {
   readonly odxPath: string;
   /** Absolute path to the output directory. Must exist and be writable. */
   readonly outputDir: string;
+  /** Optional absolute directory containing workspace BSWMD ARXMLs. */
+  readonly bswmdDir?: string;
 }
 
 /**

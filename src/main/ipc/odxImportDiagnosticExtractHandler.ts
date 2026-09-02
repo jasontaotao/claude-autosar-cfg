@@ -27,11 +27,14 @@ import { promises as fs } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { odxToDiagnosticExtract } from '../../core/bridge/odxToDiagnosticExtract.js';
+import type { BswModuleDef } from '../../core/project/bswmd.js';
 import type {
   OdxImportDiagExtractRequest,
   OdxImportDiagExtractResponse,
 } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
+
+import { loadBswmdsFromDirectory } from './loadBswmds.js';
 
 import { parseOdxHandler } from './parseOdxHandler.js';
 import { readFileWithCap } from './sizeCap.js';
@@ -111,9 +114,28 @@ export async function odxImportDiagnosticExtractHandler(
     };
   }
 
-  // 3. Map to ARXML strings.
+  // 3. Optionally load workspace BSWMDs so generated definition-refs
+  // match the actual project definitions instead of the standard R22
+  // fallback. A missing directory intentionally means no definitions.
+  let bswmds: ReadonlyMap<string, BswModuleDef> = new Map();
+  if (request.bswmdDir !== undefined) {
+    try {
+      bswmds = await loadBswmdsFromDirectory(resolve(request.bswmdDir));
+    } catch (err) {
+      return {
+        ok: false,
+        error: {
+          kind: 'read-failed',
+          message: `Failed to load BSWMDs: ${err instanceof Error ? err.message : String(err)}`,
+        },
+      };
+    }
+  }
+
+  // 4. Map to ARXML strings.
   const { demContent, dcmContent, stats } = odxToDiagnosticExtract({
     odx: parseResponse.value,
+    bswmds,
   });
 
   const demPath = join(absOutputDir, DEM_FILENAME);

@@ -18,6 +18,67 @@ import { odxImportDiagnosticExtractHandler } from '../odxImportDiagnosticExtract
 
 const FIXTURE_PATH = resolve(process.cwd(), 'samples/odx/Demo_Cdd.odx-d');
 
+const NESTED_DCM_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>Custom</SHORT-NAME>
+          <ELEMENTS>
+                <ECUC-MODULE-DEF>
+                  <SHORT-NAME>Dcm</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <CONTAINERS>
+                    <ECUC-PARAM-CONF-CONTAINER-DEF>
+                      <SHORT-NAME>DcmConfigSet</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                      <CONTAINERS>
+                        <ECUC-PARAM-CONF-CONTAINER-DEF>
+                          <SHORT-NAME>DcmDsp</SHORT-NAME>
+                          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                          <CONTAINERS>
+                            <ECUC-PARAM-CONF-CONTAINER-DEF>
+                              <SHORT-NAME>DcmDspDid</SHORT-NAME>
+                              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                              <UPPER-MULTIPLICITY>65535</UPPER-MULTIPLICITY>
+                              <PARAMETERS>
+                                <ECUC-INTEGER-PARAM-DEF>
+                                  <SHORT-NAME>DcmDspDidIdentifier</SHORT-NAME>
+                                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                                </ECUC-INTEGER-PARAM-DEF>
+                              </PARAMETERS>
+                            </ECUC-PARAM-CONF-CONTAINER-DEF>
+                            <ECUC-PARAM-CONF-CONTAINER-DEF>
+                              <SHORT-NAME>DcmDspRoutine</SHORT-NAME>
+                              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                              <UPPER-MULTIPLICITY>65535</UPPER-MULTIPLICITY>
+                              <PARAMETERS>
+                                <ECUC-INTEGER-PARAM-DEF>
+                                  <SHORT-NAME>DcmDspRoutineIdentifier</SHORT-NAME>
+                                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                                </ECUC-INTEGER-PARAM-DEF>
+                              </PARAMETERS>
+                            </ECUC-PARAM-CONF-CONTAINER-DEF>
+                          </CONTAINERS>
+                        </ECUC-PARAM-CONF-CONTAINER-DEF>
+                      </CONTAINERS>
+                    </ECUC-PARAM-CONF-CONTAINER-DEF>
+                  </CONTAINERS>
+                </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
+
 describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', () => {
   it('produces 99 DemEvents / 4 DcmRoutines / 34 DcmDids from Demo_Cdd.odx-d', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'odx-bridge-real-'));
@@ -35,6 +96,38 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
         didCount: 34,
         routineCount: 4,
       });
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('threads bswmdDir into the mapper and preserves fallback output without it', async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'odx-bridge-real-'));
+    const bswmdDir = join(tmpDir, 'bswmd');
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    mkdirSync(bswmdDir, { recursive: true });
+    writeFileSync(join(bswmdDir, 'Dcm.bswmd.arxml'), NESTED_DCM_BSWMD, 'utf8');
+    try {
+      const withoutBswmds = await odxImportDiagnosticExtractHandler({
+        odxPath: FIXTURE_PATH,
+        outputDir: tmpDir,
+      });
+      expect(withoutBswmds.ok).toBe(true);
+      if (!withoutBswmds.ok) return;
+      const { readFileSync } = await import('node:fs');
+      const fallback = readFileSync(withoutBswmds.value.dcmPath, 'utf8');
+      expect(fallback).toContain('/AUTOSAR_R22/EcucDefs/Dcm');
+
+      const withBswmds = await odxImportDiagnosticExtractHandler({
+        odxPath: FIXTURE_PATH,
+        outputDir: tmpDir,
+        bswmdDir,
+      });
+      expect(withBswmds.ok).toBe(true);
+      if (!withBswmds.ok) return;
+      const resolved = readFileSync(withBswmds.value.dcmPath, 'utf8');
+      expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
+      expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier');
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

@@ -101,11 +101,13 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
       projectDir.length > 0
         ? `${projectDir}/samples/arxml/diagnostic-extract`
         : `${activeOdxPath.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
+    const bswmdDir = projectDir.length > 0 ? `${projectDir}/bswmd` : undefined;
     setDiagExtractExporting(true);
     try {
       const res = await api.importDiagnosticExtract({
         odxPath: activeOdxPath,
         outputDir,
+        ...(bswmdDir === undefined ? {} : { bswmdDir }),
       });
       if (res.ok) {
         setDiagExtractModal({ kind: 'open', ...res.value });
