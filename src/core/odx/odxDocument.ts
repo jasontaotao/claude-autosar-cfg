@@ -4,6 +4,7 @@ export interface OdxRawElement {
   readonly tag: string;
   readonly attrs: Readonly<Record<string, string>>;
   readonly children: Readonly<Record<string, readonly OdxRawElement[]>>;
+  readonly text?: string;
 }
 
 export interface OdxVariantInfo {
@@ -48,9 +49,14 @@ function toElement(
   value: unknown,
   idIndex: Map<string, OdxRawElement>,
 ): OdxRawElement {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return { tag, attrs: {}, children: {}, text: String(value) };
+  }
+
   const source = isObject(value) ? value : {};
   const attrs = normalizeAttrs(source);
   const children: Record<string, OdxRawElement[]> = {};
+  const text = typeof source['#text'] === 'string' ? source['#text'] : undefined;
 
   for (const [childTag, childValue] of Object.entries(source)) {
     if (childTag.startsWith('@_') || childTag === '#text') continue;
@@ -58,7 +64,12 @@ function toElement(
     children[childTag] = values.map((item) => toElement(childTag, item, idIndex));
   }
 
-  const element: OdxRawElement = { tag, attrs, children };
+  const element: OdxRawElement = {
+    tag,
+    attrs,
+    children,
+    ...(text === undefined ? {} : { text }),
+  };
   if (attrs.ID) idIndex.set(attrs.ID, element);
   return element;
 }
