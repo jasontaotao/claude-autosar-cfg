@@ -185,7 +185,7 @@ export async function dcmConfigPipeline(
   validateOdxLinkage(request.odx, request.xlsxRows);
 
   // 2. ODX-derived Dcm extract (DIDs + Routines as standalone ARXML).
-  const extract = odxToDiagnosticExtract({ odx: request.odx });
+  const extract = odxToDiagnosticExtract({ odx: request.odx, bswmds: request.bswmds });
 
   // 3. BSWMD presence check. T4 needs Dcm module to resolve xlsx paths;
   //    surface the same error message here so the orchestrator's contract

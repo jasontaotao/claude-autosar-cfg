@@ -8,7 +8,9 @@
 // Standalone = no BSWMD-REF; user merges with their Dem/Dcm BSWMD
 // post-export. Mirrors Vector's "Diagnostic Extract" tool convention.
 
+import type { BswModuleDef } from '../project/bswmd/types.js';
 import type { OdxSummary } from '../../shared/types.js';
+import { resolveDefinitionRef } from './definitionRefResolver.js';
 
 export interface OdxToDiagnosticExtractStats {
   readonly dtcCount: number;
@@ -24,6 +26,8 @@ export interface OdxToDiagnosticExtractResult {
 
 export interface OdxToDiagnosticExtractRequest {
   readonly odx: OdxSummary;
+  /** Optional BSWMD lookup keyed by module shortName. */
+  readonly bswmds?: ReadonlyMap<string, BswModuleDef>;
 }
 
 /** AUTOSAR 4.x XML envelope for both Dem and Dcm extract files. */
@@ -97,46 +101,61 @@ function buildDemContent(odx: OdxSummary): string {
  * (DID encoding metadata) is unchanged. The `<DCM-DSP-ROUTINE>` inner
  * block is similarly preserved.
  */
-function buildDcmContent(odx: OdxSummary): string {
+function buildDcmContent(
+  odx: OdxSummary,
+  bswmds?: ReadonlyMap<string, BswModuleDef>,
+): string {
+  const dcmBswmd = bswmds?.get('Dcm');
+  const identifierParams = (
+    containerPath: readonly string[],
+    leafParam: string,
+    identifier: number | undefined,
+  ): string => {
+    if (identifier === undefined) return '';
+    const ref = resolveDefinitionRef('Dcm', [...containerPath, leafParam], dcmBswmd);
+    return `
+        <PARAMETER-VALUES>
+          <ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">${ref}</DEFINITION-REF>
+            <VALUE>${identifier}</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE>
+        </PARAMETER-VALUES>`;
+  };
   const dids = odx.dids
     .map((did) => {
       const dataBlock = did.data
-        ? `\n        <DCM-DSP-DID-DATA>\n          <DIAG-CODED-TYPE>${escapeXmlText(did.data.dataType)}</DIAG-CODED-TYPE>\n          <BASE-TYPE-ENCODING>${escapeXmlText(did.data.encoding)}</BASE-TYPE-ENCODING>${did.data.bitLength !== undefined ? `\n          <BIT-LENGTH>${did.data.bitLength}</BIT-LENGTH>` : ''}\n        </DCM-DSP-DID-DATA>`
+        ? `
+        <DCM-DSP-DID-DATA>
+          <DIAG-CODED-TYPE>${escapeXmlText(did.data.dataType)}</DIAG-CODED-TYPE>
+          <BASE-TYPE-ENCODING>${escapeXmlText(did.data.encoding)}</BASE-TYPE-ENCODING>${did.data.bitLength !== undefined ? `
+          <BIT-LENGTH>${did.data.bitLength}</BIT-LENGTH>` : ''}
+        </DCM-DSP-DID-DATA>`
         : '';
+      const didPath = ['DcmConfigSet', 'DcmDsp', 'DcmDspDid'];
+      const didRef = resolveDefinitionRef('Dcm', didPath, dcmBswmd);
+      const params = identifierParams(didPath, 'DcmDspDidIdentifier', did.identifier);
       return `      <ECUC-CONTAINER-VALUE>
         <SHORT-NAME>${escapeXmlText(did.shortName)}</SHORT-NAME>
-        <DEFINITION-REF DEST="DCM-DSP-DID">/Dcm/DcmDspDid</DEFINITION-REF>${dataBlock}
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">${didRef}</DEFINITION-REF>${params}${dataBlock}
       </ECUC-CONTAINER-VALUE>`;
     })
-    .join('\n');
+    .join('\\n');
   const routines = odx.routines
-    .map(
-      (r) =>
-        `      <ECUC-CONTAINER-VALUE>
-        <SHORT-NAME>${escapeXmlText(r.shortName)}</SHORT-NAME>
-        <DEFINITION-REF DEST="DCM-DSP-ROUTINE">/Dcm/DcmDspRoutine</DEFINITION-REF>
-        <DCM-DSP-ROUTINE>
-          <SHORT-NAME>${escapeXmlText(r.shortName)}</SHORT-NAME>
-        </DCM-DSP-ROUTINE>
-      </ECUC-CONTAINER-VALUE>`,
-    )
-    .join('\n');
-  const containersXml = [dids, routines].filter(Boolean).join('\n');
-  // v1.27.2 PATCH — wrap the ODX-extracted ECUC-CONTAINER-VALUEs inside
-  // an `ECUC-MODULE-CONFIGURATION-VALUES` element with `<SHORT-NAME>Dcm</SHORT-NAME>`.
-  // The wrapper is required so the v1.27.0 Dcm config pipeline's xlsx
-  // mapper (`add-child` to module `Dcm`) can resolve the parent element
-  // via `findByPath` (`/DiagExtract/Dcm`). Pre-patch, the extract put
-  // `<DCM-DSP-DID>` data-spec elements directly under `DiagExtract/
-  // ELEMENTS` with no module wrapper, so `addContainer` failed
-  // `locateParent` because there was no `Dcm` element to attach to.
-  //
-  // The DEM half (`buildDemContent`) does NOT need this wrapper —
-  // DEM-EVENT-PARAMETER elements are top-level AR-PACKAGE/ELEMENTS
-  // children by AUTOSAR convention (no module-config wrapper).
+    .map((routine) => {
+      const routinePath = ['DcmConfigSet', 'DcmDsp', 'DcmDspRoutine'];
+      const routineRef = resolveDefinitionRef('Dcm', routinePath, dcmBswmd);
+      const params = identifierParams(routinePath, 'DcmDspRoutineIdentifier', routine.identifier);
+      return `      <ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>${escapeXmlText(routine.shortName)}</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">${routineRef}</DEFINITION-REF>${params}
+      </ECUC-CONTAINER-VALUE>`;
+    })
+    .join('\\n');
+  const containersXml = [dids, routines].filter(Boolean).join('\\n');
+  const moduleRef = resolveDefinitionRef('Dcm', [], dcmBswmd);
   const dcmModule = `    <ECUC-MODULE-CONFIGURATION-VALUES>
       <SHORT-NAME>Dcm</SHORT-NAME>
-      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Dcm/Dcm</DEFINITION-REF>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">${moduleRef}</DEFINITION-REF>
       <CONTAINERS>
 ${containersXml}
       </CONTAINERS>
@@ -149,7 +168,7 @@ export function odxToDiagnosticExtract(
 ): OdxToDiagnosticExtractResult {
   return {
     demContent: buildDemContent(request.odx),
-    dcmContent: buildDcmContent(request.odx),
+    dcmContent: buildDcmContent(request.odx, request.bswmds),
     stats: {
       dtcCount: request.odx.dtcs.length,
       didCount: request.odx.dids.length,

@@ -6,8 +6,37 @@
 
 import { describe, it, expect } from 'vitest';
 
+import type { BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd/types.js';
 import type { OdxSummary } from '../../../shared/types.js';
 import { odxToDiagnosticExtract } from '../odxToDiagnosticExtract.js';
+
+function container(path: string, over: Partial<ContainerDef> = {}): ContainerDef {
+  return {
+    shortName: '',
+    path,
+    lowerMultiplicity: 0,
+    upperMultiplicity: 'infinite',
+    subContainers: [],
+    parameters: [],
+    references: [],
+    choices: [],
+    ...over,
+  };
+}
+
+function intParam(shortName: string, path: string): ParamDef {
+  return {
+    shortName,
+    path,
+    kind: 'integer',
+    defaultValue: null,
+    minValue: null,
+    maxValue: null,
+    minLength: null,
+    maxLength: null,
+    enumerationLiterals: [],
+  };
+}
 
 const emptyOdx: OdxSummary = {
   dtcCount: 0,
@@ -102,11 +131,10 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
     // `<ECUC-MODULE-CONFIGURATION-VALUES>`. The DID / Routine counts
     // are preserved; the element name changes.
     const containerMatches = result.dcmContent.match(/<ECUC-CONTAINER-VALUE>/g) ?? [];
-    const dspDidRefMatches = result.dcmContent.match(/DEST="DCM-DSP-DID"/g) ?? [];
-    const dspRoutineRefMatches = result.dcmContent.match(/DEST="DCM-DSP-ROUTINE"/g) ?? [];
+    const containerRefMatches =
+      result.dcmContent.match(/DEST="ECUC-PARAM-CONF-CONTAINER-DEF"/g) ?? [];
     expect(containerMatches.length).toBe(2);
-    expect(dspDidRefMatches.length).toBe(1);
-    expect(dspRoutineRefMatches.length).toBe(1);
+    expect(containerRefMatches.length).toBe(2);
     // Module wrapper is present, anchored to the Dcm module shortName.
     expect(result.dcmContent).toContain('<ECUC-MODULE-CONFIGURATION-VALUES>');
     expect(result.dcmContent).toContain('<SHORT-NAME>Dcm</SHORT-NAME>');
@@ -215,12 +243,102 @@ describe('odxToDiagnosticExtract — DID data (v1.24.x PATCH)', () => {
     // DID_VIN should still appear as an ECUC-CONTAINER-VALUE with just SHORT-NAME.
     expect(result.dcmContent).toContain('<SHORT-NAME>DID_VIN</SHORT-NAME>');
     // Anchor DID_VIN's own block: forbid a DCM-DSP-DID-DATA child inside it.
-    const vinBlock = result.dcmContent.match(
-      /\n {6}<ECUC-CONTAINER-VALUE>(?:(?!<\/ECUC-CONTAINER-VALUE>)[\s\S])*?<SHORT-NAME>DID_VIN<\/SHORT-NAME>[\s\S]*?<\/ECUC-CONTAINER-VALUE>/,
+    const vinBlock = result.dcmContent
+      .split('</ECUC-CONTAINER-VALUE>')
+      .find((block) => block.includes('<SHORT-NAME>DID_VIN</SHORT-NAME>'));
+    expect(vinBlock).toBeDefined();
+    expect(vinBlock).not.toContain('<DCM-DSP-DID-DATA>');
+  });
+});
+
+describe('odxToDiagnosticExtract — Dcm BSWMD definition refs', () => {
+  it('emits full-path fallback definition refs for Dcm containers', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.dcmContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid</DEFINITION-REF>',
     );
-    expect(vinBlock).not.toBeNull();
-    if (vinBlock) {
-      expect(vinBlock[0]).not.toContain('<DCM-DSP-DID-DATA>');
-    }
+    expect(result.dcmContent).not.toContain('DEST="DCM-DSP-DID"');
+    expect(result.dcmContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine</DEFINITION-REF>',
+    );
+    expect(result.dcmContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR_R22/EcucDefs/Dcm</DEFINITION-REF>',
+    );
+  });
+
+  it('emits DID and Routine identifier parameters with full definition paths', () => {
+    const odxWithIds: OdxSummary = {
+      ...sampleOdx,
+      dids: [{ id: 'DID_001', shortName: 'DID_F186', identifier: 62342 }],
+      routines: [{ id: 'REQ_ERASE', shortName: 'REQ_EraseMemory', identifier: 61184 }],
+    };
+    const result = odxToDiagnosticExtract({ odx: odxWithIds });
+    expect(result.dcmContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier</DEFINITION-REF>',
+    );
+    expect(result.dcmContent).toContain('<VALUE>62342</VALUE>');
+    expect(result.dcmContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineIdentifier</DEFINITION-REF>',
+    );
+    expect(result.dcmContent).toContain('<VALUE>61184</VALUE>');
+  });
+
+  it('omits identifier parameters when identifiers are absent', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.dcmContent).not.toContain('<ECUC-NUMERICAL-PARAM-VALUE>');
+  });
+
+  it('resolves refs from a threaded BSWMD instead of the fallback prefix', () => {
+    const dcmDspDid = container('/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspDid', {
+      shortName: 'DcmDspDid',
+      parameters: [
+        intParam(
+          'DcmDspDidIdentifier',
+          '/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier',
+        ),
+      ],
+    });
+    const dcmDspRoutine = container('/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine', {
+      shortName: 'DcmDspRoutine',
+      parameters: [
+        intParam(
+          'DcmDspRoutineIdentifier',
+          '/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineIdentifier',
+        ),
+      ],
+    });
+    const customRootDcmBswmd: BswModuleDef = {
+      shortName: 'Dcm',
+      path: '/AUTOSAR/Dcm',
+      dialect: 'ecuc-module-def',
+      moduleId: null,
+      containers: [
+        container('/AUTOSAR/Dcm/DcmConfigSet', {
+          shortName: 'DcmConfigSet',
+          subContainers: [
+            container('/AUTOSAR/Dcm/DcmConfigSet/DcmDsp', {
+              shortName: 'DcmDsp',
+              subContainers: [dcmDspDid, dcmDspRoutine],
+            }),
+          ],
+        }),
+      ],
+      providedEntries: [],
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+    };
+    const result = odxToDiagnosticExtract({
+      odx: {
+        ...sampleOdx,
+        dids: [{ id: 'DID_001', shortName: 'DID_F186', identifier: 62342 }],
+        routines: [{ id: 'REQ_ERASE', shortName: 'REQ_EraseMemory', identifier: 61184 }],
+      },
+      bswmds: new Map([['Dcm', customRootDcmBswmd]]),
+    });
+    expect(result.dcmContent).toContain('/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
+    expect(result.dcmContent).toContain(
+      '/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier',
+    );
+    expect(result.dcmContent).not.toContain('/AUTOSAR_R22/EcucDefs/Dcm');
   });
 });
