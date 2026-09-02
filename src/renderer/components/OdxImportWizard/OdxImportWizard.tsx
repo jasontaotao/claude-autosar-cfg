@@ -255,11 +255,12 @@ export function OdxImportWizard({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
+      if (busy || event.key !== 'Escape') return;
+      onClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return (): void => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [busy, onClose]);
 
   return (
     <div
@@ -268,7 +269,7 @@ export function OdxImportWizard({
       aria-modal="true"
       aria-labelledby="odx-import-title"
       data-testid="odx-import-wizard"
-      onClick={onClose}
+      onClick={busy ? undefined : onClose}
     >
       <div className="odx-import-modal" onClick={(event): void => event.stopPropagation()}>
         <header className="odx-import-header">
@@ -278,7 +279,8 @@ export function OdxImportWizard({
           <button
             type="button"
             className="odx-import-close"
-            onClick={onClose}
+            onClick={busy ? undefined : onClose}
+            disabled={busy}
             aria-label={t(locale, 'odxImport.close')}
             data-testid="odx-import-close"
           >

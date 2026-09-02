@@ -35,3 +35,30 @@ describe('dimToDiagnosticExtract', () => {
     expect(output.stats.dtcCount).toBe(1);
   });
 });
+
+it('counts 0x2F InputOutputControlByIdentifier DIDs consistently', () => {
+  const output = dimToDiagnosticExtract({
+    dim: {
+      ...dim,
+      services: [
+        {
+          odxId: '_io',
+          shortName: 'ControlDid',
+          serviceClass: 'InputOutputControlByIdentifier',
+          sid: 0x2f,
+          request: [
+            { name: 'SID', semantic: 'SERVICE-ID', codedValue: '47', bytePosition: 0 },
+            { name: 'DID', semantic: 'ID', codedValue: '4660', bytePosition: 1 },
+          ],
+          posResponses: [],
+          negResponseCodes: [],
+          sdgAnnotations: {},
+          sessionRefs: [],
+          securityRefs: [],
+        },
+      ],
+    },
+    bswmdIndex: emptyIndex,
+  });
+  expect(output.stats.didCount).toBe(1);
+});

@@ -51,7 +51,8 @@ export function dimToDiagnosticExtract(args: {
           .filter(
             (service) =>
               service.serviceClass === 'ReadDataByIdentifier' ||
-              service.serviceClass === 'WriteDataByIdentifier',
+              service.serviceClass === 'WriteDataByIdentifier' ||
+              service.serviceClass === 'InputOutputControlByIdentifier',
           )
           .flatMap((service) => {
             const value = service.request.find((param) => param.semantic === 'ID')?.codedValue;

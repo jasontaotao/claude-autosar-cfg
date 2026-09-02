@@ -40,6 +40,9 @@ export function hashContainerForProvenance(container: ArxmlContainer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function normalizeHash(value: string): string {
+  return value.startsWith('sha256:') ? value.slice('sha256:'.length) : value;
+}
 function childPath(parentPath: string, shortName: string): string {
   return `${parentPath}/${shortName}`;
 }
@@ -73,9 +76,16 @@ export function classifyImportRows(args: {
 
   for (const path of [...paths].sort()) {
     const base = args.manifestEntries.get(path);
-    const baseHash = typeof base === 'string' ? base : base?.contentHash;
-    const current = args.currentContainers.get(path);
-    const incoming = args.incomingContainers.get(path);
+    const baseHash =
+      typeof base === 'string'
+        ? normalizeHash(base)
+        : base?.contentHash === undefined
+          ? undefined
+          : normalizeHash(base.contentHash);
+    const currentHash = args.currentContainers.get(path);
+    const current = currentHash === undefined ? undefined : normalizeHash(currentHash);
+    const incomingHash = args.incomingContainers.get(path);
+    const incoming = incomingHash === undefined ? undefined : normalizeHash(incomingHash);
     const shortName = path.split('/').pop() ?? path;
 
     if (incoming !== undefined && baseHash === undefined) {
@@ -93,6 +103,17 @@ export function classifyImportRows(args: {
         shortName,
         category: 'removed-in-odx',
         defaultDecision: 'keep-local',
+      });
+    } else if (baseHash !== undefined && current === undefined && incoming !== undefined) {
+      rows.push({
+        path,
+        module: args.module,
+        shortName,
+        category: incoming === baseHash ? 'locally-modified' : 'conflict',
+        defaultDecision: 'keep-local',
+        ...(incoming === baseHash
+          ? {}
+          : { conflictDetail: { localHash: 'deleted', incomingHash: incoming } }),
       });
     } else if (baseHash !== undefined && current !== undefined && incoming !== undefined) {
       if (current === baseHash && incoming !== baseHash) {
@@ -267,7 +288,8 @@ export function mergeModuleThreeWay(args: {
       if (mergedChild) children.push(mergedChild);
     } else {
       const path = childPath(`/${args.incoming.shortName}`, incomingChild.shortName);
-      if (args.decisions.get(path) !== 'delete') children.push(incomingChild);
+      const decision = args.decisions.get(path) ?? defaults.get(path);
+      if (decision !== 'delete' && decision !== 'keep-local') children.push(incomingChild);
     }
   }
 

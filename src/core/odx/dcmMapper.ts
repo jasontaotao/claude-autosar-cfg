@@ -788,8 +788,9 @@ export function mapDcm(
     (dsp.children as ArxmlElement[]).push(created.did, created.info);
   }
 
-  for (const service of dim.services) {
-    if (service.serviceClass !== 'RoutineControl') continue;
+  for (const service of dim.services
+    .filter((service) => service.serviceClass === 'RoutineControl')
+    .sort((a, b) => (identifierFor(a) ?? 0xffff) - (identifierFor(b) ?? 0xffff))) {
     const identifier = identifierFor(service);
     if (identifier === undefined) {
       warnings.push({

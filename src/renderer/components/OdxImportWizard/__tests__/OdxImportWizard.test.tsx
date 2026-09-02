@@ -104,3 +104,34 @@ it('displays variant short names instead of raw ODX IDs', () => {
   );
   expect(screen.getByRole('option', { name: 'BASE-VARIANT Demo' })).toBeInTheDocument();
 });
+
+it('blocks close actions while commit is in flight', async () => {
+  const onClose = vi.fn();
+  (window as unknown as { autosarApi?: unknown }).autosarApi = {
+    importOdxPreview: vi.fn(),
+    importOdxCommit: vi.fn().mockImplementation(() => new Promise(() => {})),
+    projectReload: vi.fn(),
+  };
+  render(
+    <OdxImportWizard
+      onClose={onClose}
+      locale="zh-CN"
+      projectManifestPath="/tmp/project.json"
+      dirtyDocPaths={[]}
+      initialOdxPath="/tmp/input.odx-d"
+      initialPreview={basePreview}
+    />,
+  );
+  const conflictRow = screen.getByTestId('odx-import-row-conflict');
+  fireEvent.change(conflictRow.querySelector('select') as HTMLSelectElement, {
+    target: { value: 'import' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '确认采用 ODX' }));
+  fireEvent.click(screen.getByRole('button', { name: '导入' }));
+
+  fireEvent.keyDown(window, { key: 'Escape' });
+  fireEvent.click(screen.getByTestId('odx-import-close'));
+
+  expect(screen.getByTestId('odx-import-wizard')).toBeInTheDocument();
+  expect(onClose).not.toHaveBeenCalled();
+});

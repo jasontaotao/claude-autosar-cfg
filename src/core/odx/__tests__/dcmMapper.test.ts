@@ -89,7 +89,37 @@ function buildIndex(): BswmdDefIndex {
           c('DcmDspDid', '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid', [], didParams),
           c('DcmDspDidInfo', '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDidInfo'),
           c('DcmDspData', '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspData'),
-          c('DcmDspRoutine', '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine'),
+          c(
+            'DcmDspRoutine',
+            '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine',
+            [],
+            [
+              p(
+                'DcmDspRoutineUsed',
+                '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsed',
+                'boolean',
+                true,
+              ),
+              p(
+                'DcmDspRoutineUsePort',
+                '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsePort',
+                'boolean',
+                true,
+              ),
+              p(
+                'DcmDspRoutineIdentifier',
+                '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineIdentifier',
+                'integer',
+                0,
+              ),
+              p(
+                'DcmDspRoutineFncSignature',
+                '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineFncSignature',
+                'enumeration',
+                'ROUTINE_FNC_NORMAL',
+              ),
+            ],
+          ),
           c('DcmDspSession', '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspSession', [
             c(
               'DcmDspSessionRow',
@@ -220,4 +250,51 @@ describe('mapDcm', () => {
       true,
     );
   });
+});
+
+it('sorts generated routine containers by numeric identifier', () => {
+  const dim: Dim = {
+    meta: {
+      sourcePath: 'test',
+      modelVersion: '1.0',
+      variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
+    },
+    services: [
+      service({
+        odxId: '_routine_2',
+        shortName: 'RoutineTwo',
+        serviceClass: 'RoutineControl',
+        sid: 0x31,
+        request: [
+          { name: 'SID', semantic: 'SERVICE-ID', codedValue: '49', bytePosition: 0 },
+          { name: 'RID', semantic: 'ID', codedValue: '2', bytePosition: 1 },
+        ],
+      }),
+      service({
+        odxId: '_routine_1',
+        shortName: 'RoutineOne',
+        serviceClass: 'RoutineControl',
+        sid: 0x31,
+        request: [
+          { name: 'SID', semantic: 'SERVICE-ID', codedValue: '49', bytePosition: 0 },
+          { name: 'RID', semantic: 'ID', codedValue: '1', bytePosition: 1 },
+        ],
+      }),
+    ],
+    dataObjects: [],
+    dtcs: [],
+    sessions: [{ name: 'DefaultSession', value: 1 }],
+    securityLevels: [{ name: 'Level1', level: 1 }],
+    warnings: [],
+  };
+  const result = mapDcm(dim, buildIndex());
+  const dsp = containers(
+    containers(result.module.children[0] as ArxmlContainer).find(
+      (child) => child.shortName === 'DcmDsp',
+    )!,
+  );
+  const identifiers = dsp
+    .filter((child) => child.definitionRef?.endsWith('/DcmDspRoutine'))
+    .map((child) => child.params.DcmDspRoutineIdentifier?.value);
+  expect(identifiers).toEqual([1, 2]);
 });

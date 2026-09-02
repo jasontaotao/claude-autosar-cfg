@@ -111,3 +111,57 @@ describe('three-way merge', () => {
     );
   });
 });
+
+it('normalizes legacy sha256-prefixed provenance hashes', () => {
+  const baseHash = hash('base');
+  const rows = classifyImportRows({
+    module: 'Dcm',
+    manifestEntries: new Map([['/Dcm/Item', `sha256:${baseHash}`]]),
+    currentContainers: new Map([['/Dcm/Item', baseHash]]),
+    incomingContainers: new Map([['/Dcm/Item', hash('incoming')]]),
+  });
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.category).toBe('updated');
+});
+
+it('classifies provenance containers deleted locally but present in ODX', () => {
+  const baseHash = hash('base');
+  const incomingHash = hash('incoming');
+  const rows = classifyImportRows({
+    module: 'Dcm',
+    manifestEntries: new Map([['/Dcm/Item', baseHash]]),
+    currentContainers: new Map(),
+    incomingContainers: new Map([['/Dcm/Item', incomingHash]]),
+  });
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.category).toBe('conflict');
+  expect(rows[0]?.defaultDecision).toBe('keep-local');
+  expect(rows[0]?.conflictDetail).toEqual({ localHash: 'deleted', incomingHash });
+
+  const unchanged = classifyImportRows({
+    module: 'Dcm',
+    manifestEntries: new Map([['/Dcm/Item', baseHash]]),
+    currentContainers: new Map(),
+    incomingContainers: new Map([['/Dcm/Item', baseHash]]),
+  });
+  expect(unchanged[0]?.category).toBe('locally-modified');
+  expect(unchanged[0]?.defaultDecision).toBe('keep-local');
+});
+
+it('honors keep-local defaults for containers deleted locally', () => {
+  const baseHash = hashContainerForProvenance(container('Item'));
+  const incomingHash = hashContainerForProvenance(container('Item', [container('Incoming')]));
+  const existing = module([container('Manual')]);
+  const incoming = module([container('Item', [container('Incoming')])]);
+  const merged = mergeModuleThreeWay({
+    existing,
+    incoming,
+    baseContainers: new Map([['/Dcm/Item', baseHash]]),
+    currentContainers: new Map(),
+    incomingContainers: new Map([['/Dcm/Item', incomingHash]]),
+    decisions: new Map(),
+  });
+  expect(
+    merged.children.some((child) => child.kind === 'container' && child.shortName === 'Item'),
+  ).toBe(false);
+});

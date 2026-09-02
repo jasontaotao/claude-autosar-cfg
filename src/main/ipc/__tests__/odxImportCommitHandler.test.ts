@@ -209,6 +209,7 @@ describe('odxImportCommitHandler', () => {
     const provenance = JSON.parse(readFileSync(result.value.manifestPath, 'utf8'));
     expect(provenance.version).toBe(1);
     expect(provenance.variant.odxId).toBe('base');
+    expect(provenance.variant.shortName).toBe('Base');
     expect(provenance.entries.length).toBeGreaterThan(0);
   });
 

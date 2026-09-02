@@ -417,7 +417,7 @@ export async function odxImportCommitHandler(
         variant: {
           kind: preview.selectedVariant?.kind ?? 'BASE-VARIANT',
           odxId: preview.selectedVariant?.odxId ?? request.variantId,
-          shortName: preview.selectedVariant?.odxId ?? request.variantId,
+          shortName: preview.selectedVariant?.shortName ?? request.variantId,
         },
         importedAt: new Date().toISOString(),
         entries: mergedRows.flatMap(({ module, rows }) => provenanceEntries(module, rows)),
