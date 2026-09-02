@@ -105,6 +105,8 @@ export type DbcImportComStackResponse =
             readonly canIf: number;
             readonly pduR: number;
           };
+          /** Non-fatal BSWMD definition-ref misses reported by the pure mapper. */
+          readonly definitionRefWarnings?: readonly string[];
         };
       };
     }

@@ -312,6 +312,7 @@ export async function dbcImportComStackHandler(
           targetNode: req.targetNode,
           canIfDirectPdu,
           comSignalDirect,
+          bswmds: bswmdRes.value,
         }
       : {
           dbc: parseRes.value,
@@ -320,6 +321,7 @@ export async function dbcImportComStackHandler(
           pduRConfig: pduRText,
           canIfDirectPdu,
           comSignalDirect,
+          bswmds: bswmdRes.value,
         };
   const plan = dbcToComStack(mapperInput);
   const planDiagnostics = {
@@ -330,6 +332,7 @@ export async function dbcImportComStackHandler(
       canIf: plan.canIfPatches.length,
       pduR: plan.pduRPatches.length,
     },
+    definitionRefWarnings: plan.warnings ?? [],
   };
 
   // ---- 7. Apply each file's plan + serialize --------------------------

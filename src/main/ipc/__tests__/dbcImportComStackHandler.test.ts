@@ -316,6 +316,26 @@ describe('dbcImportComStackHandler (T3)', () => {
     expect(res.error.message).toContain('no messages');
   });
 
+  it('threads loaded BSWMDs into the mapper and exposes definition-ref diagnostics', async () => {
+    const seeded = seedRealProject();
+    workDir = seeded.workDir;
+
+    const res = await dbcImportComStackHandler({
+      dbcContent: seeded.dbcContent,
+      projectManifestPath: seeded.projectManifestPath,
+      manifest: makeManifest(),
+      targetNode: 'ECM',
+    });
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(Array.isArray(res.value.diagnostics.definitionRefWarnings)).toBe(true);
+    // Com BSWMDs use the demo package root; the mapper must honor it
+    // rather than inventing the standard R22 prefix.
+    const com = readFileSync(join(seeded.workDir, 'Com_Config.arxml'), 'utf-8');
+    expect(com).toContain('/AUTOSAR/Com/ComConfig/ComIPdu');
+  });
+
   it('returns plan diagnostics on successful bridge', async () => {
     const seeded = seedRealProject();
     workDir = seeded.workDir;
