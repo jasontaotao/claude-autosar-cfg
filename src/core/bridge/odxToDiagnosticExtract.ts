@@ -31,12 +31,12 @@ export interface OdxToDiagnosticExtractRequest {
 }
 
 /** AUTOSAR 4.x XML envelope for both Dem and Dcm extract files. */
-function wrapWithEnvelope(elementsXml: string): string {
+function wrapWithEnvelope(elementsXml: string, packageShortName: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-4.xsd">
   <AR-PACKAGES>
     <AR-PACKAGE>
-      <SHORT-NAME>DiagExtract</SHORT-NAME>
+      <SHORT-NAME>${packageShortName}</SHORT-NAME>
       <ELEMENTS>
 ${elementsXml}
       </ELEMENTS>
@@ -104,7 +104,7 @@ function buildDemContent(
 ${events}
       </CONTAINERS>
     </ECUC-MODULE-CONFIGURATION-VALUES>`;
-  return wrapWithEnvelope(demModule);
+  return wrapWithEnvelope(demModule, 'Dem_Extract');
 }
 
 /** Parse an ODX TROUBLE-CODE into the numeric UDS DTC value. Vector
@@ -201,7 +201,7 @@ function buildDcmContent(
 ${containersXml}
       </CONTAINERS>
     </ECUC-MODULE-CONFIGURATION-VALUES>`;
-  return wrapWithEnvelope(dcmModule);
+  return wrapWithEnvelope(dcmModule, 'Dcm_Extract');
 }
 
 export function odxToDiagnosticExtract(

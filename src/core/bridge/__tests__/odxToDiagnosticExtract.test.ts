@@ -393,3 +393,13 @@ describe('odxToDiagnosticExtract — Dem ECUC structure', () => {
     expect(noTextResult.demContent).not.toContain('<LONG-NAME>');
   });
 });
+
+describe('odxToDiagnosticExtract — extract package identity', () => {
+  it('uses distinct package names so Dem and Dcm extracts do not collide in combined view', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.demContent).toContain('<SHORT-NAME>Dem_Extract</SHORT-NAME>');
+    expect(result.demContent).not.toContain('<SHORT-NAME>DiagExtract</SHORT-NAME>');
+    expect(result.dcmContent).toContain('<SHORT-NAME>Dcm_Extract</SHORT-NAME>');
+    expect(result.dcmContent).not.toContain('<SHORT-NAME>DiagExtract</SHORT-NAME>');
+  });
+});
