@@ -26,7 +26,7 @@ import { parseArxml } from '@core/arxml/parser';
 import { findByPath } from '@core/arxml/path';
 import type { ParamValue } from '@core/arxml/types';
 
-const VALUE_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
+const VALUE_PATH = 'D:/claude_proj2/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
 
 interface EditCase {
   readonly label: string;

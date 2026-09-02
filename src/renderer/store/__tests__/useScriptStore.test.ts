@@ -704,6 +704,8 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
   });
 
   it('remove-child on a path with active references applies the cascade (H2 — auto-cascade)', async () => {
+    // Windows CI forbids writes to the literal Unix /tmp path; use OS tmp.
+    const tmpCascade = join(tmpdir(), `script-cascade-${process.pid}.arxml`);
     // v1.20.0 C2.4 — `remove-child` maps to `remove-with-cascade { cascade: true }`.
     // The script engine cannot present the cascade confirmation dialog
     // mid-script (no UI), so cascade is always applied. The previous
@@ -726,7 +728,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
       children: [],
     };
     const doc: ArxmlDocument = {
-      path: '/tmp/cascade.arxml',
+      path: tmpCascade,
       version: '4.6' as const,
       packages: [
         {
@@ -745,7 +747,7 @@ describe('useScriptStore — applyMutation real replay (Sprint 14 #2)', () => {
         },
       ],
     };
-    useArxmlStore.getState().setDoc(doc, '/tmp/cascade.arxml');
+    useArxmlStore.getState().setDoc(doc, tmpCascade);
     useScriptStore.setState({
       runResult: {
         runId: 'r1',

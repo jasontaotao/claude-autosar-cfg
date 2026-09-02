@@ -15,8 +15,8 @@ import { findByPath } from '@core/arxml/path';
 import type { BswModuleDef, ParamDef } from '@core/project/bswmd';
 import { parseBswmd } from '@core/project/bswmd';
 
-const VALUE_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
-const BSWMD_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
+const VALUE_PATH = 'D:/claude_proj2/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
+const BSWMD_PATH = 'D:/claude_proj2/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
 
 interface CycleCase {
   readonly label: string;

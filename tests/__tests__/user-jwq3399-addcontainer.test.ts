@@ -17,8 +17,8 @@ import type { BswModuleDef } from '../../src/core/project/bswmd';
 import { parseBswmd } from '../../src/core/project/bswmd';
 import { useArxmlStore } from '../../src/renderer/store/useArxmlStore';
 
-const ECUC_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
-const BSWMD_PATH = 'C:/Users/13777/Desktop/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
+const ECUC_PATH = 'D:/claude_proj2/ClaudeAutosarWorkSpace/ecuc/JWQ3399_EcucValues.arxml';
+const BSWMD_PATH = 'D:/claude_proj2/ClaudeAutosarWorkSpace/bswmd/JWQ3399_bswmd.arxml';
 
 function findZeroOrInfiniteContainer(mod: BswModuleDef): { parent: string; child: string } | null {
   const stack: { container: (typeof mod.containers)[number]; path: string[] }[] =
