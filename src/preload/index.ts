@@ -26,6 +26,8 @@ import type {
   DbcImportComStackResponse,
   OdxImportDiagExtractRequest,
   OdxImportDiagExtractResponse,
+  OdxImportCommitRequest,
+  OdxImportCommitResponse,
   OdxImportPreviewRequest,
   OdxImportPreviewResponse,
   ParseArxmlRequest,
@@ -353,6 +355,10 @@ const api = {
   // staging `importDiagnosticExtract` method.
   importOdxPreview: (req: OdxImportPreviewRequest): Promise<OdxImportPreviewResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.ODX_IMPORT_PREVIEW, req),
+  // 2026-09-02 — ODX full-import commit bridge. Only decisions cross IPC;
+  // main recomputes preview ASTs from the ODX and project files.
+  importOdxCommit: (req: OdxImportCommitRequest): Promise<OdxImportCommitResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.ODX_IMPORT_COMMIT, req),
   // v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-IPC surface. The
   // renderer wires these into the XlsxBatchWizard modal. Mirrors the
   // v1.23.0 T3 / v1.24.0 T2 DBC/ODX bridge pattern: each handler is

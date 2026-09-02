@@ -43,7 +43,7 @@ import { getOpenProjectManifestPath } from './project-manifest-state.js';
 
 const PROVENANCE_RELATIVE_PATH = join('.autosarcfg', 'odx-import-manifest.json');
 
-function formatStructuredParseError(error: ParseError | BswmdError): string {
+export function formatStructuredParseError(error: ParseError | BswmdError): string {
   if ('message' in error) {
     return error.kind === 'invalid-structure' ? `${error.path}: ${error.message}` : error.message;
   }
@@ -472,3 +472,49 @@ export async function odxImportPreviewHandler(
 }
 
 export type { OdxImportPreviewRequest, OdxImportPreviewResponse };
+
+export const computeOdxImportPreview = odxImportPreviewHandler;
+
+// Commit re-runs the deterministic mapping after the preview hash check. This
+// small helper keeps the preview DTO free of non-serialisable ASTs while
+// ensuring commit and preview consume exactly the same mapping pipeline.
+export async function computeOdxImportMappedModules(
+  request: OdxImportPreviewRequest,
+): Promise<ReadonlyMap<'Dcm' | 'Dem', ArxmlModule>> {
+  const manifestPath = getOpenProjectManifestPath();
+  if (manifestPath === null) throw new Error('No project is open');
+  const manifestDir = dirname(resolve(manifestPath));
+  const manifestRead = await fs.readFile(manifestPath, 'utf8');
+  const loadedManifest = loadManifest(manifestRead, manifestDir);
+  if (!loadedManifest.ok)
+    throw new Error(`Invalid manifest: ${describeManifestError(loadedManifest.error)}`);
+
+  const odxRead = await readFileWithCap(request.odxPath, DEFAULT_FILE_CAP_BYTES);
+  if (!odxRead.ok) throw new Error(odxRead.kind === 'too-large' ? 'odx-too-large' : 'read-failed');
+  const document = parseOdxDocument(odxRead.content);
+  const variants = document.importableVariants;
+  if (variants.length === 0) throw new Error('odx-no-variant');
+  const selectedVariant =
+    variants.length === 1
+      ? variants[0]
+      : variants.find((variant) => variant.odxId === request.variantId);
+  if (!selectedVariant) throw new Error('odx-variant-not-found');
+
+  const definitions = new Map();
+  for (const relativePath of loadedManifest.value.bswmdPaths) {
+    const read = await readFileWithCap(resolve(manifestDir, relativePath));
+    if (!read.ok) throw new Error('read-failed');
+    const parsed = parseBswmd(read.content);
+    if (!parsed.ok) throw new Error('read-failed');
+    for (const definition of parsed.value.modules)
+      definitions.set(definition.shortName, definition);
+  }
+  const bswmdIndex = buildBswmdDefIndex(definitions);
+  const dim = buildDim({
+    document,
+    variantId: selectedVariant.odxId,
+    sourcePath: request.odxPath,
+  });
+  const mapped = mapDimToEcuc({ dim, bswmdIndex });
+  return new Map(mapped.modules.map((module) => [module.shortName as 'Dcm' | 'Dem', module]));
+}

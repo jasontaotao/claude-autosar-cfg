@@ -16,6 +16,8 @@ import type {
   DcmConfigResponse,
   OdxImportDiagExtractRequest,
   OdxImportDiagExtractResponse,
+  OdxImportCommitRequest,
+  OdxImportCommitResponse,
   OdxImportPreviewRequest,
   OdxImportPreviewResponse,
   ParseArxmlRequest,
@@ -70,6 +72,7 @@ import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
+import { odxImportCommitHandler } from './odxImportCommitHandler.js';
 import { odxImportPreviewHandler } from './odxImportPreviewHandler.js';
 import { registerOpenArxmlMultiHandler } from './openArxmlMultiHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
@@ -619,6 +622,15 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.ODX_IMPORT_PREVIEW,
     async (_evt, req: OdxImportPreviewRequest): Promise<OdxImportPreviewResponse> => {
       return odxImportPreviewHandler(req);
+    },
+  );
+
+  // 2026-09-02 — ODX full-import commit. Main recomputes from ODX and only
+  // receives path decisions; the provenance manifest is atomically rewritten.
+  ipcMain.handle(
+    IPC_CHANNELS.ODX_IMPORT_COMMIT,
+    async (_evt, req: OdxImportCommitRequest): Promise<OdxImportCommitResponse> => {
+      return odxImportCommitHandler(req);
     },
   );
 
