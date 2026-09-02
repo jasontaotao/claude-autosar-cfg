@@ -21,6 +21,9 @@ import { describe, expect, it } from 'vitest';
 
 import { dbcParseForBridgeHandler } from '../../../main/ipc/dbcParseForBridgeHandler.js';
 import { dbcToComStack } from '../dbcToComStack.js';
+import { assertDefinitionRefsResolve } from '../assertDefinitionRefsResolve.js';
+import { parseBswmd } from '../../project/bswmd.js';
+import type { BswModuleDef } from '../../project/bswmd.js';
 
 const DBC_PATH = join(process.cwd(), 'samples/dbc/powertrain-typical.dbc');
 const COM_CONFIG = readFileSync(
@@ -35,6 +38,45 @@ const PDUR_CONFIG = readFileSync(
   join(process.cwd(), 'samples/arxml/demo-ecu/PduR_Config.arxml'),
   'utf-8',
 );
+
+describe('dbcToComStack real-OEM definition-ref guard', () => {
+  function loadBswmd(path: string, shortName: string): BswModuleDef {
+    const result = parseBswmd(readFileSync(path, 'utf-8'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(String(result.error));
+    const moduleDef = result.value.modules.find((mod) => mod.shortName === shortName);
+    expect(moduleDef).toBeDefined();
+    return moduleDef!;
+  }
+
+  it('resolves Com and PduR refs against the real demo BSWMDs', () => {
+    const dbcRes = dbcParseForBridgeHandler({
+      path: DBC_PATH,
+      content: readFileSync(DBC_PATH, 'utf-8'),
+    });
+    expect(dbcRes.ok).toBe(true);
+    if (!dbcRes.ok) return;
+    const bswmds = new Map<string, BswModuleDef>([
+      ['Com', loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml'), 'Com')],
+      ['PduR', loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml'), 'PduR')],
+    ]);
+    const plan = dbcToComStack({
+      dbc: dbcRes.value,
+      comConfig: COM_CONFIG,
+      canIfConfig: CANIF_CONFIG,
+      pduRConfig: PDUR_CONFIG,
+      targetNode: 'ECM',
+      comSignalDirect: true,
+      bswmds,
+    });
+    const refs = [...plan.comPatches, ...plan.pduRPatches]
+      .filter((p): p is Extract<typeof p, { op: 'add-child' }> => p.op === 'add-child')
+      .map((p) => p.definitionRef ?? '')
+      .filter((ref) => ref !== '');
+    const generatedXml = refs.map((ref) => `<DEFINITION-REF>${ref}</DEFINITION-REF>`).join('\n');
+    expect(assertDefinitionRefsResolve(generatedXml, bswmds)).toEqual([]);
+  });
+});
 
 describe('dbcToComStack (T2 real-OEM)', () => {
   it('powertrain-typical.dbc + demo-ecu ARXML: produces non-empty plan', () => {

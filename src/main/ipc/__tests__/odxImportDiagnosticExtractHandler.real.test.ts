@@ -15,8 +15,52 @@ import { join, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { odxImportDiagnosticExtractHandler } from '../odxImportDiagnosticExtractHandler.js';
+import { assertDefinitionRefsResolve } from '../../../core/bridge/assertDefinitionRefsResolve.js';
+import { loadBswmdsFromDirectory } from '../loadBswmds.js';
 
 const FIXTURE_PATH = resolve(process.cwd(), 'samples/odx/Demo_Cdd.odx-d');
+
+const NESTED_DEM_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>AUTOSAR_R22</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>EcucDefs</SHORT-NAME>
+          <ELEMENTS>
+            <ECUC-MODULE-DEF>
+              <SHORT-NAME>Dem</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+              <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              <CONTAINERS>
+                <ECUC-PARAM-CONF-CONTAINER-DEF>
+                  <SHORT-NAME>DemConfigSet</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                  <CONTAINERS>
+                    <ECUC-PARAM-CONF-CONTAINER-DEF>
+                      <SHORT-NAME>DemDTC</SHORT-NAME>
+                      <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                      <UPPER-MULTIPLICITY>65535</UPPER-MULTIPLICITY>
+                      <PARAMETERS>
+                        <ECUC-INTEGER-PARAM-DEF>
+                          <SHORT-NAME>DemDtcValue</SHORT-NAME>
+                          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+                          <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                        </ECUC-INTEGER-PARAM-DEF>
+                      </PARAMETERS>
+                    </ECUC-PARAM-CONF-CONTAINER-DEF>
+                  </CONTAINERS>
+                </ECUC-PARAM-CONF-CONTAINER-DEF>
+              </CONTAINERS>
+            </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>`;
 
 const NESTED_DCM_BSWMD = `<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
@@ -106,6 +150,7 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
     const bswmdDir = join(tmpDir, 'bswmd');
     const { mkdirSync, writeFileSync } = await import('node:fs');
     mkdirSync(bswmdDir, { recursive: true });
+    writeFileSync(join(bswmdDir, 'Dem.bswmd.arxml'), NESTED_DEM_BSWMD, 'utf8');
     writeFileSync(join(bswmdDir, 'Dcm.bswmd.arxml'), NESTED_DCM_BSWMD, 'utf8');
     try {
       const withoutBswmds = await odxImportDiagnosticExtractHandler({
@@ -128,6 +173,10 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
       const resolved = readFileSync(withBswmds.value.dcmPath, 'utf8');
       expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
       expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier');
+      const dem = readFileSync(withBswmds.value.demPath, 'utf8');
+      const bswmds = await loadBswmdsFromDirectory(bswmdDir);
+      expect(assertDefinitionRefsResolve(resolved, bswmds)).toEqual([]);
+      expect(assertDefinitionRefsResolve(dem, bswmds)).toEqual([]);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
