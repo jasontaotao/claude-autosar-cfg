@@ -177,6 +177,26 @@ describe('EnumEditor', () => {
     expect(screen.getByRole('option', { name: 'MSB' })).toBeInTheDocument();
   });
 
+  it('uses the exact parameter definitionRef for custom instance names', () => {
+    useArxmlStore.getState().addBswmd('/schemas/bitorder.bswmd.arxml', BITORDER_BSWMD_XML);
+
+    render(
+      <EnumEditor
+        paramKey="BitOrder"
+        value={{
+          type: 'enum',
+          value: 'LSB',
+          definitionRef: '/EcucDefs/EcuC/EcucGeneral/BitOrder',
+        }}
+        containerPath="/EcucDefs/EcuC/EcucGeneral/MyCustomInstance"
+      />,
+    );
+
+    expect(screen.getByTestId('enum-editor-BitOrder').tagName).toBe('SELECT');
+    expect(screen.getByRole('option', { name: 'LSB' })).toBeInTheDocument();
+    expect(screen.queryByTestId('enum-editor-text-BitOrder')).toBeNull();
+  });
+
   it('falls back to <input type="text"> when the layer has no entry for this path', () => {
     // BSWMD loaded but does not catalogue the param we're rendering.
     useArxmlStore.getState().addBswmd('/schemas/bitorder.bswmd.arxml', BITORDER_BSWMD_XML);

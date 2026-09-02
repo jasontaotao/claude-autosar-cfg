@@ -71,15 +71,25 @@ export function EnumEditor({ paramKey, value, containerPath }: Props): JSX.Eleme
   const layer = useMemo(() => buildSchemaLayer(bswmdSchemas), [bswmdSchemas]);
 
   const literals = useMemo<readonly string[] | null>(() => {
+    const lookup = (path: string): ReturnType<typeof lookupSchemaAcrossModuleRoots> => {
+      const normalised = resolveTargetPath(path);
+      return lookupSchemaAcrossModuleRoots(normalised, layer, bswmdModulePaths);
+    };
+
+    // Prefer the exact DEFINITION-REF carried by the ECUC value. Rebuilding
+    // the path from containerPath can miss when the instance shortName is
+    // arbitrary (e.g. DBC-generated Can_Uds_PhyReqRIn_Rx) rather than a
+    // suffixed schema shortName (ComIPdu_1).
+    if (value.definitionRef !== undefined && value.definitionRef !== '') {
+      const byDefinitionRef = lookup(value.definitionRef);
+      if (byDefinitionRef !== null) return byDefinitionRef.enumLiterals ?? null;
+    }
+
     const raw = `${containerPath}/${paramKey}`;
     const stripped = stripLeadingBasename(raw, documentPaths);
-    const normalised = resolveTargetPath(stripped);
-    // Sprint 17d — pass bswmdModulePaths so the helper can bridge the
-    // vendor-CDD namespace gap (e.g. value-side /JWQ3399/... vs
-    // BSWMD-side /JWQ_CDD_PACK/JWQ_Packet/JWQ3399/...).
-    const entry = lookupSchemaAcrossModuleRoots(normalised, layer, bswmdModulePaths);
+    const entry = lookup(stripped);
     return entry?.enumLiterals ?? null;
-  }, [containerPath, paramKey, layer, documentPaths, bswmdModulePaths]);
+  }, [containerPath, paramKey, layer, documentPaths, bswmdModulePaths, value.definitionRef]);
 
   if (value.type !== 'enum') return <span className="text-red-500">type mismatch</span>;
 
