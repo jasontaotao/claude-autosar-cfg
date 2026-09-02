@@ -61,20 +61,61 @@ export function escapeXmlText(s: string): string {
  * EVENT-KIND defaults to DEM_EVENT_KIND_SWC (best-guess; user adjusts in BSWMD).
  * DISPLAY-CODE falls back to troubleCode if displayCode is missing.
  */
-function buildDemContent(odx: OdxSummary): string {
+function buildDemContent(
+  odx: OdxSummary,
+  bswmds?: ReadonlyMap<string, BswModuleDef>,
+): string {
+  const demBswmd = bswmds?.get('Dem');
   const events = odx.dtcs
     .map((dtc) => {
-      const displayCode = dtc.displayCode || dtc.troubleCode;
-      const textBlock = dtc.text ? `\n    <TEXT>${escapeXmlText(dtc.text)}</TEXT>` : '';
-      return `    <DEM-EVENT-PARAMETER>
-      <SHORT-NAME>${escapeXmlText(dtc.shortName)}</SHORT-NAME>
-      <EVENT-KIND>DEM_EVENT_KIND_SWC</EVENT-KIND>
-      <DISPLAY-CODE>${escapeXmlText(displayCode)}</DISPLAY-CODE>
-      <DTC-VALUE>${escapeXmlText(dtc.troubleCode)}</DTC-VALUE>${textBlock}
-    </DEM-EVENT-PARAMETER>`;
+      const troubleCode = parseTroubleCode(dtc.troubleCode);
+      const paramBlock =
+        troubleCode === undefined
+          ? ''
+          : `
+        <PARAMETER-VALUES>
+          <ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">${resolveDefinitionRef(
+              'Dem',
+              ['DemConfigSet', 'DemDTC', 'DemDtcValue'],
+              demBswmd,
+            )}</DEFINITION-REF>
+            <VALUE>${troubleCode}</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE>
+        </PARAMETER-VALUES>`;
+      const longNameBlock = dtc.text
+        ? `
+        <LONG-NAME>
+          <L-4 L="EN">${escapeXmlText(dtc.text)}</L-4>
+        </LONG-NAME>`
+        : '';
+      const containerRef = resolveDefinitionRef('Dem', ['DemConfigSet', 'DemDTC'], demBswmd);
+      return `      <ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>${escapeXmlText(dtc.shortName)}</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">${containerRef}</DEFINITION-REF>${longNameBlock}${paramBlock}
+      </ECUC-CONTAINER-VALUE>`;
     })
     .join('\n');
-  return wrapWithEnvelope(events);
+  const moduleRef = resolveDefinitionRef('Dem', [], demBswmd);
+  const demModule = `    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Dem</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">${moduleRef}</DEFINITION-REF>
+      <CONTAINERS>
+${events}
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>`;
+  return wrapWithEnvelope(demModule);
+}
+
+/** Parse an ODX TROUBLE-CODE into the numeric UDS DTC value. Vector
+ *  exports decimal values, while legacy fixtures may use 0x-prefixed
+ *  hex. Any other string is treated as unparseable. */
+function parseTroubleCode(value: string): number | undefined {
+  if (value.length === 0) return undefined;
+  const parsed = /^0[xX][0-9a-fA-F]+$/.test(value)
+    ? Number.parseInt(value, 16)
+    : Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 /**
@@ -139,7 +180,7 @@ function buildDcmContent(
         <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">${didRef}</DEFINITION-REF>${params}${dataBlock}
       </ECUC-CONTAINER-VALUE>`;
     })
-    .join('\\n');
+    .join('\n');
   const routines = odx.routines
     .map((routine) => {
       const routinePath = ['DcmConfigSet', 'DcmDsp', 'DcmDspRoutine'];
@@ -150,8 +191,8 @@ function buildDcmContent(
         <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">${routineRef}</DEFINITION-REF>${params}
       </ECUC-CONTAINER-VALUE>`;
     })
-    .join('\\n');
-  const containersXml = [dids, routines].filter(Boolean).join('\\n');
+    .join('\n');
+  const containersXml = [dids, routines].filter(Boolean).join('\n');
   const moduleRef = resolveDefinitionRef('Dcm', [], dcmBswmd);
   const dcmModule = `    <ECUC-MODULE-CONFIGURATION-VALUES>
       <SHORT-NAME>Dcm</SHORT-NAME>
@@ -167,7 +208,7 @@ export function odxToDiagnosticExtract(
   request: OdxToDiagnosticExtractRequest,
 ): OdxToDiagnosticExtractResult {
   return {
-    demContent: buildDemContent(request.odx),
+    demContent: buildDemContent(request.odx, request.bswmds),
     dcmContent: buildDcmContent(request.odx, request.bswmds),
     stats: {
       dtcCount: request.odx.dtcs.length,

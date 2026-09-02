@@ -40,7 +40,7 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
     }
   });
 
-  it('emits concrete DTC _258 with SHORT-NAME=DTC0A7D01 + DISPLAY-CODE=P0A7D01 + DTC-VALUE=687361', async () => {
+  it('emits concrete DTC _258 in standard DemDTC ECUC form', async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'odx-bridge-real-'));
     try {
       const result = await odxImportDiagnosticExtractHandler({
@@ -53,8 +53,12 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
       const { readFileSync } = await import('node:fs');
       const demContent = readFileSync(result.value.demPath, 'utf8');
       expect(demContent).toContain('<SHORT-NAME>DTC0A7D01</SHORT-NAME>');
-      expect(demContent).toContain('<DISPLAY-CODE>P0A7D01</DISPLAY-CODE>');
-      expect(demContent).toContain('<DTC-VALUE>687361</DTC-VALUE>');
+      expect(demContent).toContain(
+        '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dem/DemConfigSet/DemDTC/DemDtcValue</DEFINITION-REF>',
+      );
+      expect(demContent).toContain('<VALUE>687361</VALUE>');
+      expect(demContent).toMatch(/<L-4 L="EN">P0A7D01/);
+      expect(demContent).not.toContain('<DEM-EVENT-PARAMETER>');
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

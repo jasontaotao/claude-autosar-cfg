@@ -103,24 +103,24 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
     expect(result.stats).toEqual({ dtcCount: 2, didCount: 1, routineCount: 1 });
   });
 
-  it('emits one DEM-EVENT-PARAMETER per DTC', () => {
+  it('emits one DemDTC ECUC container per DTC', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdx });
-    const matches = result.demContent.match(/<DEM-EVENT-PARAMETER>/g) ?? [];
+    const matches = result.demContent.match(/<ECUC-CONTAINER-VALUE>/g) ?? [];
     expect(matches.length).toBe(2);
   });
 
-  it('emits DTC with SHORT-NAME + EVENT-KIND + DISPLAY-CODE + DTC-VALUE', () => {
+  it('emits DTC with SHORT-NAME + LONG-NAME + DemDtcValue', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdx });
     expect(result.demContent).toContain('<SHORT-NAME>DTC_EngineOverheat</SHORT-NAME>');
-    expect(result.demContent).toContain('<EVENT-KIND>DEM_EVENT_KIND_SWC</EVENT-KIND>');
-    expect(result.demContent).toContain('<DISPLAY-CODE>123456</DISPLAY-CODE>');
-    expect(result.demContent).toContain('<DTC-VALUE>0x123456</DTC-VALUE>');
+    expect(result.demContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dem/DemConfigSet/DemDTC/DemDtcValue</DEFINITION-REF>',
+    );
+    expect(result.demContent).toContain('<VALUE>1193046</VALUE>');
   });
 
-  it('falls back to troubleCode when displayCode is empty', () => {
+  it('parses 0x-prefixed legacy DTC values as hexadecimal', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdx });
-    // DTC_002 has displayCode=''; should use troubleCode 0x789ABC
-    expect(result.demContent).toContain('<DISPLAY-CODE>0x789ABC</DISPLAY-CODE>');
+    expect(result.demContent).toContain('<VALUE>7903932</VALUE>');
   });
 
   it('emits one ECUC-CONTAINER-VALUE per DID + one ECUC-CONTAINER-VALUE per Routine (v1.27.2 shape)', () => {
@@ -140,9 +140,9 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
     expect(result.dcmContent).toContain('<SHORT-NAME>Dcm</SHORT-NAME>');
   });
 
-  it('emits XML-escaped TEXT when present', () => {
+  it('emits XML-escaped LONG-NAME text when present', () => {
     const result = odxToDiagnosticExtract({ odx: sampleOdx });
-    expect(result.demContent).toContain('<TEXT>Battery voltage &lt; 11V</TEXT>');
+    expect(result.demContent).toContain('<L-4 L="EN">Battery voltage &lt; 11V</L-4>');
   });
 
   it('does NOT emit TEXT block when text is empty', () => {
@@ -151,7 +151,7 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
       dtcs: [{ id: 'D', shortName: 'D', troubleCode: '0x1', displayCode: '1', text: '' }],
     };
     const result = odxToDiagnosticExtract({ odx: odxNoText });
-    expect(result.demContent).not.toContain('<TEXT>');
+    expect(result.demContent).not.toContain('<LONG-NAME>');
   });
 
   it('preserves multi-byte UTF-8 in DTC text without entity-escape', () => {
@@ -160,7 +160,7 @@ describe('odxToDiagnosticExtract — populated OdxSummary', () => {
       dtcs: [{ id: 'D', shortName: 'D', troubleCode: '0x1', displayCode: '1', text: '电池SOC' }],
     };
     const result = odxToDiagnosticExtract({ odx: odxCn });
-    expect(result.demContent).toContain('<TEXT>电池SOC</TEXT>');
+    expect(result.demContent).toContain('<L-4 L="EN">电池SOC</L-4>');
   });
 
   it('emits XML-escaped special chars in SHORT-NAME', () => {
@@ -340,5 +340,56 @@ describe('odxToDiagnosticExtract — Dcm BSWMD definition refs', () => {
       '/AUTOSAR/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier',
     );
     expect(result.dcmContent).not.toContain('/AUTOSAR_R22/EcucDefs/Dcm');
+  });
+});
+
+describe('odxToDiagnosticExtract — Dem ECUC structure', () => {
+  it('wraps DTC events in ECUC-MODULE-CONFIGURATION-VALUES', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.demContent).toContain('<ECUC-MODULE-CONFIGURATION-VALUES>');
+    expect(result.demContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR_R22/EcucDefs/Dem</DEFINITION-REF>',
+    );
+    expect(result.demContent).not.toContain('<DEM-EVENT-PARAMETER>');
+  });
+
+  it('emits DemDTC containers with DemDtcValue numeric parameters', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.demContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR_R22/EcucDefs/Dem/DemConfigSet/DemDTC</DEFINITION-REF>',
+    );
+    expect(result.demContent).toContain(
+      '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dem/DemConfigSet/DemDTC/DemDtcValue</DEFINITION-REF>',
+    );
+    expect(result.demContent).toContain('<VALUE>1193046</VALUE>');
+  });
+
+  it('parses decimal TROUBLE-CODE values as decimal', () => {
+    const odxDecimal: OdxSummary = {
+      ...sampleOdx,
+      dtcs: [{ id: 'D', shortName: 'DTC0A7D01', troubleCode: '687361', displayCode: 'P0A7D01', text: 'P0A7D01' }],
+    };
+    const result = odxToDiagnosticExtract({ odx: odxDecimal });
+    expect(result.demContent).toContain('<VALUE>687361</VALUE>');
+  });
+
+  it('omits parameter values when TROUBLE-CODE is unparseable', () => {
+    const odxBad: OdxSummary = {
+      ...sampleOdx,
+      dtcs: [{ id: 'D', shortName: 'D', troubleCode: '', displayCode: '', text: '' }],
+    };
+    const result = odxToDiagnosticExtract({ odx: odxBad });
+    expect(result.demContent).not.toContain('<ECUC-NUMERICAL-PARAM-VALUE>');
+  });
+
+  it('preserves DTC text as LONG-NAME and omits it when empty', () => {
+    const result = odxToDiagnosticExtract({ odx: sampleOdx });
+    expect(result.demContent).toContain('<LONG-NAME>');
+    const odxNoText: OdxSummary = {
+      ...sampleOdx,
+      dtcs: [{ id: 'D', shortName: 'D', troubleCode: '0x1', displayCode: '1', text: '' }],
+    };
+    const noTextResult = odxToDiagnosticExtract({ odx: odxNoText });
+    expect(noTextResult.demContent).not.toContain('<LONG-NAME>');
   });
 });
