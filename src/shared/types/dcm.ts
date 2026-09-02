@@ -43,6 +43,11 @@ export interface DcmConfigRequest {
    * Additive on the wire. No `:v1` suffix.
    */
   readonly bswmdPath?: string;
+  /**
+   * 2026-09-02 — additive ODX variant selector for the DIM pipeline.
+   * Single-variant files may omit it.
+   */
+  readonly odxVariantId?: string;
 }
 
 /**

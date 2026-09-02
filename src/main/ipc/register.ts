@@ -604,7 +604,7 @@ export function registerIpcHandlers(): void {
   // v1.24.0 T2 — ODX→Diagnostic Extract bridge handler. Single
   // invoke that orchestrates the full pipeline: pre-flight (outputDir
   // exists + writable) → re-parse .odx-d via v1.22.0's parseOdxHandler
-  // → call the pure T1 mapper (`odxToDiagnosticExtract`) → write 2
+  // → use the DIM→standard-ECUC extractor → write 2
   // ARXML files (Dem_Extract.arxml + Dcm_Extract.arxml) via the
   // 2-phase atomic write helper (`writeAtomic`) with snapshot
   // rollback. The renderer wires this into the T3 wizard. See

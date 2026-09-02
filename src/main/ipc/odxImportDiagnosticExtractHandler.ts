@@ -4,7 +4,7 @@
 //   1. Pre-flight: validate outputDir exists + is writable + path-containment
 //   2. Re-parse .odx-d via parseOdxHandler (v1.22.0) → OdxSummary
 //      (via readFileWithCap, 32 MiB cap)
-//   3. Call T1's pure odxToDiagnosticExtract → 2 ARXML strings
+//   3. Use DIM→standard-ECUC extractor → 2 ARXML strings
 //   4. Snapshot existing Dem_Extract.arxml + Dcm_Extract.arxml (if any)
 //   5. writeAtomic(Dem) → tmp + rename
 //   6. writeAtomic(Dcm) → tmp + rename

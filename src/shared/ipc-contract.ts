@@ -209,7 +209,7 @@ export const IPC_CHANNELS = {
   DBC_IMPORT_COM_STACK: 'dbc:importComStack',
   // v1.24.0 T2 — ODX→Diagnostic Extract bridge. Orchestrates the
   // full pipeline: re-parse .odx-d via v1.22.0's `odx:parse` channel
-  // → call the pure T1 mapper (`odxToDiagnosticExtract`) → write 2
+  // → use the DIM→standard-ECUC extractor → write 2
   // ARXML files (Dem_Extract.arxml + Dcm_Extract.arxml) atomically.
   // Channel name follows the unsuffixed v1.22.0 ODX / v1.23.0 DBC
   // convention (no `:v1` suffix because this is v1.24.0's first cut

@@ -49,6 +49,9 @@ import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
+import { parseOdxDocument } from '../../core/odx/odxDocument.js';
+import { buildDim } from '../../core/odx/dimBuilder.js';
+import { buildBswmdDefIndex } from '../../core/odx/bswmdDefIndex.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   DcmConfigHandlerResult,
@@ -57,7 +60,6 @@ import type {
 } from '../../shared/types.js';
 import { writeAtomic } from '../io/writeAtomic.js';
 
-import { parseOdxHandler } from './parseOdxHandler.js';
 import { readFileWithCap } from './sizeCap.js';
 
 /** Re-export the canonical IPC envelope so existing importers (e.g.
@@ -247,6 +249,8 @@ export interface DcmConfigHandlerArgs {
    * matches or the array is empty.
    */
   readonly bswmdPaths?: readonly string[];
+  /** 2026-09-02 — additive ODX variant selector for the DIM pipeline. */
+  readonly odxVariantId?: string;
 }
 
 /**
@@ -298,19 +302,42 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
       };
     }
 
-    // 2. Parse ODX via v1.22.0's parseOdxHandler (returns OdxSummary).
-    const odxParse = parseOdxHandler({ content: odxXml });
-    if (!odxParse.ok) {
+    // 2. Parse ODX into the full-import DIM. The legacy viewer-summary
+    //    parser is no longer the Dcm configuration data source.
+    let odxDocument;
+    try {
+      odxDocument = parseOdxDocument(odxXml);
+    } catch (error) {
       return {
         ok: false,
         error: {
           kind: 'odx-parse-failed',
-          message: `ODX parse failed: ${odxParse.error.message}`,
-          cause: odxParse.error,
+          message: `ODX parse failed: ${error instanceof Error ? error.message : String(error)}`,
+          cause: error,
         },
       };
     }
-    const odx = odxParse.value;
+    if (odxDocument.importableVariants.length === 0) {
+      throw new DcmConfigError({
+        kind: 'odx-parse-failed',
+        message: 'ODX parse failed: no importable BASE-VARIANT or ECU-VARIANT',
+      });
+    }
+    const selectedVariant =
+      args.odxVariantId !== undefined
+        ? odxDocument.importableVariants.find((variant) => variant.odxId === args.odxVariantId)
+        : odxDocument.importableVariants[0];
+    if (selectedVariant === undefined) {
+      throw new DcmConfigError({
+        kind: 'odx-parse-failed',
+        message: `ODX parse failed: variant not found: ${args.odxVariantId ?? ''}`,
+      });
+    }
+    const dim = buildDim({
+      document: odxDocument,
+      variantId: selectedVariant.odxId,
+      sourcePath: args.odxPath,
+    });
 
     // 3. Resolve + parse T1's Dcm BSWMD fixture (or caller override).
     //    v1.30.0 MINOR — explicit-bswmdPath read is wrapped in a
@@ -350,9 +377,10 @@ export async function dcmConfigHandler(args: DcmConfigHandlerArgs): Promise<DcmC
     // 4. Run T3 orchestrator (validates ODX-Dcm linkage, produces
     //    ODX-derived dcmConfigXml, tallies service kinds).
     const pipelineResult = await dcmConfigPipeline({
-      odx,
+      dim,
       xlsxRows: args.xlsxRows,
       bswmds,
+      bswmdIndex: buildBswmdDefIndex(bswmds),
     });
 
     // 5. Generate xlsx service PatchSteps via T2 mapper.

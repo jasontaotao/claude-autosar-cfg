@@ -1,33 +1,21 @@
-// v1.27.0 — Dcm config pipeline orchestrator.
+// Dcm config pipeline orchestrator — DIM data source migration.
 //
-// Three-step flow:
-//   1. Cross-document ODX-Dcm linkage validation (fail-fast).
-//      Every xlsx didRef / routineRef must resolve to a shortName
-//      present in the ODX extract. Throws with diff if not.
-//   2. ODX extract via v1.24.0's odxToDiagnosticExtract (Dcm half).
-//   3. Service-kind tally + BSWMD presence check (Dcm module required).
-//
-// T4 (dcmConfigHandler IPC) is responsible for applying xlsx service
-// add-children on top of the ODX-extract ARXML and serializing to disk.
-// T3 surfaces the ODX-derived half as dcmConfigXml (a marker); the
-// actual apply+serialize step is in T4 to keep the orchestrator
-// concern-narrow (linkage + counts + ODX extract).
-//
-// Reuses: v1.24.0 odxToDiagnosticExtract, v1.26.0 BswModuleDef /
-// lookupContainerDef infrastructure, EcucInstanceRow cast pattern
-// (T2 widened via call-site cast; production union stays scoped).
+// The legacy OdxSummary mapper is intentionally retired: ODX is parsed into
+// the full-import DIM first, then linked against xlsx rows and mapped to the
+// standard Dcm ECUC module through the same deterministic pipeline used by
+// the ODX full-import flow.
 
-import type {
-  EcucInstanceRow,
-  OdxDidSummary,
-  OdxRoutineSummary,
-  OdxSummary,
-} from '../../shared/types.js';
+import { serializeArxml } from '../arxml/serializer.js';
+import type { ArxmlDocument } from '../arxml/types.js';
+import type { BswmdDefIndex } from '../odx/bswmdDefIndex.js';
+import type { Dim } from '../odx/dim.js';
+import { mapDcm } from '../odx/dcmMapper.js';
+
 import type { BswModuleDef } from '../project/bswmd.js';
+import type { EcucInstanceRow } from '../../shared/types.js';
 
 import { DcmConfigError } from './dcmConfigError.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';
-import { odxToDiagnosticExtract } from './odxToDiagnosticExtract.js';
 
 export type DcmServiceKind =
   | 'DcmClearDTC'
@@ -37,11 +25,11 @@ export type DcmServiceKind =
   | 'DcmRoutineControl';
 
 export interface DcmConfigResult {
-  /** ODX-derived Dcm extract (DIDs + Routines as standalone ARXML). */
+  /** DIM-derived Dcm extract (DIDs + Routines as standalone ARXML). */
   readonly dcmConfigXml: string;
-  /** Count of DIDs the ODX contributed (mirrors v1.24.0 stats). */
+  /** Count of unique DID identifiers available for read/write services. */
   readonly odxLinkedDcmDspCount: number;
-  /** Count of Routines the ODX contributed (mirrors v1.24.0 stats). */
+  /** Count of RoutineControl services. */
   readonly odxLinkedRoutineCount: number;
   /** Per-kind tally of xlsx rows (5 kinds). */
   readonly serviceCounts: Readonly<Record<DcmServiceKind, number>>;
@@ -55,56 +43,60 @@ const SERVICE_KINDS: readonly DcmServiceKind[] = [
   'DcmRoutineControl',
 ];
 
-/**
- * Collect all DID shortNames + Routine shortNames from the ODX summary.
- * Used to build the "available alternatives" diff message in linkage errors.
- */
-function collectOdxDidsAndRoutines(odx: OdxSummary): {
-  readonly dids: readonly OdxDidSummary[];
-  readonly routines: readonly OdxRoutineSummary[];
-} {
-  return { dids: odx.dids, routines: odx.routines };
+function readOrWriteDidIdentifiers(dim: Dim): Set<string> {
+  const identifiers = new Set<string>();
+  for (const service of dim.services) {
+    if (
+      service.serviceClass !== 'ReadDataByIdentifier' &&
+      service.serviceClass !== 'WriteDataByIdentifier'
+    ) {
+      continue;
+    }
+    const value = service.request.find((param) => param.semantic === 'ID')?.codedValue;
+    if (value === undefined) continue;
+    const identifier = /^0[xX]/.test(value)
+      ? Number.parseInt(value, 16)
+      : Number.parseInt(value, 10);
+    if (Number.isFinite(identifier) && identifier >= 0 && identifier <= 0xffff) {
+      identifiers.add(String(identifier));
+    }
+  }
+  return identifiers;
 }
 
-/**
- * Resolve a xlsx row's didRef / routineRef against the ODX shortNames.
- * Returns the matching shortName or null if absent.
- */
+function routineShortNames(dim: Dim): readonly string[] {
+  return dim.services
+    .filter((service) => service.serviceClass === 'RoutineControl')
+    .map((service) => service.shortName);
+}
+
+function didShortNames(dim: Dim): readonly string[] {
+  return dim.dataObjects.map((dataObject) => dataObject.shortName);
+}
+
 function resolveOdxReference(
-  odx: OdxSummary,
+  dim: Dim,
   kind: 'didRef' | 'routineRef',
   shortName: string,
 ): string | null {
   if (kind === 'didRef') {
-    return odx.dids.some((d) => d.shortName === shortName) ? shortName : null;
+    return dim.dataObjects.some((dataObject) => dataObject.shortName === shortName)
+      ? shortName
+      : null;
   }
-  return odx.routines.some((r) => r.shortName === shortName) ? shortName : null;
+  return routineShortNames(dim).includes(shortName) ? shortName : null;
 }
 
-/**
- * Validate that all xlsx rows' didRef / routineRef params resolve to ODX
- * shortNames. Throws ODX-Dcm linkage broken if any reference is missing.
- *
- * The diff message includes available alternatives (first 10 DID shortNames
- * or all Routine shortNames) so users can correct the .xlsx row directly.
- */
-function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): void {
+function validateOdxLinkage(dim: Dim, rows: readonly EcucInstanceRow[]): void {
   for (const row of rows) {
     const params = row.params as Readonly<Record<string, string | number | boolean | null>>;
-    // Cast through `unknown` because EcucInstanceRow.sheet is the narrow
-    // Com/CanIf/PduR union (per T2 concern 2 — production types stay scoped;
-    // Dcm kinds widen via call-site cast). Mirrors xlsxDcmServicesToEcucBatch
-    // SHEET_TO_MODULE pattern.
     const sheetKind = row.sheet as DcmServiceKind;
     if (sheetKind === 'DcmReadDataById' || sheetKind === 'DcmWriteDataById') {
       const didRef = params.didRef;
       if (typeof didRef === 'string' && didRef.length > 0) {
-        if (resolveOdxReference(odx, 'didRef', didRef) === null) {
-          const { dids } = collectOdxDidsAndRoutines(odx);
-          const sample = dids
-            .slice(0, 10)
-            .map((d) => d.shortName)
-            .join(', ');
+        if (resolveOdxReference(dim, 'didRef', didRef) === null) {
+          const dids = didShortNames(dim);
+          const sample = dids.slice(0, 10).join(', ');
           const more = dids.length > 10 ? ` (and ${dids.length - 10} more)` : '';
           throw new DcmConfigError({
             kind: 'odx-dcm-linkage',
@@ -118,9 +110,9 @@ function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): 
     if (sheetKind === 'DcmRoutineControl') {
       const routineRef = params.routineRef;
       if (typeof routineRef === 'string' && routineRef.length > 0) {
-        if (resolveOdxReference(odx, 'routineRef', routineRef) === null) {
-          const { routines } = collectOdxDidsAndRoutines(odx);
-          const routineList = routines.map((r) => r.shortName).join(', ') || '<none>';
+        if (resolveOdxReference(dim, 'routineRef', routineRef) === null) {
+          const routines = routineShortNames(dim);
+          const routineList = routines.length > 0 ? routines.join(', ') : '<none>';
           throw new DcmConfigError({
             kind: 'odx-dcm-linkage',
             message:
@@ -133,63 +125,52 @@ function validateOdxLinkage(odx: OdxSummary, rows: readonly EcucInstanceRow[]): 
   }
 }
 
-/**
- * Tally xlsx rows by service kind. Unknown sheet kinds are ignored
- * (the T2 mapper catches them with a regex-stable error before we
- * get here in production; this loop is best-effort count only).
- */
-function tallyServiceCounts(
-  rows: readonly EcucInstanceRow[],
-): Readonly<Record<DcmServiceKind, number>> {
-  const counts: Record<DcmServiceKind, number> = {
-    DcmClearDTC: 0,
-    DcmReadDTC: 0,
-    DcmReadDataById: 0,
-    DcmWriteDataById: 0,
-    DcmRoutineControl: 0,
-  };
+function tallyServiceCounts(rows: readonly EcucInstanceRow[]): Record<DcmServiceKind, number> {
+  const counts = SERVICE_KINDS.reduce(
+    (result, kind) => ({ ...result, [kind]: 0 }),
+    {} as Record<DcmServiceKind, number>,
+  );
   for (const row of rows) {
-    // Cast through DcmServiceKind union — see validateOdxLinkage note
-    // re: EcucInstanceRow.sheet being scoped to Com/CanIf/PduR kinds.
     const kind = row.sheet as DcmServiceKind;
-    if (SERVICE_KINDS.includes(kind)) {
-      counts[kind] += 1;
-    }
+    if (SERVICE_KINDS.includes(kind)) counts[kind] += 1;
   }
   return counts;
 }
 
-export interface DcmConfigPipelineRequest {
-  readonly odx: OdxSummary;
-  readonly xlsxRows: readonly EcucInstanceRow[];
-  readonly bswmds: ReadonlyMap<string, BswModuleDef>;
+function wrapDcmModule(module: ReturnType<typeof mapDcm>['module'], sourcePath: string): string {
+  const document: ArxmlDocument = {
+    path: sourcePath,
+    version: '4.4',
+    packages: [
+      {
+        shortName: 'Dcm_Extract',
+        path: '/Dcm_Extract',
+        elements: [module],
+      },
+    ],
+  };
+  const serialized = serializeArxml(document, { version: '4.4' });
+  if (!serialized.ok) {
+    throw new DcmConfigError({
+      kind: 'unknown',
+      message: `Failed to serialize Dcm extract: ${serialized.error.message}`,
+    });
+  }
+  return serialized.value;
 }
 
-/**
- * Orchestrate ODX-Dcm cross-document config generation.
- *
- * Steps:
- *   1. Validate ODX-Dcm linkage BEFORE any work (fail-fast, regex-stable).
- *   2. Produce ODX-derived Dcm extract via v1.24.0's odxToDiagnosticExtract.
- *   3. Verify Dcm BSWMD is present (needed by T4 to resolve xlsx paths).
- *   4. Tally xlsx rows per service kind for the caller's UI summary.
- *
- * The returned `dcmConfigXml` carries the ODX extract half (DIDs +
- * Routines as standalone ARXML). T4 stitches xlsx service add-children
- * on top via applyPatchSteps and serializes the final document.
- */
+export interface DcmConfigPipelineRequest {
+  readonly dim: Dim;
+  readonly xlsxRows: readonly EcucInstanceRow[];
+  readonly bswmds: ReadonlyMap<string, BswModuleDef>;
+  readonly bswmdIndex: BswmdDefIndex;
+}
+
 export async function dcmConfigPipeline(
   request: DcmConfigPipelineRequest,
 ): Promise<DcmConfigResult> {
-  // 1. Cross-document linkage validation (fail-fast).
-  validateOdxLinkage(request.odx, request.xlsxRows);
+  validateOdxLinkage(request.dim, request.xlsxRows);
 
-  // 2. ODX-derived Dcm extract (DIDs + Routines as standalone ARXML).
-  const extract = odxToDiagnosticExtract({ odx: request.odx, bswmds: request.bswmds });
-
-  // 3. BSWMD presence check. T4 needs Dcm module to resolve xlsx paths;
-  //    surface the same error message here so the orchestrator's contract
-  //    is self-contained (T4 can rely on the orchestrator's validation).
   const dcmBswmd = request.bswmds.get(DCM_MODULE_SHORT_NAME);
   if (dcmBswmd === undefined) {
     throw new DcmConfigError({
@@ -200,13 +181,14 @@ export async function dcmConfigPipeline(
     });
   }
 
-  // 4. Service-kind tally for the caller's UI summary.
+  const mapped = mapDcm(request.dim, request.bswmdIndex);
+  const dcmConfigXml = wrapDcmModule(mapped.module, request.dim.meta.sourcePath);
   const serviceCounts = tallyServiceCounts(request.xlsxRows);
 
   return {
-    dcmConfigXml: extract.dcmContent,
-    odxLinkedDcmDspCount: extract.stats.didCount,
-    odxLinkedRoutineCount: extract.stats.routineCount,
+    dcmConfigXml,
+    odxLinkedDcmDspCount: readOrWriteDidIdentifiers(request.dim).size,
+    odxLinkedRoutineCount: routineShortNames(request.dim).length,
     serviceCounts,
   };
 }

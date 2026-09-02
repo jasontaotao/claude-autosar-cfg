@@ -200,32 +200,46 @@ function asDcmRow(row: DcmRow): EcucInstanceRow {
   return row as unknown as EcucInstanceRow;
 }
 
-// Hand-rolled ODX-D fixture: 3 DIDs (Vbatt / EngTemp / Vin) + 1 Routine
-// (EraseMemory). Uses the spec-canonical <DID-OBJECT> + <REQUEST> shape
-// that v1.22.0's `parseOdxHandler` consumes. `REQUEST` for `EraseMemory`
-// has no SERVICE-ID param so the v1.22.0 routine walker keeps the T1
-// fallback behavior of classifying it as a Routine.
+// Hand-rolled ODX-D fixture for the DIM pipeline: 3 DOPs + read/write DIDs
+// + one RoutineControl service. This is the shape consumed by
+// core/odx/parseOdxDocument + buildDim (not the retired OdxSummary parser).
 const FIXTURE_ODX_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <ODX MODEL-VERSION="2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <DIAG-LAYER-CONTAINER>
-    <DIAG-LAYER ID="DL_BaseVariant" SHORT-NAME="BaseVariant">
-      <DID-OBJECTS>
-        <DID-OBJECT ID="DID_Vbatt" SHORT-NAME="Vbatt"/>
-        <DID-OBJECT ID="DID_EngTemp" SHORT-NAME="EngTemp"/>
-        <DID-OBJECT ID="DID_Vin" SHORT-NAME="Vin"/>
-      </DID-OBJECTS>
+    <BASE-VARIANT ID="DL_BaseVariant">
+      <SHORT-NAME>BaseVariant</SHORT-NAME>
+      <DOP-BASE>
+        <DATA-OBJECT-PROP ID="DID_Vbatt" xsi:type="STANDARD-LENGTH-TYPE">
+          <SHORT-NAME>Vbatt</SHORT-NAME>
+          <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>16</BIT-LENGTH></DIAG-CODED-TYPE>
+        </DATA-OBJECT-PROP>
+        <DATA-OBJECT-PROP ID="DID_EngTemp" xsi:type="STANDARD-LENGTH-TYPE">
+          <SHORT-NAME>EngTemp</SHORT-NAME>
+          <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>16</BIT-LENGTH></DIAG-CODED-TYPE>
+        </DATA-OBJECT-PROP>
+        <DATA-OBJECT-PROP ID="DID_Vin" xsi:type="STANDARD-LENGTH-TYPE">
+          <SHORT-NAME>Vin</SHORT-NAME>
+          <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>16</BIT-LENGTH></DIAG-CODED-TYPE>
+        </DATA-OBJECT-PROP>
+      </DOP-BASE>
+      <DIAG-COMMS>
+        <DIAG-SERVICE ID="SVC_ReadVbatt" SEMANTIC="STOREDDATA"><SHORT-NAME>ReadVbatt</SHORT-NAME><REQUEST-REF ID-REF="REQ_ReadVbatt"/></DIAG-SERVICE>
+        <DIAG-SERVICE ID="SVC_ReadEngTemp" SEMANTIC="STOREDDATA"><SHORT-NAME>ReadEngTemp</SHORT-NAME><REQUEST-REF ID-REF="REQ_ReadEngTemp"/></DIAG-SERVICE>
+        <DIAG-SERVICE ID="SVC_ReadVin" SEMANTIC="STOREDDATA"><SHORT-NAME>ReadVin</SHORT-NAME><REQUEST-REF ID-REF="REQ_ReadVin"/></DIAG-SERVICE>
+        <DIAG-SERVICE ID="SVC_WriteVin" SEMANTIC="STOREDDATA"><SHORT-NAME>WriteVin</SHORT-NAME><REQUEST-REF ID-REF="REQ_WriteVin"/></DIAG-SERVICE>
+        <DIAG-SERVICE ID="SVC_EraseMemory" SEMANTIC="ROUTINE"><SHORT-NAME>EraseMemory</SHORT-NAME><REQUEST-REF ID-REF="REQ_EraseMemory"/></DIAG-SERVICE>
+      </DIAG-COMMS>
       <REQUESTS>
-        <REQUEST ID="REQ_EraseMemory" SHORT-NAME="EraseMemory">
-          <PARAMS>
-            <PARAM SHORT-NAME="RoutineId" SEMANTIC="DATA-ID" BYTE-POSITION="0"/>
-          </PARAMS>
-        </REQUEST>
+        <REQUEST ID="REQ_ReadVbatt"><PARAMS><PARAM SHORT-NAME="Sid" SEMANTIC="SERVICE-ID" BYTE-POSITION="0"><CODED-VALUE>0x22</CODED-VALUE></PARAM><PARAM SHORT-NAME="DID" SEMANTIC="ID" BYTE-POSITION="1" DOP-REF="DID_Vbatt"><CODED-VALUE>0x0102</CODED-VALUE></PARAM></PARAMS></REQUEST>
+        <REQUEST ID="REQ_ReadEngTemp"><PARAMS><PARAM SHORT-NAME="Sid" SEMANTIC="SERVICE-ID" BYTE-POSITION="0"><CODED-VALUE>0x22</CODED-VALUE></PARAM><PARAM SHORT-NAME="DID" SEMANTIC="ID" BYTE-POSITION="1" DOP-REF="DID_EngTemp"><CODED-VALUE>0x0103</CODED-VALUE></PARAM></PARAMS></REQUEST>
+        <REQUEST ID="REQ_ReadVin"><PARAMS><PARAM SHORT-NAME="Sid" SEMANTIC="SERVICE-ID" BYTE-POSITION="0"><CODED-VALUE>0x22</CODED-VALUE></PARAM><PARAM SHORT-NAME="DID" SEMANTIC="ID" BYTE-POSITION="1" DOP-REF="DID_Vin"><CODED-VALUE>0x0104</CODED-VALUE></PARAM></PARAMS></REQUEST>
+        <REQUEST ID="REQ_WriteVin"><PARAMS><PARAM SHORT-NAME="Sid" SEMANTIC="SERVICE-ID" BYTE-POSITION="0"><CODED-VALUE>0x2E</CODED-VALUE></PARAM><PARAM SHORT-NAME="DID" SEMANTIC="ID" BYTE-POSITION="1" DOP-REF="DID_Vin"><CODED-VALUE>0x0104</CODED-VALUE></PARAM></PARAMS></REQUEST>
+        <REQUEST ID="REQ_EraseMemory"><PARAMS><PARAM SHORT-NAME="Sid" SEMANTIC="SERVICE-ID" BYTE-POSITION="0"><CODED-VALUE>0x31</CODED-VALUE></PARAM><PARAM SHORT-NAME="RoutineId" SEMANTIC="ID" BYTE-POSITION="1"><CODED-VALUE>0x0200</CODED-VALUE></PARAM></PARAMS></REQUEST>
       </REQUESTS>
-    </DIAG-LAYER>
+    </BASE-VARIANT>
   </DIAG-LAYER-CONTAINER>
 </ODX>
 `;
-
 let workDir: string;
 
 beforeEach(() => {
@@ -306,8 +320,8 @@ describe('dcmConfigHandler — happy path', () => {
     // shortName (the merged ARXML stitches both halves).
     expect(existsSync(outputPath)).toBe(true);
     const finalXml = readFileSync(outputPath, 'utf-8');
-    expect(finalXml).toContain('Vbatt');
-    expect(finalXml).toContain('EraseMemory');
+    expect(finalXml).toContain('DID_0102');
+    expect(finalXml).toContain('DcmDspRoutine');
   });
 
   // v1.27.2 PATCH — closes the deeper spec drift exposed (but not closed)
