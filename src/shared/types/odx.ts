@@ -45,6 +45,8 @@ export interface OdxDidSummary {
    * shape) or 0x22 REQUESTs without DIAG-CODED-TYPE.
    */
   readonly data?: OdxDidData;
+  /** Numeric DID identifier extracted from the 0x22 REQUEST's PARAM with SEMANTIC="ID" CODED-VALUE. */
+  readonly identifier?: number;
 }
 
 /** Renderer-friendly projection of a single ODX `<REQUEST>` (Routine). */
@@ -53,6 +55,8 @@ export interface OdxRoutineSummary {
   readonly id: string;
   /** ODX `REQUEST` `SHORT-NAME`. */
   readonly shortName: string;
+  /** Numeric routine identifier extracted from the 0x31 REQUEST's PARAM with SEMANTIC="ID" CODED-VALUE. */
+  readonly identifier?: number;
 }
 
 /** Renderer-friendly summary of a parsed ODX-D BASE-VARIANT. */
