@@ -140,7 +140,7 @@ function parseProvenanceManifest(
   }
 }
 
-async function readProvenanceManifest(
+export async function readProvenanceManifest(
   manifestDir: string,
   warnings: DimWarning[],
 ): Promise<ReadonlyMap<string, ImportManifestEntry>> {

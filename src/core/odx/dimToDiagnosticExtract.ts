@@ -37,8 +37,8 @@ export function dimToDiagnosticExtract(args: {
   readonly dim: Dim;
   readonly bswmdIndex: BswmdDefIndex;
 }): DimToDiagnosticExtractResult {
-  const dcm = mapDcm(args.dim, args.bswmdIndex);
-  const dem = mapDem(args.dim, args.bswmdIndex);
+  const dcm = mapDcm(args.dim, args.bswmdIndex, { allowMissingDefinitions: true });
+  const dem = mapDem(args.dim, args.bswmdIndex, { allowMissingDefinitions: true });
   const warnings = [...args.dim.warnings, ...dcm.warnings, ...dem.warnings];
 
   return {

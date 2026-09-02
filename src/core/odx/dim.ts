@@ -1,3 +1,28 @@
+export const ODX_WARNING_CODES = [
+  'odx-unresolved-parent-ref',
+  'odx-unsupported-compu',
+  'odx-unsupported-datatype',
+  'odx-type-promotion',
+  'odx-compu-not-mapped',
+  'odx-unknown-service-class',
+  'odx-dtc-code-invalid',
+  'odx-dtc-severity-unmapped',
+  'odx-did-no-identifier',
+  'odx-session-value-conflict',
+  'odx-security-unpaired',
+  'odx-comparam-external',
+  'odx-bswmd-def-missing',
+  'odx-manifest-ignored',
+  'odx-service-sid-invalid',
+  'odx-default-param-used',
+  'odx-routine-params-not-mapped',
+  'odx-memory-service-not-mapped',
+  'odx-dem-cycle-ref-check',
+  'odx-element-skipped',
+] as const;
+
+export type OdxWarningCode = (typeof ODX_WARNING_CODES)[number];
+
 import type { OdxVariantInfo } from './odxDocument.js';
 
 export interface Dim {
@@ -133,7 +158,7 @@ export interface DimSecurityLevel {
 }
 
 export interface DimWarning {
-  readonly code: string;
+  readonly code: OdxWarningCode;
   readonly elementRef: string;
   readonly message: string;
 }

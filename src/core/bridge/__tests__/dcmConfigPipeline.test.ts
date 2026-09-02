@@ -55,7 +55,7 @@ const FIXTURE_DIM: Dim = {
   meta: {
     sourcePath: '/tmp/input.odx-d',
     modelVersion: '1.0',
-    variant: { kind: 'BASE-VARIANT', odxId: 'base' },
+    variant: { kind: 'BASE-VARIANT', odxId: 'base', shortName: 'Variant' },
   },
   services: [
     service('svc-read-1', 'ReadVbatt', 'ReadDataByIdentifier', '0x0102'),

@@ -181,7 +181,7 @@ export async function dcmConfigPipeline(
     });
   }
 
-  const mapped = mapDcm(request.dim, request.bswmdIndex);
+  const mapped = mapDcm(request.dim, request.bswmdIndex, { allowMissingDefinitions: true });
   const dcmConfigXml = wrapDcmModule(mapped.module, request.dim.meta.sourcePath);
   const serviceCounts = tallyServiceCounts(request.xlsxRows);
 

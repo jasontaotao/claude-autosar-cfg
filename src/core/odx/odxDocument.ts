@@ -10,9 +10,12 @@ export interface OdxRawElement {
 export interface OdxVariantInfo {
   readonly kind: 'BASE-VARIANT' | 'ECU-VARIANT';
   readonly odxId: string;
+  readonly shortName: string;
 }
 
 export interface OdxDocument {
+  readonly modelVersion: string;
+  readonly adminRevision?: string;
   readonly layers: readonly OdxRawElement[];
   readonly importableVariants: readonly OdxVariantInfo[];
   readonly idIndex: ReadonlyMap<string, OdxRawElement>;
@@ -74,6 +77,50 @@ function toElement(
   return element;
 }
 
+function findFirstElement(value: unknown, tag: string): ParsedNode | undefined {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findFirstElement(item, tag);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!isObject(value)) return undefined;
+  const direct = value[tag];
+  if (Array.isArray(direct)) {
+    const item = direct.find(isObject);
+    if (item) return item;
+  } else if (isObject(direct)) {
+    return direct;
+  }
+  for (const childValue of Object.values(value)) {
+    const found = findFirstElement(childValue, tag);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function latestRevisionLabel(value: unknown): string | undefined {
+  const revisions = findFirstElement(value, 'DOC-REVISIONS');
+  if (!revisions) return undefined;
+  const raw = revisions['DOC-REVISION'];
+  const items = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
+  const candidates = items
+    .filter(isObject)
+    .map((revision) => ({
+      date: typeof revision.DATE === 'string' ? revision.DATE : '',
+      label:
+        typeof revision['REVISION-LABEL'] === 'string' ? revision['REVISION-LABEL'] : undefined,
+    }))
+    .filter((revision): revision is { date: string; label: string } => revision.label !== undefined)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
+  return candidates.at(-1)?.label;
+}
+
+function shortNameOf(element: OdxRawElement): string {
+  return element.children['SHORT-NAME']?.[0]?.text ?? element.attrs.ID ?? '';
+}
+
 function collectElements(value: unknown, output: Array<{ tag: string; value: ParsedNode }>): void {
   if (Array.isArray(value)) {
     for (const item of value) collectElements(item, output);
@@ -118,8 +165,19 @@ export function parseOdxDocument(xml: string): OdxDocument {
   const importableVariants = layers.flatMap((layer) => {
     if ((layer.tag !== 'BASE-VARIANT' && layer.tag !== 'ECU-VARIANT') || !layer.attrs.ID) return [];
     const kind: OdxVariantInfo['kind'] = layer.tag;
-    return [{ kind, odxId: layer.attrs.ID }];
+    return [{ kind, odxId: layer.attrs.ID, shortName: shortNameOf(layer) }];
   });
 
-  return { layers, importableVariants, idIndex };
+  const root = isObject(parsed) && isObject(parsed['ODX']) ? parsed['ODX'] : {};
+  const modelVersion =
+    typeof root['@_MODEL-VERSION'] === 'string' ? root['@_MODEL-VERSION'] : 'unknown';
+  const adminRevision = latestRevisionLabel(parsed);
+
+  return {
+    modelVersion,
+    ...(adminRevision === undefined ? {} : { adminRevision }),
+    layers,
+    importableVariants,
+    idIndex,
+  };
 }

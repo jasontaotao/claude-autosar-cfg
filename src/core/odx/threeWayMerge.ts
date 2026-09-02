@@ -137,43 +137,90 @@ export function classifyImportRows(args: {
 
 function mergeContainer(
   current: ArxmlContainer,
-  incoming: ArxmlContainer,
+  incoming: ArxmlContainer | undefined,
   moduleShortName: string,
+  path: string,
   decisions: ReadonlyMap<string, ImportDecision>,
   defaults: ReadonlyMap<string, ImportDecision>,
-): ArxmlContainer {
-  const path = childPath(`/${moduleShortName}`, current.shortName);
-  const decision = decisions.get(path) ?? defaults.get(path) ?? 'keep-local';
-  if (decision === 'keep-local') return current;
-  if (decision === 'delete') return current;
+): ArxmlContainer | undefined {
+  const decision = decisions.get(path) ?? defaults.get(path);
+  if (decision === 'delete') return undefined;
 
-  const children: ArxmlElement[] = [];
+  const incomingChildren = incoming?.children.filter(
+    (child): child is ArxmlContainer => child.kind === 'container',
+  );
   const currentChildren = current.children.filter(
     (child): child is ArxmlContainer => child.kind === 'container',
   );
-  const incomingChildren = incoming.children.filter(
-    (child): child is ArxmlContainer => child.kind === 'container',
-  );
-  for (const incomingChild of incomingChildren) {
-    const currentChild = currentChildren.find(
-      (child) => child.shortName === incomingChild.shortName,
+
+  // keep-local preserves the current subtree. Explicit child decisions are
+  // still honored so a broad parent choice can be narrowed below it.
+  if (decision === 'keep-local') {
+    const children: ArxmlElement[] = [];
+    const incomingByName = new Map(
+      (incomingChildren ?? []).map((child) => [child.shortName, child]),
     );
-    if (currentChild)
-      children.push(
-        mergeContainer(currentChild, incomingChild, moduleShortName, decisions, defaults),
-      );
-    else children.push(incomingChild);
-  }
-  for (const currentChild of currentChildren) {
-    if (!incomingChildren.some((child) => child.shortName === currentChild.shortName)) {
-      const childDecision =
-        decisions.get(childPath(path, currentChild.shortName)) ??
-        defaults.get(childPath(path, currentChild.shortName));
-      if (childDecision !== 'delete') children.push(currentChild);
+    for (const currentChild of currentChildren) {
+      const childInstancePath = childPath(path, currentChild.shortName);
+      const childDecision = decisions.get(childInstancePath) ?? defaults.get(childInstancePath);
+      if (childDecision === 'delete') continue;
+      const incomingChild = incomingByName.get(currentChild.shortName);
+      if (childDecision === 'import' && incomingChild) {
+        const mergedChild = mergeContainer(
+          currentChild,
+          incomingChild,
+          moduleShortName,
+          childInstancePath,
+          decisions,
+          defaults,
+        );
+        if (mergedChild) children.push(mergedChild);
+        continue;
+      }
+      children.push(currentChild);
     }
+    for (const incomingChild of incomingChildren ?? []) {
+      if (currentChildren.some((child) => child.shortName === incomingChild.shortName)) continue;
+      const childInstancePath = childPath(path, incomingChild.shortName);
+      if ((decisions.get(childInstancePath) ?? defaults.get(childInstancePath)) === 'import')
+        children.push(incomingChild);
+    }
+    return { ...current, children };
   }
 
-  return { ...incoming, children };
+  // Default/import behavior starts from the incoming subtree and preserves
+  // current-only children unless they are explicitly deleted.
+  const children: ArxmlElement[] = [];
+  const currentByName = new Map(currentChildren.map((child) => [child.shortName, child]));
+  for (const incomingChild of incomingChildren ?? []) {
+    const childInstancePath = childPath(path, incomingChild.shortName);
+    const childDecision = decisions.get(childInstancePath) ?? defaults.get(childInstancePath);
+    if (childDecision === 'delete') continue;
+    const currentChild = currentByName.get(incomingChild.shortName);
+    if (childDecision === 'keep-local' && currentChild) {
+      children.push(currentChild);
+      continue;
+    }
+    const mergedChild = currentChild
+      ? mergeContainer(
+          currentChild,
+          incomingChild,
+          moduleShortName,
+          childInstancePath,
+          decisions,
+          defaults,
+        )
+      : incomingChild;
+    if (mergedChild) children.push(mergedChild);
+  }
+  for (const currentChild of currentChildren) {
+    if ((incomingChildren ?? []).some((child) => child.shortName === currentChild.shortName))
+      continue;
+    const childInstancePath = childPath(path, currentChild.shortName);
+    if ((decisions.get(childInstancePath) ?? defaults.get(childInstancePath)) !== 'delete')
+      children.push(currentChild);
+  }
+  return { ...(incoming ?? current), children };
 }
 
 export function mergeModuleThreeWay(args: {
@@ -208,17 +255,17 @@ export function mergeModuleThreeWay(args: {
 
   for (const incomingChild of incomingTop) {
     const currentChild = currentTop.find((child) => child.shortName === incomingChild.shortName);
-    if (currentChild)
-      children.push(
-        mergeContainer(
-          currentChild,
-          incomingChild,
-          args.incoming.shortName,
-          args.decisions,
-          defaults,
-        ),
+    if (currentChild) {
+      const mergedChild = mergeContainer(
+        currentChild,
+        incomingChild,
+        args.incoming.shortName,
+        childPath(`/${args.incoming.shortName}`, currentChild.shortName),
+        args.decisions,
+        defaults,
       );
-    else {
+      if (mergedChild) children.push(mergedChild);
+    } else {
       const path = childPath(`/${args.incoming.shortName}`, incomingChild.shortName);
       if (args.decisions.get(path) !== 'delete') children.push(incomingChild);
     }

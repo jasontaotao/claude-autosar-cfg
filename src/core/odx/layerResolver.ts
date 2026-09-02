@@ -1,7 +1,8 @@
 import type { OdxDocument, OdxRawElement } from './odxDocument.js';
+import type { OdxWarningCode } from './dim.js';
 
 export interface OdxResolverWarning {
-  readonly code: string;
+  readonly code: OdxWarningCode;
   readonly elementRef: string;
   readonly message: string;
 }
@@ -64,31 +65,31 @@ export function resolveLayer(document: OdxDocument, variantId: string): Resolved
   const chain: OdxRawElement[] = [target];
   const warnings: OdxResolverWarning[] = [];
   const visited = new Set([target.attrs.ID ?? variantId]);
-  let current = target;
 
-  while (current) {
-    const parentId = parentIds(current)[0];
-    if (!parentId) break;
+  const collectParents = (layer: OdxRawElement): void => {
+    for (const parentId of parentIds(layer)) {
+      const parent = document.idIndex.get(parentId);
+      if (!parent) {
+        warnings.push({
+          code: 'odx-unresolved-parent-ref',
+          elementRef: parentId,
+          message: `Unresolved ODX parent reference: ${parentId}`,
+        });
+        continue;
+      }
 
-    const parent = document.idIndex.get(parentId);
-    if (!parent) {
-      warnings.push({
-        code: 'odx-unresolved-parent-ref',
-        elementRef: parentId,
-        message: `Unresolved ODX parent reference: ${parentId}`,
-      });
-      break;
+      const parentIdValue = parent.attrs.ID ?? parentId;
+      if (visited.has(parentIdValue)) {
+        throw new Error(`odx-inheritance-cycle: ${[...visited, parentIdValue].join(' -> ')}`);
+      }
+
+      visited.add(parentIdValue);
+      chain.push(parent);
+      collectParents(parent);
     }
+  };
 
-    const parentIdValue = parent.attrs.ID ?? parentId;
-    if (visited.has(parentIdValue)) {
-      throw new Error(`odx-inheritance-cycle: ${[...visited, parentIdValue].join(' -> ')}`);
-    }
-
-    visited.add(parentIdValue);
-    chain.push(parent);
-    current = parent;
-  }
+  collectParents(target);
 
   const notInherited = new Set(
     chain.flatMap((layer) =>

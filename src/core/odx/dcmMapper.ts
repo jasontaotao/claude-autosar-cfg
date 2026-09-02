@@ -1,6 +1,6 @@
 import type { ArxmlContainer, ArxmlElement, ArxmlModule, ParamValue } from '../arxml/types.js';
 import type { BswmdDefIndex } from './bswmdDefIndex.js';
-import type { Dim, DimService, DimWarning } from './dim.js';
+import type { Dim, DimDataObject, DimService, DimWarning } from './dim.js';
 import { dedupeShortName, legalizeShortName } from './shortName.js';
 
 const MODULE_PATH = '/AUTOSAR_R22/EcucDefs/Dcm';
@@ -119,6 +119,124 @@ function serviceRefs(group: readonly DimService[]): {
   return {
     sessions: [...new Set(group.flatMap((service) => service.sessionRefs))].sort((a, b) => a - b),
     security: [...new Set(group.flatMap((service) => service.securityRefs))].sort((a, b) => a - b),
+  };
+}
+
+function strictPruneUnanchoredContainers(element: ArxmlContainer): ArxmlContainer {
+  return {
+    ...element,
+    params: Object.fromEntries(
+      Object.entries(element.params).filter(([, value]) => value.definitionRef !== undefined),
+    ),
+    children: element.children
+      .filter((child) => child.kind !== 'container' || child.definitionRef !== undefined)
+      .map((child) =>
+        child.kind === 'container' ? strictPruneUnanchoredContainers(child) : child,
+      ),
+  };
+}
+
+function dataRefs(
+  group: readonly DimService[],
+): readonly { readonly odxId: string; readonly bytePosition: number }[] {
+  const refs = new Map<string, number>();
+  for (const service of group) {
+    for (const requestParam of service.request) {
+      if (requestParam.dataObjectRef === undefined) continue;
+      const existing = refs.get(requestParam.dataObjectRef);
+      if (existing === undefined || requestParam.bytePosition < existing)
+        refs.set(requestParam.dataObjectRef, requestParam.bytePosition);
+    }
+    for (const response of service.posResponses) {
+      for (const responseParam of response) {
+        if (responseParam.dataObjectRef === undefined) continue;
+        const existing = refs.get(responseParam.dataObjectRef);
+        if (existing === undefined || responseParam.bytePosition < existing)
+          refs.set(responseParam.dataObjectRef, responseParam.bytePosition);
+      }
+    }
+  }
+  return [...refs.entries()]
+    .map(([odxId, bytePosition]) => ({ odxId, bytePosition }))
+    .sort((a, b) => a.bytePosition - b.bytePosition || a.odxId.localeCompare(b.odxId));
+}
+
+function dcmDspDataType(dataObject: DimDataObject, warnings: DimWarning[]): string {
+  const bitLength =
+    dataObject.codedType.kind === 'standard' ? dataObject.codedType.bitLength : undefined;
+  if (dataObject.baseDataType === 'A_UINT32') {
+    if (bitLength === 1) return 'BOOLEAN';
+    if (bitLength !== undefined && bitLength <= 8) return 'UINT8';
+    if (bitLength !== undefined && bitLength <= 16) return 'UINT16';
+    if (bitLength !== undefined && bitLength <= 32) return 'UINT32';
+    warnings.push({
+      code: 'odx-type-promotion',
+      elementRef: dataObject.odxId,
+      message: `DOP ${dataObject.shortName} promoted to UINT8_N`,
+    });
+    return 'UINT8_N';
+  }
+  if (dataObject.baseDataType === 'A_INT32' && dataObject.encoding.includes('2C')) {
+    if (bitLength === undefined) return 'SINT8';
+    if (bitLength <= 8) return 'SINT8';
+    if (bitLength <= 16) return 'SINT16';
+    if (bitLength <= 32) return 'SINT32';
+  }
+  if (dataObject.encoding.includes('IEEE-FLOAT32')) return 'FLOAT';
+  if (['A_ASCIISTRING', 'A_UNICODE2STRING', 'A_BYTEFIELD'].includes(dataObject.baseDataType)) {
+    if (dataObject.codedType.kind === 'minmax') return 'UINT8_DYN';
+    return 'UINT8_N';
+  }
+  warnings.push({
+    code: 'odx-unsupported-datatype',
+    elementRef: dataObject.odxId,
+    message: `Unsupported DOP base data type ${dataObject.baseDataType}; using UINT8_N`,
+  });
+  return 'UINT8_N';
+}
+
+function dcmDataByteSize(dataObject: DimDataObject): number | undefined {
+  if (dataObject.codedType.kind === 'minmax') return dataObject.codedType.maxBytes;
+  if (dataObject.codedType.kind === 'standard')
+    return Math.ceil(dataObject.codedType.bitLength / 8);
+  return undefined;
+}
+
+function createDcmDspData(
+  dataObject: DimDataObject,
+  shortName: string,
+  index: BswmdDefIndex,
+  warnings: DimWarning[],
+): ArxmlContainer {
+  const params: Record<string, ParamValue> = {};
+  if (dataObject) {
+    addParam(
+      params,
+      'DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataType',
+      dcmDspDataType(dataObject, warnings),
+      index,
+      warnings,
+    );
+    const byteSize = dcmDataByteSize(dataObject);
+    if (byteSize !== undefined)
+      addParam(
+        params,
+        'DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataByteSize',
+        byteSize,
+        index,
+        warnings,
+      );
+  }
+  addParam(
+    params,
+    'DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataUsePort',
+    'USE_DATA_SYNCH_CLIENT_SERVER',
+    index,
+    warnings,
+  );
+  return {
+    ...container(shortName, 'DcmConfigSet/DcmDsp/DcmDspData', index, warnings),
+    params,
   };
 }
 
@@ -273,9 +391,11 @@ function createServiceRows(
 
 function createDid(
   identifier: number,
+  group: readonly DimService[],
+  dataContainers: readonly ArxmlContainer[],
   index: BswmdDefIndex,
   warnings: DimWarning[],
-): ArxmlContainer {
+): { did: ArxmlContainer; info: ArxmlContainer } {
   const didName = `DID_${identifier.toString(16).toUpperCase().padStart(4, '0')}`;
   const params: Record<string, ParamValue> = {};
   addParam(params, 'DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsed', true, index, warnings);
@@ -293,6 +413,30 @@ function createDid(
     index,
     warnings,
   );
+  if (dataContainers.length > 0) {
+    const byteSize = dataContainers.reduce((total, child) => {
+      const value = child.params.DcmDspDataByteSize;
+      return typeof value?.value === 'number' ? total + value.value : total;
+    }, 0);
+    if (byteSize > 0)
+      addParam(params, 'DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidSize', byteSize, index, warnings);
+    addReference(
+      params,
+      'DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidInfoRef',
+      `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspDidInfo/${didName}_Info`,
+      index,
+      warnings,
+    );
+    const firstData = dataContainers[0];
+    if (firstData)
+      addReference(
+        params,
+        'DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspData/${firstData.shortName}`,
+        index,
+        warnings,
+      );
+  }
 
   const info = container(`${didName}_Info`, 'DcmConfigSet/DcmDsp/DcmDspDidInfo', index, warnings);
   const infoParams: Record<string, ParamValue> = {};
@@ -303,70 +447,145 @@ function createDid(
     index,
     warnings,
   );
+  (info.children as ArxmlElement[]).length = 0;
 
-  const read = container(
-    `${didName}_Read`,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidRead',
-    index,
-    warnings,
+  const readGroup = group.filter((service) => service.serviceClass === 'ReadDataByIdentifier');
+  if (readGroup.length > 0) {
+    const read = container(
+      `${didName}_Read`,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidRead',
+      index,
+      warnings,
+    );
+    const refs = serviceRefs(readGroup);
+    const readParams: Record<string, ParamValue> = {};
+    for (const value of refs.sessions) {
+      addReference(
+        readParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidRead/DcmDspDidReadSessionRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSession/Session_${value}`,
+        index,
+        warnings,
+      );
+    }
+    for (const value of refs.security) {
+      addReference(
+        readParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidRead/DcmDspDidReadSecurityLevelRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSecurity/Security_${value}`,
+        index,
+        warnings,
+      );
+    }
+    (info.children as ArxmlElement[]).push({ ...read, params: readParams });
+  }
+
+  const writeGroup = group.filter((service) => service.serviceClass === 'WriteDataByIdentifier');
+  if (writeGroup.length > 0) {
+    const write = container(
+      `${didName}_Write`,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidWrite',
+      index,
+      warnings,
+    );
+    const refs = serviceRefs(writeGroup);
+    const writeParams: Record<string, ParamValue> = {};
+    for (const value of refs.sessions) {
+      addReference(
+        writeParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidWrite/DcmDspDidWriteSessionRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSession/Session_${value}`,
+        index,
+        warnings,
+      );
+    }
+    for (const value of refs.security) {
+      addReference(
+        writeParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidWrite/DcmDspDidWriteSecurityLevelRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSecurity/Security_${value}`,
+        index,
+        warnings,
+      );
+    }
+    (info.children as ArxmlElement[]).push({ ...write, params: writeParams });
+  }
+
+  const controlGroup = group.filter(
+    (service) => service.serviceClass === 'InputOutputControlByIdentifier',
   );
-  const write = container(
-    `${didName}_Write`,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidWrite',
-    index,
-    warnings,
-  );
-  const control = container(
-    `${didName}_Control`,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl',
-    index,
-    warnings,
-  );
-  const controlParams: Record<string, ParamValue> = {};
-  addParam(
-    controlParams,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidFreezeCurrentState',
-    true,
-    index,
-    warnings,
-  );
-  addParam(
-    controlParams,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidResetToDefault',
-    true,
-    index,
-    warnings,
-  );
-  addParam(
-    controlParams,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidShortTermAdjustment',
-    true,
-    index,
-    warnings,
-  );
-  addParam(
-    controlParams,
-    'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlMask',
-    'DCM_CONTROLMASK_NO',
-    index,
-    warnings,
-  );
-  (info.children as ArxmlElement[]).push(
-    { ...read, params: {} },
-    { ...write, params: {} },
-    { ...control, params: controlParams },
-  );
+  if (controlGroup.length > 0) {
+    const control = container(
+      `${didName}_Control`,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl',
+      index,
+      warnings,
+    );
+    const refs = serviceRefs(controlGroup);
+    const controlParams: Record<string, ParamValue> = {};
+    addParam(
+      controlParams,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidFreezeCurrentState',
+      true,
+      index,
+      warnings,
+    );
+    addParam(
+      controlParams,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidResetToDefault',
+      true,
+      index,
+      warnings,
+    );
+    addParam(
+      controlParams,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidShortTermAdjustment',
+      true,
+      index,
+      warnings,
+    );
+    addParam(
+      controlParams,
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlMask',
+      'DCM_CONTROLMASK_NO',
+      index,
+      warnings,
+    );
+    for (const value of refs.sessions) {
+      addReference(
+        controlParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlSessionRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSession/Session_${value}`,
+        index,
+        warnings,
+      );
+    }
+    for (const value of refs.security) {
+      addReference(
+        controlParams,
+        'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlSecurityLevelRef',
+        `${MODULE_PATH}/DcmConfigSet/DcmDsp/DcmDspSecurity/Security_${value}`,
+        index,
+        warnings,
+      );
+    }
+    (info.children as ArxmlElement[]).push({ ...control, params: controlParams });
+  }
 
   return {
-    ...container(didName, 'DcmConfigSet/DcmDsp/DcmDspDid', index, warnings),
-    params,
-    children: [{ ...info, params: infoParams }],
+    did: {
+      ...container(didName, 'DcmConfigSet/DcmDsp/DcmDspDid', index, warnings),
+      params,
+      children: [],
+    },
+    info: { ...info, params: infoParams },
   };
 }
 
 export function mapDcm(
   dim: Dim,
   index: BswmdDefIndex,
+  options?: { readonly allowMissingDefinitions?: boolean },
 ): { module: ArxmlModule; warnings: DimWarning[] } {
   const warnings: DimWarning[] = [];
   const configSet = container('DcmConfigSet', 'DcmConfigSet', index, warnings);
@@ -400,6 +619,13 @@ export function mapDcm(
       rowParams,
       'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionP2StarServerMax',
       5.0,
+      index,
+      warnings,
+    );
+    addParam(
+      rowParams,
+      'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionForBoot',
+      'DCM_NO_BOOT',
       index,
       warnings,
     );
@@ -482,6 +708,16 @@ export function mapDcm(
       params: rowParams,
     });
   }
+  {
+    const securityShellParams = securityShell.params as Record<string, ParamValue>;
+    addParam(
+      securityShellParams,
+      'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityMaxAttemptCounterReadoutTime',
+      0.0,
+      index,
+      warnings,
+    );
+  }
   (dsp.children as ArxmlElement[]).push(securityShell);
 
   const didGroups = new Map<number, DimService[]>();
@@ -503,8 +739,53 @@ export function mapDcm(
     }
     didGroups.set(identifier, [...(didGroups.get(identifier) ?? []), service]);
   }
-  for (const [identifier] of [...didGroups.entries()].sort((a, b) => a[0] - b[0])) {
-    (dsp.children as ArxmlElement[]).push(createDid(identifier, index, warnings));
+
+  const dataObjectById = new Map(dim.dataObjects.map((entry) => [entry.odxId, entry]));
+  const dataRefsByDid = new Map<number, ReturnType<typeof dataRefs>>();
+  const uniqueDataObjects = new Map<
+    string,
+    { readonly bytePosition: number; readonly dataObject: DimDataObject }
+  >();
+  for (const [identifier, group] of didGroups) {
+    const refs = dataRefs(group);
+    dataRefsByDid.set(identifier, refs);
+    for (const ref of refs) {
+      const dataObject = dataObjectById.get(ref.odxId);
+      if (!dataObject) {
+        warnings.push({
+          code: 'odx-element-skipped',
+          elementRef: ref.odxId,
+          message: `DOP reference ${ref.odxId} was not found in the selected diagnostic layer`,
+        });
+        continue;
+      }
+      const existing = uniqueDataObjects.get(ref.odxId);
+      if (!existing || ref.bytePosition < existing.bytePosition)
+        uniqueDataObjects.set(ref.odxId, { bytePosition: ref.bytePosition, dataObject });
+    }
+  }
+
+  const dataContainerByOdxId = new Map<string, ArxmlContainer>();
+  const dataTaken = new Set<string>();
+  for (const dataObject of [...uniqueDataObjects.values()]
+    .map((entry) => entry.dataObject)
+    .sort((a, b) => a.odxId.localeCompare(b.odxId))) {
+    const shortName = dedupeShortName(
+      legalizeShortName(dataObject.shortName, dataObject.odxId),
+      dataTaken,
+    );
+    dataTaken.add(shortName);
+    const dataContainer = createDcmDspData(dataObject, shortName, index, warnings);
+    dataContainerByOdxId.set(dataObject.odxId, dataContainer);
+    (dsp.children as ArxmlElement[]).push(dataContainer);
+  }
+
+  for (const [identifier, group] of [...didGroups.entries()].sort((a, b) => a[0] - b[0])) {
+    const dataContainers = (dataRefsByDid.get(identifier) ?? [])
+      .map((ref) => dataContainerByOdxId.get(ref.odxId))
+      .filter((entry): entry is ArxmlContainer => entry !== undefined);
+    const created = createDid(identifier, group, dataContainers, index, warnings);
+    (dsp.children as ArxmlElement[]).push(created.did, created.info);
   }
 
   for (const service of dim.services) {
@@ -614,13 +895,102 @@ export function mapDcm(
   createServiceRows(dim, dsp, dsd, index, warnings);
   (configSet.children as ArxmlElement[]).push(dsp, dsd);
 
+  const defaultUses = new Map<string, number>();
+  const useDefault = (key: string, count: number): void => {
+    if (count > 0) defaultUses.set(key, (defaultUses.get(key) ?? 0) + count);
+  };
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionP2ServerMax',
+    dim.sessions.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionP2StarServerMax',
+    dim.sessions.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionForBoot',
+    dim.sessions.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityMaxAttemptCounterReadoutTime',
+    dim.securityLevels.length > 0 ? 1 : 0,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecuritySeedSize',
+    dim.securityLevels.filter((level) => level.seedBytes === undefined).length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityKeySize',
+    dim.securityLevels.filter((level) => level.keyBytes === undefined).length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityDelayTime',
+    dim.securityLevels.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityDelayTimeOnBoot',
+    dim.securityLevels.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityAttemptCounterEnabled',
+    dim.securityLevels.length,
+  );
+  useDefault(
+    'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityUsePort',
+    dim.securityLevels.length,
+  );
+  useDefault('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsed', didGroups.size);
+  useDefault('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsePort', didGroups.size);
+  useDefault('DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidDynamicallyDefined', didGroups.size);
+  for (const [, group] of didGroups) {
+    useDefault(
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidFreezeCurrentState',
+      group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
+    );
+    useDefault(
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidResetToDefault',
+      group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
+    );
+    useDefault(
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidShortTermAdjustment',
+      group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
+    );
+    useDefault(
+      'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlMask',
+      group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
+    );
+    useDefault('DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataUsePort', dataRefs(group).length);
+  }
+  for (const key of [
+    'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsed',
+    'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsePort',
+    'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineFncSignature',
+  ]) {
+    useDefault(
+      key,
+      dim.services.filter(
+        (service) =>
+          service.serviceClass === 'RoutineControl' && identifierFor(service) !== undefined,
+      ).length,
+    );
+  }
+  for (const [key, count] of [...defaultUses.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    warnings.push({
+      code: 'odx-default-param-used',
+      elementRef: key,
+      message: `Default BSWMD parameter used ${count} time(s): ${key}`,
+    });
+  }
+
   return {
     module: {
       kind: 'module',
       tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
       shortName: 'Dcm',
       params: {},
-      children: [configSet],
+      children: [
+        options?.allowMissingDefinitions ? configSet : strictPruneUnanchoredContainers(configSet),
+      ],
       references: [],
     },
     warnings,

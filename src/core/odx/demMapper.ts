@@ -86,9 +86,42 @@ function addReference(
   target[key.split('/').pop() ?? key] = { type: 'reference', value, definitionRef };
 }
 
+function strictPruneUnanchoredContainers(element: ArxmlContainer): ArxmlContainer {
+  return {
+    ...element,
+    params: Object.fromEntries(
+      Object.entries(element.params).filter(([, value]) => value.definitionRef !== undefined),
+    ),
+    children: element.children
+      .filter((child) => child.kind !== 'container' || child.definitionRef !== undefined)
+      .map((child) =>
+        child.kind === 'container' ? strictPruneUnanchoredContainers(child) : child,
+      ),
+  };
+}
+
+function normalizeDemSeverity(
+  severity: string,
+  index: BswmdDefIndex,
+  warnings: DimWarning[],
+): string | undefined {
+  const candidate = `DEM_SEVERITY_${severity.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`;
+  const literals =
+    index.paramDef.get('DemConfigSet/DemDTC/DemDTCSeverity')?.enumerationLiterals ?? [];
+  if (literals.length === 0) return candidate;
+  if (literals.includes(candidate)) return candidate;
+  warnings.push({
+    code: 'odx-dtc-severity-unmapped',
+    elementRef: severity,
+    message: `ODX DTC severity ${severity} does not match a Dem severity literal`,
+  });
+  return undefined;
+}
+
 export function mapDem(
   dim: Dim,
   index: BswmdDefIndex,
+  options?: { readonly allowMissingDefinitions?: boolean },
 ): { module: ArxmlModule; warnings: DimWarning[] } {
   const warnings: DimWarning[] = [];
   const configSet = container('DemConfigSet', 'DemConfigSet', index, warnings);
@@ -152,6 +185,13 @@ export function mapDem(
       index,
       warnings,
     );
+    addReference(
+      eventParams,
+      'DemConfigSet/DemEventParameter/DemDTCRef',
+      `${MODULE_PATH}/DemConfigSet/DemDTC/${name}`,
+      index,
+      warnings,
+    );
 
     const dtcParams: Record<string, ParamValue> = {};
     addParam(dtcParams, 'DemConfigSet/DemDTC/DemDtcValue', dtc.troubleCode, index, warnings);
@@ -163,6 +203,12 @@ export function mapDem(
         index,
         warnings,
       );
+    }
+    if (dtc.severity !== undefined) {
+      const severity = normalizeDemSeverity(dtc.severity, index, warnings);
+      if (severity !== undefined) {
+        addParam(dtcParams, 'DemConfigSet/DemDTC/DemDTCSeverity', severity, index, warnings);
+      }
     }
 
     (eventShell.children as ArxmlElement[]).push({
@@ -177,9 +223,17 @@ export function mapDem(
 
   (configSet.children as ArxmlElement[]).push(eventShell, dtcShell);
   const general = container('DemGeneral', 'DemGeneral', index, warnings);
-  (general.children as ArxmlElement[]).push(
-    container('DemOperationCycle_1', 'DemGeneral/DemOperationCycle', index, warnings),
+  const operationCycle = container(
+    'DemOperationCycle_1',
+    'DemGeneral/DemOperationCycle',
+    index,
+    warnings,
   );
+  {
+    const cycleParams = operationCycle.params as Record<string, ParamValue>;
+    addParam(cycleParams, 'DemGeneral/DemOperationCycle/DemOperationCycleId', 1, index, warnings);
+  }
+  (general.children as ArxmlElement[]).push(operationCycle);
 
   return {
     module: {
@@ -187,7 +241,10 @@ export function mapDem(
       tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
       shortName: 'Dem',
       params: {},
-      children: [configSet, general],
+      children: [
+        options?.allowMissingDefinitions ? configSet : strictPruneUnanchoredContainers(configSet),
+        options?.allowMissingDefinitions ? general : strictPruneUnanchoredContainers(general),
+      ],
       references: [],
     },
     warnings,

@@ -92,7 +92,7 @@ describe('mapDem', () => {
       meta: {
         sourcePath: 'test',
         modelVersion: '1.0',
-        variant: { kind: 'BASE-VARIANT', odxId: '_v' },
+        variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
       },
       services: [],
       dataObjects: [],

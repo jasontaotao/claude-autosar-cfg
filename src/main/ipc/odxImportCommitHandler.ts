@@ -20,8 +20,13 @@ import type {
   ArxmlPackage,
 } from '../../core/arxml/types.js';
 import { applyPatchesToDocument } from '../../core/import/patch.js';
+import type { DimWarning } from '../../core/odx/dim.js';
 import type { ImportPatchOp } from '../../core/import/types.js';
-import { hashContainerForProvenance, mergeModuleThreeWay } from '../../core/odx/threeWayMerge.js';
+import {
+  collectImportContainers,
+  hashContainerForProvenance,
+  mergeModuleThreeWay,
+} from '../../core/odx/threeWayMerge.js';
 
 import { writeAtomic } from '../io/writeAtomic.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
@@ -29,6 +34,7 @@ import { getOpenProjectManifestPath } from './project-manifest-state.js';
 import { readFileWithCap } from './sizeCap.js';
 import {
   computeOdxImportMappedModules,
+  readProvenanceManifest,
   computeOdxImportPreview,
   formatStructuredParseError,
 } from './odxImportPreviewHandler.js';
@@ -233,6 +239,8 @@ export async function odxImportCommitHandler(
       };
     }
     const manifest = loadedManifest.value;
+    const provenanceWarnings: DimWarning[] = [];
+    const provenance = await readProvenanceManifest(manifestDir, provenanceWarnings);
 
     const currentTargets = new Map<OdxImportModule, CurrentTarget>();
     for (const relativePath of manifest.valueArxmlPaths) {
@@ -291,9 +299,29 @@ export async function odxImportCommitHandler(
 
       const rows = rowsForModule(preview.rows, moduleShortName);
       const currentTarget = currentTargets.get(moduleShortName);
+      const baseContainers = new Map(
+        [...provenance].filter(([, entry]) => entry.module === moduleShortName),
+      );
+      const currentContainers = currentTarget
+        ? new Map(
+            [...collectImportContainers(currentTarget.module)].map(([path, container]) => [
+              path,
+              hashContainerForProvenance(container),
+            ]),
+          )
+        : new Map<string, string>();
+      const incomingContainers = new Map(
+        [...collectImportContainers(incomingModule)].map(([path, container]) => [
+          path,
+          hashContainerForProvenance(container),
+        ]),
+      );
       const mergedModule = mergeModuleThreeWay({
         existing: currentTarget?.module ?? null,
         incoming: incomingModule,
+        baseContainers,
+        currentContainers,
+        incomingContainers,
         decisions,
       });
       mergedRows.push({ module: mergedModule, rows });

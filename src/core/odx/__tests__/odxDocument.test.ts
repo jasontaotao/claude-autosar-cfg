@@ -26,3 +26,10 @@ describe('parseOdxDocument', () => {
     expect(() => parseOdxDocument('<ODX>')).toThrowError(/ODX parse failed|XML/);
   });
 });
+
+it('extracts document metadata and variant short names', () => {
+  const doc = parseOdxDocument(realXml);
+  expect(doc.modelVersion).toBe('2.2.0');
+  expect(doc.adminRevision).toBe('1.0.2');
+  expect(doc.importableVariants[0]?.shortName).toBe('Demo');
+});

@@ -9,6 +9,7 @@ import type {
   DimWarning,
 } from './dim.js';
 import { resolveLayer } from './layerResolver.js';
+import type { ResolvedLayer } from './layerResolver.js';
 import { resolveDataObjects } from './dopResolver.js';
 import type { OdxDocument, OdxRawElement } from './odxDocument.js';
 
@@ -299,10 +300,32 @@ function deriveRefs(
   };
 }
 
-function buildDtcs(document: OdxDocument, warnings: DimWarning[]): DimDtc[] {
+function descendants(element: OdxRawElement, tag: string): OdxRawElement[] {
+  const direct = element.children[tag] ?? [];
+  return [
+    ...direct,
+    ...Object.values(element.children)
+      .flat()
+      .flatMap((child) => descendants(child, tag)),
+  ];
+}
+
+function buildDtcs(document: OdxDocument, layer: ResolvedLayer, warnings: DimWarning[]): DimDtc[] {
   const dtcs: DimDtc[] = [];
-  for (const dtc of document.idIndex.values()) {
-    if (dtc.tag !== 'DTC') continue;
+  const byId = new Map<string, OdxRawElement>();
+  const collect = (element: OdxRawElement): void => {
+    for (const dtc of descendants(element, 'DTC')) {
+      if (dtc.attrs.ID) byId.set(dtc.attrs.ID, dtc);
+    }
+  };
+  for (const chainLayer of [...layer.chain].reverse()) {
+    collect(chainLayer);
+    for (const ref of descendants(chainLayer, 'IMPORT-REF')) {
+      const imported = document.idIndex.get(ref.attrs['ID-REF'] ?? '');
+      if (imported) collect(imported);
+    }
+  }
+  for (const dtc of byId.values()) {
     const odxId = dtc.attrs.ID ?? '';
     const troubleCode = parseNumber(childFirst(dtc, 'TROUBLE-CODE')?.text);
     if (troubleCode === undefined || troubleCode < 0 || troubleCode > 0xffffff) {
@@ -373,12 +396,15 @@ export function buildDim(input: {
   return {
     meta: {
       sourcePath: input.sourcePath,
-      modelVersion: '1.0',
+      modelVersion: input.document.modelVersion,
+      ...(input.document.adminRevision === undefined
+        ? {}
+        : { adminRevision: input.document.adminRevision }),
       variant,
     },
     services: servicesWithRefs.filter((service): service is DimService => service !== undefined),
     dataObjects: dataObjectsResult.dataObjects,
-    dtcs: buildDtcs(input.document, warnings),
+    dtcs: buildDtcs(input.document, layer, warnings),
     sessions,
     securityLevels,
     warnings,

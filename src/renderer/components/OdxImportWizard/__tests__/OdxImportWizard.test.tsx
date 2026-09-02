@@ -10,8 +10,8 @@ import { OdxImportWizard } from '../OdxImportWizard';
 import type { OdxImportPreview } from '../../../../shared/types';
 
 const basePreview: OdxImportPreview = {
-  variants: [{ kind: 'BASE-VARIANT', odxId: 'base' }],
-  selectedVariant: { kind: 'BASE-VARIANT', odxId: 'base' },
+  variants: [{ kind: 'BASE-VARIANT', odxId: 'base', shortName: 'Demo' }],
+  selectedVariant: { kind: 'BASE-VARIANT', odxId: 'base', shortName: 'Demo' },
   rows: [
     {
       path: '/Dcm/DcmConfigSet',
@@ -90,4 +90,17 @@ describe('OdxImportWizard', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认采用 ODX' }));
     expect(screen.getByRole('button', { name: '导入' })).toBeEnabled();
   });
+});
+
+it('displays variant short names instead of raw ODX IDs', () => {
+  render(
+    <OdxImportWizard
+      onClose={vi.fn()}
+      locale="zh-CN"
+      projectManifestPath="/tmp/project.json"
+      dirtyDocPaths={[]}
+      initialPreview={{ ...basePreview, selectedVariant: undefined }}
+    />,
+  );
+  expect(screen.getByRole('option', { name: 'BASE-VARIANT Demo' })).toBeInTheDocument();
 });

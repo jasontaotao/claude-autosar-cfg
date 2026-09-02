@@ -101,3 +101,29 @@ describe('resolveLayer', () => {
     expect(() => resolveLayer(doc, '_a')).toThrowError(/odx-inheritance-cycle/);
   });
 });
+
+describe('resolveLayer multiple inheritance', () => {
+  it('collects services from every parent reference', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      <ODX>
+        <DIAG-LAYER-CONTAINER>
+          <BASE-VARIANT ID="_p1">
+            <DIAG-COMMS><DIAG-SERVICE ID="_s1"><SHORT-NAME>One</SHORT-NAME></DIAG-SERVICE></DIAG-COMMS>
+          </BASE-VARIANT>
+          <BASE-VARIANT ID="_p2">
+            <DIAG-COMMS><DIAG-SERVICE ID="_s2"><SHORT-NAME>Two</SHORT-NAME></DIAG-SERVICE></DIAG-COMMS>
+          </BASE-VARIANT>
+          <ECU-VARIANT ID="_ecu">
+            <PARENT-REFS>
+              <PARENT-REF ID-REF="_p1"/>
+              <PARENT-REF ID-REF="_p2"/>
+            </PARENT-REFS>
+            <DIAG-COMMS><DIAG-SERVICE ID="_s3"><SHORT-NAME>Child</SHORT-NAME></DIAG-SERVICE></DIAG-COMMS>
+          </ECU-VARIANT>
+        </DIAG-LAYER-CONTAINER>
+      </ODX>`;
+    const layer = resolveLayer(parseOdxDocument(xml), '_ecu');
+    const ids = layer.services.map((service) => service.attrs.ID).sort();
+    expect(ids).toEqual(['_s1', '_s2', '_s3']);
+  });
+});

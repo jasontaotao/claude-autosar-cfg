@@ -18,3 +18,8 @@ describe('dedupeShortName', () => {
     expect(dedupeShortName('Foo', new Set(['Foo', 'Foo_2']))).toBe('Foo_3');
   });
 });
+
+it('prefixes every non-letter leading character, including underscore', () => {
+  expect(legalizeShortName('_private', 'x')).toBe('N__private');
+  expect(legalizeShortName('9Signal', 'x')).toBe('N_9Signal');
+});

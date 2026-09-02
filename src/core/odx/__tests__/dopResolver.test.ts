@@ -176,7 +176,7 @@ describe('resolveDataObjects', () => {
     expect(result.dataObjects.find((x) => x.odxId === '_opaque')?.codedType).toEqual({
       kind: 'opaque',
     });
-    expect(result.warnings.some((x) => x.code === 'odx-unsupported-coded-type')).toBe(true);
+    expect(result.warnings.some((x) => x.code === 'odx-element-skipped')).toBe(true);
   });
 
   it('includes DTC-DOPs and does not throw for malformed elements', () => {

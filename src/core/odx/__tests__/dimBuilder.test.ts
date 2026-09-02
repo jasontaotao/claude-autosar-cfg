@@ -35,6 +35,7 @@ describe('buildDim', () => {
                 <REQUEST-REF ID-REF="_req"/>
               </DIAG-SERVICE>
             </DIAG-COMMS>
+            <IMPORT-REFS><IMPORT-REF ID-REF="_shared"/></IMPORT-REFS>
             <REQUESTS>
               <REQUEST ID="_req">
                 <PARAMS>
@@ -137,6 +138,7 @@ describe('buildDim', () => {
                 <REQUEST-REF ID-REF="_sessionReq"/>
               </DIAG-SERVICE>
             </DIAG-COMMS>
+            <IMPORT-REFS><IMPORT-REF ID-REF="_shared"/></IMPORT-REFS>
             <REQUESTS>
               <REQUEST ID="_req">
                 <PARAMS><PARAM SEMANTIC="SERVICE-ID"><SHORT-NAME>SID</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION><CODED-VALUE>34</CODED-VALUE></PARAM></PARAMS>
@@ -169,4 +171,95 @@ describe('buildDim', () => {
     expect(dim.dtcs.find((dtc) => dtc.odxId === '_good')?.troubleCode).toBe(1193046);
     expect(dim.warnings.some((warning) => warning.code === 'odx-dtc-code-invalid')).toBe(true);
   });
+});
+
+it('propagates document metadata into DIM', () => {
+  const document = parseOdxDocument(realXml);
+  const variant = document.importableVariants[0]!;
+  const dim = buildDim({ document, variantId: variant.odxId, sourcePath: 'test.odx-d' });
+  expect(dim.meta.modelVersion).toBe('2.2.0');
+  expect(dim.meta.adminRevision).toBe('1.0.2');
+  expect(dim.meta.variant.shortName).toBe('Demo');
+});
+
+it('extracts only DTCs reachable from the selected variant chain', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      <ODX MODEL-VERSION="2.2.0">
+        <DIAG-LAYER-CONTAINER>
+          <BASE-VARIANT ID="_target">
+            <SHORT-NAME>Target</SHORT-NAME>
+            <DIAG-COMMS>
+              <DIAG-SERVICE ID="_svc">
+                <SHORT-NAME>ReadDTC</SHORT-NAME>
+                <REQUEST>
+                  <PARAM SEMANTIC="SERVICE-ID"><SHORT-NAME>SID</SHORT-NAME><CODED-VALUE>25</CODED-VALUE></PARAM>
+                </REQUEST>
+              </DIAG-SERVICE>
+            </DIAG-COMMS>
+            <DTC-DOPS>
+              <DTC-DOP ID="_dop">
+                <SHORT-NAME>TargetDOP</SHORT-NAME>
+                <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>24</BIT-LENGTH></DIAG-CODED-TYPE>
+                <DTCS>
+                  <DTC ID="_target_dtc"><SHORT-NAME>DTC_TARGET</SHORT-NAME><TROUBLE-CODE>100</TROUBLE-CODE><TEXT>Target</TEXT></DTC>
+                </DTCS>
+              </DTC-DOP>
+            </DTC-DOPS>
+          </BASE-VARIANT>
+          <BASE-VARIANT ID="_other">
+            <SHORT-NAME>Other</SHORT-NAME>
+            <DTC-DOPS>
+              <DTC-DOP ID="_other_dop">
+                <SHORT-NAME>OtherDOP</SHORT-NAME>
+                <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>24</BIT-LENGTH></DIAG-CODED-TYPE>
+                <DTCS>
+                  <DTC ID="_other_dtc"><SHORT-NAME>DTC_OTHER</SHORT-NAME><TROUBLE-CODE>200</TROUBLE-CODE><TEXT>Other</TEXT></DTC>
+                </DTCS>
+              </DTC-DOP>
+            </DTC-DOPS>
+          </BASE-VARIANT>
+        </DIAG-LAYER-CONTAINER>
+      </ODX>`;
+  const document = parseOdxDocument(xml);
+  const dim = buildDim({ document, variantId: '_target', sourcePath: 'test.odx-d' });
+  expect(dim.dtcs.map((dtc) => dtc.odxId)).toEqual(['_target_dtc']);
+});
+
+it('includes DTCs from variant IMPORT-REFs but excludes unrelated variants', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      <ODX MODEL-VERSION="2.2.0">
+        <DIAG-LAYER-CONTAINER>
+          <ECU-SHARED-DATA ID="_shared">
+            <SHORT-NAME>SharedFaults</SHORT-NAME>
+            <DIAG-DATA-DICTIONARY-SPEC>
+              <DTC-DOPS>
+                <DTC-DOP ID="_shared_dop">
+                  <SHORT-NAME>SharedDOP</SHORT-NAME>
+                  <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>24</BIT-LENGTH></DIAG-CODED-TYPE>
+                  <DTCS>
+                    <DTC ID="_shared_dtc"><SHORT-NAME>DTC_SHARED</SHORT-NAME><TROUBLE-CODE>300</TROUBLE-CODE><TEXT>Shared</TEXT></DTC>
+                  </DTCS>
+                </DTC-DOP>
+              </DTC-DOPS>
+            </DIAG-DATA-DICTIONARY-SPEC>
+          </ECU-SHARED-DATA>
+          <BASE-VARIANT ID="_target">
+            <SHORT-NAME>Target</SHORT-NAME>
+            <IMPORT-REFS><IMPORT-REF ID-REF="_shared"/></IMPORT-REFS>
+          </BASE-VARIANT>
+          <BASE-VARIANT ID="_other">
+            <SHORT-NAME>Other</SHORT-NAME>
+            <DTC-DOPS>
+              <DTC-DOP ID="_other_dop">
+                <SHORT-NAME>OtherDOP</SHORT-NAME>
+                <DIAG-CODED-TYPE BASE-DATA-TYPE="A_UINT32" xsi:type="STANDARD-LENGTH-TYPE"><BIT-LENGTH>24</BIT-LENGTH></DIAG-CODED-TYPE>
+                <DTCS><DTC ID="_other_dtc"><SHORT-NAME>DTC_OTHER</SHORT-NAME><TROUBLE-CODE>200</TROUBLE-CODE><TEXT>Other</TEXT></DTC></DTCS>
+              </DTC-DOP>
+            </DTC-DOPS>
+          </BASE-VARIANT>
+        </DIAG-LAYER-CONTAINER>
+      </ODX>`;
+  const document = parseOdxDocument(xml);
+  const dim = buildDim({ document, variantId: '_target', sourcePath: 'test.odx-d' });
+  expect(dim.dtcs.map((dtc) => dtc.odxId)).toEqual(['_shared_dtc']);
 });

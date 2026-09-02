@@ -72,7 +72,7 @@ function parseCodedType(
 
   if (kind !== undefined) {
     warnings.push({
-      code: 'odx-unsupported-coded-type',
+      code: 'odx-element-skipped',
       elementRef,
       message: `Unsupported DIAG-CODED-TYPE: ${kind}`,
     });

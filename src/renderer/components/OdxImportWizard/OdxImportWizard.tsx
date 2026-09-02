@@ -328,7 +328,7 @@ export function OdxImportWizard({
             >
               {preview.variants.map((variant) => (
                 <option key={variant.odxId} value={variant.odxId}>
-                  {variant.kind} {variant.odxId}
+                  {variant.kind} {variant.shortName}
                 </option>
               ))}
             </select>

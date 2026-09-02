@@ -205,8 +205,8 @@ describe('odxImportPreviewHandler', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.variants).toEqual([
-        { kind: 'BASE-VARIANT', odxId: 'base-a' },
-        { kind: 'BASE-VARIANT', odxId: 'base-b' },
+        { kind: 'BASE-VARIANT', odxId: 'base-a', shortName: 'A' },
+        { kind: 'BASE-VARIANT', odxId: 'base-b', shortName: 'Base' },
       ]);
       expect(result.value.selectedVariant).toBeUndefined();
       expect(result.value.rows).toEqual([]);
@@ -279,7 +279,11 @@ describe('odxImportPreviewHandler', () => {
     expect(first).toEqual(second);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
-    expect(first.value.selectedVariant).toEqual({ kind: 'BASE-VARIANT', odxId: 'base' });
+    expect(first.value.selectedVariant).toEqual({
+      kind: 'BASE-VARIANT',
+      odxId: 'base',
+      shortName: 'Base',
+    });
     expect(first.value.targetModules).toEqual({
       dcm: { exists: false, dirty: false },
       dem: { exists: false, dirty: false },

@@ -11,7 +11,11 @@ const emptyIndex = {
   paramDef: new Map(),
 };
 const dim: Dim = {
-  meta: { sourcePath: 'test', modelVersion: '1.0', variant: { kind: 'BASE-VARIANT', odxId: '_v' } },
+  meta: {
+    sourcePath: 'test',
+    modelVersion: '1.0',
+    variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
+  },
   services: [],
   dataObjects: [],
   dtcs: [{ odxId: '_dtc', shortName: 'DTC_A', troubleCode: 1 }],

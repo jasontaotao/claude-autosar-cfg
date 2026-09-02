@@ -41,7 +41,11 @@ const index = buildBswmdDefIndex(
   ]),
 );
 const dim: Dim = {
-  meta: { sourcePath: 'test', modelVersion: '1.0', variant: { kind: 'BASE-VARIANT', odxId: '_v' } },
+  meta: {
+    sourcePath: 'test',
+    modelVersion: '1.0',
+    variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
+  },
   services: [],
   dataObjects: [],
   dtcs: [],

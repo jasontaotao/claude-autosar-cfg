@@ -139,7 +139,7 @@ describe('mapDcm', () => {
       meta: {
         sourcePath: 'test',
         modelVersion: '1.0',
-        variant: { kind: 'BASE-VARIANT', odxId: '_v' },
+        variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
       },
       services: [
         service({ odxId: '_read', shortName: 'ReadF186', sid: 0x22 }),
@@ -184,7 +184,7 @@ describe('mapDcm', () => {
       meta: {
         sourcePath: 'test',
         modelVersion: '1.0',
-        variant: { kind: 'BASE-VARIANT', odxId: '_v' },
+        variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
       },
       services: [
         service({
