@@ -3,7 +3,7 @@
 // ODX parser/IPC pipeline.
 
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OdxImportWizard } from '../OdxImportWizard';
@@ -134,4 +134,64 @@ it('blocks close actions while commit is in flight', async () => {
 
   expect(screen.getByTestId('odx-import-wizard')).toBeInTheDocument();
   expect(onClose).not.toHaveBeenCalled();
+});
+
+it('groups warnings by localized warning code', () => {
+  render(
+    <OdxImportWizard
+      onClose={vi.fn()}
+      locale="zh-CN"
+      projectManifestPath="/tmp/project.json"
+      dirtyDocPaths={[]}
+      initialOdxPath="/tmp/input.odx-d"
+      initialPreview={{
+        ...basePreview,
+        warnings: [
+          { code: 'odx-unsupported-compu', elementRef: '/a', message: 'A' },
+          { code: 'odx-unsupported-compu', elementRef: '/b', message: 'B' },
+          { code: 'odx-unsupported-datatype', elementRef: '/c', message: 'C' },
+        ],
+      }}
+    />,
+  );
+
+  const compu = screen.getByTestId('odx-import-warning-group-odx-unsupported-compu');
+  const datatype = screen.getByTestId('odx-import-warning-group-odx-unsupported-datatype');
+  expect(compu.textContent).toContain('不支持的 CompuMethod');
+  expect(compu.textContent).toContain('2');
+  expect(datatype.textContent).toContain('不支持的数据类型');
+  expect(datatype.textContent).toContain('1');
+  expect(screen.getByText('A')).toBeInTheDocument();
+  expect(screen.getByText('B')).toBeInTheDocument();
+  expect(screen.getByText('C')).toBeInTheDocument();
+});
+
+it('reports wizard busy state to the host', async () => {
+  (window as unknown as { autosarApi?: unknown }).autosarApi = {
+    importOdxPreview: vi.fn(),
+    importOdxCommit: vi.fn().mockImplementation(() => new Promise(() => {})),
+    projectReload: vi.fn(),
+  };
+  const onBusyChange = vi.fn();
+  render(
+    <OdxImportWizard
+      onClose={vi.fn()}
+      locale="zh-CN"
+      projectManifestPath="/tmp/project.json"
+      dirtyDocPaths={[]}
+      initialOdxPath="/tmp/input.odx-d"
+      initialPreview={basePreview}
+      onBusyChange={onBusyChange}
+    />,
+  );
+
+  const conflictRow = screen.getByTestId('odx-import-row-conflict');
+  fireEvent.change(conflictRow.querySelector('select') as HTMLSelectElement, {
+    target: { value: 'import' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '确认采用 ODX' }));
+  onBusyChange.mockClear();
+  fireEvent.click(screen.getByRole('button', { name: '导入' }));
+
+  await waitFor(() => expect(onBusyChange).toHaveBeenCalledWith(true));
 });

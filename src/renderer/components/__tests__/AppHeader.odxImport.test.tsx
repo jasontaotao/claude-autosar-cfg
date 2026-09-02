@@ -5,10 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppHeader } from '../AppHeader';
 
-function renderHeader(args: {
-  readonly onImportOdxExtract?: () => void;
-  readonly odxExtractBusy?: boolean;
-} = {}): void {
+function renderHeader(
+  args: {
+    readonly onImportOdxExtract?: () => void;
+    readonly odxExtractBusy?: boolean;
+    readonly onImportOdx?: () => void;
+    readonly odxImportBusy?: boolean;
+  } = {},
+): void {
   render(
     <AppHeader
       onEcucModuleSelect={(): void => {}}
@@ -31,6 +35,9 @@ function renderHeader(args: {
       onOpenDcmConfig={(): void => {}}
       canOpenDcmConfig={false}
       dcmConfigBusy={false}
+      onImportOdx={args.onImportOdx}
+      odxImportBusy={args.odxImportBusy}
+      canImportOdx={true}
     />,
   );
 }
@@ -52,6 +59,25 @@ describe('AppHeader ODX-D diagnostic extract entry', () => {
     renderHeader({ odxExtractBusy: true });
     fireEvent.click(screen.getByTestId('btn-menu-toggle'));
     const button = screen.getByTestId('btn-import-odx-diagnostic-extract') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+});
+
+describe('AppHeader ODX-D full-import entry', () => {
+  afterEach(cleanup);
+
+  it('invokes the explicit full-import entry', () => {
+    const onImportOdx = vi.fn();
+    renderHeader({ onImportOdx });
+    fireEvent.click(screen.getByTestId('btn-menu-toggle'));
+    fireEvent.click(screen.getByTestId('btn-import-odx-full'));
+    expect(onImportOdx).toHaveBeenCalledOnce();
+  });
+
+  it('disables the full-import entry while the wizard is busy', () => {
+    renderHeader({ onImportOdx: vi.fn(), odxImportBusy: true });
+    fireEvent.click(screen.getByTestId('btn-menu-toggle'));
+    const button = screen.getByTestId('btn-import-odx-full') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
 });

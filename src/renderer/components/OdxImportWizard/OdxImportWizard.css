@@ -133,7 +133,13 @@
 }
 .odx-import-warnings {
   overflow: auto;
-  max-height: 9rem;
+  max-height: 12rem;
+}
+.odx-import-warning-count {
+  color: var(--text-secondary);
+}
+.odx-import-warning-items {
+  margin: 0.25rem 0 0 1rem;
 }
 .odx-import-select {
   min-width: 22rem;

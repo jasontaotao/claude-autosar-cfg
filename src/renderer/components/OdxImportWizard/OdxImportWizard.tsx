@@ -4,7 +4,7 @@
 // recomputes all ASTs, so only decisions cross IPC. The component reloads
 // the current project after commit using the existing Bug-7 reload path.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { dirname, toManifestRelative } from '@shared/path';
 import { t, type Locale } from '@shared/i18n/index.js';
@@ -17,6 +17,7 @@ import type {
 } from '@shared/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
+import type { DimWarning, OdxWarningCode } from '@core/odx/dim.js';
 import './OdxImportWizard.css';
 
 type Step = 'idle' | 'variant-select' | 'preview' | 'committing' | 'done';
@@ -71,6 +72,66 @@ function errorParams(error: OdxImportError): Record<string, string> {
   return { message: error.message };
 }
 
+type OdxImportWarningGroup = {
+  readonly code: OdxWarningCode;
+  readonly warnings: readonly DimWarning[];
+};
+
+function warningKey(code: OdxWarningCode): Parameters<typeof t>[1] {
+  switch (code) {
+    case 'odx-unresolved-parent-ref':
+      return 'odxImport.warning.unresolvedParentRef';
+    case 'odx-unsupported-compu':
+      return 'odxImport.warning.unsupportedCompu';
+    case 'odx-unsupported-datatype':
+      return 'odxImport.warning.unsupportedDatatype';
+    case 'odx-type-promotion':
+      return 'odxImport.warning.typePromotion';
+    case 'odx-compu-not-mapped':
+      return 'odxImport.warning.compuNotMapped';
+    case 'odx-unknown-service-class':
+      return 'odxImport.warning.unknownServiceClass';
+    case 'odx-dtc-code-invalid':
+      return 'odxImport.warning.dtcCodeInvalid';
+    case 'odx-dtc-severity-unmapped':
+      return 'odxImport.warning.dtcSeverityUnmapped';
+    case 'odx-did-no-identifier':
+      return 'odxImport.warning.didNoIdentifier';
+    case 'odx-session-value-conflict':
+      return 'odxImport.warning.sessionValueConflict';
+    case 'odx-security-unpaired':
+      return 'odxImport.warning.securityUnpaired';
+    case 'odx-comparam-external':
+      return 'odxImport.warning.comparamExternal';
+    case 'odx-bswmd-def-missing':
+      return 'odxImport.warning.bswmdDefMissing';
+    case 'odx-manifest-ignored':
+      return 'odxImport.warning.manifestIgnored';
+    case 'odx-service-sid-invalid':
+      return 'odxImport.warning.serviceSidInvalid';
+    case 'odx-default-param-used':
+      return 'odxImport.warning.defaultParamUsed';
+    case 'odx-routine-params-not-mapped':
+      return 'odxImport.warning.routineParamsNotMapped';
+    case 'odx-memory-service-not-mapped':
+      return 'odxImport.warning.memoryServiceNotMapped';
+    case 'odx-dem-cycle-ref-check':
+      return 'odxImport.warning.demCycleRefCheck';
+    case 'odx-element-skipped':
+      return 'odxImport.warning.elementSkipped';
+  }
+}
+
+function groupWarnings(warnings: readonly DimWarning[]): readonly OdxImportWarningGroup[] {
+  const groups = new Map<OdxWarningCode, DimWarning[]>();
+  for (const warning of warnings) {
+    const current = groups.get(warning.code);
+    if (current === undefined) groups.set(warning.code, [warning]);
+    else current.push(warning);
+  }
+  return [...groups].map(([code, groupedWarnings]) => ({ code, warnings: groupedWarnings }));
+}
+
 function requiresExplicitConfirmation(row: OdxImportRow, decision: OdxImportDecision): boolean {
   return (
     (row.category === 'conflict' && decision === 'import') ||
@@ -85,6 +146,7 @@ export interface OdxImportWizardProps {
   readonly dirtyDocPaths: readonly string[];
   readonly initialOdxPath?: string;
   readonly initialPreview?: OdxImportPreview;
+  readonly onBusyChange?: (busy: boolean) => void;
 }
 
 export function OdxImportWizard({
@@ -94,6 +156,7 @@ export function OdxImportWizard({
   dirtyDocPaths,
   initialOdxPath,
   initialPreview,
+  onBusyChange,
 }: OdxImportWizardProps): JSX.Element {
   const [step, setStep] = useState<Step>(initialPreview === undefined ? 'idle' : 'variant-select');
   const [odxPath, setOdxPath] = useState(initialOdxPath ?? '');
@@ -103,6 +166,10 @@ export function OdxImportWizard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [committed, setCommitted] = useState({ applied: 0, kept: 0, deleted: 0, manifestPath: '' });
+
+  useEffect(() => {
+    onBusyChange?.(busy);
+  }, [busy, onBusyChange]);
 
   useEffect(() => {
     if (initialPreview === undefined) return;
@@ -178,6 +245,8 @@ export function OdxImportWizard({
   const confirmDecision = (row: OdxImportRow): void => {
     setConfirmedPaths((current) => new Set(current).add(row.path));
   };
+
+  const warningGroups = useMemo(() => groupWarnings(preview?.warnings ?? []), [preview?.warnings]);
 
   const selectedVariantId =
     preview?.selectedVariant?.odxId ??
@@ -389,9 +458,15 @@ export function OdxImportWizard({
                   {t(locale, 'odxImport.preview.warnings', { count: preview.warnings.length })}
                 </summary>
                 <ul>
-                  {preview.warnings.map((warning, index) => (
-                    <li key={`${warning.code}-${warning.elementRef}-${index}`}>
-                      <strong>{warning.code}</strong> {warning.message}
+                  {warningGroups.map((group) => (
+                    <li key={group.code} data-testid={`odx-import-warning-group-${group.code}`}>
+                      <strong>{t(locale, warningKey(group.code))}</strong>{' '}
+                      <span className="odx-import-warning-count">({group.warnings.length})</span>
+                      <ul className="odx-import-warning-items">
+                        {group.warnings.map((warning, index) => (
+                          <li key={`${warning.elementRef}-${index}`}>{warning.message}</li>
+                        ))}
+                      </ul>
                     </li>
                   ))}
                 </ul>

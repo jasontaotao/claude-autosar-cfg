@@ -500,6 +500,10 @@ export function App(): JSX.Element {
   const tourState = useArxmlStore((s) => s.tour);
   const tourLocale = useArxmlStore((s) => s.locale);
   const [odxImportWizardOpen, setOdxImportWizardOpen] = useState(false);
+  const [odxImportBusy, setOdxImportBusy] = useState(false);
+  const handleOdxImportBusyChange = useCallback((busy: boolean): void => {
+    setOdxImportBusy(busy);
+  }, []);
   const odxImportDirtyPaths = useArxmlStore((s) => [...s.dirtyPaths]);
 
   return (
@@ -534,7 +538,7 @@ export function App(): JSX.Element {
           canOpenDcmConfig={canOpenDcmConfig}
           dcmConfigBusy={dcmLauncher.state.mode === 'pending'}
           onImportOdx={(): void => setOdxImportWizardOpen(true)}
-          odxImportBusy={false}
+          odxImportBusy={odxImportBusy}
           canImportOdx={projectPathForGenerate !== null}
           onTogglePanel={handleTogglePanel}
           onResetLayout={handleResetLayout}
@@ -861,6 +865,7 @@ export function App(): JSX.Element {
             locale={locale}
             projectManifestPath={projectPathForGenerate}
             dirtyDocPaths={odxImportDirtyPaths}
+            onBusyChange={handleOdxImportBusyChange}
           />
         )}
 

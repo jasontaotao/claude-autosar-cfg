@@ -19,6 +19,26 @@ export interface OdxImportMessages {
   readonly 'odxImport.preview.stats.sessions': string;
   readonly 'odxImport.preview.stats.securityLevels': string;
   readonly 'odxImport.preview.warnings': string; // {count}
+  readonly 'odxImport.warning.unresolvedParentRef': string;
+  readonly 'odxImport.warning.unsupportedCompu': string;
+  readonly 'odxImport.warning.unsupportedDatatype': string;
+  readonly 'odxImport.warning.typePromotion': string;
+  readonly 'odxImport.warning.compuNotMapped': string;
+  readonly 'odxImport.warning.unknownServiceClass': string;
+  readonly 'odxImport.warning.dtcCodeInvalid': string;
+  readonly 'odxImport.warning.dtcSeverityUnmapped': string;
+  readonly 'odxImport.warning.didNoIdentifier': string;
+  readonly 'odxImport.warning.sessionValueConflict': string;
+  readonly 'odxImport.warning.securityUnpaired': string;
+  readonly 'odxImport.warning.comparamExternal': string;
+  readonly 'odxImport.warning.bswmdDefMissing': string;
+  readonly 'odxImport.warning.manifestIgnored': string;
+  readonly 'odxImport.warning.serviceSidInvalid': string;
+  readonly 'odxImport.warning.defaultParamUsed': string;
+  readonly 'odxImport.warning.routineParamsNotMapped': string;
+  readonly 'odxImport.warning.memoryServiceNotMapped': string;
+  readonly 'odxImport.warning.demCycleRefCheck': string;
+  readonly 'odxImport.warning.elementSkipped': string;
   readonly 'odxImport.preview.table.path': string;
   readonly 'odxImport.preview.table.module': string;
   readonly 'odxImport.preview.table.name': string;
