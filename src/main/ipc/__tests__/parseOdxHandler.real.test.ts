@@ -127,3 +127,16 @@ describe('parseOdxHandler real-OEM validation (T4)', () => {
     expect(first?.text).toContain('电池SOC');
   });
 });
+
+  it('extracts numeric identifiers from every DID and Routine in Demo_Cdd.odx-d', async () => {
+    const content = await fs.readFile(FIXTURE_PATH, 'utf8');
+    const res = parseOdxHandler({ path: FIXTURE_PATH, content });
+    if (!res.ok) throw new Error(`parse failed: ${res.error.message}`);
+    expect(res.value.dids.every((d) => d.identifier !== undefined)).toBe(true);
+    expect(res.value.routines.every((r) => r.identifier !== undefined)).toBe(true);
+    expect(res.value.dids.find((d) => d.shortName === 'RQ_CellVolt_JG_Read')?.identifier).toBe(258);
+    expect(
+      res.value.routines.find((r) => r.shortName === 'RQ_checkProgrammingPreconditions_Start')
+        ?.identifier,
+    ).toBe(515);
+  });

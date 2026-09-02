@@ -469,10 +469,11 @@ function extractDids(
         // so the `data` field is OPTIONAL — the helper returns
         // `null` when no DIAG-CODED-TYPE is found.
         const data = extractDidDataFromRequestParams(el['PARAMS']);
+        const identifier = extractIdParam(el['PARAMS']);
         if (data !== null) {
-          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), data });
+          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), data, ...(identifier === undefined ? {} : { identifier }) });
         } else {
-          out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), ...(identifier === undefined ? {} : { identifier }) });
         }
       }
     }
@@ -585,7 +586,7 @@ function extractRoutines(
         // emitted; the Diagnostic Extract bridge does not model it.
         if (sid !== null && sid !== 0x31 && sid !== 0x00) continue;
         seen.add(id);
-        out.push({ id, shortName: attrOf(el, 'SHORT-NAME') });
+        out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), ...(() => { const identifier = extractIdParam(el['PARAMS']); return identifier === undefined ? {} : { identifier }; })() });
       }
     }
   };
@@ -599,6 +600,26 @@ function extractRoutines(
     }
   }
   return out;
+}
+
+/** Extract the numeric identifier from a 0x22 (DID) or 0x31 (Routine)
+ *  REQUEST. Both model their identifier as the PARAM with
+ *  SEMANTIC="ID" (RecordDataIdentifier / RoutineIdentifier). CODED-VALUE
+ *  is decimal in Vector exports. Returns undefined when no ID param or
+ *  no parseable CODED-VALUE is found. */
+function extractIdParam(params: unknown): number | undefined {
+  if (typeof params !== 'object' || params === null) return undefined;
+  const paramsObj = params as Record<string, unknown>;
+  for (const param of asArray(paramsObj['PARAM'])) {
+    if (typeof param !== 'object' || param === null) continue;
+    const p = param as Record<string, unknown>;
+    if (p['@_SEMANTIC'] !== 'ID') continue;
+    const coded = attrOf(p, 'CODED-VALUE');
+    if (coded.length === 0) return undefined;
+    const n = Number.parseInt(coded, 10);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  }
+  return undefined;
 }
 
 /** UDS SERVICE-ID (the first byte of every UDS request). Read

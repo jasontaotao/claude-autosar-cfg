@@ -282,3 +282,55 @@ describe('parseOdxHandler (v1.24.x PATCH — ODX-INSTANCE DID data)', () => {
     expect(res.value.routines[0]!.shortName).toBe('Routine_Check');
   });
 });
+
+describe('parseOdxHandler (numeric identifier extraction)', () => {
+  const ODX_WITH_IDENTIFIERS = `<?xml version="1.0" encoding="UTF-8"?>
+<ODX>
+  <DIAG-LAYER-CONTAINER>
+    <DIAG-LAYER ID="DL" SHORT-NAME="BaseVariant">
+      <DTC-DOPS/>
+      <DID-OBJECTS/>
+      <REQUESTS>
+        <REQUEST ID="DID_REQ" SHORT-NAME="RQ_CellVolt_JG_Read">
+          <PARAMS>
+            <PARAM SEMANTIC="SERVICE-ID"><CODED-VALUE>34</CODED-VALUE></PARAM>
+            <PARAM SEMANTIC="ID" SHORT-NAME="RecordDataIdentifier"><CODED-VALUE>258</CODED-VALUE></PARAM>
+          </PARAMS>
+        </REQUEST>
+        <REQUEST ID="ROUTINE_REQ" SHORT-NAME="RQ_checkProgrammingPreconditions_Start">
+          <PARAMS>
+            <PARAM SEMANTIC="SERVICE-ID"><CODED-VALUE>49</CODED-VALUE></PARAM>
+            <PARAM SEMANTIC="ID" SHORT-NAME="RoutineIdentifier"><CODED-VALUE>515</CODED-VALUE></PARAM>
+          </PARAMS>
+        </REQUEST>
+        <REQUEST ID="ROUTINE_NO_ID" SHORT-NAME="Routine_NoCodedValue">
+          <PARAMS>
+            <PARAM SEMANTIC="ID" SHORT-NAME="RoutineIdentifier"/>
+          </PARAMS>
+        </REQUEST>
+      </REQUESTS>
+    </DIAG-LAYER>
+  </DIAG-LAYER-CONTAINER>
+</ODX>
+`;
+
+  it('extracts numeric identifiers from SEMANTIC=ID params', () => {
+    const res = parseOdxHandler({ content: ODX_WITH_IDENTIFIERS });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.dids.find((d) => d.shortName === 'RQ_CellVolt_JG_Read')?.identifier).toBe(258);
+    expect(
+      res.value.routines.find((r) => r.shortName === 'RQ_checkProgrammingPreconditions_Start')
+        ?.identifier,
+    ).toBe(515);
+  });
+
+  it('leaves identifier undefined when the ID param has no CODED-VALUE', () => {
+    const res = parseOdxHandler({ content: ODX_WITH_IDENTIFIERS });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(
+      res.value.routines.find((r) => r.shortName === 'Routine_NoCodedValue')?.identifier,
+    ).toBeUndefined();
+  });
+});
