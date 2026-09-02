@@ -93,6 +93,8 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
       'getFeatureFlags',
       'getPlatform',
       'importDiagnosticExtract',
+      'importOdxCommit', // 2026-09-02 — ODX full-import commit
+      'importOdxPreview', // 2026-09-02 — ODX full-import preview
       'listScripts',
       'listTemplates',
       'onScriptProgress',
