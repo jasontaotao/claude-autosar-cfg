@@ -21,12 +21,14 @@ import { DialogEn } from '../i18n.en/dialog.js';
 import { EditorEn } from '../i18n.en/editor.js';
 import { MiscEn } from '../i18n.en/misc.js';
 import { OdxEn } from '../i18n.en/odx.js';
+import { OdxImportEn } from '../i18n.en/odx-import.js';
 import { ValidationEn } from '../i18n.en/validation.js';
 import { AppZhCN } from '../i18n.zh-CN/app.js';
 import { DbcZhCN } from '../i18n.zh-CN/dbc.js';
 import { DialogZhCN } from '../i18n.zh-CN/dialog.js';
 import { EditorZhCN } from '../i18n.zh-CN/editor.js';
 import { MiscZhCN } from '../i18n.zh-CN/misc.js';
+import { OdxImportZhCN } from '../i18n.zh-CN/odx-import.js';
 import { OdxZhCN } from '../i18n.zh-CN/odx.js';
 import { ValidationZhCN } from '../i18n.zh-CN/validation.js';
 
@@ -51,6 +53,7 @@ export const MessagesEn: Messages = {
   ...ValidationEn,
   ...DbcEn,
   ...OdxEn,
+  ...OdxImportEn,
   ...MiscEn,
 } as Messages;
 
@@ -62,6 +65,7 @@ export const MessagesZhCN: Messages = {
   ...ValidationZhCN,
   ...DbcZhCN,
   ...OdxZhCN,
+  ...OdxImportZhCN,
   ...MiscZhCN,
 } as Messages;
 

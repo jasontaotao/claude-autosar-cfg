@@ -1,0 +1,140 @@
+.odx-import-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+.odx-import-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(92vw, 1180px);
+  height: min(86vh, 820px);
+  padding: 1.25rem;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+}
+
+.odx-import-header,
+.odx-import-actions,
+.odx-import-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.odx-import-header {
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.odx-import-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.odx-import-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+}
+
+.odx-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.odx-import-table th,
+.odx-import-table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.odx-import-path {
+  max-width: 34rem;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+
+.odx-import-badge {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+.badge-added {
+  background: color-mix(in srgb, #a6e3a1 25%, transparent);
+}
+.badge-updated {
+  background: color-mix(in srgb, #89b4fa 25%, transparent);
+}
+.badge-locally-modified {
+  background: color-mix(in srgb, #9399b2 25%, transparent);
+}
+.badge-conflict {
+  background: color-mix(in srgb, #fab387 30%, transparent);
+}
+.badge-converged {
+  background: color-mix(in srgb, #9399b2 25%, transparent);
+}
+.badge-removed-in-odx {
+  background: color-mix(in srgb, #f38ba8 30%, transparent);
+}
+
+.odx-import-primary,
+.odx-import-actions button,
+.odx-import-close {
+  cursor: pointer;
+}
+
+.odx-import-primary {
+  align-self: flex-start;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 0.8rem;
+  background: var(--accent-blue, #89b4fa);
+  color: #11111b;
+}
+
+.odx-import-actions {
+  justify-content: flex-end;
+}
+
+.odx-import-error,
+.odx-import-dirty {
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+}
+
+.odx-import-error {
+  background: rgba(243, 139, 168, 0.14);
+}
+.odx-import-dirty {
+  background: rgba(250, 179, 135, 0.14);
+}
+
+.odx-import-muted {
+  color: var(--text-secondary);
+}
+.odx-import-warnings {
+  overflow: auto;
+  max-height: 9rem;
+}
+.odx-import-select {
+  min-width: 22rem;
+}

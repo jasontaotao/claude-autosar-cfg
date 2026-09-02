@@ -11,6 +11,7 @@ import type { DbcMessages } from './dbc.js';
 import type { DialogMessages } from './dialog.js';
 import type { EditorMessages } from './editor.js';
 import type { MiscMessages } from './misc.js';
+import type { OdxImportMessages } from './odx-import.js';
 import type { OdxMessages } from './odx.js';
 import type { ValidationMessages } from './validation.js';
 
@@ -22,4 +23,5 @@ export interface Messages
     ValidationMessages,
     DbcMessages,
     OdxMessages,
+    OdxImportMessages,
     MiscMessages {}

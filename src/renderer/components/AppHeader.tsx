@@ -61,6 +61,7 @@ export function AppHeader({
   dbcBusy,
   onOpenOdx,
   onImportOdxExtract,
+  onImportOdx,
   odxBusy,
   odxExtractBusy,
   onOpenDbcImport,
@@ -70,6 +71,8 @@ export function AppHeader({
   onOpenDcmConfig,
   canOpenDcmConfig,
   dcmConfigBusy,
+  odxImportBusy,
+  canImportOdx,
   onTogglePanel,
   onResetLayout,
 }: AppHeaderProps): JSX.Element {
@@ -226,7 +229,24 @@ export function AppHeader({
                   📥
                 </span>
                 {t(api.locale, 'odx.import.diagnosticExtract.menu.label')}
-              </button>              <button
+              </button>
+              <button
+                type="button"
+                className="app-dropdown-item"
+                role="menuitem"
+                onClick={() => {
+                  api.closeMenu();
+                  onImportOdx?.();
+                }}
+                disabled={canImportOdx === false || odxImportBusy === true}
+                data-testid="btn-import-odx-full"
+              >
+                <span className="app-dropdown-icon" aria-hidden="true">
+                  🧩
+                </span>
+                {t(api.locale, 'odxImport.menu.label')}
+              </button>
+              <button
                 type="button"
                 className="app-dropdown-item"
                 role="menuitem"

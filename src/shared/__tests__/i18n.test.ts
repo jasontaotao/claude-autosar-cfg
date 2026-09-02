@@ -829,6 +829,7 @@ describe('i18n — file split (v1.23.1 T2, 869→7-cluster barrel)', () => {
     const { ValidationEn } = await import('../i18n.en/validation.js');
     const { DbcEn } = await import('../i18n.en/dbc.js');
     const { OdxEn } = await import('../i18n.en/odx.js');
+    const { OdxImportEn } = await import('../i18n.en/odx-import.js');
     const { MiscEn } = await import('../i18n.en/misc.js');
 
     const unionKeys = new Set([
@@ -838,6 +839,7 @@ describe('i18n — file split (v1.23.1 T2, 869→7-cluster barrel)', () => {
       ...Object.keys(ValidationEn),
       ...Object.keys(DbcEn),
       ...Object.keys(OdxEn),
+      ...Object.keys(OdxImportEn),
       ...Object.keys(MiscEn),
     ]);
     const barrelKeys = Object.keys(MessagesEn);
@@ -849,6 +851,7 @@ describe('i18n — file split (v1.23.1 T2, 869→7-cluster barrel)', () => {
     const { ValidationZhCN } = await import('../i18n.zh-CN/validation.js');
     const { DbcZhCN } = await import('../i18n.zh-CN/dbc.js');
     const { OdxZhCN } = await import('../i18n.zh-CN/odx.js');
+    const { OdxImportZhCN } = await import('../i18n.zh-CN/odx-import.js');
     const { MiscZhCN } = await import('../i18n.zh-CN/misc.js');
 
     const unionKeysZh = new Set([
@@ -858,6 +861,7 @@ describe('i18n — file split (v1.23.1 T2, 869→7-cluster barrel)', () => {
       ...Object.keys(ValidationZhCN),
       ...Object.keys(DbcZhCN),
       ...Object.keys(OdxZhCN),
+      ...Object.keys(OdxImportZhCN),
       ...Object.keys(MiscZhCN),
     ]);
     const barrelKeysZh = Object.keys(MessagesZhCN);

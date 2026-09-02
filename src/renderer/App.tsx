@@ -39,7 +39,7 @@
 import { themeLight } from 'dockview';
 import { DockviewReact } from 'dockview-react';
 import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockview-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'dockview/dist/styles/dockview.css';
 
 import { t } from '@shared/i18n/index.js';
@@ -58,6 +58,7 @@ import { DiffTable } from './components/DiffTable';
 import { ErrorBanner } from './components/ErrorBanner';
 import { ModuleSelectionPanel } from './components/ModuleSelectionPanel';
 import type { NewProjectSubmitOpts } from './components/NewProjectDialog';
+import { OdxImportWizard } from './components/OdxImportWizard';
 import { OdxViewer } from './components/OdxViewer';
 import { PanelErrorBoundary } from './components/PanelErrorBoundary';
 import { ScriptPanel } from './components/ScriptPanel';
@@ -312,7 +313,6 @@ export function App(): JSX.Element {
   const locale = useArxmlStore((s) => s.locale);
   const setInfo = useArxmlStore((s) => s.setInfo);
 
-
   // v1.42.1 MINOR T3 — extract diag-extract handlers. The hook
   // takes `odxModal` as an arg from Flow 2's `useFileViewerHandlers`
   // return (cross-flow parameter pattern per lesson
@@ -499,6 +499,8 @@ export function App(): JSX.Element {
   // JSX mount at line ~462+; not exposed via the hook return).
   const tourState = useArxmlStore((s) => s.tour);
   const tourLocale = useArxmlStore((s) => s.locale);
+  const [odxImportWizardOpen, setOdxImportWizardOpen] = useState(false);
+  const odxImportDirtyPaths = useArxmlStore((s) => [...s.dirtyPaths]);
 
   return (
     <TourProvider
@@ -531,6 +533,9 @@ export function App(): JSX.Element {
           onOpenDcmConfig={handleOpenDcmConfig}
           canOpenDcmConfig={canOpenDcmConfig}
           dcmConfigBusy={dcmLauncher.state.mode === 'pending'}
+          onImportOdx={(): void => setOdxImportWizardOpen(true)}
+          odxImportBusy={false}
+          canImportOdx={projectPathForGenerate !== null}
           onTogglePanel={handleTogglePanel}
           onResetLayout={handleResetLayout}
         />
@@ -850,6 +855,15 @@ export function App(): JSX.Element {
             open/close + per-error / per-success toasts + the
             post-commit project reload (mirrors the v1.23.0 T4 DBC
             wizard pattern). */}
+        {odxImportWizardOpen && (
+          <OdxImportWizard
+            onClose={(): void => setOdxImportWizardOpen(false)}
+            locale={locale}
+            projectManifestPath={projectPathForGenerate}
+            dirtyDocPaths={odxImportDirtyPaths}
+          />
+        )}
+
         {xlsxBatchWizardOpen && (
           <XlsxBatchWizard
             onClose={closeXlsxBatchWizard}
