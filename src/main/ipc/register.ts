@@ -16,6 +16,8 @@ import type {
   DcmConfigResponse,
   OdxImportDiagExtractRequest,
   OdxImportDiagExtractResponse,
+  OdxImportPreviewRequest,
+  OdxImportPreviewResponse,
   ParseArxmlRequest,
   ParseArxmlResponse,
   ParseBswmdRequest,
@@ -68,6 +70,7 @@ import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
 import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
+import { odxImportPreviewHandler } from './odxImportPreviewHandler.js';
 import { registerOpenArxmlMultiHandler } from './openArxmlMultiHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
 import { registerOpenOdxHandler } from './openOdxHandler.js';
@@ -607,6 +610,15 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.ODX_IMPORT_DIAGNOSTIC_EXTRACT,
     async (_evt, req: OdxImportDiagExtractRequest): Promise<OdxImportDiagExtractResponse> => {
       return odxImportDiagnosticExtractHandler(req);
+    },
+  );
+
+  // 2026-09-02 — ODX full-import preview. Read-only: preview never mutates
+  // project documents or provenance state.
+  ipcMain.handle(
+    IPC_CHANNELS.ODX_IMPORT_PREVIEW,
+    async (_evt, req: OdxImportPreviewRequest): Promise<OdxImportPreviewResponse> => {
+      return odxImportPreviewHandler(req);
     },
   );
 

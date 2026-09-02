@@ -279,6 +279,10 @@ export const IPC_CHANNELS = {
   // independently. Returns the same `{kind: 'opened'|'canceled'|
   // 'read-failed'}` envelope as the v1.22.0 channel.
   ODX_OPEN_WITH_DEFAULT: 'odx:open-with-default',
+  // 2026-09-02 — ODX full-import preview/commit. Additive channels; the old
+  // diagnostic-extract staging contract remains unchanged.
+  ODX_IMPORT_PREVIEW: 'odx:importPreview',
+  ODX_IMPORT_COMMIT: 'odx:importCommit',
 } as const;
 
 // Sprint 14 — top-level re-exports kept as aliases for source-level
