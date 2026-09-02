@@ -17,6 +17,42 @@ import { describe, expect, it } from 'vitest';
 
 import type { DbcSummaryWithSignals } from '../../../main/ipc/dbcParseForBridgeHandler.js';
 import { dbcToComStack } from '../dbcToComStack.js';
+import type { PatchStep } from '../../../shared/headless/ipc-contract.js';
+import type { BswModuleDef, ContainerDef } from '../../project/bswmd/types.js';
+
+function patchRefs(steps: readonly PatchStep[]): string {
+  return steps
+    .filter((p): p is Extract<typeof p, { op: 'add-child' }> => p.op === 'add-child')
+    .map((p) => p.definitionRef ?? '')
+    .join('\n');
+}
+
+function bswmdContainer(shortName: string, path: string, over: Partial<ContainerDef> = {}): ContainerDef {
+  return {
+    shortName,
+    path,
+    lowerMultiplicity: 0,
+    upperMultiplicity: 'infinite',
+    subContainers: [],
+    parameters: [],
+    references: [],
+    choices: [],
+    ...over,
+  };
+}
+
+function bswmdModule(shortName: string, containers: readonly ContainerDef[]): BswModuleDef {
+  return {
+    shortName,
+    path: `/AUTOSAR/${shortName}`,
+    dialect: 'ecuc-module-def',
+    moduleId: null,
+    containers,
+    providedEntries: [],
+    lowerMultiplicity: 1,
+    upperMultiplicity: 1,
+  };
+}
 
 const MINIMAL_COM_CONFIG = `<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
@@ -164,6 +200,48 @@ const SAMPLE_DBC_SUMMARY: DbcSummaryWithSignals = {
     },
   ],
 };
+
+describe('dbcToComStack definition-ref resolution', () => {
+  const baseInput = {
+    dbc: SAMPLE_DBC_SUMMARY,
+    comConfig: MINIMAL_COM_CONFIG,
+    canIfConfig: MINIMAL_CANIF_CONFIG,
+    pduRConfig: MINIMAL_PDUR_CONFIG,
+    targetNode: 'ECM',
+  } as const;
+
+  it('emits standard-prefix definition-refs when no BSWMD is threaded (fallback)', () => {
+    const plan = dbcToComStack({ ...baseInput, bswmds: new Map() });
+    expect(patchRefs(plan.comPatches)).toContain('/AUTOSAR_R22/EcucDefs/Com/');
+    expect(patchRefs(plan.comPatches)).not.toContain('/AUTOSAR/Com/');
+    expect(patchRefs(plan.canIfPatches)).not.toContain('/AUTOSAR/CanIf/');
+    expect(patchRefs(plan.pduRPatches)).not.toContain('/AUTOSAR/PduR/');
+  });
+
+  it('resolves refs from a threaded BSWMD with a non-standard package root', () => {
+    const comBswmd = bswmdModule('Com', [
+      bswmdContainer('ComConfig', '/AUTOSAR/Com/ComConfig', {
+        subContainers: [
+          bswmdContainer('ComIPdu', '/AUTOSAR/Com/ComConfig/ComIPdu', {
+            subContainers: [bswmdContainer('ComSignal', '/AUTOSAR/Com/ComConfig/ComIPdu/ComSignal')],
+          }),
+          bswmdContainer('ComSignal', '/AUTOSAR/Com/ComConfig/ComSignal'),
+        ],
+      }),
+    ]);
+    const plan = dbcToComStack({ ...baseInput, bswmds: new Map([['Com', comBswmd]]) });
+    expect(patchRefs(plan.comPatches)).toContain('/AUTOSAR/Com/ComConfig/ComIPdu');
+  });
+
+  it('surfaces BSWMD resolution misses as warnings and falls back', () => {
+    const comBswmd = bswmdModule('Com', [
+      bswmdContainer('SomeOtherContainer', '/AUTOSAR/Com/SomeOtherContainer'),
+    ]);
+    const plan = dbcToComStack({ ...baseInput, bswmds: new Map([['Com', comBswmd]]) });
+    expect(plan.warnings?.length).toBeGreaterThan(0);
+    expect(patchRefs(plan.comPatches)).toContain('/AUTOSAR_R22/EcucDefs/Com/');
+  });
+});
 
 describe('dbcToComStack (T2 unit)', () => {
   it('generates com-ipdu add-child patches (one per DBC message)', () => {

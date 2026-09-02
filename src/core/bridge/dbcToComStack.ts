@@ -39,6 +39,8 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import { parseArxml } from '../arxml/parser.js';
 import type { ParseError } from '../arxml/parser.js';
 import { findEcucModuleByShortName } from '../arxml/path.js';
+import { resolveDefinitionRef } from './definitionRefResolver.js';
+import type { BswModuleDef } from '../project/bswmd/types.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -56,6 +58,8 @@ export interface DbcBridgePlan {
   readonly comPatches: readonly PatchStep[];
   readonly canIfPatches: readonly PatchStep[];
   readonly pduRPatches: readonly PatchStep[];
+  /** BSWMD definition-ref resolution misses (empty when all refs resolved or no BSWMD was provided). */
+  readonly warnings?: readonly string[];
 }
 
 export interface DbcToComStackInput {
@@ -81,6 +85,8 @@ export interface DbcToComStackInput {
   readonly canIfDirectPdu?: boolean;
   /** Some BSWMDs declare ComSignal directly under ComConfig, not under each ComIPdu. */
   readonly comSignalDirect?: boolean;
+  /** Workspace BSWMD definitions used to resolve generated definition-refs accurately. */
+  readonly bswmds?: ReadonlyMap<string, BswModuleDef>;
 }
 
 /**
@@ -382,6 +388,20 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
       );
   const existingPduRRoutes = extractExistingChildShortNames(pduRParsed, PDUR_MODULE, pduRPrimary);
 
+  const warnings: string[] = [];
+  const resolveFor = (
+    moduleName: string,
+    containerPath: readonly string[],
+    bswmd: BswModuleDef | undefined,
+  ): string => resolveDefinitionRef(moduleName, containerPath, bswmd, (miss) => {
+    warnings.push(
+      `BSWMD definition-ref miss: ${miss.moduleName}/${miss.containerPath.join('/')}; using standard fallback`,
+    );
+  });
+  const comBswmd = input.bswmds?.get('Com');
+  const canIfBswmd = input.bswmds?.get('CanIf');
+  const pduRBswmd = input.bswmds?.get('PduR');
+
   const comPatches: PatchStep[] = [];
   const canIfPatches: PatchStep[] = [];
   const pduRPatches: PatchStep[] = [];
@@ -404,7 +424,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
         // patch PLAN — T3 actually applies the patches).
         parentPath: `${comLayout.modulePath}/${comPrimary}`,
         shortName: msg.name,
-        definitionRef: `/AUTOSAR/Com/${comPrimary}/ComIPdu`,
+        definitionRef: resolveFor('Com', [comPrimary, 'ComIPdu'], comBswmd),
         kind: 'com-ipdu',
       });
       // ComSignal children — same fix: parentPath is the parent
@@ -418,8 +438,8 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
             : `${comLayout.modulePath}/${comPrimary}/${msg.name}`,
           shortName: sig.name,
           definitionRef: input.comSignalDirect === true
-            ? `/AUTOSAR/Com/${comPrimary}/ComSignal`
-            : `/AUTOSAR/Com/${comPrimary}/ComIPdu/ComSignal`,
+            ? resolveFor('Com', [comPrimary, 'ComSignal'], comBswmd)
+            : resolveFor('Com', [comPrimary, 'ComIPdu', 'ComSignal'], comBswmd),
           kind: 'com-signal',
         });
       }
@@ -457,8 +477,8 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
             : `${canIfLayout.modulePath}/${canIfPrimary}/${canIfSubs.txSubName}`,
           shortName: msg.name,
           definitionRef: canIfSubs.txDirect
-            ? `/AUTOSAR/CanIf/${canIfPrimary}/CanIfTxPduCfg`
-            : `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.txSubName}/CanIfTxPduCfg`,
+            ? resolveFor('CanIf', [canIfPrimary, 'CanIfTxPduCfg'], canIfBswmd)
+            : resolveFor('CanIf', [canIfPrimary, canIfSubs.txSubName, 'CanIfTxPduCfg'], canIfBswmd),
           kind: 'canif-tx-pdu',
         });
       }
@@ -471,8 +491,8 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
             : `${canIfLayout.modulePath}/${canIfPrimary}/${canIfSubs.rxSubName}`,
           shortName: msg.name,
           definitionRef: canIfSubs.rxDirect
-            ? `/AUTOSAR/CanIf/${canIfPrimary}/CanIfRxPduCfg`
-            : `/AUTOSAR/CanIf/${canIfPrimary}/${canIfSubs.rxSubName}/CanIfRxPduCfg`,
+            ? resolveFor('CanIf', [canIfPrimary, 'CanIfRxPduCfg'], canIfBswmd)
+            : resolveFor('CanIf', [canIfPrimary, canIfSubs.rxSubName, 'CanIfRxPduCfg'], canIfBswmd),
           kind: 'canif-rx-pdu',
         });
       }
@@ -484,11 +504,11 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
         op: 'add-child',
         parentPath: `${pduRLayout.modulePath}/${pduRPrimary}`,
         shortName: msg.name,
-        definitionRef: `/AUTOSAR/PduR/${pduRPrimary}/PduRRoutingPath`,
+        definitionRef: resolveFor('PduR', [pduRPrimary, 'PduRRoutingPath'], pduRBswmd),
         kind: 'pdur-route',
       });
     }
   }
 
-  return { comPatches, canIfPatches, pduRPatches };
+  return { comPatches, canIfPatches, pduRPatches, warnings };
 }
