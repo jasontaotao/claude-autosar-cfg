@@ -106,6 +106,8 @@ export function parseOdxDocument(xml: string): OdxDocument {
   }
 
   const idIndex = new Map<string, OdxRawElement>();
+  toElement('ODX', parsed, idIndex);
+
   const discovered: Array<{ tag: string; value: ParsedNode }> = [];
   collectElements(parsed, discovered);
 
