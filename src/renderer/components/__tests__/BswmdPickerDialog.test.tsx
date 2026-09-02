@@ -495,3 +495,118 @@ describe('BswmdPickerDialog (Sprint 15 / Phase 3.2)', () => {
     expect(screen.queryByTestId('bspd-row-CanIfBufferCfg')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression — definitionRef-driven picker resolution
+//
+// The legacy picker resolver rebuilt the BSWMD path from short-name
+// segments. Paths with namespace wrappers such as
+// `/AUTOSAR_R22/EcucDefs/Com/...` could therefore fail even though the
+// selected ECUC container carried an exact, authoritative DEFINITION-REF.
+// ---------------------------------------------------------------------------
+describe('BswmdPickerDialog — definitionRef resolution', () => {
+  it('resolves parameters by the selected container definitionRef', () => {
+    const definitionRef = '/AUTOSAR_R22/EcucDefs/Com/ComConfig/ComIPdu';
+    const parentPath = '/AUTOSAR_R22/EcucDefs/Com/ComConfig/Can_Uds_PhyReqRIn_Rx';
+
+    const ipdu: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'Can_Uds_PhyReqRIn_Rx',
+      params: {},
+      children: [],
+      definitionRef,
+    };
+    const comConfig: ArxmlContainer = {
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName: 'ComConfig',
+      params: {},
+      children: [ipdu],
+      definitionRef: '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
+    };
+    const comModule: ArxmlModule = {
+      kind: 'module',
+      tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+      shortName: 'Com',
+      params: {},
+      children: [comConfig],
+      references: [],
+    };
+    const doc: ArxmlDocument = {
+      path: '/tmp/Com_EcucValues.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          elements: [],
+          path: '/AUTOSAR_R22',
+          packages: [
+            {
+              shortName: 'EcucDefs',
+              path: '/AUTOSAR_R22/EcucDefs',
+              elements: [comModule],
+            },
+          ],
+        },
+      ],
+    };
+
+    const comIpduDef: ContainerDef = {
+      shortName: 'ComIPdu',
+      path: definitionRef,
+      lowerMultiplicity: 0,
+      upperMultiplicity: 'infinite',
+      subContainers: [],
+      parameters: [
+        {
+          shortName: 'ComIPduDirection',
+          path: `${definitionRef}/ComIPduDirection`,
+          kind: 'enumeration',
+          defaultValue: '',
+          minValue: null,
+          maxValue: null,
+          minLength: null,
+          maxLength: null,
+          enumerationLiterals: ['RX', 'TX'],
+        },
+      ],
+      references: [],
+      choices: [],
+    };
+    const comConfigDef: ContainerDef = {
+      shortName: 'ComConfig',
+      path: '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
+      lowerMultiplicity: 1,
+      upperMultiplicity: 1,
+      subContainers: [comIpduDef],
+      parameters: [],
+      references: [],
+      choices: [],
+    };
+    const comBswmd: BswmdDocument = {
+      version: '4.6',
+      modules: [
+        {
+          shortName: 'Com',
+          path: '/AUTOSAR_R22/EcucDefs/Com',
+          dialect: 'ecuc-module-def',
+          moduleId: 1,
+          containers: [comConfigDef],
+          providedEntries: [],
+          lowerMultiplicity: 0,
+          upperMultiplicity: 1,
+        },
+      ],
+      warnings: [],
+    };
+
+    useArxmlStore.getState().addDocument(doc, doc.path);
+    useArxmlStore.setState({ bswmdSchemas: [comBswmd], bswmdPaths: ['/tmp/Com_bswmd.arxml'] });
+    useArxmlStore.getState().openBswmdPicker({ parentPath, kind: 'parameter' });
+
+    render(<BswmdPickerRoot />);
+    expect(screen.queryByTestId('bspd-error')).toBeNull();
+    expect(screen.getByTestId('bspd-row-ComIPduDirection')).toBeInTheDocument();
+  });
+});

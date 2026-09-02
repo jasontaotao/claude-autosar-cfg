@@ -32,7 +32,7 @@ import { listAllowedSubElements } from '@core/arxml/mutation.js';
 import type { AllowedSubElement, MutationError } from '@core/arxml/mutation.js';
 import { findByPath } from '@core/arxml/path.js';
 import type { ArxmlContainer, ArxmlDocument, ArxmlModule } from '@core/arxml/types';
-import { getContainerDefByPath } from '@core/project/bswmd.js';
+import { findContainerDefByDefinitionRef, getContainerDefByPath } from '@core/project/bswmd.js';
 import type { BswModuleDef } from '@core/project/bswmd.js';
 import { t } from '@shared/i18n/index.js';
 import type { Locale } from '@shared/i18n/index.js';
@@ -100,11 +100,27 @@ function resolvePickerSource(
       errorKind: 'path-not-found',
     };
   }
-  // Find the module def. The BSWMD lookup is "module shortName" → the
-  // second segment of the path. We delegate the same lookup the store
-  // does (resolveModuleAndParentContainer is private), so we duplicate
-  // the shape here.
-  const lookup = resolveModuleAndParentContainerLocal(state.bswmdSchemas, parentPath);
+  // Resolve the BSWMD context. The selected container's DEFINITION-REF is
+  // authoritative and is especially important for wrapped namespaces
+  // (`/AUTOSAR_R22/EcucDefs/...`) or renamed instance containers. The
+  // legacy short-name/path resolver remains as the fallback for legacy
+  // ECUC values without a definition ref.
+  const lookup =
+    parentElement.kind === 'container' && parentElement.definitionRef
+      ? (() => {
+          const byDefinition = findContainerDefByDefinitionRef(
+            state.bswmdSchemas,
+            parentElement.definitionRef,
+          );
+          if (byDefinition !== null) {
+            return {
+              moduleDef: byDefinition.moduleDef,
+              parentContainerDef: byDefinition.containerDef,
+            };
+          }
+          return resolveModuleAndParentContainerLocal(state.bswmdSchemas, parentPath);
+        })()
+      : resolveModuleAndParentContainerLocal(state.bswmdSchemas, parentPath);
   if (lookup === null) {
     return {
       moduleDef: null as never,
