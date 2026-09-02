@@ -45,11 +45,10 @@ function param(
       elementRef: key,
       message: `BSWMD parameter definition is missing: ${key}`,
     });
-    return undefined;
+    if (typeof value === 'number') return { type: 'integer', value };
+    if (typeof value === 'boolean') return { type: 'boolean', value };
+    return { type: 'string', value: String(value) };
   }
-
-  if (definition.kind === 'integer')
-    return { type: 'integer', value: Number(value), definitionRef };
   if (definition.kind === 'float') return { type: 'float', value: Number(value), definitionRef };
   if (definition.kind === 'boolean') {
     return { type: 'boolean', value: value === true || value === 'true', definitionRef };

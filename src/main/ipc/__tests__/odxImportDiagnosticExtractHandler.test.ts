@@ -28,13 +28,13 @@ let fixturePath: string;
 const EMPTY_ODX_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <ODX MODEL-VERSION="2.0.0" xmlns="http://iso-standard.org/22901/ODX">
   <DIAG-LAYER-CONTAINER>
-    <DIAG-LAYERS>
-      <DIAG-LAYER ID="base" SHORT-NAME="BaseVariant">
+    
+      <BASE-VARIANT ID="base">
         <DTC-DOPS><DTC-DOP ID="d0" SHORT-NAME="D0"><DTCS/></DTC-DOP></DTC-DOPS>
         <DID-OBJECTS/>
         <REQUESTS/>
-      </DIAG-LAYER>
-    </DIAG-LAYERS>
+      </BASE-VARIANT>
+    
   </DIAG-LAYER-CONTAINER>
 </ODX>
 `;

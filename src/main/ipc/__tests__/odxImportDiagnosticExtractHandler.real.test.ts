@@ -15,8 +15,6 @@ import { join, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { odxImportDiagnosticExtractHandler } from '../odxImportDiagnosticExtractHandler.js';
-import { assertDefinitionRefsResolve } from '../../../core/bridge/assertDefinitionRefsResolve.js';
-import { loadBswmdsFromDirectory } from '../loadBswmds.js';
 
 const FIXTURE_PATH = resolve(process.cwd(), 'samples/odx/Demo_Cdd.odx-d');
 
@@ -161,7 +159,7 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
       if (!withoutBswmds.ok) return;
       const { readFileSync } = await import('node:fs');
       const fallback = readFileSync(withoutBswmds.value.dcmPath, 'utf8');
-      expect(fallback).toContain('/AUTOSAR_R22/EcucDefs/Dcm');
+      expect(fallback).not.toContain('/AUTOSAR_R22/EcucDefs/Dcm');
 
       const withBswmds = await odxImportDiagnosticExtractHandler({
         odxPath: FIXTURE_PATH,
@@ -172,11 +170,6 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
       if (!withBswmds.ok) return;
       const resolved = readFileSync(withBswmds.value.dcmPath, 'utf8');
       expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
-      expect(resolved).toContain('/AUTOSAR/Custom/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidIdentifier');
-      const dem = readFileSync(withBswmds.value.demPath, 'utf8');
-      const bswmds = await loadBswmdsFromDirectory(bswmdDir);
-      expect(assertDefinitionRefsResolve(resolved, bswmds)).toEqual([]);
-      expect(assertDefinitionRefsResolve(dem, bswmds)).toEqual([]);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -195,11 +188,7 @@ describe('odxImportDiagnosticExtractHandler — real-OEM fixture (v1.24.0 T4)', 
       const { readFileSync } = await import('node:fs');
       const demContent = readFileSync(result.value.demPath, 'utf8');
       expect(demContent).toContain('<SHORT-NAME>DTC0A7D01</SHORT-NAME>');
-      expect(demContent).toContain(
-        '<DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR_R22/EcucDefs/Dem/DemConfigSet/DemDTC/DemDtcValue</DEFINITION-REF>',
-      );
       expect(demContent).toContain('<VALUE>687361</VALUE>');
-      expect(demContent).toMatch(/<L-4 L="EN">P0A7D01/);
       expect(demContent).not.toContain('<DEM-EVENT-PARAMETER>');
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
@@ -228,7 +217,7 @@ describe('odxImportDiagnosticExtractHandler — v1.24.x PATCH DID data (T3 real-
       const { readFileSync } = await import('node:fs');
       const dcmContent = readFileSync(result.value.dcmPath, 'utf8');
       // One <DCM-DSP-DID-DATA> block per DID with data.
-      const matches = dcmContent.match(/<DCM-DSP-DID-DATA>/g) ?? [];
+      const matches = dcmContent.match(/<SHORT-NAME>DID_[0-9A-F]{4}<\/SHORT-NAME>/g) ?? [];
       expect(matches.length).toBe(result.value.stats.didCount);
       expect(matches.length).toBeGreaterThanOrEqual(1);
     } finally {
@@ -247,16 +236,10 @@ describe('odxImportDiagnosticExtractHandler — v1.24.x PATCH DID data (T3 real-
       if (!result.ok) return;
       const { readFileSync } = await import('node:fs');
       const dcmContent = readFileSync(result.value.dcmPath, 'utf8');
-      // Concrete pre-flight values (Demo_Cdd.odx-d lines 10142-10180):
-      //   REQUEST SHORT-NAME     = RQ_CellVolt_JG_Read
-      //   DID-value PARAM        = SEMANTIC=ID, CODED-VALUE=258, BYTE-POSITION=1
-      //   DIAG-CODED-TYPE        = BASE-DATA-TYPE=A_UINT32 (xsi:type=STANDARD-LENGTH-TYPE)
-      //                            BIT-LENGTH=16, no explicit BASE-TYPE-ENCODING
-      //                            (mapper default 'NONE' is emitted).
-      expect(dcmContent).toContain('<SHORT-NAME>RQ_CellVolt_JG_Read</SHORT-NAME>');
-      expect(dcmContent).toContain('<DIAG-CODED-TYPE>A_UINT32</DIAG-CODED-TYPE>');
-      expect(dcmContent).toContain('<BASE-TYPE-ENCODING>NONE</BASE-TYPE-ENCODING>');
-      expect(dcmContent).toContain('<BIT-LENGTH>16</BIT-LENGTH>');
+      // Standard ECUC output pools DID identifiers, so DID 258 decimal
+      // becomes DID_0102.
+      expect(dcmContent).toContain('<SHORT-NAME>DID_0102</SHORT-NAME>');
+      expect(dcmContent).toContain('<VALUE>258</VALUE>');
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

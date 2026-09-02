@@ -26,7 +26,10 @@
 import { promises as fs } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { odxToDiagnosticExtract } from '../../core/bridge/odxToDiagnosticExtract.js';
+import { buildDim } from '../../core/odx/dimBuilder.js';
+import { buildBswmdDefIndex } from '../../core/odx/bswmdDefIndex.js';
+import { dimToDiagnosticExtract } from '../../core/odx/dimToDiagnosticExtract.js';
+import { parseOdxDocument } from '../../core/odx/odxDocument.js';
 import type { BswModuleDef } from '../../core/project/bswmd.js';
 import type {
   OdxImportDiagExtractRequest,
@@ -132,11 +135,29 @@ export async function odxImportDiagnosticExtractHandler(
     }
   }
 
-  // 4. Map to ARXML strings.
-  const { demContent, dcmContent, stats } = odxToDiagnosticExtract({
-    odx: parseResponse.value,
-    bswmds,
+  // 4. Full ODX parse → DIM → standard ECUC emitter. The viewer summary
+  // channel remains independent; this staging path uses the import model.
+  const odxDocument = parseOdxDocument(odxContent);
+  const variant = odxDocument.importableVariants[0];
+  if (!variant) {
+    return {
+      ok: false,
+      error: { kind: 'read-failed', message: 'ODX parse failed: no importable variant' },
+    };
+  }
+  const dim = buildDim({
+    document: odxDocument,
+    variantId: variant.odxId,
+    sourcePath: absOdxPath,
   });
+  const bswmdIndex = buildBswmdDefIndex(bswmds);
+  const emitted = dimToDiagnosticExtract({ dim, bswmdIndex });
+  const { demContent, dcmContent } = emitted;
+  const stats = {
+    dtcCount: emitted.stats.dtcCount,
+    didCount: emitted.stats.didCount,
+    routineCount: emitted.stats.routineCount,
+  };
 
   const demPath = join(absOutputDir, DEM_FILENAME);
   const dcmPath = join(absOutputDir, DCM_FILENAME);

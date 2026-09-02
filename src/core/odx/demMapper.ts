@@ -45,6 +45,10 @@ function addParam(
       elementRef: key,
       message: `BSWMD parameter definition is missing: ${key}`,
     });
+    const finalKey = key.split('/').pop() ?? key;
+    if (typeof value === 'number') target[finalKey] = { type: 'integer', value };
+    else if (typeof value === 'boolean') target[finalKey] = { type: 'boolean', value };
+    else target[finalKey] = { type: 'string', value: String(value) };
     return;
   }
   const finalKey = key.split('/').pop() ?? key;
