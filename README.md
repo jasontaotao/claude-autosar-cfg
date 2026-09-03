@@ -2,8 +2,10 @@
 
 独立的 AUTOSAR BSW（基础软件）配置桌面图形工具。
 
-> **当前版本 v1.8.1** — 在 v1.8.0 基础上修复 v1.6.1 起的 main 进程
-> 构建失败 + 补上一个 PATCH 级别的 Undo 体验收尾。
+> **当前主线 v1.55.0** — 新增**多实例集合表格视图**：点树中的集合头
+> （`×N` 同 definition 实例组）→ 右侧以"实例行 × 参数列"表格展示
+> 集合下全部实例的参数，单元格复用单实例编辑器，可读可编辑、即时
+> 写回。
 > 完整变更记录见 [CHANGELOG](./CHANGELOG.md)。
 
 ## 它能做什么
@@ -56,6 +58,16 @@ pnpm dev             # 打开主界面：Tree + Editor + Validation
 
 详细每个版本的 release notes 见
 [`docs/release-notes/`](./docs/release-notes/)。
+
+### v1.55+ — 多实例集合表格视图（2026-09）
+
+- **集合表格视图**：点树中的集合头（`×N` 同 definition 实例组）→
+  右侧以"实例行 × 参数列"表格展示集合下全部实例的参数；列取集合
+  参数并集（value 类在前、reference 类在后），缺失参数显示 "—"；
+  单元格复用单实例编辑器（boolean / enum / integer / float / string /
+  reference），编辑经既有 `updateParam` 写回，首列 sticky 冻结
+- 前置能力：v1.54.2 起的多实例树 UI（集合头折叠/展开、`+1` 添加、
+  BSWMD 上限禁用）
 
 ### v1.8 — Stencil Wizard + PATCH 收尾（2026-06-22）
 
@@ -133,7 +145,9 @@ pnpm dev             # 打开主界面：Tree + Editor + Validation
    `tests/fixtures/arxml/Com_Com.arxml` — 67 个 IPdu）。
 2. **左栏**叠加两个面板：
    - **Tree**（上）：package → module → container → parameter。点
-     三角形展开，点行选中
+     三角形展开，点行选中。同 definition 的多个容器实例折叠成一个
+     `×N` 集合头：点集合名在右侧打开**集合表格视图**（实例行 ×
+     参数列），chevron 折叠/展开，`+1` 添加实例
    - **Validation**（下）：违规项按类型分组（`range` / `enum` /
      `reference` / `required` / `schema` / `multiplicity` /
      `cross-ref` / `ref-dest` / `ref-cycle`）。点任意一条跳到对应
@@ -159,7 +173,7 @@ WdgIf）上做过完整的 round-trip + mutation + validation 回归。
 pnpm format:check    # prettier --check（CI：合入 lint job）
 pnpm lint            # eslint，0 警告
 pnpm type-check      # tsc --noEmit（tsconfig.json + tsconfig.web.json）
-pnpm test            # vitest run（2097 单元测试，+1 skip）
+pnpm test            # vitest run（3500+ 单元测试）
 pnpm test:coverage   # v8 覆盖率（core/ ≥ 80%）
 pnpm build           # 3 段 vite 构建：renderer + main + preload
 pnpm smoke:packaged  # 打包后产物的冒烟测试（可选）
