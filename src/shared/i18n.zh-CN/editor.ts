@@ -33,6 +33,8 @@ export const EditorZhCN: EditorMessages = {
   'editor.col.type': '类型',
   'editor.col.value': '取值',
   'editor.params.empty': '此节点没有参数',
+  'editor.collection.instance': '实例',
+  'editor.collection.notFound': '集合不存在或没有任何实例。',
 
   // param category section headers
   'params.category.value': '参数值 ({count})',

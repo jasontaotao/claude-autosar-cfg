@@ -1,0 +1,85 @@
+/* CollectionTableView — instance rows × param columns.
+   The first column (instance shortName) stays sticky so wide param sets
+   scroll horizontally without losing row identity; the header row stays
+   sticky on vertical scroll for tall collections. Colors come from
+   tokens.css (stylelint P1 §10.3 — no bare hex). */
+
+.collection-table-view {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--chrome-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-panel);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.collection-table-view__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.collection-table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.collection-table th,
+.collection-table td {
+  border: 1px solid var(--chrome-hairline);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.collection-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-subtle);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Sticky first column — body cells keep an opaque background so scrolled
+   param cells don't bleed through underneath. */
+.collection-table__sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface-panel);
+  white-space: nowrap;
+}
+
+.collection-table thead .collection-table__sticky-col {
+  z-index: 3;
+  background: var(--surface-subtle);
+}
+
+.collection-table__instance-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--brand-500);
+  cursor: pointer;
+}
+
+.collection-table__instance-btn:hover {
+  text-decoration: underline;
+}
+
+.collection-table__empty-cell {
+  color: var(--text-muted);
+}
+
+/* Keep boolean checkboxes centered in their cell so narrow boolean columns
+   don't stretch the click target across the full width. */
+.collection-table td:has(input[type='checkbox']) {
+  text-align: center;
+}

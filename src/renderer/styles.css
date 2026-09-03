@@ -792,6 +792,30 @@ body,
   gap: 0.4em;
 }
 
+/* The collection label is a real <button> (click selects the collection
+   and opens the table view). The global `.tree [role='treeitem'] button`
+   reset handles border/padding/font; this only left-aligns the text and
+   rounds the hover target. */
+.tree .tree-label-selectable {
+  text-align: left;
+  border-radius: 4px;
+}
+.tree .tree-label-selectable:hover {
+  background: var(--border-subtle);
+}
+
+/* Collection header selection — unlike TreeNode, the collection header
+   has no inner `.tree-item-row` wrapper (its root IS the flex row), so
+   the generic `[aria-selected='true'] > .tree-item-row` rule never
+   matches it. Mirror the same JetBrains-style highlight on the header
+   root itself. */
+.tree .tree-item-collection[aria-selected='true'] {
+  background: var(--brand-alpha-soft);
+  border-left-color: var(--brand-500);
+  color: var(--chrome-border);
+  font-weight: 500;
+}
+
 /* `+1` button must not be allowed to shrink — it owns its own width
    and `margin-left: auto` keeps it pinned to the row's right edge. */
 .tree-add-collection {

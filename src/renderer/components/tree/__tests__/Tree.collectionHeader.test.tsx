@@ -382,3 +382,56 @@ describe('Tree -- collection header integration (P1 T3)', () => {
     expect(addBtn).toHaveAttribute('aria-label', expect.stringContaining('已达上限'));
   });
 });
+
+describe('Tree -- collection header selection', () => {
+  const definitionRef = '/EAS/JWQ3399/JWQ3399ConfigSet/Cell';
+  const expectedKey =
+    'collection:/EAS/JWQ3399/JWQ3399ConfigSet/definition:/EAS/JWQ3399/JWQ3399ConfigSet/Cell';
+
+  function renderSelectableCollection(): { state: MockState } {
+    const doc = makeDocWithSiblings([
+      makeEl('Cell_1', definitionRef),
+      makeEl('Cell_2', definitionRef),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('Cell', 0, 'infinite')]);
+    const { api, state } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    render(<Tree store={api} />);
+    expandToConfigSet();
+    return { state };
+  }
+
+  it('clicking the collection label selects the collection key', () => {
+    const { state } = renderSelectableCollection();
+
+    fireEvent.click(screen.getByTestId('collection-label-Cell'));
+
+    expect(state.select).toHaveBeenCalledTimes(1);
+    expect(state.select).toHaveBeenCalledWith(expectedKey);
+  });
+
+  it('clicking the chevron or the +1 button does not select the collection', () => {
+    const { state } = renderSelectableCollection();
+
+    fireEvent.click(screen.getByTestId('chevron-collection-Cell'));
+    fireEvent.click(screen.getByTestId('add-collection-Cell'));
+
+    expect(state.select).not.toHaveBeenCalled();
+  });
+
+  it('marks the header aria-selected when selectedPath is the collection key', () => {
+    const doc = makeDocWithSiblings([
+      makeEl('Cell_1', definitionRef),
+      makeEl('Cell_2', definitionRef),
+    ]);
+    const bswmd = makeBswmd([makeSiblingDef('Cell', 0, 'infinite')]);
+    const { api, state } = makeStoreApi({ doc, bswmdSchemas: [bswmd] });
+    state.selectedPath = expectedKey;
+    render(<Tree store={api} />);
+    expandToConfigSet();
+
+    expect(screen.getByTestId('treeitem-collection-Cell')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+});

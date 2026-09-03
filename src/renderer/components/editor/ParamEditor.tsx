@@ -22,57 +22,12 @@ import { t } from '@shared/i18n/index.js';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
 import { prompt } from '../PromptDialog';
+import { COLLECTION_PATH_PREFIX } from '../tree/collections.js';
 
+import { CollectionTableView } from './CollectionTableView.js';
 import { ParamEditorEmptyState } from './ParamEditorEmptyState.js';
+import { MODE_COMPONENT_MAP, typeBadgeClass } from './modeComponents.js';
 import { selectParamMode } from './modes';
-import { BooleanEditor } from './modes/BooleanEditor';
-import { EnumEditor } from './modes/EnumEditor';
-import { FloatEditor } from './modes/FloatEditor';
-import { IntegerEditor } from './modes/IntegerEditor';
-import { MultilineEditor } from './modes/MultilineEditor';
-import { ReferenceEditor } from './modes/ReferenceEditor';
-import { StringEditor } from './modes/StringEditor';
-
-interface ModeProps {
-  readonly paramKey: string;
-  readonly value: ParamValue;
-  readonly containerPath: string;
-}
-
-/**
- * Map ParamEditMode -> component. ParamEditor imports each sub-editor
- * directly here to avoid runtime indirection (RSC / SSR friendly) and
- * to keep `modes.ts` framework-free.
- */
-const MODE_COMPONENT_MAP: Record<
-  'string' | 'integer' | 'float' | 'boolean' | 'enum' | 'reference' | 'multiline',
-  React.ComponentType<ModeProps>
-> = {
-  string: StringEditor,
-  integer: IntegerEditor,
-  float: FloatEditor,
-  boolean: BooleanEditor,
-  enum: EnumEditor,
-  reference: ReferenceEditor,
-  multiline: MultilineEditor,
-};
-
-/** CSS class per type used for the type badge column. */
-function typeBadgeClass(type: ParamValue['type']): string {
-  switch (type) {
-    case 'integer':
-    case 'float':
-      return 'bg-blue-600 text-white';
-    case 'boolean':
-      return 'bg-emerald-600 text-white';
-    case 'enum':
-      return 'bg-amber-500 text-white';
-    case 'reference':
-      return 'bg-purple-600 text-white';
-    case 'string':
-      return 'bg-slate-500 text-white';
-  }
-}
 
 export interface ParamEditorProps {
   /** Wired by App from useProjectActions().openProjectFromDialog. */
@@ -115,6 +70,14 @@ export function ParamEditor({ onOpenProject, onNewProject }: ParamEditorProps = 
         {t(locale, 'editor.noSelection')}
       </section>
     );
+  }
+
+  // Collection table route — a `collection:` selectedPath names a synthetic
+  // tree group, not a real node, so it must be intercepted before the
+  // findByPath lookup below (which would return null and mis-render the
+  // "no editable parameters" empty state).
+  if (selectedPath.startsWith(COLLECTION_PATH_PREFIX)) {
+    return <CollectionTableView />;
   }
 
   // Sprint 13 Stage 3.5 — combined-mode lookup. The selectedPath is

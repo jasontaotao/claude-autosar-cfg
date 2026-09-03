@@ -29,6 +29,8 @@ describe('CollectionHeader', () => {
         isExpanded={false}
         onToggle={vi.fn()}
         onAdd={vi.fn()}
+        onSelect={vi.fn()}
+        isSelected={false}
         depth={2}
       />,
     );
@@ -46,6 +48,8 @@ describe('CollectionHeader', () => {
         isExpanded={false}
         onToggle={vi.fn()}
         onAdd={vi.fn()}
+        onSelect={vi.fn()}
+        isSelected={false}
         depth={2}
       />,
     );
@@ -64,10 +68,57 @@ describe('CollectionHeader', () => {
         isExpanded={false}
         onToggle={vi.fn()}
         onAdd={onAdd}
+        onSelect={vi.fn()}
+        isSelected={false}
         depth={2}
       />,
     );
     fireEvent.click(screen.getByTestId('add-collection-AFECellValidSet'));
     expect(onAdd).toHaveBeenCalledOnce();
+  });
+
+  it('fires onSelect when the label is clicked; chevron and +1 do not select', () => {
+    const onSelect = vi.fn();
+    const onToggle = vi.fn();
+    render(
+      <CollectionHeader
+        shortName="AFECellValidSet"
+        count={3}
+        upperMultiplicity="infinite"
+        isExpanded={true}
+        onToggle={onToggle}
+        onAdd={vi.fn()}
+        onSelect={onSelect}
+        isSelected={false}
+        depth={2}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('collection-label-AFECellValidSet'));
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(onToggle).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('chevron-collection-AFECellValidSet'));
+    expect(onToggle).toHaveBeenCalledOnce();
+    expect(onSelect).toHaveBeenCalledOnce(); // unchanged by the chevron click
+  });
+
+  it('reflects isSelected via aria-selected on the treeitem root', () => {
+    render(
+      <CollectionHeader
+        shortName="AFECellValidSet"
+        count={3}
+        upperMultiplicity="infinite"
+        isExpanded={true}
+        onToggle={vi.fn()}
+        onAdd={vi.fn()}
+        onSelect={vi.fn()}
+        isSelected={true}
+        depth={2}
+      />,
+    );
+    expect(screen.getByTestId('treeitem-collection-AFECellValidSet')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 });

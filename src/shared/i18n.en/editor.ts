@@ -33,6 +33,8 @@ export const EditorEn: EditorMessages = {
   'editor.col.type': 'Type',
   'editor.col.value': 'Value',
   'editor.params.empty': 'No parameters on this node',
+  'editor.collection.instance': 'Instance',
+  'editor.collection.notFound': 'Collection not found or it has no instances.',
 
   // param category section headers
   'params.category.value': 'Value ({count})',

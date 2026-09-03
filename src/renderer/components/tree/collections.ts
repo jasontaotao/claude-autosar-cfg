@@ -4,7 +4,7 @@
 // header" row above a group of same-shortName siblings. See:
 //   docs/superpowers/specs/2026-07-13-multi-instance-tree-ui-design.md
 
-import type { ArxmlElement } from '@core/arxml/types.js';
+import type { ArxmlElement, ParamValue } from '@core/arxml/types.js';
 
 /**
  * Group siblings by their "base" shortName (stripping any trailing `_<digits>`
@@ -118,4 +118,72 @@ function getShortName(element: ArxmlElement): string {
   if (element.kind === 'reference') return element.shortName ?? element.value;
   if (element.kind === 'unknown') return element.tagName;
   return element.shortName;
+}
+
+// ---------------------------------------------------------------------------
+// Collection table view helpers
+// ---------------------------------------------------------------------------
+
+/** Prefix marking a selectedPath as a synthetic collection (not a real node). */
+export const COLLECTION_PATH_PREFIX = 'collection:';
+
+export interface ParsedCollectionKey {
+  /** Tree path of the container whose children hold the collection group. */
+  readonly parentPath: string;
+  /** Group key as produced by groupSiblingsForCollection (`definition:<ref>` / `name:<base>`). */
+  readonly groupKey: string;
+}
+
+/**
+ * Inverse of the collectionKey built in Tree.renderChildren
+ * (`'collection:' + parentPath + '/' + groupKey`). shortNames cannot contain
+ * ':' so the `/definition:` / `/name:` markers are unambiguous split points.
+ * Returns null when the key is malformed.
+ */
+export function parseCollectionKey(key: string): ParsedCollectionKey | null {
+  if (!key.startsWith(COLLECTION_PATH_PREFIX)) return null;
+  const rest = key.slice(COLLECTION_PATH_PREFIX.length);
+  const defIdx = rest.indexOf('/definition:');
+  if (defIdx >= 0) {
+    return { parentPath: rest.slice(0, defIdx), groupKey: rest.slice(defIdx + 1) };
+  }
+  const nameIdx = rest.indexOf('/name:');
+  if (nameIdx >= 0) {
+    return { parentPath: rest.slice(0, nameIdx), groupKey: rest.slice(nameIdx + 1) };
+  }
+  return null;
+}
+
+/** One column of the collection table: a param key plus the type of its first occurrence. */
+export interface CollectionColumn {
+  readonly key: string;
+  readonly type: ParamValue['type'];
+}
+
+/**
+ * Union of param keys across collection instances, in first-seen order.
+ * Value-typed columns come before reference-typed columns, mirroring the
+ * single-instance ParamEditor's value/reference grouping. Instances in a
+ * definition-based group share the same ECUC definition, so the union is
+ * normally the full parameter set; optional params simply leave "—" cells
+ * on instances that don't instantiate them.
+ */
+export function collectUnionColumns(
+  elements: readonly ArxmlElement[],
+): readonly CollectionColumn[] {
+  const byKey = new Map<string, ParamValue['type']>();
+  for (const element of elements) {
+    if (element.kind !== 'module' && element.kind !== 'container') continue;
+    for (const [key, value] of Object.entries(element.params)) {
+      if (!byKey.has(key)) byKey.set(key, value.type);
+    }
+  }
+  const valueColumns: CollectionColumn[] = [];
+  const referenceColumns: CollectionColumn[] = [];
+  for (const [key, type] of byKey) {
+    const column: CollectionColumn = { key, type };
+    if (type === 'reference') referenceColumns.push(column);
+    else valueColumns.push(column);
+  }
+  return [...valueColumns, ...referenceColumns];
 }

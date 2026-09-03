@@ -39,6 +39,9 @@ export interface EditorMessages {
   readonly 'editor.col.type': string;
   readonly 'editor.col.value': string;
   readonly 'editor.params.empty': string;
+  // --- collection table view ---
+  readonly 'editor.collection.instance': string;
+  readonly 'editor.collection.notFound': string;
 
   // --- param category section headers ---
   readonly 'params.category.value': string; // {count}

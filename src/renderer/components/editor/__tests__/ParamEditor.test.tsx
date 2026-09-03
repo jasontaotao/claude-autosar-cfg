@@ -556,4 +556,60 @@ describe('ParamEditor', () => {
     expect(screen.getByTestId('param-editor-footer')).toBeInTheDocument();
     expect(screen.getByTestId('param-editor-add-parameter')).toBeDisabled();
   });
+
+  // Collection table routing — a `collection:` selectedPath is not a real
+  // node path, so ParamEditor must hand off to CollectionTableView before
+  // attempting findByPath (which would return null and render the wrong
+  // empty state).
+  it('routes a collection: selectedPath to the collection table view', () => {
+    const cellDefRef = '/EAS/JWQ3399/JWQ3399ConfigSet/Cell';
+    const makeCell = (shortName: string): ArxmlElement => ({
+      kind: 'container',
+      tagName: 'ECUC-CONTAINER-VALUE',
+      shortName,
+      definitionRef: cellDefRef,
+      params: { Baudrate: { type: 'integer', value: 500000 } },
+      children: [],
+    });
+    const doc: ArxmlDocument = {
+      path: '/fake/JWQ3399.ecuc.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'EAS',
+          path: '/EAS',
+          elements: [
+            {
+              kind: 'module',
+              tagName: 'ECUC-MODULE-CONFIGURATION-VALUES',
+              shortName: 'JWQ3399',
+              params: {},
+              references: [],
+              children: [
+                {
+                  kind: 'container',
+                  tagName: 'ECUC-CONTAINER-VALUE',
+                  shortName: 'JWQ3399ConfigSet',
+                  params: {},
+                  children: [makeCell('Cell_1'), makeCell('Cell_2')],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    useArxmlStore.getState().setDoc(doc, '/fake/JWQ3399.ecuc.arxml');
+    useArxmlStore
+      .getState()
+      .select(
+        'collection:/EAS/JWQ3399/JWQ3399ConfigSet/definition:/EAS/JWQ3399/JWQ3399ConfigSet/Cell',
+      );
+
+    render(<ParamEditor />);
+
+    expect(screen.getByTestId('collection-table-view')).toBeInTheDocument();
+    // The single-instance body must NOT render for a collection key.
+    expect(screen.queryByTestId('param-editor-footer')).toBeNull();
+  });
 });

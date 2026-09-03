@@ -542,6 +542,8 @@ function renderChildren(
           upperMultiplicity={childDef.upperMultiplicity}
           isExpanded={isExpanded}
           onToggle={() => toggle(collectionKey)}
+          onSelect={() => store.getState().select(collectionKey)}
+          isSelected={selectedPath === collectionKey}
           onAdd={() => {
             store.getState().addContainer?.(parentPath, baseName);
           }}
