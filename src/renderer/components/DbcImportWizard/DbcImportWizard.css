@@ -223,4 +223,264 @@
   border-color: var(--brand-300);
 }
 
+/* ==========================================================================
+ * Task 13 — 4-step full-import wizard styles
+ * （source-target / policy / preview / apply，spec §10.2）
+ * ========================================================================== */
 
+.dbc-wizard-error {
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-rose) 14%, transparent);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.dbc-wizard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.9rem 1rem;
+}
+
+.dbc-wizard-row-line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dbc-wizard-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+
+.dbc-wizard-profile-id {
+  background: var(--border-subtle);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.dbc-wizard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem;
+}
+
+.dbc-wizard-input {
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.dbc-wizard-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  align-self: end;
+  padding-bottom: 0.45rem;
+}
+
+.dbc-wizard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dbc-wizard-stat {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.dbc-wizard-dirty {
+  background: color-mix(in srgb, var(--accent-amber) 14%, transparent);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+/* 独立滚动容器：warnings 与 rows 互不挤压，commit 常驻 actions 栏 */
+.dbc-wizard-warnings-scroll {
+  flex: 0 1 auto;
+  max-height: 10rem;
+  min-height: 2.5rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-right: 0.2rem;
+}
+
+/* 同 rows：warning group 保持自然高度，超高时交给 warnings-scroll 滚动，
+   而不是被 flex 压缩裁剪。 */
+.dbc-wizard-warning-group-wrap {
+  flex-shrink: 0;
+}
+
+.dbc-wizard-rows-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* group 保持自然高度：flex column 下若允许收缩，大表会被压缩并被
+   .dbc-wizard-group 的 overflow:hidden 裁剪（PduR 分组被挤出可视区、
+   滚动条永不出现）。flex-shrink:0 让溢出转交给 rows-scroll 滚动。 */
+.dbc-wizard-group {
+  flex-shrink: 0;
+}
+
+.dbc-wizard-warning-group {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  background: var(--surface-elevated);
+}
+
+.dbc-wizard-warning-label {
+  color: var(--accent-amber);
+}
+
+.dbc-wizard-warning-count {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.dbc-wizard-warning-items {
+  margin: 0.3rem 0 0 0.4rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.dbc-wizard-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-elevated);
+  overflow: hidden;
+}
+
+.dbc-wizard-group-title {
+  margin: 0;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--surface-panel);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dbc-wizard-row-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 0.3rem 0 0;
+  font-size: 0.85rem;
+}
+
+.dbc-wizard-badge {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.badge-added {
+  background: color-mix(in srgb, var(--accent-emerald) 25%, transparent);
+}
+.badge-updated {
+  background: color-mix(in srgb, var(--brand-400) 25%, transparent);
+}
+.badge-locally-modified {
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
+}
+.badge-conflict {
+  background: color-mix(in srgb, var(--accent-amber) 30%, transparent);
+}
+.badge-converged {
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
+}
+.badge-removed-in-dbc {
+  background: color-mix(in srgb, var(--accent-rose) 30%, transparent);
+}
+
+.dbc-wizard-diffs {
+  margin: 0.3rem 0 0.3rem 1.4rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+}
+
+.dbc-wizard-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.dbc-wizard-diff-table th,
+.dbc-wizard-diff-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.dbc-wizard-diff-param {
+  color: var(--text-secondary);
+  font-family: ui-monospace, monospace;
+}
+
+.dbc-wizard-source {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.dbc-wizard-source-Auto {
+  background: color-mix(in srgb, var(--accent-emerald) 30%, transparent);
+  color: var(--text-primary);
+}
+.dbc-wizard-source-Derived {
+  background: color-mix(in srgb, var(--brand-400) 30%, transparent);
+  color: var(--text-primary);
+}
+.dbc-wizard-source-Profile-default {
+  background: color-mix(in srgb, var(--accent-yellow) 30%, transparent);
+  color: var(--text-primary);
+}
+.dbc-wizard-source-Unmapped {
+  background: color-mix(in srgb, var(--accent-amber) 35%, transparent);
+  color: var(--text-primary);
+}
+.dbc-wizard-source-Error {
+  background: color-mix(in srgb, var(--accent-rose) 35%, transparent);
+  color: var(--text-primary);
+}

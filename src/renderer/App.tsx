@@ -42,6 +42,7 @@ import type { DockviewApi, DockviewReadyEvent, IDockviewPanelProps } from 'dockv
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import 'dockview/dist/styles/dockview.css';
 
+import { AUTOSAR_R22_CAN_PROFILE_ID } from '@core/dbc/profile.js';
 import { t } from '@shared/i18n/index.js';
 import { dirname, toManifestRelative } from '@shared/path';
 
@@ -302,10 +303,12 @@ export function App(): JSX.Element {
   // Store subscriptions owned by App.tsx shell (not in the hook):
   // `viewMode` → drives `isImportMerged` (used by JSX line ~967);
   // `project` + `projectPath` → drive `canGenerate` (used by
-  // AppHeader prop line ~635); `locale` + `setInfo` → used by Flow
-  // 4 inline callbacks (stay in shell) and by DbcImportWizard onApply
-  // (also inline in JSX). The hook reads its own ephemeral values
-  // via `useArxmlStore.getState()` inside callback bodies.
+  // AppHeader prop line ~635); `locale` → passed to the wizard/Tour
+  // JSX props; `setInfo` → used by Flow 4 inline callbacks (stay in
+  // shell). The DBC full-import preview/commit orchestration now lives
+  // in useWizardHandlers (`dbcFullImportPreview` / `dbcFullImportCommit`),
+  // which reads `locale` / `projectPath` via `useArxmlStore.getState()`
+  // inside the callback bodies (read-once at call time).
   const viewMode = useArxmlStore((s) => s.viewMode);
   const isImportMerged = viewMode === 'import-merged';
   const projectForGenerate = useArxmlStore((s) => s.project);
@@ -470,16 +473,19 @@ export function App(): JSX.Element {
   // (similar shape — derived value read at JSX level, not in a
   // hook).
   //
-  // **The DbcImportWizard `onApply` callback is INLINE in JSX
-  // (line ~660+ in App.tsx) and stays in App.tsx shell** per the
-  // plan's T4a spec note — it reads from `useArxmlStore.getState()`
-  // directly, is defined inline in JSX (not `const handler =
-  // useCallback(...)`), and is called only by the JSX (single
-  // caller). It does not need extraction.
+  // v1.56.0 Task 13 — the 4-step wizard owns its state machine; the
+  // host supplies `pickDbcImportFile` (openDbc → path|null),
+  // `dbcFullImportPreview` / `dbcFullImportCommit` (IPC wrappers + the
+  // post-commit project reload inside the commit wrapper), and the
+  // open/close flag `dbcImportWizardOpen` (replaces the legacy
+  // 3-arm `dbcImportState`).
   const {
-    // 4 wizard callbacks
+    // 6 wizard callbacks + 1 state slot
     openDbcImportWizard,
     closeDbcImportWizard,
+    pickDbcImportFile,
+    dbcFullImportPreview,
+    dbcFullImportCommit,
     openXlsxBatchWizard,
     closeXlsxBatchWizard,
     // 4 tour callbacks
@@ -488,7 +494,7 @@ export function App(): JSX.Element {
     onTourSkip,
     onTourFinish,
     // 2 read-only state slots
-    dbcImportState,
+    dbcImportWizardOpen,
     xlsxBatchWizardOpen,
     // 2 in-flight refs
     dbcImportInFlight,
@@ -654,198 +660,28 @@ export function App(): JSX.Element {
           />
         )}
 
-        {/* v1.23.0 T4 — DBC→Com-Stack 3-step wizard. Mounted at the
+        {/* v1.56.0 Task 13 — DBC full-import 4-step wizard
+            (source-target → policy → preview → apply). Mounted at the
             root so the backdrop + modal sit above every workspace
             layer (z-index 9998 inside the wizard CSS). The wizard
-            lands directly on the Preview step (Step 2) because the
-            host (App.tsx) already completed the openDbc → parseDbc
-            round-trip in `openDbcImportWizard` before transitioning
-            the state. The Apply handler calls the v1.23.0 T3 IPC
-            and reloads the project on success so the updated
-            Com/CanIf/PduR ARXMLs are re-parsed into the store. */}
-        {dbcImportState.kind === 'preview' && (
+            owns the state machine + preview/commit orchestration; the
+            host supplies the DBC picker (`pickDbcImportFile`), the
+            preview/commit IPC wrappers (`dbcFullImportPreview` /
+            `dbcFullImportCommit` — the commit wrapper reloads the
+            project on success so the freshly-written Com/CanIf/PduR
+            ARXMLs are re-parsed into the store), and the dirty-docs
+            list (`dirtyDocPaths` from the store; the dirty judgment on
+            the server side, spec §6.2). The profileId is pinned to the
+            built-in AUTOSAR R22 CAN profile until Phase 2. */}
+        {dbcImportWizardOpen && (
           <DbcImportWizard
             onClose={closeDbcImportWizard}
-            initialDbc={dbcImportState.summary}
-            dbcContent={dbcImportState.content}
             locale={useArxmlStore.getState().locale}
-            onApply={async (dbcContent: string, targetNode: string): Promise<void> => {
-              const api = window.autosarApi;
-              if (api === undefined) {
-                throw new Error('dbcImportComStack API not available');
-              }
-              // Re-read project / projectPath at apply time (not
-              // subscribed) so a stale closure never ships a stale
-              // manifest to the IPC. The store is the SoT.
-              const state = useArxmlStore.getState();
-              const proj = state.project;
-              const projPath = state.projectPath;
-              const loc = state.locale;
-              if (proj === null || projPath === null) {
-                throw new Error('No project open');
-              }
-              const correlationId =
-                dbcImportState.kind === 'preview' ? dbcImportState.correlationId : 'dbc-import';
-              const dbcSummary = dbcImportState.kind === 'preview' ? dbcImportState.summary : null;
-              state.appendDiagnostic({
-                level: 'debug',
-                source: 'dbc-import',
-                message: 'Apply requested',
-                detail: `bytes=${dbcContent.length} targetNode=${targetNode} messages=${dbcSummary?.messageCount ?? 0} signals=${dbcSummary?.signals?.length ?? 0}`,
-                correlationId,
-              });
-              const res = await api.dbcImportComStack({
-                dbcContent,
-                projectManifestPath: projPath,
-                manifest: proj,
-                targetNode,
-              });
-              if (!res.ok) {
-                // Map the typed error kind to a localized toast key.
-                const key =
-                  res.error.kind === 'bridge-failed'
-                    ? 'dbc.import.error.bridge'
-                    : res.error.kind === 'write-failed'
-                      ? 'dbc.import.error.write'
-                      : 'dbc.import.error.read';
-                const baseMessage = t(loc, key, { message: res.error.message });
-                state.appendDiagnostic({
-                  level: 'error',
-                  source: 'dbc-import',
-                  message: `Bridge failed (${res.error.kind})`,
-                  detail: res.error.message,
-                  correlationId,
-                });
-                // v1.23.1 T1 — the 2-phase write reports `rolledBack` so
-                // the user knows whether the project is in a clean
-                // state (rolledBack=true) or partially-bridged
-                // (rolledBack=false — they need to check git status).
-                // The localiser owns the diagnostic text via 2
-                // dedicated keys (code-review MEDIUM-1: previously a
-                // hardcoded English template-string concatenation).
-                if (res.error.kind === 'write-failed') {
-                  setStoreError(
-                    res.error.rolledBack
-                      ? t(loc, 'dbc.import.error.write.rolledBack', { message: res.error.message })
-                      : t(loc, 'dbc.import.error.write.partial', { message: res.error.message }),
-                  );
-                } else {
-                  setStoreError(baseMessage);
-                }
-                throw new Error(res.error.message);
-              }
-              const totalAdded =
-                res.value.addedCounts.com +
-                res.value.addedCounts.canIf +
-                res.value.addedCounts.pduR;
-              state.appendDiagnostic({
-                level: 'debug',
-                source: 'dbc-import',
-                message: 'Bridge result',
-                detail: `added=Com:${res.value.addedCounts.com},CanIf:${res.value.addedCounts.canIf},PduR:${res.value.addedCounts.pduR} plan=Com:${res.value.diagnostics.planCounts.com},CanIf:${res.value.diagnostics.planCounts.canIf},PduR:${res.value.diagnostics.planCounts.pduR} dbcMessages=${res.value.diagnostics.dbcMessages} dbcSignals=${res.value.diagnostics.dbcSignals}`,
-                correlationId,
-              });
-              let reloadFailure: string | null = null;
-              // Success — surface a confirmation toast AND reload the
-              // project so the store re-parses the 3 freshly-written
-              // ARXMLs + any BSWMDs. Without the reload, the user
-              // sees stale ECUC values until they manually reopen
-              // the project. `project:reload` is the non-dialog
-              // counterpart to `project:open` (T4 PATCH HIGH-1):
-              // takes the already-known manifest path and re-reads
-              // the bundle in one round-trip.
-              //
-              // Split the response's flat `files[]` back into docs
-              // vs BSWMDs so `useArxmlStore.openProject` can consume
-              // it in the same shape `useProjectActions.openProject`
-              // supplies (matches by manifest-relative `rel` for docs,
-              // by absolute path for BSWMDs).
-              try {
-                const reload = await api.projectReload({ manifestPath: projPath });
-                if (reload.kind === 'read-failed') {
-                  // Don't fail the apply — the 3-file write already
-                  // succeeded. Surface the reload failure as a
-                  // localized warning so the user knows the in-memory
-                  // store is stale and can manually reopen.
-                  reloadFailure = reload.message;
-                  state.appendDiagnostic({
-                    level: 'error',
-                    source: 'dbc-import',
-                    message: 'Project reload failed',
-                    detail: reload.message,
-                    correlationId,
-                  });
-                  setStoreError(t(loc, 'app.error.openProjectFailed', { message: reload.message }));
-                } else {
-                  // Bug 6 FIX — toManifestRelative expects a manifest
-                  // DIRECTORY, not a manifest file path. Passing
-                  // projPath (the manifest file) caused toManifestRelative
-                  // to fail on every docs entry: the file path's
-                  // prefix includes `111.autosarcfg.json` which
-                  // never matches the docs prefix `ecuc/...`, so the
-                  // docs round-trip dropped to bswmds and state.documents
-                  // came back empty (manifest showed "project open"
-                  // because state.project != null, but Tree was empty
-                  // because no doc hydrated). User confirmed via
-                  // window.alert at commit 025a015.
-                  const manifestDir = dirname(projPath);
-                  const docs: { rel: string; path: string; content: string }[] = [];
-                  const bswmds: { rel: string; path: string; content: string }[] = [];
-                  const docsRelSet = new Set(proj.valueArxmlPaths);
-                  for (const f of reload.files) {
-                    const rel = toManifestRelative(manifestDir, f.path) ?? f.path;
-                    if (docsRelSet.has(rel)) {
-                      docs.push({ rel, path: f.path, content: f.content });
-                    } else {
-                      bswmds.push({ rel, path: f.path, content: f.content });
-                    }
-                  }
-                  useArxmlStore.getState().openProject({
-                    manifestPath: projPath,
-                    manifest: reload.manifest,
-                    docs,
-                    bswmds,
-                  });
-                }
-              } catch (reloadErr) {
-                // Belt-and-braces — `projectReload` is async + IPC;
-                // a hard reject should not hide that files were written.
-                reloadFailure = reloadErr instanceof Error ? reloadErr.message : String(reloadErr);
-                state.appendDiagnostic({
-                  level: 'error',
-                  source: 'dbc-import',
-                  message: 'Project reload rejected',
-                  detail: reloadFailure,
-                  correlationId,
-                });
-                setStoreError(
-                  t(loc, 'app.error.openProjectFailed', {
-                    message: reloadErr instanceof Error ? reloadErr.message : String(reloadErr),
-                  }),
-                );
-              }
-              const afterState = useArxmlStore.getState();
-              if (reloadFailure === null && totalAdded > 0) {
-                afterState.setSuccess(t(loc, 'dbc.import.success', { count: totalAdded }));
-              } else if (reloadFailure === null) {
-                afterState.setWarning(t(loc, 'dbc.import.warning.noChanges'));
-              }
-              const diag =
-                `proj=${afterState.project !== null ? 'YES' : 'NULL'} ` +
-                `projPath=${afterState.projectPath !== null ? 'YES' : 'NULL'} ` +
-                `docs=${afterState.documents.length} ` +
-                `paths=${afterState.documentPaths.length} ` +
-                `viewMode=${afterState.viewMode} ` +
-                `displayDoc.pkg=${afterState.displayDoc?.packages.length ?? 0}`;
-              afterState.appendDiagnostic({
-                level: 'debug',
-                source: 'dbc-import',
-                message: 'Bug6 post-apply store state',
-                detail: diag,
-                correlationId,
-              });
-              closeDbcImportWizard();
-            }}
+            dirtyDocPaths={odxImportDirtyPaths}
+            profileId={AUTOSAR_R22_CAN_PROFILE_ID}
+            onPickDbc={pickDbcImportFile}
+            onPreview={dbcFullImportPreview}
+            onCommit={dbcFullImportCommit}
           />
         )}
 

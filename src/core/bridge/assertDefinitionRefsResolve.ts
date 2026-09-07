@@ -8,10 +8,7 @@ import type { BswModuleDef, ContainerDef } from '../project/bswmd/types.js';
 
 const DEFINITION_REF_PATTERN = /<DEFINITION-REF\b[^>]*>([^<]+)<\/DEFINITION-REF>/g;
 
-function collectContainerPaths(
-  containers: readonly ContainerDef[],
-  knownPaths: Set<string>,
-): void {
+function collectContainerPaths(containers: readonly ContainerDef[], knownPaths: Set<string>): void {
   for (const container of containers) {
     knownPaths.add(container.path);
     for (const parameter of container.parameters) knownPaths.add(parameter.path);

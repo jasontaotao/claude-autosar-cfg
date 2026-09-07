@@ -356,7 +356,10 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
       set({ error: null, toast: null });
       return;
     }
-    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'error', source: 'ui', message: msg })].slice(-500);
+    const diagnostics = [
+      ...get().diagnostics,
+      createDiagnosticEntry({ level: 'error', source: 'ui', message: msg }),
+    ].slice(-500);
     set({ error: msg, toast: { kind: 'error', message: msg }, diagnostics });
   },
 
@@ -367,11 +370,17 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
   // always manual, so there is no `setError(msg, ms)` overload —
   // the long-standing public surface only ever needs a string.
   setInfo: (message, autoDismissMs = 3000) => {
-    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'info', source: 'ui', message })].slice(-500);
+    const diagnostics = [
+      ...get().diagnostics,
+      createDiagnosticEntry({ level: 'info', source: 'ui', message }),
+    ].slice(-500);
     set({ error: message, toast: { kind: 'info', message, autoDismissMs }, diagnostics });
   },
   setSuccess: (message, autoDismissMs = 3000, action) => {
-    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'success', source: 'ui', message })].slice(-500);
+    const diagnostics = [
+      ...get().diagnostics,
+      createDiagnosticEntry({ level: 'success', source: 'ui', message }),
+    ].slice(-500);
     // `exactOptionalPropertyTypes` rejects `action: undefined`; spread
     // the optional key only when it's actually set so the property is
     // either present or absent (never present-with-undefined).
@@ -387,7 +396,10 @@ export const createUiSlice: StateCreator<ArxmlState, [], [], UiSlice> = (set, ge
     });
   },
   setWarning: (message, autoDismissMs = 5000) => {
-    const diagnostics = [...get().diagnostics, createDiagnosticEntry({ level: 'warn', source: 'ui', message })].slice(-500);
+    const diagnostics = [
+      ...get().diagnostics,
+      createDiagnosticEntry({ level: 'warn', source: 'ui', message }),
+    ].slice(-500);
     set({ error: message, toast: { kind: 'warning', message, autoDismissMs }, diagnostics });
   },
   dismissToast: () => set({ error: null, toast: null }),

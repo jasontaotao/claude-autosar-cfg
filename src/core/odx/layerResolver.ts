@@ -1,5 +1,5 @@
-import type { OdxDocument, OdxRawElement } from './odxDocument.js';
 import type { OdxWarningCode } from './dim.js';
+import type { OdxDocument, OdxRawElement } from './odxDocument.js';
 
 export interface OdxResolverWarning {
   readonly code: OdxWarningCode;

@@ -20,10 +20,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { dbcParseForBridgeHandler } from '../../../main/ipc/dbcParseForBridgeHandler.js';
-import { dbcToComStack } from '../dbcToComStack.js';
-import { assertDefinitionRefsResolve } from '../assertDefinitionRefsResolve.js';
 import { parseBswmd } from '../../project/bswmd.js';
 import type { BswModuleDef } from '../../project/bswmd.js';
+import { assertDefinitionRefsResolve } from '../assertDefinitionRefsResolve.js';
+import { dbcToComStack } from '../dbcToComStack.js';
 
 const DBC_PATH = join(process.cwd(), 'samples/dbc/powertrain-typical.dbc');
 const COM_CONFIG = readFileSync(
@@ -57,8 +57,14 @@ describe('dbcToComStack real-OEM definition-ref guard', () => {
     expect(dbcRes.ok).toBe(true);
     if (!dbcRes.ok) return;
     const bswmds = new Map<string, BswModuleDef>([
-      ['Com', loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml'), 'Com')],
-      ['PduR', loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml'), 'PduR')],
+      [
+        'Com',
+        loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_Com_Bswmd.arxml'), 'Com'),
+      ],
+      [
+        'PduR',
+        loadBswmd(join(process.cwd(), 'samples/arxml/demo-ecu/bswmd/Bsw_PduR_Bswmd.arxml'), 'PduR'),
+      ],
     ]);
     const plan = dbcToComStack({
       dbc: dbcRes.value,

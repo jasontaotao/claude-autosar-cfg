@@ -62,6 +62,97 @@ export interface DbcMessages {
   readonly 'dbc.import.error.noMessages': string;
   readonly 'dbc.import.success': string; // {count}
 
+  // --- v1.56.0 Task 13 — 4-step full-import wizard (source-target →
+  // policy → preview → apply). All keys the wizard resolves via t(). ---
+  readonly 'dbc.import.step.sourceTarget': string;
+  readonly 'dbc.import.step.policy': string;
+  readonly 'dbc.import.step.apply': string;
+  readonly 'dbc.import.pick.picking': string;
+  readonly 'dbc.import.pick.another': string;
+  readonly 'dbc.import.source.path': string;
+  readonly 'dbc.import.source.node.label': string; // DBC BU_ 名称
+  readonly 'dbc.import.source.node.empty': string;
+  readonly 'dbc.import.source.discovering': string;
+  readonly 'dbc.import.policy.profile': string;
+  readonly 'dbc.import.policy.pduId.title': string;
+  readonly 'dbc.import.policy.pduId.txBase': string;
+  readonly 'dbc.import.policy.pduId.rxBase': string;
+  readonly 'dbc.import.policy.pduId.step': string;
+  readonly 'dbc.import.policy.pduId.order': string;
+  readonly 'dbc.import.policy.pduId.order.document': string;
+  readonly 'dbc.import.policy.pduId.order.shortName': string;
+  readonly 'dbc.import.policy.ul.title': string;
+  readonly 'dbc.import.policy.ul.enabled': string;
+  readonly 'dbc.import.policy.ul.txTemplate': string;
+  readonly 'dbc.import.policy.ul.rxTemplate': string;
+  readonly 'dbc.import.policy.reparsing': string;
+  readonly 'dbc.import.preview.stats.messages': string; // {count}
+  readonly 'dbc.import.preview.stats.signals': string; // {count}
+  readonly 'dbc.import.preview.stats.skippedIrrelevant': string; // {count}
+  readonly 'dbc.import.preview.stats.skippedMultiplexed': string; // {count}
+  readonly 'dbc.import.preview.warnings.title': string; // {count}
+  readonly 'dbc.import.preview.dirty.saveFirst': string;
+  readonly 'dbc.import.preview.table.module': string;
+  readonly 'dbc.import.preview.table.path': string;
+  readonly 'dbc.import.preview.table.category': string;
+  readonly 'dbc.import.preview.table.decision': string;
+  readonly 'dbc.import.preview.row.expand': string;
+  readonly 'dbc.import.preview.row.collapse': string;
+  readonly 'dbc.import.preview.diff.local': string;
+  readonly 'dbc.import.preview.diff.incoming': string;
+  readonly 'dbc.import.preview.diff.source': string;
+  readonly 'dbc.import.preview.noRows': string;
+  readonly 'dbc.import.category.added': string;
+  readonly 'dbc.import.category.updated': string;
+  readonly 'dbc.import.category.locallyModified': string;
+  readonly 'dbc.import.category.conflict': string;
+  readonly 'dbc.import.category.converged': string;
+  readonly 'dbc.import.category.removedInDbc': string;
+  readonly 'dbc.import.decision.import': string;
+  readonly 'dbc.import.decision.keepLocal': string;
+  readonly 'dbc.import.decision.delete': string;
+  readonly 'dbc.import.action.back': string;
+  readonly 'dbc.import.action.commit': string;
+  readonly 'dbc.import.action.committing': string;
+  readonly 'dbc.import.apply.title': string;
+  readonly 'dbc.import.apply.body': string; // {applied} {kept} {deleted}
+  readonly 'dbc.import.apply.manifest': string; // {path}
+  readonly 'dbc.import.apply.finish': string;
+  // §12 error closed set — each kind gets its own localized label.
+  readonly 'dbc.import.error.dbc-malformed': string;
+  readonly 'dbc.import.error.dbc-too-large': string;
+  readonly 'dbc.import.error.dbc-no-messages': string;
+  readonly 'dbc.import.error.dbc-target-node-invalid': string;
+  readonly 'dbc.import.error.dbc-profile-not-found': string;
+  readonly 'dbc.import.error.dbc-bswmd-not-loaded': string;
+  readonly 'dbc.import.error.dbc-module-ambiguous': string;
+  readonly 'dbc.import.error.dbc-target-dirty': string;
+  readonly 'dbc.import.error.dbc-commit-mismatch': string;
+  readonly 'dbc.import.error.read-failed': string;
+  readonly 'dbc.import.error.write-failed': string;
+  readonly 'dbc.import.error.write-failed.rolledBack': string;
+  readonly 'dbc.import.error.write-failed.partial': string;
+  readonly 'dbc.import.error.unexpected': string;
+  // §11 warning closed set — 18 codes, each with a localized label.
+  readonly 'dbc.import.warning.dbc-duplicate-message-name': string;
+  readonly 'dbc.import.warning.dbc-duplicate-signal-name': string;
+  readonly 'dbc.import.warning.dbc-invalid-can-id': string;
+  readonly 'dbc.import.warning.dbc-invalid-dlc': string;
+  readonly 'dbc.import.warning.dbc-message-missing-transmitter': string;
+  readonly 'dbc.import.warning.dbc-unsupported-byte-order': string;
+  readonly 'dbc.import.warning.dbc-unsupported-value-type': string;
+  readonly 'dbc.import.warning.dbc-attribute-unavailable': string;
+  readonly 'dbc.import.warning.dbc-bswmd-def-missing': string;
+  readonly 'dbc.import.warning.dbc-param-type-mismatch': string;
+  readonly 'dbc.import.warning.dbc-enum-unmapped': string;
+  readonly 'dbc.import.warning.dbc-reference-missing': string;
+  readonly 'dbc.import.warning.dbc-policy-default-used': string;
+  readonly 'dbc.import.warning.dbc-policy-unmapped': string;
+  readonly 'dbc.import.warning.dbc-pdu-id-conflict': string;
+  readonly 'dbc.import.warning.dbc-short-name-legalized': string;
+  readonly 'dbc.import.warning.dbc-multiplexed-signal': string;
+  readonly 'dbc.import.warning.dbc-manifest-ignored': string;
+
   // --- v1.24.0 MINOR T3 — ODX→Diagnostic Extract export UI ---
   // v1.23.0 T4 placed DBC-cluster UI strings here (not a separate
   // `odx.*` cluster) because the keys describe the same DBC-import

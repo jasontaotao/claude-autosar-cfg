@@ -109,7 +109,11 @@ function makeComModule(): BswModuleDef {
           makeContainerDef(
             'ComIPdu',
             [makeParam('ComPduDirection', 'enum', 'SEND')],
-            [makeContainerDef('ComSignal'), makeContainerDef('ComTxIPdu'), makeContainerDef('ComRxIPdu')],
+            [
+              makeContainerDef('ComSignal'),
+              makeContainerDef('ComTxIPdu'),
+              makeContainerDef('ComRxIPdu'),
+            ],
           ),
         ],
       ),

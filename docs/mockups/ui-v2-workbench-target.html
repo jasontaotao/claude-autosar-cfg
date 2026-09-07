@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI v2 目标态预览 — Plan 四阶段完成后</title>
+    <style>
+      /* ============================================================
+       Design Tokens — 与 spec §3.1 完全一致
+       ============================================================ */
+      :root {
+        --surface-app: #f8fafc;
+        --surface-panel: #ffffff;
+        --surface-elevated: #ffffff;
+        --surface-subtle: #f1f5f9;
+        --surface-header: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+
+        --brand-500: #3b82f6;
+        --brand-400: #60a5fa;
+        --brand-300: #93c5fd;
+        --accent-cyan: #38bdf8;
+        --accent-amber: #f59e0b;
+        --accent-amber-strong: #b45309;
+        --accent-emerald: #10b981;
+        --accent-rose: #f43f5e;
+
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #94a3b8;
+        --text-inverse: #f1f5f9;
+        --text-inverse-muted: #cbd5e1;
+
+        --border-subtle: #e2e8f0;
+        --border-strong: #cbd5e1;
+
+        --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+        --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+        --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 10px;
+
+        --text-xs: 11px;
+        --text-sm: 12px;
+        --text-base: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+
+        --space-1: 4px;
+        --space-2: 6px;
+        --space-3: 8px;
+        --space-4: 12px;
+        --space-5: 16px;
+
+        --font-sans:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+        --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        font-family: var(--font-sans);
+        font-size: var(--text-base);
+        color: var(--text-primary);
+        background: var(--surface-app);
+        overflow: hidden;
+      }
+
+      /* ============================================================
+       场景切换（纯 CSS：radio + label）
+       ============================================================ */
+      .scene-radio {
+        position: fixed;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .demo-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-5);
+        height: 40px;
+        padding: 0 var(--space-5);
+        background: #0f172a;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 900;
+      }
+      .scene-nav {
+        display: flex;
+        gap: var(--space-1);
+        padding: 3px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+      }
+      .scene-nav label {
+        padding: var(--space-1) var(--space-4);
+        font-size: var(--text-sm);
+        color: var(--text-inverse-muted);
+        border-radius: 999px;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      .scene-nav label:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      #scene-a:checked ~ .demo-bar .scene-nav label[for='scene-a'],
+      #scene-b:checked ~ .demo-bar .scene-nav label[for='scene-b'],
+      #scene-c:checked ~ .demo-bar .scene-nav label[for='scene-c'] {
+        background: var(--brand-500);
+        color: #fff;
+      }
+
+      /* 场景显隐 */
+      .dialog-overlay,
+      .only-c,
+      .scene-legend {
+        display: none;
+      }
+      #scene-b:checked ~ .app-shell .dialog-overlay {
+        display: flex;
+      }
+      #scene-c:checked ~ .app-shell .only-c {
+        display: flex;
+      }
+      #scene-c:checked ~ .app-shell .hide-c {
+        display: none !important;
+      }
+      #scene-a:checked ~ .demo-bar .scene-legend {
+        display: flex;
+      }
+
+      /* 场景 C 时 B 必关（radio 互斥天然保证） */
+
+      /* ============================================================
+       App Shell
+       ============================================================ */
+      .app-shell {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 40px);
+        background:
+          radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 40%),
+          radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.03) 0%, transparent 40%),
+          var(--surface-app);
+      }
+
+      /* ============================================================
+       Header（dock 外 chrome）
+       ============================================================ */
+      .app-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-5);
+        height: 44px;
+        padding: 0 var(--space-5);
+        background: var(--surface-header);
+        color: var(--text-inverse);
+        flex-shrink: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+      .brand-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(135deg, var(--brand-500), var(--accent-cyan));
+        display: grid;
+        place-items: center;
+        font-size: var(--text-xs);
+        font-weight: 700;
+        color: #fff;
+      }
+      .brand-name {
+        font-size: var(--text-md);
+        font-weight: 600;
+      }
+      .brand-suffix {
+        color: var(--brand-300);
+      }
+
+      .menu-trigger {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: var(--radius-md);
+        color: var(--text-inverse);
+        font-size: var(--text-sm);
+        cursor: pointer;
+      }
+      .header-sep {
+        width: 1px;
+        height: 20px;
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      /* ⑤ 保存按钮层级：主按钮 dirty amber + 溢出 */
+      .save-group {
+        display: flex;
+        align-items: stretch;
+      }
+      .save-main {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        background: var(--accent-amber-strong);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
+        font-size: var(--text-sm);
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .save-overflow {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        background: rgba(0, 0, 0, 0.18);
+        color: #fff;
+        border: none;
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        cursor: pointer;
+        font-size: var(--text-xs);
+      }
+
+      .header-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+      }
+      .header-btn {
+        padding: var(--space-2) var(--space-4);
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: var(--radius-md);
+        color: var(--text-inverse-muted);
+        font-size: var(--text-sm);
+        cursor: pointer;
+      }
+      .header-btn.primary {
+        background: var(--brand-500);
+        border-color: var(--brand-500);
+        color: #fff;
+      }
+      .version {
+        font-size: var(--text-xs);
+        color: var(--text-inverse-muted);
+        font-family: var(--font-mono);
+      }
+
+      /* ============================================================
+       Dock 工作区
+       ============================================================ */
+      .dock {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        padding: var(--space-3);
+        gap: 0;
+      }
+
+      /* ② dock 分隔条 */
+      .dock-splitter {
+        width: 6px;
+        cursor: col-resize;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .dock-splitter::after {
+        content: '⋮';
+        color: var(--border-strong);
+        font-size: 10px;
+      }
+      .dock-splitter:hover::after {
+        color: var(--brand-400);
+      }
+
+      .dock-left {
+        width: 30%;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        min-width: 240px;
+      }
+      .dock-vsplitter {
+        height: 6px;
+        cursor: row-resize;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .dock-vsplitter::after {
+        content: '⋯';
+        color: var(--border-strong);
+        font-size: 10px;
+      }
+      .dock-vsplitter:hover::after {
+        color: var(--brand-400);
+      }
+
+      /* ① 面板通用 */
+      .panel {
+        display: flex;
+        flex-direction: column;
+        background: var(--surface-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        min-height: 0;
+      }
+      .panel-grow {
+        flex: 1;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        height: 34px;
+        padding: 0 var(--space-3) 0 var(--space-2);
+        background: var(--surface-subtle);
+        border-bottom: 1px solid var(--border-subtle);
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .panel-drag {
+        color: var(--text-muted);
+        cursor: grab;
+        padding: 0 var(--space-2);
+        font-size: var(--text-sm);
+        letter-spacing: 1px;
+      }
+      .panel-tabs {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+      }
+      .panel-tab {
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        cursor: pointer;
+        position: relative;
+        white-space: nowrap;
+      }
+      .panel-tab.is-active {
+        color: var(--text-primary);
+        font-weight: 600;
+        background: var(--surface-panel);
+      }
+      .panel-tab.is-active::after {
+        content: '';
+        position: absolute;
+        left: var(--space-3);
+        right: var(--space-3);
+        bottom: -1px;
+        height: 2px;
+        background: var(--brand-500);
+        border-radius: 2px;
+      }
+      .panel-id {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-left: var(--space-2);
+      }
+      .panel-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+      }
+      .panel-icon-btn {
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: var(--text-sm);
+      }
+      .panel-icon-btn:hover {
+        background: var(--border-subtle);
+        color: var(--text-secondary);
+      }
+      .panel-body {
+        flex: 1;
+        overflow: auto;
+        min-height: 0;
+      }
+
+      /* Tree（⑥ 独立 arxml-tree 面板） */
+      .tree {
+        padding: var(--space-2);
+        font-size: var(--text-sm);
+      }
+      .tree-node {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 3px var(--space-2);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        color: var(--text-secondary);
+      }
+      .tree-node:hover {
+        background: var(--surface-subtle);
+      }
+      .tree-node.is-active {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--brand-500);
+        font-weight: 600;
+      }
+      .tree-children {
+        margin-left: 18px;
+        border-left: 1px dashed var(--border-subtle);
+        padding-left: var(--space-2);
+      }
+      .kind {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .kind-module {
+        background: var(--brand-500);
+      }
+      .kind-container {
+        background: var(--accent-cyan);
+      }
+      .kind-reference {
+        background: var(--accent-amber);
+      }
+      .tree-chevron {
+        margin-left: auto;
+        color: var(--text-muted);
+        font-size: 10px;
+      }
+
+      /* Param Editor */
+      .editor-head {
+        padding: var(--space-4) var(--space-5);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .editor-title {
+        margin: 0;
+        font-size: var(--text-lg);
+        font-weight: 600;
+      }
+      .editor-subtitle {
+        margin-top: 2px;
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+      }
+      .param-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--text-sm);
+      }
+      .param-table th {
+        text-align: left;
+        padding: var(--space-2) var(--space-4);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        font-weight: 500;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface-subtle);
+      }
+      .param-table td {
+        padding: var(--space-2) var(--space-4);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .param-name {
+        font-weight: 500;
+      }
+      .param-type {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        padding: 1px var(--space-2);
+        border-radius: var(--radius-sm);
+        background: var(--surface-subtle);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-subtle);
+      }
+      .value-input {
+        width: 120px;
+        padding: 3px var(--space-2);
+        font-size: var(--text-sm);
+        font-family: var(--font-mono);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        background: var(--surface-panel);
+        color: var(--text-primary);
+      }
+      .value-input:focus {
+        outline: 2px solid var(--brand-300);
+        border-color: var(--brand-500);
+      }
+      .ref-link {
+        color: var(--brand-500);
+        text-decoration: none;
+        font-size: var(--text-sm);
+      }
+
+      /* ③ 脚本面板折叠条 */
+      .script-collapsed {
+        height: 30px;
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: 0 var(--space-4);
+        background: var(--surface-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        margin-top: var(--space-3);
+        cursor: pointer;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .script-collapsed:hover {
+        border-color: var(--brand-300);
+      }
+      .script-chevron {
+        color: var(--text-muted);
+        font-size: 10px;
+      }
+      .script-title {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .script-hint {
+        margin-left: auto;
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+
+      /* Status Footer（dock 外 chrome） */
+      .status-footer {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        height: 26px;
+        padding: 0 var(--space-5);
+        background: var(--surface-panel);
+        border-top: 1px solid var(--border-subtle);
+        font-size: var(--text-xs);
+        color: var(--text-secondary);
+        flex-shrink: 0;
+      }
+      .status-sep {
+        color: var(--border-strong);
+      }
+      .status-dirty {
+        color: var(--accent-amber-strong);
+        font-weight: 600;
+      }
+      .layout-saved {
+        margin-left: auto;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      /* 角标 */
+      .tag {
+        position: absolute;
+        z-index: 50;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--brand-500);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        box-shadow: var(--shadow-md);
+      }
+      .tag-anchor {
+        position: relative;
+      }
+
+      /* 场景图例 */
+      .scene-legend {
+        align-items: center;
+        gap: var(--space-4);
+        color: var(--text-inverse-muted);
+        font-size: var(--text-xs);
+        flex-wrap: wrap;
+      }
+      .scene-legend b {
+        color: #fff;
+      }
+
+      /* ============================================================
+       场景 B：亮色对话框（P1 反转后）
+       ============================================================ */
+      .dialog-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 800;
+        background: rgba(15, 23, 42, 0.36);
+        backdrop-filter: blur(2px);
+        align-items: center;
+        justify-content: center;
+      }
+      .dialog {
+        width: 480px;
+        background: var(--surface-elevated);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+      .dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--space-4) var(--space-5);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .dialog-title {
+        margin: 0;
+        font-size: var(--text-lg);
+        font-weight: 600;
+      }
+      .dialog-close {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: var(--text-lg);
+        cursor: pointer;
+      }
+      .dialog-body {
+        padding: var(--space-5);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+      .field label {
+        display: block;
+        font-size: var(--text-sm);
+        font-weight: 500;
+        margin-bottom: var(--space-2);
+      }
+      .field input[type='text'] {
+        width: 100%;
+        padding: var(--space-2) var(--space-3);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        font-size: var(--text-base);
+        color: var(--text-primary);
+        background: var(--surface-panel);
+      }
+      .field input:focus {
+        outline: 2px solid var(--brand-300);
+        border-color: var(--brand-500);
+      }
+      .field .hint {
+        margin-top: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+      .field .hint code {
+        font-family: var(--font-mono);
+        background: var(--surface-subtle);
+        padding: 1px var(--space-1);
+        border-radius: var(--radius-sm);
+      }
+      .tpl-card {
+        padding: var(--space-4);
+        border: 1.5px solid var(--brand-500);
+        border-radius: var(--radius-lg);
+        background: rgba(59, 130, 246, 0.05);
+        cursor: pointer;
+      }
+      .tpl-card-title {
+        font-weight: 600;
+        font-size: var(--text-base);
+      }
+      .tpl-card-desc {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+      .tpl-card-meta {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        margin-top: var(--space-2);
+      }
+      .dialog-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-3);
+        padding: var(--space-4) var(--space-5);
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface-subtle);
+      }
+      .btn {
+        padding: var(--space-2) var(--space-5);
+        border-radius: var(--radius-md);
+        font-size: var(--text-base);
+        cursor: pointer;
+        border: 1px solid var(--border-strong);
+        background: var(--surface-panel);
+        color: var(--text-secondary);
+      }
+      .btn.primary {
+        background: var(--brand-500);
+        border-color: var(--brand-500);
+        color: #fff;
+        font-weight: 600;
+      }
+      .dialog-note {
+        padding: var(--space-3) var(--space-5);
+        background: rgba(16, 185, 129, 0.08);
+        color: var(--accent-emerald);
+        font-size: var(--text-xs);
+        border-top: 1px solid rgba(16, 185, 129, 0.2);
+      }
+
+      /* ============================================================
+       场景 C：局部错误卡片 + 空状态引导（P2）
+       ============================================================ */
+      .only-c {
+        flex: 1;
+        min-height: 0;
+      }
+      .error-card {
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-3);
+        padding: var(--space-5);
+        text-align: center;
+      }
+      .error-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(244, 63, 94, 0.1);
+        color: var(--accent-rose);
+        display: grid;
+        place-items: center;
+        font-size: var(--text-lg);
+      }
+      .error-title {
+        font-size: var(--text-md);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .error-msg {
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        color: var(--text-secondary);
+        background: var(--surface-subtle);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-md);
+        padding: var(--space-2) var(--space-3);
+        max-width: 90%;
+      }
+      .error-actions {
+        display: flex;
+        gap: var(--space-3);
+        margin-top: var(--space-2);
+      }
+      .error-scope {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: var(--space-2);
+      }
+
+      .empty-guide {
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-4);
+        padding: var(--space-5);
+        text-align: center;
+      }
+      .empty-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--radius-lg);
+        background: rgba(59, 130, 246, 0.08);
+        color: var(--brand-500);
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+      }
+      .empty-title {
+        font-size: var(--text-lg);
+        font-weight: 600;
+      }
+      .empty-desc {
+        font-size: var(--text-sm);
+        color: var(--text-secondary);
+        max-width: 320px;
+      }
+      .empty-actions {
+        display: flex;
+        gap: var(--space-3);
+        margin-top: var(--space-2);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 场景切换 -->
+    <input class="scene-radio" type="radio" name="scene" id="scene-a" checked />
+    <input class="scene-radio" type="radio" name="scene" id="scene-b" />
+    <input class="scene-radio" type="radio" name="scene" id="scene-c" />
+
+    <div class="demo-bar">
+      <nav class="scene-nav">
+        <label for="scene-a">A · 终态工作台（P4）</label>
+        <label for="scene-b">B · 亮色对话框（P1）</label>
+        <label for="scene-c">C · 错误降级 + 空状态（P2）</label>
+      </nav>
+      <!-- 场景 A 图例 -->
+      <div class="scene-legend">
+        <span><b>①</b> 面板 tab 头（拖拽换位/合并）</span>
+        <span><b>②</b> dock 分隔条</span>
+        <span><b>③</b> script-panel 默认折叠</span>
+        <span><b>④</b> viewer 归组</span>
+        <span><b>⑤</b> 保存按钮层级</span>
+        <span><b>⑥</b> arxml-tree 独立面板</span>
+      </div>
+    </div>
+
+    <div class="app-shell">
+      <!-- ================= Header（chrome，dock 外） ================= -->
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">AC</div>
+          <span class="brand-name">Autosar<span class="brand-suffix">Cfg</span></span>
+        </div>
+        <button class="menu-trigger">项目 ▾</button>
+        <div class="header-sep"></div>
+        <!-- ⑤ 保存按钮层级 -->
+        <div class="save-group tag-anchor">
+          <span class="tag" style="top: -8px; right: -8px">5</span>
+          <button class="save-main">● 保存 (3)</button>
+          <button class="save-overflow" title="保存项目 / 全部保存">▾</button>
+        </div>
+        <div class="header-right">
+          <button class="header-btn">脚本</button>
+          <button class="header-btn primary">生成代码</button>
+          <button class="header-btn">EN</button>
+          <span class="version">v2.0.0</span>
+        </div>
+      </header>
+
+      <!-- ================= Dock 工作区 ================= -->
+      <main class="dock">
+        <!-- 左列 30% -->
+        <div class="dock-left">
+          <!-- ① 面板 tab 组：project / files / validation -->
+          <section class="panel panel-grow tag-anchor">
+            <span class="tag" style="top: -7px; left: 38%">1</span>
+            <div class="panel-head">
+              <span class="panel-drag" title="拖拽换位 / 合并成组">⋮⋮</span>
+              <div class="panel-tabs">
+                <span class="panel-tab">项目</span>
+                <span class="panel-tab is-active">文件</span>
+                <span class="panel-tab">验证 <span class="panel-id">validation</span></span>
+              </div>
+              <div class="panel-actions">
+                <button class="panel-icon-btn" title="关闭面板">×</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="tree">
+                <div
+                  style="
+                    padding: 4px 8px;
+                    font-size: 10px;
+                    color: var(--text-muted);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                  "
+                >
+                  值侧 ARXML
+                </div>
+                <div class="tree-node"><span class="kind kind-module"></span>Can_Cfg.arxml</div>
+                <div class="tree-node"><span class="kind kind-module"></span>Com_Cfg.arxml</div>
+                <div class="tree-node"><span class="kind kind-module"></span>Dcm_Cfg.arxml</div>
+                <div
+                  style="
+                    padding: 10px 8px 4px;
+                    font-size: 10px;
+                    color: var(--text-muted);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                  "
+                >
+                  BSWMD
+                </div>
+                <div class="tree-node">
+                  <span class="kind kind-container"></span>Can_Bswmd.arxml
+                </div>
+                <div class="tree-node">
+                  <span class="kind kind-container"></span>Com_Bswmd.arxml
+                </div>
+                <div class="tree-node">
+                  <span class="kind kind-container"></span>Dcm_Bswmd.arxml
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ② 垂直 dock 分隔条 -->
+          <div class="dock-vsplitter tag-anchor">
+            <span class="tag" style="top: -7px; left: 50%; margin-left: -9px">2</span>
+          </div>
+
+          <!-- ⑥ arxml-tree 独立面板 -->
+          <section class="panel panel-grow tag-anchor" style="margin-top: 0">
+            <span class="tag" style="top: -7px; left: 30%">6</span>
+            <div class="panel-head">
+              <span class="panel-drag">⋮⋮</span>
+              <div class="panel-tabs">
+                <span class="panel-tab is-active"
+                  >ARXML 树 <span class="panel-id">arxml-tree</span></span
+                >
+              </div>
+              <div class="panel-actions">
+                <button class="panel-icon-btn">×</button>
+              </div>
+            </div>
+            <!-- 场景 A/B：正常树 -->
+            <div class="panel-body hide-c">
+              <div class="tree">
+                <div class="tree-node is-active">
+                  <span class="kind kind-module"></span>Can<span class="tree-chevron">▾</span>
+                </div>
+                <div class="tree-children">
+                  <div class="tree-node"><span class="kind kind-container"></span>CanGeneral</div>
+                  <div class="tree-node">
+                    <span class="kind kind-container"></span>CanController<span class="tree-chevron"
+                      >▸</span
+                    >
+                  </div>
+                  <div class="tree-node"><span class="kind kind-reference"></span>CanConfigSet</div>
+                </div>
+                <div class="tree-node" style="margin-top: 4px">
+                  <span class="kind kind-module"></span>Com<span class="tree-chevron">▸</span>
+                </div>
+                <div class="tree-node">
+                  <span class="kind kind-module"></span>Dcm<span class="tree-chevron">▸</span>
+                </div>
+              </div>
+            </div>
+            <!-- 场景 C：局部错误卡片（仅本面板崩，其余正常） -->
+            <div class="only-c error-card">
+              <div class="error-icon">!</div>
+              <div class="error-title">ARXML 树渲染失败</div>
+              <div class="error-msg">TypeError: parent.choices is not iterable</div>
+              <div class="error-actions">
+                <button class="btn">重试</button>
+                <button class="btn">复制详情</button>
+              </div>
+              <div class="error-scope">P2 · 局部降级 — 仅此面板受影响，其余面板正常工作</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ② 水平 dock 分隔条 -->
+        <div class="dock-splitter"></div>
+
+        <!-- 中右列 70% -->
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+          <!-- ④ viewer 归组：param-editor + DBC Viewer 同 tab 组 -->
+          <section class="panel panel-grow tag-anchor">
+            <span class="tag" style="top: -7px; left: 24%">4</span>
+            <div class="panel-head">
+              <span class="panel-drag">⋮⋮</span>
+              <div class="panel-tabs">
+                <span class="panel-tab is-active"
+                  >参数编辑器 <span class="panel-id">param-editor</span></span
+                >
+                <span class="panel-tab">DBC Viewer <span class="panel-id">dbc-viewer</span></span>
+              </div>
+              <div class="panel-actions">
+                <button class="panel-icon-btn">×</button>
+              </div>
+            </div>
+            <!-- 场景 A/B：参数表 -->
+            <div class="panel-body hide-c" style="display: flex; flex-direction: column">
+              <div class="editor-head">
+                <h2 class="editor-title">Can / CanGeneral</h2>
+                <div class="editor-subtitle">/Pkg/Can/CanGeneral · AUTOSAR 4.6</div>
+              </div>
+              <table class="param-table">
+                <thead>
+                  <tr>
+                    <th style="width: 42%">参数名</th>
+                    <th style="width: 16%">类型</th>
+                    <th>值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="param-name">CanBusOffProcessing</span></td>
+                    <td><span class="param-type">ENUM</span></td>
+                    <td><a class="ref-link" href="#">INTERRUPT ▾</a></td>
+                  </tr>
+                  <tr>
+                    <td><span class="param-name">CanBusOffRecoveryTime</span></td>
+                    <td><span class="param-type">INTEGER</span></td>
+                    <td><input class="value-input" value="500" /></td>
+                  </tr>
+                  <tr>
+                    <td><span class="param-name">CanDevErrorDetect</span></td>
+                    <td><span class="param-type">BOOLEAN</span></td>
+                    <td>
+                      <label
+                        style="display: inline-flex; gap: 6px; align-items: center; font-size: 12px"
+                        ><input type="checkbox" checked />true</label
+                      >
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><span class="param-name">CanConfigSet</span></td>
+                    <td><span class="param-type">REFERENCE</span></td>
+                    <td><a class="ref-link" href="#">/Pkg/Can/CanConfigSet ↗</a></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- 场景 C：空状态引导 -->
+            <div class="only-c empty-guide">
+              <div class="empty-icon">⇱</div>
+              <div class="empty-title">从左侧树选择一个元素开始编辑</div>
+              <div class="empty-desc">
+                或者打开一个已有项目 / 新建项目，加载 ECUC 配置后此处将显示参数编辑器。
+              </div>
+              <div class="empty-actions">
+                <button class="btn primary">打开项目</button>
+                <button class="btn">新建项目</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ③ 脚本面板折叠条 -->
+          <div class="script-collapsed tag-anchor">
+            <span class="tag" style="top: -8px; left: 90px">3</span>
+            <span class="script-chevron">▸</span>
+            <span class="script-title">脚本面板 <span class="panel-id">script-panel</span></span>
+            <span class="script-hint">默认折叠 · 点击展开为底部面板</span>
+          </div>
+        </div>
+      </main>
+
+      <!-- ================= Status Footer（chrome，dock 外） ================= -->
+      <footer class="status-footer">
+        <span><strong>1</strong> Packages</span>
+        <span class="status-sep">|</span>
+        <span><strong>9</strong> Elements</span>
+        <span class="status-sep">|</span>
+        <span>AUTOSAR 4.6</span>
+        <span class="status-sep">|</span>
+        <span class="status-dirty">● 未保存 (3)</span>
+        <span class="layout-saved">布局已保存 · autosarcfg.layout.v1</span>
+      </footer>
+
+      <!-- ================= 场景 B：亮色对话框（P1 Catppuccin 反转后） ================= -->
+      <div class="dialog-overlay">
+        <div class="dialog">
+          <div class="dialog-head">
+            <h2 class="dialog-title">新建项目</h2>
+            <button class="dialog-close">×</button>
+          </div>
+          <div class="dialog-body">
+            <div class="field">
+              <label>项目名称 *</label>
+              <input type="text" value="ui-audit-demo" />
+              <div class="hint">
+                用于显示和文件名，最长 64 字符（P2：不再打开即报错，blur/submit 才校验）
+              </div>
+            </div>
+            <div class="field">
+              <label>保存位置 *</label>
+              <input type="text" value="D:\projects" />
+              <div class="hint"><code>(dir)/ui-audit-demo.autosarcfg.json</code></div>
+            </div>
+            <div class="field">
+              <label>选择模板</label>
+              <div class="tpl-card">
+                <div class="tpl-card-title">空项目</div>
+                <div class="tpl-card-desc">从零开始创建项目</div>
+                <div class="tpl-card-meta">📁 0 files</div>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-foot">
+            <button class="btn">取消</button>
+            <button class="btn primary">创建</button>
+          </div>
+          <div class="dialog-note">
+            P1 · Catppuccin 暗色已反转为亮色 —— 弹窗与主区同一套 surface/text/border
+            tokens，视觉断层消除
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

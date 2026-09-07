@@ -13,6 +13,12 @@ import type {
 } from '../shared/headless/ipc-contract.js';
 import { IPC_CHANNELS } from '../shared/ipc-contract.js';
 import type {
+  DbcFullImportCommitRequest,
+  DbcFullImportCommitResponse,
+  DbcFullImportPreviewRequest,
+  DbcFullImportPreviewResponse,
+} from '../shared/types/dbc-import.js';
+import type {
   EcucInstanceRow,
   OpenArxmlMultiResult,
   OpenArxmlResult,
@@ -79,6 +85,10 @@ import type {
   DcmConfigRequest,
   DcmConfigResponse,
 } from '../shared/types.js';
+// 2026-09-03 — DBC full-import DTOs. Imported directly from the domain
+// module (not the `types.js` barrel) per the Task 4 layout: the new
+// surface evolves independently of the legacy v1.23.0 `dbc:importComStack`
+// contract.
 
 import { getRendererPlatform } from './platform.js';
 
@@ -335,8 +345,21 @@ const api = {
   // The IPC envelope is intentionally narrow — a future "re-bridge
   // without re-parsing" affordance can introduce a separate channel
   // rather than overloading this one.
+  /**
+   * @deprecated Renderer flow uses dbc:fullImportPreview / dbc:fullImportCommit.
+   * Keep this channel for external compatibility during the migration window.
+   */
   dbcImportComStack: (req: DbcImportComStackRequest): Promise<DbcImportComStackResponse> =>
     ipcRenderer.invoke(IPC_CHANNELS.DBC_IMPORT_COM_STACK, req),
+  // 2026-09-03 — DBC full-import preview bridge. Read-only counterpart to
+  // the later commit channel; the legacy `dbcImportComStack` bridge
+  // contract above is unchanged (migration is a later task).
+  dbcFullImportPreview: (req: DbcFullImportPreviewRequest): Promise<DbcFullImportPreviewResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DBC_FULL_IMPORT_PREVIEW, req),
+  // 2026-09-03 — DBC full-import commit bridge. Only path decisions cross
+  // IPC; main recomputes the deterministic preview and verifies the hash.
+  dbcFullImportCommit: (req: DbcFullImportCommitRequest): Promise<DbcFullImportCommitResponse> =>
+    ipcRenderer.invoke(IPC_CHANNELS.DBC_FULL_IMPORT_COMMIT, req),
   // v1.24.0 T2 — ODX→Diagnostic Extract bridge. Takes a path-based
   // request `{ odxPath, outputDir }`; the handler re-parses the
   // .odx-d file via v1.22.0's `odx:parse` channel (path-based to keep

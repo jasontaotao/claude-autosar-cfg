@@ -352,14 +352,11 @@ function applyAddChild(
   // tail OR (when omitted) by matching the parent's first
   // subContainer — a permissive fallback for callers that omit
   // the hint.
-  const childDef = findChildDefForAdd(
-    ctx.moduleDef,
-    step.parentPath,
-    step.definitionRef,
-    step.shortName,
-  ) ?? (step.definitionRef !== undefined
-    ? findContainerDefByDefinitionRef(ctx.moduleDef, step.definitionRef)
-    : null);
+  const childDef =
+    findChildDefForAdd(ctx.moduleDef, step.parentPath, step.definitionRef, step.shortName) ??
+    (step.definitionRef !== undefined
+      ? findContainerDefByDefinitionRef(ctx.moduleDef, step.definitionRef)
+      : null);
   if (childDef === null) {
     return {
       doc,

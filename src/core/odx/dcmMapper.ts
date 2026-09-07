@@ -1,4 +1,5 @@
 import type { ArxmlContainer, ArxmlElement, ArxmlModule, ParamValue } from '../arxml/types.js';
+
 import type { BswmdDefIndex } from './bswmdDefIndex.js';
 import type { Dim, DimDataObject, DimService, DimWarning } from './dim.js';
 import { dedupeShortName, legalizeShortName } from './shortName.js';
@@ -897,77 +898,77 @@ export function mapDcm(
   (configSet.children as ArxmlElement[]).push(dsp, dsd);
 
   const defaultUses = new Map<string, number>();
-  const useDefault = (key: string, count: number): void => {
+  const recordDefaultUse = (key: string, count: number): void => {
     if (count > 0) defaultUses.set(key, (defaultUses.get(key) ?? 0) + count);
   };
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionP2ServerMax',
     dim.sessions.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionP2StarServerMax',
     dim.sessions.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSession/DcmDspSessionRow/DcmDspSessionForBoot',
     dim.sessions.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityMaxAttemptCounterReadoutTime',
     dim.securityLevels.length > 0 ? 1 : 0,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecuritySeedSize',
     dim.securityLevels.filter((level) => level.seedBytes === undefined).length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityKeySize',
     dim.securityLevels.filter((level) => level.keyBytes === undefined).length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityDelayTime',
     dim.securityLevels.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityDelayTimeOnBoot',
     dim.securityLevels.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityAttemptCounterEnabled',
     dim.securityLevels.length,
   );
-  useDefault(
+  recordDefaultUse(
     'DcmConfigSet/DcmDsp/DcmDspSecurity/DcmDspSecurityRow/DcmDspSecurityUsePort',
     dim.securityLevels.length,
   );
-  useDefault('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsed', didGroups.size);
-  useDefault('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsePort', didGroups.size);
-  useDefault('DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidDynamicallyDefined', didGroups.size);
+  recordDefaultUse('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsed', didGroups.size);
+  recordDefaultUse('DcmConfigSet/DcmDsp/DcmDspDid/DcmDspDidUsePort', didGroups.size);
+  recordDefaultUse('DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidDynamicallyDefined', didGroups.size);
   for (const [, group] of didGroups) {
-    useDefault(
+    recordDefaultUse(
       'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidFreezeCurrentState',
       group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
     );
-    useDefault(
+    recordDefaultUse(
       'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidResetToDefault',
       group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
     );
-    useDefault(
+    recordDefaultUse(
       'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidShortTermAdjustment',
       group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
     );
-    useDefault(
+    recordDefaultUse(
       'DcmConfigSet/DcmDsp/DcmDspDidInfo/DcmDspDidControl/DcmDspDidControlMask',
       group.some((service) => service.serviceClass === 'InputOutputControlByIdentifier') ? 1 : 0,
     );
-    useDefault('DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataUsePort', dataRefs(group).length);
+    recordDefaultUse('DcmConfigSet/DcmDsp/DcmDspData/DcmDspDataUsePort', dataRefs(group).length);
   }
   for (const key of [
     'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsed',
     'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineUsePort',
     'DcmConfigSet/DcmDsp/DcmDspRoutine/DcmDspRoutineFncSignature',
   ]) {
-    useDefault(
+    recordDefaultUse(
       key,
       dim.services.filter(
         (service) =>

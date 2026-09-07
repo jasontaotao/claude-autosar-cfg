@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BswModuleDef, ContainerDef } from '../../project/bswmd/types.js';
-import type { Dim } from '../dim.js';
 import { buildBswmdDefIndex } from '../bswmdDefIndex.js';
+import type { Dim } from '../dim.js';
 import { mapDimToEcuc } from '../mapDimToEcuc.js';
 
 function module(shortName: string): BswModuleDef {
@@ -33,6 +33,7 @@ const emptyIndex = {
   paramPath: new Map(),
   refPath: new Map(),
   paramDef: new Map(),
+  referenceDef: new Map(),
 };
 const index = buildBswmdDefIndex(
   new Map([

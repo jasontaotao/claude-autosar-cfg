@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveDefinitionRef } from '../definitionRefResolver.js';
 import type { BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd/types.js';
+import { resolveDefinitionRef } from '../definitionRefResolver.js';
 
-function container(shortName: string, path: string, over: Partial<ContainerDef> = {}): ContainerDef {
+function container(
+  shortName: string,
+  path: string,
+  over: Partial<ContainerDef> = {},
+): ContainerDef {
   return {
     shortName,
     path,
@@ -67,9 +71,9 @@ const dcmBswmd: BswModuleDef = {
 
 describe('resolveDefinitionRef', () => {
   it('resolves a nested container path via the BSWMD tree walk', () => {
-    expect(
-      resolveDefinitionRef('Dcm', ['DcmConfigSet', 'DcmDsp', 'DcmDspDid'], dcmBswmd),
-    ).toBe('/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
+    expect(resolveDefinitionRef('Dcm', ['DcmConfigSet', 'DcmDsp', 'DcmDspDid'], dcmBswmd)).toBe(
+      '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid',
+    );
   });
 
   it('resolves a parameter leaf against its owning container', () => {
@@ -87,9 +91,9 @@ describe('resolveDefinitionRef', () => {
   });
 
   it('uses the standard R22 fallback when no BSWMD is threaded', () => {
-    expect(
-      resolveDefinitionRef('Dcm', ['DcmConfigSet', 'DcmDsp', 'DcmDspDid']),
-    ).toBe('/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
+    expect(resolveDefinitionRef('Dcm', ['DcmConfigSet', 'DcmDsp', 'DcmDspDid'])).toBe(
+      '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid',
+    );
   });
 
   it('falls back and reports a miss when a threaded BSWMD cannot resolve the path', () => {

@@ -49,9 +49,9 @@ import { dcmConfigPipeline } from '../../core/bridge/dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../../core/bridge/dcmConstants.js';
 import { parseDemoBswmds } from '../../core/bridge/demoBswmdLoader.js';
 import { xlsxDcmServicesToEcucBatch } from '../../core/bridge/xlsxDcmServicesToEcucBatch.js';
-import { parseOdxDocument } from '../../core/odx/odxDocument.js';
-import { buildDim } from '../../core/odx/dimBuilder.js';
 import { buildBswmdDefIndex } from '../../core/odx/bswmdDefIndex.js';
+import { buildDim } from '../../core/odx/dimBuilder.js';
+import { parseOdxDocument } from '../../core/odx/odxDocument.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
 import type {
   DcmConfigHandlerResult,

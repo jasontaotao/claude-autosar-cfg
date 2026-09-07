@@ -5,14 +5,13 @@
 // standard Dcm ECUC module through the same deterministic pipeline used by
 // the ODX full-import flow.
 
+import type { EcucInstanceRow } from '../../shared/types.js';
 import { serializeArxml } from '../arxml/serializer.js';
 import type { ArxmlDocument } from '../arxml/types.js';
 import type { BswmdDefIndex } from '../odx/bswmdDefIndex.js';
-import type { Dim } from '../odx/dim.js';
 import { mapDcm } from '../odx/dcmMapper.js';
-
+import type { Dim } from '../odx/dim.js';
 import type { BswModuleDef } from '../project/bswmd.js';
-import type { EcucInstanceRow } from '../../shared/types.js';
 
 import { DcmConfigError } from './dcmConfigError.js';
 import { DCM_MODULE_SHORT_NAME } from './dcmConstants.js';

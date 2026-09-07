@@ -12,6 +12,10 @@ import type {
   OpenArxmlResult,
   DbcImportComStackRequest,
   DbcImportComStackResponse,
+  DbcFullImportCommitRequest,
+  DbcFullImportCommitResponse,
+  DbcFullImportPreviewRequest,
+  DbcFullImportPreviewResponse,
   DcmConfigRequest,
   DcmConfigResponse,
   OdxImportDiagExtractRequest,
@@ -66,13 +70,15 @@ import { bswmdDeleteHandler } from './bswmdDeleteHandler.js';
 import { registerBswmdOpenHandler } from './bswmdOpenHandler.js';
 import { registerBswmdPickHandler } from './bswmdPickHandler.js';
 import { readBswmdHandler } from './bswmdReadHandler.js';
+import { dbcFullImportCommitHandler } from './dbcFullImportCommitHandler.js';
+import { dbcFullImportPreviewHandler } from './dbcFullImportPreviewHandler.js';
 import { dbcImportComStackHandler } from './dbcImportComStackHandler.js';
 import { dcmConfigHandler } from './dcmConfigHandler.js';
 import { featureFlagsGetHandler } from './featureFlagsHandler.js';
 import { swsValidateCancelStub, swsValidateStub } from './headless-stubs.js';
 import { headlessRunCommandHandler } from './headlessRunCommandHandler.js';
-import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
 import { odxImportCommitHandler } from './odxImportCommitHandler.js';
+import { odxImportDiagnosticExtractHandler } from './odxImportDiagnosticExtractHandler.js';
 import { odxImportPreviewHandler } from './odxImportPreviewHandler.js';
 import { registerOpenArxmlMultiHandler } from './openArxmlMultiHandler.js';
 import { registerOpenDbcHandler } from './openDbcHandler.js';
@@ -631,6 +637,26 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.ODX_IMPORT_COMMIT,
     async (_evt, req: OdxImportCommitRequest): Promise<OdxImportCommitResponse> => {
       return odxImportCommitHandler(req);
+    },
+  );
+
+  // 2026-09-03 — DBC full-import preview. Read-only: preview never mutates
+  // project documents or provenance state. Additive channels — the legacy
+  // v1.23.0 `dbc:importComStack` registration above is untouched.
+  ipcMain.handle(
+    IPC_CHANNELS.DBC_FULL_IMPORT_PREVIEW,
+    async (_evt, req: DbcFullImportPreviewRequest): Promise<DbcFullImportPreviewResponse> => {
+      return dbcFullImportPreviewHandler(req);
+    },
+  );
+
+  // 2026-09-03 — DBC full-import commit. Transactional, server-side commit:
+  // main recomputes the deterministic preview, verifies `previewHash`, applies
+  // only path decisions, and atomically rewrites the provenance manifest.
+  ipcMain.handle(
+    IPC_CHANNELS.DBC_FULL_IMPORT_COMMIT,
+    async (_evt, req: DbcFullImportCommitRequest): Promise<DbcFullImportCommitResponse> => {
+      return dbcFullImportCommitHandler(req);
     },
   );
 

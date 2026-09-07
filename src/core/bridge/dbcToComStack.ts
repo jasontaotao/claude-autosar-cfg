@@ -39,8 +39,6 @@ import type { PatchStep } from '../../shared/headless/ipc-contract.js';
 import { parseArxml } from '../arxml/parser.js';
 import type { ParseError } from '../arxml/parser.js';
 import { findEcucModuleByShortName } from '../arxml/path.js';
-import { resolveDefinitionRef } from './definitionRefResolver.js';
-import type { BswModuleDef } from '../project/bswmd/types.js';
 import type {
   ArxmlContainer,
   ArxmlDocument,
@@ -49,6 +47,9 @@ import type {
   ArxmlPackage,
   Result,
 } from '../arxml/types.js';
+import type { BswModuleDef } from '../project/bswmd/types.js';
+
+import { resolveDefinitionRef } from './definitionRefResolver.js';
 
 const COM_MODULE = 'Com';
 const CANIF_MODULE = 'CanIf';
@@ -107,10 +108,7 @@ export interface DbcToComStackInput {
  * helper call. Returns null when the parse failed or the module is absent.
  */
 /** Resolve the source-document path to an ECUC module (vendor nested packages included). */
-function findEcucModulePath(
-  doc: ArxmlDocument,
-  moduleName: string,
-): string | null {
+function findEcucModulePath(doc: ArxmlDocument, moduleName: string): string | null {
   function walk(pkgs: readonly ArxmlPackage[]): string | null {
     for (const pkg of pkgs) {
       for (const el of pkg.elements) {
@@ -310,9 +308,8 @@ function discoverCanIfSubContainers(
   if (primary === null) return fallback();
   const txChild = findCanIfSubChild(primary, CANIF_TX_SUBCANONICAL, CANIF_TX_SUBCANONICAL_ALIASES);
   const rxChild = findCanIfSubChild(primary, CANIF_RX_SUBCANONICAL, CANIF_RX_SUBCANONICAL_ALIASES);
-  const directChild = (name: string): boolean => primary.children.some(
-    (c) => (c.kind === 'container') && c.shortName === name,
-  );
+  const directChild = (name: string): boolean =>
+    primary.children.some((c) => c.kind === 'container' && c.shortName === name);
   const txDirect = txChild === undefined && (canIfDirectPdu || directChild('CanIfTxPduCfg'));
   const rxDirect = rxChild === undefined && (canIfDirectPdu || directChild('CanIfRxPduCfg'));
   return {
@@ -362,11 +359,7 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
   const comPrimary = comLayout.primaryContainer;
   const canIfPrimary = canIfLayout.primaryContainer;
   const pduRPrimary = pduRLayout.primaryContainer;
-  const canIfSubs = discoverCanIfSubContainers(
-    canIfParsed,
-    canIfPrimary,
-    input.canIfDirectPdu,
-  );
+  const canIfSubs = discoverCanIfSubContainers(canIfParsed, canIfPrimary, input.canIfDirectPdu);
 
   const existingComIpdu = extractExistingComIpduNames(comParsed, comPrimary);
   const existingComSignals = extractExistingChildShortNames(comParsed, COM_MODULE, comPrimary);
@@ -393,11 +386,12 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
     moduleName: string,
     containerPath: readonly string[],
     bswmd: BswModuleDef | undefined,
-  ): string => resolveDefinitionRef(moduleName, containerPath, bswmd, (miss) => {
-    warnings.push(
-      `BSWMD definition-ref miss: ${miss.moduleName}/${miss.containerPath.join('/')}; using standard fallback`,
-    );
-  });
+  ): string =>
+    resolveDefinitionRef(moduleName, containerPath, bswmd, (miss) => {
+      warnings.push(
+        `BSWMD definition-ref miss: ${miss.moduleName}/${miss.containerPath.join('/')}; using standard fallback`,
+      );
+    });
   const comBswmd = input.bswmds?.get('Com');
   const canIfBswmd = input.bswmds?.get('CanIf');
   const pduRBswmd = input.bswmds?.get('PduR');
@@ -433,13 +427,15 @@ export function dbcToComStack(input: DbcToComStackInput): DbcBridgePlan {
         if (input.comSignalDirect === true && existingComSignals.has(sig.name)) continue;
         comPatches.push({
           op: 'add-child',
-          parentPath: input.comSignalDirect === true
-            ? `${comLayout.modulePath}/${comPrimary}`
-            : `${comLayout.modulePath}/${comPrimary}/${msg.name}`,
+          parentPath:
+            input.comSignalDirect === true
+              ? `${comLayout.modulePath}/${comPrimary}`
+              : `${comLayout.modulePath}/${comPrimary}/${msg.name}`,
           shortName: sig.name,
-          definitionRef: input.comSignalDirect === true
-            ? resolveFor('Com', [comPrimary, 'ComSignal'], comBswmd)
-            : resolveFor('Com', [comPrimary, 'ComIPdu', 'ComSignal'], comBswmd),
+          definitionRef:
+            input.comSignalDirect === true
+              ? resolveFor('Com', [comPrimary, 'ComSignal'], comBswmd)
+              : resolveFor('Com', [comPrimary, 'ComIPdu', 'ComSignal'], comBswmd),
           kind: 'com-signal',
         });
       }

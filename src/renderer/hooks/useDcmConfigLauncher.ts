@@ -538,10 +538,8 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       // ARXML document) pass the active ODX path explicitly. Accept both
       // canonical `.odx` and ODX-D's `.odx-d` extension.
       const shortcutOdxPath =
-        odxPathOverride ??
-        (isActiveOdx && activeDocumentPath !== null ? activeDocumentPath : null);
-      const isShortcutOdx =
-        shortcutOdxPath !== null && /\.(?:odx|odx-d)$/i.test(shortcutOdxPath);
+        odxPathOverride ?? (isActiveOdx && activeDocumentPath !== null ? activeDocumentPath : null);
+      const isShortcutOdx = shortcutOdxPath !== null && /\.(?:odx|odx-d)$/i.test(shortcutOdxPath);
       if (isShortcutOdx && shortcutOdxPath !== null) {
         await open({
           odxPath: shortcutOdxPath,
@@ -726,9 +724,7 @@ export function useDcmConfigLauncher(): DcmConfigLauncher {
       );
       return;
     }
-    useArxmlStore
-      .getState()
-      .addDocument(parsed.value, result.outputPath, { template: true });
+    useArxmlStore.getState().addDocument(parsed.value, result.outputPath, { template: true });
     closeDialog();
   }, [state.result, closeDialog]);
 

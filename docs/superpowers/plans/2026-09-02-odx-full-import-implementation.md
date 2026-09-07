@@ -56,10 +56,12 @@ Modify:
 ### Task 1: Raw ODX document and ID index
 
 **Files:**
+
 - Create: `src/core/odx/odxDocument.ts`
 - Test: `src/core/odx/__tests__/odxDocument.test.ts`
 
 **Interfaces:**
+
 - Produces: `parseOdxDocument(xml: string): OdxDocument`, types `OdxDocument`, `OdxRawElement`, `OdxVariantInfo`.
 
 - [ ] **Step 1: Write failing tests**
@@ -71,7 +73,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseOdxDocument } from '../odxDocument.js';
 
-const realXml = readFileSync('../../../../ClaudeAutosarWorkSpace/samples/odx/Demo_Cdd.odx-d', 'utf8');
+const realXml = readFileSync(
+  '../../../../ClaudeAutosarWorkSpace/samples/odx/Demo_Cdd.odx-d',
+  'utf8',
+);
 
 describe('parseOdxDocument', () => {
   it('indexes the real Vector CANdela fixture', () => {
@@ -132,10 +137,12 @@ git commit -m "feat(odx): add full ODX document parser and id index"
 ### Task 2: Inheritance layer resolver
 
 **Files:**
+
 - Create: `src/core/odx/layerResolver.ts`
 - Test: `src/core/odx/__tests__/layerResolver.test.ts`
 
 **Interfaces:**
+
 - Consumes: `OdxDocument`, `OdxRawElement`.
 - Produces: `resolveLayer(doc: OdxDocument, variantId: string): ResolvedLayer`.
 
@@ -176,10 +183,12 @@ git commit -m "feat(odx): resolve ODX diagnostic layer inheritance"
 ### Task 3: DOP resolver
 
 **Files:**
+
 - Create: `src/core/odx/dopResolver.ts`
 - Test: `src/core/odx/__tests__/dopResolver.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ResolvedLayer`.
 - Produces: `resolveDataObjects(layer: ResolvedLayer): { dataObjects: DimDataObject[]; warnings: DimWarning[] }`.
 
@@ -219,10 +228,12 @@ git commit -m "feat(odx): resolve ODX data object properties"
 ### Task 4: DIM types and builder
 
 **Files:**
+
 - Create: `src/core/odx/dim.ts`, `src/core/odx/dimBuilder.ts`
 - Test: `src/core/odx/__tests__/dimBuilder.test.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveLayer`, `resolveDataObjects`.
 - Produces: `buildDim(input: { document: OdxDocument; variantId: string; sourcePath: string }): Dim`.
 - Types: exact readonly interfaces from spec §4.
@@ -270,10 +281,12 @@ git commit -m "feat(odx): build diagnostic intermediate model"
 ### Task 5: Spine-keyed BSWMD index
 
 **Files:**
+
 - Create: `src/core/odx/bswmdDefIndex.ts`
 - Test: `src/core/odx/__tests__/bswmdDefIndex.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BswmdDocument` from `src/core/project/bswmd.js`.
 - Produces: `buildBswmdDefIndex(bswmds: ReadonlyMap<string, BswModuleDef>): BswmdDefIndex`.
 
@@ -290,7 +303,9 @@ export interface BswmdDefIndex {
 
 ```ts
 const key = 'DcmConfigSet/DcmDsp/DcmDspDid';
-expect(index.containerPath.get(key)).toBe('/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid');
+expect(index.containerPath.get(key)).toBe(
+  '/AUTOSAR_R22/EcucDefs/Dcm/DcmConfigSet/DcmDsp/DcmDspDid',
+);
 expect(index.paramPath.get(`${key}/DcmDspDidIdentifier`)).toBeDefined();
 ```
 
@@ -320,10 +335,12 @@ git commit -m "feat(odx): build spine-keyed BSWMD definition index"
 ### Task 6: Deterministic short-name helper
 
 **Files:**
+
 - Create: `src/core/odx/shortName.ts`
 - Test: `src/core/odx/__tests__/shortName.test.ts`
 
 **Interfaces:**
+
 - Produces: `legalizeShortName(raw: string, fallback: string): string`, `dedupeShortName(base: string, taken: ReadonlySet<string>): string`.
 
 - [ ] **Step 1: Write failing tests**
@@ -361,10 +378,12 @@ git commit -m "feat(odx): add deterministic short-name legalization"
 ### Task 7: Dcm mapper
 
 **Files:**
+
 - Create: `src/core/odx/dcmMapper.ts`
 - Test: `src/core/odx/__tests__/dcmMapper.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Dim`, `BswmdDefIndex`.
 - Produces: `mapDcm(dim: Dim, index: BswmdDefIndex): { module: ArxmlModule; warnings: DimWarning[] }`.
 
@@ -374,7 +393,7 @@ Use DIM fixtures built from explicit objects. Assert standard AST shapes, not st
 
 ```ts
 const did = module.children
-  .flatMap((c) => c.kind === 'container' ? [c] : [])
+  .flatMap((c) => (c.kind === 'container' ? [c] : []))
   .find((c) => c.definitionRef?.endsWith('/DcmDspDid') && c.shortName === 'DID_F186');
 expect(did?.params.DcmDspDidIdentifier).toMatchObject({ type: 'integer', value: 0xf186 });
 ```
@@ -405,10 +424,12 @@ git commit -m "feat(odx): map DIM to standard Dcm ECUC"
 ### Task 8: Dem mapper and mapping facade
 
 **Files:**
+
 - Create: `src/core/odx/demMapper.ts`, `src/core/odx/mapDimToEcuc.ts`
 - Test: `src/core/odx/__tests__/demMapper.test.ts`, `src/core/odx/__tests__/mapDimToEcuc.test.ts`
 
 **Interfaces:**
+
 - Produces: exact `mapDimToEcuc(req: MapDimToEcucRequest): MapDimToEcucResult` from spec §6.1.
 
 - [ ] **Step 1: Write failing Dem tests**
@@ -417,7 +438,7 @@ Assert DTC containers, event parameters, deterministic event IDs, severity liter
 
 ```ts
 const event = module.children
-  .flatMap((c) => c.kind === 'container' ? [c] : [])
+  .flatMap((c) => (c.kind === 'container' ? [c] : []))
   .find((c) => c.definitionRef?.endsWith('/DemEventParameter'));
 expect(event?.params.DemEventId).toMatchObject({ type: 'integer', value: 1 });
 ```
@@ -467,11 +488,13 @@ git commit -m "feat(odx): map DIM to Dcm and Dem ECUC modules"
 ### Task 9: Staging emitter and old IPC reroute
 
 **Files:**
+
 - Create: `src/core/odx/dimToDiagnosticExtract.ts`
 - Modify: `src/main/ipc/odxImportDiagnosticExtractHandler.ts`
 - Test: `src/core/odx/__tests__/dimToDiagnosticExtract.test.ts`, `src/main/ipc/__tests__/odxImportDiagnosticExtractHandler.test.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
@@ -522,10 +545,12 @@ git commit -m "refactor(odx): route staging export through DIM and standard ECUC
 ### Task 10: Provenance hash, classification, and merge
 
 **Files:**
+
 - Create: `src/core/odx/threeWayMerge.ts`
 - Test: `src/core/odx/__tests__/threeWayMerge.test.ts`
 
 **Interfaces:**
+
 - Produces:
 
 ```ts
@@ -579,11 +604,13 @@ git commit -m "feat(odx): add provenance classification and three-way merge"
 ### Task 11: Additive IPC DTOs and preview handler
 
 **Files:**
+
 - Create: `src/shared/types/odx-import.ts`, `src/main/ipc/odxImportPreviewHandler.ts`
 - Modify: `src/shared/ipc-contract.ts`, `src/preload/index.ts`
 - Test: `src/main/ipc/__tests__/odxImportPreviewHandler.test.ts`
 
 **Interfaces:**
+
 - Produces IPC:
 
 ```ts
@@ -648,11 +675,13 @@ git commit -m "feat(odx): add deterministic full-import preview IPC"
 ### Task 12: Commit handler, manifest persistence, and reload
 
 **Files:**
+
 - Create: `src/main/ipc/odxImportCommitHandler.ts`
 - Modify: manifest mutation helper if required by existing architecture.
 - Test: `src/main/ipc/__tests__/odxImportCommitHandler.test.ts`
 
 **Interfaces:**
+
 - Consumes: preview pipeline, `mergeModuleThreeWay`, `writeAtomic`, existing patch/serializer utilities.
 - Produces: commit response exactly spec §9.1.
 
@@ -707,11 +736,13 @@ git commit -m "feat(odx): add reviewed ODX import commit and provenance manifest
 ### Task 13: Import wizard UI
 
 **Files:**
+
 - Create: `src/renderer/components/OdxImportWizard/OdxImportWizard.tsx`, `useOdxImportWizard.ts`, `OdxImportWizard.css`, tests
 - Modify: `src/renderer/AppHeader.tsx`, app hook wiring, i18n files
 - Test: `src/renderer/components/OdxImportWizard/__tests__/OdxImportWizard.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.odxImportPreview`, `api.odxImportCommit`, renderer `dirtyPaths`, current project manifest path.
 - Produces: user flow file select → variant select → preview/decision → confirm → done.
 
@@ -764,11 +795,13 @@ git commit -m "feat(odx): add reviewed ODX-D import wizard"
 ### Task 14: Migrate DCM xlsx pipeline and remove old mapper
 
 **Files:**
+
 - Modify: `src/core/bridge/dcmConfigPipeline.ts`, related DCM handler tests
 - Delete: `src/core/bridge/odxToDiagnosticExtract.ts` and its tests
 - Test: `src/core/bridge/__tests__/dcmConfigPipeline*.test.ts`, `src/main/ipc/__tests__/dcmConfigHandler.test.ts`
 
 **Interfaces:**
+
 - Consumes: `buildDim`, `Dim.services`, `Dim.dataObjects`.
 - Produces: same xlsx DCM output contract, now sourced from DIM.
 
@@ -806,6 +839,7 @@ git commit -m "refactor(dcm): source xlsx pipeline from ODX DIM"
 ### Task 15: Full verification
 
 **Files:**
+
 - No production changes expected.
 
 - [ ] **Step 1: Run all targeted suites**

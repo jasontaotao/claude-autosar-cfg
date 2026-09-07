@@ -52,7 +52,16 @@ export interface DcmConfigSuccessDialogProps {
 }
 
 export function DcmConfigSuccessDialog(props: DcmConfigSuccessDialogProps): JSX.Element | null {
-  const { open, result, locale, onClose, onGenerateNew, onOpenInWorkspace, history, onReuseFromHistory } = props;
+  const {
+    open,
+    result,
+    locale,
+    onClose,
+    onGenerateNew,
+    onOpenInWorkspace,
+    history,
+    onReuseFromHistory,
+  } = props;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {

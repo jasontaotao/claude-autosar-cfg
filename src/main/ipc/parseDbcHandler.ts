@@ -23,6 +23,7 @@
 import { parseDbc } from '@dbc-forge/core';
 import type { Network } from '@dbc-forge/core';
 
+import { normalizeCanId } from '../../core/dbc/canId.js';
 import type {
   DbcMessageSummary,
   DbcSummary,
@@ -121,7 +122,8 @@ function summarizeNetwork(network: Network): DbcSummary {
   const nodes: string[] = network.nodes.map((n) => n.name);
   const messages: DbcMessageSummary[] = network.messages
     .map<DbcMessageSummary>((m) => ({
-      id: m.id,
+      // Vector bit-31 扩展帧标志统一归一化（见 core/dbc/canId.ts）。
+      id: normalizeCanId(m.id),
       name: m.name,
       dlc: m.dlc,
       // @dbc-forge core exposes the primary transmitter as a plain

@@ -24,3 +24,4 @@ export * from './project-manifest.js';
 export * from './script.js';
 export * from './dcm.js';
 export * from './odx-import.js';
+export * from './dbc-import.js';

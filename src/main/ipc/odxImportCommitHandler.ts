@@ -5,12 +5,10 @@
 // module documents + project manifest + provenance state with rollback of
 // every file it touched.
 
-import { promises as fs, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { promises as fs, statSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 
-import { loadManifest } from '../../core/project/manifest.js';
-import type { ProjectManifest } from '../../shared/project.js';
 import { parseArxml } from '../../core/arxml/parser.js';
 import { serializeArxml } from '../../core/arxml/serializer.js';
 import type {
@@ -20,25 +18,16 @@ import type {
   ArxmlPackage,
 } from '../../core/arxml/types.js';
 import { applyPatchesToDocument } from '../../core/import/patch.js';
-import type { DimWarning } from '../../core/odx/dim.js';
 import type { ImportPatchOp } from '../../core/import/types.js';
+import type { DimWarning } from '../../core/odx/dim.js';
 import {
   collectImportContainers,
   hashContainerForProvenance,
   mergeModuleThreeWay,
 } from '../../core/odx/threeWayMerge.js';
-
-import { writeAtomic } from '../io/writeAtomic.js';
+import { loadManifest } from '../../core/project/manifest.js';
 import { isPathInsideReal } from '../../shared/paths/isPathInsideReal.js';
-import { getOpenProjectManifestPath } from './project-manifest-state.js';
-import { readFileWithCap } from './sizeCap.js';
-import {
-  computeOdxImportMappedModules,
-  readProvenanceManifest,
-  computeOdxImportPreview,
-  formatStructuredParseError,
-} from './odxImportPreviewHandler.js';
-
+import type { ProjectManifest } from '../../shared/project.js';
 import type {
   OdxImportCommitRequest,
   OdxImportCommitResponse,
@@ -46,6 +35,16 @@ import type {
   OdxImportModule,
   OdxImportRow,
 } from '../../shared/types/odx-import.js';
+import { writeAtomic } from '../io/writeAtomic.js';
+
+import {
+  computeOdxImportMappedModules,
+  readProvenanceManifest,
+  computeOdxImportPreview,
+  formatStructuredParseError,
+} from './odxImportPreviewHandler.js';
+import { getOpenProjectManifestPath } from './project-manifest-state.js';
+import { readFileWithCap } from './sizeCap.js';
 
 const PROVENANCE_PATH = join('.autosarcfg', 'odx-import-manifest.json');
 
@@ -322,6 +321,7 @@ export async function odxImportCommitHandler(
         baseContainers,
         currentContainers,
         incomingContainers,
+        removedCategoryLabel: 'removed-in-odx',
         decisions,
       });
       mergedRows.push({ module: mergedModule, rows });

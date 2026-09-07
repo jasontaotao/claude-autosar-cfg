@@ -78,22 +78,22 @@
 }
 
 .badge-added {
-  background: color-mix(in srgb, #a6e3a1 25%, transparent);
+  background: color-mix(in srgb, var(--accent-emerald) 25%, transparent);
 }
 .badge-updated {
-  background: color-mix(in srgb, #89b4fa 25%, transparent);
+  background: color-mix(in srgb, var(--brand-400) 25%, transparent);
 }
 .badge-locally-modified {
-  background: color-mix(in srgb, #9399b2 25%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
 }
 .badge-conflict {
-  background: color-mix(in srgb, #fab387 30%, transparent);
+  background: color-mix(in srgb, var(--accent-amber) 30%, transparent);
 }
 .badge-converged {
-  background: color-mix(in srgb, #9399b2 25%, transparent);
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
 }
 .badge-removed-in-odx {
-  background: color-mix(in srgb, #f38ba8 30%, transparent);
+  background: color-mix(in srgb, var(--accent-rose) 30%, transparent);
 }
 
 .odx-import-primary,
@@ -107,8 +107,8 @@
   border: none;
   border-radius: 4px;
   padding: 0.5rem 0.8rem;
-  background: var(--accent-blue, #89b4fa);
-  color: #11111b;
+  background: var(--brand-400);
+  color: var(--text-primary);
 }
 
 .odx-import-actions {
@@ -122,10 +122,10 @@
 }
 
 .odx-import-error {
-  background: rgba(243, 139, 168, 0.14);
+  background: color-mix(in srgb, var(--accent-rose) 14%, transparent);
 }
 .odx-import-dirty {
-  background: rgba(250, 179, 135, 0.14);
+  background: color-mix(in srgb, var(--accent-amber) 14%, transparent);
 }
 
 .odx-import-muted {

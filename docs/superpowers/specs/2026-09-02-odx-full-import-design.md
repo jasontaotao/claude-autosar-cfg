@@ -28,12 +28,12 @@
 
 ### 1.3 废止与吸收
 
-| 资产 | 处置 |
-|---|---|
-| `src/core/bridge/odxToDiagnosticExtract.ts` | **删除**（§9 迁移完成后）。功能由 `dimToDiagnosticExtract.ts`（§8）取代 |
-| `parseOdxHandler.ts` + `OdxSummary`（`shared/types/odx.ts`） | **保留**，继续服务 OdxViewer 三表摘要。与新解析层双通道并存（§3.4） |
-| 2026-09-02 correctness plan | **废止**。其 Task 1/2（数值 identifier）由 §4.2 吸收；Task 3（definition-ref + PARAMETER-VALUES）由 §6 映射器吸收；Task 5（DcmDsdService）由 §6.3.1 吸收；Task 6（Dem ECUC 结构）由 §6.3.4 + §8.1 吸收 |
-| `odx:importDiagnosticExtract` IPC | **契约保留**，实现重接到新 emitter（§8.2） |
+| 资产                                                         | 处置                                                                                                                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core/bridge/odxToDiagnosticExtract.ts`                  | **删除**（§9 迁移完成后）。功能由 `dimToDiagnosticExtract.ts`（§8）取代                                                                                                                                |
+| `parseOdxHandler.ts` + `OdxSummary`（`shared/types/odx.ts`） | **保留**，继续服务 OdxViewer 三表摘要。与新解析层双通道并存（§3.4）                                                                                                                                    |
+| 2026-09-02 correctness plan                                  | **废止**。其 Task 1/2（数值 identifier）由 §4.2 吸收；Task 3（definition-ref + PARAMETER-VALUES）由 §6 映射器吸收；Task 5（DcmDsdService）由 §6.3.1 吸收；Task 6（Dem ECUC 结构）由 §6.3.4 + §8.1 吸收 |
+| `odx:importDiagnosticExtract` IPC                            | **契约保留**，实现重接到新 emitter（§8.2）                                                                                                                                                             |
 
 ### 1.4 非目标（Non-goals）
 
@@ -100,8 +100,8 @@ export interface OdxDocument {
   readonly layers: readonly OdxRawElement[];
   /** 可导入变体清单（wizard 变体选择器数据源）。 */
   readonly importableVariants: readonly OdxVariantInfo[];
-  readonly modelVersion: string;           // <ODX MODEL-VERSION="...">
-  readonly adminRevision?: string;         // 最后一个 DOC-REVISION 的 REVISION-LABEL
+  readonly modelVersion: string; // <ODX MODEL-VERSION="...">
+  readonly adminRevision?: string; // 最后一个 DOC-REVISION 的 REVISION-LABEL
 }
 
 export interface OdxVariantInfo {
@@ -119,6 +119,7 @@ export interface OdxRawElement {
 ```
 
 规则：
+
 - 解析器 **必须** 复用现有 `fast-xml-parser` 配置（`parseOdxHandler.ts:51-59` 同款，`parseTagValue: false`）。
 - `OdxRawElement` 是不可变规范形态；`children` 的 key 是 tag 名，value 保持文档序。
 - **不得** 在这一层丢弃任何 DIAG-LAYER 子树；选择性提取是 `dimBuilder` 的职责。
@@ -129,6 +130,7 @@ export interface OdxRawElement {
 **输出**：`ResolvedLayer` = 目标变体**自身声明 + 全部祖先层元素**的扁平化集合。
 
 算法（必须严格按此）：
+
 1. 从目标变体沿 `PARENT-REFS/PARENT-REF` 的 `ID-REF` 向上走（经 `idIndex` 解析），DFS 收集链 `[self, parent, grandparent, …]`。成环 → 硬错误 `odx-inheritance-cycle`（附链上路名）。
 2. 元素合并优先级：**子层覆盖父层**。同 `ID` 元素以链中更靠前者（更子的层）为准。
 3. 排除：`NOT-INHERITED-DIAG-COMMS/NOT-INHERITED-DIAG-COMM/DIAG-COMM-SNREF` 列出的 SHORT-NAME **必须** 从合并结果的 DIAG-SERVICE 集中剔除。
@@ -138,21 +140,21 @@ export interface OdxRawElement {
 
 对 `ResolvedLayer` 中每个 `DATA-OBJECT-PROP` / `DTC-DOP` 产出 `DimDataObject`（§4）。COMPU-METHOD 类别支持矩阵：
 
-| CATEGORY | 支持 | DIM 表示 |
-|---|---|---|
-| `IDENTICAL` | 必须 | `{ kind: 'identical' }` |
-| `LINEAR` | 必须 | `{ kind: 'linear', factor, offset }`（`COMPU-NUMERATOR` V0/V1 + `COMPU-DENOMINATOR` V0；分母≠1 → factor 相除） |
-| `TEXTTABLE` | 必须 | `{ kind: 'texttable', entries: [{lower, upper, text}] }` |
-| `SCALE-LINEAR` | 必须 | `{ kind: 'scale-linear', segments: [{lower, upper, factor, offset}] }` |
-| `RAT-FUNC` / `TAB-INTP` / 其他 | 不映射 | warning `odx-unsupported-compu`，`compuMethod` 置 `undefined`（DOP 其余字段保留） |
+| CATEGORY                       | 支持   | DIM 表示                                                                                                       |
+| ------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------- |
+| `IDENTICAL`                    | 必须   | `{ kind: 'identical' }`                                                                                        |
+| `LINEAR`                       | 必须   | `{ kind: 'linear', factor, offset }`（`COMPU-NUMERATOR` V0/V1 + `COMPU-DENOMINATOR` V0；分母≠1 → factor 相除） |
+| `TEXTTABLE`                    | 必须   | `{ kind: 'texttable', entries: [{lower, upper, text}] }`                                                       |
+| `SCALE-LINEAR`                 | 必须   | `{ kind: 'scale-linear', segments: [{lower, upper, factor, offset}] }`                                         |
+| `RAT-FUNC` / `TAB-INTP` / 其他 | 不映射 | warning `odx-unsupported-compu`，`compuMethod` 置 `undefined`（DOP 其余字段保留）                              |
 
 DIAG-CODED-TYPE 支持矩阵：
 
-| `xsi:type` | 支持 | `codedType` 表示 |
-|---|---|---|
-| `STANDARD-LENGTH-TYPE` | 必须 | `{ kind: 'standard', bitLength }` |
-| `MIN-MAX-LENGTH-TYPE` | 必须 | `{ kind: 'minmax', minBytes, maxBytes, termination }`（取 `MAX-LENGTH` 为长度上限；`TERMINATION` 属性原样保留） |
-| `PARAM-LENGTH-INFO-TYPE` / `LEADING-LENGTH-INFO-TYPE` / 无 type | 不映射长度 | warning；`codedType.kind = 'opaque'` |
+| `xsi:type`                                                      | 支持       | `codedType` 表示                                                                                                |
+| --------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
+| `STANDARD-LENGTH-TYPE`                                          | 必须       | `{ kind: 'standard', bitLength }`                                                                               |
+| `MIN-MAX-LENGTH-TYPE`                                           | 必须       | `{ kind: 'minmax', minBytes, maxBytes, termination }`（取 `MAX-LENGTH` 为长度上限；`TERMINATION` 属性原样保留） |
+| `PARAM-LENGTH-INFO-TYPE` / `LEADING-LENGTH-INFO-TYPE` / 无 type | 不映射长度 | warning；`codedType.kind = 'opaque'`                                                                            |
 
 `BASE-DATA-TYPE` / `BASE-TYPE-ENCODING` 原样保留字符串（映射层负责归一化，§6.5）。
 
@@ -166,14 +168,14 @@ DIAG-CODED-TYPE 支持矩阵：
 
 在现有 `odx-malformed` / `odx-too-large` 之外新增：
 
-| kind | 触发 |
-|---|---|
-| `odx-no-variant` | 文件无 BASE-VARIANT 且无 ECU-VARIANT |
-| `odx-variant-not-found` | `importCommit` 传入的 variantId 不存在 |
-| `odx-inheritance-cycle` | PARENT-REF 成环 |
-| `odx-bswmd-not-loaded` | 映射时 Dcm/Dem BSWMD 索引不可用（§6.2） |
-| `odx-target-dirty` | 目标模块文档在 workspace 有未保存修改（§7.3 前置检查） |
-| `odx-commit-mismatch` | commit 重算的预览哈希与 preview 返回的不一致（确定性被破坏的信号，防御性） |
+| kind                    | 触发                                                                       |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `odx-no-variant`        | 文件无 BASE-VARIANT 且无 ECU-VARIANT                                       |
+| `odx-variant-not-found` | `importCommit` 传入的 variantId 不存在                                     |
+| `odx-inheritance-cycle` | PARENT-REF 成环                                                            |
+| `odx-bswmd-not-loaded`  | 映射时 Dcm/Dem BSWMD 索引不可用（§6.2）                                    |
+| `odx-target-dirty`      | 目标模块文档在 workspace 有未保存修改（§7.3 前置检查）                     |
+| `odx-commit-mismatch`   | commit 重算的预览哈希与 preview 返回的不一致（确定性被破坏的信号，防御性） |
 
 ---
 
@@ -185,77 +187,82 @@ DIAG-CODED-TYPE 支持矩阵：
 export interface Dim {
   readonly meta: DimMeta;
   readonly services: readonly DimService[];
-  readonly dataObjects: readonly DimDataObject[];   // DOP 池，被 DimParam.dataObjectRef 引用
+  readonly dataObjects: readonly DimDataObject[]; // DOP 池，被 DimParam.dataObjectRef 引用
   readonly dtcs: readonly DimDtc[];
-  readonly sessions: readonly DimSession[];          // 按 value 升序去重
+  readonly sessions: readonly DimSession[]; // 按 value 升序去重
   readonly securityLevels: readonly DimSecurityLevel[]; // 按 level 升序去重
   readonly warnings: readonly DimWarning[];
 }
 
 export interface DimMeta {
-  readonly sourcePath: string;        // 导入用；序列化进 manifest
+  readonly sourcePath: string; // 导入用；序列化进 manifest
   readonly modelVersion: string;
-  readonly variant: OdxVariantInfo;   // 实际解析的变体
+  readonly variant: OdxVariantInfo; // 实际解析的变体
   readonly adminRevision?: string;
 }
 
 export type DimServiceClass =
-  | 'DiagnosticSessionControl'        // 0x10
-  | 'ECUReset'                        // 0x11
-  | 'ClearDiagnosticInformation'      // 0x14
-  | 'ReadDTCInformation'              // 0x19
-  | 'ReadDataByIdentifier'            // 0x22
-  | 'SecurityAccess'                  // 0x27
-  | 'CommunicationControl'            // 0x28
-  | 'WriteDataByIdentifier'           // 0x2E
-  | 'InputOutputControlByIdentifier'  // 0x2F
-  | 'RoutineControl'                  // 0x31
-  | 'RequestDownload'                 // 0x34
-  | 'RequestUpload'                   // 0x35
-  | 'TransferData'                    // 0x36
-  | 'RequestTransferExit'             // 0x37
-  | 'TesterPresent'                   // 0x3E
-  | 'ControlDTCSetting'               // 0x85
+  | 'DiagnosticSessionControl' // 0x10
+  | 'ECUReset' // 0x11
+  | 'ClearDiagnosticInformation' // 0x14
+  | 'ReadDTCInformation' // 0x19
+  | 'ReadDataByIdentifier' // 0x22
+  | 'SecurityAccess' // 0x27
+  | 'CommunicationControl' // 0x28
+  | 'WriteDataByIdentifier' // 0x2E
+  | 'InputOutputControlByIdentifier' // 0x2F
+  | 'RoutineControl' // 0x31
+  | 'RequestDownload' // 0x34
+  | 'RequestUpload' // 0x35
+  | 'TransferData' // 0x36
+  | 'RequestTransferExit' // 0x37
+  | 'TesterPresent' // 0x3E
+  | 'ControlDTCSetting' // 0x85
   | 'Unknown';
 
 export interface DimService {
-  readonly odxId: string;             // DIAG-SERVICE 的 ID —— provenance 锚点
-  readonly shortName: string;         // 原始 ODX SHORT-NAME（未合法化）
+  readonly odxId: string; // DIAG-SERVICE 的 ID —— provenance 锚点
+  readonly shortName: string; // 原始 ODX SHORT-NAME（未合法化）
   readonly longName?: string;
-  readonly semantic?: string;         // DIAG-SERVICE SEMANTIC 原值（STOREDDATA 等）
+  readonly semantic?: string; // DIAG-SERVICE SEMANTIC 原值（STOREDDATA 等）
   readonly serviceClass: DimServiceClass;
-  readonly sid: number;               // 0-255；提取规则 §4.2
-  readonly subFunction?: number;      // 已按 §4.2 屏蔽 0x80 抑制位
-  readonly request: readonly DimParam[];        // bytePosition 升序
+  readonly sid: number; // 0-255；提取规则 §4.2
+  readonly subFunction?: number; // 已按 §4.2 屏蔽 0x80 抑制位
+  readonly request: readonly DimParam[]; // bytePosition 升序
   readonly posResponses: readonly (readonly DimParam[])[];
   readonly negResponseCodes: readonly string[]; // NRC-CONST 显示值（如 "0x22"），原样
   readonly sdgAnnotations: Readonly<Record<string, string>>; // SDG 拍平：SI → 文本
-  readonly sessionRefs: readonly number[];      // 关联会话 value 集（推导 §4.6）；空 = 所有会话可用
-  readonly securityRefs: readonly number[];     // 关联安全等级 level 集（推导 §4.6）；空 = 无安全要求
+  readonly sessionRefs: readonly number[]; // 关联会话 value 集（推导 §4.6）；空 = 所有会话可用
+  readonly securityRefs: readonly number[]; // 关联安全等级 level 集（推导 §4.6）；空 = 无安全要求
 }
 
 export interface DimParam {
-  readonly name: string;              // PARAM SHORT-NAME
-  readonly semantic?: string;         // SEMANTIC 原值
-  readonly codedValue?: string;       // CODED-VALUE 原值（数值化在各消费点做）
-  readonly bytePosition: number;      // BYTE-POSITION；缺省按文档序补
+  readonly name: string; // PARAM SHORT-NAME
+  readonly semantic?: string; // SEMANTIC 原值
+  readonly codedValue?: string; // CODED-VALUE 原值（数值化在各消费点做）
+  readonly bytePosition: number; // BYTE-POSITION；缺省按文档序补
   readonly bitPosition?: number;
-  readonly dataObjectRef?: string;    // DOP-DATA-OBJECT-PROP-REF → DimDataObject.odxId
+  readonly dataObjectRef?: string; // DOP-DATA-OBJECT-PROP-REF → DimDataObject.odxId
 }
 
 export interface DimDataObject {
   readonly odxId: string;
   readonly shortName: string;
   readonly codedType: DimCodedType;
-  readonly baseDataType: string;      // A_UINT32 / A_ASCIISTRING / …原值
-  readonly encoding: string;          // NONE / 2C / IEEE-FLOAT32 / …原值，缺省 "NONE"
+  readonly baseDataType: string; // A_UINT32 / A_ASCIISTRING / …原值
+  readonly encoding: string; // NONE / 2C / IEEE-FLOAT32 / …原值，缺省 "NONE"
   readonly compuMethod?: DimCompuMethod;
   readonly unit?: DimUnit;
 }
 
 export type DimCodedType =
   | { readonly kind: 'standard'; readonly bitLength: number }
-  | { readonly kind: 'minmax'; readonly minBytes: number; readonly maxBytes: number; readonly termination?: string }
+  | {
+      readonly kind: 'minmax';
+      readonly minBytes: number;
+      readonly maxBytes: number;
+      readonly termination?: string;
+    }
   | { readonly kind: 'opaque' };
 
 export type DimCompuMethod =
@@ -264,36 +271,50 @@ export type DimCompuMethod =
   | { readonly kind: 'texttable'; readonly entries: readonly DimTextTableEntry[] }
   | { readonly kind: 'scale-linear'; readonly segments: readonly DimLinearSegment[] };
 
-export interface DimTextTableEntry { readonly lower: number; readonly upper: number; readonly text: string }
-export interface DimLinearSegment { readonly lower: number; readonly upper: number; readonly factor: number; readonly offset: number }
-export interface DimUnit { readonly name: string; readonly displayName?: string; readonly factor?: number; readonly offset?: number }
+export interface DimTextTableEntry {
+  readonly lower: number;
+  readonly upper: number;
+  readonly text: string;
+}
+export interface DimLinearSegment {
+  readonly lower: number;
+  readonly upper: number;
+  readonly factor: number;
+  readonly offset: number;
+}
+export interface DimUnit {
+  readonly name: string;
+  readonly displayName?: string;
+  readonly factor?: number;
+  readonly offset?: number;
+}
 
 export interface DimDtc {
   readonly odxId: string;
   readonly shortName: string;
-  readonly troubleCode: number;       // 数值化规则 §4.3；解析失败 → 该 DTC 整体进 warning 跳过
-  readonly displayCode?: string;      // DISPLAY-TROUBLE-CODE（J2012）
-  readonly text?: string;             // TEXT
-  readonly severity?: string;         // DTC-SEVERITY 原值（归一化在映射层，§6.3.4）
-  readonly functionalUnit?: number;   // FUNCTIONAL-UNIT 数值化
+  readonly troubleCode: number; // 数值化规则 §4.3；解析失败 → 该 DTC 整体进 warning 跳过
+  readonly displayCode?: string; // DISPLAY-TROUBLE-CODE（J2012）
+  readonly text?: string; // TEXT
+  readonly severity?: string; // DTC-SEVERITY 原值（归一化在映射层，§6.3.4）
+  readonly functionalUnit?: number; // FUNCTIONAL-UNIT 数值化
 }
 
 export interface DimSession {
-  readonly name: string;              // SDG DiagInstanceQualifier 优先，否则服务 SHORT-NAME
-  readonly value: number;             // 0x10 服务 subFunction（已屏蔽 0x80）
+  readonly name: string; // SDG DiagInstanceQualifier 优先，否则服务 SHORT-NAME
+  readonly value: number; // 0x10 服务 subFunction（已屏蔽 0x80）
   // P2/P2* 不可得（§5.1），此模型不携带；BSWMD 默认值生效。
 }
 
 export interface DimSecurityLevel {
   readonly name: string;
-  readonly level: number;             // 推导规则 §4.5
-  readonly seedBytes?: number;        // 从 RequestSeed 正响应 DOP bitLength/8 推导
-  readonly keyBytes?: number;         // 从 SendKey 请求 key 参数 DOP bitLength/8 推导
+  readonly level: number; // 推导规则 §4.5
+  readonly seedBytes?: number; // 从 RequestSeed 正响应 DOP bitLength/8 推导
+  readonly keyBytes?: number; // 从 SendKey 请求 key 参数 DOP bitLength/8 推导
 }
 
 export interface DimWarning {
-  readonly code: string;              // §11 取值集合
-  readonly elementRef: string;        // ODX ID 或 SHORT-NAME
+  readonly code: string; // §11 取值集合
+  readonly elementRef: string; // ODX ID 或 SHORT-NAME
   readonly message: string;
 }
 ```
@@ -325,6 +346,7 @@ SID 优先；SID 缺失时按 SEMANTIC 兜底（`SESSION→0x10`、`SECURITY→0
 ### 4.6 会话/安全依赖推导（sessionRefs / securityRefs）
 
 数据源（按优先级）：
+
 1. **PRE-CONDITION-STATE-REFS**：服务的 `PRE-CONDITION-STATE-REF ID-REF` → STATE 元素 → 其 SHORT-NAME 与 `DimSession.name`（§4.4）/ `DimSecurityLevel.name`（§4.5）做大小写不敏感匹配；命中 → 加入对应 refs 集。
 2. **SDG 标注**：`sdgAnnotations` 中 key 含 `Session`/`Security`（大小写不敏感）的值做同样匹配。
 
@@ -339,6 +361,7 @@ SID 优先；SID 缺失时按 SEMANTIC 兜底（`SESSION→0x10`、`SECURITY→0
 真实文件证实：`COMPARAM-REF ID-REF="ISO_15765_2.CP_CanFuncReqId" DOCREF="ISO_15765_2" DOCTYPE="COMPARAM-SUBSET"` —— 参数**定义**在外部文档（正常经 .pdx 分发），独立 .odx-d 不含该文档。
 
 规则：
+
 - `COMPARAM-REF` 的 `SIMPLE-VALUE[0]` 是内联值，**可** 读取用于报告展示（如 CAN ID）。
 - **不得** 尝试解析 `DOCREF` 外部文档。
 - P2/P2\*、CAN ID 等协议层参数 **不进入** DIM 与映射输出（§1.4 非目标）；映射器对 `DcmDspSessionRow` 的 P2 类参数 **必须** 填 §6.6 默认值（BSWMD 必填），并产生一条 warning `odx-comparam-external` 进导入报告。
@@ -352,11 +375,11 @@ SID 优先；SID 缺失时按 SEMANTIC 兜底（`SESSION→0x10`、`SECURITY→0
 ```typescript
 export interface MapDimToEcucRequest {
   readonly dim: Dim;
-  readonly bswmdIndex: BswmdDefIndex;   // §6.2
+  readonly bswmdIndex: BswmdDefIndex; // §6.2
 }
 export interface MapDimToEcucResult {
-  readonly modules: readonly ArxmlModule[];   // 恰好 2 个：Dcm、Dem（内容可空但模块必出）
-  readonly warnings: readonly DimWarning[];   // 映射期 warning，并入导入报告
+  readonly modules: readonly ArxmlModule[]; // 恰好 2 个：Dcm、Dem（内容可空但模块必出）
+  readonly warnings: readonly DimWarning[]; // 映射期 warning，并入导入报告
 }
 export function mapDimToEcuc(req: MapDimToEcucRequest): MapDimToEcucResult;
 ```
@@ -414,96 +437,96 @@ ECUC-MODULE-CONFIGURATION-VALUES(Dem)
 
 #### 6.3.1 服务类映射（Dcm）
 
-| DimServiceClass | 生成内容（容器实例短名 ← DIM 来源） |
-|---|---|
-| 0x22 ReadDataByIdentifier | `DcmDspDid/<DidName>`（池化 §6.4.1）+ `DcmDspDidInfo/<DidName>_Info`（含 `DcmDspDidRead` 子容器）+ 每 DOP 一个 `DcmDspData/<DopName>`（按 DOP odxId 去重）+ `DcmDsdService` 行 |
-| 0x2E WriteDataByIdentifier | 命中同一 DID 池；其 `DcmDspDidInfo` 增加 `DcmDspDidWrite` 子容器 + `DcmDsdService` 行 |
-| 0x2F InputOutputControlByIdentifier | 命中同一 DID 池；`DcmDspDidInfo` 增加 `DcmDspDidControl` 子容器 + `DcmDsdService` 行 |
-| 0x31 RoutineControl | `DcmDspRoutine/<RoutineName>` + `DcmDsdService` 行。routine 的请求/响应参数**不映射**为信号级子容器（DcmDspStartRoutine 等），进 warning `odx-routine-params-not-mapped`（§1.4 后续工作） |
-| 0x10 DiagnosticSessionControl | 每个 `DimSession` 一个 `DcmDspSessionRow/<SessionName>` + `DcmDsdService` 行 |
-| 0x27 SecurityAccess | 每个 `DimSecurityLevel` 一个 `DcmDspSecurityRow/<LevelName>` + `DcmDsdService` 行（RequestSeed/SendKey 的 subFunction 进 DcmDsdSubService，引用同一 SecurityRow） |
-| 0x19 ReadDTCInformation | `DcmDspReadDTCInformation` 空壳（0..1，任一 0x19 存在即生成）+ `DcmDsdService` 行；**每个 subFunction 一个 `DcmDsdSubService` 行**（`DcmDsdSubServiceId` ← subFunction） |
-| 0x14 ClearDiagnosticInformation | `DcmDspClearDTC` 空壳 + `DcmDsdService` 行 |
-| 0x28 CommunicationControl | `DcmDspComControl` 空壳 + `DcmDsdService` 行（通道分配是工程策略，不进 DcmDspComControlAllChannel） |
-| 0x85 ControlDTCSetting | `DcmDspControlDTCSetting` 空壳 + `DcmDsdService` 行 |
-| 0x11 ECUReset | `DcmDspEcuReset` 壳 + 每个 subFunction 一个 `DcmDspEcuResetRow/<SubName>` + `DcmDsdService` 行 |
-| 0x3E TesterPresent | 仅 `DcmDsdService` 行 |
-| 0x34/0x35/0x36/0x37 上下载 | 仅 `DcmDsdService` 行 + warning `odx-memory-service-not-mapped`（DcmDspMemory 内存描述是工程策略，§1.4 后续工作） |
-| Unknown | 不生成 + warning `odx-unknown-service-class` |
+| DimServiceClass                     | 生成内容（容器实例短名 ← DIM 来源）                                                                                                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0x22 ReadDataByIdentifier           | `DcmDspDid/<DidName>`（池化 §6.4.1）+ `DcmDspDidInfo/<DidName>_Info`（含 `DcmDspDidRead` 子容器）+ 每 DOP 一个 `DcmDspData/<DopName>`（按 DOP odxId 去重）+ `DcmDsdService` 行            |
+| 0x2E WriteDataByIdentifier          | 命中同一 DID 池；其 `DcmDspDidInfo` 增加 `DcmDspDidWrite` 子容器 + `DcmDsdService` 行                                                                                                     |
+| 0x2F InputOutputControlByIdentifier | 命中同一 DID 池；`DcmDspDidInfo` 增加 `DcmDspDidControl` 子容器 + `DcmDsdService` 行                                                                                                      |
+| 0x31 RoutineControl                 | `DcmDspRoutine/<RoutineName>` + `DcmDsdService` 行。routine 的请求/响应参数**不映射**为信号级子容器（DcmDspStartRoutine 等），进 warning `odx-routine-params-not-mapped`（§1.4 后续工作） |
+| 0x10 DiagnosticSessionControl       | 每个 `DimSession` 一个 `DcmDspSessionRow/<SessionName>` + `DcmDsdService` 行                                                                                                              |
+| 0x27 SecurityAccess                 | 每个 `DimSecurityLevel` 一个 `DcmDspSecurityRow/<LevelName>` + `DcmDsdService` 行（RequestSeed/SendKey 的 subFunction 进 DcmDsdSubService，引用同一 SecurityRow）                         |
+| 0x19 ReadDTCInformation             | `DcmDspReadDTCInformation` 空壳（0..1，任一 0x19 存在即生成）+ `DcmDsdService` 行；**每个 subFunction 一个 `DcmDsdSubService` 行**（`DcmDsdSubServiceId` ← subFunction）                  |
+| 0x14 ClearDiagnosticInformation     | `DcmDspClearDTC` 空壳 + `DcmDsdService` 行                                                                                                                                                |
+| 0x28 CommunicationControl           | `DcmDspComControl` 空壳 + `DcmDsdService` 行（通道分配是工程策略，不进 DcmDspComControlAllChannel）                                                                                       |
+| 0x85 ControlDTCSetting              | `DcmDspControlDTCSetting` 空壳 + `DcmDsdService` 行                                                                                                                                       |
+| 0x11 ECUReset                       | `DcmDspEcuReset` 壳 + 每个 subFunction 一个 `DcmDspEcuResetRow/<SubName>` + `DcmDsdService` 行                                                                                            |
+| 0x3E TesterPresent                  | 仅 `DcmDsdService` 行                                                                                                                                                                     |
+| 0x34/0x35/0x36/0x37 上下载          | 仅 `DcmDsdService` 行 + warning `odx-memory-service-not-mapped`（DcmDspMemory 内存描述是工程策略，§1.4 后续工作）                                                                         |
+| Unknown                             | 不生成 + warning `odx-unknown-service-class`                                                                                                                                              |
 
 **`DcmDsdService` 分组规则（normative）**：DcmDsdService 按 **SID 去重**——同一 SID 的多个 DimService 合并为一行 `DcmDsdService`（短名取组内 odxId 排序后首个服务的合法化 shortName + `_Svc` 后缀防重）；组内所有**不同** subFunction 值各生成一行 `DcmDsdSubService`（短名取该服务的合法化 shortName）。服务级 session/security refs 取组内并集；subservice 级 refs 取该 subFunction 对应服务的 refs。例：6 个 0x10 服务 → 1 行 DcmDsdService + 6 行 DcmDsdSubService；37 个 0x22 服务（无 subFunction）→ 1 行 DcmDsdService，`DcmDsdSidTabSubfuncAvail=false`，无 subservice。
 
 **每行 `DcmDsdService` 的参数**（`DcmDsdSubService` 同理，括号内为差异）：
 
-| 参数 | 值来源 |
-|---|---|
-| `DcmDsdServiceUsed` (bool, 必填) | `true` |
-| `DcmDsdSidTabServiceId` (int, 必填) | `DimService.sid` |
-| `DcmDsdSidTabSubfuncAvail` (bool, 必填) | `DimService.subFunction !== undefined` |
-| `DcmDsdSidTabSessionLevelRef` [0..INF] | `DimService.sessionRefs` 每个值 → 对应 `DcmDspSessionRow` 实例路径；空数组 → 不生成引用（= 所有会话可用） |
-| `DcmDsdSidTabSecurityLevelRef` [0..INF] | `DimService.securityRefs` 同理；空数组 → 不生成引用（= 无安全要求） |
-| （SubService）`DcmDsdSubServiceId` (int, 必填) | `DimService.subFunction`；`DcmDsdSubServiceUsed` = `true` |
+| 参数                                           | 值来源                                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `DcmDsdServiceUsed` (bool, 必填)               | `true`                                                                                                    |
+| `DcmDsdSidTabServiceId` (int, 必填)            | `DimService.sid`                                                                                          |
+| `DcmDsdSidTabSubfuncAvail` (bool, 必填)        | `DimService.subFunction !== undefined`                                                                    |
+| `DcmDsdSidTabSessionLevelRef` [0..INF]         | `DimService.sessionRefs` 每个值 → 对应 `DcmDspSessionRow` 实例路径；空数组 → 不生成引用（= 所有会话可用） |
+| `DcmDsdSidTabSecurityLevelRef` [0..INF]        | `DimService.securityRefs` 同理；空数组 → 不生成引用（= 无安全要求）                                       |
+| （SubService）`DcmDsdSubServiceId` (int, 必填) | `DimService.subFunction`；`DcmDsdSubServiceUsed` = `true`                                                 |
 
 #### 6.3.2 DID 相关容器参数（Dcm）
 
-| 容器/参数 | 值来源 |
-|---|---|
-| `DcmDspDid.DcmDspDidIdentifier` (int, 必填) | DID 数值（§4.2 提取）；缺失 → 整个 DcmDspDid 容器不生成（§6.4.1） |
-| `DcmDspDid.DcmDspDidSize` (int, 可选) | 数据参数字节总长（各 DOP 字节数按 bytePosition 求和；minmax 取 maxBytes） |
-| `DcmDspDid.DcmDspDidUsed` / `DcmDspDidUsePort` (必填) | 默认值表 §6.6 |
-| `DcmDspDid.DcmDspDidInfoRef` (ref, **必填 1..1**) | 本 DID 的 `DcmDspDidInfo` 实例路径 |
-| `DcmDspDid.DcmDspDidRef` [0..INF] | 各 `DcmDspData` 实例路径，按请求参数 bytePosition 升序。**不生成 `DcmDspDidSignal`**（现代信号形态列为后续工作） |
-| `DcmDspDidInfo.DcmDspDidDynamicallyDefined` (bool, 必填) | `false` |
-| `DcmDspDidRead/Write.DcmDspDid*SessionRef` / `*SecurityLevelRef` | 该访问类服务的 sessionRefs/securityRefs，规则同 §6.3.1 |
-| `DcmDspDidControl.DcmDspDidFreezeCurrentState/ResetToDefault/ShortTermAdjustment` (bool, 必填) | `true`（0x2F 服务存在即宣称三项能力；细化到 controlOptionRecord 级列为后续工作） |
-| `DcmDspDidControl.DcmDspDidControlMask` (enum, 必填) | `DCM_CONTROLMASK_NO` |
-| `DcmDspData.DcmDspDataType` (enum, 必填) | §6.5 类型归一化表 |
-| `DcmDspData.DcmDspDataByteSize` (int, 可选) | DOP 字节数（bitLength/8 向上取整；minmax 取 maxBytes） |
-| `DcmDspData.DcmDspDataUsePort` (enum, 必填) | 默认值表 §6.6 |
+| 容器/参数                                                                                      | 值来源                                                                                                           |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `DcmDspDid.DcmDspDidIdentifier` (int, 必填)                                                    | DID 数值（§4.2 提取）；缺失 → 整个 DcmDspDid 容器不生成（§6.4.1）                                                |
+| `DcmDspDid.DcmDspDidSize` (int, 可选)                                                          | 数据参数字节总长（各 DOP 字节数按 bytePosition 求和；minmax 取 maxBytes）                                        |
+| `DcmDspDid.DcmDspDidUsed` / `DcmDspDidUsePort` (必填)                                          | 默认值表 §6.6                                                                                                    |
+| `DcmDspDid.DcmDspDidInfoRef` (ref, **必填 1..1**)                                              | 本 DID 的 `DcmDspDidInfo` 实例路径                                                                               |
+| `DcmDspDid.DcmDspDidRef` [0..INF]                                                              | 各 `DcmDspData` 实例路径，按请求参数 bytePosition 升序。**不生成 `DcmDspDidSignal`**（现代信号形态列为后续工作） |
+| `DcmDspDidInfo.DcmDspDidDynamicallyDefined` (bool, 必填)                                       | `false`                                                                                                          |
+| `DcmDspDidRead/Write.DcmDspDid*SessionRef` / `*SecurityLevelRef`                               | 该访问类服务的 sessionRefs/securityRefs，规则同 §6.3.1                                                           |
+| `DcmDspDidControl.DcmDspDidFreezeCurrentState/ResetToDefault/ShortTermAdjustment` (bool, 必填) | `true`（0x2F 服务存在即宣称三项能力；细化到 controlOptionRecord 级列为后续工作）                                 |
+| `DcmDspDidControl.DcmDspDidControlMask` (enum, 必填)                                           | `DCM_CONTROLMASK_NO`                                                                                             |
+| `DcmDspData.DcmDspDataType` (enum, 必填)                                                       | §6.5 类型归一化表                                                                                                |
+| `DcmDspData.DcmDspDataByteSize` (int, 可选)                                                    | DOP 字节数（bitLength/8 向上取整；minmax 取 maxBytes）                                                           |
+| `DcmDspData.DcmDspDataUsePort` (enum, 必填)                                                    | 默认值表 §6.6                                                                                                    |
 
 #### 6.3.3 Routine / Session / Security / Reset 参数（Dcm）
 
-| 参数 | 值来源 |
-|---|---|
-| `DcmDspRoutine.DcmDspRoutineIdentifier` (int, 必填) | `SEMANTIC="DATA-ID"` CODED-VALUE（§4.2）；缺失 → 整个 DcmDspRoutine 容器不生成（同 §6.4.1 规则）+ warning `odx-did-no-identifier` |
-| `DcmDspRoutine.DcmDspRoutineUsed/RoutineUsePort/FncSignature` (必填) | 默认值表 §6.6 |
-| `DcmDspSessionRow.DcmDspSessionLevel` (int, 必填) | `DimSession.value` |
-| `DcmDspSessionRow.DcmDspSessionP2ServerMax/P2StarServerMax/SessionForBoot` (必填) | 默认值表 §6.6（§5.1：ODX 不可得） |
-| `DcmDspSecurityRow.DcmDspSecurityLevel` (int, 必填) | `DimSecurityLevel.level` |
-| `DcmDspSecurityRow.DcmDspSecuritySeedSize/KeySize` (int, 必填) | `DimSecurityLevel.seedBytes/keyBytes`；缺失 → 默认值表 §6.6 |
-| `DcmDspSecurityRow.DcmDspSecurityDelayTime/DelayTimeOnBoot/AttemptCounterEnabled/UsePort` (必填) | 默认值表 §6.6 |
-| `DcmDspSecurity.DcmDspSecurityMaxAttemptCounterReadoutTime` (float, 必填) | 默认值表 §6.6 |
-| `DcmDspEcuResetRow.DcmDspEcuResetId` (int, 必填) | 该 reset subFunction 值 |
-| `DcmDspEcuResetRow.DcmResponseToEcuReset` (enum, 必填) | `AFTER_RESET` |
+| 参数                                                                                             | 值来源                                                                                                                            |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `DcmDspRoutine.DcmDspRoutineIdentifier` (int, 必填)                                              | `SEMANTIC="DATA-ID"` CODED-VALUE（§4.2）；缺失 → 整个 DcmDspRoutine 容器不生成（同 §6.4.1 规则）+ warning `odx-did-no-identifier` |
+| `DcmDspRoutine.DcmDspRoutineUsed/RoutineUsePort/FncSignature` (必填)                             | 默认值表 §6.6                                                                                                                     |
+| `DcmDspSessionRow.DcmDspSessionLevel` (int, 必填)                                                | `DimSession.value`                                                                                                                |
+| `DcmDspSessionRow.DcmDspSessionP2ServerMax/P2StarServerMax/SessionForBoot` (必填)                | 默认值表 §6.6（§5.1：ODX 不可得）                                                                                                 |
+| `DcmDspSecurityRow.DcmDspSecurityLevel` (int, 必填)                                              | `DimSecurityLevel.level`                                                                                                          |
+| `DcmDspSecurityRow.DcmDspSecuritySeedSize/KeySize` (int, 必填)                                   | `DimSecurityLevel.seedBytes/keyBytes`；缺失 → 默认值表 §6.6                                                                       |
+| `DcmDspSecurityRow.DcmDspSecurityDelayTime/DelayTimeOnBoot/AttemptCounterEnabled/UsePort` (必填) | 默认值表 §6.6                                                                                                                     |
+| `DcmDspSecurity.DcmDspSecurityMaxAttemptCounterReadoutTime` (float, 必填)                        | 默认值表 §6.6                                                                                                                     |
+| `DcmDspEcuResetRow.DcmDspEcuResetId` (int, 必填)                                                 | 该 reset subFunction 值                                                                                                           |
+| `DcmDspEcuResetRow.DcmResponseToEcuReset` (enum, 必填)                                           | `AFTER_RESET`                                                                                                                     |
 
 #### 6.3.4 DTC 映射（Dem）
 
 每个 `DimDtc` 生成一对容器：`DemEventParameter/<DtcName>` + `DemDTC/<DtcName>`，以前者的 `DemDTCRef` 指向后者。
 
-| 参数 | 值来源 |
-|---|---|
-| `DemEventParameter.DemEventId` (int, 必填) | §6.7 顺序分配 |
-| `DemEventParameter.DemEventAvailable/ConfirmationThreshold/EventKind/ReportingType/FFPrestorageSupported` (必填) | 默认值表 §6.6 |
-| `DemEventParameter.DemOperationCycleRef` (ref, **必填 1..1**) | §6.8 操作循环规则 |
-| `DemDTC.DemDtcValue` (int, 可选) | `DimDtc.troubleCode`（§4.3 已数值化） |
-| `DemDTC.DemDTCFunctionalUnit` (int, 可选) | `DimDtc.functionalUnit`；缺失 → 不填 |
-| `DemDTC.DemDTCSeverity` (enum, 可选) | `DimDtc.severity` 归一化匹配 `DEM_SEVERITY_*` 字面量；匹配失败 → 不填 + warning `odx-dtc-severity-unmapped` |
+| 参数                                                                                                             | 值来源                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DemEventParameter.DemEventId` (int, 必填)                                                                       | §6.7 顺序分配                                                                                               |
+| `DemEventParameter.DemEventAvailable/ConfirmationThreshold/EventKind/ReportingType/FFPrestorageSupported` (必填) | 默认值表 §6.6                                                                                               |
+| `DemEventParameter.DemOperationCycleRef` (ref, **必填 1..1**)                                                    | §6.8 操作循环规则                                                                                           |
+| `DemDTC.DemDtcValue` (int, 可选)                                                                                 | `DimDtc.troubleCode`（§4.3 已数值化）                                                                       |
+| `DemDTC.DemDTCFunctionalUnit` (int, 可选)                                                                        | `DimDtc.functionalUnit`；缺失 → 不填                                                                        |
+| `DemDTC.DemDTCSeverity` (enum, 可选)                                                                             | `DimDtc.severity` 归一化匹配 `DEM_SEVERITY_*` 字面量；匹配失败 → 不填 + warning `odx-dtc-severity-unmapped` |
 
 `DemDTCAttributes`（优先级/老化/内存目标）**不生成**——属工程策略；`DemDTC.DemDTCAttributesRef` 留空，由用户在工程内自行挂接。
 
 #### 6.3.5 BSWMD 定义验证清单（实现 golden test 的断言基线）
 
-| 定义 | 验证事实（来自 BSWMD 实际解析） |
-|---|---|
-| `DcmDspDid` | 路径含 `DcmConfigSet/DcmDsp`；MULT 0..INF；必填：DidUsed/DidIdentifier/DidUsePort + DidInfoRef |
-| `DcmDspData` | MULT 0..INF；必填：DataType/DataUsePort |
-| `DcmDspRoutine` | MULT 0..INF；必填：RoutineUsed/RoutineUsePort(**bool**)/RoutineIdentifier/FncSignature |
-| `DcmDspSessionRow` | 父 `DcmDspSession` [1..1]；MULT 0..31；必填 4 参数 |
-| `DcmDspSecurityRow` | 父 `DcmDspSecurity` [1..1]；MULT 0..31；必填 8 参数 |
-| `DcmDsdService` | 父链 `DcmDsd/DcmDsdServiceTable`；MULT 1..INF；必填 3 参数 + SUB DcmDsdSubService |
-| `DemEventParameter` | MULT 1..65535；必填 6 参数 + DemOperationCycleRef |
-| `DemDTC` | MULT 0..65535；全部参数可选 |
-| 枚举字面量 | `DcmDspDataType`: BOOLEAN/FLOAT/FLOAT_N/SINT8..32(_N)/UINT8..32(_N)/UINT8_DYN；`DcmDspSessionForBoot`: DCM_NO_BOOT 等 5 值；`DcmResponseToEcuReset`: AFTER_RESET/BEFORE_RESET；`DemEventKind`: DEM_EVENT_KIND_BSW/SWC；`DemDTCSeverity`: 4 值；`DcmDspDidControlMask`: DCM_CONTROLMASK_EXTERNAL/INTERNAL/NO |
+| 定义                | 验证事实（来自 BSWMD 实际解析）                                                                                                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DcmDspDid`         | 路径含 `DcmConfigSet/DcmDsp`；MULT 0..INF；必填：DidUsed/DidIdentifier/DidUsePort + DidInfoRef                                                                                                                                                                                                                |
+| `DcmDspData`        | MULT 0..INF；必填：DataType/DataUsePort                                                                                                                                                                                                                                                                       |
+| `DcmDspRoutine`     | MULT 0..INF；必填：RoutineUsed/RoutineUsePort(**bool**)/RoutineIdentifier/FncSignature                                                                                                                                                                                                                        |
+| `DcmDspSessionRow`  | 父 `DcmDspSession` [1..1]；MULT 0..31；必填 4 参数                                                                                                                                                                                                                                                            |
+| `DcmDspSecurityRow` | 父 `DcmDspSecurity` [1..1]；MULT 0..31；必填 8 参数                                                                                                                                                                                                                                                           |
+| `DcmDsdService`     | 父链 `DcmDsd/DcmDsdServiceTable`；MULT 1..INF；必填 3 参数 + SUB DcmDsdSubService                                                                                                                                                                                                                             |
+| `DemEventParameter` | MULT 1..65535；必填 6 参数 + DemOperationCycleRef                                                                                                                                                                                                                                                             |
+| `DemDTC`            | MULT 0..65535；全部参数可选                                                                                                                                                                                                                                                                                   |
+| 枚举字面量          | `DcmDspDataType`: BOOLEAN/FLOAT/FLOAT_N/SINT8..32(\_N)/UINT8..32(\_N)/UINT8_DYN；`DcmDspSessionForBoot`: DCM_NO_BOOT 等 5 值；`DcmResponseToEcuReset`: AFTER_RESET/BEFORE_RESET；`DemEventKind`: DEM_EVENT_KIND_BSW/SWC；`DemDTCSeverity`: 4 值；`DcmDspDidControlMask`: DCM_CONTROLMASK_EXTERNAL/INTERNAL/NO |
 
 ### 6.4 通用映射规则
 
@@ -520,18 +543,18 @@ ECUC-MODULE-CONFIGURATION-VALUES(Dem)
 
 ### 6.5 数据类型归一化（DOP → DcmDspDataType，枚举字面量已经 BSWMD 验证）
 
-| ODX 输入 | `DcmDspDataType` |
-|---|---|
-| `A_UINT32`，bitLength = 1 | `BOOLEAN` |
-| `A_UINT32`，bitLength ≤ 8 | `UINT8` |
-| `A_UINT32`，bitLength ≤ 16 | `UINT16` |
-| `A_UINT32`，bitLength ≤ 32 | `UINT32` |
-| `A_UINT32`，bitLength > 32 或缺失 | `UINT8_N` + warning `odx-type-promotion` |
-| `A_INT32` + encoding=`2C`，bitLength ≤ 8 / 16 / 32 | `SINT8` / `SINT16` / `SINT32` |
-| encoding 含 `IEEE-FLOAT32` | `FLOAT` |
-| `A_ASCIISTRING` / `A_UNICODE2STRING` / `A_BYTEFIELD`，codedType.kind = standard | `UINT8_N` |
-| 上述三种 + codedType.kind = minmax | `UINT8_DYN` |
-| 其他 `BASE-DATA-TYPE` | `UINT8_N` + warning `odx-unsupported-datatype` |
+| ODX 输入                                                                        | `DcmDspDataType`                               |
+| ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `A_UINT32`，bitLength = 1                                                       | `BOOLEAN`                                      |
+| `A_UINT32`，bitLength ≤ 8                                                       | `UINT8`                                        |
+| `A_UINT32`，bitLength ≤ 16                                                      | `UINT16`                                       |
+| `A_UINT32`，bitLength ≤ 32                                                      | `UINT32`                                       |
+| `A_UINT32`，bitLength > 32 或缺失                                               | `UINT8_N` + warning `odx-type-promotion`       |
+| `A_INT32` + encoding=`2C`，bitLength ≤ 8 / 16 / 32                              | `SINT8` / `SINT16` / `SINT32`                  |
+| encoding 含 `IEEE-FLOAT32`                                                      | `FLOAT`                                        |
+| `A_ASCIISTRING` / `A_UNICODE2STRING` / `A_BYTEFIELD`，codedType.kind = standard | `UINT8_N`                                      |
+| 上述三种 + codedType.kind = minmax                                              | `UINT8_DYN`                                    |
+| 其他 `BASE-DATA-TYPE`                                                           | `UINT8_N` + warning `odx-unsupported-datatype` |
 
 COMPU-METHOD / UNIT：Dcm BSWMD 的 `DcmDspData` 不承载缩放信息（§6.3.5 验证：无缩放参数），**不映射**；产生聚合 warning `odx-compu-not-mapped`，数据保留在 DIM 供未来代码生成使用。
 
@@ -539,32 +562,32 @@ COMPU-METHOD / UNIT：Dcm BSWMD 的 `DcmDspData` 不承载缩放信息（§6.3.5
 
 以下参数 BSWMD 要求必填但 ODX 无对应数据源，**必须** 按下表填默认值。每类默认值首次使用时产生一条**聚合** warning `odx-default-param-used`（同一参数定义只报一次，message 附使用次数），不得逐实例刷屏。
 
-| 参数（容器/参数） | 默认值 | 依据 |
-|---|---|---|
-| `DcmDspSessionRow/DcmDspSessionP2ServerMax` | `0.05` | ISO 14229 默认 P2=50ms |
-| `DcmDspSessionRow/DcmDspSessionP2StarServerMax` | `5.0` | ISO 14229 默认 P2\*=5000ms |
-| `DcmDspSessionRow/DcmDspSessionForBoot` | `DCM_NO_BOOT` | 非刷写会话 |
-| `DcmDspSecurityRow/DcmDspSecuritySeedSize`（DIM 缺失时） | `4` | 常见 4 字节种子 |
-| `DcmDspSecurityRow/DcmDspSecurityKeySize`（DIM 缺失时） | `4` | 常见 4 字节密钥 |
-| `DcmDspSecurityRow/DcmDspSecurityDelayTime` / `DelayTimeOnBoot` | `10.0` | 工程常规 10s |
-| `DcmDspSecurityRow/DcmDspSecurityAttemptCounterEnabled` | `false` | 保守（不启用计数锁定） |
-| `DcmDspSecurityRow/DcmDspSecurityUsePort` | `USE_ASYNCH_FNC` | C 函数接口惯例 |
-| `DcmDspSecurity/DcmDspSecurityMaxAttemptCounterReadoutTime` | `0.0` | 不启用读出延时 |
-| `DcmDspDid/DcmDspDidUsed` | `true` | 导入即启用 |
-| `DcmDspDid/DcmDspDidUsePort` | `USE_DATA_ELEMENT_SPECIFIC_INTERFACES` | 该 BSWMD 唯一面向数据元素的取值 |
-| `DcmDspData/DcmDspDataUsePort` | `USE_DATA_SYNCH_CLIENT_SERVER` | UDS 同步 C/S 惯例 |
-| `DcmDspRoutine/DcmDspRoutineUsed` / `DcmDspRoutineUsePort` | `true` / `true` | 导入即启用 + RTE 端口 |
-| `DcmDspRoutine/DcmDspRoutineFncSignature` | `ROUTINE_FNC_NORMAL` | 非常规代理 |
-| `DcmDspDidInfo/DcmDspDidDynamicallyDefined` | `false` | 静态 DID |
-| `DcmDspDidControl` 三能力布尔 | `true` | §6.3.2 |
-| `DcmDspDidControl/DcmDspDidControlMask` | `DCM_CONTROLMASK_NO` | 无控制掩码 |
-| `DcmDspEcuResetRow/DcmResponseToEcuReset` | `AFTER_RESET` | 复位后响应惯例 |
-| `DcmDsdService/DcmDsdServiceUsed`、`DcmDsdSubService/DcmDsdSubServiceUsed` | `true` | 导入即启用 |
-| `DemEventParameter/DemEventAvailable` | `true` | 导入即启用 |
-| `DemEventParameter/DemEventConfirmationThreshold` | `1` | 单次确认 |
-| `DemEventParameter/DemEventKind` | `DEM_EVENT_KIND_SWC` | 应用层事件（现行实现同值） |
-| `DemEventParameter/DemEventReportingType` | `STANDARD_REPORTING` | 标准上报 |
-| `DemEventParameter/DemFFPrestorageSupported` | `false` | 不预存冻结帧 |
+| 参数（容器/参数）                                                          | 默认值                                 | 依据                            |
+| -------------------------------------------------------------------------- | -------------------------------------- | ------------------------------- |
+| `DcmDspSessionRow/DcmDspSessionP2ServerMax`                                | `0.05`                                 | ISO 14229 默认 P2=50ms          |
+| `DcmDspSessionRow/DcmDspSessionP2StarServerMax`                            | `5.0`                                  | ISO 14229 默认 P2\*=5000ms      |
+| `DcmDspSessionRow/DcmDspSessionForBoot`                                    | `DCM_NO_BOOT`                          | 非刷写会话                      |
+| `DcmDspSecurityRow/DcmDspSecuritySeedSize`（DIM 缺失时）                   | `4`                                    | 常见 4 字节种子                 |
+| `DcmDspSecurityRow/DcmDspSecurityKeySize`（DIM 缺失时）                    | `4`                                    | 常见 4 字节密钥                 |
+| `DcmDspSecurityRow/DcmDspSecurityDelayTime` / `DelayTimeOnBoot`            | `10.0`                                 | 工程常规 10s                    |
+| `DcmDspSecurityRow/DcmDspSecurityAttemptCounterEnabled`                    | `false`                                | 保守（不启用计数锁定）          |
+| `DcmDspSecurityRow/DcmDspSecurityUsePort`                                  | `USE_ASYNCH_FNC`                       | C 函数接口惯例                  |
+| `DcmDspSecurity/DcmDspSecurityMaxAttemptCounterReadoutTime`                | `0.0`                                  | 不启用读出延时                  |
+| `DcmDspDid/DcmDspDidUsed`                                                  | `true`                                 | 导入即启用                      |
+| `DcmDspDid/DcmDspDidUsePort`                                               | `USE_DATA_ELEMENT_SPECIFIC_INTERFACES` | 该 BSWMD 唯一面向数据元素的取值 |
+| `DcmDspData/DcmDspDataUsePort`                                             | `USE_DATA_SYNCH_CLIENT_SERVER`         | UDS 同步 C/S 惯例               |
+| `DcmDspRoutine/DcmDspRoutineUsed` / `DcmDspRoutineUsePort`                 | `true` / `true`                        | 导入即启用 + RTE 端口           |
+| `DcmDspRoutine/DcmDspRoutineFncSignature`                                  | `ROUTINE_FNC_NORMAL`                   | 非常规代理                      |
+| `DcmDspDidInfo/DcmDspDidDynamicallyDefined`                                | `false`                                | 静态 DID                        |
+| `DcmDspDidControl` 三能力布尔                                              | `true`                                 | §6.3.2                          |
+| `DcmDspDidControl/DcmDspDidControlMask`                                    | `DCM_CONTROLMASK_NO`                   | 无控制掩码                      |
+| `DcmDspEcuResetRow/DcmResponseToEcuReset`                                  | `AFTER_RESET`                          | 复位后响应惯例                  |
+| `DcmDsdService/DcmDsdServiceUsed`、`DcmDsdSubService/DcmDsdSubServiceUsed` | `true`                                 | 导入即启用                      |
+| `DemEventParameter/DemEventAvailable`                                      | `true`                                 | 导入即启用                      |
+| `DemEventParameter/DemEventConfirmationThreshold`                          | `1`                                    | 单次确认                        |
+| `DemEventParameter/DemEventKind`                                           | `DEM_EVENT_KIND_SWC`                   | 应用层事件（现行实现同值）      |
+| `DemEventParameter/DemEventReportingType`                                  | `STANDARD_REPORTING`                   | 标准上报                        |
+| `DemEventParameter/DemFFPrestorageSupported`                               | `false`                                | 不预存冻结帧                    |
 
 ### 6.7 DemEventId 顺序分配（normative）
 
@@ -613,15 +636,15 @@ ODX 无事件 ID 概念。规则：DTC 按 `troubleCode` **升序**排序后从 
 输入：`manifestEntries`（base）、`currentContainers`（workspace 现值，按 path → hash）、`incomingContainers`（新映射结果，按 path → hash）。
 每行输出：`{ path, module, shortName, category, defaultDecision, detail? }`。
 
-| # | 条件（base / current / incoming 三者哈希关系） | category | defaultDecision |
-|---|---|---|---|
-| 1 | incoming 有，base 无 | `added` | `import` |
-| 2 | base 有，current = base，incoming ≠ base | `updated`（ODX 侧变更，本地未动） | `import` |
-| 3 | base 有，current ≠ base，incoming = base | `locally-modified`（本地改过，ODX 没变） | `keep-local`（不列冲突，仅信息展示） |
-| 4 | base 有，current ≠ base，incoming ≠ base，current ≠ incoming | `conflict` | `keep-local`，**必须** 用户显式改选才可 `import` |
-| 5 | base 有，current ≠ base，incoming ≠ base，current = incoming | `converged`（两边改到一致） | `import`（无操作，仅信息） |
-| 6 | base 有，incoming 无 | `removed-in-odx` | `keep-local`（用户显式改选 `delete` 才删） |
-| 7 | current 有，base 无（手工容器） | **不产生行** | 永不触碰 |
+| #   | 条件（base / current / incoming 三者哈希关系）               | category                                 | defaultDecision                                  |
+| --- | ------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------ |
+| 1   | incoming 有，base 无                                         | `added`                                  | `import`                                         |
+| 2   | base 有，current = base，incoming ≠ base                     | `updated`（ODX 侧变更，本地未动）        | `import`                                         |
+| 3   | base 有，current ≠ base，incoming = base                     | `locally-modified`（本地改过，ODX 没变） | `keep-local`（不列冲突，仅信息展示）             |
+| 4   | base 有，current ≠ base，incoming ≠ base，current ≠ incoming | `conflict`                               | `keep-local`，**必须** 用户显式改选才可 `import` |
+| 5   | base 有，current ≠ base，incoming ≠ base，current = incoming | `converged`（两边改到一致）              | `import`（无操作，仅信息）                       |
+| 6   | base 有，incoming 无                                         | `removed-in-odx`                         | `keep-local`（用户显式改选 `delete` 才删）       |
+| 7   | current 有，base 无（手工容器）                              | **不产生行**                             | 永不触碰                                         |
 
 `defaultDecision` 取值：`import`（采用 ODX 版本）/ `keep-local`（保留现状）/ `delete`（删除本地）。用户决策列表覆盖 default 后进 commit。
 
@@ -629,8 +652,8 @@ ODX 无事件 ID 概念。规则：DTC 按 `troubleCode` **升序**排序后从 
 
 ```typescript
 export function mergeModuleThreeWay(args: {
-  readonly existing: ArxmlModule | null;      // workspace 现值（无 → null）
-  readonly incoming: ArxmlModule;             // 新映射结果
+  readonly existing: ArxmlModule | null; // workspace 现值（无 → null）
+  readonly incoming: ArxmlModule; // 新映射结果
   readonly decisions: ReadonlyMap<string, 'import' | 'keep-local' | 'delete'>; // 按 path
 }): ArxmlModule;
 ```
@@ -638,6 +661,7 @@ export function mergeModuleThreeWay(args: {
 规则：`existing=null` → 直接返回 `incoming`（首次导入快路径）。否则按 path 逐容器应用决策；未出现在 decisions 的 path 用 §7.2 default。结果容器排序遵循 §6.4.4。
 
 **提交路径**（main 进程）：
+
 1. 前置检查：renderer 请求中的 dirtyDocPaths 与目标模块文档路径相交 → 硬错误 odx-target-dirty（向导第①步检查并提示先保存；main 进程自身不维护 renderer dirty 状态）。previewHash 必须与 preview 返回值一致。若同一模块短名命中多个 value ARXML 文档 → 硬错误 odx-module-ambiguous。
 2. 重算（§7.4 确定性）→ 得 `merged: ArxmlModule`。
 3. 落盘策略：复用 Sprint 14 `overwrite-module` patch op（`ImportPatchOp` 封闭集合**零扩展**）——merged 模块作为 `replacement`，经现有 `applyPatchesToDocument` 应用到内存文档后，由现有保存链路原子写盘；**或**（工程尚无该模块文档时）新建 `<projectDir>/<Module>_EcucValues.arxml` 并注册进工程 manifest（复用现有模块创建机制 + `resolveCollisionFilename` 命名）。
@@ -685,33 +709,45 @@ export function dimToDiagnosticExtract(args: {
 export interface OdxImportPreviewRequest {
   readonly odxPath: string;
   readonly dirtyDocPaths: readonly string[];
-  readonly variantId?: string;        // 协商规则见下方"变体协商"
+  readonly variantId?: string; // 协商规则见下方"变体协商"
 }
 export type OdxImportPreviewResponse =
   | { readonly ok: true; readonly value: OdxImportPreview }
   | { readonly ok: false; readonly error: OdxImportError };
 
 export interface OdxImportPreview {
-  readonly variants: readonly OdxVariantInfo[];   // >1 时向导显示变体步骤
-  readonly selectedVariant?: OdxVariantInfo;      // 已解析成功时出现
-  readonly rows: readonly OdxImportRow[];         // §7.2 六分类行（不含 locally-modified/converged 之外的手工容器）
+  readonly variants: readonly OdxVariantInfo[]; // >1 时向导显示变体步骤
+  readonly selectedVariant?: OdxVariantInfo; // 已解析成功时出现
+  readonly rows: readonly OdxImportRow[]; // §7.2 六分类行（不含 locally-modified/converged 之外的手工容器）
   readonly warnings: readonly DimWarning[];
   readonly previewHash: string;
-  readonly stats: { readonly services: number; readonly dids: number; readonly dtcs: number; readonly sessions: number; readonly securityLevels: number };
+  readonly stats: {
+    readonly services: number;
+    readonly dids: number;
+    readonly dtcs: number;
+    readonly sessions: number;
+    readonly securityLevels: number;
+  };
   readonly targetModules: { readonly dcm: OdxTargetModuleInfo; readonly dem: OdxTargetModuleInfo };
 }
 export interface OdxImportRow {
-  readonly path: string;              // "/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DID_F186"（含完整容器脊柱）
+  readonly path: string; // "/Dcm/DcmConfigSet/DcmDsp/DcmDspDid/DID_F186"（含完整容器脊柱）
   readonly module: 'Dcm' | 'Dem';
   readonly shortName: string;
-  readonly category: 'added' | 'updated' | 'locally-modified' | 'conflict' | 'converged' | 'removed-in-odx';
+  readonly category:
+    | 'added'
+    | 'updated'
+    | 'locally-modified'
+    | 'conflict'
+    | 'converged'
+    | 'removed-in-odx';
   readonly defaultDecision: 'import' | 'keep-local' | 'delete';
   readonly conflictDetail?: { readonly localHash: string; readonly incomingHash: string };
 }
 export interface OdxTargetModuleInfo {
-  readonly exists: boolean;           // 工程已有该模块文档？
-  readonly docPath?: string;          // 现有文档路径
-  readonly dirty: boolean;            // dirty → 向导第①步即拦截
+  readonly exists: boolean; // 工程已有该模块文档？
+  readonly docPath?: string; // 现有文档路径
+  readonly dirty: boolean; // dirty → 向导第①步即拦截
 }
 
 export interface OdxImportCommitRequest {
@@ -719,23 +755,46 @@ export interface OdxImportCommitRequest {
   readonly variantId: string;
   readonly dirtyDocPaths: readonly string[];
   readonly previewHash: string;
-  readonly decisions: readonly { readonly path: string; readonly decision: 'import' | 'keep-local' | 'delete' }[];
+  readonly decisions: readonly {
+    readonly path: string;
+    readonly decision: 'import' | 'keep-local' | 'delete';
+  }[];
 }
 export type OdxImportCommitResponse =
-  | { readonly ok: true; readonly value: { readonly applied: number; readonly kept: number; readonly deleted: number; readonly manifestPath: string } }
+  | {
+      readonly ok: true;
+      readonly value: {
+        readonly applied: number;
+        readonly kept: number;
+        readonly deleted: number;
+        readonly manifestPath: string;
+      };
+    }
   | { readonly ok: false; readonly error: OdxImportError };
 
 export type OdxImportError =
   | { readonly kind: 'read-failed' | 'odx-malformed' | 'odx-too-large'; readonly message: string }
-  | { readonly kind: 'odx-no-variant' | 'odx-variant-not-found' | 'odx-inheritance-cycle'; readonly message: string }
-  | { readonly kind: 'odx-bswmd-not-loaded'; readonly module: 'Dcm' | 'Dem'; readonly message: string }
+  | {
+      readonly kind: 'odx-no-variant' | 'odx-variant-not-found' | 'odx-inheritance-cycle';
+      readonly message: string;
+    }
+  | {
+      readonly kind: 'odx-bswmd-not-loaded';
+      readonly module: 'Dcm' | 'Dem';
+      readonly message: string;
+    }
   | { readonly kind: 'odx-target-dirty'; readonly docPath: string; readonly message: string }
-  | { readonly kind: 'odx-module-ambiguous'; readonly module: 'Dcm' | 'Dem'; readonly message: string }
+  | {
+      readonly kind: 'odx-module-ambiguous';
+      readonly module: 'Dcm' | 'Dem';
+      readonly message: string;
+    }
   | { readonly kind: 'odx-commit-mismatch'; readonly message: string }
   | { readonly kind: 'write-failed'; readonly message: string; readonly rolledBack: boolean };
 ```
 
 **变体协商（normative）**：
+
 - 文件只有 1 个可导入变体 → 忽略 `variantId`，直接解析，`selectedVariant` 必填返回。
 - 文件有多个变体且 `variantId` 缺省 → 返回 `ok: true`，`value = { variants: 全部, selectedVariant: undefined, rows: [], warnings: [], stats: 全 0, targetModules }`（此时**不执行**解析/映射）；向导据此显示变体步骤，用户选择后带 `variantId` 重发。
 - `variantId` 存在但不存在于文件 → `ok: false`，`odx-variant-not-found`。
@@ -762,18 +821,18 @@ idle → picking → parsing → [variant-select] → preview → committing →
 
 ## 10. Section ⑧：测试策略
 
-| 层 | 文件 | 关键用例（必须全部存在） |
-|---|---|---|
-| 解析层 | `core/odx/__tests__/odxDocument.test.ts` | 真实 `Demo_Cdd.odx-d` 回归基线：95 服务 / 99 DTC / 167 DOP 计数；ID 索引完整性；importableVariants=[1 个 BASE-VARIANT] |
-| 继承 | `core/odx/__tests__/layerResolver.test.ts` | 手工 fixture：三层链 PROTOCOL→BASE→ECU；同 ID 子层覆盖；NOT-INHERITED 剔除；成环硬错误；unresolved parent → warning |
-| DOP | `core/odx/__tests__/dopResolver.test.ts` | COMPU-METHOD 各类别（含不支持的 RAT-FUNC → warning）；MIN-MAX-LENGTH；TEXTTABLE 多 scale |
-| DIM | `core/odx/__tests__/dimBuilder.test.ts` | SID/subFunction 提取（0x80 屏蔽）；serviceClass 归一化全表；会话去重；安全配对/落单；DTC 数值化边界（0xFFFFFF 合法 / 0x1000000 拒绝） |
-| 映射 | `core/odx/__tests__/mapDimToEcuc.test.ts` | golden AST（DIM fixture → 期望 ArxmlModule）；DID 池化（0x22+0x2E 同 ID → 1 容器）；SHORT-NAME 合法化全规则（非法字符/数字开头/空/128 截断/重名后缀）；确定性（同输入两次 → 深等 + 序列化字节等）；BSWMD 缺定义 → warning 不悬空 |
-| 三向 | `core/odx/__tests__/threeWayMerge.test.ts` | §7.2 七行条件全覆盖；决策覆盖 default；首次导入（existing=null）；manifest 损坏/缺失；哈希稳定性 |
-| IPC | `main/ipc/__tests__/odxImportPreviewHandler.test.ts` / `odxImportCommitHandler.test.ts` | 信封全 kind；dirty 拦截；commit 重算 mismatch；原子写回滚 |
-| staging | `core/odx/__tests__/dimToDiagnosticExtract.test.ts` | 老契约回归（文件名/envelope）+ 新形态断言（标准 ECUC + 正确 definition-ref） |
-| UI | `OdxImportWizard/__tests__/` | 状态机迁移；conflict 二次确认；徽章渲染；i18n key 齐全 |
-| E2E | Playwright | Demo_Cdd 全导入 → 工程树出现 DcmDspDid 容器 → 参数编辑器显示 identifier 数值 |
+| 层      | 文件                                                                                    | 关键用例（必须全部存在）                                                                                                                                                                                                         |
+| ------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 解析层  | `core/odx/__tests__/odxDocument.test.ts`                                                | 真实 `Demo_Cdd.odx-d` 回归基线：95 服务 / 99 DTC / 167 DOP 计数；ID 索引完整性；importableVariants=[1 个 BASE-VARIANT]                                                                                                           |
+| 继承    | `core/odx/__tests__/layerResolver.test.ts`                                              | 手工 fixture：三层链 PROTOCOL→BASE→ECU；同 ID 子层覆盖；NOT-INHERITED 剔除；成环硬错误；unresolved parent → warning                                                                                                              |
+| DOP     | `core/odx/__tests__/dopResolver.test.ts`                                                | COMPU-METHOD 各类别（含不支持的 RAT-FUNC → warning）；MIN-MAX-LENGTH；TEXTTABLE 多 scale                                                                                                                                         |
+| DIM     | `core/odx/__tests__/dimBuilder.test.ts`                                                 | SID/subFunction 提取（0x80 屏蔽）；serviceClass 归一化全表；会话去重；安全配对/落单；DTC 数值化边界（0xFFFFFF 合法 / 0x1000000 拒绝）                                                                                            |
+| 映射    | `core/odx/__tests__/mapDimToEcuc.test.ts`                                               | golden AST（DIM fixture → 期望 ArxmlModule）；DID 池化（0x22+0x2E 同 ID → 1 容器）；SHORT-NAME 合法化全规则（非法字符/数字开头/空/128 截断/重名后缀）；确定性（同输入两次 → 深等 + 序列化字节等）；BSWMD 缺定义 → warning 不悬空 |
+| 三向    | `core/odx/__tests__/threeWayMerge.test.ts`                                              | §7.2 七行条件全覆盖；决策覆盖 default；首次导入（existing=null）；manifest 损坏/缺失；哈希稳定性                                                                                                                                 |
+| IPC     | `main/ipc/__tests__/odxImportPreviewHandler.test.ts` / `odxImportCommitHandler.test.ts` | 信封全 kind；dirty 拦截；commit 重算 mismatch；原子写回滚                                                                                                                                                                        |
+| staging | `core/odx/__tests__/dimToDiagnosticExtract.test.ts`                                     | 老契约回归（文件名/envelope）+ 新形态断言（标准 ECUC + 正确 definition-ref）                                                                                                                                                     |
+| UI      | `OdxImportWizard/__tests__/`                                                            | 状态机迁移；conflict 二次确认；徽章渲染；i18n key 齐全                                                                                                                                                                           |
+| E2E     | Playwright                                                                              | Demo_Cdd 全导入 → 工程树出现 DcmDspDid 容器 → 参数编辑器显示 identifier 数值                                                                                                                                                     |
 
 - TDD：RED → GREEN → IMPROVE；覆盖率 ≥80%。
 - 真实 fixture 预期计数若与实现有出入，以实现反推修正 spec §10 表格并在 PR 描述中说明（fixture 事实优先）。
@@ -786,23 +845,21 @@ idle → picking → parsing → [variant-select] → preview → committing →
 
 ## 12. 实施阶段（供 writing-plans 细化）
 
-| Phase | 内容 | 出口标准 |
-|---|---|---|
-| 1 | `core/odx/` 解析层 + DIM（§3-5） | Demo_Cdd 全量解析测试绿；viewer 通道零影响 |
-| 2 | 映射器 + BSWMD 索引 + staging emitter 重接（§6、§8.1-8.2） | staging 输出标准 ECUC；老 IPC 契约测试绿 |
-| 3 | manifest + 三向分类/合并 + preview/commit IPC（§7、§9.1） | 六分类表驱动测试绿；确定性 mismatch 防御生效 |
-| 4 | 向导 UI + workspace 重载（§9.2） | E2E 通过 |
-| 5 | xlsx 管线迁移 + 删除 `odxToDiagnosticExtract.ts`（§8.3） | 全仓无旧 mapper 引用；回归全绿 |
+| Phase | 内容                                                       | 出口标准                                     |
+| ----- | ---------------------------------------------------------- | -------------------------------------------- |
+| 1     | `core/odx/` 解析层 + DIM（§3-5）                           | Demo_Cdd 全量解析测试绿；viewer 通道零影响   |
+| 2     | 映射器 + BSWMD 索引 + staging emitter 重接（§6、§8.1-8.2） | staging 输出标准 ECUC；老 IPC 契约测试绿     |
+| 3     | manifest + 三向分类/合并 + preview/commit IPC（§7、§9.1）  | 六分类表驱动测试绿；确定性 mismatch 防御生效 |
+| 4     | 向导 UI + workspace 重载（§9.2）                           | E2E 通过                                     |
+| 5     | xlsx 管线迁移 + 删除 `odxToDiagnosticExtract.ts`（§8.3）   | 全仓无旧 mapper 引用；回归全绿               |
 
 依赖序：1→2→3→4→5 严格线性（2 依赖 1 的 DIM；3 依赖 2 的映射；4 依赖 3 的 IPC；5 依赖 2 的 DIM 数据源就绪）。
 
 ## 13. 风险与缓解
 
-| 风险 | 缓解 |
-|---|---|
+| 风险                                                                                        | 缓解                                                                                 |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | 其他 OEM 的 ODX 文件结构差异（本设计以 Vector CANdelaStudio 15 + ISO 22901-1 2.2.0 为基准） | warnings 兜底不致命；新形状进 `odx-element-skipped` 报告；后续按真实文件迭代支持矩阵 |
-| DIM 在超大 ODX（>10MB）下内存占用 | 32 MiB cap 不变；解析层流式化列为后续工作，本 spec 不处理 |
-| Sprint 14 `DiffTable` 与六分类行的语义差距（它面向模块级 2-way） | preview 行自带 category/decision，DiffTable 仅作渲染壳；不改动其 store 契约 |
-| manifest 与工程树长期漂移（用户手删容器） | 惰性清除 + 每次导入重新验证哈希，漂移自动收敛 |
-
-
+| DIM 在超大 ODX（>10MB）下内存占用                                                           | 32 MiB cap 不变；解析层流式化列为后续工作，本 spec 不处理                            |
+| Sprint 14 `DiffTable` 与六分类行的语义差距（它面向模块级 2-way）                            | preview 行自带 category/decision，DiffTable 仅作渲染壳；不改动其 store 契约          |
+| manifest 与工程树长期漂移（用户手删容器）                                                   | 惰性清除 + 每次导入重新验证哈希，漂移自动收敛                                        |

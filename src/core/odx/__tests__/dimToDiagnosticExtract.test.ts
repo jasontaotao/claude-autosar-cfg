@@ -9,6 +9,7 @@ const emptyIndex = {
   paramPath: new Map(),
   refPath: new Map(),
   paramDef: new Map(),
+  referenceDef: new Map(),
 };
 const dim: Dim = {
   meta: {

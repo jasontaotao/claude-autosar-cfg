@@ -93,8 +93,34 @@ const DBC: DbcSummaryWithSignals = {
     { id: 512, name: 'VcuCmd', dlc: 8, transmitter: 'VCU', isExtended: false, signalCount: 1 },
   ],
   signals: [
-    { messageId: 256, name: 'BmsVoltage', startBit: 0, length: 16, byteOrder: 'little-endian', valueType: 'unsigned', factor: 1, offset: 0, min: 0, max: 0, unit: '', receivers: [] },
-    { messageId: 512, name: 'VcuMode', startBit: 0, length: 8, byteOrder: 'little-endian', valueType: 'unsigned', factor: 1, offset: 0, min: 0, max: 0, unit: '', receivers: [] },
+    {
+      messageId: 256,
+      name: 'BmsVoltage',
+      startBit: 0,
+      length: 16,
+      byteOrder: 'little-endian',
+      valueType: 'unsigned',
+      factor: 1,
+      offset: 0,
+      min: 0,
+      max: 0,
+      unit: '',
+      receivers: [],
+    },
+    {
+      messageId: 512,
+      name: 'VcuMode',
+      startBit: 0,
+      length: 8,
+      byteOrder: 'little-endian',
+      valueType: 'unsigned',
+      factor: 1,
+      offset: 0,
+      min: 0,
+      max: 0,
+      unit: '',
+      receivers: [],
+    },
   ],
 };
 
@@ -110,16 +136,25 @@ describe('dbcToComStack vendor document layouts', () => {
       comSignalDirect: true,
     });
 
-    expect(plan.comPatches.some(
-      (p) => p.op === 'add-child' && p.parentPath === '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
-    )).toBe(true);
-    expect(plan.comPatches.some(
-      (p) => p.op === 'add-child' && p.kind === 'com-signal' &&
-        p.parentPath === '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
-    )).toBe(true);
-    expect(plan.pduRPatches.some(
-      (p) => p.op === 'add-child' && p.parentPath === '/AUTOSAR_R22/EcucDefs/PduR/PduRRoutingPaths',
-    )).toBe(true);
+    expect(
+      plan.comPatches.some(
+        (p) => p.op === 'add-child' && p.parentPath === '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
+      ),
+    ).toBe(true);
+    expect(
+      plan.comPatches.some(
+        (p) =>
+          p.op === 'add-child' &&
+          p.kind === 'com-signal' &&
+          p.parentPath === '/AUTOSAR_R22/EcucDefs/Com/ComConfig',
+      ),
+    ).toBe(true);
+    expect(
+      plan.pduRPatches.some(
+        (p) =>
+          p.op === 'add-child' && p.parentPath === '/AUTOSAR_R22/EcucDefs/PduR/PduRRoutingPaths',
+      ),
+    ).toBe(true);
   });
 
   it('supports R22 CanIf Tx/Rx PDU definitions directly under CanIfInitCfg', () => {
@@ -133,13 +168,21 @@ describe('dbcToComStack vendor document layouts', () => {
       comSignalDirect: true,
     });
 
-    expect(plan.canIfPatches.some(
-      (p) => p.op === 'add-child' && p.kind === 'canif-tx-pdu' &&
-        p.parentPath === '/AUTOSAR_R22/EcucDefs/CanIf/CanIfInitCfg',
-    )).toBe(true);
-    expect(plan.canIfPatches.some(
-      (p) => p.op === 'add-child' && p.kind === 'canif-rx-pdu' &&
-        p.parentPath === '/AUTOSAR_R22/EcucDefs/CanIf/CanIfInitCfg',
-    )).toBe(true);
+    expect(
+      plan.canIfPatches.some(
+        (p) =>
+          p.op === 'add-child' &&
+          p.kind === 'canif-tx-pdu' &&
+          p.parentPath === '/AUTOSAR_R22/EcucDefs/CanIf/CanIfInitCfg',
+      ),
+    ).toBe(true);
+    expect(
+      plan.canIfPatches.some(
+        (p) =>
+          p.op === 'add-child' &&
+          p.kind === 'canif-rx-pdu' &&
+          p.parentPath === '/AUTOSAR_R22/EcucDefs/CanIf/CanIfInitCfg',
+      ),
+    ).toBe(true);
   });
 });
