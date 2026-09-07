@@ -471,9 +471,18 @@ function extractDids(
         const data = extractDidDataFromRequestParams(el['PARAMS']);
         const identifier = extractIdParam(el['PARAMS']);
         if (data !== null) {
-          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), data, ...(identifier === undefined ? {} : { identifier }) });
+          out.push({
+            id,
+            shortName: attrOf(el, 'SHORT-NAME'),
+            data,
+            ...(identifier === undefined ? {} : { identifier }),
+          });
         } else {
-          out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), ...(identifier === undefined ? {} : { identifier }) });
+          out.push({
+            id,
+            shortName: attrOf(el, 'SHORT-NAME'),
+            ...(identifier === undefined ? {} : { identifier }),
+          });
         }
       }
     }
@@ -586,7 +595,14 @@ function extractRoutines(
         // emitted; the Diagnostic Extract bridge does not model it.
         if (sid !== null && sid !== 0x31 && sid !== 0x00) continue;
         seen.add(id);
-        out.push({ id, shortName: attrOf(el, 'SHORT-NAME'), ...(() => { const identifier = extractIdParam(el['PARAMS']); return identifier === undefined ? {} : { identifier }; })() });
+        out.push({
+          id,
+          shortName: attrOf(el, 'SHORT-NAME'),
+          ...(() => {
+            const identifier = extractIdParam(el['PARAMS']);
+            return identifier === undefined ? {} : { identifier };
+          })(),
+        });
       }
     }
   };

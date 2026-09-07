@@ -26,8 +26,8 @@
 import { promises as fs } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { buildDim } from '../../core/odx/dimBuilder.js';
 import { buildBswmdDefIndex } from '../../core/odx/bswmdDefIndex.js';
+import { buildDim } from '../../core/odx/dimBuilder.js';
 import { dimToDiagnosticExtract } from '../../core/odx/dimToDiagnosticExtract.js';
 import { parseOdxDocument } from '../../core/odx/odxDocument.js';
 import type { BswModuleDef } from '../../core/project/bswmd.js';
@@ -38,7 +38,6 @@ import type {
 import { writeAtomic } from '../io/writeAtomic.js';
 
 import { loadBswmdsFromDirectory } from './loadBswmds.js';
-
 import { parseOdxHandler } from './parseOdxHandler.js';
 import { readFileWithCap } from './sizeCap.js';
 

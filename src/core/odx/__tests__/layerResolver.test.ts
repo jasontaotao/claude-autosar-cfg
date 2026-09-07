@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOdxDocument } from '../odxDocument.js';
 import { resolveLayer } from '../layerResolver.js';
+import { parseOdxDocument } from '../odxDocument.js';
 
 const chainXml = `<?xml version="1.0" encoding="UTF-8"?>
 <ODX ID="_odx">

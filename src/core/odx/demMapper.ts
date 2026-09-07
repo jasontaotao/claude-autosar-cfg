@@ -1,4 +1,5 @@
 import type { ArxmlContainer, ArxmlElement, ArxmlModule, ParamValue } from '../arxml/types.js';
+
 import type { BswmdDefIndex } from './bswmdDefIndex.js';
 import type { Dim, DimWarning } from './dim.js';
 import { dedupeShortName, legalizeShortName } from './shortName.js';

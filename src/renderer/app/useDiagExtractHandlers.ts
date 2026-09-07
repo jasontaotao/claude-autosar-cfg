@@ -71,86 +71,87 @@ export function useDiagExtractHandlers(args: { odxModal: OdxModalState }): DiagE
   });
   const [diagExtractExporting, setDiagExtractExporting] = useState(false);
 
-  const handleExportOdxDiagnosticExtract = useCallback(async (options?: {
-    readonly odxPath?: string;
-  }): Promise<void> => {
-    // Read-once pattern: `setStoreError` from the store at call time
-    // (avoids useCallback dep-array churn + stale-closure trap).
-    const storeState = useArxmlStore.getState();
-    const { setError: setStoreError } = storeState;
-    const activeOdxPath = options?.odxPath ?? (odxModal.kind === 'open' ? odxModal.path : null);
-    if (activeOdxPath === null) return; // only meaningful with a parsed ODX
-    if (diagExtractExporting) return;
-    const api = window.autosarApi;
-    if (api === undefined) {
-      setStoreError('importDiagnosticExtract API not available');
-      return;
-    }
-    // The outputDir targets a project-relative path. We strip the
-    // manifest filename off `projectPath` to derive `projectDir` and
-    // then append `samples/arxml/diagnostic-extract/`. The T2 handler
-    // creates the Dem_Extract.arxml + Dcm_Extract.arxml inside that
-    // directory, creating the folder when it is missing.
-    // Per the brief, a user-selected path is out-of-scope for v1.24.0;
-    // the project-relative default is the single source of truth.
-    const state = useArxmlStore.getState();
-    const projectPath = state.projectPath;
-    const locale = state.locale;
-    const projectDir = projectPath !== null ? projectPath.replace(/[\\/][^\\/]+$/, '') : '';
-    const outputDir =
-      projectDir.length > 0
-        ? `${projectDir}/samples/arxml/diagnostic-extract`
-        : `${activeOdxPath.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
-    const bswmdDir = projectDir.length > 0 ? `${projectDir}/bswmd` : undefined;
-    setDiagExtractExporting(true);
-    try {
-      const res = await api.importDiagnosticExtract({
-        odxPath: activeOdxPath,
-        outputDir,
-        ...(bswmdDir === undefined ? {} : { bswmdDir }),
-      });
-      if (res.ok) {
-        setDiagExtractModal({ kind: 'open', ...res.value });
+  const handleExportOdxDiagnosticExtract = useCallback(
+    async (options?: { readonly odxPath?: string }): Promise<void> => {
+      // Read-once pattern: `setStoreError` from the store at call time
+      // (avoids useCallback dep-array churn + stale-closure trap).
+      const storeState = useArxmlStore.getState();
+      const { setError: setStoreError } = storeState;
+      const activeOdxPath = options?.odxPath ?? (odxModal.kind === 'open' ? odxModal.path : null);
+      if (activeOdxPath === null) return; // only meaningful with a parsed ODX
+      if (diagExtractExporting) return;
+      const api = window.autosarApi;
+      if (api === undefined) {
+        setStoreError('importDiagnosticExtract API not available');
         return;
       }
-      // Failure path — branched by error kind so the localiser owns
-      // every diagnostic string (v1.23.1 T1 L1 i18n-bypass-pattern).
-      switch (res.error.kind) {
-        case 'read-failed':
-          setStoreError(
-            t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message }),
-          );
+      // The outputDir targets a project-relative path. We strip the
+      // manifest filename off `projectPath` to derive `projectDir` and
+      // then append `samples/arxml/diagnostic-extract/`. The T2 handler
+      // creates the Dem_Extract.arxml + Dcm_Extract.arxml inside that
+      // directory, creating the folder when it is missing.
+      // Per the brief, a user-selected path is out-of-scope for v1.24.0;
+      // the project-relative default is the single source of truth.
+      const state = useArxmlStore.getState();
+      const projectPath = state.projectPath;
+      const locale = state.locale;
+      const projectDir = projectPath !== null ? projectPath.replace(/[\\/][^\\/]+$/, '') : '';
+      const outputDir =
+        projectDir.length > 0
+          ? `${projectDir}/samples/arxml/diagnostic-extract`
+          : `${activeOdxPath.replace(/[\\/][^\\/]+$/, '')}/diagnostic-extract`;
+      const bswmdDir = projectDir.length > 0 ? `${projectDir}/bswmd` : undefined;
+      setDiagExtractExporting(true);
+      try {
+        const res = await api.importDiagnosticExtract({
+          odxPath: activeOdxPath,
+          outputDir,
+          ...(bswmdDir === undefined ? {} : { bswmdDir }),
+        });
+        if (res.ok) {
+          setDiagExtractModal({ kind: 'open', ...res.value });
           return;
-        case 'write-failed':
-          // v1.24.0 T3.1 — 2-key split (rolledBack vs partial) mirrors
-          // the v1.23.1 T1 MEDIUM-1 DBC-wizard fix. Each branch is
-          // fully translated; no hardcoded English parenthetical
-          // (zh-CN users were seeing the English parenthetical
-          // concatenated to the translated base message per the
-          // v1.23.1 T1 L1 i18n-bypass anti-pattern lesson).
-          if (res.error.rolledBack) {
-            setStoreError(
-              t(locale, 'odx.export.diagnosticExtract.error.write.rolledBack', {
-                message: res.error.message,
-              }),
-            );
-          } else {
-            setStoreError(
-              t(locale, 'odx.export.diagnosticExtract.error.write.partial', {
-                message: res.error.message,
-              }),
-            );
-          }
-          return;
-        default: {
-          const _exhaustive: never = res.error;
-          void _exhaustive;
         }
+        // Failure path — branched by error kind so the localiser owns
+        // every diagnostic string (v1.23.1 T1 L1 i18n-bypass-pattern).
+        switch (res.error.kind) {
+          case 'read-failed':
+            setStoreError(
+              t(locale, 'odx.export.diagnosticExtract.error', { error: res.error.message }),
+            );
+            return;
+          case 'write-failed':
+            // v1.24.0 T3.1 — 2-key split (rolledBack vs partial) mirrors
+            // the v1.23.1 T1 MEDIUM-1 DBC-wizard fix. Each branch is
+            // fully translated; no hardcoded English parenthetical
+            // (zh-CN users were seeing the English parenthetical
+            // concatenated to the translated base message per the
+            // v1.23.1 T1 L1 i18n-bypass anti-pattern lesson).
+            if (res.error.rolledBack) {
+              setStoreError(
+                t(locale, 'odx.export.diagnosticExtract.error.write.rolledBack', {
+                  message: res.error.message,
+                }),
+              );
+            } else {
+              setStoreError(
+                t(locale, 'odx.export.diagnosticExtract.error.write.partial', {
+                  message: res.error.message,
+                }),
+              );
+            }
+            return;
+          default: {
+            const _exhaustive: never = res.error;
+            void _exhaustive;
+          }
+        }
+      } finally {
+        setDiagExtractExporting(false);
       }
-    } finally {
-      setDiagExtractExporting(false);
-    }
-  }, [odxModal, diagExtractExporting]);
+    },
+    [odxModal, diagExtractExporting],
+  );
   // Explicitly open the generated extract documents in the workspace.
   // This keeps "export to disk" semantically separate from "inspect in
   // the app", while still giving the user a one-click verification path.

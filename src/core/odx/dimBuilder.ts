@@ -8,9 +8,9 @@ import type {
   DimSession,
   DimWarning,
 } from './dim.js';
+import { resolveDataObjects } from './dopResolver.js';
 import { resolveLayer } from './layerResolver.js';
 import type { ResolvedLayer } from './layerResolver.js';
-import { resolveDataObjects } from './dopResolver.js';
 import type { OdxDocument, OdxRawElement } from './odxDocument.js';
 
 const SID_CLASS: Record<number, DimServiceClass> = {

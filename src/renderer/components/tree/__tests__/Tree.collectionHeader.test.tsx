@@ -429,9 +429,6 @@ describe('Tree -- collection header selection', () => {
     render(<Tree store={api} />);
     expandToConfigSet();
 
-    expect(screen.getByTestId('treeitem-collection-Cell')).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByTestId('treeitem-collection-Cell')).toHaveAttribute('aria-selected', 'true');
   });
 });

@@ -54,12 +54,7 @@ describe('DiagnosticExtractSuccessDialog (v1.24.0 T3)', () => {
 
   it('renders and calls the open-in-workspace action', () => {
     const onOpenInWorkspace = vi.fn();
-    render(
-      <DiagnosticExtractSuccessDialog
-        {...baseProps}
-        onOpenInWorkspace={onOpenInWorkspace}
-      />,
-    );
+    render(<DiagnosticExtractSuccessDialog {...baseProps} onOpenInWorkspace={onOpenInWorkspace} />);
     fireEvent.click(screen.getByTestId('diag-extract-open-in-workspace'));
     expect(onOpenInWorkspace).toHaveBeenCalledOnce();
   });

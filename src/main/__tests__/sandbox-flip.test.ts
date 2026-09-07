@@ -84,6 +84,8 @@ describe('SE-1: preload bridge audit (sandbox:true safety net)', () => {
     expect(keys).toEqual([
       'bswmdPick', // v1.33.0 MINOR T2 — bswmd:pick IPC for Override UI Browse button
       'copyTemplate',
+      'dbcFullImportCommit', // 2026-09-03 — DBC full-import commit
+      'dbcFullImportPreview', // 2026-09-03 — DBC full-import preview
       'dbcImportComStack',
       'dcmConfig', // v1.30.0 MINOR — wires the v1.27.0 T4 dcmConfigHandler to the IPC bridge
       'deleteArxml',

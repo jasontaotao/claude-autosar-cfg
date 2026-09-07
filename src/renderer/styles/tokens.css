@@ -25,6 +25,7 @@
   /* —— accent —— */
   --accent-cyan: #38bdf8;
   --accent-amber: #f59e0b;
+  --accent-yellow: #eab308; /* DBC/ODX wizard Profile-default 源档（与 amber/unmapped 区分；2026-09-07 verify-gate review） */
   --accent-emerald: #10b981;
   --accent-rose: #f43f5e;
   --accent-amber-strong: #b45309; /* dirty 按钮深档（spec §3.1；#c2410c/#ea580c 不预先合并） */

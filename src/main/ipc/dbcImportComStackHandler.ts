@@ -188,6 +188,9 @@ async function loadBswmdDefs(
  * Mirrors `projectWriteArxmlBatchHandler` shape: returns a
  * discriminated union so the renderer can distinguish ok /
  * read-failed / bridge-failed / write-failed.
+ *
+ * @deprecated Renderer flow uses dbc:fullImportPreview / dbc:fullImportCommit.
+ * Keep this channel for external compatibility during the migration window.
  */
 export async function dbcImportComStackHandler(
   req: DbcImportComStackRequest,

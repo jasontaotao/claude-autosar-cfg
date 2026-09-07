@@ -6,8 +6,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { OdxImportWizard } from '../OdxImportWizard';
 import type { OdxImportPreview } from '../../../../shared/types';
+import { OdxImportWizard } from '../OdxImportWizard';
 
 const basePreview: OdxImportPreview = {
   variants: [{ kind: 'BASE-VARIANT', odxId: 'base', shortName: 'Demo' }],

@@ -72,6 +72,20 @@ describe('dbcParseForBridgeHandler (T1)', () => {
     expect(sig?.receivers).toEqual(['TCM']);
   });
 
+  it('strips the Vector bit-31 extended-frame flag in message and signal ids', () => {
+    // 0x80000000 | 0x123 = 2147483939：Vector 导出格式，summary 应归一化为 0x123。
+    const vectorExtDbc =
+      MINIMAL_DBC_WITH_SIGNALS +
+      '\nBO_ 2147483939 ExtFrame: 8 ECM\n SG_ ExtSig : 0|8@1+ (1,0) [0|255] "" TCM\n';
+    const res = dbcParseForBridgeHandler({ path: '/tmp/vext.dbc', content: vectorExtDbc });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.messages.find((m) => m.id === 0x123)?.isExtended).toBe(true);
+    expect(res.value.messages.some((m) => m.id === 2147483939)).toBe(false);
+    const extSig = res.value.signals.find((s) => s.name === 'ExtSig');
+    expect(extSig?.messageId).toBe(0x123);
+  });
+
   it('signs a signed signal correctly (OilTemp @1-)', () => {
     const res = dbcParseForBridgeHandler({
       path: '/tmp/p.dbc',

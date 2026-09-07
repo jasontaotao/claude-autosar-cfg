@@ -6,29 +6,28 @@
 // the pure three-way merge model. Commit-only decisions are handled by a
 // separate IPC channel.
 
-import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-import { loadManifest } from '../../core/project/manifest.js';
-import type { ProjectManifest } from '../../shared/project.js';
-import { parseBswmd } from '../../core/project/bswmd.js';
-import type { BswmdError, BswModuleDef } from '../../core/project/bswmd.js';
 import { parseArxml } from '../../core/arxml/parser.js';
 import type { ParseError } from '../../core/arxml/parser.js';
 import type { ArxmlModule, ArxmlPackage } from '../../core/arxml/types.js';
-import { buildDim } from '../../core/odx/dimBuilder.js';
-import type { DimWarning } from '../../core/odx/dim.js';
 import { buildBswmdDefIndex } from '../../core/odx/bswmdDefIndex.js';
+import type { DimWarning } from '../../core/odx/dim.js';
+import { buildDim } from '../../core/odx/dimBuilder.js';
 import { mapDimToEcuc } from '../../core/odx/mapDimToEcuc.js';
+import { parseOdxDocument } from '../../core/odx/odxDocument.js';
 import {
   classifyImportRows,
   collectImportContainers,
   hashContainerForProvenance,
   type ImportManifestEntry,
 } from '../../core/odx/threeWayMerge.js';
-import { parseOdxDocument } from '../../core/odx/odxDocument.js';
-
+import type { BswmdError, BswModuleDef } from '../../core/project/bswmd.js';
+import { parseBswmd } from '../../core/project/bswmd.js';
+import { loadManifest } from '../../core/project/manifest.js';
+import type { ProjectManifest } from '../../shared/project.js';
 import type {
   OdxImportError,
   OdxImportPreview,
@@ -38,8 +37,8 @@ import type {
   OdxTargetModuleInfo,
 } from '../../shared/types/odx-import.js';
 
-import { DEFAULT_FILE_CAP_BYTES, readFileWithCap } from './sizeCap.js';
 import { getOpenProjectManifestPath } from './project-manifest-state.js';
+import { DEFAULT_FILE_CAP_BYTES, readFileWithCap } from './sizeCap.js';
 
 const PROVENANCE_RELATIVE_PATH = join('.autosarcfg', 'odx-import-manifest.json');
 
@@ -436,6 +435,7 @@ export async function odxImportPreviewHandler(
       rows.push(
         ...classifyImportRows({
           module: moduleShortName,
+          removedCategoryLabel: 'removed-in-odx',
           manifestEntries: baseEntries,
           currentContainers: currentHashes,
           incomingContainers: incomingHashes,

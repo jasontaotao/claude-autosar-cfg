@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDefinitionRefsResolve } from '../assertDefinitionRefsResolve.js';
 import type { BswModuleDef, ContainerDef } from '../../project/bswmd/types.js';
+import { assertDefinitionRefsResolve } from '../assertDefinitionRefsResolve.js';
 
-function container(shortName: string, path: string, over: Partial<ContainerDef> = {}): ContainerDef {
+function container(
+  shortName: string,
+  path: string,
+  over: Partial<ContainerDef> = {},
+): ContainerDef {
   return {
     shortName,
     path,
@@ -24,17 +28,19 @@ const dcmBswmd: BswModuleDef = {
   moduleId: null,
   containers: [
     container('DcmDspDid', '/AUTOSAR/Dcm/DcmDspDid', {
-      parameters: [{
-        shortName: 'DcmDspDidIdentifier',
-        path: '/AUTOSAR/Dcm/DcmDspDid/DcmDspDidIdentifier',
-        kind: 'integer',
-        defaultValue: null,
-        minValue: null,
-        maxValue: null,
-        minLength: null,
-        maxLength: null,
-        enumerationLiterals: [],
-      }],
+      parameters: [
+        {
+          shortName: 'DcmDspDidIdentifier',
+          path: '/AUTOSAR/Dcm/DcmDspDid/DcmDspDidIdentifier',
+          kind: 'integer',
+          defaultValue: null,
+          minValue: null,
+          maxValue: null,
+          minLength: null,
+          maxLength: null,
+          enumerationLiterals: [],
+        },
+      ],
     }),
   ],
   providedEntries: [],

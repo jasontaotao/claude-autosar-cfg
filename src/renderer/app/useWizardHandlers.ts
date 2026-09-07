@@ -3,7 +3,7 @@
 // Extracted from `src/renderer/App.tsx` as part of v1.42.1 MINOR T4a
 // (per-flow JSX refactor for the Round-1 L8 file-size backlog).
 //
-// Public surface: 8 callbacks + 2 state slots + 2 refs = 12 return fields.
+// Public surface: 10 callbacks + 3 state slots + 2 refs.
 //
 // Existing consumers (DbcImportWizard mount, XlsxBatchWizard mount,
 // AppHeader `dbcImportBusy` + `xlsxBatchBusy` props, TourProvider
@@ -11,50 +11,55 @@
 // shell destructures the hook return and passes callbacks / state /
 // refs as props.
 //
-// Per-flow scope chosen over bulk extraction (lesson
-// `per-flow-jsx-refactor-needs-prerequisite-analysis-deliverable`):
-// this T handles 8 callbacks + 2 state + 2 refs for the DBC import
-// wizard + XLSX batch wizard + onboarding tour only; this is Flow 4
-// (the last flow) in App.tsx. After T4a, all 4 App.tsx flow groups
-// are extracted; remaining LoC is JSX shell + top-level hooks.
-//
-// **The DbcImportWizard `onApply` callback is INLINE in JSX (line
-// ~660+ in App.tsx) and stays in App.tsx shell** — it reads from
-// `useArxmlStore.getState()` directly, is defined inline in JSX (not
-// `const handler = useCallback(...)`), and is called only by the
-// JSX (single caller). It does not need extraction per the
-// plan's T4a spec note.
+// v1.56.0 Task 13 — the DBC import wizard moved from the 3-step
+// host-orchestrated flow (openDbc → parseDbc → `dbcImportComStack`
+// onApply) to the wizard-owned 4-step flow (source-target → policy →
+// preview → apply). The host now supplies three callbacks instead of
+// owning the round-trip:
+//   - `pickDbcImportFile`   — openDbc IPC → absolute path or null
+//   - `dbcFullImportPreview`— dbcFullImportPreview IPC pass-through
+//   - `dbcFullImportCommit` — dbcFullImportCommit IPC + the post-commit
+//     project reload + success toast (the legacy App.tsx inline
+//     `onApply` block relocated here)
+// `DbcImportState` (3-arm union) is replaced by a boolean
+// `dbcImportWizardOpen`; the legacy `dbcImportState.kind === 'preview'`
+// mount condition disappears with it. The old
+// `window.autosarApi.dbcImportComStack` channel stays untouched
+// (Task 14 owns migration + compat).
 
 import { useCallback, useRef, useState } from 'react';
 
-import { t as i18nT, t } from '@shared/i18n/index.js';
+import { t as i18nT } from '@shared/i18n/index.js';
+import { dirname, toManifestRelative } from '@shared/path';
+import type {
+  DbcFullImportCommitRequest,
+  DbcFullImportCommitResponse,
+  DbcFullImportPreviewRequest,
+  DbcFullImportPreviewResponse,
+} from '@shared/types/dbc-import';
 
-import type { DbcSummary } from '../../shared/types';
 import { useArxmlStore } from '../store/useArxmlStore';
 
-export type DbcImportState =
-  | { readonly kind: 'closed' }
-  | { readonly kind: 'pick' }
-  | {
-      readonly kind: 'preview';
-      readonly summary: DbcSummary;
-      readonly content: string;
-      readonly correlationId: string;
-    };
-
 export type WizardHandlers = {
-  // 8 callbacks
+  // 10 callbacks
   openDbcImportWizard: () => Promise<void>;
   closeDbcImportWizard: () => void;
+  pickDbcImportFile: () => Promise<string | null>;
+  dbcFullImportPreview: (
+    request: DbcFullImportPreviewRequest,
+  ) => Promise<DbcFullImportPreviewResponse>;
+  dbcFullImportCommit: (
+    request: DbcFullImportCommitRequest,
+  ) => Promise<DbcFullImportCommitResponse>;
   openXlsxBatchWizard: () => Promise<void>;
   closeXlsxBatchWizard: () => void;
   onTourAdvance: () => void;
   onTourBack: () => void;
   onTourSkip: () => void;
   onTourFinish: () => void;
-  // 2 state slots (read-only — setters stay in hook for callback
+  // 3 state slots (read-only — setters stay in hook for callback
   // closures; App.tsx shell does not need them as React state)
-  dbcImportState: DbcImportState;
+  dbcImportWizardOpen: boolean;
   xlsxBatchWizardOpen: boolean;
   // 2 in-flight refs
   dbcImportInFlight: React.MutableRefObject<boolean>;
@@ -74,111 +79,150 @@ export type WizardHandlers = {
 // not in a hook).
 
 export function useWizardHandlers(): WizardHandlers {
-  // v1.23.0 T4 — DBC→Com-Stack 3-step wizard state machine. Mirrors
-  // the v1.21.0 T4 DBC + v1.22.0 T3 ODX pattern line-for-line
-  // (separate modal state, separate in-flight ref). The wizard's
-  // state is a 3-arm union: closed (not mounted), pick (Step 1
-  // — user picks a DBC file), and preview (Step 2 + 3 — the host
-  // has the parsed DBC summary and passes it down as `initialDbc`).
-  // The 'pick' arm hosts the openDbc → parseDbc round-trip so the
-  // wizard can present a single button that drives the entire
-  // upstream flow.
-  const [dbcImportState, setDbcImportState] = useState<DbcImportState>({ kind: 'closed' });
+  // v1.56.0 Task 13 — DBC full-import 4-step wizard open/close flag.
+  // The wizard owns its step machine internally; the host only gates
+  // the modal mount + supplies the IPC callbacks below. Mirrors the
+  // OdxImportWizard / XlsxBatchWizard pattern.
+  const [dbcImportWizardOpen, setDbcImportWizardOpen] = useState(false);
   const dbcImportInFlight = useRef(false);
   const openDbcImportWizard = useCallback(async (): Promise<void> => {
     if (dbcImportInFlight.current) return;
+    // Read-once: locale + projectPath + setStoreError at call time.
+    const { locale, projectPath: projPath, setError: setStoreError } = useArxmlStore.getState();
+    if (projPath === null) {
+      setStoreError(i18nT(locale, 'app.generate.needProject'));
+      return;
+    }
+    setDbcImportWizardOpen(true);
+  }, []);
+  const closeDbcImportWizard = useCallback((): void => {
+    setDbcImportWizardOpen(false);
+  }, []);
+
+  // Select a DBC file via the OS dialog; returns the absolute path or
+  // null when the user cancels / the read fails (error toast emitted
+  // here so the wizard can treat null as "no file chosen").
+  const pickDbcImportFile = useCallback(async (): Promise<string | null> => {
+    const api = window.autosarApi;
+    if (api === undefined) {
+      const { setError: setStoreError } = useArxmlStore.getState();
+      setStoreError('openDbc API not available');
+      return null;
+    }
     dbcImportInFlight.current = true;
     try {
-      const api = window.autosarApi;
-      if (api === undefined) {
-        // Read-once pattern: `setStoreError` from the store at call
-        // time (avoids useCallback dep-array churn).
-        const { setError: setStoreError } = useArxmlStore.getState();
-        setStoreError('openDbc API not available');
-        return;
-      }
-      const locale = useArxmlStore.getState().locale;
-      const correlationId = `dbc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
       const opened = await api.openDbc();
       switch (opened.kind) {
         case 'canceled':
-          // User dismissed the dialog — do not open the wizard at all.
-          // The T4 brief calls for a 3-step wizard that ONLY appears
-          // after a successful DBC pick; if the user cancels at the
-          // OS dialog, we return to the workspace with no modal.
-          return;
+          return null;
         case 'read-failed': {
-          const { setError: setStoreError } = useArxmlStore.getState();
-          setStoreError(t(locale, 'dbc.open.failed', { message: opened.message }));
-          return;
+          const { locale, setError: setStoreError } = useArxmlStore.getState();
+          setStoreError(i18nT(locale, 'dbc.open.failed', { message: opened.message }));
+          return null;
         }
         case 'opened':
-          useArxmlStore.getState().appendDiagnostic({
-            level: 'debug',
-            source: 'dbc-import',
-            message: 'DBC file opened',
-            detail: `path=${opened.path} bytes=${opened.content.length}`,
-            correlationId,
-          });
-          break;
+          return opened.path;
         default: {
           const _exhaustive: never = opened;
           throw new Error(`Unhandled OpenDbcResult: ${String(_exhaustive)}`);
         }
       }
-      const parsed = await api.parseDbc({
-        path: opened.path,
-        content: opened.content,
-      });
-      if (!parsed.ok) {
-        const { setError: setStoreError } = useArxmlStore.getState();
-        useArxmlStore.getState().appendDiagnostic({
-          level: 'error',
-          source: 'dbc-import',
-          message: 'DBC parse failed',
-          detail: parsed.error.message,
-          correlationId,
-        });
-        setStoreError(t(locale, 'dbc.parse.failed', { message: parsed.error.message }));
-        return;
-      }
-      if (parsed.value.messages.length === 0) {
-        const message = t(locale, 'dbc.import.error.noMessages');
-        useArxmlStore.getState().appendDiagnostic({
-          level: 'warn',
-          source: 'dbc-import',
-          message,
-          detail: `nodes=${parsed.value.nodeCount}`,
-          correlationId,
-        });
-        useArxmlStore.getState().setError(message);
-        return;
-      }
-      useArxmlStore.getState().appendDiagnostic({
-        level: 'debug',
-        source: 'dbc-import',
-        message: 'DBC parsed',
-        detail: `nodes=${parsed.value.nodeCount} messages=${parsed.value.messageCount}`,
-        correlationId,
-      });
-      // Transition to the 'preview' arm — the wizard lands directly
-      // on Step 2 (Preview) because the host has already done the
-      // open + parse round-trip. The DbcSummary is the source of
-      // truth for the targetNode dropdown; we keep the raw content
-      // in the state so the Apply handler can ship it to the IPC.
-      setDbcImportState({
-        kind: 'preview',
-        summary: parsed.value,
-        content: opened.content,
-        correlationId,
-      });
     } finally {
       dbcImportInFlight.current = false;
     }
   }, []);
-  const closeDbcImportWizard = useCallback((): void => {
-    setDbcImportState({ kind: 'closed' });
-  }, []);
+
+  // Preview IPC pass-through — the wizard owns the request shape
+  // (discovery omits targetNode; mapping includes it, §10.2.1).
+  const dbcFullImportPreview = useCallback(
+    async (request: DbcFullImportPreviewRequest): Promise<DbcFullImportPreviewResponse> => {
+      const api = window.autosarApi;
+      if (api === undefined) {
+        return {
+          ok: false,
+          error: { kind: 'read-failed', message: 'dbcFullImportPreview API not available' },
+        };
+      }
+      return api.dbcFullImportPreview(request);
+    },
+    [],
+  );
+
+  // Commit IPC + post-commit project reload + success toast.
+  // Mirrors the legacy App.tsx inline `onApply` block: the 3-file
+  // write already succeeded by the time we reload, so a reload failure
+  // is surfaced as a warning, never as a commit failure. The response
+  // passes through so the wizard can show applied/kept/deleted.
+  const dbcFullImportCommit = useCallback(
+    async (request: DbcFullImportCommitRequest): Promise<DbcFullImportCommitResponse> => {
+      const api = window.autosarApi;
+      if (api === undefined) {
+        return {
+          ok: false,
+          error: { kind: 'read-failed', message: 'dbcFullImportCommit API not available' },
+        };
+      }
+      const state = useArxmlStore.getState();
+      const projPath = state.projectPath;
+      const loc = state.locale;
+      if (projPath === null) {
+        return {
+          ok: false,
+          error: { kind: 'read-failed', message: 'No project open' },
+        };
+      }
+      const response = await api.dbcFullImportCommit(request);
+      if (!response.ok) return response;
+
+      // Success — reload the project so the store re-parses the
+      // freshly-written ARXMLs + BSWMDs. `project:reload` is the
+      // non-dialog counterpart to `project:open` (T4 PATCH HIGH-1).
+      try {
+        const reload = await api.projectReload({ manifestPath: projPath });
+        if (reload.kind === 'read-failed') {
+          const { setError: setStoreError } = useArxmlStore.getState();
+          setStoreError(i18nT(loc, 'app.error.openProjectFailed', { message: reload.message }));
+          return response;
+        }
+        const manifest = useArxmlStore.getState().project;
+        if (manifest !== null) {
+          const manifestDir = dirname(projPath);
+          const docsRelSet = new Set(manifest.valueArxmlPaths);
+          const docs: { rel: string; path: string; content: string }[] = [];
+          const bswmds: { rel: string; path: string; content: string }[] = [];
+          for (const file of reload.files) {
+            const rel = toManifestRelative(manifestDir, file.path) ?? file.path;
+            if (docsRelSet.has(rel)) docs.push({ rel, path: file.path, content: file.content });
+            else bswmds.push({ rel, path: file.path, content: file.content });
+          }
+          useArxmlStore.getState().openProject({
+            manifestPath: projPath,
+            manifest: reload.manifest,
+            docs,
+            bswmds,
+          });
+        }
+      } catch (reloadErr) {
+        // Belt-and-braces — a hard reject must not hide that the
+        // commit succeeded.
+        const { setError: setStoreError } = useArxmlStore.getState();
+        setStoreError(
+          i18nT(loc, 'app.error.openProjectFailed', {
+            message: reloadErr instanceof Error ? reloadErr.message : String(reloadErr),
+          }),
+        );
+        return response;
+      }
+      const after = useArxmlStore.getState();
+      if (response.value.applied > 0) {
+        after.setSuccess(i18nT(loc, 'dbc.import.success', { count: response.value.applied }));
+      } else {
+        after.setWarning(i18nT(loc, 'dbc.import.warning.noChanges'));
+      }
+      return response;
+    },
+    [],
+  );
 
   // v1.25.0 T5 — Excel→Com-Stack ECUC batch 3-step wizard. Open/close
   // flag lives here (mirrors the DbcImportWizard / OdxViewer / diag-
@@ -235,17 +279,20 @@ export function useWizardHandlers(): WizardHandlers {
   }, [dispatchTour]);
 
   return {
-    // 8 callbacks
+    // 10 callbacks
     openDbcImportWizard,
     closeDbcImportWizard,
+    pickDbcImportFile,
+    dbcFullImportPreview,
+    dbcFullImportCommit,
     openXlsxBatchWizard,
     closeXlsxBatchWizard,
     onTourAdvance,
     onTourBack,
     onTourSkip,
     onTourFinish,
-    // 2 state slots (read-only)
-    dbcImportState,
+    // 3 state slots (read-only)
+    dbcImportWizardOpen,
     xlsxBatchWizardOpen,
     // 2 in-flight refs
     dbcImportInFlight,

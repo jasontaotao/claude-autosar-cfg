@@ -415,6 +415,104 @@ describe('Sprint 14 — patch: applyPatchesToDocument', () => {
     expect(l).toBeDefined();
   });
 
+  it('overwrite-module applies to a module in a nested AR-PACKAGE (real R22 shape)', () => {
+    // 真实项目结构：模块在 `AUTOSAR_R22 > EcucDefs > ELEMENTS`（两层嵌套
+    // AR-PACKAGE）。overwrite-module 必须递归命中，而不是只改顶层 package。
+    const nestedDoc: ArxmlDocument = {
+      path: '/x.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          path: '/AUTOSAR_R22',
+          elements: [],
+          packages: [
+            {
+              shortName: 'EcucDefs',
+              path: '/AUTOSAR_R22/EcucDefs',
+              elements: [makeModule('Com', [makeContainer('OldContainer')])],
+            },
+          ],
+        },
+      ],
+    };
+    const replacement = makeModule('Com', [makeContainer('NewContainer')]);
+    const next = applyPatchesToDocument(nestedDoc, [
+      { kind: 'overwrite-module', moduleShortName: 'Com', replacement },
+    ]);
+    // 递归找到嵌套 package 里的模块并验证已被替换。
+    const inner = next.packages[0]?.packages?.[0];
+    expect(inner).toBeDefined();
+    const com = inner?.elements.find((e) => e.kind === 'module' && e.shortName === 'Com');
+    expect(com).toBeDefined();
+    if (com?.kind !== 'module') return;
+    const children = com.children.filter((c) => c.kind === 'container');
+    expect(children.map((c) => c.shortName)).toEqual(['NewContainer']);
+  });
+
+  it('merge-into-module applies to a module in a nested AR-PACKAGE and dedups by shortName', () => {
+    // 同 R22 嵌套形态：incoming additions 追加到嵌套 module 的 children，
+    // 且与已存在的 container 短名去重（不重复添加）。
+    const nestedDoc: ArxmlDocument = {
+      path: '/x.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          path: '/AUTOSAR_R22',
+          elements: [],
+          packages: [
+            {
+              shortName: 'EcucDefs',
+              path: '/AUTOSAR_R22/EcucDefs',
+              elements: [makeModule('Com', [makeContainer('Existing')])],
+            },
+          ],
+        },
+      ],
+    };
+    const next = applyPatchesToDocument(nestedDoc, [
+      {
+        kind: 'merge-into-module',
+        moduleShortName: 'Com',
+        additions: [makeContainer('Existing'), makeContainer('NewOne')],
+      },
+    ]);
+    const inner = next.packages[0]?.packages?.[0];
+    const com = inner?.elements.find((e) => e.kind === 'module' && e.shortName === 'Com');
+    expect(com).toBeDefined();
+    if (com?.kind !== 'module') return;
+    const children = com.children.filter((c) => c.kind === 'container');
+    expect(children.map((c) => c.shortName).sort()).toEqual(['Existing', 'NewOne']);
+  });
+
+  it('findModuleByShortName recurses: add-module throws when a same-named module already exists in a nested AR-PACKAGE', () => {
+    // 同 R22 嵌套形态：模块在 `AUTOSAR_R22 > EcucDefs`（两层嵌套 AR-PACKAGE）。
+    // add-module 的 dup 检查（applyOp 内 findModuleByShortName）必须递归命中
+    // 嵌套 package 里的同名 module，否则会错误地重复添加而不是 throw。
+    const nestedDoc: ArxmlDocument = {
+      path: '/x.arxml',
+      version: '4.6',
+      packages: [
+        {
+          shortName: 'AUTOSAR_R22',
+          path: '/AUTOSAR_R22',
+          elements: [],
+          packages: [
+            {
+              shortName: 'EcucDefs',
+              path: '/AUTOSAR_R22/EcucDefs',
+              elements: [makeModule('Com')],
+            },
+          ],
+        },
+      ],
+    };
+    const op = { kind: 'add-module' as const, module: makeModule('Com') };
+    // 嵌套里已存在同名 module → dup 检查命中 → throw（caller 靠 snapshot 回滚）。
+    expect(() => applyPatchesToDocument(nestedDoc, [op])).toThrow();
+  });
+
   it('emits merge-into-module when an existing module is present and resolution=overwrite (collision)', () => {
     // Arrange — target doc has a 'Can' module already; session says
     // overwrite. The patch should be merge-into-module, NOT add-module

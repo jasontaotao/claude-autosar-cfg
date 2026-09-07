@@ -6,8 +6,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { dirname, toManifestRelative } from '@shared/path';
+import type { DimWarning, OdxWarningCode } from '@core/odx/dim.js';
 import { t, type Locale } from '@shared/i18n/index.js';
+import { dirname, toManifestRelative } from '@shared/path';
 import type {
   OdxImportCategory,
   OdxImportDecision,
@@ -17,7 +18,7 @@ import type {
 } from '@shared/types';
 
 import { useArxmlStore } from '../../store/useArxmlStore';
-import type { DimWarning, OdxWarningCode } from '@core/odx/dim.js';
+
 import './OdxImportWizard.css';
 
 type Step = 'idle' | 'variant-select' | 'preview' | 'committing' | 'done';

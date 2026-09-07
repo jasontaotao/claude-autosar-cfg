@@ -7,10 +7,10 @@ import type {
   ParamDef,
   ReferenceDef,
 } from '../../project/bswmd/types.js';
-import type { Dim, DimDataObject, DimService } from '../dim.js';
 import { buildBswmdDefIndex } from '../bswmdDefIndex.js';
 import { mapDcm } from '../dcmMapper.js';
 import { mapDem } from '../demMapper.js';
+import type { Dim, DimDataObject, DimService } from '../dim.js';
 import { mergeModuleThreeWay } from '../threeWayMerge.js';
 
 function p(
@@ -332,7 +332,11 @@ const dataObject: DimDataObject = {
 };
 
 const dim: Dim = {
-  meta: { sourcePath: 'test', modelVersion: '1.0', variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' } },
+  meta: {
+    sourcePath: 'test',
+    modelVersion: '1.0',
+    variant: { kind: 'BASE-VARIANT', odxId: '_v', shortName: 'Variant' },
+  },
   services: [service()],
   dataObjects: [dataObject],
   dtcs: [],
@@ -525,4 +529,3 @@ describe('review critical fixes', () => {
     expect(deleted.children).toHaveLength(0);
   });
 });
-

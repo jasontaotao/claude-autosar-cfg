@@ -76,6 +76,18 @@ describe('parseDbcHandler (Bug #5)', () => {
     expect(res.value.messages.find((m) => m.id === 2048)?.isExtended).toBe(true);
   });
 
+  it('strips the Vector bit-31 extended-frame flag in the summary', () => {
+    // 0x80000000 | 0x123 = 2147483939：Vector 导出格式，viewer 应看到真实 id 0x123。
+    const vectorExtDbc =
+      MINIMAL_DBC +
+      'BO_ 2147483939 Frame_D: 8 ECU1\n SG_ Signal_D : 0|8@1+ (1,0) [0|255] "" Vector__XXX\n';
+    const res = parseDbcHandler({ path: '/tmp/vector-ext.dbc', content: vectorExtDbc });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.messages.find((m) => m.id === 0x123)?.isExtended).toBe(true);
+    expect(res.value.messages.some((m) => m.id === 2147483939)).toBe(false);
+  });
+
   it('cap exceeded: returns ok=false kind="dbc-too-large"', () => {
     // Construct a string one code unit over the cap. We don't need to
     // ship a real 32 MiB DBC — the cap check fires before parsing.

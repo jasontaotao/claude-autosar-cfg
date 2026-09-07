@@ -20,6 +20,7 @@
 import { parseDbc, type Message, type Network, type Signal } from '@dbc-forge/core';
 
 import type { Result } from '../../core/arxml/types.js';
+import { normalizeCanId } from '../../core/dbc/canId.js';
 import type { DbcMessageSummary, DbcSummary, ParseDbcRequest } from '../../shared/types.js';
 
 /**
@@ -81,7 +82,8 @@ function projectSignal(sig: Signal, messageId: number): DbcSignalSummary {
   // exercises them.)
   const valueType: 'signed' | 'unsigned' = sig.valueType === 'signed' ? 'signed' : 'unsigned';
   return {
-    messageId,
+    // Vector bit-31 扩展帧标志统一归一化（见 core/dbc/canId.ts）。
+    messageId: normalizeCanId(messageId),
     name: sig.name,
     startBit: sig.startBit,
     length: sig.length,
@@ -103,7 +105,8 @@ function projectSignal(sig: Signal, messageId: number): DbcSignalSummary {
  */
 function projectMessage(m: Message): DbcMessageSummary {
   return {
-    id: m.id,
+    // Vector bit-31 扩展帧标志统一归一化（见 core/dbc/canId.ts）。
+    id: normalizeCanId(m.id),
     name: m.name,
     dlc: m.dlc,
     transmitter: m.transmitter,

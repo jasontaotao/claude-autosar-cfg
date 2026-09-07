@@ -1,9 +1,10 @@
 import { serializeArxml } from '../arxml/serializer.js';
 import type { ArxmlDocument, ArxmlModule } from '../arxml/types.js';
+
 import type { BswmdDefIndex } from './bswmdDefIndex.js';
-import type { Dim } from './dim.js';
 import { mapDcm } from './dcmMapper.js';
 import { mapDem } from './demMapper.js';
+import type { Dim } from './dim.js';
 
 export interface DimToDiagnosticExtractResult {
   readonly demContent: string;

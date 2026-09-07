@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseOdxDocument } from '../odxDocument.js';
-import { resolveLayer } from '../layerResolver.js';
 import { resolveDataObjects } from '../dopResolver.js';
+import { resolveLayer } from '../layerResolver.js';
+import { parseOdxDocument } from '../odxDocument.js';
 
 function odxWithDops(dops: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

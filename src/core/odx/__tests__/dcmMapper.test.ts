@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type { ArxmlContainer } from '../../arxml/types.js';
 import type { BswModuleDef, ContainerDef, ParamDef } from '../../project/bswmd/types.js';
 import type { BswmdDefIndex } from '../bswmdDefIndex.js';
-import type { Dim, DimService } from '../dim.js';
 import { buildBswmdDefIndex } from '../bswmdDefIndex.js';
 import { mapDcm } from '../dcmMapper.js';
+import type { Dim, DimService } from '../dim.js';
 
 function p(
   shortName: string,

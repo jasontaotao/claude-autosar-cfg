@@ -81,3 +81,8 @@ scripts/tmp-*.py
 # Local Claude Code scratch space (spec-driven dev session reports + reviews).
 # Kept on disk for the active session; never committed.
 .claude/
+# CodeGraph local index (SQLite; per-machine, never committed).
+.codegraph/
+
+# Local codex sandbox home (tool state, same rationale as .claude/ above).
+.superpowers/codex-home/

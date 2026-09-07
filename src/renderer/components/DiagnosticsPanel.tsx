@@ -14,9 +14,7 @@ function formatTimestamp(ts: number): string {
 }
 
 function diagnosticText(entry: DiagnosticEntry): string {
-  const lines = [
-    `${formatTimestamp(entry.ts)} [${entry.level}] ${entry.source}: ${entry.message}`,
-  ];
+  const lines = [`${formatTimestamp(entry.ts)} [${entry.level}] ${entry.source}: ${entry.message}`];
   if (entry.detail !== undefined) lines.push(entry.detail);
   if (entry.stack !== undefined) lines.push(entry.stack);
   return lines.join('\n');
@@ -58,7 +56,11 @@ export function DiagnosticsPanel(): JSX.Element {
   return (
     <section className="diagnostics-panel" data-testid="diagnostics-panel">
       <header className="diagnostics-toolbar">
-        <div className="diagnostics-filters" role="group" aria-label={t(locale, 'panels.diagnostics')}>
+        <div
+          className="diagnostics-filters"
+          role="group"
+          aria-label={t(locale, 'panels.diagnostics')}
+        >
           <button
             type="button"
             className={`diagnostics-filter ${filter === 'all' ? 'is-active' : ''}`}
@@ -115,7 +117,9 @@ export function DiagnosticsPanel(): JSX.Element {
           {visible.map((entry) => {
             const expanded = expandedId === entry.id;
             const hasDetail =
-              entry.detail !== undefined || entry.stack !== undefined || entry.correlationId !== undefined;
+              entry.detail !== undefined ||
+              entry.stack !== undefined ||
+              entry.correlationId !== undefined;
             return (
               <li
                 key={entry.id}
@@ -135,12 +139,17 @@ export function DiagnosticsPanel(): JSX.Element {
                       aria-expanded={expanded}
                       data-testid={`diagnostics-toggle-${entry.id}`}
                     >
-                      {expanded ? t(locale, 'diagnostics.collapse') : t(locale, 'diagnostics.expand')}
+                      {expanded
+                        ? t(locale, 'diagnostics.collapse')
+                        : t(locale, 'diagnostics.expand')}
                     </button>
                   )}
                 </div>
                 {expanded && (
-                  <pre className="diagnostics-detail" data-testid={`diagnostics-detail-${entry.id}`}>
+                  <pre
+                    className="diagnostics-detail"
+                    data-testid={`diagnostics-detail-${entry.id}`}
+                  >
                     {diagnosticText(entry)}
                   </pre>
                 )}

@@ -8,9 +8,9 @@ import { describe, it, expect } from 'vitest';
 
 import type { EcucInstanceRow } from '../../../shared/types.js';
 import { applyPatchesToExtract } from '../../arxml/extractPatch.js';
-import type { BswModuleDef } from '../../project/bswmd.js';
 import { buildBswmdDefIndex } from '../../odx/bswmdDefIndex.js';
 import type { Dim, DimService } from '../../odx/dim.js';
+import type { BswModuleDef } from '../../project/bswmd.js';
 import { dcmConfigPipeline } from '../dcmConfigPipeline.js';
 import { DCM_MODULE_SHORT_NAME } from '../dcmConstants.js';
 import { parseDemoBswmds } from '../demoBswmdLoader.js';

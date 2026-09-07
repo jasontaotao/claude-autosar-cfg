@@ -16,9 +16,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DbcSummaryWithSignals } from '../../../main/ipc/dbcParseForBridgeHandler.js';
-import { dbcToComStack } from '../dbcToComStack.js';
 import type { PatchStep } from '../../../shared/headless/ipc-contract.js';
 import type { BswModuleDef, ContainerDef } from '../../project/bswmd/types.js';
+import { dbcToComStack } from '../dbcToComStack.js';
 
 function patchRefs(steps: readonly PatchStep[]): string {
   return steps
@@ -27,7 +27,11 @@ function patchRefs(steps: readonly PatchStep[]): string {
     .join('\n');
 }
 
-function bswmdContainer(shortName: string, path: string, over: Partial<ContainerDef> = {}): ContainerDef {
+function bswmdContainer(
+  shortName: string,
+  path: string,
+  over: Partial<ContainerDef> = {},
+): ContainerDef {
   return {
     shortName,
     path,
@@ -223,7 +227,9 @@ describe('dbcToComStack definition-ref resolution', () => {
       bswmdContainer('ComConfig', '/AUTOSAR/Com/ComConfig', {
         subContainers: [
           bswmdContainer('ComIPdu', '/AUTOSAR/Com/ComConfig/ComIPdu', {
-            subContainers: [bswmdContainer('ComSignal', '/AUTOSAR/Com/ComConfig/ComIPdu/ComSignal')],
+            subContainers: [
+              bswmdContainer('ComSignal', '/AUTOSAR/Com/ComConfig/ComIPdu/ComSignal'),
+            ],
           }),
           bswmdContainer('ComSignal', '/AUTOSAR/Com/ComConfig/ComSignal'),
         ],

@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { parseOdxDocument } from '../odxDocument.js';
 import { buildDim } from '../dimBuilder.js';
+import { parseOdxDocument } from '../odxDocument.js';
 
 const realXml = readFileSync('samples/odx/Demo_Cdd.odx-d', 'utf8');
 

@@ -40,20 +40,22 @@ describe('useDiagExtractHandlers — open extract in workspace', () => {
       importDiagnosticExtract,
     };
 
-    const { result } = renderHook(() => useDiagExtractHandlers({
-      odxModal: {
-      kind: 'open',
-      path: '/proj/Demo.odx-d',
-      summary: {
-        dtcCount: 0,
-        didCount: 0,
-        routineCount: 0,
-        dtcs: [],
-        dids: [],
-        routines: [],
-      },
-    },
-    }));
+    const { result } = renderHook(() =>
+      useDiagExtractHandlers({
+        odxModal: {
+          kind: 'open',
+          path: '/proj/Demo.odx-d',
+          summary: {
+            dtcCount: 0,
+            didCount: 0,
+            routineCount: 0,
+            dtcs: [],
+            dids: [],
+            routines: [],
+          },
+        },
+      }),
+    );
     await act(async () => {
       await result.current.handleExportOdxDiagnosticExtract();
     });

@@ -25,3 +25,7 @@ docs/superpowers/archive/
 # "format warnings" from these ephemeral .md files. Same rationale as
 # .review/ above.
 .superpowers/sdd/
+
+# Local codex-home sandbox (tool state, not repo source). Same rationale
+# as .review/ and .superpowers/sdd/ above.
+.superpowers/codex-home/

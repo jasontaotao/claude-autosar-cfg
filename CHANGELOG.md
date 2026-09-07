@@ -5,6 +5,22 @@ All notable changes to **claude-AutosarCfg** are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+## v1.56.0 (2026-09-07) — MINOR (ODX + DBC Full-Import Wizards, UI v2 Foundation, definitionRefResolver)
+
+Two months of work (2026-07-16 → 2026-09-06, ~120 commits) shipped as one MINOR. Four work streams:
+
+**UI v2 foundation (P1–P4, 2026-08-30/31)** — Visual foundation on `tokens.css` as the single token source (stylelint gate §10.3 bans bare hex/rgb outside tokens.css), resilience UX fixes, dockable workbench panels, IA reorg (collection table view; README documents it).
+
+**definitionRefResolver + ODX diag-extract correctness (2026-09-01/02)** — Central `resolveDefinitionRef` helper resolves definition-ref paths by walking the threaded BSWMD (standard-prefix fallback when absent, `onMiss` warning never silent). ODX→Diagnostic Extract mapper now emits numeric DID/Routine identifiers and canonical ECUC parameter values with BSWMD-accurate refs; `assertDefinitionRefsResolve` guards generated ARXML against invented ref prefixes in tests.
+
+**ODX full-import wizard (2026-09-02)** — DIM intermediate model, deterministic short-name legalization, provenance classification + three-way merge, deterministic preview/commit IPC, wizard UI, BSWMD-backed parameter mapping.
+
+**DBC full-import wizard (2026-09-03 → 09-06)** — DBM intermediate model, mapping profile with R22 default policy, BSWMD-backed Com/CanIf/PduR mappers, four-step wizard (source-target / policy / preview / apply), transactional full-import commit. Legacy import channel marked deprecated. Fix tail: nested AR-PACKAGE resolution, Vector bit-31 extended-frame CAN IDs, per-module PduId conflicts, signal DLC validation, provenance baseline for keep-local containers, wizard policy-group edit preservation.
+
+**Gate hygiene (2026-09-07)** — `pnpm verify` restored GREEN after it was found the wizard commits shipped without running it: prettier/eslint import-order sweep, `useDefault`→`recordDefaultUse` rename (react-hooks false positive), wizard CSS migrated to tokens (`--accent-yellow` token added to restore Profile-default vs Unmapped/conflict badge distinction), dangling `--surface-background` replaced with `--surface-subtle`.
+
+**Test results**: **3718 + 16 SKIP / 0 fail** (431 files). `pnpm verify` **8-stage GREEN**.
+
 ## v1.55.0 (2026-07-15) — MINOR (Project Tab Collapse/Expand)
 
 Adds a collapse/expand toggle to the left sidebar's '项目' tab body so the user can free vertical space for the right-pane ParamEditor. State persists in localStorage across page reloads.

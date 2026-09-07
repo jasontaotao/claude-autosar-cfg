@@ -1,174 +1,413 @@
-// DbcImportWizard — v1.23.0 T4 (3-Step Wizard UI + Menu Wiring).
+// DbcImportWizard — Task 13（4-step full-import wizard）。
 //
-// 3-step modal that drives the v1.23.0 T3 IPC pipeline
-// (`window.autosarApi.dbcImportComStack`) end-to-end:
-//   1. SelectDbc        — user picks a DBC file via the existing
-//                         `dbc:open` IPC + parses via `dbc:parse`
-//   2. PreviewMapping   — show parsed DBC messages + a targetNode
-//                         dropdown sourced from `dbc.nodes` (NOT from
-//                         the EcuC `<ECU-INSTANCE>` shortName — see
-//                         CRITICAL below)
-//   3. ConfirmApply     — call the IPC handler with both dbcContent
-//                         and the user-selected targetNode
+// 4-step modal that drives the Task 10/11 full-import IPC pipeline
+// (`window.autosarApi.dbcFullImportPreview` / `...Commit`) end-to-end
+// via host-provided callbacks（spec §10.2）:
+//   1. source-target — pick DBC → discovery preview（省略 targetNode）→
+//      target node 下拉只来自 preview.nodes（DBC `BU_` 名称）
+//   2. policy        — profileId 展示 + PduId base/step/order + UL 命名；
+//                      任何变更重新触发 mapping 预览，seq guard 丢弃过期响应
+//   3. preview       — 行按 Com/CanIf/PduR 分组、按路径排序、可展开字段
+//                      diff（精确 source badge）、warning 按 code 分组、
+//                      stats 展示；decisions 由用户调整
+//   4. apply         — commit 成功后显示 applied/kept/deleted 计数
 //
-// CRITICAL — targetNode semantics (T3 HIGH-2 fix). The IPC validator
-// at `src/main/ipc/dbcImportComStackHandler.ts:393` requires
-// `targetNode` to be one of `DbcSummary.nodes` (DBC `BU_` line names
-// like `ECM`, `TCM`). It is NOT the EcuC `<ECU-INSTANCE>` shortName.
-// The Preview step's <select> is therefore populated from
-// `initialDbc.nodes` — never auto-derived from the active project's
-// EcuC instance. The handler also validates this at runtime; we add
-// a defensive client-side check that disables the Next button until
-// the user has selected a node, so the user gets immediate feedback
-// (the IPC error would only surface after the click round-trip).
+// The host owns nothing but the callbacks: `onPreview` / `onCommit` are
+// the renderer-side IPC wrappers, `onImported` fires after a successful
+// commit（host 负责项目 reload）. Server-side commit is the source of
+// truth: the wizard ships ONLY `{module,path,decision}[]` + previewHash,
+// never DBM/AST data（test-contract #11）。
 //
-// Pure presentational: no store access, no IPC calls. The host
-// (App.tsx) supplies the DBC summary (or a fresh-pick flow), owns
-// the open/close flag, and handles the IPC round-trip via `onApply`.
-// The pick-DBC flow is currently the host's responsibility too —
-// the wizard only renders the "Pick a DBC file…" CTA and lets the
-// host orchestrate the open + parse + set-state cycle.
-//
-// Accessibility (mirrors DbcViewer / OdxViewer):
-//   - Escape closes the modal
-//   - Backdrop click closes; inner card stopPropagation prevents
-//     table-row clicks from accidentally dismissing
-//   - Initial focus moves to the close button on open
+// Accessibility（与 OdxImportWizard 一致）:
+//   - Escape / backdrop / close 按钮在 commit 期间全部禁用
+//   - 打开时初始焦点落在 close 按钮
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 
+import { AUTOSAR_R22_CAN_PROFILE_ID, DEFAULT_PDU_ID_POLICY } from '@core/dbc/profile.js';
+import type { PduIdPolicy, UpperLayerNamingPolicy } from '@core/dbc/profile.js';
 import { t, type Locale } from '@shared/i18n/index.js';
-import type { DbcSummary } from '@shared/types';
+import type {
+  DbcFullImportCommitRequest,
+  DbcFullImportCommitResponse,
+  DbcFullImportPreview,
+  DbcFullImportPreviewRequest,
+  DbcFullImportPreviewResponse,
+  DbcImportDecision,
+  DbcImportError,
+} from '@shared/types/dbc-import';
 
 import './DbcImportWizard.css';
-
-type Step = 'select' | 'preview' | 'confirm';
-
-type FrameFilter = 'all' | 'standard' | 'extended';
-
-function formatCanId(id: number, isExtended: boolean): string {
-  const width = isExtended ? 8 : 3;
-  return `0x${id.toString(16).toUpperCase().padStart(width, '0')}`;
-}
+import { ApplyStep } from './steps/ApplyStep';
+import { MappingPolicyStep } from './steps/MappingPolicyStep';
+import { PreviewDecisionsStep, sortRowsByModulePath } from './steps/PreviewDecisionsStep';
+import { SourceTargetStep } from './steps/SourceTargetStep';
 
 export interface DbcImportWizardProps {
   readonly onClose: () => void;
-  /**
-   * Apply handler — receives the raw DBC content + the user-selected
-   * targetNode (a DBC `BU_` node name from `initialDbc.nodes`). The
-   * host (App.tsx) calls the v1.23.0 T3 IPC
-   * `window.autosarApi.dbcImportComStack` with both, then reloads
-   * the project.
-   */
-  readonly onApply: (dbcContent: string, targetNode: string) => Promise<void>;
-  /**
-   * Optional pre-parsed DBC summary — when provided the wizard
-   * skips Step 1 and lands directly on the Preview step. This is
-   * the post-IPC-parse shape from `dbc:parse`, supplied by the host
-   * after a successful `openDbc → parseDbc` round-trip.
-   */
-  readonly initialDbc?: DbcSummary;
-  /** Raw DBC UTF-8 text — required when `initialDbc` is provided (passed to onApply). */
-  readonly dbcContent?: string;
-  /**
-   * Optional callback invoked when the user clicks the "Pick a DBC
-   * file…" button on Step 1. The host implements the actual
-   * `openDbc → parseDbc` flow + sets the result back via the
-   * `initialDbc` / `dbcContent` re-render. We keep the wizard
-   * presentational so the IPC orchestration stays in one place.
-   */
-  readonly onPickDbc?: () => void;
-  /**
-   * Locale bound to the host's `useArxmlStore`. Drives the
-   * `t(locale, key)` calls in the JSX so a zh-CN user sees the
-   * Chinese strings (the v1.23.0 T4 CRITICAL fix — pre-fix the
-   * wizard rendered hardcoded English regardless of locale).
-   * Defaults to `'zh-CN'` to keep the existing call sites unchanged.
-   */
   readonly locale?: Locale;
+  /** renderer 持有的未保存文档绝对路径（dirty 判定唯一数据源，§6.2）。 */
+  readonly dirtyDocPaths: readonly string[];
+  /**
+   * 选择 DBC 文件的宿主回调：返回已选文件的绝对路径；用户取消返回 null。
+   */
+  readonly onPickDbc?: () => Promise<string | null>;
+  /** preview IPC wrapper（dbcFullImportPreview）。 */
+  readonly onPreview: (
+    request: DbcFullImportPreviewRequest,
+  ) => Promise<DbcFullImportPreviewResponse>;
+  /** commit IPC wrapper（dbcFullImportCommit）。 */
+  readonly onCommit: (request: DbcFullImportCommitRequest) => Promise<DbcFullImportCommitResponse>;
+  /** commit 成功后触发（host 在此做项目 reload）。 */
+  readonly onImported?: () => void;
+  /** 内置 profile id；Phase 2 前固定为 AUTOSAR_R22_CAN_PROFILE_ID。 */
+  readonly profileId?: string;
+}
+
+type DbcWizardStep = 'source-target' | 'policy' | 'preview' | 'apply';
+type DbcWizardStatus = 'idle' | 'discovering' | 'previewing' | 'committing' | 'done' | 'error';
+
+interface DbcWizardState {
+  readonly step: DbcWizardStep;
+  readonly status: DbcWizardStatus;
+  readonly dbcPath?: string;
+  readonly discovery?: DbcFullImportPreview;
+  readonly preview?: DbcFullImportPreview;
+  readonly targetNode?: string;
+  readonly pduIdPolicy?: Partial<PduIdPolicy>;
+  readonly upperLayerNaming?: Partial<UpperLayerNamingPolicy>;
+  readonly decisions: ReadonlyMap<string, DbcImportDecision>;
+  /** 已派发请求的递增序号：过期响应的 seq < state.seq，直接丢弃。 */
+  readonly seq: number;
+  readonly error?: DbcImportError;
+  readonly commitResult?: { applied: number; kept: number; deleted: number; manifestPath: string };
+}
+
+type DbcWizardAction =
+  | { readonly type: 'DISCOVERY_START' }
+  | {
+      readonly type: 'DISCOVERY_OK';
+      readonly dbcPath: string;
+      readonly discovery: DbcFullImportPreview;
+    }
+  | { readonly type: 'DISCOVERY_FAILED'; readonly error: DbcImportError }
+  | { readonly type: 'NODE_SELECTED'; readonly node: string }
+  | { readonly type: 'PREVIEW_START' }
+  | { readonly type: 'PREVIEW_OK'; readonly preview: DbcFullImportPreview; readonly seq: number }
+  | { readonly type: 'PREVIEW_FAILED'; readonly error: DbcImportError; readonly seq: number }
+  | {
+      readonly type: 'POLICY_CHANGED';
+      readonly pduIdPolicy?: Partial<PduIdPolicy>;
+      readonly upperLayerNaming?: Partial<UpperLayerNamingPolicy>;
+    }
+  | { readonly type: 'DECISION_SET'; readonly path: string; readonly decision: DbcImportDecision }
+  | { readonly type: 'NEXT' }
+  | { readonly type: 'BACK' }
+  | { readonly type: 'COMMIT_START' }
+  | {
+      readonly type: 'COMMIT_OK';
+      readonly result: { applied: number; kept: number; deleted: number; manifestPath: string };
+    }
+  | { readonly type: 'COMMIT_FAILED'; readonly error: DbcImportError }
+  | { readonly type: 'DISMISS_ERROR' };
+
+function initialState(): DbcWizardState {
+  return {
+    step: 'source-target',
+    status: 'idle',
+    // 预填 profile 默认 PduId 策略：用户不手动填写时输入框显示
+    // 0 / 4096 / 1 / document-order，服务端对 undefined override 回落同一默认值。
+    pduIdPolicy: DEFAULT_PDU_ID_POLICY,
+    decisions: new Map(),
+    seq: 0,
+  };
+}
+
+function previewError(state: DbcWizardState, error: DbcImportError): DbcWizardState {
+  return { ...state, status: 'error', error };
+}
+
+function wizardReducer(state: DbcWizardState, action: DbcWizardAction): DbcWizardState {
+  switch (action.type) {
+    case 'DISCOVERY_START':
+      return { ...state, status: 'discovering', error: undefined };
+    case 'DISCOVERY_OK':
+      return {
+        ...state,
+        status: 'idle',
+        dbcPath: action.dbcPath,
+        discovery: action.discovery,
+        error: undefined,
+      };
+    case 'DISCOVERY_FAILED':
+      return previewError(state, action.error);
+    case 'NODE_SELECTED':
+      return {
+        ...state,
+        step: 'policy',
+        targetNode: action.node,
+        status: 'previewing',
+        error: undefined,
+      };
+    case 'PREVIEW_START':
+      return {
+        ...state,
+        status: 'previewing',
+        seq: state.seq + 1,
+        error: undefined,
+      };
+    case 'PREVIEW_OK':
+      // seq guard：过期响应（seq < state.seq）直接丢弃，永不覆盖新数据。
+      if (action.seq !== state.seq) return state;
+      return {
+        ...state,
+        status: 'idle',
+        preview: action.preview,
+        // 新预览重新铺默认决策（immutable：新建 Map）
+        decisions: new Map(action.preview.rows.map((row) => [row.path, row.defaultDecision])),
+        error: undefined,
+      };
+    case 'PREVIEW_FAILED':
+      if (action.seq !== state.seq) return state;
+      // 回到 source-target 保留 discovery 结果；仅当无 discovery 时留在原步
+      return previewError(
+        { ...state, step: state.discovery === undefined ? 'source-target' : state.step },
+        action.error,
+      );
+    case 'POLICY_CHANGED':
+      return {
+        ...state,
+        pduIdPolicy: action.pduIdPolicy,
+        upperLayerNaming: action.upperLayerNaming,
+      };
+    case 'DECISION_SET': {
+      // immutable：新建 Map，绝不修改既有 decisions
+      const decisions = new Map(state.decisions);
+      decisions.set(action.path, action.decision);
+      return { ...state, decisions };
+    }
+    case 'NEXT':
+      if (state.step === 'source-target') return { ...state, step: 'policy' };
+      if (state.step === 'policy') return { ...state, step: 'preview' };
+      return state;
+    case 'BACK':
+      if (state.step === 'preview') return { ...state, step: 'policy' };
+      if (state.step === 'policy') return { ...state, step: 'source-target' };
+      return state;
+    case 'COMMIT_START':
+      return { ...state, status: 'committing', error: undefined };
+    case 'COMMIT_OK':
+      return {
+        ...state,
+        status: 'done',
+        step: 'apply',
+        commitResult: action.result,
+        error: undefined,
+      };
+    case 'COMMIT_FAILED':
+      return previewError(state, action.error);
+    case 'DISMISS_ERROR':
+      return { ...state, status: 'idle', error: undefined };
+    default:
+      return state;
+  }
+}
+
+/** §12 error closed set → 本地化 label key。 */
+function errorKey(kind: DbcImportError['kind']): Parameters<typeof t>[1] {
+  return `dbc.import.error.${kind}` as Parameters<typeof t>[1];
+}
+
+function errorMessage(locale: Locale, error: DbcImportError): string {
+  const label = t(locale, errorKey(error.kind));
+  const detail = error.message.length > 0 ? `: ${error.message}` : '';
+  if (error.kind !== 'write-failed') return `${label}${detail}`;
+  const rollback = error.rolledBack
+    ? t(locale, 'dbc.import.error.write-failed.rolledBack')
+    : t(locale, 'dbc.import.error.write-failed.partial');
+  return `${label}${detail}${rollback}`;
+}
+
+function isBusy(status: DbcWizardStatus): boolean {
+  return status === 'committing';
 }
 
 export function DbcImportWizard({
   onClose,
-  onApply,
-  initialDbc,
-  dbcContent = '',
-  onPickDbc,
   locale = 'zh-CN',
+  dirtyDocPaths,
+  onPickDbc,
+  onPreview,
+  onCommit,
+  onImported,
+  profileId = AUTOSAR_R22_CAN_PROFILE_ID,
 }: DbcImportWizardProps): JSX.Element {
-  // Step routing. When the host supplies `initialDbc` we land
-  // directly on the Preview step (the host already did the
-  // open + parse round-trip); otherwise we start on the Select step.
-  const [step, setStep] = useState<Step>(initialDbc !== undefined ? 'preview' : 'select');
-  // `targetNode` is the user-selected DBC `BU_` node name from the
-  // Preview step's <select>. Empty string == "not yet selected"
-  // (drives the disabled state of the Next button). The IPC handler
-  // validates that the value is one of `initialDbc.nodes`; the
-  // client-side check here is purely a UX fast-path so the user
-  // gets immediate feedback.
-  const [targetNode, setTargetNode] = useState<string>('');
-  const [search, setSearch] = useState('');
-  const [frameFilter, setFrameFilter] = useState<FrameFilter>('all');
-  // `applying` gates the Apply button so a second click cannot fire
-  // a second IPC round-trip before the first resolves.
-  const [applying, setApplying] = useState(false);
+  const [state, dispatch] = useReducer(wizardReducer, undefined, initialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const busy = isBusy(state.status);
 
-  // Escape-to-close. Mount the listener only while the wizard is
-  // mounted so a closed wizard does not block other Escape handlers.
+  // Escape-to-close：committing 期间禁止关闭（spec §10.2.4）。
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
+      if (e.key !== 'Escape' || busy) return;
+      e.stopPropagation();
+      onClose();
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
+    return (): void => window.removeEventListener('keydown', handler);
+  }, [busy, onClose]);
 
-  // Initial focus on the close button so a keyboard-only user can
-  // press Space/Enter immediately.
+  // 初始焦点落在 close 按钮（键盘用户可直接 Space/Enter）。
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      closeButtonRef.current?.focus();
-    });
-    return () => cancelAnimationFrame(id);
+    const id = requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return (): void => cancelAnimationFrame(id);
   }, []);
 
-  // Client-side preview filtering. This narrows the parsed message
-  // list for readability only; the bridge pipeline still consumes the
-  // full DBC content on Apply.
-  const filteredMessages = useMemo(() => {
-    const messages = initialDbc?.messages ?? [];
-    const query = search.trim().toLowerCase();
-    return messages.filter((m) => {
-      if (frameFilter === 'standard' && m.isExtended) return false;
-      if (frameFilter === 'extended' && !m.isExtended) return false;
-      if (query.length === 0) return true;
-      const canId = formatCanId(m.id, m.isExtended).toLowerCase();
-      return (
-        m.name.toLowerCase().includes(query) ||
-        m.transmitter.toLowerCase().includes(query) ||
-        canId.includes(query)
-      );
-    });
-  }, [frameFilter, initialDbc, search]);
+  const runMappingPreview = useCallback(
+    async (
+      targetNode: string,
+      pduIdPolicy?: Partial<PduIdPolicy>,
+      upperLayerNaming?: Partial<UpperLayerNamingPolicy>,
+    ): Promise<void> => {
+      const prev = stateRef.current;
+      // PREVIEW_START 使 reducer 自增 seq；这里预计算同值（handler 串行，
+      // 不会有两个并发 START 读取同一个旧值）。
+      const seq = prev.seq + 1;
+      dispatch({ type: 'PREVIEW_START' });
+      try {
+        const response = await onPreview({
+          dbcPath: prev.dbcPath ?? '',
+          targetNode,
+          dirtyDocPaths,
+          profileId,
+          ...(pduIdPolicy !== undefined ? { pduIdPolicy } : {}),
+          ...(upperLayerNaming !== undefined ? { upperLayerNaming } : {}),
+        });
+        if (!response.ok) {
+          dispatch({ type: 'PREVIEW_FAILED', error: response.error, seq });
+          return;
+        }
+        dispatch({ type: 'PREVIEW_OK', preview: response.value, seq });
+      } catch (caught) {
+        const message = caught instanceof Error ? caught.message : String(caught);
+        dispatch({
+          type: 'PREVIEW_FAILED',
+          error: { kind: 'read-failed', message },
+          seq,
+        });
+      }
+    },
+    [dirtyDocPaths, onPreview, profileId],
+  );
 
-  // Apply handler — fires from Step 3's Apply button. Disabled until
-  // `targetNode` is non-empty AND `dbcContent` is non-empty (the
-  // latter is the host's responsibility to provide via the `initialDbc`
-  // re-render). Re-entrancy guard via `applying` state.
-  async function handleApply(): Promise<void> {
-    if (targetNode.length === 0 || dbcContent.length === 0) return;
-    if (applying) return;
-    setApplying(true);
+  const pickDbc = useCallback(async (): Promise<void> => {
+    if (onPickDbc === undefined || busy) return;
+    dispatch({ type: 'DISCOVERY_START' });
     try {
-      await onApply(dbcContent, targetNode);
-    } finally {
-      setApplying(false);
+      const path = await onPickDbc();
+      if (path === null) {
+        dispatch({ type: 'DISCOVERY_FAILED', error: { kind: 'read-failed', message: 'canceled' } });
+        dispatch({ type: 'DISMISS_ERROR' });
+        return;
+      }
+      const response = await onPreview({
+        dbcPath: path,
+        dirtyDocPaths,
+        profileId,
+      });
+      if (!response.ok) {
+        dispatch({ type: 'DISCOVERY_FAILED', error: response.error });
+        return;
+      }
+      dispatch({ type: 'DISCOVERY_OK', dbcPath: path, discovery: response.value });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      dispatch({
+        type: 'DISCOVERY_FAILED',
+        error: { kind: 'read-failed', message },
+      });
     }
-  }
+  }, [busy, dirtyDocPaths, onPickDbc, onPreview, profileId]);
+
+  const handleNodeChange = useCallback(
+    (node: string): void => {
+      if (node.length === 0) return;
+      dispatch({ type: 'NODE_SELECTED', node });
+      void runMappingPreview(node, stateRef.current.pduIdPolicy, stateRef.current.upperLayerNaming);
+    },
+    [runMappingPreview],
+  );
+
+  const handlePolicyChange = useCallback(
+    (
+      pduIdPolicy?: Partial<PduIdPolicy>,
+      upperLayerNaming?: Partial<UpperLayerNamingPolicy>,
+    ): void => {
+      const prev = stateRef.current;
+      // 合并 partial：immutable。未提供的 partial 保留既有 state 槽位
+      // （而非清空）——否则编辑一组策略会把另一组的用户输入静默抹掉
+      // （commit 回落默认值 / UL 复选框自行取消勾选）。
+      const mergedPdu =
+        pduIdPolicy !== undefined ? { ...prev.pduIdPolicy, ...pduIdPolicy } : prev.pduIdPolicy;
+      const mergedUl =
+        upperLayerNaming !== undefined
+          ? { ...prev.upperLayerNaming, ...upperLayerNaming }
+          : prev.upperLayerNaming;
+      dispatch({
+        type: 'POLICY_CHANGED',
+        pduIdPolicy: mergedPdu,
+        upperLayerNaming: mergedUl,
+      });
+      if (prev.targetNode !== undefined) {
+        void runMappingPreview(prev.targetNode, mergedPdu, mergedUl);
+      }
+    },
+    [runMappingPreview],
+  );
+
+  const commit = useCallback(async (): Promise<void> => {
+    const prev = stateRef.current;
+    const preview = prev.preview;
+    const dbcPath = prev.dbcPath;
+    const targetNode = prev.targetNode;
+    if (preview === undefined || dbcPath === undefined || targetNode === undefined || busy) return;
+    dispatch({ type: 'COMMIT_START' });
+    try {
+      const response = await onCommit({
+        dbcPath,
+        targetNode,
+        dirtyDocPaths,
+        profileId,
+        // exactOptionalPropertyTypes：undefined 不写属性，改用条件展开
+        ...(prev.pduIdPolicy !== undefined ? { pduIdPolicy: prev.pduIdPolicy } : {}),
+        ...(prev.upperLayerNaming !== undefined ? { upperLayerNaming: prev.upperLayerNaming } : {}),
+        previewHash: preview.previewHash,
+        // 只传 {module,path,decision}——服务端重跑 preview 并比对 hash（§10.1）。
+        // 顺序与 UI 分组排序一致：以 (module, path) 排序后再携带决策。
+        decisions: sortRowsByModulePath(preview.rows).map((row) => ({
+          module: row.module,
+          path: row.path,
+          decision: prev.decisions.get(row.path) ?? row.defaultDecision,
+        })),
+      });
+      if (!response.ok) {
+        dispatch({ type: 'COMMIT_FAILED', error: response.error });
+        return;
+      }
+      dispatch({ type: 'COMMIT_OK', result: response.value });
+      onImported?.();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      dispatch({ type: 'COMMIT_FAILED', error: { kind: 'read-failed', message } });
+    }
+  }, [busy, dirtyDocPaths, onCommit, onImported, profileId]);
+
+  // decision 更新走独立 dispatch（保持 reducer 纯粹，不携带 policy 变更）
+  const setDecision = useCallback((path: string, decision: DbcImportDecision): void => {
+    dispatch({ type: 'DECISION_SET', path, decision });
+  }, []);
 
   return (
     <div
@@ -176,8 +415,8 @@ export function DbcImportWizard({
       role="dialog"
       aria-modal="true"
       aria-labelledby="dbc-wizard-title"
-      data-testid="dbc-wizard"
-      onClick={onClose}
+      data-testid="dbc-wizard-backdrop"
+      onClick={busy ? undefined : onClose}
     >
       <div
         className="dbc-wizard-modal"
@@ -194,171 +433,65 @@ export function DbcImportWizard({
             type="button"
             className="dbc-wizard-close"
             onClick={onClose}
+            disabled={busy}
             aria-label={t(locale, 'dbc.import.close')}
             data-testid="dbc-wizard-close"
           >
             ×
           </button>
         </header>
-        {step === 'select' && (
-          <section className="dbc-wizard-step" data-testid="dbc-wizard-step-select">
-            <p className="dbc-wizard-step-desc">
-              Select a DBC file to import into the active project&apos;s Com-stack ECUC values.
-            </p>
-            <button
-              type="button"
-              className="dbc-wizard-btn dbc-wizard-btn-primary"
-              onClick={(): void => {
-                if (onPickDbc !== undefined) onPickDbc();
-              }}
-              data-testid="dbc-wizard-pick-file"
-            >
-              {t(locale, 'dbc.import.select.button')}
-            </button>
-          </section>
+
+        {state.error !== undefined && (
+          <div className="dbc-wizard-error" role="alert" data-testid="dbc-wizard-error">
+            {errorMessage(locale, state.error)}
+          </div>
         )}
-        {step === 'preview' && initialDbc !== undefined && (
-          <section className="dbc-wizard-step" data-testid="dbc-wizard-step-preview">
-            <h3 className="dbc-wizard-step-title">{t(locale, 'dbc.import.step.preview')}</h3>
-            <p className="dbc-wizard-step-desc">
-              {t(locale, 'dbc.import.preview.messages', { count: initialDbc.messages.length })}
-            </p>
-            <div className="dbc-wizard-controls">
-              <input
-                type="search"
-                className="dbc-wizard-search"
-                value={search}
-                onChange={(e): void => setSearch(e.target.value)}
-                placeholder={t(locale, 'dbc.import.preview.search')}
-                aria-label={t(locale, 'dbc.import.preview.search')}
-                data-testid="dbc-wizard-search"
-              />
-              <select
-                className="dbc-wizard-frame-filter"
-                value={frameFilter}
-                onChange={(e): void => setFrameFilter(e.target.value as FrameFilter)}
-                aria-label={t(locale, 'dbc.import.preview.table.frame')}
-                data-testid="dbc-wizard-frame-filter"
-              >
-                <option value="all">{t(locale, 'dbc.import.preview.filter.all')}</option>
-                <option value="standard">{t(locale, 'dbc.import.preview.filter.standard')}</option>
-                <option value="extended">{t(locale, 'dbc.import.preview.filter.extended')}</option>
-              </select>
-            </div>
-            <div className="dbc-wizard-table-wrap">
-              <table className="dbc-wizard-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.name')}</th>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.id')}</th>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.frame')}</th>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.dlc')}</th>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.transmitter')}</th>
-                    <th scope="col">{t(locale, 'dbc.import.preview.table.signals')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMessages.length === 0 ? (
-                    <tr>
-                      <td className="dbc-wizard-empty" colSpan={6}>
-                        {t(locale, 'dbc.import.preview.noMatches')}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMessages.map((m) => (
-                      <tr
-                        key={m.id}
-                        className="dbc-wizard-row"
-                        data-testid={`dbc-wizard-msg-${m.id}`}
-                      >
-                        <td>{m.name}</td>
-                        <td className="dbc-wizard-msg-id">{formatCanId(m.id, m.isExtended)}</td>
-                        <td data-testid={`dbc-wizard-frame-${m.id}`}>
-                          {m.isExtended ? 'EXT' : 'STD'}
-                        </td>
-                        <td>{m.dlc}</td>
-                        <td>{m.transmitter}</td>
-                        <td>{m.signalCount}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {/*
-              CRITICAL: targetNode is sourced from `initialDbc.nodes`
-              (DBC `BU_` line names) — NOT from the EcuC `<ECU-INSTANCE>`
-              shortName. The IPC validator at
-              `src/main/ipc/dbcImportComStackHandler.ts` rejects any
-              targetNode not present in the parsed DBC's nodes list.
-            */}
-            <label className="dbc-wizard-field">
-              <span className="dbc-wizard-field-label">Target node (DBC BU_ name)</span>
-              <select
-                className="dbc-wizard-select"
-                value={targetNode}
-                onChange={(e): void => {
-                  setTargetNode(e.target.value);
-                }}
-                data-testid="dbc-wizard-target-node"
-                aria-label="Target DBC node name"
-              >
-                <option value="">— select a node —</option>
-                {initialDbc.nodes.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="dbc-wizard-actions">
-              <button
-                type="button"
-                className="dbc-wizard-btn dbc-wizard-btn-primary"
-                onClick={(): void => {
-                  setStep('confirm');
-                }}
-                disabled={targetNode.length === 0}
-                data-testid="dbc-wizard-next"
-              >
-                {t(locale, 'dbc.import.preview.next')}
-              </button>
-            </div>
-          </section>
+
+        {state.step === 'source-target' && (
+          <SourceTargetStep
+            locale={locale}
+            dbcPath={state.dbcPath}
+            discovery={state.discovery}
+            targetNode={state.targetNode}
+            busy={state.status === 'discovering'}
+            onPick={() => void pickDbc()}
+            onNodeChange={handleNodeChange}
+          />
         )}
-        {step === 'confirm' && (
-          <section className="dbc-wizard-step" data-testid="dbc-wizard-step-confirm">
-            <h3 className="dbc-wizard-step-title">{t(locale, 'dbc.import.step.confirm')}</h3>
-            <p className="dbc-wizard-warning" data-testid="dbc-wizard-warning">
-              {t(locale, 'dbc.import.confirm.warning', { targetNode })}
-            </p>
-            <div className="dbc-wizard-actions">
-              <button
-                type="button"
-                className="dbc-wizard-btn"
-                onClick={(): void => {
-                  setStep('preview');
-                }}
-                disabled={applying}
-                data-testid="dbc-wizard-back"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                className="dbc-wizard-btn dbc-wizard-btn-primary"
-                onClick={(): void => {
-                  void handleApply();
-                }}
-                disabled={applying}
-                data-testid="dbc-wizard-apply"
-              >
-                {applying
-                  ? t(locale, 'dbc.import.confirm.applying')
-                  : t(locale, 'dbc.import.confirm.apply')}
-              </button>
-            </div>
-          </section>
+
+        {state.step === 'policy' && (
+          <MappingPolicyStep
+            locale={locale}
+            profileId={profileId}
+            pduIdPolicy={state.pduIdPolicy}
+            upperLayerNaming={state.upperLayerNaming}
+            reparsing={state.status === 'previewing'}
+            onPolicyChange={handlePolicyChange}
+            onNext={(): void => dispatch({ type: 'NEXT' })}
+          />
+        )}
+
+        {state.step === 'preview' && state.preview !== undefined && (
+          <PreviewDecisionsStep
+            locale={locale}
+            preview={state.preview}
+            decisions={state.decisions}
+            committing={busy}
+            onDecisionChange={setDecision}
+            onCommit={() => void commit()}
+            onBack={(): void => dispatch({ type: 'BACK' })}
+          />
+        )}
+
+        {state.step === 'apply' && state.commitResult !== undefined && (
+          <ApplyStep
+            locale={locale}
+            applied={state.commitResult.applied}
+            kept={state.commitResult.kept}
+            deleted={state.commitResult.deleted}
+            manifestPath={state.commitResult.manifestPath}
+            onFinish={onClose}
+          />
         )}
       </div>
     </div>
